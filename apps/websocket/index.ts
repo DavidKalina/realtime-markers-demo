@@ -1,10 +1,37 @@
 import Redis from "ioredis";
-import type { ServerWebSocket } from "bun";
+import RBush from "rbush";
+import type { Server, ServerWebSocket } from "bun";
 
-// Define the type for our WebSocket data
+interface MarkerData {
+  id: string;
+  minX: number; // longitude
+  minY: number; // latitude
+  maxX: number; // longitude
+  maxY: number; // latitude
+  data: {
+    emoji: string;
+    color: string;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
 interface WebSocketData {
   clientId: string;
+  viewport?: BBox;
 }
+
+interface BBox {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+// Initialize RBush
+const tree = new RBush<MarkerData>();
+const pendingUpdates = new Map<string, Set<MarkerData>>();
+const clients = new Map<string, ServerWebSocket<WebSocketData>>();
 
 // Create Redis client
 const redisSub = new Redis({
@@ -12,88 +39,100 @@ const redisSub = new Redis({
   port: parseInt(process.env.REDIS_PORT || "6379"),
 });
 
-redisSub.on("connect", () => {
-  console.log("Redis client connected");
-});
+// Batch updates every 50ms
+setInterval(() => {
+  clients.forEach((client, clientId) => {
+    if (!client.data.viewport) return;
 
-redisSub.on("error", (err) => {
-  console.error("Redis client error:", err);
-});
+    // Get all markers in client's viewport
+    const markersInView = tree.search(client.data.viewport);
+    const relevantUpdates = new Set<MarkerData>();
 
-redisSub.on("close", () => {
-  console.log("Redis connection closed");
-});
+    markersInView.forEach((marker) => {
+      const updates = pendingUpdates.get(marker.id);
+      if (updates) {
+        updates.forEach((update) => relevantUpdates.add(update));
+      }
+    });
 
-// Track connected clients with their IDs
-const clients = new Map<string, ServerWebSocket<WebSocketData>>();
+    if (relevantUpdates.size > 0) {
+      const payload = JSON.stringify({
+        type: "marker_updates_batch",
+        data: Array.from(relevantUpdates),
+        timestamp: Date.now(),
+      });
 
-// Generate unique client ID
-function generateClientId(): string {
-  return Math.random().toString(36).substr(2, 9);
-}
+      try {
+        client.send(payload);
+      } catch (error) {
+        console.error(`Failed to send to client ${clientId}:`, error);
+      }
+    }
+  });
 
-// Subscribe to Redis channel
-redisSub.subscribe("marker_changes", (err, count) => {
-  if (err) {
-    console.error("Failed to subscribe:", err);
-  } else {
-    console.log(`Subscribed successfully to ${count} channel(s). Listening for marker changes...`);
+  pendingUpdates.clear();
+}, 50);
+
+// Handle Redis messages
+redisSub.on("message", (channel, message) => {
+  try {
+    const { operation, record } = JSON.parse(message);
+    const [lng, lat] = record.location.coordinates;
+
+    const markerData: MarkerData = {
+      id: record.id,
+      minX: lng,
+      minY: lat,
+      maxX: lng,
+      maxY: lat,
+      data: {
+        emoji: record.emoji,
+        color: record.color,
+        created_at: record.created_at,
+        updated_at: record.updated_at,
+      },
+    };
+
+    // Remove old marker position if it's an update
+    if (operation === "UPDATE") {
+      tree.remove(markerData, (a, b) => a.id === b.id);
+    }
+
+    // Insert new marker position
+    tree.insert(markerData);
+
+    // Add to pending updates
+    let updates = pendingUpdates.get(record.id);
+    if (!updates) {
+      updates = new Set();
+      pendingUpdates.set(record.id, updates);
+    }
+    updates.add(markerData);
+  } catch (error) {
+    console.error("Error processing Redis message:", error);
   }
 });
 
-// Broadcast messages to all connected clients
-redisSub.on("message", (channel, message) => {
-  console.log("Received message on channel:", channel);
-  console.log("Message content:", message);
+// Bulk load initial data if needed
+function bulkLoadMarkers(markers: MarkerData[]) {
+  tree.load(markers);
+}
 
-  const payload = JSON.stringify({
-    type: "marker_update",
-    data: JSON.parse(message),
-    timestamp: Date.now(),
-  });
-
-  console.log("Broadcasting to clients:", clients.size);
-
-  clients.forEach((client) => {
-    try {
-      client.send(payload);
-      console.log(`Sent to client ${client.data.clientId}`);
-    } catch (error) {
-      console.error(`Failed to send to client ${client.data.clientId}:`, error);
-    }
-  });
-});
-
-// Broadcast messages to all connected clients
-redisSub.on("message", (channel, message) => {
-  const payload = JSON.stringify({
-    type: "marker_update",
-    data: JSON.parse(message),
-    timestamp: Date.now(),
-  });
-
-  clients.forEach((client) => {
-    client.send(payload);
-  });
-});
-
-Bun.serve({
+// Properly type the WebSocket server
+const server = {
   port: 8080,
-  fetch(req, server) {
+  fetch(req: Request, server: Server): Response | Promise<Response> {
     if (server.upgrade(req)) {
-      return;
+      return new Response();
     }
     return new Response("Upgrade failed", { status: 500 });
   },
   websocket: {
     open(ws: ServerWebSocket<WebSocketData>) {
-      const clientId = generateClientId();
-      // Store clientId in the WebSocket data
+      const clientId = Math.random().toString(36).substr(2, 9);
       ws.data = { clientId };
       clients.set(clientId, ws);
-      console.log(`Client ${clientId} connected. Total clients: ${clients.size}`);
 
-      // Send initial connection confirmation
       ws.send(
         JSON.stringify({
           type: "connection_established",
@@ -102,15 +141,78 @@ Bun.serve({
         })
       );
     },
-    close(ws: ServerWebSocket<WebSocketData>) {
-      const clientId = ws.data.clientId;
-      clients.delete(clientId);
-      console.log(`Client ${clientId} disconnected. Total clients: ${clients.size}`);
-    },
+
     message(ws: ServerWebSocket<WebSocketData>, message: string | Uint8Array) {
-      console.log(`Message from ${ws.data.clientId}:`, message);
+      try {
+        const data = JSON.parse(message.toString());
+        if (data.type === "viewport_update") {
+          // Convert viewport to RBush format
+          ws.data.viewport = {
+            minX: data.viewport.west,
+            minY: data.viewport.south,
+            maxX: data.viewport.east,
+            maxY: data.viewport.north,
+          };
+
+          // Send initial markers in viewport
+          const markersInView = tree.search(ws.data.viewport);
+          if (markersInView.length > 0) {
+            ws.send(
+              JSON.stringify({
+                type: "initial_markers",
+                data: markersInView,
+              })
+            );
+          }
+        }
+      } catch (error) {
+        console.error(`Error processing message from ${ws.data.clientId}:`, error);
+      }
+    },
+
+    close(ws: ServerWebSocket<WebSocketData>) {
+      clients.delete(ws.data.clientId);
     },
   },
-});
+};
 
 console.log(`WebSocket server started on port 8080`);
+
+// Start the server with proper typing
+Bun.serve<WebSocketData>(server);
+
+// Example usage:
+/*
+// Initialize with some markers
+bulkLoadMarkers([
+  {
+    id: 'marker1',
+    minX: -0.15,  // longitude
+    minY: 51.5,   // latitude
+    maxX: -0.15,
+    maxY: 51.5,
+    data: { type: 'store', name: 'Shop 1' }
+  }
+  // ... more markers
+]);
+
+// Client viewport update
+ws.send(JSON.stringify({
+  type: 'viewport_update',
+  viewport: {
+    north: 51.5,
+    south: 51.4,
+    east: -0.1,
+    west: -0.2
+  }
+}));
+
+// Publish marker update
+redisClient.publish('marker_changes', JSON.stringify({
+  id: 'marker1',
+  lat: 51.5,
+  lng: -0.15,
+  type: 'update',
+  data: { type: 'store', name: 'Shop 1' }
+}));
+*/

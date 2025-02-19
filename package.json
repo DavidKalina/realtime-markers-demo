@@ -7,12 +7,15 @@
     "start": "pnpm --parallel -r run start"
   },
   "devDependencies": {
-    "typescript": "^5.0.0"
+    "@types/rbush": "^4.0.0",
+    "typescript": "^5.0.0",
+    "websocket": "^1.0.35"
   },
   "dependencies": {
+    "@timohausmann/quadtree-ts": "^2.2.2",
     "@types/bun": "^1.2.2",
     "@types/pg": "^8.11.11",
     "backend": "^0.0.0",
-    "websocket": "^1.0.35"
+    "rbush": "^4.0.1"
   }
 }
