@@ -72,7 +72,7 @@ services:
     depends_on:
       - redis
     deploy:
-      replicas: 3
+      replicas: 5
     volumes:
       - ./apps/websocket:/app/apps/websocket
       - /app/apps/websocket/node_modules
