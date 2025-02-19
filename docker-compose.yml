@@ -1,0 +1,88 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-markersdb}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - marker-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - marker-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    environment:
+      - PORT=3000
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - POSTGRES_DB=${POSTGRES_DB:-markersdb}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "3000:3000"
+      - "8080:8080"
+    networks:
+      - marker-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # Mount the code so changes are reflected on the fly…
+      - .:/app
+      # …but use named volumes for node_modules so they aren’t overwritten
+      - backend_node_modules:/app/apps/backend/node_modules
+      - shared_node_modules:/app/packages/shared/node_modules
+    container_name: backend
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/web-vanilla/Dockerfile
+    ports:
+      - "5173:5173"
+    networks:
+      - marker-network
+    volumes:
+      - ./apps/web-vanilla:/app/apps/web-vanilla
+      - frontend_node_modules:/app/apps/web-vanilla/node_modules
+    depends_on:
+      - backend
+
+networks:
+  marker-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_node_modules:
+  shared_node_modules:
+  frontend_node_modules:

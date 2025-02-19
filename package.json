@@ -1,0 +1,16 @@
+{
+  "name": "realtime-markers-demo",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel -r run dev",
+    "build": "pnpm -r run build",
+    "start": "pnpm --parallel -r run start"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@types/pg": "^8.11.11",
+    "backend": "^0.0.0"
+  }
+}
