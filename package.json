@@ -10,7 +10,9 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@types/bun": "^1.2.2",
     "@types/pg": "^8.11.11",
-    "backend": "^0.0.0"
+    "backend": "^0.0.0",
+    "websocket": "^1.0.35"
   }
 }

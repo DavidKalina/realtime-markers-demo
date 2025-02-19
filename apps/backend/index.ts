@@ -1,5 +1,4 @@
 import Redis from "ioredis";
-import { WebSocketServer } from "ws";
 import pkg from "pg";
 const { Pool } = pkg;
 
@@ -11,45 +10,10 @@ const pool = new Pool({
   port: 5432,
 });
 
-// Create two separate Redis clients
-const redisSub = new Redis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-});
-
+// Only need one Redis client now, just for publishing
 const redisPub = new Redis({
   host: process.env.REDIS_HOST || "localhost",
   port: parseInt(process.env.REDIS_PORT || "6379"),
-});
-
-const wss = new WebSocketServer({ port: 8080 });
-const clients = new Set();
-
-wss.on("connection", (ws) => {
-  clients.add(ws);
-  console.log("Client connected");
-
-  ws.on("close", () => {
-    clients.delete(ws);
-    console.log("Client disconnected");
-  });
-});
-
-// Use redisSub for subscribing
-redisSub.subscribe("marker_changes", (err, count) => {
-  if (err) {
-    console.error("Failed to subscribe:", err);
-  } else {
-    console.log(`Subscribed to ${count} channel(s)`);
-  }
-});
-
-redisSub.on("message", (channel, message) => {
-  clients.forEach((client: any) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
 });
 
 export default {
@@ -117,7 +81,15 @@ export default {
 
               const newMarker = result.rows[0];
 
-              // Use redisPub for publishing
+              console.log("Publishing to Redis:", {
+                channel: "marker_changes",
+                payload: {
+                  operation: "INSERT",
+                  record: newMarker,
+                },
+              });
+
+              // Publish to Redis for WebSocket service to broadcast
               await redisPub.publish(
                 "marker_changes",
                 JSON.stringify({

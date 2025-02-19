@@ -167,7 +167,7 @@ export class MarkerGraph {
 
     this.simulation.alpha(1).alphaDecay(0);
 
-    this.ws = new WebSocket("ws://localhost:8080");
+    this.ws = new WebSocket("ws://localhost:8000/ws");
     this.ws.onmessage = (event) => this.handleWebSocketMessage(event);
 
     this.fetchInitialMarkers();
@@ -218,40 +218,59 @@ export class MarkerGraph {
   }
 
   private handleWebSocketMessage(event: MessageEvent) {
-    const data = JSON.parse(event.data);
-    let shouldUpdate = false;
+    const message = JSON.parse(event.data);
+    console.log("Received WebSocket message:", message);
 
-    if (data.operation === "INSERT") {
-      const centerX = window.innerWidth / 2;
-      const centerY = window.innerHeight / 2;
-      const newNode: Marker = {
-        ...data.record,
-        x: centerX + (Math.random() - 0.5) * 100,
-        y: centerY + (Math.random() - 0.5) * 100,
-      };
-      this.nodes.push(newNode);
-      shouldUpdate = true;
-    } else if (data.operation === "DELETE") {
-      const initialLength = this.nodes.length;
-      this.nodes = this.nodes.filter((node) => node.id !== data.record.id);
-      shouldUpdate = initialLength !== this.nodes.length;
-    } else if (data.operation === "UPDATE") {
-      const index = this.nodes.findIndex((node) => node.id === data.record.id);
-      if (index !== -1) {
-        const currentPos = { x: this.nodes[index].x, y: this.nodes[index].y };
-        this.nodes[index] = {
-          ...data.record,
-          ...currentPos,
-          driftX: this.nodes[index].driftX,
-          driftY: this.nodes[index].driftY,
-        };
-        shouldUpdate = true;
-      }
+    if (message.type === "connection_established") {
+      console.log("WebSocket connected with ID:", message.clientId);
+      return;
     }
 
-    if (shouldUpdate) {
-      // For INSERT operations, isInitialLoad is false so the popup will show.
-      this.updateNodes(this.nodes, false);
+    if (message.type === "marker_update") {
+      const data = message.data;
+      let shouldUpdate = false;
+
+      if (data.operation === "INSERT") {
+        // Check if we already have this marker
+        const exists = this.nodes.some((node) => node.id === data.record.id);
+        console.log("Marker exists?", exists, "ID:", data.record.id);
+
+        if (!exists) {
+          const centerX = window.innerWidth / 2;
+          const centerY = window.innerHeight / 2;
+          const newNode: Marker = {
+            ...data.record,
+            x: centerX + (Math.random() - 0.5) * 100,
+            y: centerY + (Math.random() - 0.5) * 100,
+          };
+          this.nodes.push(newNode);
+          shouldUpdate = true;
+          console.log("Added new marker:", data.record.id, "Total nodes:", this.nodes.length);
+        } else {
+          console.log("Skipping duplicate marker:", data.record.id);
+        }
+      } else if (data.operation === "DELETE") {
+        const initialLength = this.nodes.length;
+        this.nodes = this.nodes.filter((node) => node.id !== data.record.id);
+        shouldUpdate = initialLength !== this.nodes.length;
+      } else if (data.operation === "UPDATE") {
+        const index = this.nodes.findIndex((node) => node.id === data.record.id);
+        if (index !== -1) {
+          const currentPos = { x: this.nodes[index].x, y: this.nodes[index].y };
+          this.nodes[index] = {
+            ...data.record,
+            ...currentPos,
+            driftX: this.nodes[index].driftX,
+            driftY: this.nodes[index].driftY,
+          };
+          shouldUpdate = true;
+        }
+      }
+
+      if (shouldUpdate) {
+        // For INSERT operations, isInitialLoad is false so the popup will show.
+        this.updateNodes(this.nodes, false);
+      }
     }
   }
 
