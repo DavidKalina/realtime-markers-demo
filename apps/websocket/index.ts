@@ -47,35 +47,35 @@ redisSub.subscribe("marker_changes").catch((err) => {
 
 // --- State Initialization ---
 // Loads existing markers from the backend API on startup
-async function initializeState() {
-  try {
-    const res = await fetch("http://backend:3000/api/markers");
-    const markers = await res.json();
-    const markerDataArray = markers.map((record: any) => {
-      const [lng, lat] = record.location.coordinates;
-      return {
-        id: record.id,
-        minX: lng,
-        minY: lat,
-        maxX: lng,
-        maxY: lat,
-        data: {
-          emoji: record.emoji,
-          color: record.color,
-          created_at: record.created_at,
-          updated_at: record.updated_at,
-        },
-      } as MarkerData;
-    });
-    tree.load(markerDataArray);
-    console.log("RBush index initialized with markers");
-  } catch (error) {
-    console.error("Failed to initialize state:", error);
-  }
-}
+// async function initializeState() {
+//   try {
+//     const res = await fetch("http://backend:3000/api/markers");
+//     const markers = await res.json();
+//     const markerDataArray = markers.map((record: any) => {
+//       const [lng, lat] = record.location.coordinates;
+//       return {
+//         id: record.id,
+//         minX: lng,
+//         minY: lat,
+//         maxX: lng,
+//         maxY: lat,
+//         data: {
+//           emoji: record.emoji,
+//           color: record.color,
+//           created_at: record.created_at,
+//           updated_at: record.updated_at,
+//         },
+//       } as MarkerData;
+//     });
+//     tree.load(markerDataArray);
+//     console.log("RBush index initialized with markers");
+//   } catch (error) {
+//     console.error("Failed to initialize state:", error);
+//   }
+// }
 
-// Call the initialization function on startup
-initializeState();
+// // Call the initialization function on startup
+// initializeState();
 
 // --- Process Redis Messages ---
 redisSub.on("message", (channel, message) => {
