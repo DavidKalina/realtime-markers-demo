@@ -1,117 +1,227 @@
+// index.ts
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { logger } from "hono/logger";
 import Redis from "ioredis";
-import pkg from "pg";
-const { Pool } = pkg;
+import * as MarkerController from "./lib/markers-controllers";
 
-const pool = new Pool({
-  host: process.env.POSTGRES_HOST,
-  user: process.env.POSTGRES_USER,
-  password: process.env.POSTGRES_PASSWORD,
-  database: process.env.POSTGRES_DB,
-  port: 5432,
-});
-
-// Only need one Redis client now, just for publishing
+// Initialize Redis client for publishing
 const redisPub = new Redis({
   host: process.env.REDIS_HOST || "localhost",
   port: parseInt(process.env.REDIS_PORT || "6379"),
 });
 
-export default {
-  port: process.env.PORT || 3000,
-  async fetch(req: Request) {
-    const url = new URL(req.url);
+// Create Hono app
+const app = new Hono();
 
-    if (url.pathname.startsWith("/api")) {
-      const route = url.pathname.replace("/api", "");
+// Apply middleware
+app.use("*", logger());
+app.use("*", cors());
 
-      switch (route) {
-        case "/markers":
-          if (req.method === "GET") {
-            try {
-              const result = await pool.query(`
-                SELECT 
-                  id,
-                  ST_AsGeoJSON(location)::json as location,
-                  emoji,
-                  color,
-                  created_at,
-                  updated_at
-                FROM markers
-                ORDER BY created_at DESC
-              `);
-              return Response.json(result.rows);
-            } catch (error) {
-              console.error("Database error:", error);
-              return Response.json({ error: "Failed to fetch markers" }, { status: 500 });
-            }
-          }
+// === MARKER ROUTES ===
+const markers = new Hono();
 
-          if (req.method === "POST") {
-            try {
-              const rawBody = await req.text();
-              let data;
-              try {
-                data = JSON.parse(rawBody);
-              } catch (parseError: any) {
-                console.error("JSON Parse Error:", parseError);
-                return Response.json(
-                  {
-                    error: "Invalid JSON",
-                    details: parseError.message,
-                    receivedBody: rawBody,
-                  },
-                  { status: 400 }
-                );
-              }
+// Get all markers
+markers.get("/", async (c) => {
+  try {
+    const markers = await MarkerController.getMarkers();
+    return c.json(markers);
+  } catch (error) {
+    console.error("Error fetching markers:", error);
+    return c.json({ error: "Failed to fetch markers" }, 500);
+  }
+});
 
-              // Validate input
-              if (!data.location?.coordinates || !data.emoji || !data.color) {
-                return Response.json(
-                  { error: "Missing required fields", receivedData: data },
-                  { status: 400 }
-                );
-              }
+// Create a new marker
+markers.post("/", async (c) => {
+  try {
+    const data = await c.req.json();
 
-              const result = await pool.query(
-                `INSERT INTO markers (location, emoji, color)
-                 VALUES (ST_SetSRID(ST_GeomFromGeoJSON($1), 4326), $2, $3)
-                 RETURNING id, ST_AsGeoJSON(location)::json as location, emoji, color, created_at, updated_at`,
-                [JSON.stringify(data.location), data.emoji, data.color]
-              );
-
-              const newMarker = result.rows[0];
-
-              console.log("Publishing to Redis:", {
-                channel: "marker_changes",
-                payload: {
-                  operation: "INSERT",
-                  record: newMarker,
-                },
-              });
-
-              // Publish to Redis for WebSocket service to broadcast
-              await redisPub.publish(
-                "marker_changes",
-                JSON.stringify({
-                  operation: "INSERT",
-                  record: newMarker,
-                })
-              );
-
-              return Response.json(newMarker);
-            } catch (error: any) {
-              console.error("Full error:", error);
-              return Response.json(
-                { error: "Failed to create marker", details: error.message },
-                { status: 500 }
-              );
-            }
-          }
-
-          return Response.json({ error: "Method not allowed" }, { status: 405 });
-      }
+    // Validate input
+    if (!data.location?.coordinates || !data.emoji || !data.color) {
+      return c.json({ error: "Missing required fields", receivedData: data }, 400);
     }
 
-    return new Response("Not Found", { status: 404 });
-  },
+    // Ensure location is in GeoJSON format
+    if (data.location && !data.location.type) {
+      data.location = {
+        type: "Point",
+        coordinates: data.location.coordinates,
+      };
+    }
+
+    const newMarker = await MarkerController.createMarker(data);
+
+    // Publish to Redis for WebSocket service to broadcast
+    await redisPub.publish(
+      "marker_changes",
+      JSON.stringify({
+        operation: "INSERT",
+        record: newMarker,
+      })
+    );
+
+    return c.json(newMarker);
+  } catch (error) {
+    console.error("Error creating marker:", error);
+    return c.json({ error: "Failed to create marker" }, 500);
+  }
+});
+
+// Get marker by ID
+markers.get("/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const marker = await MarkerController.getMarkerById(id);
+
+    if (!marker) {
+      return c.json({ error: "Marker not found" }, 404);
+    }
+
+    return c.json(marker);
+  } catch (error) {
+    console.error("Error fetching marker:", error);
+    return c.json({ error: "Failed to fetch marker" }, 500);
+  }
+});
+
+// Update marker
+markers.put("/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const data = await c.req.json();
+
+    // Check if marker exists
+    const marker = await MarkerController.getMarkerById(id);
+
+    if (!marker) {
+      return c.json({ error: "Marker not found" }, 404);
+    }
+
+    // Ensure location is in GeoJSON format if provided
+    if (data.location && !data.location.type) {
+      data.location = {
+        type: "Point",
+        coordinates: data.location.coordinates,
+      };
+    }
+
+    const updatedMarker = await MarkerController.updateMarker(id, data);
+
+    // Publish to Redis for WebSocket service to broadcast
+    await redisPub.publish(
+      "marker_changes",
+      JSON.stringify({
+        operation: "UPDATE",
+        record: updatedMarker,
+      })
+    );
+
+    return c.json(updatedMarker);
+  } catch (error) {
+    console.error("Error updating marker:", error);
+    return c.json({ error: "Failed to update marker" }, 500);
+  }
+});
+
+// Delete marker
+markers.delete("/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+
+    // Check if marker exists
+    const marker = await MarkerController.getMarkerById(id);
+
+    if (!marker) {
+      return c.json({ error: "Marker not found" }, 404);
+    }
+
+    const deletedMarker = await MarkerController.deleteMarker(id);
+
+    // Publish to Redis for WebSocket service to broadcast
+    await redisPub.publish(
+      "marker_changes",
+      JSON.stringify({
+        operation: "DELETE",
+        record: { id },
+      })
+    );
+
+    return c.json(deletedMarker);
+  } catch (error) {
+    console.error("Error deleting marker:", error);
+    return c.json({ error: "Failed to delete marker" }, 500);
+  }
+});
+
+// Get nearby markers
+markers.get("/nearby", async (c) => {
+  try {
+    const lat = c.req.query("lat");
+    const lng = c.req.query("lng");
+    const radius = c.req.query("radius");
+
+    if (!lat || !lng) {
+      return c.json({ error: "Missing required query parameters: lat and lng" }, 400);
+    }
+
+    const markers = await MarkerController.getNearbyMarkers(
+      parseFloat(lat),
+      parseFloat(lng),
+      radius ? parseFloat(radius) : undefined
+    );
+
+    return c.json(markers);
+  } catch (error) {
+    console.error("Error fetching nearby markers:", error);
+    return c.json({ error: "Failed to fetch nearby markers" }, 500);
+  }
+});
+
+// Mount the marker routes
+app.route("/api/markers", markers);
+
+// Special case for nearby markers (comes before /:id to avoid route conflicts)
+app.get("/api/markers/nearby", async (c) => {
+  try {
+    const lat = c.req.query("lat");
+    const lng = c.req.query("lng");
+    const radius = c.req.query("radius");
+
+    if (!lat || !lng) {
+      return c.json({ error: "Missing required query parameters: lat and lng" }, 400);
+    }
+
+    const markers = await MarkerController.getNearbyMarkers(
+      parseFloat(lat),
+      parseFloat(lng),
+      radius ? parseFloat(radius) : undefined
+    );
+
+    return c.json(markers);
+  } catch (error) {
+    console.error("Error fetching nearby markers:", error);
+    return c.json({ error: "Failed to fetch nearby markers" }, 500);
+  }
+});
+
+// 404 handler
+app.notFound((c) => {
+  return c.json({ error: "Not Found" }, 404);
+});
+
+// Error handler
+app.onError((err, c) => {
+  console.error("Unhandled error:", err);
+  return c.json({ error: "Internal Server Error" }, 500);
+});
+
+// Initialize PostGIS if needed (optional)
+import { setupPostGIS } from "./lib/postgis-utils";
+setupPostGIS().catch(console.error);
+
+// Start server
+export default {
+  port: process.env.PORT || 3000,
+  fetch: app.fetch,
 };
