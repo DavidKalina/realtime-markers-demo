@@ -66,8 +66,8 @@ export class MarkerService {
       .createQueryBuilder("marker")
       .select()
       .addSelect(
-        "ST_Distance(location::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography) as distance",
-        "distance"
+        "ST_Distance(location::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography)",
+        "distance" // Remove the extra 'as distance' - just use one alias
       )
       .where(
         "ST_DWithin(location::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radius)",

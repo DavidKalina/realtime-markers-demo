@@ -78,6 +78,29 @@ markers.get("/", async (c) => {
   }
 });
 
+markers.get("/nearby", async (c) => {
+  try {
+    const lat = c.req.query("lat");
+    const lng = c.req.query("lng");
+    const radius = c.req.query("radius");
+
+    if (!lat || !lng) {
+      return c.json({ error: "Missing required query parameters: lat and lng" }, 400);
+    }
+
+    const markers = await markerService.getNearbyMarkers(
+      parseFloat(lat),
+      parseFloat(lng),
+      radius ? parseFloat(radius) : undefined
+    );
+
+    return c.json(markers);
+  } catch (error) {
+    console.error("Error fetching nearby markers:", error);
+    return c.json({ error: "Failed to fetch nearby markers" }, 500);
+  }
+});
+
 // Create a new marker
 markers.post("/", async (c) => {
   try {
@@ -202,28 +225,6 @@ markers.delete("/:id", async (c) => {
 });
 
 // Get nearby markers
-markers.get("/nearby", async (c) => {
-  try {
-    const lat = c.req.query("lat");
-    const lng = c.req.query("lng");
-    const radius = c.req.query("radius");
-
-    if (!lat || !lng) {
-      return c.json({ error: "Missing required query parameters: lat and lng" }, 400);
-    }
-
-    const markers = await markerService.getNearbyMarkers(
-      parseFloat(lat),
-      parseFloat(lng),
-      radius ? parseFloat(radius) : undefined
-    );
-
-    return c.json(markers);
-  } catch (error) {
-    console.error("Error fetching nearby markers:", error);
-    return c.json({ error: "Failed to fetch nearby markers" }, 500);
-  }
-});
 
 // Mount the marker routes
 app.route("/api/markers", markers);
