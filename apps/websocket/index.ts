@@ -2,6 +2,7 @@ import Redis from "ioredis";
 import RBush from "rbush";
 import type { Server, ServerWebSocket } from "bun";
 
+// --- Type Definitions ---
 interface MarkerData {
   id: string;
   minX: number; // longitude
@@ -28,18 +29,95 @@ interface BBox {
   maxY: number;
 }
 
-// Initialize RBush
+// --- In-Memory State ---
 const tree = new RBush<MarkerData>();
 const pendingUpdates = new Map<string, Set<MarkerData>>();
 const clients = new Map<string, ServerWebSocket<WebSocketData>>();
 
-// Create Redis client
+// --- Create Redis Subscriber ---
 const redisSub = new Redis({
   host: process.env.REDIS_HOST || "localhost",
   port: parseInt(process.env.REDIS_PORT || "6379"),
 });
 
-// Batch updates every 50ms
+// Subscribe to the "marker_changes" channel immediately
+redisSub.subscribe("marker_changes").catch((err) => {
+  console.error("Failed to subscribe to marker_changes channel:", err);
+});
+
+// --- State Initialization ---
+// Loads existing markers from the backend API on startup
+async function initializeState() {
+  try {
+    const res = await fetch("http://backend:3000/api/markers");
+    const markers = await res.json();
+    const markerDataArray = markers.map((record: any) => {
+      const [lng, lat] = record.location.coordinates;
+      return {
+        id: record.id,
+        minX: lng,
+        minY: lat,
+        maxX: lng,
+        maxY: lat,
+        data: {
+          emoji: record.emoji,
+          color: record.color,
+          created_at: record.created_at,
+          updated_at: record.updated_at,
+        },
+      } as MarkerData;
+    });
+    tree.load(markerDataArray);
+    console.log("RBush index initialized with markers");
+  } catch (error) {
+    console.error("Failed to initialize state:", error);
+  }
+}
+
+// Call the initialization function on startup
+initializeState();
+
+// --- Process Redis Messages ---
+redisSub.on("message", (channel, message) => {
+  try {
+    const { operation, record } = JSON.parse(message);
+    const [lng, lat] = record.location.coordinates;
+
+    const markerData: MarkerData = {
+      id: record.id,
+      minX: lng,
+      minY: lat,
+      maxX: lng,
+      maxY: lat,
+      data: {
+        emoji: record.emoji,
+        color: record.color,
+        created_at: record.created_at,
+        updated_at: record.updated_at,
+      },
+    };
+
+    // If it's an update, remove the old marker first
+    if (operation === "UPDATE") {
+      tree.remove(markerData, (a, b) => a.id === b.id);
+    }
+
+    // Insert the new marker position
+    tree.insert(markerData);
+
+    // Add to pending updates
+    let updates = pendingUpdates.get(record.id);
+    if (!updates) {
+      updates = new Set();
+      pendingUpdates.set(record.id, updates);
+    }
+    updates.add(markerData);
+  } catch (error) {
+    console.error("Error processing Redis message:", error);
+  }
+});
+
+// --- Batch Update Routine ---
 setInterval(() => {
   clients.forEach((client, clientId) => {
     if (!client.data.viewport) return;
@@ -73,52 +151,7 @@ setInterval(() => {
   pendingUpdates.clear();
 }, 50);
 
-// Handle Redis messages
-redisSub.on("message", (channel, message) => {
-  try {
-    const { operation, record } = JSON.parse(message);
-    const [lng, lat] = record.location.coordinates;
-
-    const markerData: MarkerData = {
-      id: record.id,
-      minX: lng,
-      minY: lat,
-      maxX: lng,
-      maxY: lat,
-      data: {
-        emoji: record.emoji,
-        color: record.color,
-        created_at: record.created_at,
-        updated_at: record.updated_at,
-      },
-    };
-
-    // Remove old marker position if it's an update
-    if (operation === "UPDATE") {
-      tree.remove(markerData, (a, b) => a.id === b.id);
-    }
-
-    // Insert new marker position
-    tree.insert(markerData);
-
-    // Add to pending updates
-    let updates = pendingUpdates.get(record.id);
-    if (!updates) {
-      updates = new Set();
-      pendingUpdates.set(record.id, updates);
-    }
-    updates.add(markerData);
-  } catch (error) {
-    console.error("Error processing Redis message:", error);
-  }
-});
-
-// Bulk load initial data if needed
-function bulkLoadMarkers(markers: MarkerData[]) {
-  tree.load(markers);
-}
-
-// Properly type the WebSocket server
+// --- WebSocket Server Definition ---
 const server = {
   port: 8080,
   fetch(req: Request, server: Server): Response | Promise<Response> {
@@ -129,7 +162,11 @@ const server = {
   },
   websocket: {
     open(ws: ServerWebSocket<WebSocketData>) {
-      const clientId = Math.random().toString(36).substr(2, 9);
+      // Use crypto.randomUUID() if available for a more robust client ID
+      const clientId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : Math.random().toString(36).substr(2, 9);
       ws.data = { clientId };
       clients.set(clientId, ws);
 
@@ -181,22 +218,18 @@ console.log(`WebSocket server started on port 8080`);
 // Start the server with proper typing
 Bun.serve<WebSocketData>(server);
 
-// Example usage:
-/*
-// Initialize with some markers
+/* Example usage:
 bulkLoadMarkers([
   {
     id: 'marker1',
-    minX: -0.15,  // longitude
-    minY: 51.5,   // latitude
+    minX: -0.15,
+    minY: 51.5,
     maxX: -0.15,
     maxY: 51.5,
-    data: { type: 'store', name: 'Shop 1' }
+    data: { emoji: '🏬', color: 'red', created_at: '...', updated_at: '...' }
   }
-  // ... more markers
 ]);
 
-// Client viewport update
 ws.send(JSON.stringify({
   type: 'viewport_update',
   viewport: {
@@ -207,12 +240,15 @@ ws.send(JSON.stringify({
   }
 }));
 
-// Publish marker update
 redisClient.publish('marker_changes', JSON.stringify({
-  id: 'marker1',
-  lat: 51.5,
-  lng: -0.15,
-  type: 'update',
-  data: { type: 'store', name: 'Shop 1' }
+  operation: 'INSERT',
+  record: {
+    id: 'marker1',
+    location: { coordinates: [-0.15, 51.5] },
+    emoji: '🏬',
+    color: 'red',
+    created_at: '...',
+    updated_at: '...'
+  }
 }));
 */

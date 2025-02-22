@@ -4,14 +4,10 @@ WORKDIR /app
 
 # Copy workspace files
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY packages/shared/package.json ./packages/shared/package.json
 COPY apps/web-vanilla/package.json ./apps/web-vanilla/package.json
 
 # Install pnpm
 RUN npm install -g pnpm
-
-# Copy shared package source
-COPY packages/shared ./packages/shared
 
 # Copy frontend source
 COPY apps/web-vanilla ./apps/web-vanilla

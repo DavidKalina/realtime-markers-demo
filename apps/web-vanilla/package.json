@@ -12,7 +12,6 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@realtime-markers/shared": "workspace:*",
     "d3": "^7.9.0"
   },
   "devDependencies": {

@@ -5,7 +5,6 @@ WORKDIR /app
 # Copy package files first
 COPY package.json pnpm-workspace.yaml ./
 COPY apps/websocket/package.json ./apps/websocket/
-COPY packages/ ./packages/
 
 # Install dependencies
 RUN cd apps/websocket && bun install

@@ -7,9 +7,11 @@
     "start": "bun index.ts"
   },
   "dependencies": {
-    "ioredis": "^5.3.2"
+    "ioredis": "^5.3.2",
+    "rbush": "^4.0.1"
   },
   "devDependencies": {
+    "@types/rbush": "^4.0.0",
     "bun-types": "latest"
   }
 }
