@@ -1,6 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from "typeorm";
 import { type Point } from "geojson";
-import { Marker } from "./Marker";
+import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Event } from "./Event";
 
 export enum FlyerProcessingStatus {
   PENDING = "PENDING",
@@ -31,8 +31,8 @@ export class FlyerImage {
   })
   status!: FlyerProcessingStatus;
 
-  @OneToMany(() => Marker, (marker) => marker.sourceFlyer)
-  markers!: Marker[];
+  @OneToMany(() => Event, (event) => event.sourceFlyer)
+  events!: Event[];
 
   @Column({
     name: "capture_location",

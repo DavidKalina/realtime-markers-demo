@@ -9,5 +9,9 @@ done
 
 echo "PostgreSQL is up - executing command"
 
-# Execute the main container command
+# Run seeding command to seed the database
+echo "Seeding database..."
+bun run /app/apps/backend/seeds/runSeeder.ts
+
+# Finally, start the main server process
 exec "$@"

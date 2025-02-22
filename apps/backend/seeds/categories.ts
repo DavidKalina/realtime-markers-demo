@@ -32,19 +32,22 @@ export const categories = [
     description: "Retail stores and shopping centers",
     icon: "🛍️",
   },
-];
+] as const;
 
 export async function seedCategories(dataSource: DataSource) {
   const categoryRepository = dataSource.getRepository(Category);
 
-  for (const categoryData of categories) {
-    const existingCategory = await categoryRepository.findOne({
-      where: { name: categoryData.name },
-    });
+  // Create all categories in a single transaction
+  await dataSource.transaction(async (transactionalEntityManager) => {
+    for (const categoryData of categories) {
+      const existingCategory = await transactionalEntityManager.findOne(Category, {
+        where: { name: categoryData.name },
+      });
 
-    if (!existingCategory) {
-      const category = categoryRepository.create(categoryData);
-      await categoryRepository.save(category);
+      if (!existingCategory) {
+        const category = categoryRepository.create(categoryData);
+        await transactionalEntityManager.save(category);
+      }
     }
-  }
+  });
 }

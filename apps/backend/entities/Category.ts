@@ -6,7 +6,7 @@ import {
   UpdateDateColumn,
   ManyToMany,
 } from "typeorm";
-import { Marker } from "./Marker";
+import { Event } from "./Event";
 
 @Entity("categories")
 export class Category {
@@ -28,6 +28,6 @@ export class Category {
   @UpdateDateColumn({ name: "updated_at", type: "timestamptz" })
   updatedAt!: Date;
 
-  @ManyToMany(() => Marker, (marker) => marker.categories)
-  markers!: Marker[];
+  @ManyToMany(() => Event, (event) => event.categories)
+  markers!: Event[];
 }
