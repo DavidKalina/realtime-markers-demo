@@ -7,7 +7,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-markersdb}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
     ports:
       - "5432:5432"
     networks:
@@ -17,6 +16,15 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8080:8080"
+    networks:
+      - marker-network
+    depends_on:
+      - postgres
 
   redis:
     image: redis:7-alpine
@@ -42,9 +50,10 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
       - POSTGRES_DB=${POSTGRES_DB:-markersdb}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-markersdb}?schema=public
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-markersdb}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - NODE_ENV=development
     ports:
       - "3000:3000"
     networks:
@@ -55,9 +64,10 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - .:/app
-      - backend_node_modules:/app/apps/backend/node_modules
-    command: sh -c "cd /app/apps/backend && bunx prisma generate && bun run index.ts"
+      - ./apps/backend/src:/app/apps/backend/src
+      # Prevent node_modules from being overwritten
+      - backend_node_modules:/app/node_modules
+      - backend_app_node_modules:/app/apps/backend/node_modules
 
   websocket:
     build:
@@ -67,14 +77,14 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     ports:
-      - "8080:8080"
+      - "8081:8081"
     networks:
       - marker-network
     depends_on:
       - redis
     volumes:
       - ./apps/websocket:/app/apps/websocket
-      - websocket_node_modules:/app/apps/websocket/node_modules
+      - /app/apps/websocket/node_modules
 
   frontend:
     build:
@@ -86,7 +96,7 @@ services:
       - marker-network
     volumes:
       - ./apps/web-vanilla:/app/apps/web-vanilla
-      - frontend_node_modules:/app/apps/web-vanilla/node_modules
+      - /app/apps/web-vanilla/node_modules
     depends_on:
       - backend
       - websocket
@@ -99,5 +109,5 @@ volumes:
   postgres_data:
   redis_data:
   backend_node_modules:
-  frontend_node_modules:
-  websocket_node_modules:
+  backend_app_node_modules:
+  dbeaver_data:
