@@ -1,14 +1,29 @@
 // index.ts
+import "reflect-metadata";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import Redis from "ioredis";
-import * as MarkerController from "./lib/markers-controllers";
+import { DataSource } from "typeorm";
+import { Marker } from "./entities/Marker";
+import { Category } from "./entities/Category";
+import { FlyerImage } from "./entities/FlyerImage";
+import { MarkerService } from "./services/markerService";
+import { seedDatabase } from "./seeds";
 
 // Initialize Redis client for publishing
 const redisPub = new Redis({
   host: process.env.REDIS_HOST || "localhost",
   port: parseInt(process.env.REDIS_PORT || "6379"),
+});
+
+// Initialize TypeORM connection
+const dataSource = new DataSource({
+  type: "postgres",
+  url: process.env.DATABASE_URL,
+  entities: [Marker, Category, FlyerImage],
+  synchronize: true, // Set to true only in development
+  logging: true,
 });
 
 // Create Hono app
@@ -18,13 +33,44 @@ const app = new Hono();
 app.use("*", logger());
 app.use("*", cors());
 
+// Initialize the data source and create marker service
+let markerService: MarkerService;
+
+// Initialize function
+async function initialize() {
+  try {
+    await dataSource.initialize();
+
+    await dataSource.query("CREATE EXTENSION IF NOT EXISTS postgis");
+
+    await dataSource.synchronize();
+    console.log("Database schema synchronized");
+
+    // Check if database needs seeding (you can add more sophisticated checks)
+    markerService = new MarkerService(dataSource);
+    const markerCount = (await markerService.getMarkers()).length;
+
+    if (markerCount === 0) {
+      console.log("Seeding database...");
+      await seedDatabase(dataSource);
+    }
+    console.log("Data Source has been initialized!");
+  } catch (error) {}
+}
+
+// Call initialize
+initialize().catch((error) => {
+  console.error("Error during initialization:", error);
+  process.exit(1);
+});
+
 // === MARKER ROUTES ===
 const markers = new Hono();
 
 // Get all markers
 markers.get("/", async (c) => {
   try {
-    const markers = await MarkerController.getMarkers();
+    const markers = await markerService.getMarkers();
     return c.json(markers);
   } catch (error) {
     console.error("Error fetching markers:", error);
@@ -50,7 +96,8 @@ markers.post("/", async (c) => {
       };
     }
 
-    const newMarker = await MarkerController.createMarker(data);
+    const [lng, lat] = data.location.coordinates;
+    const newMarker = await markerService.createMarker(lat, lng, data.emoji, data.color);
 
     // Publish to Redis for WebSocket service to broadcast
     await redisPub.publish(
@@ -72,7 +119,7 @@ markers.post("/", async (c) => {
 markers.get("/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    const marker = await MarkerController.getMarkerById(id);
+    const marker = await markerService.getMarkerById(id);
 
     if (!marker) {
       return c.json({ error: "Marker not found" }, 404);
@@ -92,9 +139,9 @@ markers.put("/:id", async (c) => {
     const data = await c.req.json();
 
     // Check if marker exists
-    const marker = await MarkerController.getMarkerById(id);
+    const existingMarker = await markerService.getMarkerById(id);
 
-    if (!marker) {
+    if (!existingMarker) {
       return c.json({ error: "Marker not found" }, 404);
     }
 
@@ -106,7 +153,7 @@ markers.put("/:id", async (c) => {
       };
     }
 
-    const updatedMarker = await MarkerController.updateMarker(id, data);
+    const updatedMarker = await markerService.updateMarker(id, data);
 
     // Publish to Redis for WebSocket service to broadcast
     await redisPub.publish(
@@ -130,13 +177,13 @@ markers.delete("/:id", async (c) => {
     const id = c.req.param("id");
 
     // Check if marker exists
-    const marker = await MarkerController.getMarkerById(id);
+    const marker = await markerService.getMarkerById(id);
 
     if (!marker) {
       return c.json({ error: "Marker not found" }, 404);
     }
 
-    const deletedMarker = await MarkerController.deleteMarker(id);
+    await markerService.deleteMarker(id);
 
     // Publish to Redis for WebSocket service to broadcast
     await redisPub.publish(
@@ -147,7 +194,7 @@ markers.delete("/:id", async (c) => {
       })
     );
 
-    return c.json(deletedMarker);
+    return c.json({ success: true });
   } catch (error) {
     console.error("Error deleting marker:", error);
     return c.json({ error: "Failed to delete marker" }, 500);
@@ -165,7 +212,7 @@ markers.get("/nearby", async (c) => {
       return c.json({ error: "Missing required query parameters: lat and lng" }, 400);
     }
 
-    const markers = await MarkerController.getNearbyMarkers(
+    const markers = await markerService.getNearbyMarkers(
       parseFloat(lat),
       parseFloat(lng),
       radius ? parseFloat(radius) : undefined
@@ -181,30 +228,6 @@ markers.get("/nearby", async (c) => {
 // Mount the marker routes
 app.route("/api/markers", markers);
 
-// Special case for nearby markers (comes before /:id to avoid route conflicts)
-app.get("/api/markers/nearby", async (c) => {
-  try {
-    const lat = c.req.query("lat");
-    const lng = c.req.query("lng");
-    const radius = c.req.query("radius");
-
-    if (!lat || !lng) {
-      return c.json({ error: "Missing required query parameters: lat and lng" }, 400);
-    }
-
-    const markers = await MarkerController.getNearbyMarkers(
-      parseFloat(lat),
-      parseFloat(lng),
-      radius ? parseFloat(radius) : undefined
-    );
-
-    return c.json(markers);
-  } catch (error) {
-    console.error("Error fetching nearby markers:", error);
-    return c.json({ error: "Failed to fetch nearby markers" }, 500);
-  }
-});
-
 // 404 handler
 app.notFound((c) => {
   return c.json({ error: "Not Found" }, 404);
@@ -215,10 +238,6 @@ app.onError((err, c) => {
   console.error("Unhandled error:", err);
   return c.json({ error: "Internal Server Error" }, 500);
 });
-
-// Initialize PostGIS if needed (optional)
-import { setupPostGIS } from "./lib/postgis-utils";
-setupPostGIS().catch(console.error);
 
 // Start server
 export default {

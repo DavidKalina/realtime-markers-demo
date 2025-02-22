@@ -1,0 +1,33 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToMany,
+} from "typeorm";
+import { Marker } from "./Marker";
+
+@Entity("categories")
+export class Category {
+  @PrimaryGeneratedColumn("uuid")
+  id!: string;
+
+  @Column({ type: "varchar", unique: true })
+  name!: string;
+
+  @Column({ type: "text", nullable: true })
+  description?: string;
+
+  @Column({ type: "varchar", nullable: true })
+  icon?: string;
+
+  @CreateDateColumn({ name: "created_at", type: "timestamptz" })
+  createdAt!: Date;
+
+  @UpdateDateColumn({ name: "updated_at", type: "timestamptz" })
+  updatedAt!: Date;
+
+  @ManyToMany(() => Marker, (marker) => marker.categories)
+  markers!: Marker[];
+}
