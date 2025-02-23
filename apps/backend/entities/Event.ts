@@ -1,4 +1,5 @@
 // entities/Event.ts
+
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -11,7 +12,6 @@ import {
 } from "typeorm";
 import { type Point } from "geojson";
 import { Category } from "./Category";
-import { FlyerImage } from "./FlyerImage";
 import { ThirdSpace } from "./ThirdSpace";
 
 export enum EventStatus {
@@ -35,6 +35,9 @@ export class Event {
   @Column({ name: "event_date", type: "timestamptz" })
   eventDate!: Date;
 
+  @Column({ type: "text", nullable: true })
+  address?: string;
+
   @Column({
     type: "geometry",
     spatialFeatureType: "Point",
@@ -49,8 +52,8 @@ export class Event {
   @Column({ name: "confidence_score", type: "float", nullable: true })
   confidenceScore?: number;
 
-  @Column({ type: "tsvector", nullable: true })
-  embedding?: number[];
+  @Column({ name: "embedding", type: "text", nullable: true })
+  embedding?: string;
 
   @Column({
     type: "enum",
@@ -58,9 +61,6 @@ export class Event {
     default: EventStatus.PENDING,
   })
   status!: EventStatus;
-
-  @ManyToOne(() => FlyerImage, (flyer) => flyer.events)
-  sourceFlyer?: FlyerImage;
 
   @ManyToOne(() => ThirdSpace, (space) => space.events)
   thirdSpace?: ThirdSpace;

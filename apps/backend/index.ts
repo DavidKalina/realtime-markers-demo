@@ -6,11 +6,11 @@ import Redis from "ioredis";
 import { DataSource } from "typeorm";
 import { Category } from "./entities/Category";
 import { Event } from "./entities/Event";
-import { FlyerImage } from "./entities/FlyerImage";
 import { EventService } from "./services/EventService";
 import { EventProcessingService } from "./services/EventProcessingService";
 import { OpenAI } from "openai";
 import { ThirdSpace } from "./entities/ThirdSpace";
+import { SeedStatus } from "./entities/SeedStatus";
 
 // Create Hono app
 const app = new Hono();
@@ -34,23 +34,54 @@ app.use("*", cors());
 const dataSource = new DataSource({
   type: "postgres",
   url: process.env.DATABASE_URL,
-  entities: [Event, Category, FlyerImage, ThirdSpace],
-  synchronize: true,
+  entities: [Event, Category, ThirdSpace, SeedStatus], // Add SeedStatus
+  synchronize: false,
   logging: true,
   connectTimeoutMS: 10000,
   ssl: false,
+  migrations: [`${__dirname}/migrations/*.ts`], // Add migrations path
+  migrationsRun: true, // Automatically run migrations on startup
 });
 
-dataSource
-  .initialize()
-  .then(() => {
-    console.log("Database connection established");
-  })
-  .catch((error) => {
-    console.error("Database connection error:", error);
-    process.exit(1);
-  });
+// Add these near the top of your file with other imports
+let eventService: EventService;
+let eventProcessingService: EventProcessingService;
 
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Create and initialize the database connection.
+// Create and initialize the database connection.
+const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource> => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await dataSource.initialize();
+      console.log("Database connection established");
+      return dataSource;
+    } catch (error) {
+      console.error(`Database initialization attempt ${i + 1} failed:`, error);
+
+      if (i === retries - 1) {
+        console.error("Max retries reached. Exiting.");
+        process.exit(1);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw new Error("Failed to initialize database after all retries");
+};
+
+const initializedDataSource = await initializeDatabase();
+
+// Initialize services after database is ready
+eventService = new EventService(initializedDataSource);
+eventProcessingService = new EventProcessingService(
+  openai,
+  initializedDataSource.getRepository(Event)
+);
 // Initialize Redis
 const redisPub = new Redis({
   host: process.env.REDIS_HOST || "localhost",
@@ -59,17 +90,8 @@ const redisPub = new Redis({
 });
 
 // Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 // Instantiate services using the established connection.
-const eventService = new EventService(dataSource);
-const eventProcessingService = new EventProcessingService(
-  openai,
-  dataSource.getRepository(Event),
-  dataSource.getRepository(FlyerImage)
-);
 
 // === EVENT ROUTES ===
 const events = new Hono();
@@ -110,6 +132,58 @@ events.get("/nearby", async (c) => {
   } catch (error) {
     console.error("Error fetching nearby events:", error);
     return c.json({ error: "Failed to fetch nearby events" }, 500);
+  }
+});
+
+events.post("/process", async (c) => {
+  try {
+    // Extract form data from the request
+    const formData = await c.req.formData();
+    const imageEntry = formData.get("image");
+
+    if (!imageEntry) {
+      return c.json({ error: "Missing image file" }, 400);
+    }
+
+    // Ensure imageEntry is treated as a File object
+    if (typeof imageEntry === "string") {
+      return c.json({ error: "Invalid file upload" }, 400);
+    }
+
+    const file = imageEntry as File;
+
+    const allowedTypes = ["image/jpeg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      return c.json({ error: "Invalid file type. Only JPEG and PNG files are allowed" }, 400);
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Process the image directly using the EventProcessingService
+    const scanResult = await eventProcessingService.processFlyerFromImage(buffer);
+
+    // Define a minimum confidence threshold before creating an event
+    const MIN_CONFIDENCE = 0.8;
+    if (scanResult.confidence < MIN_CONFIDENCE) {
+      return c.json({ error: "Flyer image processing confidence too low" }, 400);
+    }
+
+    // Map the extracted event details to your Event entity fields.
+    const eventDetails = scanResult.eventDetails;
+    const newEvent = await eventService.createEvent({
+      title: eventDetails.title,
+      eventDate: new Date(eventDetails.date),
+      location: eventDetails.location, // Use the Point object directly
+      description: eventDetails.description,
+      confidenceScore: scanResult.confidence,
+      address: eventDetails.address, // Add this if you want to store the address
+    });
+
+    return c.json(newEvent, 201);
+  } catch (error) {
+    console.error("Error processing flyer image:", error);
+    return c.json({ error: "Failed to process flyer image" }, 500);
   }
 });
 

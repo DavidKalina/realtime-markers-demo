@@ -1,15 +1,18 @@
 // services/EventProcessingService.ts
+import pgvector from "pgvector";
+
 import { OpenAI } from "openai";
 import { Repository } from "typeorm";
 import { Event } from "../entities/Event";
-import { FlyerImage, FlyerProcessingStatus } from "../entities/FlyerImage";
+import type { Point } from "geojson";
 
 interface ScanResult {
   confidence: number;
   eventDetails: {
     title: string;
     date: string;
-    location: string;
+    address: string; // Changed from location: string
+    location: Point; // Added this field
     description: string;
   };
   similarity: {
@@ -19,64 +22,73 @@ interface ScanResult {
 }
 
 export class EventProcessingService {
-  constructor(
-    private openai: OpenAI,
-    private eventRepository: Repository<Event>,
-    private flyerRepository: Repository<FlyerImage>
-  ) {}
+  constructor(private openai: OpenAI, private eventRepository: Repository<Event>) {}
 
-  async processFlyer(flyerId: string): Promise<ScanResult> {
-    const flyer = await this.flyerRepository.findOneOrFail({ where: { id: flyerId } });
+  private async geocodeAddress(address: string): Promise<Point> {
+    try {
+      const encodedAddress = encodeURIComponent(address);
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${process.env.MAPBOX_GEOCODING_TOKEN}`
+      );
 
-    // 1. Get the image data and convert to base64
-    const base64Image = await this.getBase64Image(flyer.imageUrl);
+      if (!response.ok) {
+        throw new Error(`Geocoding failed: ${response.statusText}`);
+      }
 
-    // 2. Process with OpenAI Vision API
+      const data = await response.json();
+
+      if (!data.features || data.features.length === 0) {
+        throw new Error("No coordinates found for address");
+      }
+
+      const [longitude, latitude] = data.features[0].center;
+
+      return {
+        type: "Point",
+        coordinates: [longitude, latitude],
+      };
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      // Fallback to a default location in Provo if geocoding fails
+      return {
+        type: "Point",
+        coordinates: [-111.6585, 40.2338],
+      };
+    }
+  }
+
+  // Process an image directly without storing a flyer record
+  async processFlyerFromImage(imageData: Buffer | string): Promise<ScanResult> {
+    // Convert the image data to a base64 string if necessary
+    let base64Image: string;
+    if (typeof imageData === "string" && imageData.startsWith("data:image")) {
+      base64Image = imageData;
+    } else if (typeof imageData === "string") {
+      // Assume it's a file path
+      const buffer = await import("fs/promises").then((fs) => fs.readFile(imageData));
+      base64Image = `data:image/jpeg;base64,${buffer.toString("base64")}`;
+    } else {
+      // imageData is a Buffer
+      base64Image = `data:image/jpeg;base64,${imageData.toString("base64")}`;
+    }
+
+    // 1. Process with OpenAI Vision API
     const visionResult = await this.processWithVisionAPI(base64Image);
 
-    // 3. Generate text embeddings
+    // 2. Generate text embeddings
     const embedding = await this.generateEmbedding(visionResult.text!);
 
-    // 4. Check for similar events
+    // 3. Check for similar events
     const similarity = await this.findSimilarEvents(embedding);
 
-    // 5. Extract event details using GPT-4
+    // 4. Extract event details using GPT-4
     const eventDetails = await this.extractEventDetails(visionResult.text!);
-
-    // 6. Update flyer status
-    flyer.status = FlyerProcessingStatus.COMPLETED;
-    flyer.processedAt = new Date();
-    flyer.visionData = visionResult;
-    await this.flyerRepository.save(flyer);
 
     return {
       confidence: visionResult.confidence || 0,
       eventDetails,
       similarity,
     };
-  }
-
-  private async getBase64Image(imageUrl: string): Promise<string> {
-    // If the imageUrl is already a base64 string, return it
-    if (imageUrl.startsWith("data:image")) {
-      return imageUrl;
-    }
-
-    // If it's a URL, fetch it
-    if (imageUrl.startsWith("http")) {
-      const response = await fetch(imageUrl);
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      return `data:image/jpeg;base64,${buffer.toString("base64")}`;
-    }
-
-    // If it's a local file path, read it
-    try {
-      const buffer = await import("fs/promises").then((fs) => fs.readFile(imageUrl));
-      return `data:image/jpeg;base64,${buffer.toString("base64")}`;
-    } catch (error) {
-      throw new Error(`Failed to read image: ${error instanceof Error ? error?.message : null}`);
-    }
   }
 
   private async processWithVisionAPI(base64Image: string) {
@@ -125,27 +137,34 @@ export class EventProcessingService {
   }
 
   private async findSimilarEvents(embedding: number[]) {
-    // Use PostgreSQL's vector similarity search with cosine similarity
-    const similarEvents = await this.eventRepository
-      .createQueryBuilder("event")
-      .where("event.embedding IS NOT NULL")
-      .orderBy(`(event.embedding <=> :embedding)`, "ASC") // Cosine similarity
-      .setParameter("embedding", embedding)
-      .limit(5)
-      .getMany();
+    try {
+      const similarEvents = await this.eventRepository
+        .createQueryBuilder("event")
+        .where("event.embedding IS NOT NULL")
+        .orderBy("embedding <-> :embedding")
+        .setParameters({ embedding: pgvector.toSql(embedding) })
+        .limit(5)
+        .getMany();
 
-    if (similarEvents.length === 0) {
+      if (similarEvents.length === 0) {
+        return { score: 0 };
+      }
+
+      const bestMatch = similarEvents[0];
+      // Calculate similarity score
+      const similarityScore = this.calculateCosineSimilarity(
+        embedding,
+        pgvector.fromSql(bestMatch.embedding) // Convert back to number[]
+      );
+
+      return {
+        score: similarityScore,
+        matchingEventId: bestMatch.id,
+      };
+    } catch (error) {
+      console.error("Error in findSimilarEvents:", error);
       return { score: 0 };
     }
-
-    // Calculate cosine similarity score for the best match
-    const bestMatch = similarEvents[0];
-    const similarityScore = this.calculateCosineSimilarity(embedding, bestMatch.embedding!);
-
-    return {
-      score: similarityScore,
-      matchingEventId: bestMatch.id,
-    };
   }
 
   private async extractEventDetails(text: string) {
@@ -155,33 +174,61 @@ export class EventProcessingService {
         {
           role: "system",
           content:
-            "You are a precise event information extractor. Extract event details and format them consistently.",
+            "You are a precise event information extractor. Extract event details and format them consistently. For dates, always return them in ISO-8601 format (YYYY-MM-DDTHH:mm:ss.sssZ). For past events, return the original date even if it's in the past.",
         },
         {
           role: "user",
           content: `Extract the following details from this text in a JSON format:
-                   ${text}`,
+                 - title: The event title
+                 - date: The event date and time in ISO-8601 format (YYYY-MM-DDTHH:mm:ss.sssZ)
+                 - address: The complete address including street, city, state, and zip if available
+                 - description: Full description of the event
+                 Text to extract from:
+                 ${text}`,
         },
       ],
       response_format: { type: "json_object" },
     });
 
     const parsedDetails = JSON.parse(response.choices[0]?.message.content?.trim() ?? "");
+    const address = parsedDetails.address || "";
+
+    // Get coordinates from address using Mapbox
+    const location = await this.geocodeAddress(address);
+
+    // Add date parsing with fallback
+    let eventDate;
+    try {
+      eventDate = parsedDetails.date
+        ? new Date(parsedDetails.date).toISOString()
+        : new Date().toISOString();
+
+      // Check if the date is valid
+      if (isNaN(new Date(eventDate).getTime())) {
+        console.warn("Invalid date detected, falling back to current date");
+        eventDate = new Date().toISOString();
+      }
+    } catch (error) {
+      console.warn("Error parsing date, falling back to current date:", error);
+      eventDate = new Date().toISOString();
+    }
+
+    console.log("LOCATION", location, "Address", address);
+
     return {
       title: parsedDetails.title || "",
-      date: parsedDetails.date || "",
-      location: parsedDetails.location || "",
+      date: eventDate,
+      address: address,
+      location: location,
       description: parsedDetails.description || "",
     };
   }
 
   private calculateCosineSimilarity(a: number[], b: number[]): number {
     if (a.length !== b.length) return 0;
-
     const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
     const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
     const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-
     return dotProduct / (magnitudeA * magnitudeB);
   }
 }

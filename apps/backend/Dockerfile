@@ -11,7 +11,7 @@ COPY apps/backend/package.json ./apps/backend/package.json
 
 # Install dependencies
 RUN bun install
-RUN cd /app/apps/backend && bun add ioredis typeorm pg @types/node reflect-metadata
+RUN cd /app/apps/backend && bun add -d typeorm@latest @types/node ts-node typescript
 
 # Copy backend source AFTER installing dependencies
 COPY apps/backend ./apps/backend

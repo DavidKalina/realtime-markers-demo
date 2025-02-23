@@ -6,6 +6,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  EntitySchema,
 } from "typeorm";
 import { type Point } from "geojson";
 import { Event } from "./Event";
@@ -54,4 +55,5 @@ export class ThirdSpace {
 
   @UpdateDateColumn({ name: "updated_at", type: "timestamptz" })
   updatedAt!: Date;
+  static SeedStatus: string | Function | EntitySchema<any>;
 }

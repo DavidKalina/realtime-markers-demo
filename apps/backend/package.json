@@ -18,6 +18,7 @@
     "ioredis": "^5.5.0",
     "openai": "^4.85.3",
     "pg": "^8.13.3",
+    "pgvector": "^0.2.0",
     "reflect-metadata": "^0.2.2",
     "typeorm": "^0.3.20",
     "ws": "^8.18.0"

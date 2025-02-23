@@ -2,7 +2,6 @@ import { DataSource, Repository, type DeepPartial } from "typeorm";
 import { Event, EventStatus } from "../entities/Event";
 import { type Point } from "geojson";
 import { Category } from "../entities/Category";
-import { FlyerImage } from "../entities/FlyerImage";
 import { ThirdSpace } from "../entities/ThirdSpace";
 
 interface CreateEventInput {
@@ -11,33 +10,32 @@ interface CreateEventInput {
   eventDate: Date;
   location: Point;
   categoryIds?: string[];
-  sourceFlyerId?: string;
   thirdSpaceId?: string;
+  confidenceScore?: number;
+  address?: string; // Add this if you want to store the address
 }
 
 export class EventService {
   private eventRepository: Repository<Event>;
   private categoryRepository: Repository<Category>;
-  private flyerRepository: Repository<FlyerImage>;
   private thirdSpaceRepository: Repository<ThirdSpace>;
 
   constructor(private dataSource: DataSource) {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
-    this.flyerRepository = dataSource.getRepository(FlyerImage);
     this.thirdSpaceRepository = dataSource.getRepository(ThirdSpace);
   }
 
   async getEvents(): Promise<Event[]> {
     return this.eventRepository.find({
-      relations: ["categories", "sourceFlyer", "thirdSpace"],
+      relations: ["categories", "thirdSpace"],
     });
   }
 
   async getEventById(id: string): Promise<Event | null> {
     return this.eventRepository.findOne({
       where: { id },
-      relations: ["categories", "sourceFlyer", "thirdSpace"],
+      relations: ["categories", "thirdSpace"],
     });
   }
 
@@ -51,7 +49,6 @@ export class EventService {
     const query = this.eventRepository
       .createQueryBuilder("event")
       .leftJoinAndSelect("event.categories", "category")
-      .leftJoinAndSelect("event.sourceFlyer", "flyer")
       .leftJoinAndSelect("event.thirdSpace", "space")
       .where(
         "ST_DWithin(event.location::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radius)",
@@ -75,20 +72,13 @@ export class EventService {
       eventDate: input.eventDate,
       location: input.location,
       status: EventStatus.PENDING,
+      address: input.address,
     };
 
     // Handle categories if provided
     if (input.categoryIds?.length) {
       const categories = await this.categoryRepository.findByIds(input.categoryIds);
       eventData.categories = categories;
-    }
-
-    // Handle sourceFlyer if provided
-    if (input.sourceFlyerId) {
-      const flyer = await this.flyerRepository.findOneBy({ id: input.sourceFlyerId });
-      if (flyer) {
-        eventData.sourceFlyer = flyer;
-      }
     }
 
     // Handle thirdSpace if provided
@@ -117,14 +107,6 @@ export class EventService {
     if (eventData.categoryIds) {
       const categories = await this.categoryRepository.findByIds(eventData.categoryIds);
       event.categories = categories;
-    }
-
-    // Handle sourceFlyer if provided
-    if (eventData.sourceFlyerId) {
-      const flyer = await this.flyerRepository.findOneBy({ id: eventData.sourceFlyerId });
-      if (flyer) {
-        event.sourceFlyer = flyer;
-      }
     }
 
     // Handle thirdSpace if provided
