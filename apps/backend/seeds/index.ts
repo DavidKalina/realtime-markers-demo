@@ -16,9 +16,26 @@ export async function seedDatabase(dataSource: DataSource) {
     // For development, always reseed
     if (existingSeed) {
       console.log("Clearing existing seed data...");
-      await dataSource.getRepository(Event).clear();
-      await dataSource.getRepository(Category).clear();
-      await seedStatusRepo.clear();
+
+      // Create query runner for transaction
+      const queryRunner = dataSource.createQueryRunner();
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      try {
+        // Delete in correct order to respect foreign key constraints
+        await queryRunner.query('DELETE FROM "event_categories"');
+        await queryRunner.query('DELETE FROM "events"');
+        await queryRunner.query('DELETE FROM "categories"');
+        await queryRunner.query('DELETE FROM "seed_status"');
+
+        await queryRunner.commitTransaction();
+      } catch (err) {
+        await queryRunner.rollbackTransaction();
+        throw err;
+      } finally {
+        await queryRunner.release();
+      }
     }
 
     console.log("Starting database seeding...");
