@@ -40,9 +40,9 @@ const redisSub = new Redis({
   port: parseInt(process.env.REDIS_PORT || "6379"),
 });
 
-// Subscribe to the "marker_changes" channel immediately
-redisSub.subscribe("marker_changes").catch((err) => {
-  console.error("Failed to subscribe to marker_changes channel:", err);
+// Subscribe to the "event_changes" channel immediately
+redisSub.subscribe("event_changes").catch((err) => {
+  console.error("Failed to subscribe to event_changes channel:", err);
 });
 
 // --- State Initialization ---
@@ -240,7 +240,7 @@ ws.send(JSON.stringify({
   }
 }));
 
-redisClient.publish('marker_changes', JSON.stringify({
+redisClient.publish('event_changes', JSON.stringify({
   operation: 'INSERT',
   record: {
     id: 'marker1',
