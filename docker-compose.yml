@@ -80,12 +80,16 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - BACKEND_URL=http://backend:3000 # Add this environment variable
     ports:
       - "8081:8081"
     networks:
       - marker-network
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started # Add this dependency
     volumes:
       - ./apps/websocket:/app/apps/websocket
       - /app/apps/websocket/node_modules

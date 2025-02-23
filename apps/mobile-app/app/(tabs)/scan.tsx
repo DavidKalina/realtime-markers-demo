@@ -1,10 +1,11 @@
 import { useIsFocused } from "@react-navigation/native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
+import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-const API_URL = "YOUR_SERVER_URL/process"; // Replace with your actual server URL
+const API_URL = "https://577e-69-162-231-94.ngrok-free.app/api/events/process"; // Replace with your actual server URL
 
 const uploadImageToServer = async (imageUri: string): Promise<any> => {
   try {
@@ -44,6 +45,7 @@ const ScanScreen: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const isFocused = useIsFocused();
   const cameraRef = useRef(null);
+  const { push } = useRouter();
 
   const handleCapture = async () => {
     if (!cameraRef.current || isCapturing) return;
@@ -76,6 +78,8 @@ const ScanScreen: React.FC = () => {
         [{ text: "OK", onPress: () => setIsProcessing(false) }],
         { cancelable: false }
       );
+
+      push(`/`);
 
       // Here you might want to navigate to an event details screen
       // navigation.navigate('EventDetails', { event: result });

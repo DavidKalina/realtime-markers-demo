@@ -1,8 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
-import { StyleSheet } from "react-native";
-import Mapbox from "@rnmapbox/maps";
+import { StyleSheet, View, Text } from "react-native";
+import Mapbox, { MarkerView } from "@rnmapbox/maps";
 import * as Location from "expo-location";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
+
+interface MapboxRegion {
+  geometry: {
+    coordinates: [number, number];
+    type: string;
+  };
+  properties: {
+    bearing: number;
+    heading: number;
+    pitch: number;
+    visibleBounds: [[number, number], [number, number]];
+    zoomLevel: number;
+    isUserInteraction: boolean;
+  };
+  type: string;
+}
 
 Mapbox.setAccessToken(
   "pk.eyJ1IjoiZGtwcm90b24iLCJhIjoiY203aDVwcXBuMDFyMDJub2l0bzUxbHgxYSJ9.1PJbVQGOpkyRfPDhe2wsNw"
@@ -13,9 +29,13 @@ interface MapViewProps {
   wsUrl: string;
 }
 
-export default function MapView({ style, wsUrl }: MapViewProps) {
+export default function MapView({
+  style,
+  wsUrl = "wss://2504-69-162-231-94.ngrok-free.app",
+}: MapViewProps) {
   const [location, setLocation] = useState<[number, number]>([-122.4324, 37.78825]);
   const { markers, updateViewport } = useMapWebSocket(wsUrl);
+  const [selectedMarker, setSelectedMarker] = useState<string | null>(null);
 
   // Get user location
   useEffect(() => {
@@ -33,13 +53,17 @@ export default function MapView({ style, wsUrl }: MapViewProps) {
 
   // Handle map region change
   const onRegionDidChange = useCallback(
-    (region: any) => {
-      updateViewport({
-        north: region.properties.visibleBounds[3],
-        south: region.properties.visibleBounds[1],
-        east: region.properties.visibleBounds[2],
-        west: region.properties.visibleBounds[0],
-      });
+    (region: MapboxRegion) => {
+      const [[westLng, southLat], [eastLng, northLat]] = region.properties.visibleBounds;
+
+      const viewport = {
+        north: Math.max(northLat, southLat),
+        south: Math.min(northLat, southLat),
+        east: Math.max(eastLng, westLng),
+        west: Math.min(eastLng, westLng),
+      };
+
+      updateViewport(viewport);
     },
     [updateViewport]
   );
@@ -50,7 +74,7 @@ export default function MapView({ style, wsUrl }: MapViewProps) {
       styleURL={Mapbox.StyleURL.Street}
       logoEnabled={false}
       attributionEnabled={false}
-      onRegionDidChange={onRegionDidChange}
+      onRegionDidChange={onRegionDidChange as any}
     >
       <Mapbox.Camera
         zoomLevel={14}
@@ -64,9 +88,14 @@ export default function MapView({ style, wsUrl }: MapViewProps) {
 
       {/* Render Markers */}
       {markers.map((marker) => (
-        <Mapbox.PointAnnotation key={marker.id} id={marker.id} coordinate={marker.coordinates}>
-          <Mapbox.Callout title={marker.data.emoji} />
-        </Mapbox.PointAnnotation>
+        <MarkerView
+          key={marker.id}
+          id={marker.id}
+          coordinate={marker.coordinates}
+          anchor={{ x: 0.5, y: 1 }}
+        >
+          <Text>📍</Text>
+        </MarkerView>
       ))}
     </Mapbox.MapView>
   );
@@ -75,5 +104,37 @@ export default function MapView({ style, wsUrl }: MapViewProps) {
 const styles = StyleSheet.create({
   map: {
     flex: 1,
+  },
+  markerContainer: {
+    backgroundColor: "#FF4B4B",
+    borderRadius: 20,
+    padding: 8,
+    borderWidth: 2,
+    borderColor: "white",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  markerText: {
+    fontSize: 20,
+  },
+  calloutContainer: {
+    position: "absolute",
+    bottom: "100%",
+    backgroundColor: "white",
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    marginBottom: 8,
+  },
+  calloutText: {
+    color: "#333",
+    fontSize: 14,
   },
 });

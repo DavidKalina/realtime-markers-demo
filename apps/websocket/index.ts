@@ -45,39 +45,77 @@ redisSub.subscribe("event_changes").catch((err) => {
   console.error("Failed to subscribe to event_changes channel:", err);
 });
 
-// --- State Initialization ---
-// Loads existing markers from the backend API on startup
-// async function initializeState() {
-//   try {
-//     const res = await fetch("http://backend:3000/api/markers");
-//     const markers = await res.json();
-//     const markerDataArray = markers.map((record: any) => {
-//       const [lng, lat] = record.location.coordinates;
-//       return {
-//         id: record.id,
-//         minX: lng,
-//         minY: lat,
-//         maxX: lng,
-//         maxY: lat,
-//         data: {
-//           emoji: record.emoji,
-//           color: record.color,
-//           created_at: record.created_at,
-//           updated_at: record.updated_at,
-//         },
-//       } as MarkerData;
-//     });
-//     tree.load(markerDataArray);
-//     console.log("RBush index initialized with markers");
-//   } catch (error) {
-//     console.error("Failed to initialize state:", error);
-//   }
-// }
+async function initializeState() {
+  const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
+  const maxRetries = 5;
+  const retryDelay = 2000; // 2 seconds
 
-// // Call the initialization function on startup
-// initializeState();
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(
+        `[Init] Attempt ${attempt}/${maxRetries} - Fetching events from API at ${backendUrl}/api/events`
+      );
+      const res = await fetch(`${backendUrl}/api/events`);
 
-// --- Process Redis Messages ---
+      if (!res.ok) {
+        throw new Error(`API returned status ${res.status}`);
+      }
+
+      const events = await res.json();
+      console.log(`[Init] Received ${events.length} events from API`);
+
+      const markerDataArray = events
+        .map((event: any) => {
+          if (!event.location?.coordinates) {
+            console.warn(`[Init] Event ${event.id} missing coordinates:`, event);
+            return null;
+          }
+
+          const [lng, lat] = event.location.coordinates;
+          return {
+            id: event.id,
+            minX: lng,
+            minY: lat,
+            maxX: lng,
+            maxY: lat,
+            data: {
+              emoji: "📍",
+              color: "red",
+              created_at: event.created_at,
+              updated_at: event.updated_at,
+            },
+          } as MarkerData;
+        })
+        .filter(Boolean);
+
+      console.log(`[Init] Loading ${markerDataArray.length} events into RBush tree`);
+      tree.clear(); // Clear any existing data
+      tree.load(markerDataArray);
+      console.log("[Init] RBush tree initialized successfully");
+
+      // Log a sample of coordinates to verify data
+      if (markerDataArray.length > 0) {
+        console.log("[Init] Sample coordinates:", {
+          lng: markerDataArray[0].minX,
+          lat: markerDataArray[0].minY,
+        });
+      }
+
+      return; // Success - exit the retry loop
+    } catch (error) {
+      console.error(`[Init] Attempt ${attempt}/${maxRetries} failed:`, error);
+
+      if (attempt === maxRetries) {
+        console.error("[Init] Max retries reached, giving up");
+        throw error;
+      }
+
+      console.log(`[Init] Waiting ${retryDelay}ms before next attempt...`);
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+    }
+  }
+}
+
 redisSub.on("message", (channel, message) => {
   try {
     const { operation, record } = JSON.parse(message);
@@ -112,6 +150,26 @@ redisSub.on("message", (channel, message) => {
       pendingUpdates.set(record.id, updates);
     }
     updates.add(markerData);
+
+    // Send debug event to all connected clients
+    const debugPayload = JSON.stringify({
+      type: "debug_event",
+      data: {
+        operation,
+        eventId: record.id,
+        timestamp: new Date().toISOString(),
+        coordinates: [lng, lat],
+        details: record,
+      },
+    });
+
+    clients.forEach((client) => {
+      try {
+        client.send(debugPayload);
+      } catch (error) {
+        console.error(`Failed to send debug event to client ${client.data.clientId}:`, error);
+      }
+    });
   } catch (error) {
     console.error("Error processing Redis message:", error);
   }
@@ -153,7 +211,7 @@ setInterval(() => {
 
 // --- WebSocket Server Definition ---
 const server = {
-  port: 8080,
+  port: 8081,
   fetch(req: Request, server: Server): Response | Promise<Response> {
     if (server.upgrade(req)) {
       return new Response();
@@ -183,6 +241,16 @@ const server = {
       try {
         const data = JSON.parse(message.toString());
         if (data.type === "viewport_update") {
+          console.log(`[Viewport Update] Client ${ws.data.clientId}:`, {
+            timestamp: new Date().toISOString(),
+            viewport: data.viewport,
+            currentMarkersInView: tree.search({
+              minX: data.viewport.west,
+              minY: data.viewport.south,
+              maxX: data.viewport.east,
+              maxY: data.viewport.north,
+            }).length,
+          });
           // Convert viewport to RBush format
           ws.data.viewport = {
             minX: data.viewport.west,
@@ -216,7 +284,27 @@ const server = {
 console.log(`WebSocket server started on port 8080`);
 
 // Start the server with proper typing
-Bun.serve<WebSocketData>(server);
+async function startServer() {
+  try {
+    // Initialize state first
+    await initializeState();
+
+    // Log the tree state after initialization
+    console.log(`[Startup] RBush tree contains ${tree.all().length} items`);
+    if (tree.all().length > 0) {
+      console.log("[Startup] Sample item:", tree.all()[0]);
+    }
+
+    // Start the server after initialization is complete
+    Bun.serve<WebSocketData>(server);
+    console.log(`WebSocket server started on port ${server.port}`);
+  } catch (error) {
+    console.error("[Startup] Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 /* Example usage:
 bulkLoadMarkers([
