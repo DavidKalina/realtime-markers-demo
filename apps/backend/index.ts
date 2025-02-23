@@ -180,6 +180,14 @@ events.post("/process", async (c) => {
       address: eventDetails.address, // Add this if you want to store the address
     });
 
+    await redisPub.publish(
+      "event_changes",
+      JSON.stringify({
+        operation: "INSERT",
+        record: newEvent,
+      })
+    );
+
     return c.json(newEvent, 201);
   } catch (error) {
     console.error("Error processing flyer image:", error);
