@@ -69,6 +69,7 @@ export class EventService {
     const eventData: DeepPartial<Event> = {
       title: input.title,
       description: input.description,
+      confidenceScore: input.confidenceScore,
       eventDate: input.eventDate,
       location: input.location,
       status: EventStatus.PENDING,

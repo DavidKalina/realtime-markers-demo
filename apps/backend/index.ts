@@ -164,10 +164,19 @@ events.post("/process", async (c) => {
     const scanResult = await eventProcessingService.processFlyerFromImage(buffer);
 
     // Define a minimum confidence threshold before creating an event
-    const MIN_CONFIDENCE = 0.8;
+    const MIN_CONFIDENCE = 0.75; // You might want to adjust this threshold
     if (scanResult.confidence < MIN_CONFIDENCE) {
-      return c.json({ error: "Flyer image processing confidence too low" }, 400);
+      return c.json(
+        {
+          error: "Low confidence in extracted information",
+          confidence: scanResult.confidence,
+          threshold: MIN_CONFIDENCE,
+        },
+        400
+      );
     }
+
+    console.log("SCAN_RESULT", scanResult);
 
     // Map the extracted event details to your Event entity fields.
     const eventDetails = scanResult.eventDetails;
@@ -232,8 +241,22 @@ events.post("/", async (c) => {
 });
 
 // Get event by id
+events.get("/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const event = await eventService.getEventById(id);
 
-// Mount event routes
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
+
+    return c.json(event);
+  } catch (error) {
+    console.error("Error fetching event:", error);
+    return c.json({ error: "Failed to fetch event" }, 500);
+  }
+});
+
 app.route("/api/events", events);
 
 // 404 handler

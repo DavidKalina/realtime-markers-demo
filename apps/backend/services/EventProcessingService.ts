@@ -106,6 +106,7 @@ export class EventProcessingService {
                      - Location
                      - Description
                      - Any contact information or social media handles
+                     - Confidence Score (between 0 and 1.0)
                      Please be as specific and accurate as possible.`,
             },
             {
@@ -120,10 +121,21 @@ export class EventProcessingService {
       max_tokens: 500,
     });
 
+    const content = response.choices[0].message.content;
+    console.log(content);
+
+    // Extract confidence score from the response
+    const extractConfidenceScore = (text: string): number => {
+      const match = text.match(/Confidence Score[^\d]*(\d*\.?\d+)/i);
+      return match ? parseFloat(match[1]) : 0.5; // Default to 0.5 if not found
+    };
+
+    const confidence = extractConfidenceScore(content || "");
+
     return {
       success: true,
-      text: response.choices[0].message.content,
-      confidence: 0.95,
+      text: content,
+      confidence: confidence,
     };
   }
 

@@ -72,14 +72,16 @@ const ScanScreen: React.FC = () => {
 
       const result = await uploadImageToServer(processedImage.uri);
 
+      console.log(result);
+
+      push(`/results?eventId=${result.id}`);
+
       Alert.alert(
         "Success",
         "Event processed successfully!",
         [{ text: "OK", onPress: () => setIsProcessing(false) }],
         { cancelable: false }
       );
-
-      push(`/`);
     } catch (error) {
       Alert.alert(
         "Error",

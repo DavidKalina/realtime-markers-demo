@@ -26,6 +26,9 @@ export class Event {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
+  @Column({ type: "varchar", default: "📍" })
+  emoji?: string;
+
   @Column({ type: "varchar" })
   title!: string;
 
