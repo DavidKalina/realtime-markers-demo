@@ -12,9 +12,6 @@ import Animated, {
   withTiming,
   interpolate,
 } from "react-native-reanimated";
-import Svg, { Path } from "react-native-svg";
-
-const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 interface AnimatedMarkerProps {
   emoji?: string;
@@ -24,7 +21,7 @@ interface AnimatedMarkerProps {
 
 const AnimatedMarker: React.FC<AnimatedMarkerProps> = ({
   emoji = "📍",
-  isSelected = true,
+  isSelected = false,
   onPress,
 }) => {
   const popupScale = useSharedValue(1);
@@ -128,18 +125,13 @@ const AnimatedMarker: React.FC<AnimatedMarkerProps> = ({
     <Pressable onPress={onPress}>
       <View style={styles.markerContainer}>
         {/* Animated popup */}
-        <Animated.View style={[styles.popupContainer, popupAnimatedStyle]}>
-          <View style={styles.emojiWindow}>
-            <Text style={styles.emoji}>{emoji}</Text>
-          </View>
-        </Animated.View>
-
-        {/* Animated string */}
-        <View style={StyleSheet.absoluteFill}>
-          <Svg style={StyleSheet.absoluteFill}>
-            <AnimatedPath animatedProps={animatedStringProps} />
-          </Svg>
-        </View>
+        {isSelected ? (
+          <Animated.View style={[styles.popupContainer, popupAnimatedStyle]}>
+            <View style={styles.emojiWindow}>
+              <Text style={styles.emoji}>{emoji}</Text>
+            </View>
+          </Animated.View>
+        ) : null}
 
         {/* Animated circle anchor point */}
         <Animated.View style={[styles.anchorPoint, circleAnimatedStyle]} />

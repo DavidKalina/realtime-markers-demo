@@ -1,25 +1,31 @@
+import { MorphingLoader } from "@/components/MorphingLoader";
 import { useIsFocused } from "@react-navigation/native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const API_URL = "https://28f6-69-162-231-94.ngrok-free.app/api/events/process"; // Replace with your actual server URL
+const API_URL = "https://28f6-69-162-231-94.ngrok-free.app/api/events/process";
 
 const uploadImageToServer = async (imageUri: string): Promise<any> => {
   try {
-    // Create form data
     const formData = new FormData();
-
-    // Add the image file to form data
     formData.append("image", {
       uri: imageUri,
-      type: "image/jpeg", // or 'image/png'
+      type: "image/jpeg",
       name: "upload.jpg",
     } as any);
 
-    // Make the API call
     const response = await fetch(API_URL, {
       method: "POST",
       body: formData,
@@ -52,26 +58,20 @@ const ScanScreen: React.FC = () => {
 
     try {
       setIsCapturing(true);
-
-      // Take the picture
       const photo = await (cameraRef.current as any).takePictureAsync({
         quality: 0.7,
       });
 
-      // Process the image
       const processedImage = await manipulateAsync(photo.uri, [{ resize: { width: 1200 } }], {
         compress: 0.8,
         format: SaveFormat.JPEG,
       });
 
-      // Start processing state
       setIsCapturing(false);
       setIsProcessing(true);
 
-      // Upload to server
       const result = await uploadImageToServer(processedImage.uri);
 
-      // Show success message
       Alert.alert(
         "Success",
         "Event processed successfully!",
@@ -80,9 +80,6 @@ const ScanScreen: React.FC = () => {
       );
 
       push(`/`);
-
-      // Here you might want to navigate to an event details screen
-      // navigation.navigate('EventDetails', { event: result });
     } catch (error) {
       Alert.alert(
         "Error",
@@ -104,18 +101,19 @@ const ScanScreen: React.FC = () => {
 
   if (!permission) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#fff" />
+      <View style={styles.processingContainer}>
+        <MorphingLoader size={80} color="#000000" />
+        <Text style={styles.processingText}>Processing...</Text>
       </View>
     );
   }
 
   if (!permission.granted) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.message}>Camera access is required to scan documents</Text>
-        <TouchableOpacity style={styles.button} onPress={requestPermission}>
-          <Text style={styles.buttonText}>Grant Permission</Text>
+      <View style={styles.permissionContainer}>
+        <Text style={styles.permissionMessage}>Camera access required</Text>
+        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+          <Text style={styles.permissionButtonText}>Grant Access</Text>
         </TouchableOpacity>
       </View>
     );
@@ -128,118 +126,187 @@ const ScanScreen: React.FC = () => {
   if (isProcessing) {
     return (
       <View style={styles.processingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.processingText}>Processing image...</Text>
+        <ActivityIndicator size="large" color="#000000" />
+        <Text style={styles.processingText}>Processing...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <CameraView ref={cameraRef} style={styles.camera}>
-        <View style={styles.overlay}>
-          {/* Simple capture frame */}
-          <View style={styles.scanFrame} />
-        </View>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.contentContainer}>
+        <Text style={styles.guideText}>Position your document within the frame</Text>
 
-        <View style={styles.controls}>
-          <TouchableOpacity
-            style={[styles.captureButton, isCapturing && styles.captureButtonDisabled]}
-            onPress={handleCapture}
-            disabled={isCapturing}
-          >
-            {isCapturing ? (
-              <ActivityIndicator color="#000" />
-            ) : (
-              <View style={styles.captureButtonInner} />
-            )}
-          </TouchableOpacity>
-        </View>
-      </CameraView>
-    </View>
+        <CameraView ref={cameraRef} style={styles.camera}>
+          <View style={styles.overlay}>
+            <View style={styles.scanFrame}>
+              <View style={styles.cornerTL} />
+              <View style={styles.cornerTR} />
+              <View style={styles.cornerBL} />
+              <View style={styles.cornerBR} />
+            </View>
+          </View>
+        </CameraView>
+      </View>
+
+      <View style={styles.controls}>
+        <TouchableOpacity
+          style={[styles.captureButton, isCapturing && styles.captureButtonDisabled]}
+          onPress={handleCapture}
+          disabled={isCapturing}
+        >
+          {isCapturing ? (
+            <ActivityIndicator color="#000000" />
+          ) : (
+            <View style={styles.captureButtonInner} />
+          )}
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  contentContainer: {
+    flex: 1,
+    position: "relative",
+  },
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#000000",
   },
   camera: {
     flex: 1,
   },
-  message: {
-    color: "#fff",
-    fontSize: 16,
+  permissionContainer: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  permissionMessage: {
+    fontSize: 18,
+    color: "#000000",
+    marginBottom: 24,
     textAlign: "center",
-    marginBottom: 20,
+    fontWeight: "500",
+  },
+  permissionButton: {
+    backgroundColor: "#000000",
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    elevation: 2,
+  },
+  permissionButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
   },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
   },
   scanFrame: {
-    width: "80%",
-    height: "50%",
-    borderWidth: 2,
-    borderColor: "#fff",
-    borderRadius: 10,
+    width: "85%",
+    aspectRatio: 0.8, // This creates a rectangular frame
+    position: "relative",
+    marginTop: -150, // Adjust this value to fine-tune vertical position
+  },
+  cornerTL: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 40,
+    height: 40,
+    borderLeftWidth: 3,
+    borderTopWidth: 3,
+    borderColor: "#ffffff",
+  },
+  cornerTR: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 40,
+    height: 40,
+    borderRightWidth: 3,
+    borderTopWidth: 3,
+    borderColor: "#ffffff",
+  },
+  cornerBL: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    width: 40,
+    height: 40,
+    borderLeftWidth: 3,
+    borderBottomWidth: 3,
+    borderColor: "#ffffff",
+  },
+  cornerBR: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 40,
+    height: 40,
+    borderRightWidth: 3,
+    borderBottomWidth: 3,
+    borderColor: "#ffffff",
+  },
+  guideText: {
+    color: "#ffffff",
+    fontSize: 16,
+    marginTop: 24,
+    fontWeight: "500",
+    textAlign: "center",
+    opacity: 0.9,
   },
   controls: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    paddingTop: 30,
+    paddingBottom: Platform.select({ ios: 100, android: 85 }),
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  button: {
-    backgroundColor: "#007AFF",
-    padding: 15,
-    borderRadius: 10,
-    marginHorizontal: 20,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-    textAlign: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   captureButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 4,
+  },
+  captureButtonDisabled: {
+    opacity: 0.5,
+  },
+  captureButtonInner: {
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  captureButtonDisabled: {
-    opacity: 0.7,
-  },
-  captureButtonInner: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: "#fff",
-    borderWidth: 2,
-    borderColor: "#000",
+    backgroundColor: "#ffffff",
+    borderWidth: 3,
+    borderColor: "#000000",
   },
   processingContainer: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     justifyContent: "center",
     alignItems: "center",
   },
   processingText: {
-    marginTop: 20,
-    fontSize: 16,
-    color: "#000",
+    marginTop: 16,
+    fontSize: 18,
+    color: "#000000",
+    fontWeight: "500",
   },
 });
 
