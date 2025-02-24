@@ -4,6 +4,7 @@ interface Marker {
   id: string;
   coordinates: [number, number];
   data: {
+    title: string;
     emoji: string;
     color: string;
     created_at: string;

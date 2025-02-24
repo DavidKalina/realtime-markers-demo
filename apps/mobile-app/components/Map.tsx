@@ -77,7 +77,13 @@ export default function MapView({
   // When a marker is selected, move the camera to center on it
   useEffect(() => {
     if (selectedMarker && cameraRef.current) {
-      cameraRef.current.flyTo(selectedMarker.coordinates, 1000);
+      cameraRef.current.flyTo(
+        [
+          selectedMarker.coordinates[0],
+          selectedMarker.coordinates[1] - 0.02, // Slight offset to account for popup
+        ],
+        1000
+      );
     }
   }, [selectedMarker]);
   return (
@@ -112,7 +118,9 @@ export default function MapView({
         ))}
       </Mapbox.MapView>
 
-      {selectedMarker && <MarkerDetailsPopup marker={selectedMarker.data} />}
+      {selectedMarker && (
+        <MarkerDetailsPopup marker={{ ...selectedMarker.data, id: selectedMarker.id ?? "" }} />
+      )}
     </>
   );
 }

@@ -12,7 +12,7 @@ export const useFloatingAnimation = () => {
 
   useEffect(() => {
     floatingAnimation.value = withRepeat(
-      withSequence(withTiming(-5, { duration: 2000 }), withTiming(5, { duration: 2000 })),
+      withSequence(withTiming(-3, { duration: 2000 }), withTiming(3, { duration: 2000 })),
       -1,
       true
     );

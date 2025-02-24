@@ -89,8 +89,6 @@ const ResultsScreen: React.FC = () => {
     fetchEventDetails();
   }, [eventId]);
 
-  console.log({ eventId });
-
   const fetchEventDetails = async () => {
     try {
       const response = await fetch(`${API_URL}/events/${eventId}`);
