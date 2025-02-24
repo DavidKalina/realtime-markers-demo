@@ -68,7 +68,7 @@ export class Event {
   @ManyToOne(() => ThirdSpace, (space) => space.events)
   thirdSpace?: ThirdSpace;
 
-  @ManyToMany(() => Category)
+  @ManyToMany(() => Category, (category) => category.events)
   @JoinTable({
     name: "event_categories",
     joinColumn: { name: "event_id", referencedColumnName: "id" },

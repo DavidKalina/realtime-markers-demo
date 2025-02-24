@@ -29,5 +29,5 @@ export class Category {
   updatedAt!: Date;
 
   @ManyToMany(() => Event, (event) => event.categories)
-  categories!: Event[];
+  events!: Event[];
 }

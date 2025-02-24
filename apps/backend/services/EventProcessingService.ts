@@ -5,17 +5,22 @@ import { OpenAI } from "openai";
 import { Repository } from "typeorm";
 import { Event } from "../entities/Event";
 import type { Point } from "geojson";
+import type { CategoryProcessingService } from "./CategoryProcessingService";
+import type { Category } from "../entities/Category";
+
+interface EventDetails {
+  emoji: string;
+  title: string;
+  date: string;
+  address: string;
+  location: Point;
+  description: string;
+  categories?: Category[]; // Add this
+}
 
 interface ScanResult {
   confidence: number;
-  eventDetails: {
-    emoji: string;
-    title: string;
-    date: string;
-    address: string; // Changed from location: string
-    location: Point; // Added this field
-    description: string;
-  };
+  eventDetails: EventDetails;
   similarity: {
     score: number;
     matchingEventId?: string;
@@ -23,7 +28,11 @@ interface ScanResult {
 }
 
 export class EventProcessingService {
-  constructor(private openai: OpenAI, private eventRepository: Repository<Event>) {}
+  constructor(
+    private openai: OpenAI,
+    private eventRepository: Repository<Event>,
+    private categoryProcessingService: CategoryProcessingService
+  ) {}
 
   private async geocodeAddress(address: string): Promise<Point> {
     try {
@@ -84,10 +93,20 @@ export class EventProcessingService {
 
     // 4. Extract event details using GPT-4
     const eventDetails = await this.extractEventDetails(visionResult.text!);
+    const categories = await this.categoryProcessingService.extractAndProcessCategories(
+      visionResult.text!
+    );
+
+    console.log(categories);
+
+    const eventDetailsWithCategories = {
+      ...eventDetails,
+      categories: categories, // Now TypeScript knows this is Category[]
+    };
 
     return {
       confidence: visionResult.confidence || 0,
-      eventDetails,
+      eventDetails: eventDetailsWithCategories,
       similarity,
     };
   }
@@ -123,7 +142,6 @@ export class EventProcessingService {
     });
 
     const content = response.choices[0].message.content;
-    console.log(content);
 
     // Extract confidence score from the response
     const extractConfidenceScore = (text: string): number => {
@@ -227,8 +245,6 @@ export class EventProcessingService {
       eventDate = new Date().toISOString();
     }
 
-    console.log("LOCATION", location, "Address", address);
-
     return {
       emoji: parsedDetails.emoji || "📍",
       title: parsedDetails.title || "",
@@ -236,6 +252,7 @@ export class EventProcessingService {
       address: address,
       location: location,
       description: parsedDetails.description || "",
+      categories: undefined,
     };
   }
 

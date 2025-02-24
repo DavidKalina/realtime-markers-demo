@@ -9,6 +9,8 @@ import AppDataSource from "./data-source";
 import { Event } from "./entities/Event";
 import { EventProcessingService } from "./services/EventProcessingService";
 import { EventService } from "./services/EventService";
+import { CategoryProcessingService } from "./services/CategoryProcessingService";
+import { Category } from "./entities/Category";
 
 // Create Hono app
 const app = new Hono();
@@ -66,11 +68,17 @@ const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource
 
 const initializedDataSource = await initializeDatabase();
 
+const categoryProcessingService = new CategoryProcessingService(
+  openai,
+  initializedDataSource.getRepository(Category)
+);
+
 // Initialize services after database is ready
 eventService = new EventService(initializedDataSource);
 eventProcessingService = new EventProcessingService(
   openai,
-  initializedDataSource.getRepository(Event)
+  initializedDataSource.getRepository(Event),
+  categoryProcessingService
 );
 // Initialize Redis
 const redisPub = new Redis({
@@ -125,6 +133,75 @@ events.get("/nearby", async (c) => {
   }
 });
 
+events.get("/categories", async (c) => {
+  try {
+    const categories = await eventService.getAllCategories();
+    return c.json(categories);
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    return c.json({ error: "Failed to fetch categories" }, 500);
+  }
+});
+
+events.get("/by-categories", async (c) => {
+  try {
+    const categoryIds = c.req.query("categories")?.split(",");
+    const startDate = c.req.query("startDate");
+    const endDate = c.req.query("endDate");
+    const limit = c.req.query("limit");
+    const offset = c.req.query("offset");
+
+    if (!categoryIds || categoryIds.length === 0) {
+      return c.json({ error: "Missing required query parameter: categories" }, 400);
+    }
+
+    const result = await eventService.getEventsByCategories(categoryIds, {
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      offset: offset ? parseInt(offset) : undefined,
+    });
+
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching events by categories:", error);
+    return c.json({ error: "Failed to fetch events by categories" }, 500);
+  }
+});
+
+events.get("/search", async (c) => {
+  try {
+    const query = c.req.query("q");
+    const limit = c.req.query("limit");
+
+    if (!query) {
+      return c.json({ error: "Missing required query parameter: q" }, 400);
+    }
+
+    const searchResults = await eventService.searchEvents(
+      query,
+      limit ? parseInt(limit) : undefined
+    );
+
+    return c.json({
+      query,
+      results: searchResults.map(({ event, score }) => ({
+        ...event,
+        _score: score, // Add similarity score to each result
+      })),
+    });
+  } catch (error) {
+    console.error("Error searching events:", error);
+    return c.json(
+      {
+        error: "Failed to search events",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+});
+
 events.post("/process", async (c) => {
   try {
     // Extract form data from the request
@@ -166,18 +243,17 @@ events.post("/process", async (c) => {
       );
     }
 
-    console.log("SCAN_RESULT", scanResult);
-
     // Map the extracted event details to your Event entity fields.
     const eventDetails = scanResult.eventDetails;
     const newEvent = await eventService.createEvent({
       emoji: eventDetails.emoji,
       title: eventDetails.title,
       eventDate: new Date(eventDetails.date),
-      location: eventDetails.location, // Use the Point object directly
+      location: eventDetails.location,
       description: eventDetails.description,
       confidenceScore: scanResult.confidence,
-      address: eventDetails.address, // Add this if you want to store the address
+      address: eventDetails.address,
+      categoryIds: eventDetails.categories?.map((cat) => cat.id),
     });
 
     await redisPub.publish(
