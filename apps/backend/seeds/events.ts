@@ -1,6 +1,6 @@
 import { Event, EventStatus } from "../entities/Event";
 import { Category } from "../entities/Category";
-import { DataSource } from "typeorm";
+import { DataSource, EntityManager } from "typeorm";
 import { type Point } from "geojson";
 
 // Provo/Orem area boundaries
@@ -90,32 +90,30 @@ function randomStatus(): EventStatus {
   return randomFromArray(statuses);
 }
 
-export async function seedEvents(dataSource: DataSource, count: number = 50) {
-  const eventRepository = dataSource.getRepository(Event);
-  const categoryRepository = dataSource.getRepository(Category);
-
-  const allCategories = await categoryRepository.find();
-  const categoryMap = new Map(allCategories.map((cat) => [cat.name, cat]));
+export async function seedEvents(manager: EntityManager, count: number = 50) {
+  const categories = await manager.find(Category);
 
   for (let i = 0; i < count; i++) {
     const sampleEvent = randomFromArray(SAMPLE_EVENTS);
 
-    // Get the actual Category entities based on the category names
     const eventCategories = sampleEvent.categories
-      .map((catName) => categoryMap.get(catName))
+      .map((catName) => categories.find((c) => c.name === catName))
       .filter((cat): cat is Category => cat !== undefined);
 
-    const event = eventRepository.create({
-      title: sampleEvent.title,
-      description: sampleEvent.description,
-      eventDate: randomFutureDate(),
-      location: randomLocation(),
-      status: randomStatus(),
-      scanCount: Math.floor(Math.random() * 10) + 1,
-      confidenceScore: Math.random() * 0.5 + 0.5, // Random score between 0.5 and 1.0
-      categories: eventCategories,
-    });
-
-    await eventRepository.save(event);
+    await manager
+      .createQueryBuilder()
+      .insert()
+      .into(Event)
+      .values({
+        title: sampleEvent.title,
+        description: sampleEvent.description,
+        eventDate: randomFutureDate(),
+        location: randomLocation(),
+        status: randomStatus(),
+        scanCount: Math.floor(Math.random() * 10) + 1,
+        confidenceScore: Math.random() * 0.5 + 0.5,
+        categories: eventCategories,
+      })
+      .execute();
   }
 }

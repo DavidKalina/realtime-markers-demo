@@ -191,6 +191,7 @@ export class EventProcessingService {
         {
           role: "user",
           content: `Extract the following details from this text in a JSON format:
+                 - emoji: The most relevant emoji
                  - title: The event title
                  - date: The event date and time in ISO-8601 format (YYYY-MM-DDTHH:mm:ss.sssZ)
                  - address: The complete address including street, city, state, and zip if available

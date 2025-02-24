@@ -1,16 +1,14 @@
-import "reflect-metadata";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import Redis from "ioredis";
-import { DataSource } from "typeorm";
-import { Category } from "./entities/Category";
-import { Event } from "./entities/Event";
-import { EventService } from "./services/EventService";
-import { EventProcessingService } from "./services/EventProcessingService";
 import { OpenAI } from "openai";
-import { ThirdSpace } from "./entities/ThirdSpace";
-import { SeedStatus } from "./entities/SeedStatus";
+import "reflect-metadata";
+import { DataSource } from "typeorm";
+import AppDataSource from "./data-source";
+import { Event } from "./entities/Event";
+import { EventProcessingService } from "./services/EventProcessingService";
+import { EventService } from "./services/EventService";
 
 // Create Hono app
 const app = new Hono();
@@ -31,17 +29,6 @@ app.use("*", cors());
 // Create and initialize the database connection.
 // Since migrations and seeding are handled externally,
 // we set synchronize to false.
-const dataSource = new DataSource({
-  type: "postgres",
-  url: process.env.DATABASE_URL,
-  entities: [Event, Category, ThirdSpace, SeedStatus], // Add SeedStatus
-  synchronize: false,
-  logging: true,
-  connectTimeoutMS: 10000,
-  ssl: false,
-  migrations: [`${__dirname}/migrations/*.ts`], // Add migrations path
-  migrationsRun: true, // Automatically run migrations on startup
-});
 
 // Add these near the top of your file with other imports
 let eventService: EventService;
@@ -53,12 +40,15 @@ const openai = new OpenAI({
 
 // Create and initialize the database connection.
 // Create and initialize the database connection.
+// index.ts
+
+// Remove the DataSource configuration here and just use:
 const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource> => {
   for (let i = 0; i < retries; i++) {
     try {
-      await dataSource.initialize();
+      await AppDataSource.initialize();
       console.log("Database connection established");
-      return dataSource;
+      return AppDataSource;
     } catch (error) {
       console.error(`Database initialization attempt ${i + 1} failed:`, error);
 

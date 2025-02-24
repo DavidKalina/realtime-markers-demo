@@ -1,85 +1,48 @@
+// seeds/index.ts
 import { DataSource } from "typeorm";
-import { seedCategories } from "./categories";
-import { seedEvents } from "./events";
-import { SeedStatus } from "../entities/SeedStatus";
-import { Event } from "../entities/Event";
 import { Category } from "../entities/Category";
+import { categories } from "./categories";
+import { seedEvents } from "./events";
 
 export async function seedDatabase(dataSource: DataSource) {
+  const queryRunner = dataSource.createQueryRunner();
+
   try {
+    // Start transaction
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     // Check if already seeded
-    const seedStatusRepo = dataSource.getRepository(SeedStatus);
-    const existingSeed = await seedStatusRepo.findOne({
-      where: { seedName: "initial" },
-    });
-
-    // For development, always reseed
-    if (existingSeed) {
-      console.log("Clearing existing seed data...");
-
-      // Create query runner for transaction
-      const queryRunner = dataSource.createQueryRunner();
-      await queryRunner.connect();
-      await queryRunner.startTransaction();
-
-      try {
-        // Delete in correct order to respect foreign key constraints
-        await queryRunner.query('DELETE FROM "event_categories"');
-        await queryRunner.query('DELETE FROM "events"');
-        await queryRunner.query('DELETE FROM "categories"');
-        await queryRunner.query('DELETE FROM "seed_status"');
-
-        await queryRunner.commitTransaction();
-      } catch (err) {
-        await queryRunner.rollbackTransaction();
-        throw err;
-      } finally {
-        await queryRunner.release();
-      }
-    }
 
     console.log("Starting database seeding...");
 
-    // Seed categories first
+    // Seed categories
     console.log("Seeding categories...");
-    await seedCategories(dataSource);
+    for (const categoryData of categories) {
+      await queryRunner.manager
+        .createQueryBuilder()
+        .insert()
+        .into(Category)
+        .values(categoryData)
+        .execute();
+    }
 
-    // Verify categories were created
-    const categoriesCount = await dataSource.getRepository(Category).count();
-    console.log(`Verified categories count: ${categoriesCount}`);
+    // Verify categories
+    const categoriesCount = await queryRunner.manager.count(Category);
+    console.log(`Categories created: ${categoriesCount}`);
 
     // Seed events
     console.log("Seeding events...");
-    await seedEvents(dataSource, 20); // Start with fewer events for testing
+    await seedEvents(queryRunner.manager);
 
-    // Verify events were created
-    const eventsCount = await dataSource.getRepository(Event).count();
-    console.log(`Verified events count: ${eventsCount}`);
-
-    // Verify events have categories
-    const eventsWithCategories = await dataSource.getRepository(Event).find({
-      relations: ["categories"],
-    });
-    console.log(`Events with categories: ${eventsWithCategories.length}`);
-    console.log(
-      `First event categories: `,
-      eventsWithCategories[0]?.categories?.map((c) => c.name) || "No events found"
-    );
-
-    // Mark as seeded
-    await seedStatusRepo.save({
-      seedName: "initial",
-      completed: true,
-    });
-
+    // Commit transaction
+    await queryRunner.commitTransaction();
     console.log("Database seeded successfully!");
   } catch (error) {
     console.error("Error seeding database:", error);
-    // Log detailed error
-    if (error instanceof Error) {
-      console.error("Error details:", error.message);
-      console.error("Stack trace:", error.stack);
-    }
+    await queryRunner.rollbackTransaction();
     throw error;
+  } finally {
+    await queryRunner.release();
   }
 }
