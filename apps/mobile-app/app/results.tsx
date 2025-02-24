@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { type Point } from "geojson";
 
-const API_URL = `https://28f6-69-162-231-94.ngrok-free.app/api`;
+const API_URL = `https://c8b6-69-162-231-94.ngrok-free.app/api`;
 
 interface Category {
   id: string;
@@ -88,6 +88,8 @@ const ResultsScreen: React.FC = () => {
   useEffect(() => {
     fetchEventDetails();
   }, [eventId]);
+
+  console.log({ eventId });
 
   const fetchEventDetails = async () => {
     try {

@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
-import { StyleSheet, View, Text } from "react-native";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { StyleSheet, Text } from "react-native";
 import Mapbox, { MarkerView } from "@rnmapbox/maps";
 import * as Location from "expo-location";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
 import AnimatedMarker from "./AnimatedMapMarker";
+import MarkerDetailsPopup from "./MarkerDetailsPopup";
 
 interface MapboxRegion {
   geometry: {
@@ -21,9 +22,7 @@ interface MapboxRegion {
   type: string;
 }
 
-Mapbox.setAccessToken(
-  "pk.eyJ1IjoiZGtwcm90b24iLCJhIjoiY203aDVwcXBuMDFyMDJub2l0bzUxbHgxYSJ9.1PJbVQGOpkyRfPDhe2wsNw"
-);
+Mapbox.setAccessToken("YOUR_MAPBOX_ACCESS_TOKEN");
 
 interface MapViewProps {
   style?: object;
@@ -32,11 +31,14 @@ interface MapViewProps {
 
 export default function MapView({
   style,
-  wsUrl = "wss://0af6-69-162-231-94.ngrok-free.app",
+  wsUrl = "wss://31e4-69-162-231-94.ngrok-free.app",
 }: MapViewProps) {
   const [location, setLocation] = useState<[number, number]>([-122.4324, 37.78825]);
   const { markers, updateViewport } = useMapWebSocket(wsUrl);
-  const [selectedMarker, setSelectedMarker] = useState<string | null>(null);
+  const [selectedMarker, setSelectedMarker] = useState<any | null>(null);
+
+  // Create a ref for the Camera
+  const cameraRef = useRef<Mapbox.Camera>(null);
 
   // Get user location
   useEffect(() => {
@@ -69,36 +71,54 @@ export default function MapView({
     [updateViewport]
   );
 
+  console.log({ selectedMarker });
+
+  // When a marker is selected, move the camera to center on it.
+  useEffect(() => {
+    if (selectedMarker && cameraRef.current) {
+      const marker = markers.find((m) => m.id === selectedMarker.id);
+      if (marker) {
+        // Use the imperative API to fly to the selected marker.
+        cameraRef.current.flyTo(marker.coordinates, 1000);
+      }
+    }
+  }, [selectedMarker]);
+
   return (
-    <Mapbox.MapView
-      style={[styles.map, style]}
-      styleURL={Mapbox.StyleURL.Street}
-      logoEnabled={false}
-      attributionEnabled={false}
-      onRegionDidChange={onRegionDidChange as any}
-    >
-      <Mapbox.Camera
-        zoomLevel={14}
-        centerCoordinate={location}
-        animationMode="flyTo"
-        animationDuration={2000}
-      />
+    <>
+      <Mapbox.MapView
+        style={[styles.map, style]}
+        styleURL={Mapbox.StyleURL.Street}
+        logoEnabled={false}
+        attributionEnabled={false}
+        onRegionDidChange={onRegionDidChange as any}
+      >
+        <Mapbox.Camera
+          ref={cameraRef}
+          zoomLevel={14}
+          centerCoordinate={location}
+          animationMode="flyTo"
+          animationDuration={2000}
+        />
 
-      {/* User Location */}
-      <Mapbox.UserLocation visible={true} showsUserHeadingIndicator={true} />
+        {/* User Location */}
+        <Mapbox.UserLocation visible={true} showsUserHeadingIndicator={true} />
 
-      {/* Render Markers */}
-      {markers.map((marker) => (
-        <MarkerView
-          key={marker.id}
-          id={marker.id}
-          coordinate={marker.coordinates}
-          anchor={{ x: 0.5, y: 1 }}
-        >
-          <AnimatedMarker />
-        </MarkerView>
-      ))}
-    </Mapbox.MapView>
+        {/* Render Markers */}
+        {markers.map((marker) => (
+          <React.Fragment key={marker.id}>
+            <MarkerView id={marker.id} coordinate={marker.coordinates}>
+              <AnimatedMarker
+                emoji={marker.data.emoji}
+                isSelected={selectedMarker === marker.id}
+                onPress={() => setSelectedMarker(marker)}
+              />
+            </MarkerView>
+          </React.Fragment>
+        ))}
+      </Mapbox.MapView>
+      {selectedMarker ? <MarkerDetailsPopup marker={selectedMarker.data} /> : null}
+    </>
   );
 }
 

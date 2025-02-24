@@ -39,6 +39,12 @@ export function useMapWebSocket(wsUrl: string) {
           setClientId(message.clientId);
           break;
 
+        case "marker_delete":
+          setMarkers((prevMarkers) =>
+            prevMarkers.filter((marker) => marker.id !== message.data.id)
+          );
+          break;
+
         case "initial_markers":
           setMarkers(
             message.data.map((marker: any) => ({

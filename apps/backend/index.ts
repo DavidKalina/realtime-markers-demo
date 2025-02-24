@@ -231,6 +231,32 @@ events.post("/", async (c) => {
   }
 });
 
+events.delete("/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const event = await eventService.getEventById(id); // Get the event before deletion
+    const isSuccess = await eventService.deleteEvent(id);
+
+    if (isSuccess && event) {
+      await redisPub.publish(
+        "event_changes",
+        JSON.stringify({
+          operation: "DELETE",
+          record: {
+            id: event.id,
+            location: event.location, // Include location for reference
+          },
+        })
+      );
+    }
+
+    return c.json({ success: isSuccess });
+  } catch (error) {
+    console.error("Error deleting event:", error);
+    return c.json({ error: "Failed to delete event" }, 500);
+  }
+});
+
 // Get event by id
 events.get("/:id", async (c) => {
   try {

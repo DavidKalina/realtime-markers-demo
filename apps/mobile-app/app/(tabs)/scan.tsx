@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const API_URL = "https://28f6-69-162-231-94.ngrok-free.app/api/events/process";
+const API_URL = "https://c8b6-69-162-231-94.ngrok-free.app/api/events/process";
 
 const uploadImageToServer = async (imageUri: string): Promise<any> => {
   try {

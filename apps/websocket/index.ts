@@ -10,6 +10,7 @@ interface MarkerData {
   maxX: number; // longitude
   maxY: number; // latitude
   data: {
+    title: string;
     emoji: string;
     color: string;
     created_at: string;
@@ -79,6 +80,7 @@ async function initializeState() {
             maxX: lng,
             maxY: lat,
             data: {
+              title: event.title,
               emoji: "📍",
               color: "red",
               created_at: event.created_at,
@@ -119,6 +121,33 @@ async function initializeState() {
 redisSub.on("message", (channel, message) => {
   try {
     const { operation, record } = JSON.parse(message);
+
+    if (operation === "DELETE") {
+      // Find and remove the marker from the R-tree
+      const markerToDelete = tree.all().find((marker) => marker.id === record.id);
+      if (markerToDelete) {
+        tree.remove(markerToDelete, (a, b) => a.id === b.id);
+
+        // Send immediate delete notification to all clients
+        const deletePayload = JSON.stringify({
+          type: "marker_delete",
+          data: {
+            id: record.id,
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        clients.forEach((client) => {
+          try {
+            client.send(deletePayload);
+          } catch (error) {
+            console.error(`Failed to send delete event to client ${client.data.clientId}:`, error);
+          }
+        });
+      }
+      return;
+    }
+
     const [lng, lat] = record.location.coordinates;
 
     const markerData: MarkerData = {
@@ -128,6 +157,7 @@ redisSub.on("message", (channel, message) => {
       maxX: lng,
       maxY: lat,
       data: {
+        title: record.title,
         emoji: record.emoji,
         color: record.color,
         created_at: record.created_at,
