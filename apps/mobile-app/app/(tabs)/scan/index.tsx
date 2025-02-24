@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
 import { CameraView } from "expo-camera";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,10 +13,18 @@ import { DynamicProcessingView } from "@/components/ProcessingView";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
+// Document detection states
+type DetectionStatus = "none" | "detecting" | "aligned";
+
 export default function ScanScreen() {
   const [hasPermission, setHasPermission] = useState(false);
   const { cameraRef, takePicture, isCapturing, isCameraActive } = useCamera();
   const router = useRouter();
+
+  // Document detection state
+  const [detectionStatus, setDetectionStatus] = useState<DetectionStatus>("none");
+  const [isFrameReady, setIsFrameReady] = useState(false);
+  const [detectionInterval, setDetectionInterval] = useState<NodeJS.Timeout | null>(null);
 
   const {
     uploadImage,
@@ -29,15 +37,86 @@ export default function ScanScreen() {
     resetUpload,
   } = useImageUpload();
 
+  // Setup mock document detection
+  // In a real app, replace this with actual frame analysis
+  const startDocumentDetection = useCallback(() => {
+    if (detectionInterval) {
+      clearInterval(detectionInterval);
+    }
+
+    // Simulate varying detection confidence
+    const interval: any = setInterval(() => {
+      const random = Math.random();
+
+      // Provide guidance based on simulated detection
+      if (random < 0.3) {
+        setDetectionStatus("none");
+        setIsFrameReady(false);
+      } else if (random < 0.7) {
+        setDetectionStatus("detecting");
+        setIsFrameReady(false);
+      } else {
+        setDetectionStatus("aligned");
+        setIsFrameReady(true);
+      }
+    }, 800); // Update every 800ms
+
+    setDetectionInterval(interval);
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, []);
+
+  // Start detection when camera is active
+  useEffect(() => {
+    if (isCameraActive && !isCapturing && !isProcessing) {
+      const cleanup = startDocumentDetection();
+
+      return () => {
+        cleanup();
+        setDetectionStatus("none");
+        setIsFrameReady(false);
+      };
+    }
+  }, [isCameraActive, isCapturing, isProcessing]);
+
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (detectionInterval) {
+        clearInterval(detectionInterval);
+      }
+    };
+  }, [detectionInterval]);
+
   const handleCapture = async () => {
+    // Stop detection while capturing
+    if (detectionInterval) {
+      clearInterval(detectionInterval);
+      setDetectionInterval(null);
+    }
+
     const imageUri = await takePicture();
     if (imageUri) {
       await uploadImage(imageUri);
     }
   };
 
+  const handleFrameReady = () => {
+    // Optional: Automatically trigger capture when frame is aligned
+    // if you want auto-capture, uncomment:
+    // if (!isCapturing && !isProcessing) {
+    //   handleCapture();
+    // }
+  };
+
   const handleNewScan = () => {
     resetUpload();
+    // Restart detection
+    startDocumentDetection();
   };
 
   // Handle camera permission request
@@ -79,13 +158,19 @@ export default function ScanScreen() {
         <Text style={styles.headerText}>Scan Document</Text>
       </Animated.View>
 
-      <Animated.View style={styles.contentContainer} entering={FadeIn.duration(800)}>
-        <CameraView ref={cameraRef} style={styles.camera}>
-          <ScannerOverlay />
-        </CameraView>
-      </Animated.View>
+      <View style={styles.cameraWrapper}>
+        <Animated.View style={styles.contentContainer} entering={FadeIn.duration(800)}>
+          <CameraView ref={cameraRef} style={styles.camera}>
+            <ScannerOverlay
+              detectionStatus={detectionStatus}
+              onFrameReady={handleFrameReady}
+              guideText="Position your document within the frame"
+            />
+          </CameraView>
+        </Animated.View>
+      </View>
 
-      <CaptureButton onPress={handleCapture} isCapturing={isCapturing} />
+      <CaptureButton onPress={handleCapture} isCapturing={isCapturing} isReady={isFrameReady} />
     </SafeAreaView>
   );
 }
@@ -117,11 +202,15 @@ const styles = StyleSheet.create({
     padding: 8,
     marginRight: 8,
   },
+  cameraWrapper: {
+    flex: 1,
+  },
   contentContainer: {
     flex: 1,
     position: "relative",
     borderRadius: 10,
     overflow: "hidden",
+    margin: 0,
   },
   camera: {
     flex: 1,

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, View, Text, Dimensions } from "react-native";
 import Animated, {
   useSharedValue,
@@ -6,24 +6,78 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  withDelay,
   Easing,
+  cancelAnimation,
+  runOnJS,
 } from "react-native-reanimated";
 
 interface ScannerOverlayProps {
   guideText?: string;
+  detectionStatus?: "none" | "detecting" | "aligned"; // Optional status from external detection
+  onFrameReady?: () => void; // Callback when frame is ready for capture
 }
 
 export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
   guideText = "Position your document within the frame",
+  detectionStatus = "none",
+  onFrameReady,
 }) => {
+  // Local state for UI feedback
+  const [statusMessage, setStatusMessage] = useState(guideText);
+
   // Animation values
   const pulseOpacity = useSharedValue(0.5);
+  const arrowOpacity = useSharedValue(1);
   const arrowOffset = useSharedValue(0);
-  const textOpacity = useSharedValue(1);
+  const frameColor = useSharedValue(0); // 0 = default, 1 = success
+  const successPulse = useSharedValue(0);
+
+  // Update UI based on detection status
+  useEffect(() => {
+    switch (detectionStatus) {
+      case "none":
+        // Default state
+        frameColor.value = withTiming(0, { duration: 300 });
+        arrowOpacity.value = withTiming(1, { duration: 300 });
+        setStatusMessage(guideText);
+        break;
+
+      case "detecting":
+        // Document being detected but not aligned
+        frameColor.value = withTiming(0.5, { duration: 300 });
+        arrowOpacity.value = withTiming(0.7, { duration: 300 });
+        setStatusMessage("Almost there, adjust slightly...");
+        break;
+
+      case "aligned":
+        // Document properly aligned
+        frameColor.value = withTiming(1, { duration: 300 });
+        arrowOpacity.value = withTiming(0, { duration: 300 });
+
+        // Success pulse animation
+        successPulse.value = 0;
+        successPulse.value = withSequence(
+          withTiming(1, { duration: 400 }),
+          withTiming(0, { duration: 400 })
+        );
+
+        setStatusMessage("Perfect! Tap to capture");
+
+        // Call onFrameReady after short delay to avoid bouncing
+        if (onFrameReady) {
+          const timer = setTimeout(() => {
+            onFrameReady();
+          }, 500);
+          return () => clearTimeout(timer);
+        }
+        break;
+    }
+  }, [detectionStatus]);
 
   // Setup animations
   useEffect(() => {
-    // Pulsing effect for the frame opacity
+    // Pulsing effect for the frame
     pulseOpacity.value = withRepeat(
       withSequence(
         withTiming(0.8, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
@@ -42,33 +96,51 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
       -1,
       true
     );
+
+    // Cleanup animations on unmount
+    return () => {
+      cancelAnimation(pulseOpacity);
+      cancelAnimation(arrowOffset);
+      cancelAnimation(frameColor);
+      cancelAnimation(successPulse);
+      cancelAnimation(arrowOpacity);
+    };
   }, []);
 
   // Animated styles
-  const frameAnimatedStyle = useAnimatedStyle(() => {
+  const frameBorderStyle = useAnimatedStyle(() => {
+    // Interpolate color from yellow to green based on detection status
+    const r = 255 - frameColor.value * 150;
+    const g = 219;
+    const b = 105 + frameColor.value * 40;
+
     return {
-      opacity: pulseOpacity.value,
+      borderColor: `rgba(${r}, ${g}, ${b}, ${pulseOpacity.value})`,
     };
   });
 
   const arrowAnimatedStyle = useAnimatedStyle(() => {
     return {
+      opacity: arrowOpacity.value,
       transform: [{ translateY: arrowOffset.value }],
     };
   });
 
-  const textAnimatedStyle = useAnimatedStyle(() => {
+  const successOverlayStyle = useAnimatedStyle(() => {
     return {
-      opacity: textOpacity.value,
+      opacity: successPulse.value * 0.3,
     };
   });
 
   return (
     <View style={styles.overlay}>
-      {/* Container for the scan frame */}
+      {/* Success flash */}
+      <Animated.View style={[styles.successOverlay, successOverlayStyle]} />
+
+      {/* Frame container */}
       <View style={styles.frameContainer}>
         {/* Animated frame border */}
-        <Animated.View style={[styles.frameBorder, frameAnimatedStyle]} />
+        <Animated.View style={[styles.frameBorder, frameBorderStyle]} />
 
         {/* Static corner elements */}
         <View style={styles.staticFrame}>
@@ -78,7 +150,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
           <View style={styles.cornerBR} />
         </View>
 
-        {/* Guide arrows - separate from frame to avoid transform conflicts */}
+        {/* Guide arrows */}
         <View style={styles.guideArrowsContainer}>
           <Animated.View style={[styles.arrowTop, arrowAnimatedStyle]}>
             <Text style={styles.arrowIndicator}>↓</Text>
@@ -101,7 +173,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
       </View>
 
       {/* Guide text */}
-      <Animated.Text style={[styles.guideText, textAnimatedStyle]}>{guideText}</Animated.Text>
+      <Animated.Text style={styles.guideText}>{statusMessage}</Animated.Text>
     </View>
   );
 };
@@ -113,6 +185,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     zIndex: 50,
+  },
+  successOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#69db7c",
+    opacity: 0,
+    zIndex: 45,
   },
   frameContainer: {
     width: "85%",
@@ -135,7 +213,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderWidth: 2,
-    borderColor: "rgba(105, 219, 124, 0.6)",
+    borderColor: "rgba(255, 219, 105, 0.6)", // Initial yellow color
     borderStyle: "dashed",
     zIndex: 1,
   },
