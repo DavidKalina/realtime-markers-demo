@@ -1,15 +1,5 @@
+import { useMarkerStore } from "@/stores/markerStore";
 import { useState, useEffect, useCallback } from "react";
-
-interface Marker {
-  id: string;
-  coordinates: [number, number];
-  data: {
-    emoji: string;
-    color: string;
-    created_at: string;
-    updated_at: string;
-  };
-}
 
 interface ViewPort {
   north: number;
@@ -20,8 +10,9 @@ interface ViewPort {
 
 export function useMapWebSocket(wsUrl: string) {
   const [ws, setWs] = useState<WebSocket | null>(null);
-  const [markers, setMarkers] = useState<Marker[]>([]);
   const [clientId, setClientId] = useState<string | null>(null);
+
+  const { setMarkers, updateMarkers, deleteMarker } = useMarkerStore();
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -40,9 +31,7 @@ export function useMapWebSocket(wsUrl: string) {
           break;
 
         case "marker_delete":
-          setMarkers((prevMarkers) =>
-            prevMarkers.filter((marker) => marker.id !== message.data.id)
-          );
+          deleteMarker(message.data.id);
           break;
 
         case "initial_markers":
@@ -56,24 +45,12 @@ export function useMapWebSocket(wsUrl: string) {
           break;
 
         case "marker_updates_batch":
-          setMarkers((prevMarkers) => {
-            const newMarkers = [...prevMarkers];
-            message.data.forEach((update: any) => {
-              const index = newMarkers.findIndex((m) => m.id === update.id);
-              const updatedMarker: any = {
-                id: update.id,
-                coordinates: [update.minX, update.minY],
-                data: update.data,
-              };
-
-              if (index !== -1) {
-                newMarkers[index] = updatedMarker;
-              } else {
-                newMarkers.push(updatedMarker);
-              }
-            });
-            return newMarkers;
-          });
+          const updates = message.data.map((update: any) => ({
+            id: update.id,
+            coordinates: [update.minX, update.minY],
+            data: update.data,
+          }));
+          updateMarkers(updates);
           break;
       }
     };
@@ -91,7 +68,7 @@ export function useMapWebSocket(wsUrl: string) {
     return () => {
       websocket.close();
     };
-  }, [wsUrl]);
+  }, [wsUrl, setMarkers, updateMarkers, deleteMarker]);
 
   // Function to update viewport
   const updateViewport = useCallback(
@@ -107,6 +84,8 @@ export function useMapWebSocket(wsUrl: string) {
     },
     [ws]
   );
+
+  const markers = useMarkerStore((state) => state.markers);
 
   return {
     markers,

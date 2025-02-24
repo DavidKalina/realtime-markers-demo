@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { StyleSheet, Text } from "react-native";
+import { useMapWebSocket } from "@/hooks/useMapWebsocket";
+import { useMarkerStore } from "@/stores/markerStore";
 import Mapbox, { MarkerView } from "@rnmapbox/maps";
 import * as Location from "expo-location";
-import { useMapWebSocket } from "@/hooks/useMapWebsocket";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { StyleSheet } from "react-native";
 import AnimatedMarker from "./AnimatedMapMarker";
 import MarkerDetailsPopup from "./MarkerDetailsPopup";
 
@@ -34,11 +35,13 @@ export default function MapView({
   wsUrl = "wss://31e4-69-162-231-94.ngrok-free.app",
 }: MapViewProps) {
   const [location, setLocation] = useState<[number, number]>([-122.4324, 37.78825]);
-  const { markers, updateViewport } = useMapWebSocket(wsUrl);
-  const [selectedMarker, setSelectedMarker] = useState<any | null>(null);
-
-  // Create a ref for the Camera
+  const { updateViewport } = useMapWebSocket(wsUrl);
   const cameraRef = useRef<Mapbox.Camera>(null);
+
+  // Get markers and selection from store
+  const markers = useMarkerStore((state) => state.markers);
+  const selectedMarker = useMarkerStore((state) => state.selectedMarker);
+  const selectMarker = useMarkerStore((state) => state.selectMarker);
 
   // Get user location
   useEffect(() => {
@@ -71,19 +74,12 @@ export default function MapView({
     [updateViewport]
   );
 
-  console.log({ selectedMarker });
-
-  // When a marker is selected, move the camera to center on it.
+  // When a marker is selected, move the camera to center on it
   useEffect(() => {
     if (selectedMarker && cameraRef.current) {
-      const marker = markers.find((m) => m.id === selectedMarker.id);
-      if (marker) {
-        // Use the imperative API to fly to the selected marker.
-        cameraRef.current.flyTo(marker.coordinates, 1000);
-      }
+      cameraRef.current.flyTo(selectedMarker.coordinates, 1000);
     }
   }, [selectedMarker]);
-
   return (
     <>
       <Mapbox.MapView
@@ -101,23 +97,22 @@ export default function MapView({
           animationDuration={2000}
         />
 
-        {/* User Location */}
         <Mapbox.UserLocation visible={true} showsUserHeadingIndicator={true} />
 
-        {/* Render Markers */}
         {markers.map((marker) => (
           <React.Fragment key={marker.id}>
             <MarkerView id={marker.id} coordinate={marker.coordinates}>
               <AnimatedMarker
                 emoji={marker.data.emoji}
-                isSelected={selectedMarker === marker.id}
-                onPress={() => setSelectedMarker(marker)}
+                isSelected={selectedMarker?.id === marker.id}
+                onPress={() => selectMarker(marker.id)}
               />
             </MarkerView>
           </React.Fragment>
         ))}
       </Mapbox.MapView>
-      {selectedMarker ? <MarkerDetailsPopup marker={selectedMarker.data} /> : null}
+
+      {selectedMarker && <MarkerDetailsPopup marker={selectedMarker.data} />}
     </>
   );
 }
