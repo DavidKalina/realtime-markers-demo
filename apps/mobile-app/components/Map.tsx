@@ -3,6 +3,7 @@ import { StyleSheet, View, Text } from "react-native";
 import Mapbox, { MarkerView } from "@rnmapbox/maps";
 import * as Location from "expo-location";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
+import AnimatedMarker from "./AnimatedMapMarker";
 
 interface MapboxRegion {
   geometry: {
@@ -31,7 +32,7 @@ interface MapViewProps {
 
 export default function MapView({
   style,
-  wsUrl = "wss://2504-69-162-231-94.ngrok-free.app",
+  wsUrl = "wss://0af6-69-162-231-94.ngrok-free.app",
 }: MapViewProps) {
   const [location, setLocation] = useState<[number, number]>([-122.4324, 37.78825]);
   const { markers, updateViewport } = useMapWebSocket(wsUrl);
@@ -94,7 +95,7 @@ export default function MapView({
           coordinate={marker.coordinates}
           anchor={{ x: 0.5, y: 1 }}
         >
-          <Text>📍</Text>
+          <AnimatedMarker />
         </MarkerView>
       ))}
     </Mapbox.MapView>

@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-const API_URL = "https://577e-69-162-231-94.ngrok-free.app/api/events/process"; // Replace with your actual server URL
+const API_URL = "https://28f6-69-162-231-94.ngrok-free.app/api/events/process"; // Replace with your actual server URL
 
 const uploadImageToServer = async (imageUri: string): Promise<any> => {
   try {

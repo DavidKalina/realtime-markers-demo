@@ -17,7 +17,7 @@ COPY apps/websocket/tsconfig.json ./apps/websocket/
 WORKDIR /app/apps/websocket
 
 # Expose WebSocket port
-EXPOSE 8080
+EXPOSE 8081
 
 # Run the app
 CMD ["bun", "index.ts"]
