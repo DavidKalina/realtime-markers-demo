@@ -171,6 +171,7 @@ events.post("/process", async (c) => {
     // Map the extracted event details to your Event entity fields.
     const eventDetails = scanResult.eventDetails;
     const newEvent = await eventService.createEvent({
+      emoji: eventDetails.emoji,
       title: eventDetails.title,
       eventDate: new Date(eventDetails.date),
       location: eventDetails.location, // Use the Point object directly

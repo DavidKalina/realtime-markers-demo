@@ -9,6 +9,7 @@ import type { Point } from "geojson";
 interface ScanResult {
   confidence: number;
   eventDetails: {
+    emoji: string;
     title: string;
     date: string;
     address: string; // Changed from location: string
@@ -229,6 +230,7 @@ export class EventProcessingService {
     console.log("LOCATION", location, "Address", address);
 
     return {
+      emoji: parsedDetails.emoji || "📍",
       title: parsedDetails.title || "",
       date: eventDate,
       address: address,

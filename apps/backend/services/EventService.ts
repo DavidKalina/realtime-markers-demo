@@ -5,6 +5,7 @@ import { Category } from "../entities/Category";
 import { ThirdSpace } from "../entities/ThirdSpace";
 
 interface CreateEventInput {
+  emoji: string;
   title: string;
   description?: string;
   eventDate: Date;
@@ -67,6 +68,7 @@ export class EventService {
 
   async createEvent(input: CreateEventInput): Promise<Event> {
     const eventData: DeepPartial<Event> = {
+      emoji: input.emoji,
       title: input.title,
       description: input.description,
       confidenceScore: input.confidenceScore,

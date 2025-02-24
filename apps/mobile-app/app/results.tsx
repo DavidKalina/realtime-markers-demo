@@ -34,6 +34,7 @@ enum EventStatus {
 
 interface Event {
   id: string;
+  emoji: string;
   title: string;
   description?: string;
   eventDate: string;
@@ -144,6 +145,7 @@ const ResultsScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
+          <Text style={styles.title}>{event.emoji}</Text>
           <Text style={styles.title}>{event.title}</Text>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(event.status) }]}>
             <Text style={styles.statusText}>{event.status}</Text>
