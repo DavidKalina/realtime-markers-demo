@@ -177,11 +177,11 @@ const ResultsScreen: React.FC = () => {
             </View>
           )}
 
-          {event.categories.length > 0 && (
+          {event.categories?.length > 0 && (
             <View style={styles.detailRow}>
               <Text style={styles.label}>Categories</Text>
               <View style={styles.categoriesContainer}>
-                {event.categories.map((category) => (
+                {event.categories?.map((category) => (
                   <View key={category.id} style={styles.categoryBadge}>
                     <Text style={styles.categoryText}>{category.name}</Text>
                   </View>

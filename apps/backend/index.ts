@@ -95,9 +95,17 @@ const redisPub = new Redis({
 const events = new Hono();
 
 // Get all events
+// Get all events
 events.get("/", async (c) => {
   try {
-    const eventsData = await eventService.getEvents();
+    const limit = c.req.query("limit");
+    const offset = c.req.query("offset");
+
+    const eventsData = await eventService.getEvents({
+      limit: limit ? parseInt(limit) : undefined,
+      offset: offset ? parseInt(offset) : undefined,
+    });
+
     return c.json(eventsData);
   } catch (error) {
     console.error("Error fetching events:", error);
@@ -169,18 +177,21 @@ events.get("/by-categories", async (c) => {
   }
 });
 
+// Updated search route with cursor-based pagination
 events.get("/search", async (c) => {
   try {
     const query = c.req.query("q");
     const limit = c.req.query("limit");
+    const cursor = c.req.query("cursor"); // Use cursor instead of offset
 
     if (!query) {
       return c.json({ error: "Missing required query parameter: q" }, 400);
     }
 
-    const searchResults = await eventService.searchEvents(
+    const { results: searchResults, nextCursor } = await eventService.searchEvents(
       query,
-      limit ? parseInt(limit) : undefined
+      limit ? parseInt(limit) : undefined,
+      cursor || undefined
     );
 
     return c.json({
@@ -189,6 +200,7 @@ events.get("/search", async (c) => {
         ...event,
         _score: score, // Add similarity score to each result
       })),
+      nextCursor, // Include the cursor for the next page
     });
   } catch (error) {
     console.error("Error searching events:", error);
@@ -201,7 +213,6 @@ events.get("/search", async (c) => {
     );
   }
 });
-
 events.post("/process", async (c) => {
   try {
     // Extract form data from the request

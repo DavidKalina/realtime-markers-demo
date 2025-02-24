@@ -1,26 +1,39 @@
-import React, { useState } from "react";
-import { StyleSheet, View, Text } from "react-native";
-import { CameraView } from "expo-camera";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraPermission } from "@/components/CameraPermission";
 import { CaptureButton } from "@/components/CaptureButton";
-import { ProcessingView } from "@/components/ProcessingView";
+import { DynamicProcessingView } from "@/components/ProcessingView";
 import { ScannerOverlay } from "@/components/ScannerOverlay";
+import { SuccessScreen } from "@/components/SuccessScreen";
 import { useCamera } from "@/hooks/useCamera";
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { CameraView } from "expo-camera";
+import React, { useState } from "react";
+import { StyleSheet, Text } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const ScanScreen: React.FC = () => {
   const [hasPermission, setHasPermission] = useState(false);
   const { cameraRef, takePicture, isCapturing, isPermissionLoading, isCameraActive } = useCamera();
 
-  const { uploadImage, isProcessing } = useImageUpload();
+  const {
+    uploadImage,
+    isProcessing,
+    processingStep,
+    processingSteps,
+    processedImageUri,
+    isSuccess,
+    resetUpload,
+  } = useImageUpload();
 
   const handleCapture = async () => {
     const imageUri = await takePicture();
     if (imageUri) {
       await uploadImage(imageUri);
     }
+  };
+
+  const handleNewScan = () => {
+    resetUpload();
   };
 
   // Handle camera permission request
@@ -33,9 +46,20 @@ const ScanScreen: React.FC = () => {
     return null;
   }
 
-  // Show processing view while uploading
+  // Show success screen after processing
+  if (isSuccess && processedImageUri) {
+    return (
+      <SuccessScreen
+        imageUri={processedImageUri}
+        onNewScan={handleNewScan}
+        eventName="Document Successfully Processed"
+      />
+    );
+  }
+
+  // Show dynamic processing view while uploading
   if (isProcessing) {
-    return <ProcessingView />;
+    return <DynamicProcessingView progressSteps={processingSteps} currentStep={processingStep} />;
   }
 
   return (

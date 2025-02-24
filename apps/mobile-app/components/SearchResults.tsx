@@ -1,7 +1,7 @@
 import React from "react";
 import {
   ActivityIndicator,
-  ScrollView,
+  FlatList,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -9,12 +9,21 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 
-interface SearchresultsProps {
+interface SearchResultsProps {
   isLoading: boolean;
+  isLoadingMore: boolean;
   searchResults: any[];
+  hasMoreData: boolean;
+  onLoadMore: () => void;
 }
 
-const SearchResults: React.FC<SearchresultsProps> = ({ isLoading, searchResults }) => {
+const SearchResults: React.FC<SearchResultsProps> = ({
+  isLoading,
+  isLoadingMore,
+  searchResults,
+  hasMoreData,
+  onLoadMore,
+}) => {
   const router = useRouter();
 
   const formatDate = (dateString: string) => {
@@ -26,64 +35,107 @@ const SearchResults: React.FC<SearchresultsProps> = ({ isLoading, searchResults 
     });
   };
 
+  const renderItem = ({ item: event }: any) => (
+    <TouchableOpacity
+      style={styles.eventCard}
+      onPress={() => router.push(`/results?eventId=${event.id}`)}
+    >
+      <Text style={styles.eventEmoji}>{event.emoji}</Text>
+      <View style={styles.eventDetails}>
+        <Text style={styles.eventTitle}>{event.title}</Text>
+
+        {/* Status Badge */}
+        {event.status && (
+          <View style={[styles.statusBadge, styles.statusPENDING || styles.statusPENDING]}>
+            <Text style={styles.statusText}>{event.status}</Text>
+          </View>
+        )}
+
+        <Text style={styles.eventDate}>{formatDate(event.eventDate)}</Text>
+
+        <Text style={styles.eventLocation} numberOfLines={1}>
+          📍 {event.address}
+        </Text>
+
+        {/* Categories - if present */}
+        {event.categories && event.categories.length > 0 && (
+          <View style={styles.categoriesContainer}>
+            {event.categories.slice(0, 2).map((category: any) => (
+              <View key={category.id} style={styles.categoryChip}>
+                <Text style={styles.categoryText}>{category.name}</Text>
+              </View>
+            ))}
+            {event.categories.length > 2 && (
+              <View style={styles.categoryChip}>
+                <Text style={styles.categoryText}>+{event.categories.length - 2} more</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderFooter = () => {
+    if (!isLoadingMore) return null;
+
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color="#69db7c" />
+      </View>
+    );
+  };
+
+  const renderEmpty = () => {
+    if (isLoading) {
+      return <ActivityIndicator size="large" color="#69db7c" style={styles.loader} />;
+    }
+
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No events found</Text>
+      </View>
+    );
+  };
+
   return (
-    <ScrollView style={styles.resultsContainer}>
-      {isLoading ? (
-        <ActivityIndicator size="large" color="#69db7c" style={styles.loader} />
-      ) : (
-        searchResults?.map((event) => (
-          <TouchableOpacity
-            key={event.id}
-            style={styles.eventCard}
-            onPress={() => router.push(`/results?eventId=${event.id}`)}
-          >
-            <Text style={styles.eventEmoji}>{event.emoji}</Text>
-            <View style={styles.eventDetails}>
-              <Text style={styles.eventTitle}>{event.title}</Text>
-
-              {/* Status Badge */}
-              {event.status && (
-                <View style={[styles.statusBadge, styles.statusPENDING]}>
-                  <Text style={styles.statusText}>{event.status}</Text>
-                </View>
-              )}
-
-              <Text style={styles.eventDate}>{formatDate(event.eventDate)}</Text>
-
-              <Text style={styles.eventLocation} numberOfLines={1}>
-                📍 {event.address}
-              </Text>
-
-              {/* Categories - if present */}
-              {event.categories && event.categories.length > 0 && (
-                <View style={styles.categoriesContainer}>
-                  {event.categories.slice(0, 2).map((category: any) => (
-                    <View key={category.id} style={styles.categoryChip}>
-                      <Text style={styles.categoryText}>{category.name}</Text>
-                    </View>
-                  ))}
-                  {event.categories.length > 2 && (
-                    <View style={styles.categoryChip}>
-                      <Text style={styles.categoryText}>+{event.categories.length - 2} more</Text>
-                    </View>
-                  )}
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        ))
-      )}
-    </ScrollView>
+    <FlatList
+      data={searchResults}
+      renderItem={renderItem}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={styles.listContent}
+      onEndReached={onLoadMore}
+      onEndReachedThreshold={0.3}
+      ListFooterComponent={renderFooter}
+      ListEmptyComponent={renderEmpty}
+      initialNumToRender={10}
+      maxToRenderPerBatch={5}
+      windowSize={10}
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  resultsContainer: {
-    flex: 1,
+  listContent: {
     paddingHorizontal: 16,
+    paddingBottom: 20,
+    flexGrow: 1,
   },
   loader: {
     marginVertical: 20,
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: "center",
+  },
+  emptyContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  emptyText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontFamily: "SpaceMono",
   },
   eventCard: {
     flexDirection: "row",

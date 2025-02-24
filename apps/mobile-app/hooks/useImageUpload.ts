@@ -1,16 +1,36 @@
 import { useState } from "react";
 import { Alert } from "react-native";
-import { useRouter } from "expo-router";
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export const useImageUpload = () => {
   const [isProcessing, setIsProcessing] = useState(false);
-  const { push } = useRouter();
+  const [processingStep, setProcessingStep] = useState(0);
+  const [processedImageUri, setProcessedImageUri] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  // Define processing steps
+  const processingSteps = [
+    "Analyzing document...",
+    "Extracting information...",
+    "Validating data...",
+    "Finalizing...",
+  ];
 
   const uploadImage = async (imageUri: string): Promise<boolean> => {
     if (!imageUri) return false;
 
     try {
       setIsProcessing(true);
+      setProcessingStep(0);
+      setProcessedImageUri(imageUri);
+
+      // Simulate processing steps with delays
+      // In a real application, these would be actual API calls
+      for (let i = 0; i < processingSteps.length; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 800)); // simulate processing time
+        setProcessingStep(i);
+      }
 
       const formData = new FormData();
       formData.append("image", {
@@ -19,7 +39,7 @@ export const useImageUpload = () => {
         name: "upload.jpg",
       } as any);
 
-      const response = await fetch(process.env.EXPO_PUBLIC_API_URL!, {
+      const response = await fetch(`${API_URL}/process`, {
         method: "POST",
         body: formData,
         headers: {
@@ -34,14 +54,8 @@ export const useImageUpload = () => {
 
       const result = await response.json();
 
-      // Navigate to home screen
-      push("/");
-
-      // Show success message
-      Alert.alert("Success", "Event processed successfully!", [{ text: "OK" }], {
-        cancelable: false,
-      });
-
+      // Set success and show success screen instead of navigating
+      setIsSuccess(true);
       return true;
     } catch (error) {
       Alert.alert(
@@ -57,8 +71,19 @@ export const useImageUpload = () => {
     }
   };
 
+  const resetUpload = () => {
+    setIsSuccess(false);
+    setProcessedImageUri(null);
+    setProcessingStep(0);
+  };
+
   return {
     uploadImage,
     isProcessing,
+    processingStep,
+    processingSteps,
+    processedImageUri,
+    isSuccess,
+    resetUpload,
   };
 };

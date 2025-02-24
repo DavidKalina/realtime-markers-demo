@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useCameraPermissions } from "expo-camera";
 import { MorphingLoader } from "@/components/MorphingLoader";
@@ -10,6 +10,13 @@ interface CameraPermissionProps {
 
 export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermissionGranted }) => {
   const [permission, requestPermission] = useCameraPermissions();
+
+  // Use useEffect to handle permission state changes
+  useEffect(() => {
+    if (permission?.granted) {
+      onPermissionGranted();
+    }
+  }, [permission?.granted, onPermissionGranted]);
 
   if (!permission) {
     return (
@@ -28,9 +35,8 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
           style={styles.permissionButton}
           onPress={async () => {
             await requestPermission();
-            if (permission.granted) {
-              onPermissionGranted();
-            }
+            // Note: We're not calling onPermissionGranted here anymore
+            // The useEffect above will handle it when permission.granted becomes true
           }}
         >
           <Text style={styles.permissionButtonText}>Grant Access</Text>
@@ -39,8 +45,8 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
     );
   }
 
-  // Permission is granted, call the callback
-  onPermissionGranted();
+  // If permission is granted, just return null
+  // The useEffect hook will handle calling onPermissionGranted
   return null;
 };
 

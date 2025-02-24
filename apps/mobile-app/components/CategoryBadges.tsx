@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native";
 
 const CategoryBadges = ({
   categories = [],
@@ -14,7 +14,7 @@ const CategoryBadges = ({
       style={[styles.scrollContainer, containerStyle]}
       contentContainerStyle={styles.scrollContentContainer}
     >
-      {categories.map((category: any) => (
+      {categories?.map((category: any) => (
         <TouchableOpacity
           key={category.id}
           style={[styles.badge, selectedCategories.includes(category.id) && styles.selectedBadge]}

@@ -13,9 +13,14 @@ const SearchScreen = () => {
     selectedCategories,
     searchResults,
     isLoading,
+    isLoadingMore,
+    hasMoreData,
     handleSearch,
+    handleLoadMore,
     toggleCategory,
   } = useSearch();
+
+  console.log(categories);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -36,8 +41,14 @@ const SearchScreen = () => {
           containerStyle={styles.categoryContainer}
         />
 
-        {/* Results */}
-        <SearchResults isLoading={isLoading} searchResults={searchResults} />
+        {/* Results with infinite scrolling */}
+        <SearchResults
+          isLoading={isLoading}
+          isLoadingMore={isLoadingMore}
+          searchResults={searchResults}
+          hasMoreData={hasMoreData}
+          onLoadMore={handleLoadMore}
+        />
       </View>
     </SafeAreaView>
   );

@@ -46,9 +46,16 @@ export class EventService {
     return response.data[0].embedding;
   }
 
-  async getEvents(): Promise<Event[]> {
+  async getEvents(options: { limit?: number; offset?: number } = {}) {
+    const { limit = 10, offset = 0 } = options;
+
     return this.eventRepository.find({
       relations: ["categories", "thirdSpace"],
+      take: limit,
+      skip: offset,
+      order: {
+        eventDate: "DESC",
+      },
     });
   }
 
@@ -151,10 +158,14 @@ export class EventService {
     return this.eventRepository.save(event);
   }
 
-  async searchEvents(query: string, limit: number = 10): Promise<SearchResult[]> {
+  async searchEvents(
+    query: string,
+    limit: number = 10,
+    cursor?: string
+  ): Promise<{ results: SearchResult[]; nextCursor?: string }> {
     // Basic validation
     if (!query.trim() || query.length < 2) {
-      return [];
+      return { results: [] };
     }
 
     // Generate embedding for vector search
@@ -169,27 +180,64 @@ export class EventService {
     });
     const searchEmbedding = embeddingResponse.data[0].embedding;
 
-    // Combine vector similarity with text matching
-    const results = await this.eventRepository
+    // Parse cursor if provided
+    let cursorData: { id: string; score: number } | undefined;
+    if (cursor) {
+      try {
+        // For Node.js environment
+        const jsonStr = Buffer.from(cursor, "base64").toString("utf-8");
+        cursorData = JSON.parse(jsonStr);
+      } catch (e) {
+        console.error("Invalid cursor format:", e);
+      }
+    }
+
+    // Build query
+    let queryBuilder = this.eventRepository
       .createQueryBuilder("event")
       .leftJoinAndSelect("event.categories", "category")
       .leftJoinAndSelect("event.thirdSpace", "space")
-      .where("event.embedding IS NOT NULL")
-      .andWhere(
-        new Brackets((qb) => {
-          // Text matching conditions
-          qb.where("LOWER(event.title) LIKE LOWER(:query)", {
-            query: `%${query}%`,
-          }).orWhere("LOWER(event.description) LIKE LOWER(:query)", {
-            query: `%${query}%`,
-          });
-        })
-      )
-      .addSelect(
-        `
-      -- Vector similarity (normalized to 0-1)
+      .where("event.embedding IS NOT NULL");
+
+    // Add text matching conditions
+    queryBuilder = queryBuilder.andWhere(
+      new Brackets((qb) => {
+        qb.where("LOWER(event.title) LIKE LOWER(:query)", {
+          query: `%${query}%`,
+        }).orWhere("LOWER(event.description) LIKE LOWER(:query)", {
+          query: `%${query}%`,
+        });
+      })
+    );
+
+    // Add score calculation
+    queryBuilder = queryBuilder.addSelect(
+      `
+    -- Vector similarity (normalized to 0-1)
+    (1 - (embedding <-> :embedding)::float) * 0.6 +
+    -- Text matching score (normalized to 0-1)
+    (CASE 
+      WHEN LOWER(event.title) LIKE LOWER(:exactQuery) THEN 1.0
+      WHEN LOWER(event.title) LIKE LOWER(:partialQuery) THEN 0.7
+      WHEN LOWER(event.description) LIKE LOWER(:exactQuery) THEN 0.5
+      WHEN LOWER(event.description) LIKE LOWER(:partialQuery) THEN 0.3
+      ELSE 0
+    END) * 0.4
+    `,
+      "combined_score"
+    );
+
+    // Add parameters
+    queryBuilder = queryBuilder.setParameters({
+      embedding: pgvector.toSql(searchEmbedding),
+      exactQuery: query.toLowerCase(),
+      partialQuery: `%${query.toLowerCase()}%`,
+    });
+
+    // Add cursor-based pagination if provided
+    if (cursorData) {
+      const scoreExpr = `
       (1 - (embedding <-> :embedding)::float) * 0.6 +
-      -- Text matching score (normalized to 0-1)
       (CASE 
         WHEN LOWER(event.title) LIKE LOWER(:exactQuery) THEN 1.0
         WHEN LOWER(event.title) LIKE LOWER(:partialQuery) THEN 0.7
@@ -197,27 +245,53 @@ export class EventService {
         WHEN LOWER(event.description) LIKE LOWER(:partialQuery) THEN 0.3
         ELSE 0
       END) * 0.4
-    `,
-        "combined_score"
-      )
-      .setParameters({
-        embedding: pgvector.toSql(searchEmbedding),
-        exactQuery: query.toLowerCase(),
-        partialQuery: `%${query.toLowerCase()}%`,
-      })
+    `;
+
+      queryBuilder = queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where(`${scoreExpr} < :cursorScore`, { cursorScore: cursorData.score }).orWhere(
+            new Brackets((qb2) => {
+              qb2
+                .where(`${scoreExpr} = :cursorScore`, { cursorScore: cursorData.score })
+                .andWhere("event.id > :cursorId", { cursorId: cursorData.id });
+            })
+          );
+        })
+      );
+    }
+
+    // Complete the query
+    queryBuilder = queryBuilder
       .groupBy("event.id")
       .addGroupBy("category.id")
       .addGroupBy("space.id")
       .orderBy("combined_score", "DESC")
-      .limit(limit)
-      .getRawAndEntities();
+      .addOrderBy("event.id", "ASC") // Secondary sort for deterministic pagination
+      .limit(limit + 1); // Fetch one extra to determine if there are more results
 
-    return results.entities.map((event, index) => ({
+    // Execute query
+    const results = await queryBuilder.getRawAndEntities();
+
+    // Process results
+    const searchResults = results.entities.slice(0, limit).map((event, index) => ({
       event,
       score: parseFloat(results.raw[index].combined_score),
     }));
-  }
 
+    // Generate next cursor if we have more results
+    let nextCursor: string | undefined;
+    if (results.entities.length > limit) {
+      const lastResult = searchResults[searchResults.length - 1];
+      const cursorObj = {
+        id: lastResult.event.id,
+        score: lastResult.score,
+      };
+      // For Node.js environment
+      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString("base64");
+    }
+
+    return { results: searchResults, nextCursor };
+  }
   async deleteEvent(id: string): Promise<boolean> {
     const result = await this.eventRepository.delete(id);
     return result.affected ? result.affected > 0 : false;
@@ -240,40 +314,30 @@ export class EventService {
       offset?: number;
     } = {}
   ) {
+    const { startDate, endDate, limit = 10, offset = 0 } = options;
+
     const query = this.eventRepository
       .createQueryBuilder("event")
-      .leftJoinAndSelect("event.categories", "category")
-      .leftJoinAndSelect("event.thirdSpace", "thirdSpace")
+      .innerJoinAndSelect("event.categories", "category")
       .where("category.id IN (:...categoryIds)", { categoryIds })
-      .orderBy("event.eventDate", "ASC");
+      .skip(offset)
+      .take(limit)
+      .orderBy("event.eventDate", "DESC");
 
-    // Add date filtering if provided
-    if (options.startDate) {
-      query.andWhere("event.eventDate >= :startDate", { startDate: options.startDate });
-    }
-    if (options.endDate) {
-      query.andWhere("event.eventDate <= :endDate", { endDate: options.endDate });
+    if (startDate) {
+      query.andWhere("event.eventDate >= :startDate", { startDate });
     }
 
-    // Add pagination
-    if (options.limit) {
-      query.take(options.limit);
-    }
-    if (options.offset) {
-      query.skip(options.offset);
+    if (endDate) {
+      query.andWhere("event.eventDate <= :endDate", { endDate });
     }
 
-    // Get both events and total count
     const [events, total] = await query.getManyAndCount();
 
     return {
       events,
       total,
-      pagination: {
-        limit: options.limit,
-        offset: options.offset,
-        hasMore: options.limit ? total > (options.offset || 0) + options.limit : false,
-      },
+      hasMore: offset + events.length < total,
     };
   }
 
