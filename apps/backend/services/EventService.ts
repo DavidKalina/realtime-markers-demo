@@ -86,8 +86,6 @@ export class EventService {
   }
 
   async createEvent(input: CreateEventInput): Promise<Event> {
-    console.log("Input categoryIds:", input.categoryIds);
-
     // Generate embedding from title and description
     const textForEmbedding = `${input.title} ${input.description || ""}`.trim();
     const embedding = await this.generateEmbedding(textForEmbedding);
@@ -110,9 +108,7 @@ export class EventService {
 
     // Handle categories if provided
     if (input.categoryIds?.length) {
-      console.log("Fetching categories for IDs:", input.categoryIds);
       const categories = await this.categoryRepository.findByIds(input.categoryIds);
-      console.log("Found categories:", categories);
       event.categories = categories;
     }
 
@@ -125,7 +121,6 @@ export class EventService {
     }
 
     const savedEvent = await this.eventRepository.save(event);
-    console.log("Saved event categories:", savedEvent.categories);
     return savedEvent;
   }
 

@@ -97,8 +97,6 @@ export class EventProcessingService {
       visionResult.text!
     );
 
-    console.log(categories);
-
     const eventDetailsWithCategories = {
       ...eventDetails,
       categories: categories, // Now TypeScript knows this is Category[]
