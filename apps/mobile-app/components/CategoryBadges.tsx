@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet } from "react-native";
 
 const CategoryBadges = ({
   categories = [],
@@ -8,7 +8,12 @@ const CategoryBadges = ({
   containerStyle = {},
 }: any) => {
   return (
-    <View style={[styles.container, containerStyle]}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={[styles.scrollContainer, containerStyle]}
+      contentContainerStyle={styles.scrollContentContainer}
+    >
       {categories.map((category: any) => (
         <TouchableOpacity
           key={category.id}
@@ -25,37 +30,40 @@ const CategoryBadges = ({
           </Text>
         </TouchableOpacity>
       ))}
-    </View>
+    </ScrollView>
   );
 };
 
-const styles = {
-  container: {
+const styles = StyleSheet.create({
+  scrollContainer: {
+    maxHeight: 80, // Fixed height for the scroll container
+  },
+  scrollContentContainer: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: 16,
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     gap: 8, // Space between badges
   },
   badge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    paddingVertical: 4, // Reduced vertical padding
+    paddingHorizontal: 8,
+    backgroundColor: "#444",
+    borderRadius: 12,
+    borderWidth: 0,
   },
   selectedBadge: {
-    backgroundColor: "#007AFF",
-    borderColor: "#0057B8",
+    backgroundColor: "#69db7c",
   },
   badgeText: {
-    color: "#666",
-    fontSize: 14,
-    fontWeight: "500",
+    color: "#FFF",
+    fontSize: 12,
+    fontFamily: "SpaceMono",
   },
   selectedBadgeText: {
-    color: "#fff",
+    color: "#000",
+    fontWeight: "bold",
   },
-};
+});
 
 export default CategoryBadges;

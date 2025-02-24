@@ -2,7 +2,13 @@
 import useBreathing from "@/hooks/usBreathing";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import Animated, { ZoomIn, ZoomOut } from "react-native-reanimated";
+import Animated, {
+  ZoomIn,
+  ZoomOut,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 
 interface AnimatedMapMarkerProps {
   emoji: string;
@@ -13,10 +19,31 @@ interface AnimatedMapMarkerProps {
 const AnimatedMapMarker: React.FC<AnimatedMapMarkerProps> = ({ emoji, isSelected, onPress }) => {
   const { animatedStyle } = useBreathing();
 
+  // Create additional animated style for scaling
+  const scaleStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          scale: isSelected
+            ? withTiming(1.2, {
+                duration: 500,
+                easing: Easing.inOut(Easing.ease),
+              })
+            : withTiming(1, {
+                duration: 300,
+                easing: Easing.inOut(Easing.ease),
+              }),
+        },
+      ],
+    };
+  }, [isSelected]);
+
   return (
     <View>
       <Animated.View entering={ZoomIn.duration(300)} exiting={ZoomOut.duration(300)}>
-        <Animated.View style={[styles.container, isSelected ? animatedStyle : undefined]}>
+        <Animated.View
+          style={[styles.container, isSelected ? animatedStyle : undefined, scaleStyle]}
+        >
           <Pressable style={[styles.marker, { backgroundColor: "#333" }]} onPress={onPress}>
             <Text style={styles.markerIcon}>{emoji}</Text>
           </Pressable>

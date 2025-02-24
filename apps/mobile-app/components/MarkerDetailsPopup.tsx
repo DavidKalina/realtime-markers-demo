@@ -23,7 +23,7 @@ interface MarkerDetailsPopupProps {
   onClose?: () => void;
 }
 
-const API_URL = "https://c8b6-69-162-231-94.ngrok-free.app/api/events";
+const API_URL = process.env.EXPO_PUBLIC_API_URL!;
 
 const MarkerDetailsPopup: React.FC<MarkerDetailsPopupProps> = ({ marker, onClose }) => {
   const { floatingStyle } = useFloatingAnimation();

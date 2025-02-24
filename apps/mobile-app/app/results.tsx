@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { type Point } from "geojson";
 
-const API_URL = `https://c8b6-69-162-231-94.ngrok-free.app/api`;
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 interface Category {
   id: string;
@@ -91,7 +91,7 @@ const ResultsScreen: React.FC = () => {
 
   const fetchEventDetails = async () => {
     try {
-      const response = await fetch(`${API_URL}/events/${eventId}`);
+      const response = await fetch(`${API_URL}/${eventId}`);
       if (!response.ok) {
         throw new Error("Failed to fetch event details");
       }

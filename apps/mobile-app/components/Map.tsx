@@ -32,7 +32,7 @@ interface MapViewProps {
 
 export default function MapView({
   style,
-  wsUrl = "wss://31e4-69-162-231-94.ngrok-free.app",
+  wsUrl = process.env.EXPO_PUBLIC_WEB_SOCKET_URL!,
 }: MapViewProps) {
   const [location, setLocation] = useState<[number, number]>([-122.4324, 37.78825]);
   const { updateViewport } = useMapWebSocket(wsUrl);

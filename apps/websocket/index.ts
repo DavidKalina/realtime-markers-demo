@@ -81,7 +81,7 @@ async function initializeState() {
             maxY: lat,
             data: {
               title: event.title,
-              emoji: "📍",
+              emoji: event.emoji,
               color: "red",
               created_at: event.created_at,
               updated_at: event.updated_at,
@@ -335,38 +335,3 @@ async function startServer() {
 }
 
 startServer();
-
-/* Example usage:
-bulkLoadMarkers([
-  {
-    id: 'marker1',
-    minX: -0.15,
-    minY: 51.5,
-    maxX: -0.15,
-    maxY: 51.5,
-    data: { emoji: '🏬', color: 'red', created_at: '...', updated_at: '...' }
-  }
-]);
-
-ws.send(JSON.stringify({
-  type: 'viewport_update',
-  viewport: {
-    north: 51.5,
-    south: 51.4,
-    east: -0.1,
-    west: -0.2
-  }
-}));
-
-redisClient.publish('event_changes', JSON.stringify({
-  operation: 'INSERT',
-  record: {
-    id: 'marker1',
-    location: { coordinates: [-0.15, 51.5] },
-    emoji: '🏬',
-    color: 'red',
-    created_at: '...',
-    updated_at: '...'
-  }
-}));
-*/
