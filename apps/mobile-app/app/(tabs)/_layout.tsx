@@ -21,8 +21,8 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#fff", // Matching the green from your popup
-        tabBarInactiveTintColor: "#CCC", // Matching the text color from popup
+        tabBarActiveTintColor: "#fff",
+        tabBarInactiveTintColor: "#CCC",
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
@@ -77,6 +77,8 @@ export default function TabLayout() {
         options={{
           title: "Scan",
           tabBarIcon: ({ color }) => <EmojiIcon size={28} name="camera.fill" color={color} />,
+          // This hides the tab bar on the scan screen
+          tabBarStyle: { display: "none" },
         }}
       />
     </Tabs>

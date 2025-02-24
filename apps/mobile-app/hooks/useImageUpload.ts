@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { Alert } from "react-native";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
-
 export const useImageUpload = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState(0);
   const [processedImageUri, setProcessedImageUri] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [eventId, setEventId] = useState<string | null>(null);
 
   // Define processing steps
   const processingSteps = [
@@ -39,7 +38,7 @@ export const useImageUpload = () => {
         name: "upload.jpg",
       } as any);
 
-      const response = await fetch(`${API_URL}/process`, {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/process`, {
         method: "POST",
         body: formData,
         headers: {
@@ -53,6 +52,11 @@ export const useImageUpload = () => {
       }
 
       const result = await response.json();
+
+      // Store the eventId from the response if available
+      if (result && result.id) {
+        setEventId(result.id);
+      }
 
       // Set success and show success screen instead of navigating
       setIsSuccess(true);
@@ -75,6 +79,7 @@ export const useImageUpload = () => {
     setIsSuccess(false);
     setProcessedImageUri(null);
     setProcessingStep(0);
+    setEventId(null);
   };
 
   return {
@@ -84,6 +89,7 @@ export const useImageUpload = () => {
     processingSteps,
     processedImageUri,
     isSuccess,
+    eventId,
     resetUpload,
   };
 };

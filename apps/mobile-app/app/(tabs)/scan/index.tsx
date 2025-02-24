@@ -1,19 +1,22 @@
+import React, { useState } from "react";
+import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
+import { CameraView } from "expo-camera";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraPermission } from "@/components/CameraPermission";
 import { CaptureButton } from "@/components/CaptureButton";
-import { DynamicProcessingView } from "@/components/ProcessingView";
-import { ScannerOverlay } from "@/components/ScannerOverlay";
 import { SuccessScreen } from "@/components/SuccessScreen";
+import { ScannerOverlay } from "@/components/ScannerOverlay";
 import { useCamera } from "@/hooks/useCamera";
 import { useImageUpload } from "@/hooks/useImageUpload";
-import { CameraView } from "expo-camera";
-import React, { useState } from "react";
-import { StyleSheet, Text } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { DynamicProcessingView } from "@/components/ProcessingView";
+import { Feather } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 
-const ScanScreen: React.FC = () => {
+export default function ScanScreen() {
   const [hasPermission, setHasPermission] = useState(false);
-  const { cameraRef, takePicture, isCapturing, isPermissionLoading, isCameraActive } = useCamera();
+  const { cameraRef, takePicture, isCapturing, isCameraActive } = useCamera();
+  const router = useRouter();
 
   const {
     uploadImage,
@@ -22,6 +25,7 @@ const ScanScreen: React.FC = () => {
     processingSteps,
     processedImageUri,
     isSuccess,
+    eventId,
     resetUpload,
   } = useImageUpload();
 
@@ -52,7 +56,7 @@ const ScanScreen: React.FC = () => {
       <SuccessScreen
         imageUri={processedImageUri}
         onNewScan={handleNewScan}
-        eventName="Document Successfully Processed"
+        eventId={eventId || undefined}
       />
     );
   }
@@ -65,6 +69,13 @@ const ScanScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <Animated.View style={styles.header} entering={FadeIn.duration(500)}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.push("/")}
+          activeOpacity={0.7}
+        >
+          <Feather name="arrow-left" size={24} color="#FFF" />
+        </TouchableOpacity>
         <Text style={styles.headerText}>Scan Document</Text>
       </Animated.View>
 
@@ -77,7 +88,7 @@ const ScanScreen: React.FC = () => {
       <CaptureButton onPress={handleCapture} isCapturing={isCapturing} />
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -90,12 +101,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#333",
     borderBottomWidth: 1,
     borderBottomColor: "#444",
+    fontFamily: "mono",
+    flexDirection: "row",
+    alignItems: "center",
   },
   headerText: {
+    flex: 1,
     color: "#FFF",
     fontSize: 18,
     fontFamily: "BungeeInline",
     textAlign: "center",
+    marginRight: 24, // To offset the back button width for perfect centering
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
   },
   contentContainer: {
     flex: 1,
@@ -108,5 +128,3 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
 });
-
-export default ScanScreen;
