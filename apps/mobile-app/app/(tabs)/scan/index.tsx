@@ -1,5 +1,4 @@
-// Modified version of your existing ScanScreen component
-// ScanScreen.tsx - With streaming integration
+// ScanScreen.tsx - With JobProcessor integration
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView } from "react-native";
 import { useRouter } from "expo-router";
@@ -7,11 +6,10 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
 import { CameraPermission } from "@/components/CameraPermission";
 import { CaptureButton } from "@/components/CaptureButton";
-import { DynamicProcessingView } from "@/components/ProcessingView";
 import { ScannerOverlay } from "@/components/ScannerOverlay";
 import { SuccessScreen } from "@/components/SuccessScreen";
+import { JobProcessor } from "@/components/JobProcessor";
 import { useCamera } from "@/hooks/useCamera";
-import { useJobStream } from "@/hooks/useJobStream";
 import { CameraView } from "expo-camera";
 
 type DetectionStatus = "none" | "detecting" | "aligned";
@@ -32,13 +30,10 @@ export default function ScanScreen() {
   const [detectionStatus, setDetectionStatus] = useState<DetectionStatus>("none");
   const [isFrameReady, setIsFrameReady] = useState(false);
 
-  // New state for job tracking
+  // State for job tracking
   const [jobId, setJobId] = useState<string | null>(null);
   const [imageUri, setImageUri] = useState<string | null>(null);
-
-  // Use our new job streaming hook
-  const { progressSteps, currentStep, isComplete, error, result, resetStream } =
-    useJobStream(jobId);
+  const [processingResult, setProcessingResult] = useState<any>(null);
 
   // Clear detection interval function
   const clearDetectionInterval = useCallback(() => {
@@ -112,6 +107,7 @@ export default function ScanScreen() {
         name: "image.jpg",
         type: "image/jpeg",
       } as any);
+
       // Upload the image
       const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL!}/process`, {
         method: "POST",
@@ -157,10 +153,14 @@ export default function ScanScreen() {
     // Optional: Automatically trigger capture when frame is aligned
   };
 
+  const handleJobComplete = (result: any) => {
+    setProcessingResult(result);
+  };
+
   const handleNewScan = () => {
     setJobId(null);
     setImageUri(null);
-    resetStream();
+    setProcessingResult(null);
     // Restart detection
     startDocumentDetection();
   };
@@ -182,27 +182,20 @@ export default function ScanScreen() {
     return null;
   }
 
-  // Show success screen after processing
-  if (isComplete && !error && imageUri && result) {
-    return <SuccessScreen imageUri={imageUri} onNewScan={handleNewScan} eventId={result.eventId} />;
-  }
-
-  // Show error screen
-  if (isComplete && error) {
+  // Show success screen after processing is complete
+  if (processingResult && imageUri && processingResult.eventId) {
     return (
-      <View style={styles.errorContainer}>
-        <Feather name="alert-circle" size={60} color="#e74c3c" />
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.tryAgainButton} onPress={handleNewScan}>
-          <Text style={styles.tryAgainButtonText}>Try Again</Text>
-        </TouchableOpacity>
-      </View>
+      <SuccessScreen
+        imageUri={imageUri}
+        onNewScan={handleNewScan}
+        eventId={processingResult.eventId}
+      />
     );
   }
 
-  // Show dynamic processing view while streaming job updates
+  // Show job processor during processing
   if (jobId) {
-    return <DynamicProcessingView progressSteps={progressSteps} currentStep={currentStep} />;
+    return <JobProcessor jobId={jobId} onComplete={handleJobComplete} onReset={handleNewScan} />;
   }
 
   return (

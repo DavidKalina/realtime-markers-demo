@@ -15,17 +15,23 @@ interface DynamicProcessingViewProps {
   text?: string;
   progressSteps?: string[];
   currentStep?: number;
+  isComplete?: boolean;
+  hasError?: boolean;
+  errorMessage?: string;
 }
 
 export const DynamicProcessingView: React.FC<DynamicProcessingViewProps> = ({
   text = "Processing your document...",
   progressSteps = [
-    "Analyzing document...",
-    "Extracting information...",
-    "Validating data...",
+    "Initializing job...",
+    "Analyzing image...",
+    "Processing data...",
     "Finalizing...",
   ],
   currentStep = 0,
+  isComplete = false,
+  hasError = false,
+  errorMessage,
 }) => {
   const rotation = useSharedValue(0);
   const scale = useSharedValue(1);
@@ -33,28 +39,36 @@ export const DynamicProcessingView: React.FC<DynamicProcessingViewProps> = ({
 
   // Animation for the pulse effect
   useEffect(() => {
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(1.2, { duration: 700, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 700, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1, // infinite repeat
-      true // reverse
-    );
+    // Only animate if not complete
+    if (!isComplete && !hasError) {
+      scale.value = withRepeat(
+        withSequence(
+          withTiming(1.2, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 700, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1, // infinite repeat
+        true // reverse
+      );
 
-    // Continuous rotation
-    rotation.value = withRepeat(
-      withTiming(360, { duration: 2000, easing: Easing.linear }),
-      -1 // infinite repeat
-    );
+      // Continuous rotation
+      rotation.value = withRepeat(
+        withTiming(360, { duration: 2000, easing: Easing.linear }),
+        -1 // infinite repeat
+      );
 
-    // Color animation
-    colorProgress.value = withRepeat(
-      withTiming(1, { duration: 2000 }),
-      -1, // infinite repeat
-      true // reverse
-    );
-  }, []);
+      // Color animation
+      colorProgress.value = withRepeat(
+        withTiming(1, { duration: 2000 }),
+        -1, // infinite repeat
+        true // reverse
+      );
+    } else {
+      // Stop animations when complete
+      scale.value = withTiming(1);
+      rotation.value = withTiming(0);
+      colorProgress.value = withTiming(hasError ? 0.75 : 0.25);
+    }
+  }, [isComplete, hasError]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -63,11 +77,24 @@ export const DynamicProcessingView: React.FC<DynamicProcessingViewProps> = ({
   });
 
   const colorStyle = useAnimatedStyle(() => {
-    const backgroundColor = interpolateColor(
-      colorProgress.value,
-      [0, 0.5, 1],
-      ["#69db7c", "#4dabf7", "#69db7c"]
-    );
+    // Different color transitions based on status
+    const backgroundColor = hasError
+      ? interpolateColor(
+          colorProgress.value,
+          [0, 1],
+          ["#ff6b6b", "#e03131"] // Error colors
+        )
+      : isComplete
+      ? interpolateColor(
+          colorProgress.value,
+          [0, 1],
+          ["#40c057", "#2b8a3e"] // Success colors
+        )
+      : interpolateColor(
+          colorProgress.value,
+          [0, 0.5, 1],
+          ["#69db7c", "#4dabf7", "#69db7c"] // Processing colors
+        );
 
     return {
       backgroundColor,
@@ -78,11 +105,25 @@ export const DynamicProcessingView: React.FC<DynamicProcessingViewProps> = ({
     <View style={styles.processingContainer}>
       <Animated.View style={[styles.iconContainer, colorStyle]}>
         <Animated.View style={animatedStyle}>
-          <Feather name="refresh-cw" size={32} color="#FFFFFF" />
+          {hasError ? (
+            <Feather name="x" size={32} color="#FFFFFF" />
+          ) : isComplete ? (
+            <Feather name="check" size={32} color="#FFFFFF" />
+          ) : (
+            <Feather name="refresh-cw" size={32} color="#FFFFFF" />
+          )}
         </Animated.View>
       </Animated.View>
 
-      <Text style={styles.processingTitle}>{text}</Text>
+      <Text style={styles.processingTitle}>
+        {hasError ? "Processing Error" : isComplete ? "Processing Complete" : text}
+      </Text>
+
+      {hasError && errorMessage && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        </View>
+      )}
 
       <View style={styles.stepsContainer}>
         {progressSteps.map((step, index) => (
@@ -90,22 +131,30 @@ export const DynamicProcessingView: React.FC<DynamicProcessingViewProps> = ({
             <View
               style={[
                 styles.stepIndicator,
-                index === currentStep
+                index === currentStep && !isComplete && !hasError
                   ? styles.currentStep
-                  : index < currentStep
+                  : index < currentStep || (isComplete && index <= currentStep)
                   ? styles.completedStep
+                  : hasError && index === currentStep
+                  ? styles.errorStep
                   : {},
               ]}
             >
-              {index < currentStep && <Feather name="check" size={14} color="#FFFFFF" />}
+              {index < currentStep || (isComplete && index <= currentStep) ? (
+                <Feather name="check" size={14} color="#FFFFFF" />
+              ) : hasError && index === currentStep ? (
+                <Feather name="x" size={14} color="#FFFFFF" />
+              ) : null}
             </View>
             <Text
               style={[
                 styles.stepText,
-                index === currentStep
+                index === currentStep && !isComplete && !hasError
                   ? styles.currentStepText
-                  : index < currentStep
+                  : index < currentStep || (isComplete && index <= currentStep)
                   ? styles.completedStepText
+                  : hasError && index === currentStep
+                  ? styles.errorStepText
                   : {},
               ]}
             >
@@ -147,6 +196,19 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     textAlign: "center",
   },
+  errorContainer: {
+    backgroundColor: "rgba(255, 107, 107, 0.2)",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 24,
+    width: "100%",
+    maxWidth: 300,
+  },
+  errorText: {
+    color: "#ff8787",
+    fontFamily: "SpaceMono",
+    textAlign: "center",
+  },
   stepsContainer: {
     width: "100%",
     maxWidth: 300,
@@ -175,6 +237,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#2f9e44",
     borderColor: "#2b8a3e",
   },
+  errorStep: {
+    backgroundColor: "#ff6b6b",
+    borderColor: "#e03131",
+  },
   stepText: {
     color: "#aaa",
     fontSize: 16,
@@ -186,6 +252,9 @@ const styles = StyleSheet.create({
   },
   completedStepText: {
     color: "#fff",
-    textDecorationLine: "line-through",
+  },
+  errorStepText: {
+    color: "#ff8787",
+    fontWeight: "600",
   },
 });

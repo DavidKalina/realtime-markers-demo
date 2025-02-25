@@ -7,6 +7,7 @@ import { OpenAIService } from "./services/OpenAIService";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
 import { Event } from "./entities/Event";
 import { Category } from "./entities/Category";
+import { JobQueue } from "./services/JobQueue";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -14,6 +15,8 @@ const MAX_CONCURRENT_JOBS = 3;
 const JOB_TIMEOUT = 3 * 60 * 1000; // 3 minutes
 
 async function initializeWorker() {
+  console.log("Initializing worker...");
+
   // Initialize data sources
   await AppDataSource.initialize();
 
@@ -34,6 +37,9 @@ async function initializeWorker() {
     categoryProcessingService
   );
   const eventService = new EventService(AppDataSource);
+
+  // Initialize JobQueue
+  const jobQueue = new JobQueue(redisClient);
 
   // Active jobs counter
   let activeJobs = 0;
@@ -57,47 +63,39 @@ async function initializeWorker() {
       return;
     }
 
-    const job = JSON.parse(jobData);
+    console.log(`[Worker] Starting job ${jobId}`);
     activeJobs++;
-
-    // Update job status
-    job.status = "processing";
-    job.started = new Date().toISOString();
-    await redisClient.set(`job:${jobId}`, JSON.stringify(job));
-
-    // Publish initial processing update
-    await redisClient.publish(
-      `job:${jobId}:updates`,
-      JSON.stringify({
-        id: jobId,
-        status: "processing",
-        progress: "Initializing job...",
-        updated: new Date().toISOString(),
-      })
-    );
 
     // Set up timeout handler
     const timeoutId = setTimeout(async () => {
       console.error(`Job ${jobId} timed out after ${JOB_TIMEOUT}ms`);
-      job.status = "failed";
-      job.error = "Job timed out";
-      job.completed = new Date().toISOString();
 
-      await redisClient.set(`job:${jobId}`, JSON.stringify(job));
-      await redisClient.publish(
-        `job:${jobId}:updates`,
-        JSON.stringify({
-          id: jobId,
+      try {
+        await jobQueue.updateJobStatus(jobId, {
           status: "failed",
           error: "Job timed out",
-          updated: new Date().toISOString(),
-        })
-      );
+          completed: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("Error updating timed out job:", error);
+      }
 
       activeJobs--;
     }, JOB_TIMEOUT);
 
     try {
+      // Update job status to processing
+      await jobQueue.updateJobStatus(jobId, {
+        status: "processing",
+        started: new Date().toISOString(),
+        progress: "Initializing job...",
+      });
+
+      // Add a small delay to ensure UI can process the updates
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const job = JSON.parse(jobData);
+
       // Process based on job type
       if (job.type === "process_flyer") {
         // Get the image buffer from Redis
@@ -106,53 +104,42 @@ async function initializeWorker() {
           throw new Error("Image data not found");
         }
 
-        // Publish progress update for image analysis start
-        await redisClient.publish(
-          `job:${jobId}:updates`,
-          JSON.stringify({
-            id: jobId,
-            status: "processing",
-            progress: "Analyzing image...",
-            updated: new Date().toISOString(),
-          })
-        );
+        // Update status to analyzing
+        console.log(`[Worker] Analyzing image for job ${jobId}`);
+        await jobQueue.updateJobStatus(jobId, {
+          progress: "Analyzing image...",
+        });
+
+        // Add a small delay to ensure UI can process the updates
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
         // Process the image
         const scanResult = await eventProcessingService.processFlyerFromImage(bufferData);
+        console.log(`[Worker] Image analyzed with confidence: ${scanResult.confidence}`);
 
-        // Update job with intermediate results
-        job.scanResult = {
+        // Update with analysis results
+        await jobQueue.updateJobStatus(jobId, {
+          progress: "Image analyzed, processing results...",
           confidence: scanResult.confidence,
-          similarity: scanResult.similarity,
-        };
-        job.updated = new Date().toISOString();
-        await redisClient.set(`job:${jobId}`, JSON.stringify(job));
-
-        // Publish detailed progress update with confidence score
-        await redisClient.publish(
-          `job:${jobId}:updates`,
-          JSON.stringify({
-            id: jobId,
-            status: "processing",
-            progress: "Image analyzed, processing results...",
+          scanResult: {
             confidence: scanResult.confidence,
-            updated: new Date().toISOString(),
-          })
-        );
+            similarity: scanResult.similarity,
+          },
+        });
+
+        // Add a small delay to ensure UI can process the updates
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
         // Create the event if confidence is high enough
         if (scanResult.confidence >= 0.75) {
-          // Publish progress update for event creation
-          await redisClient.publish(
-            `job:${jobId}:updates`,
-            JSON.stringify({
-              id: jobId,
-              status: "processing",
-              progress: "Creating event...",
-              confidence: scanResult.confidence,
-              updated: new Date().toISOString(),
-            })
-          );
+          // Update for event creation
+          console.log(`[Worker] Creating event for job ${jobId}`);
+          await jobQueue.updateJobStatus(jobId, {
+            progress: "Creating event...",
+          });
+
+          // Add a small delay to ensure UI can process the updates
+          await new Promise((resolve) => setTimeout(resolve, 500));
 
           const eventDetails = scanResult.eventDetails;
           const newEvent = await eventService.createEvent({
@@ -165,6 +152,7 @@ async function initializeWorker() {
             address: eventDetails.address,
             categoryIds: eventDetails.categories?.map((cat) => cat.id),
           });
+          console.log(`[Worker] Event created with ID: ${newEvent.id}`);
 
           // Publish event creation notification
           await redisClient.publish(
@@ -175,69 +163,57 @@ async function initializeWorker() {
             })
           );
 
-          // Update job with result
-          job.eventId = newEvent.id;
-          job.result = { eventId: newEvent.id, title: eventDetails.title };
-          job.status = "completed";
+          // Mark as completed with success
+          await jobQueue.updateJobStatus(jobId, {
+            status: "completed",
+            eventId: newEvent.id,
+            result: {
+              eventId: newEvent.id,
+              title: eventDetails.title,
+            },
+            completed: new Date().toISOString(),
+          });
         } else {
-          job.status = "completed";
-          job.result = {
-            message: "Confidence too low to create event",
-            confidence: scanResult.confidence,
-            threshold: 0.75,
-          };
+          console.log(`[Worker] Confidence too low (${scanResult.confidence}) to create event`);
+          // Mark as completed with info about low confidence
+          await jobQueue.updateJobStatus(jobId, {
+            status: "completed",
+            result: {
+              message: "Confidence too low to create event",
+              confidence: scanResult.confidence,
+              threshold: 0.75,
+            },
+            completed: new Date().toISOString(),
+          });
         }
       } else {
         throw new Error(`Unknown job type: ${job.type}`);
       }
 
-      // Clear timeout and update job status
+      // Clear timeout
       clearTimeout(timeoutId);
-      job.completed = new Date().toISOString();
-      await redisClient.set(`job:${jobId}`, JSON.stringify(job));
-
-      // Publish final update
-      await redisClient.publish(
-        `job:${jobId}:updates`,
-        JSON.stringify({
-          id: jobId,
-          status: job.status,
-          result: job.result,
-          completed: job.completed,
-          updated: new Date().toISOString(),
-        })
-      );
 
       // Clean up the buffer data
       await redisClient.del(`job:${jobId}:buffer`);
+      console.log(`[Worker] Job ${jobId} completed successfully`);
     } catch (error: any) {
       // Handle job error
       clearTimeout(timeoutId);
       console.error(`Error processing job ${jobId}:`, error);
 
-      job.status = "failed";
-      job.error = error.message;
-      job.completed = new Date().toISOString();
-
-      await redisClient.set(`job:${jobId}`, JSON.stringify(job));
-
-      // Publish error update
-      await redisClient.publish(
-        `job:${jobId}:updates`,
-        JSON.stringify({
-          id: jobId,
-          status: "failed",
-          error: error.message,
-          completed: job.completed,
-          updated: new Date().toISOString(),
-        })
-      );
+      // Update job with error
+      await jobQueue.updateJobStatus(jobId, {
+        status: "failed",
+        error: error.message,
+        completed: new Date().toISOString(),
+      });
     } finally {
       activeJobs--;
     }
   }
 
   // Start polling for jobs
+  console.log("Starting job polling...");
   setInterval(processJobs, POLLING_INTERVAL);
   console.log("Worker started successfully");
 

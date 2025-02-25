@@ -31,15 +31,24 @@ export const useJobStream = (jobId: string | null) => {
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState<boolean>(false);
+  const [lastReceivedMessage, setLastReceivedMessage] = useState<string | null>(null);
 
   // Use ref to track EventSource instance with extended type
   const eventSourceRef = useRef<ExtendedEventSource | null>(null);
+
+  // Use ref to track which steps have been seen
+  const seenStepsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let unmounted = false;
 
     // Don't do anything if there's no jobId
     if (!jobId) return;
+
+    console.log(`[JobStream] Starting job stream for job ${jobId}`);
+
+    // Reset the seen steps whenever we start with a new job
+    seenStepsRef.current = new Set();
 
     const connectToStream = () => {
       // Close existing connection if any
@@ -49,15 +58,10 @@ export const useJobStream = (jobId: string | null) => {
 
       try {
         // Create a new EventSource connection
-        // Adjust your API URL as needed
         const url = `https://f49e-69-162-231-94.ngrok-free.app/api/jobs/${jobId}/stream`;
+        console.log(`[JobStream] Connecting to SSE stream: ${url}`);
 
-        const es = new EventSource(url, {
-          headers: {
-            // Add any needed auth headers here
-            Authorization: "Bearer your-token-here",
-          },
-        });
+        const es = new EventSource(url);
 
         // Cast to our extended type that supports custom events
         eventSourceRef.current = es as ExtendedEventSource;
@@ -65,7 +69,7 @@ export const useJobStream = (jobId: string | null) => {
         // Handle connection open
         es.addEventListener("open", () => {
           if (unmounted) return;
-          console.log("SSE connection established");
+          console.log("[JobStream] SSE connection established");
           setIsConnected(true);
           setError(null);
         });
@@ -75,38 +79,55 @@ export const useJobStream = (jobId: string | null) => {
           if (unmounted) return;
 
           try {
+            console.log(`[JobStream] Received message: ${event.data}`);
+            setLastReceivedMessage(event.data);
+
             const data: JobUpdate = JSON.parse(event.data ?? "");
-            console.log("Received job update:", data);
             setJobState(data);
 
-            // Update progress based on job status and progress message
+            // Map progress string to step index
+            const getStepIndex = (progress?: string): number => {
+              if (!progress) return 0;
+
+              if (progress.toLowerCase().includes("initializing")) return 0;
+              if (progress.toLowerCase().includes("analyzing image")) return 1;
+              if (
+                progress.toLowerCase().includes("image analyzed") ||
+                progress.toLowerCase().includes("processing")
+              )
+                return 2;
+              if (progress.toLowerCase().includes("creating event")) return 3;
+
+              return 0; // Default to first step if no match
+            };
+
+            // Update progress based on job status
             if (data.status === "pending") {
               setCurrentStep(0);
             } else if (data.status === "processing") {
-              // More granular mapping of progress messages to steps
               if (data.progress) {
-                if (data.progress.includes("Image analyzed")) {
-                  setCurrentStep(2);
+                const stepIndex = getStepIndex(data.progress);
+                console.log(`[JobStream] Mapped progress "${data.progress}" to step ${stepIndex}`);
 
-                  // Update the progress step text with confidence if available
-                  if (data.confidence !== undefined) {
-                    const updatedSteps = [...progressSteps];
-                    updatedSteps[2] = `Analysis complete (${(data.confidence * 100).toFixed(
-                      0
-                    )}% confidence)`;
-                    setProgressSteps(updatedSteps);
-                  }
-                } else if (data.progress.includes("creating event")) {
-                  setCurrentStep(3);
-                } else {
-                  // Default to the image analysis step for any other processing message
-                  setCurrentStep(1);
+                // Add to seen steps
+                seenStepsRef.current.add(data.progress);
+
+                // Only update current step if it's advancing forward
+                if (stepIndex >= currentStep) {
+                  setCurrentStep(stepIndex);
                 }
-              } else {
-                // If no specific progress message, move to step 1
-                setCurrentStep(1);
+
+                // Update the progress step text with confidence if available
+                if (data.confidence !== undefined && stepIndex === 2) {
+                  const updatedSteps = [...progressSteps];
+                  updatedSteps[2] = `Processing data (${(data.confidence * 100).toFixed(
+                    0
+                  )}% confidence)`;
+                  setProgressSteps(updatedSteps);
+                }
               }
             } else if (data.status === "completed") {
+              // Always go to last step on completion
               setCurrentStep(3);
               setIsComplete(true);
 
@@ -121,14 +142,17 @@ export const useJobStream = (jobId: string | null) => {
                 setProgressSteps(updatedSteps);
               }
 
+              console.log("[JobStream] Job completed, closing connection");
               es.close();
             } else if (data.status === "failed") {
               setError(data.error || "Unknown error");
               setIsComplete(true);
+              console.log(`[JobStream] Job failed: ${data.error}`);
               es.close();
             } else if (data.status === "not_found") {
               setError("Job not found");
               setIsComplete(true);
+              console.log("[JobStream] Job not found");
               es.close();
             }
           } catch (error) {
@@ -152,9 +176,9 @@ export const useJobStream = (jobId: string | null) => {
           }, 3000);
         });
 
-        // Handle custom heartbeat events - now properly typed
+        // Handle custom heartbeat events
         eventSourceRef.current.addEventListener("heartbeat", () => {
-          console.log("Received heartbeat");
+          console.log("[JobStream] Received heartbeat");
         });
       } catch (error) {
         console.error("Failed to create EventSource:", error);
@@ -176,11 +200,14 @@ export const useJobStream = (jobId: string | null) => {
   }, [jobId]);
 
   const resetStream = () => {
+    console.log("[JobStream] Resetting job stream");
+    seenStepsRef.current = new Set();
     setJobState(null);
     setCurrentStep(0);
     setIsConnected(false);
     setError(null);
     setIsComplete(false);
+    setLastReceivedMessage(null);
 
     // Reset progress steps to original state
     setProgressSteps([
@@ -205,5 +232,7 @@ export const useJobStream = (jobId: string | null) => {
     isComplete,
     resetStream,
     result: jobState?.result,
+    lastReceivedMessage,
+    seenSteps: Array.from(seenStepsRef.current),
   };
 };
