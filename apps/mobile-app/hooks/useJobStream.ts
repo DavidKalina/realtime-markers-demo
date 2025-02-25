@@ -16,6 +16,9 @@ interface JobUpdate {
   result?: any;
   error?: string;
   updated?: string;
+  title?: string;
+  categories?: string[];
+  similarityScore?: number;
 }
 
 // Custom hook for job streaming
@@ -24,7 +27,12 @@ export const useJobStream = (jobId: string | null) => {
   const [progressSteps, setProgressSteps] = useState<string[]>([
     "Initializing job...",
     "Analyzing image...",
-    "Processing data...",
+    "Analyzing image with Vision API...",
+    "Image analyzed successfully",
+    "Generating text embeddings...",
+    "Extracting event details and categories...",
+    "Finding similar events...",
+    "Processing complete!",
     "Creating event...",
   ]);
   const [currentStep, setCurrentStep] = useState<number>(0);
@@ -85,18 +93,26 @@ export const useJobStream = (jobId: string | null) => {
             const data: JobUpdate = JSON.parse(event.data ?? "");
             setJobState(data);
 
-            // Map progress string to step index
+            // Map progress string to step index with more granular mapping
             const getStepIndex = (progress?: string): number => {
               if (!progress) return 0;
 
-              if (progress.toLowerCase().includes("initializing")) return 0;
-              if (progress.toLowerCase().includes("analyzing image")) return 1;
-              if (
-                progress.toLowerCase().includes("image analyzed") ||
-                progress.toLowerCase().includes("processing")
-              )
-                return 2;
-              if (progress.toLowerCase().includes("creating event")) return 3;
+              // Use more specific step matching
+              const progressLower = progress.toLowerCase();
+
+              if (progressLower.includes("initializing")) return 0;
+              if (progressLower.includes("starting image analysis")) return 1;
+              if (progressLower.includes("analyzing image with vision")) return 2;
+              if (progressLower.includes("image analyzed successfully")) return 3;
+              if (progressLower.includes("generating text embeddings")) return 4;
+              if (progressLower.includes("extracting event details")) return 5;
+              if (progressLower.includes("finding similar events")) return 6;
+              if (progressLower.includes("processing complete")) return 7;
+              if (progressLower.includes("creating event")) return 8;
+
+              // Fallback to original patterns
+              if (progressLower.includes("analyzing image")) return 1;
+              if (progressLower.includes("processing data")) return 5;
 
               return 0; // Default to first step if no match
             };
@@ -117,30 +133,55 @@ export const useJobStream = (jobId: string | null) => {
                   setCurrentStep(stepIndex);
                 }
 
-                // Update the progress step text with confidence if available
-                if (data.confidence !== undefined && stepIndex === 2) {
-                  const updatedSteps = [...progressSteps];
-                  updatedSteps[2] = `Processing data (${(data.confidence * 100).toFixed(
-                    0
-                  )}% confidence)`;
-                  setProgressSteps(updatedSteps);
-                }
-              }
-            } else if (data.status === "completed") {
-              // Always go to last step on completion
-              setCurrentStep(3);
-              setIsComplete(true);
-
-              // Update the last step text with result info if available
-              if (data.result) {
+                // Update steps with metadata information
                 const updatedSteps = [...progressSteps];
-                if (data.result.eventId) {
-                  updatedSteps[3] = `Event created successfully!`;
-                } else if (data.result.message) {
-                  updatedSteps[3] = data.result.message;
+
+                // Update confidence if available
+                if (data.confidence !== undefined) {
+                  if (stepIndex === 3) {
+                    // "Image analyzed successfully"
+                    updatedSteps[3] = `Image analyzed successfully (${(
+                      data.confidence * 100
+                    ).toFixed(0)}% confidence)`;
+                  } else if (stepIndex === 7) {
+                    // "Processing complete!"
+                    updatedSteps[7] = `Processing complete! (${(data.confidence * 100).toFixed(
+                      0
+                    )}% confidence)`;
+                  }
                 }
+
+                // Update event details if available
+                if (data.title && stepIndex === 5) {
+                  updatedSteps[5] = `Event details extracted: "${data.title}"`;
+                }
+
+                // Update similarity info if available
+                if (data.similarityScore !== undefined && stepIndex === 6) {
+                  const similarityPercent = (data.similarityScore * 100).toFixed(0);
+                  updatedSteps[6] = `Similar events found (${similarityPercent}% match)`;
+                }
+
                 setProgressSteps(updatedSteps);
               }
+            } else if (data.status === "completed") {
+              // Determine which step to show as final based on result
+              let finalStep = 7; // Default to "Processing complete!"
+
+              if (data.result?.eventId) {
+                finalStep = 8; // "Creating event..."
+                const updatedSteps = [...progressSteps];
+                updatedSteps[8] = `Event created successfully!`;
+                setProgressSteps(updatedSteps);
+              } else if (data.result?.message) {
+                // If we have a message but no event ID, show that message
+                const updatedSteps = [...progressSteps];
+                updatedSteps[7] = data.result.message;
+                setProgressSteps(updatedSteps);
+              }
+
+              setCurrentStep(finalStep);
+              setIsComplete(true);
 
               console.log("[JobStream] Job completed, closing connection");
               es.close();
@@ -213,7 +254,12 @@ export const useJobStream = (jobId: string | null) => {
     setProgressSteps([
       "Initializing job...",
       "Analyzing image...",
-      "Processing data...",
+      "Analyzing image with Vision API...",
+      "Image analyzed successfully",
+      "Generating text embeddings...",
+      "Extracting event details and categories...",
+      "Finding similar events...",
+      "Processing complete!",
       "Creating event...",
     ]);
 

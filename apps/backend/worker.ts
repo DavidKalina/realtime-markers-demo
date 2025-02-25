@@ -104,43 +104,40 @@ async function initializeWorker() {
           throw new Error("Image data not found");
         }
 
-        // Update status to analyzing
+        // Update status to analyzing (this initial update remains)
         console.log(`[Worker] Analyzing image for job ${jobId}`);
         await jobQueue.updateJobStatus(jobId, {
           progress: "Analyzing image...",
         });
 
-        // Add a small delay to ensure UI can process the updates
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Create progress callback function
+        const progressCallback = async (message: string, metadata?: Record<string, any>) => {
+          console.log(`[Worker] Progress update for job ${jobId}: ${message}`);
+          await jobQueue.updateJobStatus(jobId, {
+            progress: message,
+            ...metadata,
+          });
 
-        // Process the image
-        const scanResult = await eventProcessingService.processFlyerFromImage(bufferData);
+          // Add a small delay to ensure UI can process the updates
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        };
+
+        // Process the image with progress reporting
+        const scanResult = await eventProcessingService.processFlyerFromImage(
+          bufferData,
+          progressCallback
+        );
+
         console.log(`[Worker] Image analyzed with confidence: ${scanResult.confidence}`);
-
-        // Update with analysis results
-        await jobQueue.updateJobStatus(jobId, {
-          progress: "Image analyzed, processing results...",
-          confidence: scanResult.confidence,
-          scanResult: {
-            confidence: scanResult.confidence,
-            similarity: scanResult.similarity,
-          },
-        });
-
-        // Add a small delay to ensure UI can process the updates
-        await new Promise((resolve) => setTimeout(resolve, 500));
 
         // Create the event if confidence is high enough
         if (scanResult.confidence >= 0.75) {
           // Update for event creation
-          console.log(`[Worker] Creating event for job ${jobId}`);
           await jobQueue.updateJobStatus(jobId, {
             progress: "Creating event...",
           });
 
-          // Add a small delay to ensure UI can process the updates
-          await new Promise((resolve) => setTimeout(resolve, 500));
-
+          // Continue with event creation as before...
           const eventDetails = scanResult.eventDetails;
           const newEvent = await eventService.createEvent({
             emoji: eventDetails.emoji,
@@ -152,7 +149,6 @@ async function initializeWorker() {
             address: eventDetails.address,
             categoryIds: eventDetails.categories?.map((cat) => cat.id),
           });
-          console.log(`[Worker] Event created with ID: ${newEvent.id}`);
 
           // Publish event creation notification
           await redisClient.publish(

@@ -15,7 +15,7 @@ interface EventDetails {
   address: string;
   location: Point;
   description: string;
-  categories?: Category[]; // Add this
+  categories?: Category[];
 }
 
 interface ScanResult {
@@ -27,6 +27,11 @@ interface ScanResult {
   };
 }
 
+// Add this interface for progress reporting
+interface ProgressCallback {
+  (message: string, metadata?: Record<string, any>): Promise<void>;
+}
+
 export class EventProcessingService {
   constructor(
     private openai: OpenAI,
@@ -35,6 +40,7 @@ export class EventProcessingService {
   ) {}
 
   private async geocodeAddress(address: string): Promise<Point> {
+    // Existing geocode implementation...
     try {
       const encodedAddress = encodeURIComponent(address);
       const response = await fetch(
@@ -67,8 +73,16 @@ export class EventProcessingService {
     }
   }
 
-  // Process an image directly without storing a flyer record
-  async processFlyerFromImage(imageData: Buffer | string): Promise<ScanResult> {
+  // Add optional progress callback parameter
+  async processFlyerFromImage(
+    imageData: Buffer | string,
+    progressCallback?: ProgressCallback
+  ): Promise<ScanResult> {
+    // Report progress: Starting image processing
+    if (progressCallback) {
+      await progressCallback("Starting image analysis...");
+    }
+
     // Convert the image data to a base64 string if necessary
     let base64Image: string;
     if (typeof imageData === "string" && imageData.startsWith("data:image")) {
@@ -80,21 +94,64 @@ export class EventProcessingService {
       base64Image = `data:image/jpeg;base64,${imageData.toString("base64")}`;
     }
 
-    // IMPROVEMENT 1: Make a single comprehensive call to Vision API instead of multiple calls
+    // Report progress: Vision API processing
+    if (progressCallback) {
+      await progressCallback("Analyzing image with Vision API...");
+    }
+
+    // Call Vision API
     const visionResult = await this.processComprehensiveVisionAPI(base64Image);
     const extractedText = visionResult.text || "";
 
-    // IMPROVEMENT 2: Generate embeddings for text in parallel with other processing
+    // Report progress after vision processing
+    if (progressCallback) {
+      await progressCallback("Image analyzed successfully", {
+        confidence: visionResult.confidence,
+      });
+    }
+
+    // Report progress: Generating embeddings
+    if (progressCallback) {
+      await progressCallback("Generating text embeddings...");
+    }
+
+    // Generate embeddings for event similarity matching
     const embeddingPromise = this.generateEmbedding(extractedText);
 
-    // IMPROVEMENT 3: Extract event details and categories in a single call
+    // Report progress: Extracting event details
+    if (progressCallback) {
+      await progressCallback("Extracting event details and categories...");
+    }
+
+    // Process event details in parallel with embedding generation
     const [eventDetailsWithCategories, embedding] = await Promise.all([
       this.extractEventDetailsWithCategories(extractedText),
       embeddingPromise,
     ]);
 
+    // Report progress after extraction
+    if (progressCallback) {
+      await progressCallback("Event details extracted successfully", {
+        title: eventDetailsWithCategories.title,
+        categories: eventDetailsWithCategories.categories?.map((c) => c.name),
+      });
+    }
+
+    // Report progress: Finding similar events
+    if (progressCallback) {
+      await progressCallback("Finding similar events...");
+    }
+
     // Check for similar events
     const similarity = await this.findSimilarEvents(embedding);
+
+    // Report progress: Processing complete
+    if (progressCallback) {
+      await progressCallback("Processing complete!", {
+        confidence: visionResult.confidence,
+        similarityScore: similarity.score,
+      });
+    }
 
     return {
       confidence: visionResult.confidence || 0,
@@ -103,6 +160,7 @@ export class EventProcessingService {
     };
   }
 
+  // Existing methods below...
   private async processComprehensiveVisionAPI(base64Image: string) {
     const response = await this.openai.chat.completions.create({
       model: "gpt-4o",
@@ -133,7 +191,7 @@ export class EventProcessingService {
           ],
         },
       ],
-      max_tokens: 1000, // Increased token limit for more comprehensive extraction
+      max_tokens: 1000,
     });
 
     const content = response.choices[0].message.content;
@@ -154,6 +212,7 @@ export class EventProcessingService {
   }
 
   private async extractEventDetailsWithCategories(text: string): Promise<EventDetails> {
+    // Existing implementation...
     const response = await this.openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
