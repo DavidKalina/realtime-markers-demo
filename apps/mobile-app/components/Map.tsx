@@ -5,7 +5,7 @@ import * as Location from "expo-location";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet } from "react-native";
 import AnimatedMarker from "./AnimatedMapMarker";
-import MarkerDetailsPopup from "./MarkerDetailsPopup";
+import MarkerDetailsBottomSheet from "./MarkerDetailsPopup";
 
 interface MapboxRegion {
   geometry: {
@@ -75,17 +75,23 @@ export default function MapView({
   );
 
   // When a marker is selected, move the camera to center on it
+  // Updated to account for bottom sheet vs popup
   useEffect(() => {
     if (selectedMarker && cameraRef.current) {
       cameraRef.current.flyTo(
         [
           selectedMarker.coordinates[0],
-          selectedMarker.coordinates[1] - 0.02, // Slight offset to account for popup
+          selectedMarker.coordinates[1] - 0.005, // Reduced offset since we're using a bottom sheet now
         ],
         1000
       );
     }
   }, [selectedMarker]);
+
+  const handleCloseBottomSheet = () => {
+    selectMarker(null);
+  };
+
   return (
     <>
       <Mapbox.MapView
@@ -119,7 +125,10 @@ export default function MapView({
       </Mapbox.MapView>
 
       {selectedMarker && (
-        <MarkerDetailsPopup marker={{ ...selectedMarker.data, id: selectedMarker.id ?? "" }} />
+        <MarkerDetailsBottomSheet
+          marker={{ ...selectedMarker.data, id: selectedMarker.id ?? "" }}
+          onClose={handleCloseBottomSheet}
+        />
       )}
     </>
   );
@@ -146,19 +155,5 @@ const styles = StyleSheet.create({
   },
   markerText: {
     fontSize: 20,
-  },
-  calloutContainer: {
-    position: "absolute",
-    bottom: "100%",
-    backgroundColor: "white",
-    padding: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    marginBottom: 8,
-  },
-  calloutText: {
-    color: "#333",
-    fontSize: 14,
   },
 });

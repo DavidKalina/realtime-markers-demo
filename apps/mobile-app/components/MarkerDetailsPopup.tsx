@@ -1,7 +1,14 @@
-import { useFloatingAnimation } from "@/hooks/useFloatingAnimation";
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Animated, { ZoomIn, ZoomOut } from "react-native-reanimated";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  PanResponder,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface EventDetails {
   id: string;
@@ -14,7 +21,7 @@ interface EventDetails {
   status: "PENDING" | "VERIFIED" | "REJECTED" | "EXPIRED";
 }
 
-interface MarkerDetailsPopupProps {
+interface MarkerDetailsBottomSheetProps {
   marker: {
     id: string;
     title: string;
@@ -24,14 +31,63 @@ interface MarkerDetailsPopupProps {
 }
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL!;
+const { height } = Dimensions.get("window");
+const SNAP_POINTS = {
+  CLOSED: 0,
+  PEEK: height * 0.25,
+  OPEN: height * 0.7,
+};
 
-const MarkerDetailsPopup: React.FC<MarkerDetailsPopupProps> = ({ marker, onClose }) => {
-  const { floatingStyle } = useFloatingAnimation();
+const MarkerDetailsBottomSheet: React.FC<MarkerDetailsBottomSheetProps> = ({ marker, onClose }) => {
   const [eventDetails, setEventDetails] = useState<EventDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Animation values
+  const translateY = useRef(new Animated.Value(height)).current;
+  const panY = useRef(new Animated.Value(0)).current;
+
+  const resetBottomSheet = Animated.timing(translateY, {
+    toValue: 0,
+    duration: 300,
+    useNativeDriver: true,
+  });
+
+  const closeBottomSheet = () => {
+    Animated.timing(translateY, {
+      toValue: height,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => onClose && onClose());
+  };
+
+  // Set up pan responder for dragging
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          // Only allow dragging down
+          panY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 100) {
+          // If dragged down far enough, close the sheet
+          closeBottomSheet();
+        } else {
+          // Otherwise, snap back to open position
+          Animated.spring(panY, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
   useEffect(() => {
+    // Fetch data when marker changes
     const fetchEventDetails = async () => {
       try {
         setIsLoading(true);
@@ -50,6 +106,14 @@ const MarkerDetailsPopup: React.FC<MarkerDetailsPopupProps> = ({ marker, onClose
     };
 
     fetchEventDetails();
+
+    // Open the bottom sheet
+    Animated.spring(translateY, {
+      toValue: -SNAP_POINTS.PEEK,
+      tension: 20,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
   }, [marker.id]);
 
   const formatDate = (dateString: string) => {
@@ -64,75 +128,84 @@ const MarkerDetailsPopup: React.FC<MarkerDetailsPopupProps> = ({ marker, onClose
     });
   };
 
+  // Combine the translation from the animated position and the pan gesture
+  const translateYWithPan = Animated.add(translateY, panY);
+
   return (
     <Animated.View
-      style={styles.container}
-      entering={ZoomIn.duration(500)}
-      exiting={ZoomOut.duration(500)}
+      style={[
+        styles.container,
+        {
+          transform: [{ translateY: translateYWithPan }],
+        },
+      ]}
     >
-      <Animated.View style={[floatingStyle]}>
-        <View style={styles.questDetails}>
-          {/* Header */}
-          <View style={styles.titleAndClose}>
-            <View style={styles.titleContainer}>
-              <Text style={styles.emoji}>{marker.emoji}</Text>
-              <Text numberOfLines={1} style={styles.title}>
-                {marker.title}
-              </Text>
-            </View>
-            {onClose && (
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
-            )}
+      <View style={styles.sheet}>
+        {/* Drag indicator */}
+        <View style={styles.dragHandle} {...panResponder.panHandlers}>
+          <View style={styles.dragIndicator} />
+        </View>
+
+        {/* Header */}
+        <View style={styles.titleAndClose}>
+          <View style={styles.titleContainer}>
+            <Text style={styles.emoji}>{marker.emoji}</Text>
+            <Text numberOfLines={1} style={styles.title}>
+              {marker.title}
+            </Text>
           </View>
-
-          {/* Content */}
-          {isLoading ? (
-            <ActivityIndicator size="large" color="#69db7c" style={styles.loader} />
-          ) : error ? (
-            <Text style={styles.errorText}>{error}</Text>
-          ) : (
-            eventDetails && (
-              <>
-                {/* Status Badge */}
-                <View style={[styles.statusBadge, styles[`status${eventDetails.status}`]]}>
-                  <Text style={styles.statusText}>{eventDetails.status}</Text>
-                </View>
-
-                {/* Date & Address */}
-                <Text style={styles.date}>{formatDate(eventDetails.eventDate)}</Text>
-
-                {/* Description */}
-                {eventDetails.description && (
-                  <Text style={styles.description}>{eventDetails.description}</Text>
-                )}
-
-                {/* Categories */}
-                {eventDetails.categories && eventDetails.categories.length > 0 && (
-                  <View style={styles.categoriesContainer}>
-                    {eventDetails.categories.map((category) => (
-                      <View key={category.id} style={styles.categoryChip}>
-                        <Text style={styles.categoryText}>{category.name}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Action Buttons */}
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity style={styles.directionsButton}>
-                    <Text style={styles.buttonText}>Get Directions</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.shareButton}>
-                    <Text style={styles.buttonText}>Share</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )
+          {onClose && (
+            <TouchableOpacity onPress={closeBottomSheet} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
           )}
         </View>
-      </Animated.View>
+
+        {/* Content */}
+        {isLoading ? (
+          <ActivityIndicator size="large" color="#69db7c" style={styles.loader} />
+        ) : error ? (
+          <Text style={styles.errorText}>{error}</Text>
+        ) : (
+          eventDetails && (
+            <View style={styles.content}>
+              {/* Status Badge */}
+              <View style={[styles.statusBadge, styles[`status${eventDetails.status}`]]}>
+                <Text style={styles.statusText}>{eventDetails.status}</Text>
+              </View>
+
+              {/* Date & Address */}
+              <Text style={styles.date}>{formatDate(eventDetails.eventDate)}</Text>
+
+              {/* Description */}
+              {eventDetails.description && (
+                <Text style={styles.description}>{eventDetails.description}</Text>
+              )}
+
+              {/* Categories */}
+              {eventDetails.categories && eventDetails.categories.length > 0 && (
+                <View style={styles.categoriesContainer}>
+                  {eventDetails.categories.map((category) => (
+                    <View key={category.id} style={styles.categoryChip}>
+                      <Text style={styles.categoryText}>{category.name}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Action Buttons */}
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity style={styles.directionsButton}>
+                  <Text style={styles.buttonText}>Get Directions</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.shareButton}>
+                  <Text style={styles.buttonText}>Share</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )
+        )}
+      </View>
     </Animated.View>
   );
 };
@@ -140,16 +213,42 @@ const MarkerDetailsPopup: React.FC<MarkerDetailsPopupProps> = ({ marker, onClose
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: 100,
-    left: 20,
-    right: 20,
+    bottom: -SNAP_POINTS.PEEK,
+    left: 0,
+    right: 0,
+    height: SNAP_POINTS.OPEN,
     zIndex: 100,
   },
-  questDetails: {
-    borderRadius: 10,
-    padding: 20,
+  sheet: {
+    flex: 1,
     backgroundColor: "#333",
-    justifyContent: "space-between",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: -3,
+    },
+    shadowOpacity: 0.27,
+    shadowRadius: 4.65,
+    elevation: 6,
+  },
+  dragHandle: {
+    width: "100%",
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dragIndicator: {
+    width: 50,
+    height: 5,
+    backgroundColor: "#aaa",
+    borderRadius: 5,
+  },
+  content: {
+    flex: 1,
   },
   titleAndClose: {
     flexDirection: "row",
@@ -185,12 +284,6 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     color: "#FFF",
     marginBottom: 8,
-  },
-  address: {
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-    color: "#CCC",
-    marginBottom: 12,
   },
   description: {
     fontSize: 14,
@@ -254,6 +347,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 10,
+    marginTop: "auto",
+    paddingTop: 20,
   },
   directionsButton: {
     flex: 1,
@@ -275,4 +370,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MarkerDetailsPopup;
+export default MarkerDetailsBottomSheet;

@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",
+    "@gorhom/bottom-sheet": "^5.1.1",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
     "@rnmapbox/maps": "^10.1.36",
@@ -39,6 +40,7 @@
     "expo-symbols": "~0.2.2",
     "expo-system-ui": "~4.0.8",
     "expo-web-browser": "~14.0.2",
+    "geolib": "^3.3.4",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-native": "0.76.7",
