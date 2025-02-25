@@ -1,4 +1,3 @@
-// ScanScreen.tsx - With improved processing state transitions
 import { CameraPermission } from "@/components/CameraPermission";
 import { CaptureButton } from "@/components/CaptureButton";
 import { EnhancedJobProcessor } from "@/components/JobProcessor";
@@ -270,9 +269,12 @@ export default function ScanScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Refined Header */}
       <Animated.View style={styles.header} entering={FadeIn.duration(500)}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
-          <Feather name="arrow-left" size={24} color="#FFF" />
+          <View style={styles.backButtonContainer}>
+            <Feather name="arrow-left" size={20} color="#f8f9fa" />
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerText}>Scan Document</Text>
       </Animated.View>
@@ -280,7 +282,7 @@ export default function ScanScreen() {
       <View style={styles.cameraWrapper}>
         <Animated.View style={styles.contentContainer} entering={FadeIn.duration(800)}>
           <CameraView ref={cameraRef} style={styles.camera} onCameraReady={onCameraReady}>
-            <ScannerOverlay onFrameReady={handleFrameReady} />
+            <ScannerOverlay detectionStatus={detectionStatus} onFrameReady={handleFrameReady} />
           </CameraView>
         </Animated.View>
       </View>
@@ -298,16 +300,27 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#3a3a3a",
   },
   backButton: {
-    padding: 8,
+    marginRight: 12,
+  },
+  backButtonContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#3a3a3a",
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerText: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "600",
-    marginLeft: 16,
+    color: "#f8f9fa",
+    fontSize: 16,
+    fontWeight: "500",
+    fontFamily: "SpaceMono",
   },
   cameraWrapper: {
     flex: 1,
@@ -326,23 +339,30 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   errorText: {
-    color: "#FFF",
-    fontSize: 18,
-    marginTop: 24,
-    marginBottom: 32,
+    color: "#f8f9fa",
+    fontSize: 16,
+    marginTop: 20,
+    marginBottom: 24,
     textAlign: "center",
+    fontFamily: "SpaceMono",
   },
   resetButton: {
-    backgroundColor: "#2f9e44",
-    paddingHorizontal: 24,
+    backgroundColor: "#4dabf7",
+    paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 20,
+    borderRadius: 10,
+    marginTop: 16,
     alignSelf: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   resetButtonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "600",
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
+    fontFamily: "SpaceMono",
   },
 });
