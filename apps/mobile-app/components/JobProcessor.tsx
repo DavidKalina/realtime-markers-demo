@@ -17,8 +17,6 @@ export const EnhancedJobProcessor: React.FC<JobProcessorProps> = ({
   const { progressSteps, currentStep, isConnected, error, isComplete, resetStream, result } =
     useJobStreamEnhanced(jobId);
 
-  // Debug information display toggle
-
   // Fire onComplete callback when job is finished successfully
   React.useEffect(() => {
     if (isComplete && !error && result && onComplete) {
@@ -35,10 +33,10 @@ export const EnhancedJobProcessor: React.FC<JobProcessorProps> = ({
       <ImprovedProcessingView
         text={
           !isConnected && !isComplete
-            ? `Connecting to job #${jobId}...`
+            ? `Connecting...`
             : isComplete
             ? "Processing Complete!"
-            : `Processing job #${jobId}`
+            : `Processing document`
         }
         progressSteps={progressSteps}
         currentStep={currentStep}
@@ -47,7 +45,7 @@ export const EnhancedJobProcessor: React.FC<JobProcessorProps> = ({
         errorMessage={error || undefined}
       />
 
-      {/* Connection status indicator (subtle, not taking over the entire screen) */}
+      {/* Connection status indicator (more subtle) */}
       {!isConnected && !isComplete && (
         <View style={styles.connectionIndicator}>
           <Text style={styles.connectionText}>Establishing connection...</Text>
@@ -80,7 +78,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 4,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
     alignItems: "center",
   },
   connectionText: {
@@ -90,14 +88,15 @@ const styles = StyleSheet.create({
   },
   resetButton: {
     backgroundColor: "#4dabf7",
-    padding: 16,
+    padding: 14,
     borderRadius: 8,
     margin: 24,
     alignItems: "center",
   },
   resetButtonText: {
     color: "#fff",
-    fontWeight: "600",
+    fontWeight: "500",
     fontFamily: "SpaceMono",
+    fontSize: 14,
   },
 });

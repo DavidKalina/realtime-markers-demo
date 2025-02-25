@@ -10,6 +10,7 @@ import Animated, {
   Easing,
   FadeIn,
   FadeOut,
+  cancelAnimation,
 } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
 
@@ -43,33 +44,51 @@ export const ImprovedProcessingView: React.FC<ImprovedProcessingViewProps> = ({
   const scale = useSharedValue(1);
   const colorProgress = useSharedValue(0);
   const progressWidth = useSharedValue(0);
-  // Animation for the pulse effect
+
+  // Continuous animation setup to ensure it keeps running
   useEffect(() => {
-    // Only animate if not complete
+    // Continue animation unless complete or has error
     if (!isComplete && !hasError) {
+      // Start continuous rotation animation that won't stop
+      rotation.value = 0; // Reset first to ensure clean restart
+      rotation.value = withRepeat(
+        withTiming(360, {
+          duration: 3000,
+          easing: Easing.linear,
+        }),
+        -1 // infinite repeat
+      );
+
+      // More subtle scale animation
+      scale.value = 1; // Reset first
       scale.value = withRepeat(
         withSequence(
-          withTiming(1.2, { duration: 700, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 700, easing: Easing.inOut(Easing.ease) })
+          withTiming(1.08, {
+            duration: 1500,
+            easing: Easing.inOut(Easing.ease),
+          }),
+          withTiming(1, {
+            duration: 1500,
+            easing: Easing.inOut(Easing.ease),
+          })
         ),
         -1, // infinite repeat
         true // reverse
       );
 
-      // Continuous rotation
-      rotation.value = withRepeat(
-        withTiming(360, { duration: 2000, easing: Easing.linear }),
-        -1 // infinite repeat
-      );
-
-      // Color animation
+      // Subtle color animation
+      colorProgress.value = 0; // Reset first
       colorProgress.value = withRepeat(
-        withTiming(1, { duration: 2000 }),
+        withTiming(1, {
+          duration: 3000,
+          easing: Easing.inOut(Easing.ease),
+        }),
         -1, // infinite repeat
         true // reverse
       );
 
       // Progress bar animation
+      progressWidth.value = 0; // Reset first
       progressWidth.value = withTiming(100, {
         duration: 3000,
         easing: Easing.inOut(Easing.ease),
@@ -81,7 +100,28 @@ export const ImprovedProcessingView: React.FC<ImprovedProcessingViewProps> = ({
       colorProgress.value = withTiming(hasError ? 0.75 : 0.25);
       progressWidth.value = withTiming(100);
     }
-  }, [isComplete, hasError, currentStep, isCaptureState]);
+
+    // Cleanup function to ensure proper animation teardown
+    return () => {
+      // This helps prevent animation leaks when component updates
+      cancelAnimation(rotation);
+      cancelAnimation(scale);
+      cancelAnimation(colorProgress);
+      cancelAnimation(progressWidth);
+    };
+  }, [isComplete, hasError]);
+
+  // Separate effect for progress bar when step changes
+  useEffect(() => {
+    // Only update progress when active (not complete/error)
+    if (!isComplete && !hasError) {
+      progressWidth.value = 0;
+      progressWidth.value = withTiming(100, {
+        duration: 3000,
+        easing: Easing.inOut(Easing.ease),
+      });
+    }
+  }, [currentStep, isComplete, hasError]);
 
   // Reset and animate progress when step changes
   useEffect(() => {
@@ -101,7 +141,7 @@ export const ImprovedProcessingView: React.FC<ImprovedProcessingViewProps> = ({
   });
 
   const colorStyle = useAnimatedStyle(() => {
-    // Different color transitions based on status
+    // More subtle color transitions
     const backgroundColor = hasError
       ? interpolateColor(
           colorProgress.value,
@@ -117,7 +157,7 @@ export const ImprovedProcessingView: React.FC<ImprovedProcessingViewProps> = ({
       : interpolateColor(
           colorProgress.value,
           [0, 0.5, 1],
-          ["#69db7c", "#4dabf7", "#69db7c"] // Processing colors
+          ["#4dabf7", "#4c6ef5", "#4dabf7"] // More subtle processing colors
         );
 
     return {
@@ -128,20 +168,20 @@ export const ImprovedProcessingView: React.FC<ImprovedProcessingViewProps> = ({
   const progressBarStyle = useAnimatedStyle(() => {
     return {
       width: `${progressWidth.value}%`,
-      backgroundColor: hasError ? "#ff6b6b" : isComplete ? "#40c057" : "#69db7c",
+      backgroundColor: hasError ? "#ff6b6b" : isComplete ? "#40c057" : "#4dabf7",
     };
   });
 
   // Function to render appropriate icon for status
   const renderStatusIcon = () => {
     if (isCaptureState) {
-      return <Feather name="camera" size={32} color="#FFFFFF" />;
+      return <Feather name="camera" size={28} color="#FFFFFF" />;
     } else if (hasError) {
-      return <Feather name="x" size={32} color="#FFFFFF" />;
+      return <Feather name="x" size={28} color="#FFFFFF" />;
     } else if (isComplete) {
-      return <Feather name="check" size={32} color="#FFFFFF" />;
+      return <Feather name="check" size={28} color="#FFFFFF" />;
     } else {
-      return <Feather name="refresh-cw" size={32} color="#FFFFFF" />;
+      return <Feather name="refresh-cw" size={28} color="#FFFFFF" />;
     }
   };
 
@@ -156,50 +196,89 @@ export const ImprovedProcessingView: React.FC<ImprovedProcessingViewProps> = ({
     }
   };
 
+  // Render step indicators
+  const renderStepIndicators = () => {
+    return (
+      <View style={styles.stepsIndicatorContainer}>
+        {progressSteps.map((_, index) => (
+          <View
+            key={`indicator-${index}`}
+            style={[
+              styles.stepDot,
+              {
+                backgroundColor:
+                  index < currentStep
+                    ? "#40c057" // Completed
+                    : index === currentStep
+                    ? "#4dabf7" // Current
+                    : "#555", // Upcoming
+              },
+            ]}
+          />
+        ))}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.processingContainer}>
-      {/* Icon container */}
+      {/* Icon container - smaller size */}
       <Animated.View style={[styles.iconContainer, colorStyle]}>
         <Animated.View style={animatedStyle}>{renderStatusIcon()}</Animated.View>
       </Animated.View>
 
-      <Text style={styles.processingTitle}>{getStatusText()}</Text>
+      {/* Smaller title text - fixed height to prevent layout shifts */}
+      <View style={styles.titleContainer}>
+        <Text style={styles.processingTitle}>{getStatusText()}</Text>
+      </View>
+
+      {/* Step indicators row */}
+      {renderStepIndicators()}
 
       <View style={styles.stepsContainer}>
-        {/* Current Step Indicator */}
-        <Animated.View
-          entering={FadeIn.duration(500)}
-          exiting={FadeOut.duration(300)}
-          key={`step-${currentStep}`}
-        >
-          <Text style={styles.currentStepText}>{progressSteps[currentStep]}</Text>
+        {/* Fixed height step display to prevent layout shifts */}
+        <View style={styles.stepDisplayContainer}>
+          {/* Current Step Indicator - with fade transition */}
+          <Animated.View
+            style={styles.stepTextContainer}
+            entering={FadeIn.duration(400)}
+            exiting={FadeOut.duration(200)}
+            key={`step-${currentStep}`}
+          >
+            <Text style={styles.currentStepText}>{progressSteps[currentStep]}</Text>
+          </Animated.View>
 
           {/* Progress Bar Container */}
           <View style={styles.progressBarContainer}>
             <Animated.View style={[styles.progressBar, progressBarStyle]} />
           </View>
 
-          {/* Step Progress Indicator */}
-          <Text style={styles.stepIndicator}>
-            Step {currentStep + 1} of {progressSteps.length}
-          </Text>
-        </Animated.View>
+          {/* Step Progress Indicator - smaller, fixed position */}
+          <View style={styles.stepCounterContainer}>
+            <Text style={styles.stepIndicator}>
+              Step {currentStep + 1} of {progressSteps.length}
+            </Text>
+          </View>
+        </View>
       </View>
 
-      {/* Error Message */}
-      {hasError && errorMessage && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{errorMessage}</Text>
-        </View>
-      )}
+      {/* Status message container with fixed height */}
+      <View style={styles.statusContainer}>
+        {/* Error Message */}
+        {hasError && errorMessage && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        )}
 
-      {/* Success Message */}
-      {isComplete && !hasError && (
-        <View style={styles.successContainer}>
-          <Feather name="check-circle" size={20} color="#40c057" style={styles.successIcon} />
-          <Text style={styles.successText}>Successfully completed all steps!</Text>
-        </View>
-      )}
+        {/* Success Message */}
+        {isComplete && !hasError && (
+          <View style={styles.successContainer}>
+            <Feather name="check-circle" size={16} color="#40c057" style={styles.successIcon} />
+            <Text style={styles.successText}>Successfully completed all steps!</Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 };
@@ -213,91 +292,130 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 64, // Smaller icon container
+    height: 64, // Smaller icon container
+    borderRadius: 32,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 24,
-    elevation: 8,
-    shadowColor: "#69db7c",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    marginBottom: 16,
+    elevation: 5,
+    shadowColor: "#4dabf7",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
     zIndex: 10,
   },
-
+  titleContainer: {
+    height: 26, // Fixed height to prevent layout shifts
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
   processingTitle: {
-    fontSize: 22,
+    fontSize: 18, // Smaller title
     color: "#FFFFFF",
     fontWeight: "600",
-    marginBottom: 40,
     fontFamily: "SpaceMono",
     textAlign: "center",
+  },
+  stepsIndicatorContainer: {
+    height: 16, // Fixed height
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
   },
   stepsContainer: {
     width: "100%",
-    maxWidth: 300,
+    maxWidth: 280, // Smaller container
     alignItems: "center",
     justifyContent: "center",
   },
+  stepDisplayContainer: {
+    height: 110, // Fixed height container to prevent layout shifts
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "flex-start",
+  },
+  stepTextContainer: {
+    height: 24, // Fixed height for step text
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+    width: "100%",
+  },
   currentStepText: {
-    color: "#69db7c",
-    fontSize: 18,
+    color: "#4dabf7", // More subtle blue color
+    fontSize: 16, // Smaller text
     fontFamily: "SpaceMono",
     textAlign: "center",
-    marginBottom: 16,
-    fontWeight: "600",
+    fontWeight: "500", // Less bold
   },
   progressBarContainer: {
     width: "100%",
-    height: 8,
+    height: 6, // Thinner progress bar
     backgroundColor: "#444",
-    borderRadius: 4,
+    borderRadius: 3,
     overflow: "hidden",
     marginBottom: 8,
   },
   progressBar: {
     height: "100%",
-    borderRadius: 4,
+    borderRadius: 3,
+  },
+  stepCounterContainer: {
+    height: 20, // Fixed height for step counter
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
   },
   stepIndicator: {
     color: "#aaa",
-    fontSize: 14,
+    fontSize: 12, // Smaller text
     fontFamily: "SpaceMono",
     textAlign: "center",
-    marginBottom: 24,
+  },
+  statusContainer: {
+    height: 80, // Fixed height for status messages
+    width: "100%",
+    maxWidth: 280,
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorContainer: {
-    backgroundColor: "rgba(255, 107, 107, 0.2)",
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 24,
+    backgroundColor: "rgba(255, 107, 107, 0.15)", // More subtle background
+    borderRadius: 6,
+    padding: 12,
     width: "100%",
-    maxWidth: 300,
   },
   errorText: {
     color: "#ff8787",
     fontFamily: "SpaceMono",
     textAlign: "center",
+    fontSize: 13, // Smaller text
   },
   successContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(64, 192, 87, 0.15)",
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 24,
+    backgroundColor: "rgba(64, 192, 87, 0.1)", // More subtle background
+    borderRadius: 6,
+    padding: 12,
     width: "100%",
-    maxWidth: 300,
   },
   successIcon: {
-    marginRight: 8,
+    marginRight: 6,
   },
   successText: {
     color: "#40c057",
     fontFamily: "SpaceMono",
     textAlign: "center",
+    fontSize: 13, // Smaller text
   },
 });

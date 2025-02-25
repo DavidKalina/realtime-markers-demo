@@ -59,6 +59,22 @@ export default function MapView({
     })();
   }, []);
 
+  // Initialize viewport on component mount
+  useEffect(() => {
+    // Create an initial viewport based on default location
+    // This assumes a default zoom level for initial bounds calculation
+    const defaultZoomSpan = 0.02; // Adjust this value based on your desired initial zoom
+    const initialViewport = {
+      north: location[1] + defaultZoomSpan,
+      south: location[1] - defaultZoomSpan,
+      east: location[0] + defaultZoomSpan,
+      west: location[0] - defaultZoomSpan,
+    };
+
+    // Call updateViewport on mount with initial viewport
+    updateViewport(initialViewport);
+  }, []); // Empty dependency array ensures this runs only on mount
+
   // Handle map region change
   const onRegionDidChange = useCallback(
     (region: MapboxRegion) => {

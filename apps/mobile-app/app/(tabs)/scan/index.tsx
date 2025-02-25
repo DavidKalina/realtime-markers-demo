@@ -233,14 +233,14 @@ export default function ScanScreen() {
   if (processingStatus === "capturing" || processingStatus === "uploading") {
     // Define comprehensive progress steps that cover the entire process
     const progressSteps = [
-      "Initializing camera...",
-      "Capturing document...",
-      "Processing image...",
-      "Uploading to server...",
-      "Preparing for analysis...",
-      "Running document analysis...",
-      "Extracting information...",
-      "Finalizing results...",
+      "Initializing...",
+      "Capturing...",
+      "Processing...",
+      "Uploading...",
+      "Preparing...",
+      "Analyzing...",
+      "Extracting...",
+      "Finalizing...",
     ];
 
     // Determine current step based on the processing status
@@ -250,7 +250,7 @@ export default function ScanScreen() {
     return (
       <View style={styles.container}>
         <ImprovedProcessingView
-          text={processingStatus === "capturing" ? "Capturing image..." : "Uploading image..."}
+          text={processingStatus === "capturing" ? "Capturing" : "Uploading"}
           progressSteps={progressSteps}
           currentStep={currentStep}
           isComplete={false}
