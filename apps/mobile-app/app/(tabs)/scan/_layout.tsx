@@ -7,6 +7,8 @@ export default function ScanLayout() {
       screenOptions={{
         headerShown: false,
         animation: "slide_from_right",
+        freezeOnBlur: true, // Freeze components when not focused
+        animationDuration: 200, // Faster transitions
       }}
     />
   );

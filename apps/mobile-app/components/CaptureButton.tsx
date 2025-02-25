@@ -115,27 +115,27 @@ const styles = StyleSheet.create({
   },
   glowEffect: {
     position: "absolute",
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 76, // Reduced size
+    height: 76, // Reduced size
+    borderRadius: 38, // Half of width/height
     backgroundColor: "#69db7c",
     opacity: 0,
   },
-  buttonContainer: {
-    // This wrapper allows for scale animation
-  },
   button: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 60, // Reduced size
+    height: 60, // Reduced size
+    borderRadius: 30, // Half of width/height
     backgroundColor: "rgba(255, 255, 255, 0.3)",
     justifyContent: "center",
     alignItems: "center",
   },
   innerCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 46, // Reduced size
+    height: 46, // Reduced size
+    borderRadius: 23, // Half of width/height
     backgroundColor: "white",
+  },
+  buttonContainer: {
+    // This wrapper allows for scale animation
   },
 });

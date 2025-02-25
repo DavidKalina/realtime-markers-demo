@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useCameraPermissions } from "expo-camera";
 import { Alert } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
@@ -9,12 +9,46 @@ export const useCamera = () => {
   const [isCapturing, setIsCapturing] = useState(false);
   const isFocused = useIsFocused();
   const cameraRef = useRef(null);
+  const [isCameraReady, setIsCameraReady] = useState(false);
 
   const hasPermission = permission?.granted ?? false;
   const isPermissionLoading = permission === null;
 
+  // Handle camera readiness
+  const onCameraReady = useCallback(() => {
+    setIsCameraReady(true);
+  }, []);
+
+  // Reset camera state when screen loses focus
+  useEffect(() => {
+    if (!isFocused) {
+      setIsCameraReady(false);
+      setIsCapturing(false);
+    }
+  }, [isFocused]);
+
+  // Explicit function to release camera resources
+  const releaseCamera = useCallback(() => {
+    if (cameraRef.current) {
+      // Reset camera state
+      setIsCameraReady(false);
+      setIsCapturing(false);
+
+      // In expo-camera, there's no explicit release method,
+      // but we can help the GC by nullifying references
+      // when component unmounts
+    }
+  }, []);
+
+  // Make sure we clean up when component unmounts
+  useEffect(() => {
+    return () => {
+      releaseCamera();
+    };
+  }, [releaseCamera]);
+
   const takePicture = async () => {
-    if (!cameraRef.current || isCapturing) return null;
+    if (!cameraRef.current || isCapturing || !isCameraReady) return null;
 
     try {
       setIsCapturing(true);
@@ -46,5 +80,8 @@ export const useCamera = () => {
     requestPermission,
     isPermissionLoading,
     isCameraActive: isFocused,
+    isCameraReady,
+    onCameraReady,
+    releaseCamera,
   };
 };

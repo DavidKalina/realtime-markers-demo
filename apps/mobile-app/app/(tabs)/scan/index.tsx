@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
 import { CameraView } from "expo-camera";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,14 +17,24 @@ import { useRouter } from "expo-router";
 type DetectionStatus = "none" | "detecting" | "aligned";
 
 export default function ScanScreen() {
-  const [hasPermission, setHasPermission] = useState(false);
-  const { cameraRef, takePicture, isCapturing, isCameraActive } = useCamera();
+  const {
+    hasPermission,
+    cameraRef,
+    takePicture,
+    isCapturing,
+    isCameraActive,
+    onCameraReady,
+    releaseCamera,
+  } = useCamera();
+
   const router = useRouter();
+
+  // Use a ref for the interval to ensure it's properly cleaned up
+  const detectionIntervalRef = useRef<NodeJS.Timer | null>(null);
 
   // Document detection state
   const [detectionStatus, setDetectionStatus] = useState<DetectionStatus>("none");
   const [isFrameReady, setIsFrameReady] = useState(false);
-  const [detectionInterval, setDetectionInterval] = useState<NodeJS.Timeout | null>(null);
 
   const {
     uploadImage,
@@ -37,15 +47,29 @@ export default function ScanScreen() {
     resetUpload,
   } = useImageUpload();
 
-  // Setup mock document detection
-  // In a real app, replace this with actual frame analysis
-  const startDocumentDetection = useCallback(() => {
-    if (detectionInterval) {
-      clearInterval(detectionInterval);
+  // Clear detection interval function
+  const clearDetectionInterval = useCallback(() => {
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
     }
+  }, []);
+
+  // Setup mock document detection
+  const startDocumentDetection = useCallback(() => {
+    // Clear any existing interval first
+    clearDetectionInterval();
+
+    if (!isCameraActive) return;
 
     // Simulate varying detection confidence
-    const interval: any = setInterval(() => {
+    const interval = setInterval(() => {
+      // Only process if component is still mounted and camera is active
+      if (!isCameraActive) {
+        clearInterval(interval);
+        return;
+      }
+
       const random = Math.random();
 
       // Provide guidance based on simulated detection
@@ -61,51 +85,46 @@ export default function ScanScreen() {
       }
     }, 800); // Update every 800ms
 
-    setDetectionInterval(interval);
+    detectionIntervalRef.current = interval;
+  }, [isCameraActive, clearDetectionInterval]);
 
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, []);
-
-  // Start detection when camera is active
+  // Start detection when camera becomes active
   useEffect(() => {
     if (isCameraActive && !isCapturing && !isProcessing) {
-      const cleanup = startDocumentDetection();
-
-      return () => {
-        cleanup();
-        setDetectionStatus("none");
-        setIsFrameReady(false);
-      };
+      startDocumentDetection();
+    } else {
+      clearDetectionInterval();
     }
-  }, [isCameraActive, isCapturing, isProcessing]);
 
-  // Clean up interval on unmount
+    // Clean up on unmount
+    return () => {
+      clearDetectionInterval();
+    };
+  }, [isCameraActive, isCapturing, isProcessing, startDocumentDetection, clearDetectionInterval]);
+
+  // Clean up ALL resources on component unmount
   useEffect(() => {
     return () => {
-      if (detectionInterval) {
-        clearInterval(detectionInterval);
-      }
+      clearDetectionInterval();
+      releaseCamera();
     };
-  }, [detectionInterval]);
+  }, [clearDetectionInterval, releaseCamera]);
 
   const handleCapture = async () => {
     // Stop detection while capturing
-    if (detectionInterval) {
-      clearInterval(detectionInterval);
-      setDetectionInterval(null);
-    }
+    clearDetectionInterval();
 
     const imageUri = await takePicture();
     if (imageUri) {
       await uploadImage(imageUri);
+    } else {
+      // If capture failed, restart detection
+      startDocumentDetection();
     }
   };
 
   const handleFrameReady = () => {
+    console.log("frame");
     // Optional: Automatically trigger capture when frame is aligned
     // if you want auto-capture, uncomment:
     // if (!isCapturing && !isProcessing) {
@@ -119,9 +138,16 @@ export default function ScanScreen() {
     startDocumentDetection();
   };
 
+  const handleBack = () => {
+    // Ensure we clean up resources before navigating away
+    clearDetectionInterval();
+    releaseCamera();
+    router.push("/");
+  };
+
   // Handle camera permission request
   if (!hasPermission) {
-    return <CameraPermission onPermissionGranted={() => setHasPermission(true)} />;
+    return <CameraPermission onPermissionGranted={() => {}} />;
   }
 
   // Don't render when not on this screen
@@ -148,11 +174,7 @@ export default function ScanScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Animated.View style={styles.header} entering={FadeIn.duration(500)}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.push("/")}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
           <Feather name="arrow-left" size={24} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerText}>Scan Document</Text>
@@ -160,11 +182,11 @@ export default function ScanScreen() {
 
       <View style={styles.cameraWrapper}>
         <Animated.View style={styles.contentContainer} entering={FadeIn.duration(800)}>
-          <CameraView ref={cameraRef} style={styles.camera}>
+          <CameraView ref={cameraRef} style={styles.camera} onCameraReady={onCameraReady}>
             <ScannerOverlay
-              detectionStatus={detectionStatus}
+              // detectionStatus={detectionStatus}
               onFrameReady={handleFrameReady}
-              guideText="Position your document within the frame"
+              // guideText="Position your document within the frame"
             />
           </CameraView>
         </Animated.View>
@@ -193,10 +215,12 @@ const styles = StyleSheet.create({
   headerText: {
     flex: 1,
     color: "#FFF",
-    fontSize: 18,
-    fontFamily: "BungeeInline",
+    fontSize: 16,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
     textAlign: "center",
-    marginRight: 24, // To offset the back button width for perfect centering
+    marginRight: 24,
+    letterSpacing: 0.5,
   },
   backButton: {
     padding: 8,
@@ -208,7 +232,6 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     position: "relative",
-    borderRadius: 10,
     overflow: "hidden",
     margin: 0,
   },
