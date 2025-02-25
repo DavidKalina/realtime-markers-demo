@@ -8,8 +8,8 @@ export class CacheService {
   private static redisClient: Redis | null = null;
 
   // Cache size limits
-  private static MAX_EMBEDDING_CACHE_SIZE = 1000;
-  private static MAX_CATEGORY_CACHE_SIZE = 500;
+  private static MAX_EMBEDDING_CACHE_SIZE = 3000; // Increase from 1000
+  private static MAX_CATEGORY_CACHE_SIZE = 1000; // Increase from 500
 
   static initRedis(options: { host: string; port: number }) {
     this.redisClient = new Redis(options);
@@ -79,5 +79,18 @@ export class CacheService {
     }
 
     this.categoryCache.set(key, categories);
+  }
+
+  static monitorMemoryUsage(): void {
+    const memUsage = process.memoryUsage();
+    const mbUsed = Math.round(memUsage.heapUsed / 1024 / 1024);
+    const mbTotal = Math.round(memUsage.heapTotal / 1024 / 1024);
+
+    // Auto-clear cache if memory pressure is high (>85%)
+    if (mbUsed / mbTotal > 0.85) {
+      this.embeddingCache.clear();
+      this.categoryCache.clear();
+      console.warn(`Memory pressure detected: ${mbUsed}MB/${mbTotal}MB - Cache cleared`);
+    }
   }
 }
