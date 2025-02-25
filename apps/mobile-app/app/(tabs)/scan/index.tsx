@@ -1,18 +1,20 @@
-// ScanScreen.tsx - With JobProcessor integration
-import React, { useRef, useState, useEffect, useCallback } from "react";
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView } from "react-native";
-import { useRouter } from "expo-router";
-import Animated, { FadeIn } from "react-native-reanimated";
-import { Feather } from "@expo/vector-icons";
+// ScanScreen.tsx - With immediate loading state
 import { CameraPermission } from "@/components/CameraPermission";
 import { CaptureButton } from "@/components/CaptureButton";
+import { EnhancedJobProcessor } from "@/components/JobProcessor";
+import { ImprovedProcessingView } from "@/components/ProcessingView";
 import { ScannerOverlay } from "@/components/ScannerOverlay";
 import { SuccessScreen } from "@/components/SuccessScreen";
 import { useCamera } from "@/hooks/useCamera";
+import { Feather } from "@expo/vector-icons";
 import { CameraView } from "expo-camera";
-import { EnhancedJobProcessor } from "@/components/JobProcessor";
+import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 type DetectionStatus = "none" | "detecting" | "aligned";
+type ProcessingStatus = "none" | "capturing" | "uploading" | "processing";
 
 export default function ScanScreen() {
   const {
@@ -34,6 +36,10 @@ export default function ScanScreen() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [processingResult, setProcessingResult] = useState<any>(null);
+
+  // New processing status state to show immediate feedback
+  const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>("none");
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Clear detection interval function
   const clearDetectionInterval = useCallback(() => {
@@ -78,7 +84,7 @@ export default function ScanScreen() {
 
   // Start detection when camera becomes active
   useEffect(() => {
-    if (isCameraActive && !isCapturing && !jobId) {
+    if (isCameraActive && !isCapturing && processingStatus === "none") {
       startDocumentDetection();
     } else {
       clearDetectionInterval();
@@ -88,7 +94,13 @@ export default function ScanScreen() {
     return () => {
       clearDetectionInterval();
     };
-  }, [isCameraActive, isCapturing, jobId, startDocumentDetection, clearDetectionInterval]);
+  }, [
+    isCameraActive,
+    isCapturing,
+    processingStatus,
+    startDocumentDetection,
+    clearDetectionInterval,
+  ]);
 
   // Clean up ALL resources on component unmount
   useEffect(() => {
@@ -100,6 +112,8 @@ export default function ScanScreen() {
 
   const uploadImage = async (uri: string) => {
     try {
+      setProcessingStatus("uploading");
+
       // Create a FormData object to send the image
       const formData = new FormData();
       formData.append("image", {
@@ -124,13 +138,15 @@ export default function ScanScreen() {
         // Store the job ID to start streaming updates
         setJobId(result.jobId);
         setImageUri(uri);
+        setProcessingStatus("processing");
       } else {
         throw new Error("No job ID returned");
       }
     } catch (error) {
       console.error("Upload failed:", error);
       // Handle upload error
-      alert("Failed to upload image. Please try again.");
+      setUploadError("Failed to upload image. Please try again.");
+      setProcessingStatus("none");
       // If upload failed, restart detection
       startDocumentDetection();
     }
@@ -140,10 +156,22 @@ export default function ScanScreen() {
     // Stop detection while capturing
     clearDetectionInterval();
 
-    const uri = await takePicture();
-    if (uri) {
-      await uploadImage(uri);
-    } else {
+    // Immediately show the processing state
+    setProcessingStatus("capturing");
+    setUploadError(null);
+
+    try {
+      const uri = await takePicture();
+      if (uri) {
+        setImageUri(uri);
+        await uploadImage(uri);
+      } else {
+        throw new Error("Failed to capture image");
+      }
+    } catch (error) {
+      console.error("Capture failed:", error);
+      setUploadError("Failed to capture image. Please try again.");
+      setProcessingStatus("none");
       // If capture failed, restart detection
       startDocumentDetection();
     }
@@ -161,6 +189,8 @@ export default function ScanScreen() {
     setJobId(null);
     setImageUri(null);
     setProcessingResult(null);
+    setProcessingStatus("none");
+    setUploadError(null);
     // Restart detection
     startDocumentDetection();
   };
@@ -193,10 +223,37 @@ export default function ScanScreen() {
     );
   }
 
-  // Show job processor during processing
+  // Show job processor once we have a job ID
   if (jobId) {
     return (
       <EnhancedJobProcessor jobId={jobId} onComplete={handleJobComplete} onReset={handleNewScan} />
+    );
+  }
+
+  // Show capturing/uploading UI while waiting for job ID
+  if (processingStatus === "capturing" || processingStatus === "uploading") {
+    return (
+      <View style={styles.container}>
+        <ImprovedProcessingView
+          text={processingStatus === "capturing" ? "Capturing image..." : "Uploading image..."}
+          progressSteps={[
+            "Capturing image...",
+            "Processing image...",
+            "Uploading to server...",
+            "Starting analysis...",
+          ]}
+          currentStep={processingStatus === "capturing" ? 0 : 2}
+          isComplete={false}
+          hasError={!!uploadError}
+          errorMessage={uploadError || undefined}
+        />
+
+        {uploadError && (
+          <TouchableOpacity style={styles.resetButton} onPress={handleNewScan}>
+            <Text style={styles.resetButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     );
   }
 
@@ -264,13 +321,15 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     textAlign: "center",
   },
-  tryAgainButton: {
+  resetButton: {
     backgroundColor: "#2f9e44",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
+    marginTop: 20,
+    alignSelf: "center",
   },
-  tryAgainButtonText: {
+  resetButtonText: {
     color: "#FFF",
     fontSize: 16,
     fontWeight: "600",

@@ -26,6 +26,8 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
   const [jobState, setJobState] = useState<JobUpdate | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // isComplete is only set after the UI has animated through all steps.
   const [isComplete, setIsComplete] = useState<boolean>(false);
   const [lastReceivedMessage, setLastReceivedMessage] = useState<string | null>(null);
 
@@ -46,6 +48,8 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
   const [seenStepSequence, setSeenStepSequence] = useState<number[]>([]);
   // Index of the step currently shown in the UI
   const [displayIndex, setDisplayIndex] = useState<number>(0);
+  // Flag indicating the backend has marked the job as finished
+  const [jobFinished, setJobFinished] = useState<boolean>(false);
 
   // Reference to the EventSource instance
   const eventSourceRef = useRef<ExtendedEventSource | null>(null);
@@ -65,9 +69,7 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
         setDisplayIndex((prev) => prev + 1);
         lastStepChangeRef.current = Date.now();
       } else {
-        if (timerRef.current) {
-          clearTimeout(timerRef.current);
-        }
+        if (timerRef.current) clearTimeout(timerRef.current);
         const remainingTime = MIN_STEP_DISPLAY_TIME - timeSinceLastChange;
         timerRef.current = setTimeout(() => {
           setDisplayIndex((prev) => prev + 1);
@@ -76,11 +78,21 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
       }
     }
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [seenStepSequence, displayIndex]);
+
+  // Once the backend is finished (jobFinished) and we've animated through all steps,
+  // mark the hook as complete.
+  useEffect(() => {
+    if (
+      jobFinished &&
+      seenStepSequence.length > 0 &&
+      displayIndex === seenStepSequence[seenStepSequence.length - 1]
+    ) {
+      setIsComplete(true);
+    }
+  }, [jobFinished, seenStepSequence, displayIndex]);
 
   // Current progress step to display (fallback to 0 if no steps received)
   const currentStep =
@@ -166,19 +178,20 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
     setDisplayIndex(0);
     setAllUpdates([]);
     lastStepChangeRef.current = Date.now();
+    setJobFinished(false);
+    setIsComplete(false);
 
     const connectToStream = () => {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
       }
-
       try {
         const url = `https://f49e-69-162-231-94.ngrok-free.app/api/jobs/${jobId}/stream`;
         console.log(`[JobStream] Connecting to SSE stream: ${url}`);
         const es = new EventSource(url);
         eventSourceRef.current = es as ExtendedEventSource;
 
-        // On connection open, only add initial step if not already set.
+        // On connection open, only add the initial step if not already set.
         es.addEventListener("open", () => {
           if (unmounted) return;
           console.log("[JobStream] SSE connection established");
@@ -224,7 +237,8 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
               }
               addStepToSequence(finalStep);
               updateStepWithMetadata(finalStep, data);
-              setIsComplete(true);
+              // Instead of marking complete immediately, signal that the backend is finished.
+              setJobFinished(true);
             } else if (data.status === "failed") {
               setError(data.error || "Unknown error");
               setIsComplete(true);
@@ -283,6 +297,7 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
     setJobState(null);
     setIsConnected(false);
     setError(null);
+    setJobFinished(false);
     setIsComplete(false);
     setLastReceivedMessage(null);
     setSeenStepSequence([]);
