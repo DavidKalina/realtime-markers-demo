@@ -2,27 +2,18 @@ import { Tabs } from "expo-router";
 import React from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import { HapticTab } from "@/components/HapticTab";
-import EmojiIcon from "@/components/ui/EmojiIcon";
-import { BlurView } from "expo-blur";
+import { Feather } from "@expo/vector-icons";
 
 const TabBarBackground = () => {
-  if (Platform.OS === "ios") {
-    return (
-      <BlurView tint="dark" intensity={100} style={StyleSheet.absoluteFill}>
-        <View style={styles.overlay} />
-      </BlurView>
-    );
-  }
-
-  return <View style={styles.androidBackground} />;
+  return <View style={styles.tabBarBackground} />;
 };
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#fff",
-        tabBarInactiveTintColor: "#CCC",
+        tabBarActiveTintColor: "#37D05C", // Bright green to match our success screen
+        tabBarInactiveTintColor: "#868e96", // Medium gray for inactive
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
@@ -46,37 +37,55 @@ export default function TabLayout() {
             },
           }),
           borderTopWidth: 0,
+          elevation: 8,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.15,
+          shadowRadius: 6,
         },
         tabBarLabelStyle: {
           fontFamily: "SpaceMono",
           fontSize: 12,
-          marginTop: 2,
+          marginTop: 4,
+          fontWeight: "500",
+          letterSpacing: 0.3,
+        },
+        tabBarIconStyle: {
+          marginBottom: 0,
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => (
-            <EmojiIcon size={28} name="mappin.and.ellipse" color={color} />
+          title: "HOME",
+          tabBarIcon: ({ color, size }) => (
+            <View style={styles.iconContainer}>
+              <Feather name="home" size={size ? size - 2 : 22} color={color} />
+            </View>
           ),
         }}
       />
       <Tabs.Screen
         name="search"
         options={{
-          title: "Search",
-          tabBarIcon: ({ color }) => (
-            <EmojiIcon size={28} name="magnifyingglass.circle" color={color} />
+          title: "SEARCH",
+          tabBarIcon: ({ color, size }) => (
+            <View style={styles.iconContainer}>
+              <Feather name="search" size={size ? size - 2 : 22} color={color} />
+            </View>
           ),
         }}
       />
       <Tabs.Screen
         name="scan"
         options={{
-          title: "Scan",
-          tabBarIcon: ({ color }) => <EmojiIcon size={28} name="camera.fill" color={color} />,
+          title: "SCAN",
+          tabBarIcon: ({ color, size }) => (
+            <View style={styles.iconContainer}>
+              <Feather name="camera" size={size ? size : 24} color={color} />
+            </View>
+          ),
           // This hides the tab bar on the scan screen
           tabBarStyle: { display: "none" },
         }}
@@ -86,12 +95,16 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  tabBarBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(51, 51, 51, 0.7)", // Matching popup background color with some transparency
+    backgroundColor: "#262626", // Fully opaque dark background
+    borderTopWidth: 1,
+    borderTopColor: "#333", // Subtle top border
   },
-  androidBackground: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#333", // Matching popup background color
+  iconContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    height: 36,
+    width: 36,
   },
 });

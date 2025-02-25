@@ -29,7 +29,7 @@ Mapbox.setAccessToken(
 
 interface MapViewProps {
   style?: object;
-  wsUrl: string;
+  wsUrl?: string;
 }
 
 export default function MapView({
@@ -93,7 +93,6 @@ export default function MapView({
   );
 
   // When a marker is selected, move the camera to center on it
-  // Updated to account for bottom sheet vs popup
   useEffect(() => {
     if (selectedMarker && cameraRef.current) {
       cameraRef.current.flyTo(
@@ -133,8 +132,10 @@ export default function MapView({
           <React.Fragment key={marker.id}>
             <MarkerView id={marker.id} coordinate={marker.coordinates}>
               <AnimatedMarker
+                cycleBehaviors={true}
+                cycleInterval={10000} // Cycle every 10 seconds
+                talkBubbleText={marker.data.title} // Wider speech bubble can fit longer text
                 emoji={marker.data.emoji}
-                isSelected={selectedMarker?.id === marker.id}
                 onPress={() => selectMarker(marker.id)}
               />
             </MarkerView>

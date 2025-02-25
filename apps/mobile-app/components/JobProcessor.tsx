@@ -45,7 +45,6 @@ export const EnhancedJobProcessor: React.FC<JobProcessorProps> = ({
         errorMessage={error || undefined}
       />
 
-      {/* Connection status indicator (more subtle) */}
       {!isConnected && !isComplete && (
         <View style={styles.connectionIndicator}>
           <Text style={styles.connectionText}>Establishing connection...</Text>
@@ -78,7 +77,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 4,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
     alignItems: "center",
   },
   connectionText: {

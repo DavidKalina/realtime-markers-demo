@@ -20,8 +20,6 @@ const SearchScreen = () => {
     toggleCategory,
   } = useSearch();
 
-  console.log(categories);
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#222" />
