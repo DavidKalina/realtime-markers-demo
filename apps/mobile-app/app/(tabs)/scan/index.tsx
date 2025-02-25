@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
-import { CameraView } from "expo-camera";
-import { SafeAreaView } from "react-native-safe-area-context";
+// Modified version of your existing ScanScreen component
+// ScanScreen.tsx - With streaming integration
+import React, { useRef, useState, useEffect, useCallback } from "react";
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView } from "react-native";
+import { useRouter } from "expo-router";
+import Animated, { FadeIn } from "react-native-reanimated";
+import { Feather } from "@expo/vector-icons";
 import { CameraPermission } from "@/components/CameraPermission";
 import { CaptureButton } from "@/components/CaptureButton";
-import { SuccessScreen } from "@/components/SuccessScreen";
-import { ScannerOverlay } from "@/components/ScannerOverlay";
-import { useCamera } from "@/hooks/useCamera";
-import { useImageUpload } from "@/hooks/useImageUpload";
-import Animated, { FadeIn } from "react-native-reanimated";
 import { DynamicProcessingView } from "@/components/ProcessingView";
-import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { ScannerOverlay } from "@/components/ScannerOverlay";
+import { SuccessScreen } from "@/components/SuccessScreen";
+import { useCamera } from "@/hooks/useCamera";
+import { useJobStream } from "@/hooks/useJobStream";
+import { CameraView } from "expo-camera";
 
-// Document detection states
 type DetectionStatus = "none" | "detecting" | "aligned";
 
 export default function ScanScreen() {
@@ -28,24 +28,17 @@ export default function ScanScreen() {
   } = useCamera();
 
   const router = useRouter();
-
-  // Use a ref for the interval to ensure it's properly cleaned up
   const detectionIntervalRef = useRef<NodeJS.Timer | null>(null);
-
-  // Document detection state
   const [detectionStatus, setDetectionStatus] = useState<DetectionStatus>("none");
   const [isFrameReady, setIsFrameReady] = useState(false);
 
-  const {
-    uploadImage,
-    isProcessing,
-    processingStep,
-    processingSteps,
-    processedImageUri,
-    isSuccess,
-    eventId,
-    resetUpload,
-  } = useImageUpload();
+  // New state for job tracking
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+
+  // Use our new job streaming hook
+  const { progressSteps, currentStep, isComplete, error, result, resetStream } =
+    useJobStream(jobId);
 
   // Clear detection interval function
   const clearDetectionInterval = useCallback(() => {
@@ -90,7 +83,7 @@ export default function ScanScreen() {
 
   // Start detection when camera becomes active
   useEffect(() => {
-    if (isCameraActive && !isCapturing && !isProcessing) {
+    if (isCameraActive && !isCapturing && !jobId) {
       startDocumentDetection();
     } else {
       clearDetectionInterval();
@@ -100,7 +93,7 @@ export default function ScanScreen() {
     return () => {
       clearDetectionInterval();
     };
-  }, [isCameraActive, isCapturing, isProcessing, startDocumentDetection, clearDetectionInterval]);
+  }, [isCameraActive, isCapturing, jobId, startDocumentDetection, clearDetectionInterval]);
 
   // Clean up ALL resources on component unmount
   useEffect(() => {
@@ -110,13 +103,51 @@ export default function ScanScreen() {
     };
   }, [clearDetectionInterval, releaseCamera]);
 
+  const uploadImage = async (uri: string) => {
+    try {
+      // Create a FormData object to send the image
+      const formData = new FormData();
+      formData.append("file", {
+        uri,
+        name: "image.jpg",
+        type: "image/jpeg",
+      } as any);
+
+      // Upload the image
+      const response = await fetch("https://your-api-domain.com/api/upload-flyer", {
+        method: "POST",
+        body: formData,
+        headers: {
+          "Content-Type": "multipart/form-data",
+          // Add any auth headers needed
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.jobId) {
+        // Store the job ID to start streaming updates
+        setJobId(result.jobId);
+        setImageUri(uri);
+      } else {
+        throw new Error("No job ID returned");
+      }
+    } catch (error) {
+      console.error("Upload failed:", error);
+      // Handle upload error
+      alert("Failed to upload image. Please try again.");
+      // If upload failed, restart detection
+      startDocumentDetection();
+    }
+  };
+
   const handleCapture = async () => {
     // Stop detection while capturing
     clearDetectionInterval();
 
-    const imageUri = await takePicture();
-    if (imageUri) {
-      await uploadImage(imageUri);
+    const uri = await takePicture();
+    if (uri) {
+      await uploadImage(uri);
     } else {
       // If capture failed, restart detection
       startDocumentDetection();
@@ -124,16 +155,13 @@ export default function ScanScreen() {
   };
 
   const handleFrameReady = () => {
-    console.log("frame");
     // Optional: Automatically trigger capture when frame is aligned
-    // if you want auto-capture, uncomment:
-    // if (!isCapturing && !isProcessing) {
-    //   handleCapture();
-    // }
   };
 
   const handleNewScan = () => {
-    resetUpload();
+    setJobId(null);
+    setImageUri(null);
+    resetStream();
     // Restart detection
     startDocumentDetection();
   };
@@ -156,19 +184,26 @@ export default function ScanScreen() {
   }
 
   // Show success screen after processing
-  if (isSuccess && processedImageUri) {
+  if (isComplete && !error && imageUri && result) {
+    return <SuccessScreen imageUri={imageUri} onNewScan={handleNewScan} eventId={result.eventId} />;
+  }
+
+  // Show error screen
+  if (isComplete && error) {
     return (
-      <SuccessScreen
-        imageUri={processedImageUri}
-        onNewScan={handleNewScan}
-        eventId={eventId || undefined}
-      />
+      <View style={styles.errorContainer}>
+        <Feather name="alert-circle" size={60} color="#e74c3c" />
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.tryAgainButton} onPress={handleNewScan}>
+          <Text style={styles.tryAgainButtonText}>Try Again</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
-  // Show dynamic processing view while uploading
-  if (isProcessing) {
-    return <DynamicProcessingView progressSteps={processingSteps} currentStep={processingStep} />;
+  // Show dynamic processing view while streaming job updates
+  if (jobId) {
+    return <DynamicProcessingView progressSteps={progressSteps} currentStep={currentStep} />;
   }
 
   return (
@@ -183,11 +218,7 @@ export default function ScanScreen() {
       <View style={styles.cameraWrapper}>
         <Animated.View style={styles.contentContainer} entering={FadeIn.duration(800)}>
           <CameraView ref={cameraRef} style={styles.camera} onCameraReady={onCameraReady}>
-            <ScannerOverlay
-              // detectionStatus={detectionStatus}
-              onFrameReady={handleFrameReady}
-              // guideText="Position your document within the frame"
-            />
+            <ScannerOverlay onFrameReady={handleFrameReady} />
           </CameraView>
         </Animated.View>
       </View>
@@ -203,40 +234,51 @@ const styles = StyleSheet.create({
     backgroundColor: "#333",
   },
   header: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: "#333",
-    borderBottomWidth: 1,
-    borderBottomColor: "#444",
-    fontFamily: "mono",
     flexDirection: "row",
     alignItems: "center",
-  },
-  headerText: {
-    flex: 1,
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "SpaceMono",
-    textAlign: "center",
-    marginRight: 24,
-    letterSpacing: 0.5,
+    padding: 16,
   },
   backButton: {
     padding: 8,
-    marginRight: 8,
+  },
+  headerText: {
+    color: "#FFF",
+    fontSize: 18,
+    fontWeight: "600",
+    marginLeft: 16,
   },
   cameraWrapper: {
     flex: 1,
   },
   contentContainer: {
     flex: 1,
-    position: "relative",
-    overflow: "hidden",
-    margin: 0,
   },
   camera: {
     flex: 1,
-    borderRadius: 10,
+  },
+  errorContainer: {
+    flex: 1,
+    backgroundColor: "#333",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  errorText: {
+    color: "#FFF",
+    fontSize: 18,
+    marginTop: 24,
+    marginBottom: 32,
+    textAlign: "center",
+  },
+  tryAgainButton: {
+    backgroundColor: "#2f9e44",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  tryAgainButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
