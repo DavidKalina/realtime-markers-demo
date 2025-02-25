@@ -20,6 +20,8 @@ interface ImprovedProcessingViewProps {
   isComplete?: boolean;
   hasError?: boolean;
   errorMessage?: string;
+  imageUri?: string | null;
+  isCaptureState?: boolean;
 }
 
 export const ImprovedProcessingView: React.FC<ImprovedProcessingViewProps> = ({
@@ -34,12 +36,13 @@ export const ImprovedProcessingView: React.FC<ImprovedProcessingViewProps> = ({
   isComplete = false,
   hasError = false,
   errorMessage,
+  imageUri = null,
+  isCaptureState = false,
 }) => {
   const rotation = useSharedValue(0);
   const scale = useSharedValue(1);
   const colorProgress = useSharedValue(0);
   const progressWidth = useSharedValue(0);
-
   // Animation for the pulse effect
   useEffect(() => {
     // Only animate if not complete
@@ -78,7 +81,7 @@ export const ImprovedProcessingView: React.FC<ImprovedProcessingViewProps> = ({
       colorProgress.value = withTiming(hasError ? 0.75 : 0.25);
       progressWidth.value = withTiming(100);
     }
-  }, [isComplete, hasError, currentStep]);
+  }, [isComplete, hasError, currentStep, isCaptureState]);
 
   // Reset and animate progress when step changes
   useEffect(() => {
@@ -131,7 +134,9 @@ export const ImprovedProcessingView: React.FC<ImprovedProcessingViewProps> = ({
 
   // Function to render appropriate icon for status
   const renderStatusIcon = () => {
-    if (hasError) {
+    if (isCaptureState) {
+      return <Feather name="camera" size={32} color="#FFFFFF" />;
+    } else if (hasError) {
       return <Feather name="x" size={32} color="#FFFFFF" />;
     } else if (isComplete) {
       return <Feather name="check" size={32} color="#FFFFFF" />;
@@ -153,6 +158,7 @@ export const ImprovedProcessingView: React.FC<ImprovedProcessingViewProps> = ({
 
   return (
     <View style={styles.processingContainer}>
+      {/* Icon container */}
       <Animated.View style={[styles.iconContainer, colorStyle]}>
         <Animated.View style={animatedStyle}>{renderStatusIcon()}</Animated.View>
       </Animated.View>
@@ -218,7 +224,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    zIndex: 10,
   },
+
   processingTitle: {
     fontSize: 22,
     color: "#FFFFFF",

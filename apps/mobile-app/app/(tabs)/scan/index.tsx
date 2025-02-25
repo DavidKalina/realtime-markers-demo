@@ -1,4 +1,4 @@
-// ScanScreen.tsx - With immediate loading state
+// ScanScreen.tsx - With improved processing state transitions
 import { CameraPermission } from "@/components/CameraPermission";
 import { CaptureButton } from "@/components/CaptureButton";
 import { EnhancedJobProcessor } from "@/components/JobProcessor";
@@ -37,7 +37,7 @@ export default function ScanScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [processingResult, setProcessingResult] = useState<any>(null);
 
-  // New processing status state to show immediate feedback
+  // Processing status state to show immediate feedback
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>("none");
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -137,7 +137,6 @@ export default function ScanScreen() {
       if (result.jobId) {
         // Store the job ID to start streaming updates
         setJobId(result.jobId);
-        setImageUri(uri);
         setProcessingStatus("processing");
       } else {
         throw new Error("No job ID returned");
@@ -232,20 +231,32 @@ export default function ScanScreen() {
 
   // Show capturing/uploading UI while waiting for job ID
   if (processingStatus === "capturing" || processingStatus === "uploading") {
+    // Define comprehensive progress steps that cover the entire process
+    const progressSteps = [
+      "Initializing camera...",
+      "Capturing document...",
+      "Processing image...",
+      "Uploading to server...",
+      "Preparing for analysis...",
+      "Running document analysis...",
+      "Extracting information...",
+      "Finalizing results...",
+    ];
+
+    // Determine current step based on the processing status
+    const currentStep =
+      processingStatus === "capturing" ? 1 : processingStatus === "uploading" ? 3 : 0;
+
     return (
       <View style={styles.container}>
         <ImprovedProcessingView
           text={processingStatus === "capturing" ? "Capturing image..." : "Uploading image..."}
-          progressSteps={[
-            "Capturing image...",
-            "Processing image...",
-            "Uploading to server...",
-            "Starting analysis...",
-          ]}
-          currentStep={processingStatus === "capturing" ? 0 : 2}
+          progressSteps={progressSteps}
+          currentStep={currentStep}
           isComplete={false}
           hasError={!!uploadError}
           errorMessage={uploadError || undefined}
+          isCaptureState={processingStatus === "capturing"}
         />
 
         {uploadError && (
