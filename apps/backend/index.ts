@@ -1,50 +1,55 @@
+// src/index.ts
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { streamSSE } from "hono/streaming";
 import Redis from "ioredis";
-import { OpenAI } from "openai";
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import AppDataSource from "./data-source";
+import { Category } from "./entities/Category";
 import { Event } from "./entities/Event";
+import { CacheService } from "./services/CacheService";
+import { CategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventProcessingService } from "./services/EventProcessingService";
 import { EventService } from "./services/EventService";
-import { CategoryProcessingService } from "./services/CategoryProcessingService";
-import { Category } from "./entities/Category";
+import { JobQueue } from "./services/JobQueue";
+import { OpenAIService } from "./services/OpenAIService";
 
-// Create Hono app
-const app = new Hono();
+// =============================================================================
+// Define app context types
+// =============================================================================
+type AppVariables = {
+  eventService: EventService;
+  eventProcessingService: EventProcessingService;
+  jobQueue: JobQueue;
+  redisClient: Redis;
+};
 
+// Create Hono app with typed variables
+const app = new Hono<{ Variables: AppVariables }>();
+
+// =============================================================================
+// App Configuration
+// =============================================================================
+
+// Add global middleware
+app.use("*", logger());
+app.use("*", cors());
+
+// Trailing slash handler
 app.use("*", async (c, next) => {
   const url = c.req.url;
   if (url !== "/" && url.endsWith("/")) {
-    // Redirect to URL without trailing slash
     return c.redirect(url.slice(0, -1));
   }
   return next();
 });
 
-// Apply middleware
-app.use("*", logger());
-app.use("*", cors());
+// =============================================================================
+// Database Initialization
+// =============================================================================
 
-// Create and initialize the database connection.
-// Since migrations and seeding are handled externally,
-// we set synchronize to false.
-
-// Add these near the top of your file with other imports
-let eventService: EventService;
-let eventProcessingService: EventProcessingService;
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// Create and initialize the database connection.
-// Create and initialize the database connection.
-// index.ts
-
-// Remove the DataSource configuration here and just use:
 const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource> => {
   for (let i = 0; i < retries; i++) {
     try {
@@ -66,42 +71,90 @@ const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource
   throw new Error("Failed to initialize database after all retries");
 };
 
-const initializedDataSource = await initializeDatabase();
+// =============================================================================
+// Redis Configuration
+// =============================================================================
 
-const categoryProcessingService = new CategoryProcessingService(
-  openai,
-  initializedDataSource.getRepository(Category)
-);
-
-// Initialize services after database is ready
-eventService = new EventService(initializedDataSource);
-eventProcessingService = new EventProcessingService(
-  openai,
-  initializedDataSource.getRepository(Event),
-  categoryProcessingService
-);
-// Initialize Redis
-const redisPub = new Redis({
+const redisConfig = {
   host: process.env.REDIS_HOST || "localhost",
   port: parseInt(process.env.REDIS_PORT || "6379"),
   maxRetriesPerRequest: 3,
+};
+
+// Redis client for pub/sub operations
+const redisPub = new Redis(redisConfig);
+
+// Initialize Redis for services
+CacheService.initRedis({
+  host: redisConfig.host,
+  port: redisConfig.port,
 });
 
-// Initialize OpenAI
+// Initialize OpenAI service
+const openai = OpenAIService.getInstance();
 
-// Instantiate services using the established connection.
+// Initialize job queue
+const jobQueue = new JobQueue(redisPub);
 
-// === EVENT ROUTES ===
-const events = new Hono();
+// =============================================================================
+// Services Initialization
+// =============================================================================
 
-// Get all events
+async function initializeServices() {
+  const dataSource = await initializeDatabase();
+
+  // Initialize repositories
+  const categoryRepository = dataSource.getRepository(Category);
+  const eventRepository = dataSource.getRepository(Event);
+
+  // Initialize services
+  const categoryProcessingService = new CategoryProcessingService(openai, categoryRepository);
+
+  const eventService = new EventService(dataSource);
+
+  const eventProcessingService = new EventProcessingService(
+    openai,
+    eventRepository,
+    categoryProcessingService
+  );
+
+  return {
+    eventService,
+    eventProcessingService,
+    categoryProcessingService,
+  };
+}
+
+// Initialize all services async
+const services = await initializeServices();
+
+// Add services to context - now properly typed!
+app.use("*", async (c, next) => {
+  c.set("eventService", services.eventService);
+  c.set("eventProcessingService", services.eventProcessingService);
+  c.set("jobQueue", jobQueue);
+  c.set("redisClient", redisPub);
+  await next();
+});
+
+app.get("/api/health", (c) => {
+  return c.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// =============================================================================
+// Routes - Events API
+// =============================================================================
+
+// Create sub-app with the same types
+const events = new Hono<{ Variables: AppVariables }>();
+
 // Get all events
 events.get("/", async (c) => {
   try {
     const limit = c.req.query("limit");
     const offset = c.req.query("offset");
 
-    const eventsData = await eventService.getEvents({
+    const eventsData = await services.eventService.getEvents({
       limit: limit ? parseInt(limit) : undefined,
       offset: offset ? parseInt(offset) : undefined,
     });
@@ -126,7 +179,7 @@ events.get("/nearby", async (c) => {
       return c.json({ error: "Missing required query parameters: lat and lng" }, 400);
     }
 
-    const nearbyEvents = await eventService.getNearbyEvents(
+    const nearbyEvents = await services.eventService.getNearbyEvents(
       parseFloat(lat),
       parseFloat(lng),
       radius ? parseFloat(radius) : undefined,
@@ -141,9 +194,10 @@ events.get("/nearby", async (c) => {
   }
 });
 
+// Get all categories
 events.get("/categories", async (c) => {
   try {
-    const categories = await eventService.getAllCategories();
+    const categories = await services.eventService.getAllCategories();
     return c.json(categories);
   } catch (error) {
     console.error("Error fetching categories:", error);
@@ -151,6 +205,7 @@ events.get("/categories", async (c) => {
   }
 });
 
+// Get events by categories
 events.get("/by-categories", async (c) => {
   try {
     const categoryIds = c.req.query("categories")?.split(",");
@@ -163,7 +218,7 @@ events.get("/by-categories", async (c) => {
       return c.json({ error: "Missing required query parameter: categories" }, 400);
     }
 
-    const result = await eventService.getEventsByCategories(categoryIds, {
+    const result = await services.eventService.getEventsByCategories(categoryIds, {
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
       limit: limit ? parseInt(limit) : undefined,
@@ -177,18 +232,18 @@ events.get("/by-categories", async (c) => {
   }
 });
 
-// Updated search route with cursor-based pagination
+// Search events
 events.get("/search", async (c) => {
   try {
     const query = c.req.query("q");
     const limit = c.req.query("limit");
-    const cursor = c.req.query("cursor"); // Use cursor instead of offset
+    const cursor = c.req.query("cursor");
 
     if (!query) {
       return c.json({ error: "Missing required query parameter: q" }, 400);
     }
 
-    const { results: searchResults, nextCursor } = await eventService.searchEvents(
+    const { results: searchResults, nextCursor } = await services.eventService.searchEvents(
       query,
       limit ? parseInt(limit) : undefined,
       cursor || undefined
@@ -198,9 +253,9 @@ events.get("/search", async (c) => {
       query,
       results: searchResults.map(({ event, score }) => ({
         ...event,
-        _score: score, // Add similarity score to each result
+        _score: score,
       })),
-      nextCursor, // Include the cursor for the next page
+      nextCursor,
     });
   } catch (error) {
     console.error("Error searching events:", error);
@@ -213,6 +268,8 @@ events.get("/search", async (c) => {
     );
   }
 });
+
+// Process image - now properly typed!
 events.post("/process", async (c) => {
   try {
     // Extract form data from the request
@@ -238,48 +295,68 @@ events.post("/process", async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Process the image directly using the EventProcessingService
-    const scanResult = await eventProcessingService.processFlyerFromImage(buffer);
+    // Get job queue from context - properly typed!
+    const jobQueue = c.get("jobQueue");
 
-    // Define a minimum confidence threshold before creating an event
-    const MIN_CONFIDENCE = 0.75; // You might want to adjust this threshold
-    if (scanResult.confidence < MIN_CONFIDENCE) {
-      return c.json(
-        {
-          error: "Low confidence in extracted information",
-          confidence: scanResult.confidence,
-          threshold: MIN_CONFIDENCE,
-        },
-        400
-      );
-    }
-
-    // Map the extracted event details to your Event entity fields.
-    const eventDetails = scanResult.eventDetails;
-    const newEvent = await eventService.createEvent({
-      emoji: eventDetails.emoji,
-      title: eventDetails.title,
-      eventDate: new Date(eventDetails.date),
-      location: eventDetails.location,
-      description: eventDetails.description,
-      confidenceScore: scanResult.confidence,
-      address: eventDetails.address,
-      categoryIds: eventDetails.categories?.map((cat) => cat.id),
-    });
-
-    await redisPub.publish(
-      "event_changes",
-      JSON.stringify({
-        operation: "INSERT",
-        record: newEvent,
-      })
+    // Create job with minimal metadata
+    const jobId = await jobQueue.enqueue(
+      "process_flyer",
+      {
+        filename: file.name,
+        contentType: file.type,
+        size: buffer.length,
+      },
+      {
+        bufferData: buffer,
+      }
     );
 
-    return c.json(newEvent, 201);
+    // Return job ID immediately
+    return c.json(
+      {
+        status: "processing",
+        jobId,
+        message: "Your image is being processed. Check status at /api/jobs/" + jobId,
+        _links: {
+          self: `/api/events/process/${jobId}`,
+          status: `/api/jobs/${jobId}`,
+          stream: `/api/jobs/${jobId}/stream`,
+        },
+      },
+      202
+    );
   } catch (error) {
-    console.error("Error processing flyer image:", error);
+    console.error("Error submitting flyer for processing:", error);
     return c.json({ error: "Failed to process flyer image" }, 500);
   }
+});
+
+// Get processing job status
+events.get("/process/:jobId", async (c) => {
+  const jobId = c.req.param("jobId");
+  const jobQueue = c.get("jobQueue");
+  const eventService = c.get("eventService");
+
+  // Get job status
+  const job = await jobQueue.getJobStatus(jobId);
+
+  if (!job) {
+    return c.json({ error: "Job not found" }, 404);
+  }
+
+  // If job is complete and has an event ID, fetch the event details
+  if (job.status === "completed" && job.eventId) {
+    const event = await eventService.getEventById(job.eventId);
+    if (event) {
+      return c.json({
+        ...job,
+        event: event,
+      });
+    }
+  }
+
+  // Otherwise just return the job status
+  return c.json(job);
 });
 
 // Create a new event
@@ -300,7 +377,7 @@ events.post("/", async (c) => {
       };
     }
 
-    const newEvent = await eventService.createEvent(data);
+    const newEvent = await services.eventService.createEvent(data);
 
     // Publish to Redis for WebSocket service to broadcast
     await redisPub.publish(
@@ -318,11 +395,12 @@ events.post("/", async (c) => {
   }
 });
 
+// Delete event
 events.delete("/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    const event = await eventService.getEventById(id); // Get the event before deletion
-    const isSuccess = await eventService.deleteEvent(id);
+    const event = await services.eventService.getEventById(id);
+    const isSuccess = await services.eventService.deleteEvent(id);
 
     if (isSuccess && event) {
       await redisPub.publish(
@@ -331,7 +409,7 @@ events.delete("/:id", async (c) => {
           operation: "DELETE",
           record: {
             id: event.id,
-            location: event.location, // Include location for reference
+            location: event.location,
           },
         })
       );
@@ -348,7 +426,7 @@ events.delete("/:id", async (c) => {
 events.get("/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    const event = await eventService.getEventById(id);
+    const event = await services.eventService.getEventById(id);
 
     if (!event) {
       return c.json({ error: "Event not found" }, 404);
@@ -361,7 +439,94 @@ events.get("/:id", async (c) => {
   }
 });
 
+// Register event routes
 app.route("/api/events", events);
+
+// =============================================================================
+// Jobs API - Server-Sent Events
+// =============================================================================
+
+// Job status streaming endpoint
+app.get("/api/jobs/:jobId/stream", async (c) => {
+  const jobId = c.req.param("jobId");
+
+  // Use Hono's streamSSE
+  return streamSSE(c, async (stream) => {
+    // Create a dedicated Redis subscriber client
+    const redisSubscriber = new Redis({
+      host: process.env.REDIS_HOST || "localhost",
+      port: parseInt(process.env.REDIS_PORT || "6379"),
+    });
+
+    try {
+      // Send initial job state
+      const initialData = await redisPub.get(`job:${jobId}`);
+
+      if (initialData) {
+        await stream.writeSSE({ data: initialData });
+      } else {
+        await stream.writeSSE({
+          data: JSON.stringify({ id: jobId, status: "not_found" }),
+        });
+        stream.close();
+        return;
+      }
+
+      // Subscribe to job update channel
+      await redisSubscriber.subscribe(`job:${jobId}:updates`);
+
+      // Set up message handler
+      const messageHandler = async (_channel: string, message: string) => {
+        await stream.writeSSE({ data: message });
+
+        try {
+          const data = JSON.parse(message);
+          if (data.status === "completed" || data.status === "failed") {
+            setTimeout(() => {
+              redisSubscriber.quit();
+              stream.close();
+            }, 100);
+          }
+        } catch (e) {
+          // Ignore JSON parse errors
+        }
+      };
+
+      redisSubscriber.on("message", messageHandler);
+
+      // Clean up when the stream is closed
+      c.req.raw.signal.addEventListener("abort", () => {
+        redisSubscriber.off("message", messageHandler);
+        redisSubscriber.quit();
+      });
+
+      // Keep the connection alive with a heartbeat
+      // Instead of using 'comment', we'll use an empty event with the event type 'heartbeat'
+      const heartbeatInterval = setInterval(async () => {
+        await stream.writeSSE({
+          event: "heartbeat",
+          data: "", // Empty data for a heartbeat
+        });
+      }, 30000);
+
+      // Clean up the heartbeat when the stream is closed
+      c.req.raw.signal.addEventListener("abort", () => {
+        clearInterval(heartbeatInterval);
+      });
+    } catch (error) {
+      console.error("Error in SSE stream:", error);
+      await stream.writeSSE({
+        data: JSON.stringify({ error: "Stream error" }),
+      });
+      redisSubscriber.quit();
+      stream.close();
+    }
+  });
+});
+
+// =============================================================================
+// Error Handlers
+// =============================================================================
 
 // 404 handler
 app.notFound((c) => {
@@ -373,6 +538,10 @@ app.onError((err, c) => {
   console.error("Unhandled error:", err);
   return c.json({ error: "Internal Server Error" }, 500);
 });
+
+// =============================================================================
+// Export app
+// =============================================================================
 
 export default {
   port: process.env.PORT || 3000,

@@ -5,6 +5,8 @@ import { Category } from "../entities/Category";
 import { ThirdSpace } from "../entities/ThirdSpace";
 import pgvector from "pgvector";
 import OpenAI from "openai";
+import { OpenAIService } from "./OpenAIService";
+import { CacheService } from "./CacheService";
 
 interface SearchResult {
   event: Event;
@@ -35,15 +37,24 @@ export class EventService {
   }
 
   private async generateEmbedding(text: string): Promise<number[]> {
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const cachedEmbedding = CacheService.getCachedEmbedding(text);
+    if (cachedEmbedding) {
+      return cachedEmbedding;
+    }
+
+    // If not in cache, generate new embedding
+    const openai = OpenAIService.getInstance();
     const response = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: text,
       encoding_format: "float",
     });
-    return response.data[0].embedding;
+
+    const embedding = response.data[0].embedding;
+    // Save to cache
+    CacheService.setCachedEmbedding(text, embedding);
+
+    return embedding;
   }
 
   async getEvents(options: { limit?: number; offset?: number } = {}) {
@@ -128,6 +139,9 @@ export class EventService {
     }
 
     const savedEvent = await this.eventRepository.save(event);
+
+    await CacheService.invalidateSearchCache();
+
     return savedEvent;
   }
 
@@ -155,6 +169,8 @@ export class EventService {
       }
     }
 
+    await CacheService.invalidateSearchCache();
+
     return this.eventRepository.save(event);
   }
 
@@ -168,17 +184,36 @@ export class EventService {
       return { results: [] };
     }
 
-    // Generate embedding for vector search
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const cacheKey = `search:${query.toLowerCase()}:${limit}:${cursor || "null"}`;
 
-    const embeddingResponse = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: `Title: ${query}`, // Structure the query like our stored embeddings
-      encoding_format: "float",
-    });
-    const searchEmbedding = embeddingResponse.data[0].embedding;
+    // Check if we have cached results for this exact search
+    const cachedResults = await CacheService.getCachedSearch(cacheKey);
+    if (cachedResults) {
+      console.log(`Cache hit for search: "${query}"`);
+      return cachedResults;
+    }
+
+    console.log(`Cache miss for search: "${query}"`);
+
+    // Check if we have the embedding cached
+    const normalizedQuery = `Title: ${query}`;
+    let searchEmbedding = CacheService.getCachedEmbedding(normalizedQuery);
+
+    const openai = OpenAIService.getInstance();
+
+    if (!searchEmbedding) {
+      // Generate new embedding if not in cache
+      const openai = OpenAIService.getInstance();
+      const embeddingResponse = await openai.embeddings.create({
+        model: "text-embedding-3-small",
+        input: normalizedQuery,
+        encoding_format: "float",
+      });
+      searchEmbedding = embeddingResponse.data[0].embedding;
+
+      // Cache the embedding
+      CacheService.setCachedEmbedding(normalizedQuery, searchEmbedding);
+    }
 
     // Parse cursor if provided
     let cursorData: { id: string; score: number } | undefined;

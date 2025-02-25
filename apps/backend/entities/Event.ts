@@ -9,6 +9,7 @@ import {
   ManyToOne,
   ManyToMany,
   JoinTable,
+  Index,
 } from "typeorm";
 import { type Point } from "geojson";
 import { Category } from "./Category";
@@ -35,9 +36,11 @@ export class Event {
   @Column({ type: "text", nullable: true })
   description?: string;
 
+  @Index()
   @Column({ name: "event_date", type: "timestamptz" })
   eventDate!: Date;
 
+  @Index()
   @Column({ type: "text", nullable: true })
   address?: string;
 
