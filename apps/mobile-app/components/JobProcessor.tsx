@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
-import { useJobStream } from "../hooks/useJobStream";
-import { DynamicProcessingView } from "./ProcessingView";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { ImprovedProcessingView } from "./ProcessingView";
+import { useJobStreamEnhanced } from "@/hooks/useJobStream";
 
 interface JobProcessorProps {
   jobId: string | null;
@@ -9,11 +9,12 @@ interface JobProcessorProps {
   onReset?: () => void;
 }
 
-export const JobProcessor: React.FC<JobProcessorProps> = ({ jobId, onComplete, onReset }) => {
-  const [showDebug, setShowDebug] = useState(false);
-
+export const EnhancedJobProcessor: React.FC<JobProcessorProps> = ({
+  jobId,
+  onComplete,
+  onReset,
+}) => {
   const {
-    jobState,
     progressSteps,
     currentStep,
     isConnected,
@@ -21,9 +22,11 @@ export const JobProcessor: React.FC<JobProcessorProps> = ({ jobId, onComplete, o
     isComplete,
     resetStream,
     result,
-    lastReceivedMessage,
-    seenSteps,
-  } = useJobStream(jobId);
+    debugInfo,
+  } = useJobStreamEnhanced(jobId);
+
+  // Debug information display toggle
+  const [showDebug, setShowDebug] = useState(false);
 
   // Fire onComplete callback when job is finished successfully
   React.useEffect(() => {
@@ -47,7 +50,7 @@ export const JobProcessor: React.FC<JobProcessorProps> = ({ jobId, onComplete, o
 
   return (
     <View style={styles.container}>
-      <DynamicProcessingView
+      <ImprovedProcessingView
         text={isComplete ? "Processing Complete!" : `Processing job #${jobId}`}
         progressSteps={progressSteps}
         currentStep={currentStep}
@@ -56,45 +59,29 @@ export const JobProcessor: React.FC<JobProcessorProps> = ({ jobId, onComplete, o
         errorMessage={error || undefined}
       />
 
-      <TouchableOpacity style={styles.debugButton} onPress={() => setShowDebug(!showDebug)}>
-        <Text style={styles.debugButtonText}>
+      {/* Debug info toggle */}
+      <TouchableOpacity style={styles.debugToggle} onPress={() => setShowDebug(!showDebug)}>
+        <Text style={styles.debugToggleText}>
           {showDebug ? "Hide Debug Info" : "Show Debug Info"}
         </Text>
       </TouchableOpacity>
 
+      {/* Debug information */}
       {showDebug && (
-        <ScrollView style={styles.debugPanel}>
-          <Text style={styles.debugTitle}>Job Status</Text>
+        <View style={styles.debugContainer}>
+          <Text style={styles.debugTitle}>Debug Information</Text>
+          <Text style={styles.debugText}>Current Step: {currentStep}</Text>
+          <Text style={styles.debugText}>Display Index: {debugInfo.displayIndex}</Text>
           <Text style={styles.debugText}>
-            Job ID: {jobId}
-            {"\n"}
-            Current Step: {currentStep} ({progressSteps[currentStep]}){"\n"}
-            Is Complete: {isComplete ? "Yes" : "No"}
-            {"\n"}
-            Has Error: {error ? "Yes" : "No"}
+            Step Sequence: {debugInfo.seenStepSequence.join(", ")}
           </Text>
-
-          <Text style={styles.debugTitle}>Steps Seen</Text>
-          {seenSteps.length > 0 ? (
-            seenSteps.map((step, index) => (
-              <Text key={index} style={styles.stepText}>
-                • {step}
-              </Text>
-            ))
-          ) : (
-            <Text style={styles.stepText}>No steps recorded yet</Text>
-          )}
-
-          <Text style={styles.debugTitle}>Last Received Message</Text>
-          <Text style={styles.messageText}>{lastReceivedMessage || "None"}</Text>
-
-          {jobState && (
-            <>
-              <Text style={styles.debugTitle}>Job State</Text>
-              <Text style={styles.jsonText}>{JSON.stringify(jobState, null, 2)}</Text>
-            </>
-          )}
-        </ScrollView>
+          <Text style={styles.debugTitle}>All Updates:</Text>
+          {debugInfo.allUpdates.map((update, i) => (
+            <Text key={i} style={styles.debugUpdate}>
+              • {update}
+            </Text>
+          ))}
+        </View>
       )}
 
       {(isComplete || error) && (
@@ -123,58 +110,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontFamily: "SpaceMono",
   },
-  debugButton: {
-    backgroundColor: "#364fc7",
-    padding: 8,
-    borderRadius: 8,
-    margin: 8,
-    alignItems: "center",
-  },
-  debugButtonText: {
-    color: "#fff",
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-  },
-  debugPanel: {
-    backgroundColor: "#1a1a1a",
-    margin: 8,
-    padding: 12,
-    borderRadius: 8,
-    maxHeight: 300,
-  },
-  debugTitle: {
-    color: "#ffa94d",
-    fontWeight: "600",
-    marginTop: 10,
-    marginBottom: 5,
-    fontFamily: "SpaceMono",
-  },
-  debugText: {
-    color: "#eee",
-    fontSize: 12,
-    fontFamily: "monospace",
-  },
-  stepText: {
-    color: "#74c0fc",
-    fontSize: 12,
-    fontFamily: "monospace",
-    marginLeft: 10,
-  },
-  messageText: {
-    color: "#b2f2bb",
-    fontSize: 11,
-    fontFamily: "monospace",
-    marginLeft: 5,
-    marginRight: 5,
-  },
-  jsonText: {
-    color: "#eee",
-    fontSize: 11,
-    fontFamily: "monospace",
-    backgroundColor: "#2a2a2a",
-    padding: 8,
-    borderRadius: 4,
-  },
   resetButton: {
     backgroundColor: "#4dabf7",
     padding: 16,
@@ -185,6 +120,44 @@ const styles = StyleSheet.create({
   resetButtonText: {
     color: "#fff",
     fontWeight: "600",
+    fontFamily: "SpaceMono",
+  },
+  debugToggle: {
+    backgroundColor: "#555",
+    padding: 8,
+    borderRadius: 4,
+    margin: 8,
+    alignItems: "center",
+  },
+  debugToggleText: {
+    color: "#ddd",
+    fontSize: 12,
+    fontFamily: "SpaceMono",
+  },
+  debugContainer: {
+    margin: 8,
+    padding: 12,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    borderRadius: 8,
+  },
+  debugTitle: {
+    color: "#aaa",
+    fontSize: 14,
+    fontWeight: "bold",
+    marginTop: 8,
+    marginBottom: 4,
+    fontFamily: "SpaceMono",
+  },
+  debugText: {
+    color: "#ddd",
+    fontSize: 12,
+    marginBottom: 4,
+    fontFamily: "SpaceMono",
+  },
+  debugUpdate: {
+    color: "#ddd",
+    fontSize: 12,
+    marginLeft: 8,
     fontFamily: "SpaceMono",
   },
 });

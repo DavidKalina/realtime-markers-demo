@@ -21,6 +21,7 @@ interface MarkerData {
 interface WebSocketData {
   clientId: string;
   viewport?: BBox;
+  lastActivity?: number; // Add this field to track last activity timestamp
 }
 
 interface BBox {
@@ -255,7 +256,10 @@ const server = {
         typeof crypto !== "undefined" && crypto.randomUUID
           ? crypto.randomUUID()
           : Math.random().toString(36).substr(2, 9);
-      ws.data = { clientId };
+      ws.data = {
+        clientId,
+        lastActivity: Date.now(), // Initialize with current timestamp
+      };
       clients.set(clientId, ws);
 
       ws.send(
@@ -268,6 +272,8 @@ const server = {
     },
 
     message(ws: ServerWebSocket<WebSocketData>, message: string | Uint8Array) {
+      ws.data.lastActivity = Date.now();
+
       try {
         const data = JSON.parse(message.toString());
         if (data.type === "viewport_update") {

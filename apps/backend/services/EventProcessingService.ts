@@ -74,13 +74,15 @@ export class EventProcessingService {
   }
 
   // Add optional progress callback parameter
+  // Modified processFlyerFromImage method in EventProcessingService.ts
   async processFlyerFromImage(
     imageData: Buffer | string,
     progressCallback?: ProgressCallback
   ): Promise<ScanResult> {
     // Report progress: Starting image processing
     if (progressCallback) {
-      await progressCallback("Starting image analysis...");
+      await progressCallback("Analyzing image..."); // CHANGED from "Starting image analysis..."
+      await new Promise((resolve) => setTimeout(resolve, 300)); // Add small delay between steps
     }
 
     // Convert the image data to a base64 string if necessary
@@ -97,6 +99,7 @@ export class EventProcessingService {
     // Report progress: Vision API processing
     if (progressCallback) {
       await progressCallback("Analyzing image with Vision API...");
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
     // Call Vision API
@@ -108,11 +111,13 @@ export class EventProcessingService {
       await progressCallback("Image analyzed successfully", {
         confidence: visionResult.confidence,
       });
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
     // Report progress: Generating embeddings
     if (progressCallback) {
       await progressCallback("Generating text embeddings...");
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
     // Generate embeddings for event similarity matching
@@ -121,6 +126,7 @@ export class EventProcessingService {
     // Report progress: Extracting event details
     if (progressCallback) {
       await progressCallback("Extracting event details and categories...");
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
     // Process event details in parallel with embedding generation
@@ -129,17 +135,20 @@ export class EventProcessingService {
       embeddingPromise,
     ]);
 
-    // Report progress after extraction
+    // CHANGE THIS to match hook's expected format:
     if (progressCallback) {
-      await progressCallback("Event details extracted successfully", {
+      // NO LONGER SEND "Event details extracted successfully" - it's not in the hook's steps
+      await progressCallback("Extracting event details and categories...", {
         title: eventDetailsWithCategories.title,
         categories: eventDetailsWithCategories.categories?.map((c) => c.name),
       });
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
     // Report progress: Finding similar events
     if (progressCallback) {
       await progressCallback("Finding similar events...");
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
     // Check for similar events

@@ -8,10 +8,12 @@ import Animated, {
   interpolateColor,
   withSequence,
   Easing,
+  FadeIn,
+  FadeOut,
 } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
 
-interface DynamicProcessingViewProps {
+interface ImprovedProcessingViewProps {
   text?: string;
   progressSteps?: string[];
   currentStep?: number;
@@ -20,7 +22,7 @@ interface DynamicProcessingViewProps {
   errorMessage?: string;
 }
 
-export const DynamicProcessingView: React.FC<DynamicProcessingViewProps> = ({
+export const ImprovedProcessingView: React.FC<ImprovedProcessingViewProps> = ({
   text = "Processing your document...",
   progressSteps = [
     "Initializing job...",
@@ -36,6 +38,7 @@ export const DynamicProcessingView: React.FC<DynamicProcessingViewProps> = ({
   const rotation = useSharedValue(0);
   const scale = useSharedValue(1);
   const colorProgress = useSharedValue(0);
+  const progressWidth = useSharedValue(0);
 
   // Animation for the pulse effect
   useEffect(() => {
@@ -62,13 +65,31 @@ export const DynamicProcessingView: React.FC<DynamicProcessingViewProps> = ({
         -1, // infinite repeat
         true // reverse
       );
+
+      // Progress bar animation
+      progressWidth.value = withTiming(100, {
+        duration: 3000,
+        easing: Easing.inOut(Easing.ease),
+      });
     } else {
       // Stop animations when complete
       scale.value = withTiming(1);
       rotation.value = withTiming(0);
       colorProgress.value = withTiming(hasError ? 0.75 : 0.25);
+      progressWidth.value = withTiming(100);
     }
-  }, [isComplete, hasError]);
+  }, [isComplete, hasError, currentStep]);
+
+  // Reset and animate progress when step changes
+  useEffect(() => {
+    if (!isComplete && !hasError) {
+      progressWidth.value = 0;
+      progressWidth.value = withTiming(100, {
+        duration: 3000,
+        easing: Easing.inOut(Easing.ease),
+      });
+    }
+  }, [currentStep]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -101,68 +122,78 @@ export const DynamicProcessingView: React.FC<DynamicProcessingViewProps> = ({
     };
   });
 
+  const progressBarStyle = useAnimatedStyle(() => {
+    return {
+      width: `${progressWidth.value}%`,
+      backgroundColor: hasError ? "#ff6b6b" : isComplete ? "#40c057" : "#69db7c",
+    };
+  });
+
+  // Function to render appropriate icon for status
+  const renderStatusIcon = () => {
+    if (hasError) {
+      return <Feather name="x" size={32} color="#FFFFFF" />;
+    } else if (isComplete) {
+      return <Feather name="check" size={32} color="#FFFFFF" />;
+    } else {
+      return <Feather name="refresh-cw" size={32} color="#FFFFFF" />;
+    }
+  };
+
+  // Function to render status text
+  const getStatusText = () => {
+    if (hasError) {
+      return "Processing Error";
+    } else if (isComplete) {
+      return "Processing Complete";
+    } else {
+      return text;
+    }
+  };
+
   return (
     <View style={styles.processingContainer}>
       <Animated.View style={[styles.iconContainer, colorStyle]}>
-        <Animated.View style={animatedStyle}>
-          {hasError ? (
-            <Feather name="x" size={32} color="#FFFFFF" />
-          ) : isComplete ? (
-            <Feather name="check" size={32} color="#FFFFFF" />
-          ) : (
-            <Feather name="refresh-cw" size={32} color="#FFFFFF" />
-          )}
-        </Animated.View>
+        <Animated.View style={animatedStyle}>{renderStatusIcon()}</Animated.View>
       </Animated.View>
 
-      <Text style={styles.processingTitle}>
-        {hasError ? "Processing Error" : isComplete ? "Processing Complete" : text}
-      </Text>
+      <Text style={styles.processingTitle}>{getStatusText()}</Text>
 
+      <View style={styles.stepsContainer}>
+        {/* Current Step Indicator */}
+        <Animated.View
+          entering={FadeIn.duration(500)}
+          exiting={FadeOut.duration(300)}
+          key={`step-${currentStep}`}
+        >
+          <Text style={styles.currentStepText}>{progressSteps[currentStep]}</Text>
+
+          {/* Progress Bar Container */}
+          <View style={styles.progressBarContainer}>
+            <Animated.View style={[styles.progressBar, progressBarStyle]} />
+          </View>
+
+          {/* Step Progress Indicator */}
+          <Text style={styles.stepIndicator}>
+            Step {currentStep + 1} of {progressSteps.length}
+          </Text>
+        </Animated.View>
+      </View>
+
+      {/* Error Message */}
       {hasError && errorMessage && (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{errorMessage}</Text>
         </View>
       )}
 
-      <View style={styles.stepsContainer}>
-        {progressSteps.map((step, index) => (
-          <View key={index} style={styles.stepRow}>
-            <View
-              style={[
-                styles.stepIndicator,
-                index === currentStep && !isComplete && !hasError
-                  ? styles.currentStep
-                  : index < currentStep || (isComplete && index <= currentStep)
-                  ? styles.completedStep
-                  : hasError && index === currentStep
-                  ? styles.errorStep
-                  : {},
-              ]}
-            >
-              {index < currentStep || (isComplete && index <= currentStep) ? (
-                <Feather name="check" size={14} color="#FFFFFF" />
-              ) : hasError && index === currentStep ? (
-                <Feather name="x" size={14} color="#FFFFFF" />
-              ) : null}
-            </View>
-            <Text
-              style={[
-                styles.stepText,
-                index === currentStep && !isComplete && !hasError
-                  ? styles.currentStepText
-                  : index < currentStep || (isComplete && index <= currentStep)
-                  ? styles.completedStepText
-                  : hasError && index === currentStep
-                  ? styles.errorStepText
-                  : {},
-              ]}
-            >
-              {step}
-            </Text>
-          </View>
-        ))}
-      </View>
+      {/* Success Message */}
+      {isComplete && !hasError && (
+        <View style={styles.successContainer}>
+          <Feather name="check-circle" size={20} color="#40c057" style={styles.successIcon} />
+          <Text style={styles.successText}>Successfully completed all steps!</Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -189,18 +220,51 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   processingTitle: {
-    fontSize: 20,
+    fontSize: 22,
     color: "#FFFFFF",
     fontWeight: "600",
-    marginBottom: 32,
+    marginBottom: 40,
     fontFamily: "SpaceMono",
     textAlign: "center",
+  },
+  stepsContainer: {
+    width: "100%",
+    maxWidth: 300,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  currentStepText: {
+    color: "#69db7c",
+    fontSize: 18,
+    fontFamily: "SpaceMono",
+    textAlign: "center",
+    marginBottom: 16,
+    fontWeight: "600",
+  },
+  progressBarContainer: {
+    width: "100%",
+    height: 8,
+    backgroundColor: "#444",
+    borderRadius: 4,
+    overflow: "hidden",
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  stepIndicator: {
+    color: "#aaa",
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+    textAlign: "center",
+    marginBottom: 24,
   },
   errorContainer: {
     backgroundColor: "rgba(255, 107, 107, 0.2)",
     borderRadius: 8,
     padding: 16,
-    marginBottom: 24,
+    marginTop: 24,
     width: "100%",
     maxWidth: 300,
   },
@@ -209,52 +273,23 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     textAlign: "center",
   },
-  stepsContainer: {
+  successContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(64, 192, 87, 0.15)",
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 24,
     width: "100%",
     maxWidth: 300,
   },
-  stepRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
+  successIcon: {
+    marginRight: 8,
   },
-  stepIndicator: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#555",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-    borderWidth: 2,
-    borderColor: "#777",
-  },
-  currentStep: {
-    backgroundColor: "#69db7c",
-    borderColor: "#2f9e44",
-  },
-  completedStep: {
-    backgroundColor: "#2f9e44",
-    borderColor: "#2b8a3e",
-  },
-  errorStep: {
-    backgroundColor: "#ff6b6b",
-    borderColor: "#e03131",
-  },
-  stepText: {
-    color: "#aaa",
-    fontSize: 16,
+  successText: {
+    color: "#40c057",
     fontFamily: "SpaceMono",
-  },
-  currentStepText: {
-    color: "#69db7c",
-    fontWeight: "600",
-  },
-  completedStepText: {
-    color: "#fff",
-  },
-  errorStepText: {
-    color: "#ff8787",
-    fontWeight: "600",
+    textAlign: "center",
   },
 });

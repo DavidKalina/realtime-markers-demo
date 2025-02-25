@@ -8,9 +8,9 @@ import { CameraPermission } from "@/components/CameraPermission";
 import { CaptureButton } from "@/components/CaptureButton";
 import { ScannerOverlay } from "@/components/ScannerOverlay";
 import { SuccessScreen } from "@/components/SuccessScreen";
-import { JobProcessor } from "@/components/JobProcessor";
 import { useCamera } from "@/hooks/useCamera";
 import { CameraView } from "expo-camera";
+import { EnhancedJobProcessor } from "@/components/JobProcessor";
 
 type DetectionStatus = "none" | "detecting" | "aligned";
 
@@ -195,7 +195,9 @@ export default function ScanScreen() {
 
   // Show job processor during processing
   if (jobId) {
-    return <JobProcessor jobId={jobId} onComplete={handleJobComplete} onReset={handleNewScan} />;
+    return (
+      <EnhancedJobProcessor jobId={jobId} onComplete={handleJobComplete} onReset={handleNewScan} />
+    );
   }
 
   return (
