@@ -65,12 +65,13 @@ async function initializeWorker() {
     job.started = new Date().toISOString();
     await redisClient.set(`job:${jobId}`, JSON.stringify(job));
 
-    // Publish update
+    // Publish initial processing update
     await redisClient.publish(
       `job:${jobId}:updates`,
       JSON.stringify({
         id: jobId,
         status: "processing",
+        progress: "Initializing job...",
         updated: new Date().toISOString(),
       })
     );
@@ -105,6 +106,17 @@ async function initializeWorker() {
           throw new Error("Image data not found");
         }
 
+        // Publish progress update for image analysis start
+        await redisClient.publish(
+          `job:${jobId}:updates`,
+          JSON.stringify({
+            id: jobId,
+            status: "processing",
+            progress: "Analyzing image...",
+            updated: new Date().toISOString(),
+          })
+        );
+
         // Process the image
         const scanResult = await eventProcessingService.processFlyerFromImage(bufferData);
 
@@ -115,12 +127,14 @@ async function initializeWorker() {
         };
         job.updated = new Date().toISOString();
         await redisClient.set(`job:${jobId}`, JSON.stringify(job));
+
+        // Publish detailed progress update with confidence score
         await redisClient.publish(
           `job:${jobId}:updates`,
           JSON.stringify({
             id: jobId,
             status: "processing",
-            progress: "Image analyzed, creating event",
+            progress: "Image analyzed, processing results...",
             confidence: scanResult.confidence,
             updated: new Date().toISOString(),
           })
@@ -128,6 +142,18 @@ async function initializeWorker() {
 
         // Create the event if confidence is high enough
         if (scanResult.confidence >= 0.75) {
+          // Publish progress update for event creation
+          await redisClient.publish(
+            `job:${jobId}:updates`,
+            JSON.stringify({
+              id: jobId,
+              status: "processing",
+              progress: "Creating event...",
+              confidence: scanResult.confidence,
+              updated: new Date().toISOString(),
+            })
+          );
+
           const eventDetails = scanResult.eventDetails;
           const newEvent = await eventService.createEvent({
             emoji: eventDetails.emoji,
@@ -151,7 +177,7 @@ async function initializeWorker() {
 
           // Update job with result
           job.eventId = newEvent.id;
-          job.result = { eventId: newEvent.id };
+          job.result = { eventId: newEvent.id, title: eventDetails.title };
           job.status = "completed";
         } else {
           job.status = "completed";

@@ -15,7 +15,6 @@ import { EventProcessingService } from "./services/EventProcessingService";
 import { EventService } from "./services/EventService";
 import { JobQueue } from "./services/JobQueue";
 import { OpenAIService } from "./services/OpenAIService";
-import { compress } from "hono/compress";
 
 // =============================================================================
 // Define app context types
@@ -37,7 +36,6 @@ const app = new Hono<{ Variables: AppVariables }>();
 // Add global middleware
 app.use("*", logger());
 app.use("*", cors());
-app.use("*", compress());
 
 // Trailing slash handler
 app.use("*", async (c, next) => {
@@ -313,7 +311,6 @@ events.post("/process", async (c) => {
       }
     );
 
-    // Return job ID immediately
     return c.json(
       {
         status: "processing",

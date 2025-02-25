@@ -50,7 +50,7 @@ export const useJobStream = (jobId: string | null) => {
       try {
         // Create a new EventSource connection
         // Adjust your API URL as needed
-        const url = `https://your-api-domain.com/api/jobs/${jobId}/stream`;
+        const url = `https://f49e-69-162-231-94.ngrok-free.app/api/jobs/${jobId}/stream`;
 
         const es = new EventSource(url, {
           headers: {
@@ -76,52 +76,63 @@ export const useJobStream = (jobId: string | null) => {
 
           try {
             const data: JobUpdate = JSON.parse(event.data ?? "");
+            console.log("Received job update:", data);
             setJobState(data);
 
-            // Update progress based on job status
-            switch (data.status) {
-              case "pending":
-                setCurrentStep(0);
-                break;
-              case "processing":
-                // Update progress steps if the server sent any
-                if (data.progress) {
-                  // Determine the current step based on the progress message
-                  if (data.progress.includes("Image analyzed")) {
-                    setCurrentStep(2);
-                  } else {
-                    setCurrentStep(1);
-                  }
-                }
+            // Update progress based on job status and progress message
+            if (data.status === "pending") {
+              setCurrentStep(0);
+            } else if (data.status === "processing") {
+              // More granular mapping of progress messages to steps
+              if (data.progress) {
+                if (data.progress.includes("Image analyzed")) {
+                  setCurrentStep(2);
 
-                // If we have confidence data, show that in our UI
-                if (data.confidence) {
-                  // Update the current step text to include confidence
-                  const updatedSteps = [...progressSteps];
-                  updatedSteps[2] = `Analysis complete (${(data.confidence * 100).toFixed(
-                    0
-                  )}% confidence)`;
-                  setProgressSteps(updatedSteps);
+                  // Update the progress step text with confidence if available
+                  if (data.confidence !== undefined) {
+                    const updatedSteps = [...progressSteps];
+                    updatedSteps[2] = `Analysis complete (${(data.confidence * 100).toFixed(
+                      0
+                    )}% confidence)`;
+                    setProgressSteps(updatedSteps);
+                  }
+                } else if (data.progress.includes("creating event")) {
+                  setCurrentStep(3);
+                } else {
+                  // Default to the image analysis step for any other processing message
+                  setCurrentStep(1);
                 }
-                break;
-              case "completed":
-                setCurrentStep(3);
-                setIsComplete(true);
-                es.close();
-                break;
-              case "failed":
-                setError(data.error || "Unknown error");
-                setIsComplete(true);
-                es.close();
-                break;
-              case "not_found":
-                setError("Job not found");
-                setIsComplete(true);
-                es.close();
-                break;
+              } else {
+                // If no specific progress message, move to step 1
+                setCurrentStep(1);
+              }
+            } else if (data.status === "completed") {
+              setCurrentStep(3);
+              setIsComplete(true);
+
+              // Update the last step text with result info if available
+              if (data.result) {
+                const updatedSteps = [...progressSteps];
+                if (data.result.eventId) {
+                  updatedSteps[3] = `Event created successfully!`;
+                } else if (data.result.message) {
+                  updatedSteps[3] = data.result.message;
+                }
+                setProgressSteps(updatedSteps);
+              }
+
+              es.close();
+            } else if (data.status === "failed") {
+              setError(data.error || "Unknown error");
+              setIsComplete(true);
+              es.close();
+            } else if (data.status === "not_found") {
+              setError("Job not found");
+              setIsComplete(true);
+              es.close();
             }
           } catch (error) {
-            console.error("Error parsing SSE message:", error);
+            console.error("Error parsing SSE message:", error, event.data);
           }
         });
 
@@ -170,6 +181,14 @@ export const useJobStream = (jobId: string | null) => {
     setIsConnected(false);
     setError(null);
     setIsComplete(false);
+
+    // Reset progress steps to original state
+    setProgressSteps([
+      "Initializing job...",
+      "Analyzing image...",
+      "Processing data...",
+      "Creating event...",
+    ]);
 
     if (eventSourceRef.current) {
       eventSourceRef.current.close();

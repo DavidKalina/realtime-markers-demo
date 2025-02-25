@@ -107,14 +107,13 @@ export default function ScanScreen() {
     try {
       // Create a FormData object to send the image
       const formData = new FormData();
-      formData.append("file", {
+      formData.append("image", {
         uri,
         name: "image.jpg",
         type: "image/jpeg",
       } as any);
-
       // Upload the image
-      const response = await fetch("https://your-api-domain.com/api/upload-flyer", {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL!}/process`, {
         method: "POST",
         body: formData,
         headers: {
