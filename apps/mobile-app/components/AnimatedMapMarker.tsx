@@ -1,5 +1,3 @@
-import useBounceIn from "@/hooks/useBounceIn";
-import { Feather } from "@expo/vector-icons";
 import React, { useCallback, useEffect } from "react";
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
@@ -11,6 +9,8 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
+import { Feather } from "@expo/vector-icons";
+import useBounceIn from "@/hooks/useBounceIn";
 
 export interface MarkerData {
   id: string;
@@ -33,11 +33,11 @@ interface GenericMapMarkerProps {
 }
 
 const MARKER_SIZE = 56;
-// Color theme with dark backgrounds and varying accent colors
+// Updated colors to match the details screen
 const BACKGROUND_COLOR = "#333";
-const SHARE_COLOR = "#4CB5AB";
-const DIRECTIONS_COLOR = "#7C4DFF";
-const INFO_COLOR = "#FF9800";
+const SHARE_COLOR = "#4dabf7"; // Matching primary button color
+const DIRECTIONS_COLOR = "#40c057"; // Matching verified status
+const INFO_COLOR = "#f8f9fa"; // Matching text color
 
 const GenericMapMarker: React.FC<GenericMapMarkerProps> = ({
   marker,
@@ -50,12 +50,12 @@ const GenericMapMarker: React.FC<GenericMapMarkerProps> = ({
 }) => {
   const bounceInStyle = useBounceIn();
   const rotation = useSharedValue(0);
-  const dashOffset = useSharedValue(0); // For animated dashed border
+  const dashOffset = useSharedValue(0);
   const leftActionScale = useSharedValue(0);
   const centerActionScale = useSharedValue(0);
   const rightActionScale = useSharedValue(0);
   const popupScale = useSharedValue(0);
-  const markerScale = useSharedValue(0.8); // Start with smaller scale
+  const markerScale = useSharedValue(0.8);
 
   // Start rotation and dash animations on component mount
   useEffect(() => {
@@ -150,11 +150,9 @@ const GenericMapMarker: React.FC<GenericMapMarkerProps> = ({
 
   const dashedBorderStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
-    // Animate the dashed border
     borderStyle: "dashed",
     borderWidth: 1.5,
     borderColor: `rgba(255, 255, 255, 0.3)`,
-    // This creates the movement effect for the dashes
     borderDashOffset: dashOffset.value,
   }));
 
@@ -204,14 +202,14 @@ const GenericMapMarker: React.FC<GenericMapMarkerProps> = ({
               <Text style={styles.titleText} numberOfLines={2}>
                 {marker.title}
               </Text>
-              {/* Close button in the title container */}
+              {/* Updated close button to match the details screen style */}
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={onDismiss}
                 activeOpacity={0.7}
                 hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
               >
-                <Feather name="x" size={16} color="#ccc" />
+                <Feather name="x" size={8} color="#f8f9fa" />
               </TouchableOpacity>
             </Animated.View>
 
@@ -219,11 +217,11 @@ const GenericMapMarker: React.FC<GenericMapMarkerProps> = ({
               {onShare && (
                 <Animated.View style={leftActionStyle}>
                   <TouchableOpacity
-                    style={styles.actionButton}
+                    style={[styles.actionButton, styles.shareButton]}
                     onPress={onShare}
                     activeOpacity={0.7}
                   >
-                    <Feather name="share" size={20} color={SHARE_COLOR} />
+                    <Feather name="share" size={18} color="#fff" />
                   </TouchableOpacity>
                 </Animated.View>
               )}
@@ -231,11 +229,11 @@ const GenericMapMarker: React.FC<GenericMapMarkerProps> = ({
               {onGetDirections && (
                 <Animated.View style={centerActionStyle}>
                   <TouchableOpacity
-                    style={styles.actionButton}
+                    style={[styles.actionButton, styles.directionsButton]}
                     onPress={onGetDirections}
                     activeOpacity={0.7}
                   >
-                    <Feather name="navigation" size={20} color={DIRECTIONS_COLOR} />
+                    <Feather name="navigation" size={18} color="#fff" />
                   </TouchableOpacity>
                 </Animated.View>
               )}
@@ -243,11 +241,11 @@ const GenericMapMarker: React.FC<GenericMapMarkerProps> = ({
               {onViewDetails && (
                 <Animated.View style={rightActionStyle}>
                   <TouchableOpacity
-                    style={styles.actionButton}
+                    style={[styles.actionButton, styles.infoButton]}
                     onPress={onViewDetails}
                     activeOpacity={0.7}
                   >
-                    <Feather name="info" size={20} color={INFO_COLOR} />
+                    <Feather name="info" size={18} color="#fff" />
                   </TouchableOpacity>
                 </Animated.View>
               )}
@@ -298,10 +296,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: MARKER_SIZE / 2,
-    // We're moving these styles to the animated style
-    // borderWidth: 1.5,
-    // borderColor: `rgba(255, 255, 255, 0.3)`,
-    // borderStyle: "dashed",
   },
   emojiContainer: {
     width: MARKER_SIZE - 14,
@@ -330,14 +324,14 @@ const styles = StyleSheet.create({
   titleContainer: {
     position: "absolute",
     bottom: MARKER_SIZE + 50,
-    backgroundColor: "rgba(51, 51, 51, 0.95)",
-    padding: 8,
+    backgroundColor: "#3a3a3a", // Updated to match details screen card color
+    padding: 10,
     borderRadius: 12,
     width: "100%",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 1,
+      height: 2,
     },
     shadowOpacity: 0.3,
     shadowRadius: 3,
@@ -345,20 +339,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#4a4a4a", // Matching border color from details screen
   },
   titleText: {
     fontSize: 13,
     fontWeight: "600",
     flex: 1,
     textAlign: "center",
-    color: "#fff",
+    color: "#f8f9fa", // Updated to match details screen text color
+    fontFamily: "SpaceMono", // Added font family to match details screen
   },
   closeButton: {
-    width: 24,
-    height: 24,
+    width: 18,
+    height: 18,
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 12,
+    backgroundColor: "rgba(74, 74, 74, 0.7)", // Subtle background matching secondary button
   },
   actionsContainer: {
     position: "absolute",
@@ -368,10 +366,9 @@ const styles = StyleSheet.create({
     top: MARKER_SIZE * 1.7,
   },
   actionButton: {
-    width: 35,
-    height: 35,
-    borderRadius: 17.5,
-    backgroundColor: "rgba(51, 51, 51, 0.95)",
+    width: 38,
+    height: 38,
+    borderRadius: 10, // Updated to match details screen button style
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
@@ -384,7 +381,19 @@ const styles = StyleSheet.create({
     elevation: 4,
     marginHorizontal: 6,
     borderWidth: 1,
+  },
+  // Individual button styles
+  shareButton: {
+    backgroundColor: SHARE_COLOR, // Blue color matching primary button
     borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  directionsButton: {
+    backgroundColor: DIRECTIONS_COLOR, // Green color matching verified status
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  infoButton: {
+    backgroundColor: "#4a4a4a", // Gray color matching secondary button
+    borderColor: "#5a5a5a", // Border matching secondary button
   },
 });
 
