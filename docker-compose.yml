@@ -130,21 +130,6 @@ services:
       - ./apps/websocket:/app/apps/websocket
       - /app/apps/websocket/node_modules
 
-  frontend:
-    build:
-      context: .
-      dockerfile: apps/web-vanilla/Dockerfile
-    ports:
-      - "5173:5173"
-    networks:
-      - marker-network
-    volumes:
-      - ./apps/web-vanilla:/app/apps/web-vanilla
-      - /app/apps/web-vanilla/node_modules
-    depends_on:
-      - backend
-      - websocket
-
 networks:
   marker-network:
     driver: bridge
@@ -155,4 +140,3 @@ volumes:
   backend_node_modules:
   backend_app_node_modules:
   worker_node_modules:
-  dbeaver_data:
