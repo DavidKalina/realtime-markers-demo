@@ -1,12 +1,45 @@
 // app.config.ts
 import "dotenv/config";
-import baseConfig from "./app.json";
 
-module.exports = {
+export default {
   expo: {
-    ...baseConfig.expo,
+    name: "MapMoji",
+    slug: "mobile-app",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/images/logo.png",
+    scheme: "myapp",
+    userInterfaceStyle: "automatic",
+    newArchEnabled: true,
+    ios: {
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+      },
+      supportsTablet: true,
+      bundleIdentifier: "com.tenuto.client",
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/images/adaptive-icon.png",
+        backgroundColor: "#ffffff",
+      },
+    },
+    web: {
+      bundler: "metro",
+      output: "static",
+      favicon: "./assets/images/favicon.png",
+    },
     plugins: [
-      ...baseConfig.expo.plugins,
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/images/splash.png",
+          imageWidth: 200,
+          resizeMode: "contain",
+          backgroundColor: "#ffffff",
+        },
+      ],
       [
         "@rnmapbox/maps",
         {
@@ -28,5 +61,13 @@ module.exports = {
         },
       ],
     ],
+    experiments: {
+      typedRoutes: true,
+    },
+    extra: {
+      eas: {
+        projectId: "ff0ebef4-f13d-442f-be77-f5818888f458",
+      },
+    },
   },
 };
