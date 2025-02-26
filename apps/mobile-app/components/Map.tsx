@@ -210,31 +210,43 @@ export default function MapView({
 
       <Mapbox.UserLocation visible={true} showsUserHeadingIndicator={true} />
 
-      {markers.map((marker) => {
-        const markerInfo = {
-          id: marker.id,
-          title: marker.data.title,
-          emoji: marker.data.emoji,
-          location: {
-            latitude: marker.coordinates[1],
-            longitude: marker.coordinates[0],
-          },
-        };
+      {markers
+        .filter((marker) => {
+          if (!selectedMarker) {
+            return marker;
+          } else {
+            if (selectedMarker.id === marker.id) {
+              return marker;
+            } else {
+              return null;
+            }
+          }
+        })
+        .map((marker) => {
+          const markerInfo = {
+            id: marker.id,
+            title: marker.data.title,
+            emoji: marker.data.emoji,
+            location: {
+              latitude: marker.coordinates[1],
+              longitude: marker.coordinates[0],
+            },
+          };
 
-        return (
-          <MarkerView key={marker.id} coordinate={marker.coordinates} allowOverlap>
-            <GenericMapMarker
-              marker={markerInfo}
-              isSelected={selectedMarker?.id === marker.id}
-              onPress={() => selectMarker(marker.id)}
-              onShare={() => handleShare(marker.id)}
-              onGetDirections={() => handleGetDirections(marker.id)}
-              onViewDetails={() => handleViewDetails(marker.id)}
-              onDismiss={() => selectMarker(null)}
-            />
-          </MarkerView>
-        );
-      })}
+          return (
+            <MarkerView key={marker.id} coordinate={marker.coordinates} allowOverlap>
+              <GenericMapMarker
+                marker={markerInfo}
+                isSelected={selectedMarker?.id === marker.id}
+                onPress={() => selectMarker(marker.id)}
+                onShare={() => handleShare(marker.id)}
+                onGetDirections={() => handleGetDirections(marker.id)}
+                onViewDetails={() => handleViewDetails(marker.id)}
+                onDismiss={() => selectMarker(null)}
+              />
+            </MarkerView>
+          );
+        })}
     </Mapbox.MapView>
   );
 }

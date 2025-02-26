@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -48,6 +48,59 @@ const SearchResults = ({
   onLoadMore,
   refreshControl,
 }: SearchResultsProps) => {
+  // Keep a reference to the FlatList
+  const flatListRef = useRef<FlatList>(null);
+
+  // Track last seen result count to detect changes
+  const lastResultCountRef = useRef<number>(0);
+
+  // Use useMemo to deduplicate results and create a stable reference
+  // This prevents duplicate IDs which cause React errors
+  const dedupedResults = useMemo(() => {
+    // Create a map to deduplicate by ID
+    const uniqueMap = new Map<string, Event>();
+
+    // Add each item to the map, overwriting any duplicate IDs
+    searchResults.forEach((item) => {
+      if (item && item.id) {
+        uniqueMap.set(item.id, item);
+      }
+    });
+
+    // Convert back to array
+    const uniqueResults = Array.from(uniqueMap.values());
+
+    // Log any deduplication that happened
+    if (uniqueResults.length !== searchResults.length) {
+      console.warn(
+        `Deduplication removed ${searchResults.length - uniqueResults.length} duplicate items`
+      );
+    }
+
+    return uniqueResults;
+  }, [searchResults]);
+
+  // Ensure we scroll to top when results change completely (not during load more)
+  useEffect(() => {
+    const currentCount = dedupedResults.length;
+
+    // If we have results, and either:
+    // 1. We previously had no results, or
+    // 2. We have fewer results than before (indicating a new search)
+    // Then scroll to top
+    if (
+      flatListRef.current &&
+      currentCount > 0 &&
+      (lastResultCountRef.current === 0 || currentCount < lastResultCountRef.current) &&
+      !isLoadingMore
+    ) {
+      flatListRef.current.scrollToOffset({ offset: 0, animated: false });
+    }
+
+    // Update the last count reference
+    lastResultCountRef.current = currentCount;
+  }, [dedupedResults.length, isLoadingMore]);
+
   // Format the event date nicely
   const formatEventDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -67,7 +120,7 @@ const SearchResults = ({
 
   // Render category badges
   const renderCategories = (categories: Category[], eventId: string) => {
-    // Limit to displaying max 3 categories
+    // Limit to displaying max 2 categories
     const displayCategories = categories.slice(0, 2);
     const remaining = categories.length - 2;
 
@@ -96,8 +149,6 @@ const SearchResults = ({
       activeOpacity={0.7}
       onPress={() => {
         router.push(`/results?eventId=${item.id}`);
-        // Navigation to event detail screen
-        // navigation.navigate('EventDetail', { id: item.id });
       }}
     >
       <View style={styles.eventHeader}>
@@ -153,7 +204,7 @@ const SearchResults = ({
       );
     }
 
-    if (hasMoreData && searchResults.length > 0) {
+    if (hasMoreData && dedupedResults.length > 0) {
       return (
         <TouchableOpacity style={styles.loadMoreButton} onPress={onLoadMore}>
           <Text style={styles.loadMoreText}>Load More</Text>
@@ -164,16 +215,34 @@ const SearchResults = ({
     return null;
   };
 
+  // This is a critical fix for the duplicate key warning
+  const keyExtractor = (item: Event) => {
+    if (!item || !item.id) {
+      // If we somehow get an item without ID, log it and return a fallback
+      console.error("Event without ID detected:", item);
+      return `missing-id-${Math.random()}`;
+    }
+    return item.id;
+  };
+
   return (
     <FlatList
-      data={searchResults}
+      ref={flatListRef}
+      data={dedupedResults}
+      extraData={dedupedResults.length}
       renderItem={renderItem}
-      keyExtractor={(item, index) => `${item.id}-${index}`}
+      keyExtractor={keyExtractor}
       contentContainerStyle={styles.container}
-      onEndReached={hasMoreData ? onLoadMore : undefined}
+      onEndReached={hasMoreData && !isLoading && !isLoadingMore ? onLoadMore : undefined}
       onEndReachedThreshold={0.3}
       ListFooterComponent={renderFooter}
       refreshControl={refreshControl}
+      removeClippedSubviews={false}
+      initialNumToRender={10}
+      maxToRenderPerBatch={10}
+      windowSize={5}
+      // Add key to force complete recreation of FlatList when data fundamentally changes
+      key={`results-list-${dedupedResults.length === 0 ? "empty" : "nonempty"}`}
     />
   );
 };

@@ -38,7 +38,7 @@ export const useImageUpload = () => {
         name: "upload.jpg",
       } as any);
 
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/events/process`, {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/events/process`, {
         method: "POST",
         body: formData,
         headers: {
