@@ -192,6 +192,7 @@ export default function MapView({
 
   return (
     <Mapbox.MapView
+      scaleBarEnabled={false}
       ref={mapRef}
       rotateEnabled={false}
       style={[styles.map, style]}
