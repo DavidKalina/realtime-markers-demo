@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "9846d0bd-0966-4a0a-a237-cec2d187f092"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.tenuto.mobileapp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}
