@@ -1,12 +1,40 @@
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import { OpenAI } from "openai";
 import { Category } from "../entities/Category";
+import { CacheService } from "./CacheService";
+import { OpenAIService } from "./OpenAIService";
 
 export class CategoryProcessingService {
   constructor(private openai: OpenAI, private categoryRepository: Repository<Category>) {}
 
   private async normalizeCategoryName(name: string): Promise<string> {
     return name.toLowerCase().trim().replace(/\s+/g, " "); // Replace multiple spaces with single space
+  }
+
+  async getOrCreateCategories(categoryNames: string[]): Promise<Category[]> {
+    // Normalize all category names in parallel
+    const normalizedNames = await Promise.all(
+      categoryNames.map((name) => this.normalizeCategoryName(name))
+    );
+
+    // Find all existing categories in one query
+    const existingCategories = await this.categoryRepository.find({
+      where: { name: In(normalizedNames) },
+    });
+
+    // Determine which categories need to be created
+    const existingNamesSet = new Set(existingCategories.map((cat) => cat.name));
+    const newCategoryNames = normalizedNames.filter((name) => !existingNamesSet.has(name));
+
+    // Create all new categories in one batch
+    let newCategories: Category[] = [];
+    if (newCategoryNames.length > 0) {
+      newCategories = newCategoryNames.map((name) => this.categoryRepository.create({ name }));
+      await this.categoryRepository.save(newCategories);
+    }
+
+    // Return combined list
+    return [...existingCategories, ...newCategories];
   }
 
   private async findSimilarCategory(normalizedName: string): Promise<Category | null> {
@@ -65,7 +93,14 @@ export class CategoryProcessingService {
   }
 
   async extractAndProcessCategories(imageText: string): Promise<Category[]> {
-    // Extract categories using GPT-4
+    // Check cache first
+    const cachedCategories = CacheService.getCachedCategories(imageText);
+    if (cachedCategories) {
+      return await this.categoryRepository.find({
+        where: { name: In(cachedCategories) },
+      });
+    }
+
     const response = await this.openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -86,28 +121,35 @@ export class CategoryProcessingService {
     const parsedResponse = JSON.parse(response.choices[0]?.message.content || "{}");
     const suggestedCategories: string[] = parsedResponse.categories || [];
 
-    const processedCategories: Category[] = [];
+    // Save to cache
+    CacheService.setCachedCategories(imageText, suggestedCategories);
 
-    for (const categoryName of suggestedCategories) {
-      const normalizedName = await this.normalizeCategoryName(categoryName);
-
-      // Check for similar existing category
-      const existingCategory = await this.findSimilarCategory(normalizedName);
-
-      if (existingCategory) {
-        processedCategories.push(existingCategory);
-      } else {
-        // Create new category
-        const newCategory = this.categoryRepository.create({
-          name: normalizedName,
-          // You could also generate a description using GPT if desired
-        });
-
-        await this.categoryRepository.save(newCategory);
-        processedCategories.push(newCategory);
-      }
+    if (suggestedCategories.length === 0) {
+      return [];
     }
 
-    return processedCategories;
+    // Normalize all category names in parallel
+    const normalizedNames = await Promise.all(
+      suggestedCategories.map((name) => this.normalizeCategoryName(name))
+    );
+
+    // Find all existing categories in one query
+    const existingCategories = await this.categoryRepository.find({
+      where: { name: In(normalizedNames) },
+    });
+
+    // Determine which categories need to be created
+    const existingNamesSet = new Set(existingCategories.map((cat) => cat.name));
+    const newCategoryNames = normalizedNames.filter((name) => !existingNamesSet.has(name));
+
+    // Create all new categories in one batch
+    let newCategories: Category[] = [];
+    if (newCategoryNames.length > 0) {
+      newCategories = newCategoryNames.map((name) => this.categoryRepository.create({ name }));
+      await this.categoryRepository.save(newCategories);
+    }
+
+    // Return combined list
+    return [...existingCategories, ...newCategories];
   }
 }

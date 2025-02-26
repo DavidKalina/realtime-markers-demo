@@ -15,7 +15,7 @@ interface EventDetails {
   address: string;
   location: Point;
   description: string;
-  categories?: Category[]; // Add this
+  categories?: Category[];
 }
 
 interface ScanResult {
@@ -27,6 +27,11 @@ interface ScanResult {
   };
 }
 
+// Add this interface for progress reporting
+interface ProgressCallback {
+  (message: string, metadata?: Record<string, any>): Promise<void>;
+}
+
 export class EventProcessingService {
   constructor(
     private openai: OpenAI,
@@ -35,6 +40,7 @@ export class EventProcessingService {
   ) {}
 
   private async geocodeAddress(address: string): Promise<Point> {
+    // Existing geocode implementation...
     try {
       const encodedAddress = encodeURIComponent(address);
       const response = await fetch(
@@ -67,40 +73,94 @@ export class EventProcessingService {
     }
   }
 
-  // Process an image directly without storing a flyer record
-  async processFlyerFromImage(imageData: Buffer | string): Promise<ScanResult> {
+  // Add optional progress callback parameter
+  // Modified processFlyerFromImage method in EventProcessingService.ts
+  async processFlyerFromImage(
+    imageData: Buffer | string,
+    progressCallback?: ProgressCallback
+  ): Promise<ScanResult> {
+    // Report progress: Starting image processing
+    if (progressCallback) {
+      await progressCallback("Analyzing image..."); // CHANGED from "Starting image analysis..."
+      await new Promise((resolve) => setTimeout(resolve, 300)); // Add small delay between steps
+    }
+
     // Convert the image data to a base64 string if necessary
     let base64Image: string;
     if (typeof imageData === "string" && imageData.startsWith("data:image")) {
       base64Image = imageData;
     } else if (typeof imageData === "string") {
-      // Assume it's a file path
       const buffer = await import("fs/promises").then((fs) => fs.readFile(imageData));
       base64Image = `data:image/jpeg;base64,${buffer.toString("base64")}`;
     } else {
-      // imageData is a Buffer
       base64Image = `data:image/jpeg;base64,${imageData.toString("base64")}`;
     }
 
-    // 1. Process with OpenAI Vision API
-    const visionResult = await this.processWithVisionAPI(base64Image);
+    // Report progress: Vision API processing
+    if (progressCallback) {
+      await progressCallback("Analyzing image with Vision API...");
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
 
-    // 2. Generate text embeddings
-    const embedding = await this.generateEmbedding(visionResult.text!);
+    // Call Vision API
+    const visionResult = await this.processComprehensiveVisionAPI(base64Image);
+    const extractedText = visionResult.text || "";
 
-    // 3. Check for similar events
+    // Report progress after vision processing
+    if (progressCallback) {
+      await progressCallback("Image analyzed successfully", {
+        confidence: visionResult.confidence,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    // Report progress: Generating embeddings
+    if (progressCallback) {
+      await progressCallback("Generating text embeddings...");
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    // Generate embeddings for event similarity matching
+    const embeddingPromise = this.generateEmbedding(extractedText);
+
+    // Report progress: Extracting event details
+    if (progressCallback) {
+      await progressCallback("Extracting event details and categories...");
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    // Process event details in parallel with embedding generation
+    const [eventDetailsWithCategories, embedding] = await Promise.all([
+      this.extractEventDetailsWithCategories(extractedText),
+      embeddingPromise,
+    ]);
+
+    // CHANGE THIS to match hook's expected format:
+    if (progressCallback) {
+      // NO LONGER SEND "Event details extracted successfully" - it's not in the hook's steps
+      await progressCallback("Extracting event details and categories...", {
+        title: eventDetailsWithCategories.title,
+        categories: eventDetailsWithCategories.categories?.map((c) => c.name),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    // Report progress: Finding similar events
+    if (progressCallback) {
+      await progressCallback("Finding similar events...");
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    // Check for similar events
     const similarity = await this.findSimilarEvents(embedding);
 
-    // 4. Extract event details using GPT-4
-    const eventDetails = await this.extractEventDetails(visionResult.text!);
-    const categories = await this.categoryProcessingService.extractAndProcessCategories(
-      visionResult.text!
-    );
-
-    const eventDetailsWithCategories = {
-      ...eventDetails,
-      categories: categories, // Now TypeScript knows this is Category[]
-    };
+    // Report progress: Processing complete
+    if (progressCallback) {
+      await progressCallback("Processing complete!", {
+        confidence: visionResult.confidence,
+        similarityScore: similarity.score,
+      });
+    }
 
     return {
       confidence: visionResult.confidence || 0,
@@ -109,7 +169,8 @@ export class EventProcessingService {
     };
   }
 
-  private async processWithVisionAPI(base64Image: string) {
+  // Existing methods below...
+  private async processComprehensiveVisionAPI(base64Image: string) {
     const response = await this.openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -118,14 +179,17 @@ export class EventProcessingService {
           content: [
             {
               type: "text",
-              text: `Please analyze this event flyer and extract the following details in a structured format:
-                     - Event Title
-                     - Event Date and Time
-                     - Location
-                     - Description
-                     - Any contact information or social media handles
-                     - Confidence Score (between 0 and 1.0)
-                     Please be as specific and accurate as possible.`,
+              text: `Please analyze this event flyer and extract as much detail as possible:
+                   - Event Title
+                   - Event Date and Time (be specific about year, month, day, time)
+                   - Full Location Details (venue name, address, city, state)
+                   - Complete Description
+                   - Any contact information
+                   - Any social media handles
+                   - Any other important details
+
+                   Also provide a confidence score between 0 and 1 indicating how confident you are in the extraction.
+                   Include as much text from the image as possible in your analysis.`,
             },
             {
               type: "image_url",
@@ -136,7 +200,7 @@ export class EventProcessingService {
           ],
         },
       ],
-      max_tokens: 500,
+      max_tokens: 1000,
     });
 
     const content = response.choices[0].message.content;
@@ -153,6 +217,75 @@ export class EventProcessingService {
       success: true,
       text: content,
       confidence: confidence,
+    };
+  }
+
+  private async extractEventDetailsWithCategories(text: string): Promise<EventDetails> {
+    // Existing implementation...
+    const response = await this.openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a precise event information extractor. Extract event details and format them consistently. 
+                  For dates, always return them in ISO-8601 format (YYYY-MM-DDTHH:mm:ss.sssZ). 
+                  For past events, return the original date even if it's in the past.
+                  Also identify 2-5 relevant categories for the event.`,
+        },
+        {
+          role: "user",
+          content: `Extract the following details from this text in a JSON format:
+                 - emoji: The most relevant emoji
+                 - title: The event title
+                 - date: The event date and time in ISO-8601 format
+                 - address: The complete address including street, city, state, and zip if available
+                 - description: Full description of the event
+                 - categoryNames: Array of 2-5 category names that best describe this event
+                 
+                 Text to extract from:
+                 ${text}`,
+        },
+      ],
+      response_format: { type: "json_object" },
+    });
+
+    const parsedDetails = JSON.parse(response.choices[0]?.message.content?.trim() ?? "{}");
+    const address = parsedDetails.address || "";
+
+    // Get coordinates from address using Mapbox
+    const location = await this.geocodeAddress(address);
+
+    // Process date with fallback
+    let eventDate;
+    try {
+      eventDate = parsedDetails.date
+        ? new Date(parsedDetails.date).toISOString()
+        : new Date().toISOString();
+
+      if (isNaN(new Date(eventDate).getTime())) {
+        eventDate = new Date().toISOString();
+      }
+    } catch (error) {
+      eventDate = new Date().toISOString();
+    }
+
+    // Process categories
+    let categories: Category[] = [];
+    if (parsedDetails.categoryNames && Array.isArray(parsedDetails.categoryNames)) {
+      // Get existing categories or create new ones
+      categories = await this.categoryProcessingService.getOrCreateCategories(
+        parsedDetails.categoryNames
+      );
+    }
+
+    return {
+      emoji: parsedDetails.emoji || "📍",
+      title: parsedDetails.title || "",
+      date: eventDate,
+      address: address,
+      location: location,
+      description: parsedDetails.description || "",
+      categories: categories,
     };
   }
 
@@ -194,64 +327,6 @@ export class EventProcessingService {
       console.error("Error in findSimilarEvents:", error);
       return { score: 0 };
     }
-  }
-
-  private async extractEventDetails(text: string) {
-    const response = await this.openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a precise event information extractor. Extract event details and format them consistently. For dates, always return them in ISO-8601 format (YYYY-MM-DDTHH:mm:ss.sssZ). For past events, return the original date even if it's in the past.",
-        },
-        {
-          role: "user",
-          content: `Extract the following details from this text in a JSON format:
-                 - emoji: The most relevant emoji
-                 - title: The event title
-                 - date: The event date and time in ISO-8601 format (YYYY-MM-DDTHH:mm:ss.sssZ)
-                 - address: The complete address including street, city, state, and zip if available
-                 - description: Full description of the event
-                 Text to extract from:
-                 ${text}`,
-        },
-      ],
-      response_format: { type: "json_object" },
-    });
-
-    const parsedDetails = JSON.parse(response.choices[0]?.message.content?.trim() ?? "");
-    const address = parsedDetails.address || "";
-
-    // Get coordinates from address using Mapbox
-    const location = await this.geocodeAddress(address);
-
-    // Add date parsing with fallback
-    let eventDate;
-    try {
-      eventDate = parsedDetails.date
-        ? new Date(parsedDetails.date).toISOString()
-        : new Date().toISOString();
-
-      // Check if the date is valid
-      if (isNaN(new Date(eventDate).getTime())) {
-        console.warn("Invalid date detected, falling back to current date");
-        eventDate = new Date().toISOString();
-      }
-    } catch (error) {
-      console.warn("Error parsing date, falling back to current date:", error);
-      eventDate = new Date().toISOString();
-    }
-
-    return {
-      emoji: parsedDetails.emoji || "📍",
-      title: parsedDetails.title || "",
-      date: eventDate,
-      address: address,
-      location: location,
-      description: parsedDetails.description || "",
-      categories: undefined,
-    };
   }
 
   private calculateCosineSimilarity(a: number[], b: number[]): number {

@@ -29,7 +29,7 @@ Mapbox.setAccessToken(
 
 interface MapViewProps {
   style?: object;
-  wsUrl: string;
+  wsUrl?: string;
 }
 
 export default function MapView({
@@ -59,6 +59,22 @@ export default function MapView({
     })();
   }, []);
 
+  // Initialize viewport on component mount
+  useEffect(() => {
+    // Create an initial viewport based on default location
+    // This assumes a default zoom level for initial bounds calculation
+    const defaultZoomSpan = 0.02; // Adjust this value based on your desired initial zoom
+    const initialViewport = {
+      north: location[1] + defaultZoomSpan,
+      south: location[1] - defaultZoomSpan,
+      east: location[0] + defaultZoomSpan,
+      west: location[0] - defaultZoomSpan,
+    };
+
+    // Call updateViewport on mount with initial viewport
+    updateViewport(initialViewport);
+  }, []); // Empty dependency array ensures this runs only on mount
+
   // Handle map region change
   const onRegionDidChange = useCallback(
     (region: MapboxRegion) => {
@@ -77,7 +93,6 @@ export default function MapView({
   );
 
   // When a marker is selected, move the camera to center on it
-  // Updated to account for bottom sheet vs popup
   useEffect(() => {
     if (selectedMarker && cameraRef.current) {
       cameraRef.current.flyTo(
@@ -117,8 +132,10 @@ export default function MapView({
           <React.Fragment key={marker.id}>
             <MarkerView id={marker.id} coordinate={marker.coordinates}>
               <AnimatedMarker
+                cycleBehaviors={true}
+                cycleInterval={10000} // Cycle every 10 seconds
+                talkBubbleText={marker.data.title} // Wider speech bubble can fit longer text
                 emoji={marker.data.emoji}
-                isSelected={selectedMarker?.id === marker.id}
                 onPress={() => selectMarker(marker.id)}
               />
             </MarkerView>

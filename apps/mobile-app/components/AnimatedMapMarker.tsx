@@ -1,189 +1,344 @@
-// QuestMarker.tsx
-import useBreathing from "@/hooks/usBreathing";
-import React, { useEffect } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
-  Easing,
-  ZoomIn,
-  ZoomOut,
-  interpolateColor,
-  useAnimatedStyle,
   useSharedValue,
+  useAnimatedStyle,
+  withTiming,
   withRepeat,
   withSequence,
-  withTiming,
+  withDelay,
+  Easing,
+  cancelAnimation,
 } from "react-native-reanimated";
 
-// Define different marker themes
-const MARKER_THEMES = {
-  fantasy: {
-    shapes: ["🏰", "⚔️", "🧙", "🐉", "📜", "🔮"],
-    colors: ["#8A2BE2", "#FF6347", "#1E90FF", "#32CD32", "#FFD700", "#FF4500"],
-    shadowColor: "#8A2BE2",
-  },
-  adventure: {
-    shapes: ["🗺️", "🧭", "🏕️", "🧗", "🚵", "⛰️"],
-    colors: ["#2E8B57", "#FF8C00", "#20B2AA", "#CD853F", "#6B8E23", "#008B8B"],
-    shadowColor: "#008B8B",
-  },
-  treasure: {
-    shapes: ["💰", "💎", "🔑", "👑", "💍", "🏆"],
-    colors: ["#FFD700", "#C0C0C0", "#B87333", "#E6BE8A", "#4169E1", "#8B4513"],
-    shadowColor: "#FFD700",
-  },
-  city: {
-    shapes: ["🏙️", "🚇", "🏢", "🛒", "🏛️", "🍽️"],
-    colors: ["#4682B4", "#DC143C", "#708090", "#DAA520", "#2F4F4F", "#CD5C5C"],
-    shadowColor: "#4682B4",
-  },
-};
-
-interface AnimatedMapMarkerProps {
-  emoji?: string;
-  isSelected: boolean;
-  onPress: () => void;
-  themeKey?: keyof typeof MARKER_THEMES;
-  markerIndex?: number;
-  pulseEffect?: boolean;
-  showLabel?: boolean;
-  label?: string;
+// Define different marker behaviors
+export enum MarkerBehavior {
+  BOBBING = "bobbing",
+  WIGGLING = "wiggling",
+  BLINKING = "blinking",
+  PULSING = "pulsing",
+  SPINNING = "spinning",
+  CALLING = "calling",
+  JUMPING = "jumping",
+  IDLING = "idling",
 }
 
-const AnimatedMapMarker: React.FC<AnimatedMapMarkerProps> = ({
-  emoji,
-  isSelected,
-  onPress,
-  themeKey = "fantasy",
-  markerIndex = 0,
-  pulseEffect = true,
-  showLabel = false,
-  label = "Location",
+// Lifecycle patterns - sequences of behaviors
+export enum BehaviorPattern {
+  STANDARD = "standard", // Basic subtle movements
+  IMPORTANT = "important", // Slightly more attention-grabbing
+  INTERACTIVE = "interactive", // Invites user interaction
+  PASSIVE = "passive", // Very subtle, background element
+  HIGHLIGHT = "highlight", // Draws attention but not overwhelming
+}
+
+// Define the shape of a behavior step
+interface BehaviorStep {
+  behavior: MarkerBehavior;
+  duration: number;
+  slow?: boolean;
+}
+
+// Behavior pattern definitions - with more subtle, professional animations
+const BEHAVIOR_PATTERNS: Record<BehaviorPattern, BehaviorStep[]> = {
+  [BehaviorPattern.STANDARD]: [
+    { behavior: MarkerBehavior.IDLING, duration: 4000 },
+    { behavior: MarkerBehavior.BOBBING, duration: 2000 },
+    { behavior: MarkerBehavior.IDLING, duration: 3000 },
+  ],
+  [BehaviorPattern.IMPORTANT]: [
+    { behavior: MarkerBehavior.PULSING, duration: 2000 },
+    { behavior: MarkerBehavior.IDLING, duration: 3000 },
+    { behavior: MarkerBehavior.CALLING, duration: 2500 },
+  ],
+  [BehaviorPattern.INTERACTIVE]: [
+    { behavior: MarkerBehavior.WIGGLING, duration: 1500 },
+    { behavior: MarkerBehavior.IDLING, duration: 2000 },
+    { behavior: MarkerBehavior.CALLING, duration: 2000 },
+  ],
+  [BehaviorPattern.PASSIVE]: [
+    { behavior: MarkerBehavior.IDLING, duration: 5000 },
+    { behavior: MarkerBehavior.BOBBING, duration: 1500, slow: true },
+    { behavior: MarkerBehavior.IDLING, duration: 4000 },
+  ],
+  [BehaviorPattern.HIGHLIGHT]: [
+    { behavior: MarkerBehavior.JUMPING, duration: 1000 },
+    { behavior: MarkerBehavior.IDLING, duration: 3000 },
+    { behavior: MarkerBehavior.SPINNING, duration: 1500 },
+  ],
+};
+
+interface MarioMarkerProps {
+  emoji: string;
+  onPress?: () => void;
+  pattern?: BehaviorPattern;
+  currentBehavior?: MarkerBehavior; // For manual control if needed
+  talkBubbleText?: string; // For call-out text
+  cycleBehaviors?: boolean; // Whether to automatically cycle through behavior patterns
+  cycleInterval?: number; // How long to stay on each pattern before changing (in ms)
+}
+
+const MarioMarker: React.FC<MarioMarkerProps> = ({
+  emoji = "📍", // Default to pin
+  onPress = () => {},
+  pattern = BehaviorPattern.STANDARD, // Default to standard, more subtle behavior
+  currentBehavior,
+  talkBubbleText = "Tap",
+  cycleBehaviors = false, // Whether to cycle through different behavior patterns
+  cycleInterval = 15000, // Cycle to a new pattern every 15 seconds by default
 }) => {
-  const { animatedStyle } = useBreathing();
-  const theme = MARKER_THEMES[themeKey];
-
-  // Get emoji and color based on markerIndex
-  const markerEmoji = emoji || theme.shapes[markerIndex % theme.shapes.length];
-  const markerColor = theme.colors[markerIndex % theme.colors.length];
-
-  // Animation values
+  // Animation shared values
+  const translateY = useSharedValue(0);
+  const translateX = useSharedValue(0);
+  const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
-  const glowOpacity = useSharedValue(0);
-  const bgColor = useSharedValue(0);
+  const bubbleScale = useSharedValue(0);
 
-  // Set up animations when selected
+  // Track current behavior state
+  const [activeBehavior, setActiveBehavior] = useState<MarkerBehavior>(
+    currentBehavior || MarkerBehavior.IDLING
+  );
+
+  // Keep track of behavior index in the pattern
+  const [behaviorIndex, setBehaviorIndex] = useState(0);
+
+  // Keep track of active pattern when cycling is enabled
+  const [activePattern, setActivePattern] = useState<BehaviorPattern>(pattern);
+
+  // Timeouts reference for cleanup
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const patternCycleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // List of all patterns to cycle through
+  const allPatterns = Object.values(BehaviorPattern);
+
+  // Set up pattern cycling if enabled
   useEffect(() => {
-    if (isSelected) {
-      // Rotation animation
-      rotation.value = withRepeat(
-        withTiming(2 * Math.PI, { duration: 10000, easing: Easing.linear }),
-        -1,
-        false
-      );
-
-      // Glow effect
-      glowOpacity.value = withRepeat(
-        withSequence(withTiming(0.7, { duration: 1000 }), withTiming(0.3, { duration: 1000 })),
-        -1,
-        true
-      );
-
-      // Color transition
-      bgColor.value = withRepeat(
-        withSequence(withTiming(1, { duration: 1500 }), withTiming(0, { duration: 1500 })),
-        -1,
-        true
-      );
-    } else {
-      // Reset animations when not selected
-      rotation.value = withTiming(0);
-      glowOpacity.value = withTiming(0);
-      bgColor.value = withTiming(0);
+    if (!cycleBehaviors) {
+      setActivePattern(pattern);
+      return;
     }
-  }, [isSelected, rotation, glowOpacity, bgColor]);
 
-  // Scale animation style
-  const scaleStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        {
-          scale: isSelected
-            ? withSequence(withTiming(1.3, { duration: 300 }), withTiming(1.2, { duration: 200 }))
-            : withTiming(1, { duration: 300 }),
-        },
-        {
-          rotate: `${rotation.value}rad`,
-        },
-      ],
+    // Start with the provided pattern
+    setActivePattern(pattern);
+
+    // Set up cycling through patterns
+    const cyclePattern = () => {
+      setActivePattern((prevPattern) => {
+        const currentIndex = allPatterns.indexOf(prevPattern);
+        const nextIndex = (currentIndex + 1) % allPatterns.length;
+        return allPatterns[nextIndex];
+      });
     };
-  }, [isSelected]);
 
-  // Glow effect style
-  const glowStyle = useAnimatedStyle(() => {
-    return {
-      opacity: glowOpacity.value,
-      shadowColor: theme.shadowColor,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.8,
-      shadowRadius: 15,
-      elevation: 10,
+    // Set initial cycle timeout
+    patternCycleRef.current = setTimeout(cyclePattern, cycleInterval);
+
+    // Set up recurring cycling
+    const intervalId = setInterval(cyclePattern, cycleInterval);
+
+    return () => {
+      if (patternCycleRef.current) {
+        clearTimeout(patternCycleRef.current);
+      }
+      clearInterval(intervalId);
     };
-  }, [glowOpacity]);
+  }, [cycleBehaviors, pattern, cycleInterval]);
 
-  // Background color animation
-  const bgColorStyle = useAnimatedStyle(() => {
-    const backgroundColor = interpolateColor(bgColor.value, [0, 1], [markerColor, "#ffffff"]);
+  // Apply a specific behavior animation
+  const applyBehavior = (
+    behavior: MarkerBehavior,
+    duration: number = 2000,
+    isSlowed: boolean = false
+  ) => {
+    // Cancel any running animations
+    cancelAnimation(translateY);
+    cancelAnimation(translateX);
+    cancelAnimation(scale);
+    cancelAnimation(rotation);
+    cancelAnimation(bubbleScale);
 
-    return {
-      backgroundColor,
-    };
-  }, [bgColor, markerColor]);
+    // Reset animation values
+    translateY.value = 0;
+    translateX.value = 0;
+    scale.value = 1;
+    rotation.value = 0;
+    bubbleScale.value = 0;
 
-  // Pulse animation for non-selected markers
-  const pulseStyle = useAnimatedStyle(() => {
-    if (!pulseEffect || isSelected) return {};
+    const speedFactor = isSlowed ? 1.5 : 1;
 
-    return {
-      transform: [
-        {
-          scale: withRepeat(
-            withSequence(
-              withTiming(1, { duration: 1500 }),
-              withTiming(1.1, { duration: 700 }),
-              withTiming(1, { duration: 800 })
-            ),
-            -1,
-            true
+    // Apply the specific behavior animation - with subtler movements
+    switch (behavior) {
+      case MarkerBehavior.BOBBING:
+        // Gentle bobbing motion
+        translateY.value = withRepeat(
+          withSequence(
+            withTiming(-4, { duration: 600 * speedFactor }),
+            withTiming(0, { duration: 600 * speedFactor })
           ),
-        },
+          Math.max(1, Math.floor(duration / 1200))
+        );
+        break;
+
+      case MarkerBehavior.WIGGLING:
+        // Subtle side to side motion
+        translateX.value = withRepeat(
+          withSequence(
+            withTiming(3, { duration: 400 * speedFactor }),
+            withTiming(-3, { duration: 400 * speedFactor }),
+            withTiming(0, { duration: 400 * speedFactor })
+          ),
+          Math.max(1, Math.floor(duration / 1200))
+        );
+        break;
+
+      case MarkerBehavior.BLINKING:
+        // Replace blinking with a gentle fade pulse
+        scale.value = withRepeat(
+          withSequence(withTiming(1.05, { duration: 700 }), withTiming(0.98, { duration: 700 })),
+          Math.max(1, Math.floor(duration / 1400))
+        );
+        break;
+
+      case MarkerBehavior.PULSING:
+        // More subtle pulse
+        scale.value = withRepeat(
+          withSequence(
+            withTiming(1.15, { duration: 500 * speedFactor }),
+            withTiming(0.95, { duration: 500 * speedFactor }),
+            withTiming(1, { duration: 300 * speedFactor })
+          ),
+          Math.max(1, Math.floor(duration / 1300))
+        );
+        break;
+
+      case MarkerBehavior.SPINNING:
+        // Gentle rotation (not full 360)
+        rotation.value = withRepeat(
+          withSequence(
+            withTiming(Math.PI / 6, { duration: 700 * speedFactor }),
+            withTiming(-Math.PI / 6, { duration: 700 * speedFactor }),
+            withTiming(0, { duration: 500 * speedFactor })
+          ),
+          Math.max(1, Math.floor(duration / 1900))
+        );
+        break;
+
+      case MarkerBehavior.CALLING:
+        // Show hint indicator
+        bubbleScale.value = withSequence(
+          withTiming(1, { duration: 400 }),
+          withDelay(duration - 800, withTiming(0, { duration: 400 }))
+        );
+        break;
+
+      case MarkerBehavior.JUMPING:
+        // More subtle jump
+        translateY.value = withRepeat(
+          withSequence(
+            withTiming(-6, {
+              duration: 300,
+              easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+            }),
+            withTiming(0, {
+              duration: 400,
+              easing: Easing.bezier(0.5, 1, 0.89, 1),
+            })
+          ),
+          Math.max(1, Math.floor(duration / 700))
+        );
+        break;
+
+      case MarkerBehavior.IDLING:
+      default:
+        // Very subtle floating motion
+        translateY.value = withRepeat(
+          withSequence(
+            withTiming(-2, {
+              duration: 1500 * speedFactor,
+              easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+            }),
+            withTiming(0, {
+              duration: 1500 * speedFactor,
+              easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+            })
+          ),
+          Math.max(1, Math.floor(duration / 3000))
+        );
+        break;
+    }
+
+    setActiveBehavior(behavior);
+  };
+
+  // Run the behavior lifecycle
+  useEffect(() => {
+    // Clear any existing timeouts
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // If a specific behavior is forced, just use that one
+    if (currentBehavior) {
+      applyBehavior(currentBehavior, 2000);
+      return;
+    }
+
+    // Otherwise use the active pattern (which could be cycling)
+    const steps = BEHAVIOR_PATTERNS[activePattern];
+    const currentStep = steps[behaviorIndex];
+
+    // Apply the current behavior
+    applyBehavior(currentStep.behavior, currentStep.duration, currentStep.slow);
+
+    // Schedule the next behavior
+    timeoutRef.current = setTimeout(() => {
+      // Move to the next behavior in the pattern, or loop back to the start
+      const nextIndex = (behaviorIndex + 1) % steps.length;
+      setBehaviorIndex(nextIndex);
+    }, currentStep.duration);
+
+    // Cleanup
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [behaviorIndex, activePattern, currentBehavior]);
+
+  // Define animated styles
+  const markerStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateY: translateY.value },
+        { translateX: translateX.value },
+        { scale: scale.value },
+        { rotate: `${rotation.value}rad` },
       ],
     };
-  }, [pulseEffect, isSelected]);
+  });
+
+  const hintStyle = useAnimatedStyle(() => {
+    return {
+      opacity: 0.7,
+      transform: [{ scale: bubbleScale.value }],
+    };
+  });
 
   return (
-    <View>
-      <Animated.View
-        entering={ZoomIn.duration(500).easing(Easing.back())}
-        exiting={ZoomOut.duration(300)}
-      >
-        <Animated.View
-          style={[styles.container, isSelected && styles.selectedContainer, scaleStyle, pulseStyle]}
-        >
-          <Animated.View style={[styles.glowEffect, glowStyle]} />
-          <Pressable style={[styles.marker, bgColorStyle]} onPress={onPress}>
-            <Text style={styles.markerIcon}>{markerEmoji}</Text>
-          </Pressable>
-
-          {showLabel && (
-            <Animated.View entering={ZoomIn.delay(100)} style={styles.labelContainer}>
-              <Text style={styles.labelText}>{label}</Text>
-            </Animated.View>
-          )}
-
-          {isSelected && (
-            <Animated.View entering={ZoomIn.duration(400).delay(100)} style={styles.selectedRing} />
-          )}
+    <View style={styles.container}>
+      {/* Subtle hint that appears during "calling" behavior */}
+      {activeBehavior === MarkerBehavior.CALLING && (
+        <Animated.View style={[styles.hint, hintStyle]}>
+          <Text style={styles.hintText}>{talkBubbleText}</Text>
         </Animated.View>
+      )}
+
+      {/* The marker itself */}
+      <Animated.View style={[markerStyle]}>
+        <Pressable style={styles.marker} onPress={onPress}>
+          <Text style={styles.markerIcon}>{emoji}</Text>
+        </Pressable>
       </Animated.View>
     </View>
   );
@@ -192,22 +347,17 @@ const AnimatedMapMarker: React.FC<AnimatedMapMarkerProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: "relative",
-    width: 100,
-    height: 100,
-    justifyContent: "center",
     alignItems: "center",
-    zIndex: 1,
-  },
-  selectedContainer: {
-    zIndex: 2,
+    justifyContent: "center",
+    height: 60, // Reduced space for more subtle animations
+    width: 60, // Fixed width to prevent layout shifts
   },
   marker: {
     position: "relative",
-    display: "flex",
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 100,
-    backgroundColor: "#333",
+    backgroundColor: "#333", // Charcoal color
     width: 44,
     height: 44,
     padding: 8,
@@ -218,45 +368,25 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#fff",
   },
-  glowEffect: {
+  hint: {
     position: "absolute",
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "transparent",
-  },
-  selectedRing: {
-    position: "absolute",
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 3,
-    borderColor: "#ffffff",
-    borderStyle: "dotted",
-  },
-  labelContainer: {
-    position: "absolute",
-    top: -25,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    top: -18, // Moved higher up to avoid overlap
+    backgroundColor: "rgba(255, 255, 255, 1)",
+    borderRadius: 8,
+    padding: 3, // Reduced vertical padding
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    minWidth: 60,
-    justifyContent: "center",
+    zIndex: 10,
+    minWidth: 150,
+    maxWidth: 250,
     alignItems: "center",
   },
-  labelText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "bold",
+  hintText: {
+    fontSize: 10, // Slightly smaller font
+    color: "#333",
+    fontWeight: "condensedBold",
     textAlign: "center",
-  },
-  popupMenuWrapper: {
-    position: "absolute",
-    bottom: 100,
-    width: 300,
-    alignSelf: "center",
+    lineHeight: 12, // Tighter line height
   },
 });
 
-export default AnimatedMapMarker;
+export default MarioMarker;
