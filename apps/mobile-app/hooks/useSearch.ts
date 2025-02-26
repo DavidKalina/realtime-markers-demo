@@ -4,7 +4,7 @@ import { useFocusEffect } from "@react-navigation/native";
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 // Cache constants
-const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes in milliseconds
+const CACHE_EXPIRY = 1 * 60 * 1000; // 5 minutes in milliseconds
 const SEARCH_DEBOUNCE = 500; // 500ms debounce for search typing
 
 const useSearch = () => {
