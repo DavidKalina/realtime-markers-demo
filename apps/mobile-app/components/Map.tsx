@@ -23,9 +23,7 @@ interface MapboxRegion {
   type: string;
 }
 
-Mapbox.setAccessToken(
-  "pk.eyJ1IjoiZGtwcm90b24iLCJhIjoiY203Z3Rscjl5MGJ0ejJscTIwaGEzbmdyMCJ9.NDfmGrns6CzQ3_MmD9c3tQ"
-);
+Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
 
 interface MapViewProps {
   style?: object;

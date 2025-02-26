@@ -11,7 +11,6 @@ module.exports = {
         "@rnmapbox/maps",
         {
           RNMapboxMapsDownloadToken: process.env.MAPBOX_DOWNLOADS_TOKEN,
-          mapboxAccessToken: process.env.MAPBOX_PUBLIC_TOKEN,
         },
       ],
       [
