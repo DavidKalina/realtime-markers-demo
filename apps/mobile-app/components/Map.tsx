@@ -3,9 +3,9 @@ import { useMarkerStore } from "@/stores/markerStore";
 import Mapbox, { MarkerView } from "@rnmapbox/maps";
 import * as Location from "expo-location";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet } from "react-native";
-import AnimatedMarker from "./AnimatedMapMarker";
-import MarkerDetailsBottomSheet from "./MarkerDetailsPopup";
+import { StyleSheet, Alert, Linking, Platform } from "react-native";
+import GenericMapMarker from "./AnimatedMapMarker";
+import { router } from "expo-router";
 
 interface MapboxRegion {
   geometry: {
@@ -39,11 +39,31 @@ export default function MapView({
   const [location, setLocation] = useState<[number, number]>([-122.4324, 37.78825]);
   const { updateViewport } = useMapWebSocket(wsUrl);
   const cameraRef = useRef<Mapbox.Camera>(null);
+  const mapRef = useRef<Mapbox.MapView>(null);
 
   // Get markers and selection from store
   const markers = useMarkerStore((state) => state.markers);
   const selectedMarker = useMarkerStore((state) => state.selectedMarker);
   const selectMarker = useMarkerStore((state) => state.selectMarker);
+
+  // Get marker information
+  const getMarkerInfo = useCallback(
+    (markerId: string) => {
+      const marker = markers.find((m) => m.id === markerId);
+      if (!marker) return null;
+
+      return {
+        id: marker.id,
+        title: marker.data.title,
+        emoji: marker.data.emoji,
+        location: {
+          latitude: marker.coordinates[1],
+          longitude: marker.coordinates[0],
+        },
+      };
+    },
+    [markers]
+  );
 
   // Get user location
   useEffect(() => {
@@ -58,22 +78,6 @@ export default function MapView({
       setLocation([position.coords.longitude, position.coords.latitude]);
     })();
   }, []);
-
-  // Initialize viewport on component mount
-  useEffect(() => {
-    // Create an initial viewport based on default location
-    // This assumes a default zoom level for initial bounds calculation
-    const defaultZoomSpan = 0.02; // Adjust this value based on your desired initial zoom
-    const initialViewport = {
-      north: location[1] + defaultZoomSpan,
-      south: location[1] - defaultZoomSpan,
-      east: location[0] + defaultZoomSpan,
-      west: location[0] - defaultZoomSpan,
-    };
-
-    // Call updateViewport on mount with initial viewport
-    updateViewport(initialViewport);
-  }, []); // Empty dependency array ensures this runs only on mount
 
   // Handle map region change
   const onRegionDidChange = useCallback(
@@ -95,84 +99,148 @@ export default function MapView({
   // When a marker is selected, move the camera to center on it
   useEffect(() => {
     if (selectedMarker && cameraRef.current) {
-      cameraRef.current.flyTo(
-        [
-          selectedMarker.coordinates[0],
-          selectedMarker.coordinates[1] - 0.005, // Reduced offset since we're using a bottom sheet now
-        ],
-        1000
-      );
+      cameraRef.current.moveTo([selectedMarker.coordinates[0], selectedMarker.coordinates[1]], 300);
     }
   }, [selectedMarker]);
 
-  const handleCloseBottomSheet = () => {
-    selectMarker(null);
+  // Initialize viewport on component mount
+  useEffect(() => {
+    // Create an initial viewport based on default location
+    const defaultZoomSpan = 0.02;
+    const initialViewport = {
+      north: location[1] + defaultZoomSpan,
+      south: location[1] - defaultZoomSpan,
+      east: location[0] + defaultZoomSpan,
+      west: location[0] - defaultZoomSpan,
+    };
+
+    // Call updateViewport on mount with initial viewport
+    updateViewport(initialViewport);
+  }, []);
+
+  // Handler for sharing a marker location
+  const handleShare = useCallback(
+    (markerId: string) => {
+      const marker = markers.find((m) => m.id === markerId);
+      if (!marker) return;
+
+      const locationString = `${marker.data.title} - https://maps.google.com/?q=${marker.coordinates[1]},${marker.coordinates[0]}`;
+
+      if (Platform.OS === "ios" || Platform.OS === "android") {
+        Linking.canOpenURL("sms:")
+          .then((canOpen) => {
+            if (canOpen) {
+              Linking.openURL(`sms:&body=${encodeURIComponent(locationString)}`);
+            } else {
+              // Fallback to regular share if SMS is not available
+              handleFallbackShare(locationString);
+            }
+          })
+          .catch((err) => {
+            console.error("Error checking SMS capability:", err);
+            handleFallbackShare(locationString);
+          });
+      }
+    },
+    [markers]
+  );
+
+  // Fallback share method
+  const handleFallbackShare = (content: string) => {
+    // Use clipboard or other methods as fallback
+    Alert.alert("Share Location", "Copy this location to share:", [
+      { text: "Copy", onPress: () => {} },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
+  // Handler for getting directions to a marker
+  const handleGetDirections = useCallback(
+    (markerId: string) => {
+      const marker = markers.find((m) => m.id === markerId);
+      if (!marker) return;
+
+      // URLs for different platforms
+      let url: string;
+      if (Platform.OS === "ios") {
+        // Apple Maps URL format
+        url = `http://maps.apple.com/?daddr=${marker.coordinates[1]},${marker.coordinates[0]}`;
+      } else {
+        // Google Maps URL format (works on Android and web)
+        url = `https://www.google.com/maps/dir/?api=1&destination=${marker.coordinates[1]},${marker.coordinates[0]}`;
+      }
+
+      Linking.canOpenURL(url)
+        .then((supported) => {
+          if (supported) {
+            return Linking.openURL(url);
+          } else {
+            Alert.alert("Navigation Error", "Maps application is not available");
+          }
+        })
+        .catch((error) => {
+          Alert.alert("Navigation Error", "Could not open maps application");
+          console.error("Error opening maps:", error);
+        });
+    },
+    [markers]
+  );
+
+  const handleViewDetails = useCallback((markerId: string) => {
+    router.push(`/results?eventId=${markerId}`);
+  }, []);
+
   return (
-    <>
-      <Mapbox.MapView
-        style={[styles.map, style]}
-        styleURL={Mapbox.StyleURL.Street}
-        logoEnabled={false}
-        attributionEnabled={false}
-        onRegionDidChange={onRegionDidChange as any}
-      >
-        <Mapbox.Camera
-          ref={cameraRef}
-          zoomLevel={14}
-          centerCoordinate={location}
-          animationMode="flyTo"
-          animationDuration={2000}
-        />
+    <Mapbox.MapView
+      ref={mapRef}
+      rotateEnabled={false}
+      style={[styles.map, style]}
+      styleURL={Mapbox.StyleURL.Street}
+      logoEnabled={false}
+      attributionEnabled={false}
+      onRegionDidChange={onRegionDidChange as any}
+    >
+      <Mapbox.Camera
+        ref={cameraRef}
+        zoomLevel={14}
+        centerCoordinate={location}
+        animationMode="flyTo"
+        animationDuration={2000}
+      />
 
-        <Mapbox.UserLocation visible={true} showsUserHeadingIndicator={true} />
+      <Mapbox.UserLocation visible={true} showsUserHeadingIndicator={true} />
 
-        {markers.map((marker) => (
-          <React.Fragment key={marker.id}>
-            <MarkerView id={marker.id} coordinate={marker.coordinates}>
-              <AnimatedMarker
-                cycleBehaviors={true}
-                cycleInterval={10000} // Cycle every 10 seconds
-                talkBubbleText={marker.data.title} // Wider speech bubble can fit longer text
-                emoji={marker.data.emoji}
-                onPress={() => selectMarker(marker.id)}
-              />
-            </MarkerView>
-          </React.Fragment>
-        ))}
-      </Mapbox.MapView>
+      {markers.map((marker) => {
+        const markerInfo = {
+          id: marker.id,
+          title: marker.data.title,
+          emoji: marker.data.emoji,
+          location: {
+            latitude: marker.coordinates[1],
+            longitude: marker.coordinates[0],
+          },
+        };
 
-      {selectedMarker && (
-        <MarkerDetailsBottomSheet
-          marker={{ ...selectedMarker.data, id: selectedMarker.id ?? "" }}
-          onClose={handleCloseBottomSheet}
-        />
-      )}
-    </>
+        return (
+          <MarkerView key={marker.id} coordinate={marker.coordinates} allowOverlap>
+            <GenericMapMarker
+              marker={markerInfo}
+              isSelected={selectedMarker?.id === marker.id}
+              onPress={() => selectMarker(marker.id)}
+              onShare={() => handleShare(marker.id)}
+              onGetDirections={() => handleGetDirections(marker.id)}
+              onViewDetails={() => handleViewDetails(marker.id)}
+              onDismiss={() => selectMarker(null)}
+            />
+          </MarkerView>
+        );
+      })}
+    </Mapbox.MapView>
   );
 }
 
 const styles = StyleSheet.create({
   map: {
     flex: 1,
-  },
-  markerContainer: {
-    backgroundColor: "#FF4B4B",
-    borderRadius: 20,
-    padding: 8,
-    borderWidth: 2,
-    borderColor: "white",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  markerText: {
-    fontSize: 20,
   },
 });
