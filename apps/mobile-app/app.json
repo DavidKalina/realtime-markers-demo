@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "MapMoji",
-    "slug": "map-moji",
+    "slug": "mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
