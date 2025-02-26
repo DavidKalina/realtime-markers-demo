@@ -1,33 +1,148 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { NativeSyntheticEvent, TextInputSubmitEditingEventData } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
+// Cache constants
+const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes in milliseconds
+const SEARCH_DEBOUNCE = 500; // 500ms debounce for search typing
+
 const useSearch = () => {
+  // Main state
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<any[]>([]);
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
 
-  // Pagination state - support both cursor and offset pagination
+  // Loading states
+  const [isLoading, setIsLoading] = useState(true); // Start with loading state
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Cache state
+  const [cachedResults, setCachedResults] = useState<{
+    [key: string]: { data: any[]; timestamp: number };
+  }>({});
+
+  // Pagination state
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [currentOffset, setCurrentOffset] = useState(0);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const ITEMS_PER_PAGE = 10;
 
-  // Fetch categories on mount
+  // Refs for debouncing
+  const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Initial data fetching for categories and default content
+  useFocusEffect(
+    useCallback(() => {
+      // Fetch categories first
+      fetchCategories();
+
+      // Then load default content (upcoming events) if no active search
+      if (!searchQuery.trim() && selectedCategories.length === 0) {
+        fetchDefaultContent();
+      }
+
+      return () => {
+        // Clean up debounce on screen unfocus
+        if (debounceTimeout.current) {
+          clearTimeout(debounceTimeout.current);
+        }
+      };
+    }, [])
+  );
+
+  // Handle search query debouncing
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+
+    // Only debounce if query has content
+    if (searchQuery.trim()) {
+      debounceTimeout.current = setTimeout(() => {
+        setDebouncedSearchQuery(searchQuery);
+      }, SEARCH_DEBOUNCE);
+    } else {
+      // If search is cleared, immediately reset
+      setDebouncedSearchQuery("");
+    }
+
+    return () => {
+      if (debounceTimeout.current) {
+        clearTimeout(debounceTimeout.current);
+      }
+    };
+  }, [searchQuery]);
+
+  // Auto-search when debounced query or category changes
+  useEffect(() => {
+    if (debouncedSearchQuery || selectedCategories.length > 0) {
+      resetPagination();
+      fetchSearchResults();
+    } else if (!searchQuery.trim() && selectedCategories.length === 0) {
+      // If user clears search and categories, reload default content
+      fetchDefaultContent();
+    }
+  }, [debouncedSearchQuery, selectedCategories]);
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch(`${API_URL}/categories`);
+      const response = await fetch(`${API_URL}/events/categories`);
+      if (!response.ok) throw new Error("Failed to fetch categories");
+
       const data = await response.json();
       setCategories(data);
     } catch (error) {
       console.error("Error fetching categories:", error);
+    }
+  };
+
+  // Fetch default content - upcoming events
+  const fetchDefaultContent = async () => {
+    setIsLoading(true);
+
+    try {
+      // Check cache first
+      const cacheKey = "default_content";
+      const cached = cachedResults[cacheKey];
+
+      if (cached && Date.now() - cached.timestamp < CACHE_EXPIRY) {
+        setSearchResults(cached.data);
+        setIsLoading(false);
+        return;
+      }
+
+      // Get today's date for start date
+      const today = new Date();
+
+      // Format as ISO string for API
+      const startDate = today.toISOString();
+
+      // Fetch upcoming events
+      const response = await fetch(
+        `${API_URL}/events?limit=${ITEMS_PER_PAGE}&startDate=${encodeURIComponent(startDate)}`
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch default content");
+
+      const data = await response.json();
+
+      // Update state and cache
+      setSearchResults(data);
+      setCachedResults((prev) => ({
+        ...prev,
+        [cacheKey]: { data, timestamp: Date.now() },
+      }));
+
+      // Update pagination info
+      setCurrentOffset(data.length);
+      setTotalCount(data.total || data.length);
+    } catch (error) {
+      console.error("Error fetching default content:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -38,19 +153,38 @@ const useSearch = () => {
     setSearchResults([]);
   };
 
-  // Handle search query submission
+  // Handle explicit search submission (from search bar)
   const handleSearch = useCallback(
     async (e?: NativeSyntheticEvent<TextInputSubmitEditingEventData>) => {
       if (e) e.preventDefault();
-      resetPagination();
-      await fetchSearchResults();
+      // If search is empty and no categories selected, fetch default content
+      if (!searchQuery.trim() && selectedCategories.length === 0) {
+        fetchDefaultContent();
+      } else {
+        resetPagination();
+        await fetchSearchResults();
+      }
     },
     [searchQuery, selectedCategories]
   );
 
-  // Fetch search results
+  // Handle pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    resetPagination();
+
+    if (searchQuery.trim() || selectedCategories.length > 0) {
+      await fetchSearchResults();
+    } else {
+      await fetchDefaultContent();
+    }
+
+    setIsRefreshing(false);
+  }, [searchQuery, selectedCategories]);
+
+  // Fetch search results based on current state
   const fetchSearchResults = async (loadMore = false) => {
-    // Determine if we should load more based on pagination type
+    // Skip if nothing to search and trying to load more
     if (loadMore) {
       // For cursor pagination (search endpoint)
       if (searchQuery.trim() && !nextCursor) return;
@@ -66,10 +200,30 @@ const useSearch = () => {
     try {
       let url = "";
       const newOffset = loadMore ? currentOffset : 0;
+      const cacheKey = getCacheKey(
+        searchQuery,
+        selectedCategories,
+        loadMore,
+        nextCursor,
+        newOffset
+      );
+
+      // Check cache first (but not for load more)
+      if (!loadMore) {
+        const cached = cachedResults[cacheKey];
+        if (cached && Date.now() - cached.timestamp < CACHE_EXPIRY) {
+          setSearchResults(cached.data);
+          setIsLoading(false);
+          setIsLoadingMore(false);
+          return;
+        }
+      }
 
       // Search endpoint - uses cursor pagination
       if (searchQuery.trim()) {
-        url = `${API_URL}/search?q=${encodeURIComponent(searchQuery)}&limit=${ITEMS_PER_PAGE}`;
+        url = `${API_URL}/events/search?q=${encodeURIComponent(
+          searchQuery
+        )}&limit=${ITEMS_PER_PAGE}`;
 
         // Add cursor for pagination if loading more
         if (loadMore && nextCursor) {
@@ -78,7 +232,7 @@ const useSearch = () => {
       }
       // Categories endpoint - uses offset pagination
       else if (selectedCategories.length > 0) {
-        url = `${API_URL}/by-categories?categories=${selectedCategories.join(
+        url = `${API_URL}/events/by-categories?categories=${selectedCategories.join(
           ","
         )}&limit=${ITEMS_PER_PAGE}`;
 
@@ -88,7 +242,7 @@ const useSearch = () => {
       }
       // All events endpoint - uses offset pagination
       else {
-        url = `${API_URL}?limit=${ITEMS_PER_PAGE}`;
+        url = `${API_URL}/events?limit=${ITEMS_PER_PAGE}`;
 
         if (loadMore) {
           url += `&offset=${newOffset}`;
@@ -96,6 +250,8 @@ const useSearch = () => {
       }
 
       const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch search results");
+
       const data = await response.json();
 
       // Handle different response formats based on endpoint
@@ -123,6 +279,12 @@ const useSearch = () => {
         setSearchResults((prev) => [...prev, ...results]);
       } else {
         setSearchResults(results);
+
+        // Cache results (only initial results, not loaded more)
+        setCachedResults((prev) => ({
+          ...prev,
+          [cacheKey]: { data: results, timestamp: Date.now() },
+        }));
       }
 
       // Update pagination state
@@ -148,6 +310,23 @@ const useSearch = () => {
     }
   };
 
+  // Get cache key based on current search parameters
+  const getCacheKey = (
+    query: string,
+    categories: any[],
+    isLoadMore: boolean,
+    cursor: string | null,
+    offset: number
+  ): string => {
+    if (query.trim()) {
+      return `search_${query.trim()}_${cursor || "initial"}`;
+    } else if (categories.length > 0) {
+      return `categories_${categories.sort().join(",")}_${offset}`;
+    } else {
+      return "default_content";
+    }
+  };
+
   const handleLoadMore = useCallback(() => {
     if (!isLoading && !isLoadingMore) {
       // For cursor pagination
@@ -170,15 +349,15 @@ const useSearch = () => {
         return [...prev, categoryId];
       }
     });
-    resetPagination();
+    // Auto search will trigger from the useEffect
   }, []);
 
-  // Effect to trigger search when categories change
-  useEffect(() => {
-    if (selectedCategories.length > 0) {
-      handleSearch();
-    }
-  }, [selectedCategories]);
+  // Clear all filters
+  const clearFilters = useCallback(() => {
+    setSearchQuery("");
+    setSelectedCategories([]);
+    // Will trigger fetchDefaultContent via useEffect
+  }, []);
 
   return {
     searchQuery,
@@ -188,11 +367,14 @@ const useSearch = () => {
     searchResults,
     isLoading,
     isLoadingMore,
+    isRefreshing,
     // Different hasMore logic based on endpoint
     hasMoreData: searchQuery.trim() ? !!nextCursor : currentOffset < totalCount,
     handleSearch,
     handleLoadMore,
+    handleRefresh,
     toggleCategory,
+    clearFilters,
   };
 };
 

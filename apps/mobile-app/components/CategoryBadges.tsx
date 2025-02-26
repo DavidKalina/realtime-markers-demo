@@ -25,6 +25,8 @@ const CategoryBadges = ({
               styles.badgeText,
               selectedCategories.includes(category.id) && styles.selectedBadgeText,
             ]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
           >
             {category.emoji} {category.name}
           </Text>
@@ -36,28 +38,30 @@ const CategoryBadges = ({
 
 const styles = StyleSheet.create({
   scrollContainer: {
-    maxHeight: 80, // Fixed height for the scroll container
+    maxHeight: 48, // Reduced from 80 to prevent excessive vertical space
   },
   scrollContentContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 4,
+    paddingVertical: 8,
     paddingHorizontal: 10,
-    gap: 8, // Space between badges
+    gap: 10, // Increased from 8 to give more breathing room
   },
   badge: {
-    paddingVertical: 4, // Reduced vertical padding
-    paddingHorizontal: 8,
+    paddingVertical: 6, // Increased from 4 for better touch targets
+    paddingHorizontal: 12, // Increased from 8 to prevent text cramping
     backgroundColor: "#444",
-    borderRadius: 12,
+    borderRadius: 16, // Increased from 12 for a more modern look
     borderWidth: 0,
+    minWidth: 40, // Ensure badges have minimum width
+    alignItems: "center", // Center the text horizontally
   },
   selectedBadge: {
     backgroundColor: "#69db7c",
   },
   badgeText: {
     color: "#FFF",
-    fontSize: 12,
+    fontSize: 13, // Slightly increased from 12 for better readability
     fontFamily: "SpaceMono",
   },
   selectedBadgeText: {

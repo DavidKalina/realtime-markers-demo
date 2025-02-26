@@ -93,7 +93,7 @@ const DetailsScreen: React.FC = () => {
 
   const fetchEventDetails = async () => {
     try {
-      const response = await fetch(`${API_URL}/${eventId}`);
+      const response = await fetch(`${API_URL}/events/${eventId}`);
       if (!response.ok) {
         throw new Error("Failed to fetch event details");
       }

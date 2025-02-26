@@ -139,9 +139,12 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({ imageUri, onNewSca
     if (!event) return;
 
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/events/${event.id}/verify`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/events/${event.id}/verify`,
+        {
+          method: "POST",
+        }
+      );
       if (!response.ok) {
         throw new Error("Failed to verify event");
       }

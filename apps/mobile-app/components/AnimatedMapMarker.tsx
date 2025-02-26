@@ -9,7 +9,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import { Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import useBounceIn from "@/hooks/useBounceIn";
 
 export interface MarkerData {
@@ -33,11 +33,19 @@ interface GenericMapMarkerProps {
 }
 
 const MARKER_SIZE = 56;
-// Updated colors to match the details screen
-const BACKGROUND_COLOR = "#333";
-const SHARE_COLOR = "#4dabf7"; // Matching primary button color
-const DIRECTIONS_COLOR = "#40c057"; // Matching verified status
-const INFO_COLOR = "#f8f9fa"; // Matching text color
+// Updated colors to match the search screen
+const BACKGROUND_COLOR = "#222";
+const CARD_BACKGROUND = "#333";
+const PRIMARY_COLOR = "#3498db"; // Primary blue
+const SUCCESS_COLOR = "#40c057"; // Green for actions like directions
+const NEUTRAL_COLOR = "#4a4a4a"; // For secondary actions
+const TEXT_COLOR = "#f8f9fa"; // Light text
+
+// Gradients for buttons (using subtle border+shadow combination)
+const PRIMARY_GRADIENT = {
+  top: "rgba(52, 152, 219, 0.9)",
+  bottom: "rgba(41, 128, 185, 1)",
+};
 
 const GenericMapMarker: React.FC<GenericMapMarkerProps> = ({
   marker,
@@ -202,14 +210,14 @@ const GenericMapMarker: React.FC<GenericMapMarkerProps> = ({
               <Text style={styles.titleText} numberOfLines={2}>
                 {marker.title}
               </Text>
-              {/* Updated close button to match the details screen style */}
+              {/* Updated close button to match the search screen style */}
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={onDismiss}
                 activeOpacity={0.7}
                 hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
               >
-                <Feather name="x" size={8} color="#f8f9fa" />
+                <Ionicons name="close" size={12} color={TEXT_COLOR} />
               </TouchableOpacity>
             </Animated.View>
 
@@ -221,7 +229,7 @@ const GenericMapMarker: React.FC<GenericMapMarkerProps> = ({
                     onPress={onShare}
                     activeOpacity={0.7}
                   >
-                    <Feather name="share" size={18} color="#fff" />
+                    <Ionicons name="share-outline" size={22} color="#fff" />
                   </TouchableOpacity>
                 </Animated.View>
               )}
@@ -233,7 +241,7 @@ const GenericMapMarker: React.FC<GenericMapMarkerProps> = ({
                     onPress={onGetDirections}
                     activeOpacity={0.7}
                   >
-                    <Feather name="navigation" size={18} color="#fff" />
+                    <Ionicons name="navigate-outline" size={22} color="#fff" />
                   </TouchableOpacity>
                 </Animated.View>
               )}
@@ -245,7 +253,7 @@ const GenericMapMarker: React.FC<GenericMapMarkerProps> = ({
                     onPress={onViewDetails}
                     activeOpacity={0.7}
                   >
-                    <Feather name="info" size={18} color="#fff" />
+                    <Ionicons name="information-circle-outline" size={22} color="#fff" />
                   </TouchableOpacity>
                 </Animated.View>
               )}
@@ -302,98 +310,111 @@ const styles = StyleSheet.create({
     height: MARKER_SIZE - 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(51, 51, 51, 0.95)",
+    backgroundColor: CARD_BACKGROUND,
     borderRadius: (MARKER_SIZE - 14) / 2,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 3,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOpacity: 0.27,
+    shadowRadius: 4.65,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   emoji: {
     fontSize: 28,
   },
-  popupContainer: {
-    position: "absolute",
-    alignItems: "center",
-    width: MARKER_SIZE * 2.5,
-  },
   titleContainer: {
     position: "absolute",
     bottom: MARKER_SIZE + 50,
-    backgroundColor: "#3a3a3a", // Updated to match details screen card color
-    padding: 10,
+    backgroundColor: CARD_BACKGROUND,
+    padding: 12,
     borderRadius: 12,
-    width: "100%",
+    width: MARKER_SIZE * 3.5, // Wider to fit more text
+    maxWidth: 280, // Maximum width for very long titles
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 3,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
+    shadowOpacity: 0.27,
+    shadowRadius: 4.65,
+    elevation: 6,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     borderWidth: 1,
-    borderColor: "#4a4a4a", // Matching border color from details screen
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   titleText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
     flex: 1,
     textAlign: "center",
-    color: "#f8f9fa", // Updated to match details screen text color
-    fontFamily: "SpaceMono", // Added font family to match details screen
+    color: TEXT_COLOR,
+    marginRight: 8,
   },
   closeButton: {
-    width: 18,
-    height: 18,
+    width: 24,
+    height: 24,
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 12,
-    backgroundColor: "rgba(74, 74, 74, 0.7)", // Subtle background matching secondary button
+    backgroundColor: "rgba(74, 74, 74, 0.9)",
   },
   actionsContainer: {
     position: "absolute",
     flexDirection: "row",
     justifyContent: "center",
-    width: MARKER_SIZE * 2.2,
+    width: MARKER_SIZE * 3.2, // Wider to accommodate larger buttons
     top: MARKER_SIZE * 1.7,
   },
   actionButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 10, // Updated to match details screen button style
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 4,
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
     marginHorizontal: 6,
-    borderWidth: 1,
+    borderWidth: 1.5,
   },
   // Individual button styles
   shareButton: {
-    backgroundColor: SHARE_COLOR, // Blue color matching primary button
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: PRIMARY_COLOR,
+    borderColor: "rgba(52, 152, 219, 0.5)", // Matching border for shine effect
+    // Subtle inner highlight at top
+    shadowColor: "#fff",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
   },
   directionsButton: {
-    backgroundColor: DIRECTIONS_COLOR, // Green color matching verified status
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: SUCCESS_COLOR,
+    borderColor: "rgba(64, 192, 87, 0.5)", // Matching border for shine effect
+    // Subtle inner highlight at top
+    shadowColor: "#fff",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 0,
   },
   infoButton: {
-    backgroundColor: "#4a4a4a", // Gray color matching secondary button
-    borderColor: "#5a5a5a", // Border matching secondary button
+    backgroundColor: NEUTRAL_COLOR,
+    borderColor: "rgba(74, 74, 74, 0.8)", // Lighter border for subtle definition
+    // Subtle inner highlight at top
+    shadowColor: "#fff",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 0,
   },
 });
 
