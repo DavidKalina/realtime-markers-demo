@@ -11,12 +11,18 @@ export default {
     scheme: "myapp",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
+
     ios: {
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
+        NSLocationWhenInUseUsageDescription:
+          "MapMoji needs your location to show you nearby content",
+        NSLocationAlwaysUsageDescription: "MapMoji needs your location to show you nearby content",
+        NSCameraUsageDescription: "MapMoji needs camera access to let you take photos",
+        NSMicrophoneUsageDescription: "MapMoji needs microphone access for video recording",
       },
       supportsTablet: true,
-      bundleIdentifier: "com.tenuto.client",
+      bundleIdentifier: "com.tenuto.mobileapp",
     },
     android: {
       adaptiveIcon: {

@@ -16,7 +16,11 @@
     "preview": {
       "distribution": "internal"
     },
-    "production": {}
+    "production": {},
+    "testflight": {
+      "distribution": "store",
+      "releaseChannel": "testflight"
+    }
   },
   "submit": {
     "development": {
@@ -27,6 +31,14 @@
       }
     },
     "preview": {
+      "ios": {
+        "appleId": "dkalina12@icloud.com",
+        "ascAppId": "6505027825",
+        "appleTeamId": "759N6T4BG2",
+        "companyName": "David Kalina"
+      }
+    },
+    "production": {
       "ios": {
         "appleId": "dkalina12@icloud.com",
         "ascAppId": "6505027825",
