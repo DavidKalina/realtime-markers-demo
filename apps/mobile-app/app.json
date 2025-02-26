@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tenuto.mobileapp"
+      "bundleIdentifier": "com.tenuto.client"
     },
     "android": {
       "adaptiveIcon": {
