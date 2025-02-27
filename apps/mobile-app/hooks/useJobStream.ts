@@ -186,7 +186,7 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
         eventSourceRef.current.close();
       }
       try {
-        const url = `${process.env.EXPO_PUBLIC_API_URL!}/events/jobs/${jobId}/stream`;
+        const url = `${process.env.EXPO_PUBLIC_API_URL!}/jobs/${jobId}/stream`;
         console.log(`[JobStream] Connecting to SSE stream: ${url}`);
         const es = new EventSource(url);
         eventSourceRef.current = es as ExtendedEventSource;
