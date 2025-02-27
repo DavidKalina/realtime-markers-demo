@@ -186,7 +186,7 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
         eventSourceRef.current.close();
       }
       try {
-        const url = `https://f49e-69-162-231-94.ngrok-free.app/api/jobs/${jobId}/stream`;
+        const url = `${process.env.EXPO_PUBLIC_API_URL!}/jobs/${jobId}/stream`;
         console.log(`[JobStream] Connecting to SSE stream: ${url}`);
         const es = new EventSource(url);
         eventSourceRef.current = es as ExtendedEventSource;
