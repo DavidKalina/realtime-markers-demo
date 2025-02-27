@@ -188,8 +188,8 @@ export class EventProcessingService {
                    - Any social media handles
                    - Any other important details
 
-                   Also provide a confidence score between 0 and 1 indicating how confident you are in the extraction.
-                   Include as much text from the image as possible in your analysis.`,
+                   Also, provide a confidence score between 0 and 1, indicating how confident you are that the extraction is an event.
+                   Consider whether there's a date, a time, and a location.`,
             },
             {
               type: "image_url",
@@ -221,29 +221,35 @@ export class EventProcessingService {
   }
 
   private async extractEventDetailsWithCategories(text: string): Promise<EventDetails> {
-    // Existing implementation...
+    // Get current date to provide as context
+    const currentDate = new Date().toISOString();
+
     const response = await this.openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
           content: `You are a precise event information extractor. Extract event details and format them consistently. 
-                  For dates, always return them in ISO-8601 format (YYYY-MM-DDTHH:mm:ss.sssZ). 
-                  For past events, return the original date even if it's in the past.
-                  Also identify 2-5 relevant categories for the event.`,
+                For dates, always return them in ISO-8601 format (YYYY-MM-DDTHH:mm:ss.sssZ).
+                For past events, return the original date even if it's in the past.
+                For relative date references (e.g., "tomorrow", "next Friday", "in two weeks"), convert them to absolute dates based on the current date: ${currentDate}.
+                When dates have no year specified, assume the current year or next year if the date would otherwise be in the past.
+                Also identify 2-5 relevant categories for the event.`,
         },
         {
           role: "user",
           content: `Extract the following details from this text in a JSON format:
-                 - emoji: The most relevant emoji
-                 - title: The event title
-                 - date: The event date and time in ISO-8601 format
-                 - address: The complete address including street, city, state, and zip if available
-                 - description: Full description of the event
-                 - categoryNames: Array of 2-5 category names that best describe this event
-                 
-                 Text to extract from:
-                 ${text}`,
+               - emoji: The most relevant emoji
+               - title: The event title
+               - date: The event date and time in ISO-8601 format
+               - address: The complete address including street, city, state, and zip if available
+               - description: Full description of the event
+               - categoryNames: Array of 2-5 category names that best describe this event
+               
+               Today's date is: ${currentDate}
+               
+               Text to extract from:
+               ${text}`,
         },
       ],
       response_format: { type: "json_object" },
