@@ -4,7 +4,7 @@ import Mapbox, { MarkerView } from "@rnmapbox/maps";
 import * as Location from "expo-location";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Alert, Linking, Platform } from "react-native";
-import GenericMapMarker from "./AnimatedMapMarker";
+import { MorphingMarker } from "./AnimatedMapMarker";
 import { router } from "expo-router";
 
 interface MapboxRegion {
@@ -234,14 +234,13 @@ export default function MapView({
 
           return (
             <MarkerView key={marker.id} coordinate={marker.coordinates} allowOverlap>
-              <GenericMapMarker
+              <MorphingMarker
                 marker={markerInfo}
-                isSelected={selectedMarker?.id === marker.id}
+                size={100}
+                borderColor="#32CD32"
+                selected={selectedMarker?.id === marker.id}
+                bgColor="#333"
                 onPress={() => selectMarker(marker.id)}
-                onShare={() => handleShare(marker.id)}
-                onGetDirections={() => handleGetDirections(marker.id)}
-                onViewDetails={() => handleViewDetails(marker.id)}
-                onDismiss={() => selectMarker(null)}
               />
             </MarkerView>
           );
