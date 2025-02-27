@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useCameraPermissions, PermissionStatus } from "expo-camera";
+import { useCameraPermissions } from "expo-camera";
 import { MorphingLoader } from "@/components/MorphingLoader";
-import Animated, { ZoomIn } from "react-native-reanimated";
+import Animated, { FadeIn, ZoomIn } from "react-native-reanimated";
 import * as Linking from "expo-linking";
+import { AppState } from "react-native";
 
 interface CameraPermissionProps {
   onPermissionGranted: () => void;
@@ -12,15 +13,58 @@ interface CameraPermissionProps {
 export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermissionGranted }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [hasSettingsOpened, setHasSettingsOpened] = useState(false);
+
+  // Check permission state immediately when component mounts
+  useEffect(() => {
+    const checkInitialPermission = async () => {
+      try {
+        // Force a permission check on mount
+        await requestPermission();
+      } catch (error) {
+        console.error("Initial permission check failed:", error);
+      }
+    };
+
+    checkInitialPermission();
+  }, [requestPermission]);
+
+  // Monitor for app state changes
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active" && hasSettingsOpened) {
+        console.log("App active after settings");
+        setHasSettingsOpened(false);
+
+        // Check if permissions have changed
+        setTimeout(() => {
+          requestPermission()
+            .then((result) => {
+              if (result.granted) {
+                onPermissionGranted();
+              }
+            })
+            .catch((err) => {
+              console.error("Error checking permissions:", err);
+            });
+        }, 500);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [hasSettingsOpened, onPermissionGranted, requestPermission]);
 
   // Use useEffect to handle permission state changes safely
   useEffect(() => {
     if (permission?.granted) {
-      // Add a small delay to ensure the component is fully mounted
-      // before triggering the callback
+      // Small delay to ensure smooth transition
+      setIsProcessing(true);
+
       const timer = setTimeout(() => {
         onPermissionGranted();
-      }, 300);
+      }, 800);
 
       return () => clearTimeout(timer);
     }
@@ -30,35 +74,43 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
   const handleRequestPermission = async () => {
     try {
       setIsProcessing(true);
-      await requestPermission();
-      // Don't call onPermissionGranted directly here
-      // Let the useEffect handle it when permission state updates
+      const result = await requestPermission();
+      console.log("Permission request result:", result);
+
+      // If permission was denied and can't ask again, we'll need to go to settings
+      if (!result.granted && !result.canAskAgain) {
+        setIsProcessing(false);
+      }
     } catch (error) {
       console.error("Error requesting camera permission:", error);
-    } finally {
       setIsProcessing(false);
     }
   };
 
-  if (!permission) {
+  // If we're waiting for the permission check
+  if (permission === undefined) {
     return (
       <Animated.View style={styles.processingContainer} entering={ZoomIn.duration(500)}>
         <MorphingLoader size={80} color="#69db7c" />
-        <Text style={styles.processingText}>Initializing camera...</Text>
+        <Text style={styles.processingText}>Checking camera permissions...</Text>
       </Animated.View>
     );
   }
 
+  // If we're processing the permission request
   if (isProcessing) {
     return (
-      <Animated.View style={styles.processingContainer} entering={ZoomIn.duration(500)}>
+      <Animated.View style={styles.processingContainer} entering={FadeIn.duration(500)}>
         <MorphingLoader size={80} color="#69db7c" />
-        <Text style={styles.processingText}>Processing permission request...</Text>
+        <Text style={styles.processingText}>
+          {permission?.granted ? "Camera ready!" : "Processing permission request..."}
+        </Text>
       </Animated.View>
     );
   }
 
-  if (!permission.granted) {
+  // If permission is not granted
+  if (!permission?.granted) {
     return (
       <Animated.View style={styles.permissionContainer} entering={ZoomIn.duration(500)}>
         <Text style={styles.permissionMessage}>Camera access required</Text>
@@ -66,7 +118,7 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
           We need camera access to continue. Your privacy is important to us.
         </Text>
 
-        {permission.canAskAgain ? (
+        {permission?.canAskAgain ? (
           <TouchableOpacity style={styles.permissionButton} onPress={handleRequestPermission}>
             <Text style={styles.permissionButtonText}>Grant Access</Text>
           </TouchableOpacity>
@@ -80,6 +132,7 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
               style={styles.settingsButton}
               onPress={() => {
                 // Open app settings
+                setHasSettingsOpened(true);
                 Linking.openSettings();
               }}
             >
@@ -90,20 +143,36 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
               style={styles.retryButton}
               onPress={() => {
                 // Try requesting again (in case the user enabled it manually)
-                requestPermission();
+                setIsProcessing(true);
+                requestPermission().finally(() => {
+                  // Small delay to prevent flickering UI
+                  setTimeout(() => {
+                    setIsProcessing(false);
+                  }, 500);
+                });
               }}
             >
               <Text style={styles.retryButtonText}>Check Again</Text>
             </TouchableOpacity>
           </View>
         )}
+
+        {hasSettingsOpened && (
+          <Animated.Text style={styles.returnHint} entering={FadeIn.duration(300)}>
+            If you've enabled camera access, please tap "Check Again"
+          </Animated.Text>
+        )}
       </Animated.View>
     );
   }
 
-  // If permission is granted, render a minimal loading state instead of null
-  // This helps prevent immediate re-renders that could cause crashes
-  return <View style={styles.invisibleContainer} />;
+  // If permission is granted, we show a transition screen
+  return (
+    <Animated.View style={styles.processingContainer} entering={FadeIn.duration(500)}>
+      <MorphingLoader size={80} color="#69db7c" />
+      <Text style={styles.processingText}>Camera permission granted!</Text>
+    </Animated.View>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -197,10 +266,12 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     fontFamily: "SpaceMono",
   },
-  invisibleContainer: {
-    position: "absolute",
-    width: 1,
-    height: 1,
-    opacity: 0,
+  returnHint: {
+    marginTop: 24,
+    fontSize: 14,
+    color: "#FFF",
+    textAlign: "center",
+    fontFamily: "SpaceMono",
+    opacity: 0.8,
   },
 });
