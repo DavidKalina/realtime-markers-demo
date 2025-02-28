@@ -23,7 +23,6 @@ const EventAssistantPreview: React.FC = () => {
   const insets = useSafeAreaInsets();
 
   const [showActions, setShowActions] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
   const [messageIndex, setMessageIndex] = useState(0);
   const [containerLayout, setContainerLayout] = useState<{ width: number; height: number } | null>(
     null
