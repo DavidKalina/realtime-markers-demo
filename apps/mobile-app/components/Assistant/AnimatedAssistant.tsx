@@ -180,6 +180,7 @@ const EventAssistantPreview: React.FC = () => {
         setTimeout(() => {
           setTransitionMessage(null);
         }, 300);
+        simulateTextStreaming("I've pulled up the events view for you.");
       }, 800);
     } else if (action === "directions") {
       setTransitionMessage("Opening maps...");
@@ -206,6 +207,7 @@ const EventAssistantPreview: React.FC = () => {
         setTimeout(() => {
           setTransitionMessage(null);
         }, 300);
+        simulateTextStreaming("I've pulled up the search view for you.");
       }, 800);
     } else if (action === "camera") {
       setTransitionMessage("Opening camera...");
