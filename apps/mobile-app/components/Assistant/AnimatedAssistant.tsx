@@ -1,67 +1,83 @@
-// EventAssistantPreview.tsx - Updated with ShareView integration
+// EventAssistantWithStores.tsx - Complete refactored version with all Zustand stores
 import React, { useEffect, useState } from "react";
-import { GestureResponderEvent, LayoutChangeEvent, View, Linking, Platform } from "react-native";
-import * as Haptics from "expo-haptics";
+import { GestureResponderEvent, LayoutChangeEvent, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useEventNavigation } from "@/hooks/useEventNavigation";
-import { useFloatingEmoji } from "@/hooks/useFloatingEmoji";
-import { useTextStreaming } from "@/hooks/useTextStreaming";
-import { eventSuggestions } from "./data";
-import { FloatingEmoji } from "./FloatingEmoji";
+// Stores
+import { useEventAssistantStore } from "@/stores/useEventAssistantStore";
+import { useTextStreamingStore } from "@/stores/useTextStreamingStore";
+
+// Components
 import { ActionBar } from "./ActionBar";
 import { MessageBubble } from "./MessageBubble";
 import { EventDetailsView } from "./EventDetailsView";
-import { styles } from "./styles";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SearchView } from "./SearchView";
-import { ShareView } from "./ShareView"; // Import the updated ShareView
-import { EventType } from "./types";
+import { ShareView } from "./ShareView";
 import { ScanView } from "./ScanView";
+import { styles } from "./styles";
+import { EventType } from "./types";
+import { FloatingEmojiWithStore } from "./FloatingEmoji";
 
-// Define view types
-type ActiveView = "details" | "share" | "search" | "camera" | "directions" | null;
-
-const EventAssistantPreview: React.FC = () => {
+const EventAssistantWithStores: React.FC = () => {
   const insets = useSafeAreaInsets();
 
-  const [showActions, setShowActions] = useState(false);
-  const [messageIndex, setMessageIndex] = useState(0);
+  // Local UI state
   const [containerLayout, setContainerLayout] = useState<{ width: number; height: number } | null>(
     null
   );
-  const [transitionMessage, setTransitionMessage] = useState<string | null>(null);
 
-  const [scanViewVisible, setScanViewVisible] = useState(false);
+  // Get state and actions from the Zustand stores
+  const {
+    currentEvent,
+    showActions,
+    setShowActions,
+    messageIndex,
+    setMessageIndex,
+    transitionMessage,
+    setTransitionMessage,
 
-  // View management states
-  const [detailsViewVisible, setDetailsViewVisible] = useState(false);
-  const [activeView, setActiveView] = useState<ActiveView>(null);
-  const [searchViewVisible, setSearchViewVisible] = useState(false);
-  const [shareViewVisible, setShareViewVisible] = useState(false); // Add share view state
+    // View states
+    activeView,
+    detailsViewVisible,
+    shareViewVisible,
+    searchViewVisible,
+    scanViewVisible,
 
-  const { currentStreamedText, isTyping, simulateTextStreaming } = useTextStreaming();
-  const { currentEvent, navigateToNext, navigateToPrevious } = useEventNavigation(
-    eventSuggestions[0]
-  );
-  const { updateManualPosition } = useFloatingEmoji();
+    // View handlers
+    closeDetailsView,
+    closeShareView,
+    closeSearchView,
+    closeScanView,
+
+    // Action handlers
+    shareEvent,
+    openMaps,
+    handleScannedEvent,
+    handleSelectEventFromSearch,
+    handleActionPress,
+  } = useEventAssistantStore();
+
+  const { currentStreamedText, isTyping, simulateTextStreaming } = useTextStreamingStore();
 
   // Returns an array of messages for the event
-  const getMessages = (event: typeof currentEvent) => [
+  const getMessages = (event: EventType) => [
     `I found an event near you!`,
     `${event.title} at ${event.location}.`,
     `It's ${event.distance} from your current location.`,
     `Would you like to check it out?`,
   ];
 
+  // Initialize message sequence on mount
   useEffect(() => {
     startMessageSequence();
   }, []);
 
+  // Handle message sequencing
   useEffect(() => {
     const messages = getMessages(currentEvent);
     if (!isTyping && messageIndex < messages.length - 1) {
       const timer = setTimeout(() => {
-        setMessageIndex((prev) => prev + 1);
+        setMessageIndex(messageIndex + 1);
         simulateTextStreaming(messages[messageIndex + 1]);
       }, 800);
       return () => clearTimeout(timer);
@@ -73,218 +89,21 @@ const EventAssistantPreview: React.FC = () => {
     }
   }, [isTyping, messageIndex, currentEvent, showActions]);
 
+  // Start the initial message sequence
   const startMessageSequence = () => {
     const messages = getMessages(currentEvent);
     simulateTextStreaming(messages[0]);
   };
 
-  // Close active views
-  const closeDetailsView = () => {
-    setDetailsViewVisible(false);
-    setTimeout(() => {
-      setActiveView(null);
-    }, 300);
+  // Handle action button presses
+  const onActionPress = (action: string) => {
+    handleActionPress(action, simulateTextStreaming);
   };
 
-  const closeShareView = () => {
-    setShareViewVisible(false);
-    setTimeout(() => {
-      setActiveView(null);
-    }, 300);
-  };
-
-  const closeSearchView = () => {
-    setSearchViewVisible(false);
-    setTimeout(() => {
-      setActiveView(null);
-    }, 300);
-  };
-
-  // Open location in maps app
-  const openMaps = (location: string) => {
-    const encodedLocation = encodeURIComponent(location);
-    const scheme = Platform.select({ ios: "maps:?q=", android: "geo:0,0?q=" });
-    const url = Platform.select({
-      ios: `maps:0,0?q=${encodedLocation}`,
-      android: `geo:0,0?q=${encodedLocation}`,
-    });
-
-    // Trigger haptic feedback
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    Linking.canOpenURL(url!)
-      .then((supported) => {
-        if (supported) {
-          return Linking.openURL(url!);
-        } else {
-          // Fallback to Google Maps web URL
-          const webUrl = `https://www.google.com/maps/search/?api=1&query=${encodedLocation}`;
-          return Linking.openURL(webUrl);
-        }
-      })
-      .catch((err) => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        simulateTextStreaming(`Couldn't open maps: ${err.message}`);
-      });
-  };
-
-  // Share event with contacts
-  const shareEvent = async () => {
-    try {
-      // Trigger haptic feedback
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      // Show share view - updated to use the new consistent UI
-      setActiveView("share");
-      setShareViewVisible(true);
-
-      simulateTextStreaming(`Creating shareable link for "${currentEvent.title}"...`);
-    } catch (error) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      simulateTextStreaming("There was an error preparing to share this event.");
-    }
-  };
-
-  const closeScanView = () => {
-    setScanViewVisible(false);
-    setTimeout(() => {
-      setActiveView(null);
-    }, 300);
-  };
-
-  // Add handler for selecting scanned event
-  const handleScannedEvent = (event: EventType) => {
-    // Set the current event
-
-    // Close the scan view
-    setScanViewVisible(false);
-    setActiveView(null);
-
-    // Show details for the scanned event
-    setTimeout(() => {
-      setActiveView("details");
-      setDetailsViewVisible(true);
-      simulateTextStreaming(`I found details about "${event.title}"`);
-    }, 500);
-  };
-
-  // Navigate to camera screen
-  const navigateToCamera = () => {
-    // Trigger haptic feedback
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    // Show camera view
-    setActiveView("camera");
-    setDetailsViewVisible(true);
-
-    simulateTextStreaming(`Opening camera to scan event QR codes or posters...`);
-  };
-
-  // Add a handler for selecting an event from search:
-  const handleSelectEventFromSearch = (event: EventType) => {
-    // Set the current event
-    // If you're using a state management system, update the current event
-
-    // Close the search view
-    setSearchViewVisible(false);
-    setActiveView(null);
-
-    // Show details for the selected event
-    setTimeout(() => {
-      setActiveView("details");
-      setDetailsViewVisible(true);
-    }, 500);
-  };
-
-  const handleActionPress = (action: string) => {
-    setShowActions(false);
-
-    if (action === "details") {
-      // Show transition message first
-      setTransitionMessage("Opening event details...");
-
-      // Short delay to allow the message to be seen
-      setTimeout(() => {
-        setActiveView("details");
-        setDetailsViewVisible(true);
-        // Clear the transition message after the view appears
-        setTimeout(() => {
-          setTransitionMessage(null);
-        }, 300);
-        simulateTextStreaming("I've pulled up the events view for you.");
-      }, 800);
-    } else if (action === "directions") {
-      setTransitionMessage("Opening maps...");
-      setTimeout(() => {
-        setActiveView("directions");
-        setDetailsViewVisible(true);
-        setTimeout(() => {
-          setTransitionMessage(null);
-        }, 300);
-      }, 800);
-    } else if (action === "share") {
-      setTransitionMessage("Preparing to share...");
-      setTimeout(() => {
-        shareEvent();
-        setTimeout(() => {
-          setTransitionMessage(null);
-        }, 300);
-      }, 800);
-    } else if (action === "search") {
-      setTransitionMessage("Opening search...");
-      setTimeout(() => {
-        setActiveView("search");
-        setSearchViewVisible(true);
-        setTimeout(() => {
-          setTransitionMessage(null);
-        }, 300);
-        simulateTextStreaming("I've pulled up the search view for you.");
-      }, 800);
-    } else if (action === "camera") {
-      setTransitionMessage("Opening scanner...");
-      setTimeout(() => {
-        setActiveView("camera");
-        setScanViewVisible(true);
-        setTimeout(() => {
-          setTransitionMessage(null);
-        }, 300);
-      }, 800);
-    } else if (action === "next") {
-      setTransitionMessage("Finding next event...");
-      setMessageIndex(0);
-      const nextEvent = navigateToNext();
-      setTimeout(() => {
-        const messages = getMessages(nextEvent);
-        simulateTextStreaming(messages[0]);
-        setTransitionMessage(null);
-      }, 800);
-    } else if (action === "previous") {
-      setTransitionMessage("Finding previous event...");
-      setMessageIndex(0);
-      const prevEvent = navigateToPrevious();
-      setTimeout(() => {
-        const messages = getMessages(prevEvent);
-        simulateTextStreaming(messages[0]);
-        setTransitionMessage(null);
-      }, 800);
-    } else {
-      simulateTextStreaming(`What would you like to know about this event?`);
-    }
-  };
-
+  // Layout event handlers
   const handleLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     setContainerLayout({ width, height });
-  };
-
-  const handleTouchMove = (e: GestureResponderEvent) => {
-    if (!containerLayout) return;
-    const { locationX, locationY } = e.nativeEvent;
-    const centerX = containerLayout.width / 2;
-    const centerY = containerLayout.height / 2;
-    const dx = (locationX - centerX) / 100;
-    const dy = (locationY - centerY) / 100;
-    updateManualPosition(dx, dy);
   };
 
   return (
@@ -300,11 +119,12 @@ const EventAssistantPreview: React.FC = () => {
         />
       )}
 
-      {/* Share View - Positioned above the assistant, using the same conventions */}
+      {/* Share View - Positioned above the assistant */}
       {activeView === "share" && (
         <ShareView isVisible={shareViewVisible} event={currentEvent} onClose={closeShareView} />
       )}
 
+      {/* Search View */}
       {activeView === "search" && (
         <SearchView
           isVisible={searchViewVisible}
@@ -313,6 +133,7 @@ const EventAssistantPreview: React.FC = () => {
         />
       )}
 
+      {/* Scan View */}
       {activeView === "camera" && (
         <ScanView
           isVisible={scanViewVisible}
@@ -322,10 +143,10 @@ const EventAssistantPreview: React.FC = () => {
       )}
 
       {/* Main assistant UI - Always visible at the bottom */}
-      <View style={styles.innerContainer} onLayout={handleLayout} onTouchMove={handleTouchMove}>
+      <View style={styles.innerContainer} onLayout={handleLayout}>
         <View style={styles.card}>
           <View style={styles.row}>
-            <FloatingEmoji onTouchMove={updateManualPosition} emoji={currentEvent.emoji} />
+            <FloatingEmojiWithStore emoji={currentEvent.emoji} />
             <MessageBubble
               currentEvent={currentEvent}
               currentStreamedText={transitionMessage || currentStreamedText}
@@ -334,11 +155,11 @@ const EventAssistantPreview: React.FC = () => {
               isTransitioning={!!transitionMessage}
             />
           </View>
-          <ActionBar onActionPress={handleActionPress} />
+          <ActionBar onActionPress={onActionPress} />
         </View>
       </View>
     </View>
   );
 };
 
-export default EventAssistantPreview;
+export default EventAssistantWithStores;
