@@ -31,7 +31,7 @@ export const emoji = StyleSheet.create({
   emojiOverlay: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 32,
-    backgroundColor: "rgba(75,85,99,0.5)",
+    backgroundColor: "rgba(75,85,99,0.2)",
   },
   emoji: {
     fontSize: 24,
