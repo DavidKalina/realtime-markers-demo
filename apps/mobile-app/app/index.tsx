@@ -1,13 +1,14 @@
-import DirectInjectionAssistant from "@/components/Assistant/DirectInjectionAssistant";
-import WebSocketDebugger from "@/components/Assistant/WebSocketDebugger";
 import { SimpleMapMarkers } from "@/components/MarkerImplementation";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
 import MapboxGL from "@rnmapbox/maps";
 import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Platform, StyleSheet, Text, View } from "react-native";
+import { eventSuggestions } from "@/components/RefactoredAssistant/data";
+import { useEventAssistantStore } from "@/stores/useEventAssistantStore";
+import EventDrivenAssistant from "@/components/RefactoredAssistant/Assistant";
 
-// Set Mapbox access token - use your actual token here
+// Set Mapbox access token
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
 
 export default function HomeScreen() {
@@ -17,10 +18,26 @@ export default function HomeScreen() {
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const mapRef = useRef<MapboxGL.MapView>(null);
 
-  // Connect to the WebSocket
-  const { markers, isConnected, updateViewport } = useMapWebSocket(
-    process.env.EXPO_PUBLIC_WEB_SOCKET_URL!
-  );
+  // Get the setEventList function from the store to initialize with static data
+  const { setCurrentEvent } = useEventAssistantStore();
+
+  // Use a single WebSocket connection for the entire app
+  const mapWebSocketData = useMapWebSocket(process.env.EXPO_PUBLIC_WEB_SOCKET_URL!);
+
+  const { markers, isConnected, updateViewport, currentViewport } = mapWebSocketData;
+
+  // Log marker updates for debugging
+  useEffect(() => {
+    console.log(`HomeScreen: WebSocket markers updated, count=${markers.length}`);
+  }, [markers.length]);
+
+  // Initialize the event assistant store with static data
+  useEffect(() => {
+    // Set the current event to the first one
+    if (eventSuggestions.length > 0) {
+      setCurrentEvent(eventSuggestions[0]);
+    }
+  }, []);
 
   useEffect(() => {
     // Initialize Mapbox configuration
@@ -75,8 +92,6 @@ export default function HomeScreen() {
 
   // Handle map viewport changes
   const handleMapViewportChange = (feature: any) => {
-    // Debug the structure of the feature object
-
     // Safely access the bounds properties with proper checks
     if (
       feature?.properties?.visibleBounds &&
@@ -106,13 +121,11 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Loading indicator while connecting or getting location */}
-      {(!isConnected || isLoadingLocation) && (
+      {/* Loading indicator while getting location */}
+      {isLoadingLocation && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#4dabf7" />
-          <Text style={styles.loadingText}>
-            {isLoadingLocation ? "Getting your location..." : "Connecting to event server..."}
-          </Text>
+          <Text style={styles.loadingText}>Getting your location...</Text>
         </View>
       )}
 
@@ -138,7 +151,7 @@ export default function HomeScreen() {
         ) : (
           <MapboxGL.Camera
             defaultSettings={{
-              // Default to Orem, UT instead of NYC
+              // Default to Orem, UT
               centerCoordinate: [-111.694, 40.298],
               zoomLevel: 14,
             }}
@@ -168,15 +181,15 @@ export default function HomeScreen() {
         )}
       </MapboxGL.MapView>
 
-      {/* Event Assistant component overlaid on map */}
+      {/* Pass WebSocket data as props to EventDrivenAssistant */}
       <View style={styles.assistantOverlay}>
-        {isMapReady && <DirectInjectionAssistant />}
-        {/* Debugger component */}
-        <WebSocketDebugger
-          wsUrl={process.env.EXPO_PUBLIC_WEB_SOCKET_URL!}
-          isConnected={isConnected}
-          markers={markers}
-        />
+        {isMapReady && (
+          <EventDrivenAssistant
+            markers={markers}
+            isConnected={isConnected}
+            currentViewport={currentViewport}
+          />
+        )}
       </View>
     </View>
   );

@@ -1,6 +1,6 @@
 // hooks/useEventNavigation.ts
-import { eventSuggestions } from "@/components/Assistant/data";
-import { EventType } from "@/components/Assistant/types";
+import { eventSuggestions } from "@/components/RefactoredAssistant/data";
+import { EventType } from "@/components/RefactoredAssistant/types";
 import { useState } from "react";
 
 export const useEventNavigation = (initialEvent: EventType) => {

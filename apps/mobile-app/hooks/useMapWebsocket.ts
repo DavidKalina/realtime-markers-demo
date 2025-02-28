@@ -86,6 +86,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               const initialMapboxMarkers = data.data.map((marker: any) =>
                 convertRBushToMapbox(marker)
               );
+
               setMarkers(initialMapboxMarkers);
               break;
 

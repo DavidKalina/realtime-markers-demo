@@ -1,7 +1,6 @@
 // hooks/useFloatingEmojiStore.ts
+import Reanimated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { create } from "zustand";
-import { Animated } from "react-native";
-import Reanimated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 
 interface FloatingEmojiState {
   offsetX: Reanimated.SharedValue<number>;

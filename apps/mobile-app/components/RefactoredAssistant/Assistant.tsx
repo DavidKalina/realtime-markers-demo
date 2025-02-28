@@ -1,24 +1,58 @@
-// EventAssistantWithStores.tsx - Complete refactored version with all Zustand stores
-import React, { useEffect, useState } from "react";
-import { LayoutChangeEvent, View } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, LayoutChangeEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Stores
 import { useEventAssistantStore } from "@/stores/useEventAssistantStore";
-import { useTextStreamingStore } from "@/stores/useTextStreamingStore";
+
+// Hooks
+import { useEventDrivenMessaging } from "@/hooks/useEventDrivenMessaging";
+
+// Types
+import { MapboxViewport } from "@/components/RefactoredAssistant/types";
 
 // Components
 import { ActionBar } from "./ActionBar";
 import { EventDetailsView } from "./EventDetailsView";
-import { FloatingEmojiWithStore } from "./FloatingEmoji";
 import { MessageBubble } from "./MessageBubble";
 import { ScanView } from "./ScanView";
 import { SearchView } from "./SearchView";
 import { ShareView } from "./ShareView";
 import { styles } from "./styles";
-import { EventType } from "./types";
+import ConnectionIndicator from "./ConnectionIndicator";
+import { FloatingEmojiWithStore } from "./FloatingEmoji";
 
-const EventAssistantWithStores: React.FC = () => {
+// Define the WebSocketMarker interface to match what comes from useMapWebSocket
+interface WebSocketMarker {
+  id: string;
+  coordinates: [number, number]; // [longitude, latitude]
+  data: {
+    title: string;
+    emoji: string;
+    color: string;
+    description?: string;
+    location?: string;
+    distance?: string;
+    time?: string;
+    categories?: string[];
+    isVerified?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    [key: string]: any;
+  };
+}
+
+interface EventDrivenAssistantProps {
+  markers: WebSocketMarker[];
+  isConnected: boolean;
+  currentViewport: MapboxViewport | null;
+}
+
+const EventDrivenAssistant: React.FC<EventDrivenAssistantProps> = ({
+  markers,
+  isConnected,
+  currentViewport,
+}) => {
   const insets = useSafeAreaInsets();
 
   // Local UI state
@@ -26,15 +60,16 @@ const EventAssistantWithStores: React.FC = () => {
     null
   );
 
-  // Get state and actions from the Zustand stores
+  // Log markers for debugging
+  useEffect(() => {
+    console.log(`EventDrivenAssistant received ${markers.length} markers`);
+  }, [markers.length]);
+
+  // Get state and actions from the Zustand store
   const {
     currentEvent,
     showActions,
     setShowActions,
-    messageIndex,
-    setMessageIndex,
-    transitionMessage,
-    setTransitionMessage,
 
     // View states
     activeView,
@@ -44,9 +79,13 @@ const EventAssistantWithStores: React.FC = () => {
     scanViewVisible,
 
     // View handlers
+    openDetailsView,
     closeDetailsView,
+    openShareView,
     closeShareView,
+    openSearchView,
     closeSearchView,
+    openScanView,
     closeScanView,
 
     // Action handlers
@@ -54,50 +93,32 @@ const EventAssistantWithStores: React.FC = () => {
     openMaps,
     handleScannedEvent,
     handleSelectEventFromSearch,
-    handleActionPress,
+    navigateToNext,
+    navigateToPrevious,
   } = useEventAssistantStore();
 
-  const { currentStreamedText, isTyping, simulateTextStreaming } = useTextStreamingStore();
-
-  // Returns an array of messages for the event
-  const getMessages = (event: EventType) => [
-    `I found an event near you!`,
-    `${event.title} at ${event.location}.`,
-    `It's ${event.distance} from your current location.`,
-    `Would you like to check it out?`,
-  ];
-
-  // Initialize message sequence on mount
-  useEffect(() => {
-    startMessageSequence();
-  }, []);
-
-  // Handle message sequencing
-  useEffect(() => {
-    const messages = getMessages(currentEvent);
-    if (!isTyping && messageIndex < messages.length - 1) {
-      const timer = setTimeout(() => {
-        setMessageIndex(messageIndex + 1);
-        simulateTextStreaming(messages[messageIndex + 1]);
-      }, 800);
-      return () => clearTimeout(timer);
-    } else if (!isTyping && messageIndex === messages.length - 1 && !showActions) {
-      const timer = setTimeout(() => {
-        setShowActions(true);
-      }, 600);
-      return () => clearTimeout(timer);
-    }
-  }, [isTyping, messageIndex, currentEvent, showActions]);
-
-  // Start the initial message sequence
-  const startMessageSequence = () => {
-    const messages = getMessages(currentEvent);
-    simulateTextStreaming(messages[0]);
-  };
+  // Use the event-driven messaging hook to get dynamic messages
+  const { currentStreamedText, isTyping } = useEventDrivenMessaging({
+    markers,
+    isConnected,
+    currentViewport,
+  });
 
   // Handle action button presses
   const onActionPress = (action: string) => {
-    handleActionPress(action, simulateTextStreaming);
+    if (action === "details") {
+      openDetailsView();
+    } else if (action === "share") {
+      openShareView();
+    } else if (action === "search") {
+      openSearchView();
+    } else if (action === "camera") {
+      openScanView();
+    } else if (action === "next") {
+      navigateToNext();
+    } else if (action === "previous") {
+      navigateToPrevious();
+    }
   };
 
   // Layout event handlers
@@ -108,7 +129,10 @@ const EventAssistantWithStores: React.FC = () => {
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-      {/* Event Details View - Positioned above the assistant */}
+      {/* Connection Indicator with actual connection state */}
+      <ConnectionIndicator isConnected={isConnected} eventsCount={markers.length} />
+
+      {/* Event Details View */}
       {activeView === "details" && (
         <EventDetailsView
           isVisible={detailsViewVisible}
@@ -119,7 +143,7 @@ const EventAssistantWithStores: React.FC = () => {
         />
       )}
 
-      {/* Share View - Positioned above the assistant */}
+      {/* Share View */}
       {activeView === "share" && (
         <ShareView isVisible={shareViewVisible} event={currentEvent} onClose={closeShareView} />
       )}
@@ -148,11 +172,11 @@ const EventAssistantWithStores: React.FC = () => {
           <View style={styles.row}>
             <FloatingEmojiWithStore emoji={currentEvent.emoji} />
             <MessageBubble
-              currentEvent={currentEvent}
-              currentStreamedText={transitionMessage || currentStreamedText}
-              isTyping={isTyping && !transitionMessage}
-              messageIndex={messageIndex}
-              isTransitioning={!!transitionMessage}
+              message={
+                currentStreamedText ||
+                "Hello! I'm your event assistant. I can help you discover events nearby."
+              }
+              isTyping={isTyping}
             />
           </View>
           <ActionBar onActionPress={onActionPress} />
@@ -162,4 +186,4 @@ const EventAssistantWithStores: React.FC = () => {
   );
 };
 
-export default EventAssistantWithStores;
+export default EventDrivenAssistant;

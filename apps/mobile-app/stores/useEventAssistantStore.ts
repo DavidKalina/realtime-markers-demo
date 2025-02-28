@@ -1,451 +1,334 @@
-// hooks/useEventAssistantStore.ts - Modified to use only WebSocket data
+// useEventAssistantStore.ts - Updated to handle enhanced event types and map integration
 import { create } from "zustand";
-import * as Haptics from "expo-haptics";
-import { EventType } from "@/components/Assistant/types";
-import { Platform, Linking } from "react-native";
+import * as Linking from "expo-linking";
+import { EventType, MapboxViewport, Marker } from "@/components/RefactoredAssistant/types";
+import { eventToMarker, markerToEvent } from "@/components/RefactoredAssistant/mapUtils";
+import { eventSuggestions } from "@/components/RefactoredAssistant/data";
 
-// Define view types
-type ActiveView = "details" | "share" | "search" | "camera" | "directions" | null;
-
-// Create a placeholder empty event for initial state
-const emptyEvent: EventType = {
-  emoji: "🔍",
-  title: "Searching for events",
-  description: "Looking for events in your area...",
-  location: "Unknown location",
-  time: "Unknown time",
-  distance: "Unknown distance",
-  categories: ["Search"],
-};
+type ActiveView = "none" | "details" | "share" | "search" | "camera" | "map";
 
 interface EventAssistantState {
-  // UI States
-  showActions: boolean;
-  setShowActions: (show: boolean) => void;
-
-  messageIndex: number;
-  setMessageIndex: (index: number) => void;
-
-  transitionMessage: string | null;
-  setTransitionMessage: (message: string | null) => void;
-
-  // Events state management
-  eventList: EventType[];
-  setEventList: (events: EventType[]) => void;
-
-  // Current event
+  // Event data
+  events: EventType[];
+  markers: Marker[];
+  currentEventIndex: number;
   currentEvent: EventType;
-  setCurrentEvent: (event: EventType) => void;
-  navigateToNext: () => EventType;
-  navigateToPrevious: () => EventType;
 
-  // View management
+  // Map state
+  mapViewport: MapboxViewport | null;
+  isConnected: boolean;
+
+  // View states
   activeView: ActiveView;
-  setActiveView: (view: ActiveView) => void;
-
+  showActions: boolean;
   detailsViewVisible: boolean;
-  setDetailsViewVisible: (visible: boolean) => void;
-
   shareViewVisible: boolean;
-  setShareViewVisible: (visible: boolean) => void;
-
   searchViewVisible: boolean;
-  setSearchViewVisible: (visible: boolean) => void;
-
   scanViewVisible: boolean;
-  setScanViewVisible: (visible: boolean) => void;
+  mapViewVisible: boolean;
 
-  // Action handlers
+  // Event navigation
+  navigateToNext: () => void;
+  navigateToPrevious: () => void;
+  setCurrentEvent: (event: EventType) => void;
+  setCurrentEventById: (id: string) => void;
+  setEvents: (events: EventType[]) => void;
+  addEvent: (event: EventType) => void;
+  updateEvent: (event: EventType) => void;
+
+  // View handlers
+  setShowActions: (show: boolean) => void;
   openDetailsView: () => void;
   closeDetailsView: () => void;
-
   openShareView: () => void;
   closeShareView: () => void;
-
   openSearchView: () => void;
   closeSearchView: () => void;
-
   openScanView: () => void;
   closeScanView: () => void;
+  openMapView: () => void;
+  closeMapView: () => void;
 
+  // Action handlers
   shareEvent: () => void;
   openMaps: (location: string) => void;
   handleScannedEvent: (event: EventType) => void;
   handleSelectEventFromSearch: (event: EventType) => void;
-
-  // Action bar handler
-  handleActionPress: (action: string, simulateTextStreaming: (text: string) => void) => void;
-
-  // Check if we have real events
-  hasEvents: () => boolean;
+  handleSelectEventFromMap: (marker: Marker) => void;
+  updateMapViewport: (viewport: MapboxViewport) => void;
+  setConnectionStatus: (isConnected: boolean) => void;
 }
 
-export const useEventAssistantStore = create<EventAssistantState>((set, get) => {
-  // Start with empty state instead of fallback data
-  let currentIndex = 0;
+export const useEventAssistantStore = create<EventAssistantState>((set, get) => ({
+  // Initial event data
+  events: eventSuggestions,
+  markers: eventSuggestions
+    .map(eventToMarker)
+    .filter((marker): marker is Marker => marker !== null),
+  currentEventIndex: 0,
+  currentEvent: eventSuggestions[0],
 
-  return {
-    // UI States
-    showActions: false,
-    setShowActions: (show) => {
-      console.log("🔘 setShowActions:", show);
-      set({ showActions: show });
-    },
+  // Map state
+  mapViewport: null,
+  isConnected: false,
 
-    messageIndex: 0,
-    setMessageIndex: (index) => {
-      console.log("📋 setMessageIndex:", index);
-      set({ messageIndex: index });
-    },
+  // Initial view states
+  activeView: "none",
+  showActions: true,
+  detailsViewVisible: false,
+  shareViewVisible: false,
+  searchViewVisible: false,
+  scanViewVisible: false,
+  mapViewVisible: false,
 
-    transitionMessage: null,
-    setTransitionMessage: (message) => {
-      console.log("💬 setTransitionMessage:", message);
-      set({ transitionMessage: message });
-    },
-
-    // Events list management - start with empty list
-    eventList: [],
-    setEventList: (events) => {
-      if (events && events.length > 0) {
-        console.log("📊 setEventList:", events.length, "events");
-        set({ eventList: events });
-      }
-    },
-
-    // Current event - start with empty placeholder
-    currentEvent: emptyEvent,
-    setCurrentEvent: (event) => {
-      if (event) {
-        console.log("🎯 setCurrentEvent:", event.title);
-        set({ currentEvent: event });
-      }
-    },
-
-    // Helper to check if we have real events
-    hasEvents: () => {
-      const { eventList } = get();
-      return eventList.length > 0;
-    },
-
-    // View management
-    activeView: null,
-    setActiveView: (view) => set({ activeView: view }),
-
-    detailsViewVisible: false,
-    setDetailsViewVisible: (visible) => set({ detailsViewVisible: visible }),
-
-    shareViewVisible: false,
-    setShareViewVisible: (visible) => set({ shareViewVisible: visible }),
-
-    searchViewVisible: false,
-    setSearchViewVisible: (visible) => set({ searchViewVisible: visible }),
-
-    scanViewVisible: false,
-    setScanViewVisible: (visible) => set({ scanViewVisible: visible }),
-
-    // Navigation handlers - updated to use the dynamic eventList
-    navigateToNext: () => {
-      const { eventList, currentEvent } = get();
-
-      // Handle empty event list
-      if (!eventList || eventList.length === 0) {
-        console.warn("Cannot navigate: event list is empty");
-        return currentEvent;
-      }
-
-      try {
-        // Find the current index in the event list
-        let currentIndex = eventList.findIndex(
-          (event) => event.title === currentEvent.title && event.location === currentEvent.location
-        );
-
-        // Calculate next index with proper wrapping
-        const nextIndex =
-          currentIndex === -1 || currentIndex === eventList.length - 1 ? 0 : currentIndex + 1;
-
-        const nextEvent = eventList[nextIndex];
-
-        if (nextEvent) {
-          // Update the global current index
-          currentIndex = nextIndex;
-          set({ currentEvent: nextEvent });
-
-          // Add visual feedback in console
-          console.log(`📊 Navigated to next event: ${nextIndex + 1}/${eventList.length}`);
-
-          return nextEvent;
-        } else {
-          console.warn(`Event at index ${nextIndex} is undefined`);
-          return currentEvent;
-        }
-      } catch (error) {
-        console.error("Error navigating to next event:", error);
-        return currentEvent;
-      }
-    },
-
-    navigateToPrevious: () => {
-      const { eventList, currentEvent } = get();
-
-      // Handle empty event list
-      if (!eventList || eventList.length === 0) {
-        console.warn("Cannot navigate: event list is empty");
-        return currentEvent;
-      }
-
-      try {
-        // Find the current index in the event list
-        let currentIndex = eventList.findIndex(
-          (event) => event.title === currentEvent.title && event.location === currentEvent.location
-        );
-
-        // Calculate previous index with proper wrapping
-        const prevIndex =
-          currentIndex === -1 || currentIndex === 0 ? eventList.length - 1 : currentIndex - 1;
-
-        const prevEvent = eventList[prevIndex];
-
-        if (prevEvent) {
-          // Update the global current index
-          currentIndex = prevIndex;
-          set({ currentEvent: prevEvent });
-
-          // Add visual feedback in console
-          console.log(`📊 Navigated to previous event: ${prevIndex + 1}/${eventList.length}`);
-
-          return prevEvent;
-        } else {
-          console.warn(`Event at index ${prevIndex} is undefined`);
-          return currentEvent;
-        }
-      } catch (error) {
-        console.error("Error navigating to previous event:", error);
-        return currentEvent;
-      }
-    },
-
-    // View handlers
-    openDetailsView: () => {
-      set({ activeView: "details", detailsViewVisible: true });
-    },
-
-    closeDetailsView: () => {
-      set({ detailsViewVisible: false });
-      setTimeout(() => {
-        set({ activeView: null });
-      }, 300);
-    },
-
-    openShareView: () => {
-      set({ activeView: "share", shareViewVisible: true });
-    },
-
-    closeShareView: () => {
-      set({ shareViewVisible: false });
-      setTimeout(() => {
-        set({ activeView: null });
-      }, 300);
-    },
-
-    openSearchView: () => {
-      set({ activeView: "search", searchViewVisible: true });
-    },
-
-    closeSearchView: () => {
-      set({ searchViewVisible: false });
-      setTimeout(() => {
-        set({ activeView: null });
-      }, 300);
-    },
-
-    openScanView: () => {
-      set({ activeView: "camera", scanViewVisible: true });
-    },
-
-    closeScanView: () => {
-      set({ scanViewVisible: false });
-      setTimeout(() => {
-        set({ activeView: null });
-      }, 300);
-    },
-
-    // Action handlers
-    shareEvent: async () => {
-      try {
-        // Trigger haptic feedback
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-        // Show share view
-        set({ activeView: "share", shareViewVisible: true });
-
-        return true;
-      } catch (error) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        return false;
-      }
-    },
-
-    openMaps: (location: string) => {
-      const encodedLocation = encodeURIComponent(location);
-      const scheme = Platform.select({ ios: "maps:?q=", android: "geo:0,0?q=" });
-      const url = Platform.select({
-        ios: `maps:0,0?q=${encodedLocation}`,
-        android: `geo:0,0?q=${encodedLocation}`,
+  // Event navigation
+  navigateToNext: () => {
+    const { events, currentEventIndex } = get();
+    if (currentEventIndex < events.length - 1) {
+      const nextIndex = currentEventIndex + 1;
+      set({
+        currentEventIndex: nextIndex,
+        currentEvent: events[nextIndex],
       });
+    }
+  },
 
-      // Trigger haptic feedback
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  navigateToPrevious: () => {
+    const { events, currentEventIndex } = get();
+    if (currentEventIndex > 0) {
+      const prevIndex = currentEventIndex - 1;
+      set({
+        currentEventIndex: prevIndex,
+        currentEvent: events[prevIndex],
+      });
+    }
+  },
 
-      Linking.canOpenURL(url!)
-        .then((supported) => {
-          if (supported) {
-            return Linking.openURL(url!);
-          } else {
-            // Fallback to Google Maps web URL
-            const webUrl = `https://www.google.com/maps/search/?api=1&query=${encodedLocation}`;
-            return Linking.openURL(webUrl);
-          }
-        })
-        .catch((err) => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          console.error("Couldn't open maps:", err.message);
-        });
-    },
+  setCurrentEvent: (event: EventType) => {
+    set({ currentEvent: event });
 
-    handleScannedEvent: (event: EventType) => {
-      // Set the current event
+    // Also update the currentEventIndex if the event exists in the array
+    const { events } = get();
+    const index = events.findIndex((e) => e.id === event.id);
+    if (index !== -1) {
+      set({ currentEventIndex: index });
+    }
+  },
+
+  setCurrentEventById: (id: string) => {
+    const { events } = get();
+    const index = events.findIndex((event) => event.id === id);
+    if (index !== -1) {
+      set({
+        currentEventIndex: index,
+        currentEvent: events[index],
+      });
+    }
+  },
+
+  setEvents: (events: EventType[]) => {
+    // Update both events and markers
+    const markers = events.map(eventToMarker).filter((marker): marker is Marker => marker !== null);
+
+    set({ events, markers });
+
+    // Reset current event if needed
+    if (events.length > 0) {
+      set({
+        currentEventIndex: 0,
+        currentEvent: events[0],
+      });
+    }
+  },
+
+  addEvent: (event: EventType) => {
+    // Ensure the event has an ID
+    const newEvent = {
+      ...event,
+      id: event.id || `event-${Math.random().toString(36).substring(2, 9)}`,
+    };
+
+    // Add to events array
+    set((state) => ({
+      events: [...state.events, newEvent],
+    }));
+
+    // Add to markers if it has coordinates
+    const marker = eventToMarker(newEvent);
+    if (marker) {
+      set((state) => ({
+        markers: [...state.markers, marker],
+      }));
+    }
+  },
+
+  updateEvent: (event: EventType) => {
+    // Update in events array
+    set((state) => ({
+      events: state.events.map((e) => (e.id === event.id ? event : e)),
+    }));
+
+    // Update in markers array
+    const updatedMarker = eventToMarker(event);
+    if (updatedMarker) {
+      set((state) => ({
+        markers: state.markers.map((m) => (m.id === event.id ? updatedMarker : m)),
+      }));
+    }
+
+    // Update current event if it's the one being updated
+    if (get().currentEvent.id === event.id) {
       set({ currentEvent: event });
+    }
+  },
 
-      // Close the scan view
-      set({ scanViewVisible: false, activeView: null });
+  // View state handlers
+  setShowActions: (show: boolean) => set({ showActions: show }),
 
-      // Show details for the scanned event
-      setTimeout(() => {
-        set({ activeView: "details", detailsViewVisible: true });
-      }, 500);
-    },
+  openDetailsView: () =>
+    set({
+      activeView: "details",
+      detailsViewVisible: true,
+      shareViewVisible: false,
+      searchViewVisible: false,
+      scanViewVisible: false,
+      mapViewVisible: false,
+    }),
 
-    handleSelectEventFromSearch: (event: EventType) => {
-      // Set the current event
-      set({ currentEvent: event });
+  closeDetailsView: () =>
+    set({
+      activeView: "none",
+      detailsViewVisible: false,
+    }),
 
-      // Close the search view
-      set({ searchViewVisible: false, activeView: null });
+  openShareView: () =>
+    set({
+      activeView: "share",
+      shareViewVisible: true,
+      detailsViewVisible: false,
+      searchViewVisible: false,
+      scanViewVisible: false,
+      mapViewVisible: false,
+    }),
 
-      // Show details for the selected event
-      setTimeout(() => {
-        set({ activeView: "details", detailsViewVisible: true });
-      }, 500);
-    },
+  closeShareView: () =>
+    set({
+      activeView: "none",
+      shareViewVisible: false,
+    }),
 
-    // Action bar handler
-    handleActionPress: (action: string, simulateTextStreaming: (text: string) => void) => {
-      const state = get();
+  openSearchView: () =>
+    set({
+      activeView: "search",
+      searchViewVisible: true,
+      detailsViewVisible: false,
+      shareViewVisible: false,
+      scanViewVisible: false,
+      mapViewVisible: false,
+    }),
 
-      set({ showActions: false });
+  closeSearchView: () =>
+    set({
+      activeView: "none",
+      searchViewVisible: false,
+    }),
 
-      // Check if we have events to handle first
-      if ((action === "next" || action === "previous") && !state.hasEvents()) {
-        simulateTextStreaming("I don't see any events in this area yet. Try exploring the map!");
-        setTimeout(() => set({ showActions: true }), 2000);
-        return;
-      }
+  openScanView: () =>
+    set({
+      activeView: "camera",
+      scanViewVisible: true,
+      detailsViewVisible: false,
+      shareViewVisible: false,
+      searchViewVisible: false,
+      mapViewVisible: false,
+    }),
 
-      if (action === "details") {
-        // Show transition message first
-        set({ transitionMessage: "Opening event details..." });
+  closeScanView: () =>
+    set({
+      activeView: "none",
+      scanViewVisible: false,
+    }),
 
-        // Short delay to allow the message to be seen
-        setTimeout(() => {
-          set({ activeView: "details", detailsViewVisible: true });
+  openMapView: () =>
+    set({
+      activeView: "map",
+      mapViewVisible: true,
+      detailsViewVisible: false,
+      shareViewVisible: false,
+      searchViewVisible: false,
+      scanViewVisible: false,
+    }),
 
-          // Clear the transition message after the view appears
-          setTimeout(() => {
-            set({ transitionMessage: null });
-          }, 300);
+  closeMapView: () =>
+    set({
+      activeView: "none",
+      mapViewVisible: false,
+    }),
 
-          simulateTextStreaming("I've pulled up the event details for you.");
-        }, 800);
-      } else if (action === "directions") {
-        set({ transitionMessage: "Opening maps..." });
-        setTimeout(() => {
-          set({ activeView: "directions", detailsViewVisible: true });
-          setTimeout(() => {
-            set({ transitionMessage: null });
-          }, 300);
-        }, 800);
-      } else if (action === "share") {
-        set({ transitionMessage: "Preparing to share..." });
-        setTimeout(() => {
-          state.shareEvent();
-          setTimeout(() => {
-            set({ transitionMessage: null });
-          }, 300);
-          simulateTextStreaming(`Creating shareable link for "${state.currentEvent.title}"...`);
-        }, 800);
-      } else if (action === "search") {
-        set({ transitionMessage: "Opening search..." });
-        setTimeout(() => {
-          set({ activeView: "search", searchViewVisible: true });
-          setTimeout(() => {
-            set({ transitionMessage: null });
-          }, 300);
-          simulateTextStreaming("I've pulled up the search view for you.");
-        }, 800);
-      } else if (action === "camera") {
-        set({ transitionMessage: "Opening scanner..." });
-        setTimeout(() => {
-          set({ activeView: "camera", scanViewVisible: true });
-          setTimeout(() => {
-            set({ transitionMessage: null });
-          }, 300);
-        }, 800);
-      } else if (action === "next") {
-        set({ transitionMessage: "Finding next event..." });
-        set({ messageIndex: 0 });
-        const nextEvent = state.navigateToNext();
+  // Action handlers
+  shareEvent: () => {
+    const { openShareView } = get();
+    openShareView();
+  },
 
-        // Get the list of events for context
-        const { eventList } = state;
-        const currentIndex = eventList.findIndex(
-          (event) => event.title === nextEvent.title && event.location === nextEvent.location
-        );
+  openMaps: (location: string) => {
+    const { currentEvent } = get();
 
-        setTimeout(() => {
-          set({ transitionMessage: null });
+    // Try to use coordinates if available, otherwise fall back to location text
+    if (currentEvent.coordinates) {
+      const [longitude, latitude] = currentEvent.coordinates;
+      const url = `https://maps.google.com/?q=${latitude},${longitude}`;
+      Linking.openURL(url);
+    } else {
+      const encodedLocation = encodeURIComponent(location);
+      const url = `https://maps.google.com/?q=${encodedLocation}`;
+      Linking.openURL(url);
+    }
+  },
 
-          // Enhanced message with event number and total count
-          simulateTextStreaming(
-            `Event ${currentIndex + 1} of ${eventList.length}: ${nextEvent.emoji} ${
-              nextEvent.title
-            }`
-          );
-        }, 800);
-      } else if (action === "previous") {
-        set({ transitionMessage: "Finding previous event..." });
-        set({ messageIndex: 0 });
-        const prevEvent = state.navigateToPrevious();
+  handleScannedEvent: (event: EventType) => {
+    const { addEvent, setCurrentEvent, openDetailsView } = get();
 
-        // Get the list of events for context
-        const { eventList } = state;
-        const currentIndex = eventList.findIndex(
-          (event) => event.title === prevEvent.title && event.location === prevEvent.location
-        );
+    // Add the new event to the list
+    addEvent(event);
 
-        setTimeout(() => {
-          set({ transitionMessage: null });
+    // Set it as the current event
+    setCurrentEvent(event);
 
-          // Enhanced message with event number and total count
-          simulateTextStreaming(
-            `Event ${currentIndex + 1} of ${eventList.length}: ${prevEvent.emoji} ${
-              prevEvent.title
-            }`
-          );
-        }, 800);
-      } else {
-        simulateTextStreaming(`What would you like to know about this event?`);
-      }
-    },
-  };
-});
+    // Open the details view to show the scanned event
+    openDetailsView();
+  },
+
+  handleSelectEventFromSearch: (event: EventType) => {
+    const { setCurrentEvent, closeSearchView, openDetailsView } = get();
+
+    // Set the selected event as current
+    setCurrentEvent(event);
+
+    // Close search and open details
+    closeSearchView();
+    openDetailsView();
+  },
+
+  handleSelectEventFromMap: (marker: Marker) => {
+    const event = markerToEvent(marker);
+    const { setCurrentEvent, closeMapView, openDetailsView } = get();
+
+    // Set the selected event as current
+    setCurrentEvent(event);
+
+    // Close map and open details
+    closeMapView();
+    openDetailsView();
+  },
+
+  // Map viewport management
+  updateMapViewport: (viewport: MapboxViewport) => {
+    set({ mapViewport: viewport });
+  },
+
+  // Connection status management
+  setConnectionStatus: (isConnected: boolean) => {
+    set({ isConnected });
+  },
+}));

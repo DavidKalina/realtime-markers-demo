@@ -34,6 +34,8 @@ export const useMarkerStore = create<MarkerState>((set, get) => ({
         ? markers.some((m) => m.id === state.selectedMarkerId)
         : false;
 
+      console.log({ selectedExists });
+
       return {
         markers,
         // Deselect if marker no longer exists
