@@ -332,7 +332,7 @@ async function startServer() {
     }
 
     // Start the server after initialization is complete
-    Bun.serve<WebSocketData>(server);
+    Bun.serve(server);
     console.log(`WebSocket server started on port ${server.port}`);
   } catch (error) {
     console.error("[Startup] Failed to start server:", error);
