@@ -5,8 +5,9 @@ export const details = StyleSheet.create({
   detailsScreenContainer: {
     position: "absolute",
     top: 40,
-    left: 20,
-    right: 20,
+    width: "95%",
+    margin: "auto",
+    alignSelf: "center",
     bottom: 200, // More space for the assistant at the bottom
     backgroundColor: "#333",
     borderRadius: 16, // Add rounded corners
@@ -23,8 +24,7 @@ export const details = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#3a3a3a",
-    borderTopLeftRadius: 16, // Match the container's border radius
-    borderTopRightRadius: 16, // Match the container's border radius
+    borderRadius: 16,
   },
   backButton: {
     padding: 8,
@@ -118,6 +118,7 @@ export const details = StyleSheet.create({
   },
   footer: {
     padding: 16,
+    borderRadius: 16,
     paddingBottom: Platform.OS === "ios" ? 32 : 20,
     borderTopWidth: 1,
     borderTopColor: "#3a3a3a",

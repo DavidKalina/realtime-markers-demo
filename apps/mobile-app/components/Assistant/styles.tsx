@@ -1,10 +1,12 @@
-import { action } from "./action";
-import { details } from "./details";
-import { emoji } from "./emoji";
+// styles/index.ts
 import { layout } from "./layout";
 import { message } from "./message";
-import { overlays } from "./overlay";
+import { action } from "./action";
+import { emoji } from "./emoji";
 import { entity } from "./entity";
+import { details } from "./details";
+import { overlays } from "./overlay";
+import { search } from "./search"; // Import search styles
 
 // Merge all style objects into one
 export const styles = {
@@ -12,9 +14,10 @@ export const styles = {
   ...message,
   ...action,
   ...emoji,
-  ...entity, // Include entity styles
+  ...entity,
   ...details,
   ...overlays,
+  ...search, // Include search styles
 };
 
 // Also export individual style groups for direct access
@@ -23,7 +26,8 @@ export {
   message,
   action,
   emoji,
-  entity, // Export entity styles
+  entity,
   details,
   overlays,
+  search, // Export search styles
 };

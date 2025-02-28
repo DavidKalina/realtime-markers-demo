@@ -5,7 +5,7 @@ export const message = StyleSheet.create({
   messageBubble: {
     backgroundColor: "#3a3a3a", // Match the event details card background
     borderRadius: 12,
-    padding: 4,
+    padding: 7,
     flex: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },

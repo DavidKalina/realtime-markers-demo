@@ -13,6 +13,8 @@ import { MessageBubble } from "./MessageBubble";
 import { EventDetailsView } from "./EventDetailsView";
 import { styles } from "./styles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SearchView } from "./SearchView";
+import { EventType } from "./types";
 
 // Define view types
 type ActiveView = "details" | "share" | "search" | "camera" | "directions" | null;
@@ -31,6 +33,8 @@ const EventAssistantPreview: React.FC = () => {
   // New state for fullscreen view management
   const [detailsViewVisible, setDetailsViewVisible] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>(null);
+
+  const [searchViewVisible, setSearchViewVisible] = useState(false);
 
   const { currentStreamedText, isTyping, simulateTextStreaming } = useTextStreaming();
   const { currentEvent, navigateToNext, navigateToPrevious } = useEventNavigation(
@@ -138,14 +142,28 @@ const EventAssistantPreview: React.FC = () => {
     simulateTextStreaming(`Opening camera to scan event QR codes or posters...`);
   };
 
-  // Navigate to event details screen
-  const navigateToEventDetails = () => {
-    // Show details view
-    setActiveView("details");
-    setDetailsViewVisible(true);
+  // Add a handler for selecting an event from search:
+  const handleSelectEventFromSearch = (event: EventType) => {
+    // Set the current event
+    // If you're using a state management system, update the current event
 
-    setShowDetails(true);
-    simulateTextStreaming(`Here are more details about ${currentEvent.title}.`);
+    // Close the search view
+    setSearchViewVisible(false);
+    setActiveView(null);
+
+    // Show details for the selected event
+    setTimeout(() => {
+      setActiveView("details");
+      setDetailsViewVisible(true);
+    }, 500);
+  };
+
+  const closeSearchView = () => {
+    setSearchViewVisible(false);
+    // Use a timeout to wait for the animation to complete before clearing the active view
+    setTimeout(() => {
+      setActiveView(null);
+    }, 300);
   };
 
   const handleActionPress = (action: string) => {
@@ -185,7 +203,7 @@ const EventAssistantPreview: React.FC = () => {
       setTransitionMessage("Opening search...");
       setTimeout(() => {
         setActiveView("search");
-        setDetailsViewVisible(true);
+        setSearchViewVisible(true);
         setTimeout(() => {
           setTransitionMessage(null);
         }, 300);
@@ -246,6 +264,13 @@ const EventAssistantPreview: React.FC = () => {
           onClose={closeDetailsView}
           onShare={shareEvent}
           onGetDirections={() => openMaps(currentEvent.location)}
+        />
+      )}
+      {activeView === "search" && (
+        <SearchView
+          isVisible={searchViewVisible}
+          onClose={closeSearchView}
+          onSelectEvent={handleSelectEventFromSearch}
         />
       )}
 
