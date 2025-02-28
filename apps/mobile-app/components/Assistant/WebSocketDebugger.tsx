@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from "react";
+import { Bug, X } from "lucide-react-native";
+import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   Modal,
   SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { X, Bug, ArrowDown } from "lucide-react-native";
 
 interface WebSocketDebuggerProps {
   wsUrl: string;

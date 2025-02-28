@@ -1,6 +1,6 @@
 // EventAssistantWithStores.tsx - Complete refactored version with all Zustand stores
 import React, { useEffect, useState } from "react";
-import { GestureResponderEvent, LayoutChangeEvent, View } from "react-native";
+import { LayoutChangeEvent, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Stores
@@ -9,14 +9,14 @@ import { useTextStreamingStore } from "@/stores/useTextStreamingStore";
 
 // Components
 import { ActionBar } from "./ActionBar";
-import { MessageBubble } from "./MessageBubble";
 import { EventDetailsView } from "./EventDetailsView";
+import { FloatingEmojiWithStore } from "./FloatingEmoji";
+import { MessageBubble } from "./MessageBubble";
+import { ScanView } from "./ScanView";
 import { SearchView } from "./SearchView";
 import { ShareView } from "./ShareView";
-import { ScanView } from "./ScanView";
 import { styles } from "./styles";
 import { EventType } from "./types";
-import { FloatingEmojiWithStore } from "./FloatingEmoji";
 
 const EventAssistantWithStores: React.FC = () => {
   const insets = useSafeAreaInsets();

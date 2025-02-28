@@ -1,4 +1,4 @@
-import WebSocketEventAssistant from "@/components/Assistant/WebSocketAssistant";
+import DirectInjectionAssistant from "@/components/Assistant/DirectInjectionAssistant";
 import WebSocketDebugger from "@/components/Assistant/WebSocketDebugger";
 import { SimpleMapMarkers } from "@/components/MarkerImplementation";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
@@ -56,11 +56,8 @@ export default function HomeScreen() {
           accuracy: Location.Accuracy.High,
         });
 
-        console.log("Raw location received:", location);
-
         // Update state with user coordinates in [longitude, latitude] format for Mapbox
         setUserLocation([location.coords.longitude, location.coords.latitude]);
-        console.log("Set user location to:", [location.coords.longitude, location.coords.latitude]);
       } catch (error) {
         console.error("Error getting location:", error);
         Alert.alert(
@@ -79,7 +76,6 @@ export default function HomeScreen() {
   // Handle map viewport changes
   const handleMapViewportChange = (feature: any) => {
     // Debug the structure of the feature object
-    console.log("Map view changed, feature:", JSON.stringify(feature, null, 2));
 
     // Safely access the bounds properties with proper checks
     if (
@@ -174,8 +170,7 @@ export default function HomeScreen() {
 
       {/* Event Assistant component overlaid on map */}
       <View style={styles.assistantOverlay}>
-        {isMapReady && <WebSocketEventAssistant />}
-
+        {isMapReady && <DirectInjectionAssistant />}
         {/* Debugger component */}
         <WebSocketDebugger
           wsUrl={process.env.EXPO_PUBLIC_WEB_SOCKET_URL!}

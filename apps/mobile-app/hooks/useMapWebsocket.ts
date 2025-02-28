@@ -1,176 +1,226 @@
-import { useMarkerStore } from "@/stores/markerStore";
-import { useState, useEffect, useCallback, useRef } from "react";
+// hooks/useMapWebsocket.ts
+import { useEffect, useState, useRef } from "react";
 
-interface ViewPort {
+// Mapbox viewport format
+interface MapboxViewport {
   north: number;
   south: number;
   east: number;
   west: number;
 }
 
-export function useMapWebSocket(wsUrl: string) {
-  const [ws, setWs] = useState<WebSocket | null>(null);
+// Match the server's marker data structure but with Mapbox-friendly coordinates
+interface Marker {
+  id: string;
+  coordinates: [number, number]; // [longitude, latitude] for Mapbox
+  data: {
+    title: string;
+    emoji: string;
+    color: string;
+    location?: string;
+    distance?: string;
+    time?: string;
+    description?: string;
+    categories?: string[];
+    isVerified?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    [key: string]: any;
+  };
+}
+
+interface MapWebSocketResult {
+  markers: Marker[];
+  isConnected: boolean;
+  error: Error | null;
+  currentViewport: MapboxViewport | null;
+  updateViewport: (viewport: MapboxViewport) => void;
+  clientId: string | null;
+}
+
+export const useMapWebSocket = (url: string): MapWebSocketResult => {
+  const [markers, setMarkers] = useState<Marker[]>([]);
+  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [currentViewport, setCurrentViewport] = useState<MapboxViewport | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  // Using ReturnType<typeof setTimeout> instead of NodeJS.Timeout for better compatibility
-  const heartbeatInterval = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastPongTime = useRef<number>(Date.now());
 
-  const { setMarkers, updateMarkers, deleteMarker } = useMarkerStore();
+  const ws = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Function to establish WebSocket connection
-  const connectWebSocket = useCallback(() => {
-    // Clear any existing reconnect timeouts
-    if (reconnectTimeout.current) {
-      clearTimeout(reconnectTimeout.current);
-      reconnectTimeout.current = null;
-    }
-
-    console.log("Establishing WebSocket connection to:", wsUrl);
-
-    const websocket = new WebSocket(wsUrl);
-
-    websocket.onopen = () => {
-      console.log("WebSocket connection established");
-      setIsConnected(true);
-      lastPongTime.current = Date.now();
-    };
-
-    websocket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-
-      switch (message.type) {
-        case "connection_established":
-          setClientId(message.clientId);
-          break;
-
-        case "marker_delete":
-          deleteMarker(message.data.id);
-          break;
-
-        case "initial_markers":
-          setMarkers(
-            message.data.map((marker: any) => ({
-              id: marker.id,
-              coordinates: [marker.minX, marker.minY],
-              data: marker.data,
-            }))
-          );
-          break;
-
-        case "marker_updates_batch":
-          const updates = message.data.map((update: any) => ({
-            id: update.id,
-            coordinates: [update.minX, update.minY],
-            data: update.data,
-          }));
-          updateMarkers(updates);
-          break;
-
-        case "pong":
-          // Update the last time we received a pong
-          lastPongTime.current = Date.now();
-          break;
-      }
-    };
-
-    websocket.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      setIsConnected(false);
-    };
-
-    websocket.onclose = (event) => {
-      console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
-      setIsConnected(false);
-      setWs(null);
-
-      // Schedule reconnection after a delay
-      reconnectTimeout.current = setTimeout(() => {
-        console.log("Attempting to reconnect WebSocket...");
-        connectWebSocket();
-      }, 3000); // 3 second reconnect delay
-    };
-
-    setWs(websocket);
-    return websocket;
-  }, [wsUrl, setMarkers, updateMarkers, deleteMarker]);
-
-  // Initialize WebSocket connection
-  useEffect(() => {
-    const websocket = connectWebSocket();
-
-    // Cleanup function
-    return () => {
-      if (heartbeatInterval.current) {
-        clearInterval(heartbeatInterval.current);
+  // Create a WebSocket connection
+  const connectWebSocket = () => {
+    try {
+      if (ws.current?.readyState === WebSocket.OPEN) {
+        return; // Already connected
       }
 
-      if (reconnectTimeout.current) {
-        clearTimeout(reconnectTimeout.current);
-      }
+      console.log("Connecting to WebSocket server:", url);
+      ws.current = new WebSocket(url);
 
-      if (
-        websocket.readyState === WebSocket.OPEN ||
-        websocket.readyState === WebSocket.CONNECTING
-      ) {
-        websocket.close();
-      }
-    };
-  }, [connectWebSocket]);
+      ws.current.onopen = () => {
+        console.log("WebSocket connection established");
+        setIsConnected(true);
+        setError(null);
 
-  // Setup heartbeat mechanism
-  useEffect(() => {
-    if (!ws) return;
-
-    // Send ping every 30 seconds
-    heartbeatInterval.current = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        // Send a ping message
-        ws.send(JSON.stringify({ type: "ping" }));
-
-        // Check if we've received a pong within the last 45 seconds
-        const now = Date.now();
-        if (now - lastPongTime.current > 45000) {
-          console.log("No pong received for 45 seconds, reconnecting...");
-
-          // Close the current connection
-          ws.close();
-
-          // connectWebSocket will be called by the onclose handler
+        // If we have a viewport, immediately send it
+        if (currentViewport) {
+          sendViewportUpdate(currentViewport);
         }
+      };
+
+      ws.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          // Handle different message types from the server
+          switch (data.type) {
+            case "connection_established":
+              console.log("Connection established, client ID:", data.clientId);
+              setClientId(data.clientId);
+              break;
+
+            case "initial_markers":
+              console.log(`Received ${data.data.length} initial markers`);
+              // Convert RBush format to Mapbox format
+              const initialMapboxMarkers = data.data.map((marker: any) =>
+                convertRBushToMapbox(marker)
+              );
+              setMarkers(initialMapboxMarkers);
+              break;
+
+            case "marker_updates_batch":
+              console.log(`Received ${data.data.length} marker updates`);
+              // Convert and merge updates with existing markers
+              const mapboxUpdates = data.data.map((marker: any) => convertRBushToMapbox(marker));
+
+              setMarkers((prevMarkers) => {
+                const markerMap = new Map(prevMarkers.map((m) => [m.id, m]));
+                mapboxUpdates.forEach((marker: Marker) => {
+                  markerMap.set(marker.id, marker);
+                });
+                return Array.from(markerMap.values());
+              });
+              break;
+
+            case "marker_delete":
+              console.log("Marker deleted:", data.data.id);
+              // Remove deleted marker
+              setMarkers((prevMarkers) =>
+                prevMarkers.filter((marker) => marker.id !== data.data.id)
+              );
+              break;
+
+            case "debug_event":
+              console.log("Debug event:", data.data);
+              break;
+
+            default:
+              // If server sends direct array of markers (fallback)
+              if (Array.isArray(data)) {
+                const mapboxMarkers = data.map((marker: any) => convertRBushToMapbox(marker));
+                setMarkers(mapboxMarkers);
+              } else {
+                console.log("Unknown message type:", data.type);
+              }
+              break;
+          }
+        } catch (err) {
+          console.error("Error parsing WebSocket message:", err);
+          setError(
+            err instanceof Error ? err : new Error("Unknown error parsing WebSocket message")
+          );
+        }
+      };
+
+      ws.current.onclose = (event) => {
+        console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
+        setIsConnected(false);
+        setClientId(null);
+
+        // Attempt to reconnect after a delay
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
+
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connectWebSocket();
+        }, 5000); // Try to reconnect every 5 seconds
+      };
+
+      ws.current.onerror = (event) => {
+        console.error("WebSocket error:", event);
+        setError(new Error("WebSocket connection error"));
+      };
+    } catch (err) {
+      console.error("Error creating WebSocket connection:", err);
+      setError(
+        err instanceof Error ? err : new Error("Unknown error creating WebSocket connection")
+      );
+    }
+  };
+
+  // Helper to convert RBush marker format to Mapbox-friendly format
+  const convertRBushToMapbox = (rbushMarker: any): Marker => {
+    // For an RBush marker, minX is longitude, minY is latitude
+    return {
+      id: rbushMarker.id,
+      coordinates: [rbushMarker.minX, rbushMarker.minY], // [longitude, latitude] for Mapbox
+      data: {
+        ...rbushMarker.data,
+        // Ensure these fields exist
+        title: rbushMarker.data?.title || "Unnamed Event",
+        emoji: rbushMarker.data?.emoji || "📍",
+        color: rbushMarker.data?.color || "red",
+      },
+    };
+  };
+
+  // Send viewport update to server
+  const sendViewportUpdate = (viewport: MapboxViewport) => {
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      try {
+        const message = {
+          type: "viewport_update",
+          viewport,
+        };
+
+        ws.current.send(JSON.stringify(message));
+      } catch (err) {
+        console.error("Error sending viewport update:", err);
       }
-    }, 30000); // 30 second interval
+    }
+  };
+
+  // Update viewport state and send to server if connected
+  const updateViewport = (viewport: MapboxViewport) => {
+    setCurrentViewport(viewport);
+    if (isConnected) {
+      sendViewportUpdate(viewport);
+    }
+  };
+
+  // Connect on mount, disconnect on unmount
+  useEffect(() => {
+    connectWebSocket();
 
     return () => {
-      if (heartbeatInterval.current) {
-        clearInterval(heartbeatInterval.current);
+      if (ws.current) {
+        ws.current.close();
+      }
+
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [ws, connectWebSocket]);
-
-  // Function to update viewport
-  const updateViewport = useCallback(
-    (viewport: ViewPort) => {
-      console.log("VIEWPORT_", viewport);
-      if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(
-          JSON.stringify({
-            type: "viewport_update",
-            viewport,
-          })
-        );
-      }
-    },
-    [ws]
-  );
-
-  const markers = useMarkerStore((state) => state.markers);
+  }, [url]);
 
   return {
     markers,
-    clientId,
-    updateViewport,
     isConnected,
+    error,
+    currentViewport,
+    updateViewport,
+    clientId,
   };
-}
+};

@@ -1,12 +1,22 @@
-// hooks/useEventAssistantStore.ts - Modified to support WebSocket data
+// hooks/useEventAssistantStore.ts - Modified to use only WebSocket data
 import { create } from "zustand";
 import * as Haptics from "expo-haptics";
 import { EventType } from "@/components/Assistant/types";
-import { eventSuggestions } from "@/components/Assistant/data"; // Kept for fallback
 import { Platform, Linking } from "react-native";
 
 // Define view types
 type ActiveView = "details" | "share" | "search" | "camera" | "directions" | null;
+
+// Create a placeholder empty event for initial state
+const emptyEvent: EventType = {
+  emoji: "🔍",
+  title: "Searching for events",
+  description: "Looking for events in your area...",
+  location: "Unknown location",
+  time: "Unknown time",
+  distance: "Unknown distance",
+  categories: ["Search"],
+};
 
 interface EventAssistantState {
   // UI States
@@ -65,39 +75,57 @@ interface EventAssistantState {
 
   // Action bar handler
   handleActionPress: (action: string, simulateTextStreaming: (text: string) => void) => void;
+
+  // Check if we have real events
+  hasEvents: () => boolean;
 }
 
 export const useEventAssistantStore = create<EventAssistantState>((set, get) => {
-  // Initial state with fallback to hardcoded data
-  // This will be replaced with WebSocket data when available
-  const initialEvent = eventSuggestions[0];
+  // Start with empty state instead of fallback data
   let currentIndex = 0;
 
   return {
     // UI States
     showActions: false,
-    setShowActions: (show) => set({ showActions: show }),
+    setShowActions: (show) => {
+      console.log("🔘 setShowActions:", show);
+      set({ showActions: show });
+    },
 
     messageIndex: 0,
-    setMessageIndex: (index) => set({ messageIndex: index }),
+    setMessageIndex: (index) => {
+      console.log("📋 setMessageIndex:", index);
+      set({ messageIndex: index });
+    },
 
     transitionMessage: null,
-    setTransitionMessage: (message) => set({ transitionMessage: message }),
+    setTransitionMessage: (message) => {
+      console.log("💬 setTransitionMessage:", message);
+      set({ transitionMessage: message });
+    },
 
-    // Events list management - dynamic from WebSocket
-    eventList: eventSuggestions, // Initialize with fallback data
+    // Events list management - start with empty list
+    eventList: [],
     setEventList: (events) => {
       if (events && events.length > 0) {
+        console.log("📊 setEventList:", events.length, "events");
         set({ eventList: events });
       }
     },
 
-    // Current event
-    currentEvent: initialEvent,
+    // Current event - start with empty placeholder
+    currentEvent: emptyEvent,
     setCurrentEvent: (event) => {
       if (event) {
+        console.log("🎯 setCurrentEvent:", event.title);
         set({ currentEvent: event });
       }
+    },
+
+    // Helper to check if we have real events
+    hasEvents: () => {
+      const { eventList } = get();
+      return eventList.length > 0;
     },
 
     // View management
@@ -127,16 +155,28 @@ export const useEventAssistantStore = create<EventAssistantState>((set, get) => 
       }
 
       try {
-        // Ensure currentIndex stays within bounds
-        currentIndex = Math.min(currentIndex, eventList.length - 1);
-        currentIndex = (currentIndex + 1) % eventList.length;
-        const nextEvent = eventList[currentIndex];
+        // Find the current index in the event list
+        let currentIndex = eventList.findIndex(
+          (event) => event.title === currentEvent.title && event.location === currentEvent.location
+        );
+
+        // Calculate next index with proper wrapping
+        const nextIndex =
+          currentIndex === -1 || currentIndex === eventList.length - 1 ? 0 : currentIndex + 1;
+
+        const nextEvent = eventList[nextIndex];
 
         if (nextEvent) {
+          // Update the global current index
+          currentIndex = nextIndex;
           set({ currentEvent: nextEvent });
+
+          // Add visual feedback in console
+          console.log(`📊 Navigated to next event: ${nextIndex + 1}/${eventList.length}`);
+
           return nextEvent;
         } else {
-          console.warn(`Event at index ${currentIndex} is undefined`);
+          console.warn(`Event at index ${nextIndex} is undefined`);
           return currentEvent;
         }
       } catch (error) {
@@ -155,16 +195,28 @@ export const useEventAssistantStore = create<EventAssistantState>((set, get) => 
       }
 
       try {
-        // Ensure currentIndex stays within bounds
-        currentIndex = Math.min(currentIndex, eventList.length - 1);
-        currentIndex = (currentIndex - 1 + eventList.length) % eventList.length;
-        const prevEvent = eventList[currentIndex];
+        // Find the current index in the event list
+        let currentIndex = eventList.findIndex(
+          (event) => event.title === currentEvent.title && event.location === currentEvent.location
+        );
+
+        // Calculate previous index with proper wrapping
+        const prevIndex =
+          currentIndex === -1 || currentIndex === 0 ? eventList.length - 1 : currentIndex - 1;
+
+        const prevEvent = eventList[prevIndex];
 
         if (prevEvent) {
+          // Update the global current index
+          currentIndex = prevIndex;
           set({ currentEvent: prevEvent });
+
+          // Add visual feedback in console
+          console.log(`📊 Navigated to previous event: ${prevIndex + 1}/${eventList.length}`);
+
           return prevEvent;
         } else {
-          console.warn(`Event at index ${currentIndex} is undefined`);
+          console.warn(`Event at index ${prevIndex} is undefined`);
           return currentEvent;
         }
       } catch (error) {
@@ -293,6 +345,13 @@ export const useEventAssistantStore = create<EventAssistantState>((set, get) => 
 
       set({ showActions: false });
 
+      // Check if we have events to handle first
+      if ((action === "next" || action === "previous") && !state.hasEvents()) {
+        simulateTextStreaming("I don't see any events in this area yet. Try exploring the map!");
+        setTimeout(() => set({ showActions: true }), 2000);
+        return;
+      }
+
       if (action === "details") {
         // Show transition message first
         set({ transitionMessage: "Opening event details..." });
@@ -306,7 +365,7 @@ export const useEventAssistantStore = create<EventAssistantState>((set, get) => 
             set({ transitionMessage: null });
           }, 300);
 
-          simulateTextStreaming("I've pulled up the events view for you.");
+          simulateTextStreaming("I've pulled up the event details for you.");
         }, 800);
       } else if (action === "directions") {
         set({ transitionMessage: "Opening maps..." });
@@ -346,17 +405,43 @@ export const useEventAssistantStore = create<EventAssistantState>((set, get) => 
         set({ transitionMessage: "Finding next event..." });
         set({ messageIndex: 0 });
         const nextEvent = state.navigateToNext();
+
+        // Get the list of events for context
+        const { eventList } = state;
+        const currentIndex = eventList.findIndex(
+          (event) => event.title === nextEvent.title && event.location === nextEvent.location
+        );
+
         setTimeout(() => {
           set({ transitionMessage: null });
-          simulateTextStreaming(`I found an event near you!`);
+
+          // Enhanced message with event number and total count
+          simulateTextStreaming(
+            `Event ${currentIndex + 1} of ${eventList.length}: ${nextEvent.emoji} ${
+              nextEvent.title
+            }`
+          );
         }, 800);
       } else if (action === "previous") {
         set({ transitionMessage: "Finding previous event..." });
         set({ messageIndex: 0 });
         const prevEvent = state.navigateToPrevious();
+
+        // Get the list of events for context
+        const { eventList } = state;
+        const currentIndex = eventList.findIndex(
+          (event) => event.title === prevEvent.title && event.location === prevEvent.location
+        );
+
         setTimeout(() => {
           set({ transitionMessage: null });
-          simulateTextStreaming(`I found an event near you!`);
+
+          // Enhanced message with event number and total count
+          simulateTextStreaming(
+            `Event ${currentIndex + 1} of ${eventList.length}: ${prevEvent.emoji} ${
+              prevEvent.title
+            }`
+          );
         }, 800);
       } else {
         simulateTextStreaming(`What would you like to know about this event?`);
