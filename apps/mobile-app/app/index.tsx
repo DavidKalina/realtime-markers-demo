@@ -1,12 +1,11 @@
-import React, { useEffect, useState, useRef } from "react";
-import { View, Text, StyleSheet, Platform, ActivityIndicator, Alert } from "react-native";
-import MapboxGL from "@rnmapbox/maps";
-import { useMapWebSocket } from "@/hooks/useMapWebsocket";
-import { useMarkerStore } from "@/stores/markerStore";
-import WebSocketDebugger from "@/components/Assistant/WebSocketDebugger";
 import WebSocketEventAssistant from "@/components/Assistant/WebSocketAssistant";
-import * as Location from "expo-location";
+import WebSocketDebugger from "@/components/Assistant/WebSocketDebugger";
 import { SimpleMapMarkers } from "@/components/MarkerImplementation";
+import { useMapWebSocket } from "@/hooks/useMapWebsocket";
+import MapboxGL from "@rnmapbox/maps";
+import * as Location from "expo-location";
+import React, { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Platform, StyleSheet, Text, View } from "react-native";
 
 // Set Mapbox access token - use your actual token here
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -20,7 +19,7 @@ export default function HomeScreen() {
 
   // Connect to the WebSocket
   const { markers, isConnected, updateViewport } = useMapWebSocket(
-    `wss://20b3-69-162-231-94.ngrok-free.app`
+    process.env.EXPO_PUBLIC_WEB_SOCKET_URL!
   );
 
   useEffect(() => {
@@ -179,7 +178,7 @@ export default function HomeScreen() {
 
         {/* Debugger component */}
         <WebSocketDebugger
-          wsUrl={`wss://20b3-69-162-231-94.ngrok-free.app`}
+          wsUrl={process.env.EXPO_PUBLIC_WEB_SOCKET_URL!}
           isConnected={isConnected}
           markers={markers}
         />

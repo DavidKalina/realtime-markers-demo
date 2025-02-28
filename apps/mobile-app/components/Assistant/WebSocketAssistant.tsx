@@ -1,14 +1,13 @@
+import { useMapWebSocket } from "@/hooks/useMapWebsocket";
+import { useEventAssistantStore } from "@/stores/useEventAssistantStore";
 import React, { useEffect } from "react";
 import { View } from "react-native";
 import EventAssistantWithStores from "./AnimatedAssistant";
-import { useMapWebSocket } from "@/hooks/useMapWebsocket";
-import { useMarkerStore } from "@/stores/markerStore";
-import { useEventAssistantStore } from "@/stores/useEventAssistantStore";
-import { EventType } from "./types";
 import ConnectionIndicator from "./ConnectionIndicator";
+import { EventType } from "./types";
 
 // This is your WebSocket URL - you'll need to provide the actual URL
-const WEBSOCKET_URL = `wss://20b3-69-162-231-94.ngrok-free.app`;
+const WEBSOCKET_URL = process.env.EXPO_PUBLIC_WEB_SOCKET_URL!;
 
 // Convert a marker to the EventType format used by the assistant
 const markerToEvent = (marker: any): EventType => {
