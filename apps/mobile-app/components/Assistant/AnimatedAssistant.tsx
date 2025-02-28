@@ -1,4 +1,4 @@
-// EventAssistantPreview.tsx
+// EventAssistantPreview.tsx - Updated with ShareView integration
 import React, { useEffect, useState } from "react";
 import { GestureResponderEvent, LayoutChangeEvent, View, Linking, Platform } from "react-native";
 import * as Haptics from "expo-haptics";
@@ -14,7 +14,9 @@ import { EventDetailsView } from "./EventDetailsView";
 import { styles } from "./styles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SearchView } from "./SearchView";
+import { ShareView } from "./ShareView"; // Import the updated ShareView
 import { EventType } from "./types";
+import { ScanView } from "./ScanView";
 
 // Define view types
 type ActiveView = "details" | "share" | "search" | "camera" | "directions" | null;
@@ -29,11 +31,13 @@ const EventAssistantPreview: React.FC = () => {
   );
   const [transitionMessage, setTransitionMessage] = useState<string | null>(null);
 
-  // New state for fullscreen view management
+  const [scanViewVisible, setScanViewVisible] = useState(false);
+
+  // View management states
   const [detailsViewVisible, setDetailsViewVisible] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>(null);
-
   const [searchViewVisible, setSearchViewVisible] = useState(false);
+  const [shareViewVisible, setShareViewVisible] = useState(false); // Add share view state
 
   const { currentStreamedText, isTyping, simulateTextStreaming } = useTextStreaming();
   const { currentEvent, navigateToNext, navigateToPrevious } = useEventNavigation(
@@ -74,10 +78,23 @@ const EventAssistantPreview: React.FC = () => {
     simulateTextStreaming(messages[0]);
   };
 
-  // Close active view
+  // Close active views
   const closeDetailsView = () => {
     setDetailsViewVisible(false);
-    // Use a timeout to wait for the animation to complete before clearing the active view
+    setTimeout(() => {
+      setActiveView(null);
+    }, 300);
+  };
+
+  const closeShareView = () => {
+    setShareViewVisible(false);
+    setTimeout(() => {
+      setActiveView(null);
+    }, 300);
+  };
+
+  const closeSearchView = () => {
+    setSearchViewVisible(false);
     setTimeout(() => {
       setActiveView(null);
     }, 300);
@@ -117,16 +134,38 @@ const EventAssistantPreview: React.FC = () => {
       // Trigger haptic feedback
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Show share view
+      // Show share view - updated to use the new consistent UI
       setActiveView("share");
-      setDetailsViewVisible(true);
+      setShareViewVisible(true);
 
-      // In a real app, you would open the contacts picker or share sheet here
       simulateTextStreaming(`Creating shareable link for "${currentEvent.title}"...`);
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       simulateTextStreaming("There was an error preparing to share this event.");
     }
+  };
+
+  const closeScanView = () => {
+    setScanViewVisible(false);
+    setTimeout(() => {
+      setActiveView(null);
+    }, 300);
+  };
+
+  // Add handler for selecting scanned event
+  const handleScannedEvent = (event: EventType) => {
+    // Set the current event
+
+    // Close the scan view
+    setScanViewVisible(false);
+    setActiveView(null);
+
+    // Show details for the scanned event
+    setTimeout(() => {
+      setActiveView("details");
+      setDetailsViewVisible(true);
+      simulateTextStreaming(`I found details about "${event.title}"`);
+    }, 500);
   };
 
   // Navigate to camera screen
@@ -155,14 +194,6 @@ const EventAssistantPreview: React.FC = () => {
       setActiveView("details");
       setDetailsViewVisible(true);
     }, 500);
-  };
-
-  const closeSearchView = () => {
-    setSearchViewVisible(false);
-    // Use a timeout to wait for the animation to complete before clearing the active view
-    setTimeout(() => {
-      setActiveView(null);
-    }, 300);
   };
 
   const handleActionPress = (action: string) => {
@@ -210,9 +241,10 @@ const EventAssistantPreview: React.FC = () => {
         simulateTextStreaming("I've pulled up the search view for you.");
       }, 800);
     } else if (action === "camera") {
-      setTransitionMessage("Opening camera...");
+      setTransitionMessage("Opening scanner...");
       setTimeout(() => {
-        navigateToCamera();
+        setActiveView("camera");
+        setScanViewVisible(true);
         setTimeout(() => {
           setTransitionMessage(null);
         }, 300);
@@ -267,11 +299,25 @@ const EventAssistantPreview: React.FC = () => {
           onGetDirections={() => openMaps(currentEvent.location)}
         />
       )}
+
+      {/* Share View - Positioned above the assistant, using the same conventions */}
+      {activeView === "share" && (
+        <ShareView isVisible={shareViewVisible} event={currentEvent} onClose={closeShareView} />
+      )}
+
       {activeView === "search" && (
         <SearchView
           isVisible={searchViewVisible}
           onClose={closeSearchView}
           onSelectEvent={handleSelectEventFromSearch}
+        />
+      )}
+
+      {activeView === "camera" && (
+        <ScanView
+          isVisible={scanViewVisible}
+          onClose={closeScanView}
+          onScanComplete={handleScannedEvent}
         />
       )}
 

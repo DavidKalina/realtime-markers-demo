@@ -45,13 +45,7 @@ export const ActionBar: React.FC<ActionBarProps> = ({ onActionPress }) => {
       scaleValue: detailsScale,
       action: () => handlePress("details"),
     },
-    {
-      key: "directions",
-      label: "Maps",
-      icon: <Navigation size={20} color="#4dabf7" style={styles.icon} />,
-      scaleValue: directionsScale,
-      action: () => handlePress("directions"),
-    },
+
     {
       key: "share",
       label: "Share",
