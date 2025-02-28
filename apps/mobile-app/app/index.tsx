@@ -1,12 +1,15 @@
+// screens/HomeScreen.tsx - Updated with EventBroker
 import { SimpleMapMarkers } from "@/components/MarkerImplementation";
+import EventDrivenAssistant from "@/components/RefactoredAssistant/Assistant";
+import { eventSuggestions } from "@/components/RefactoredAssistant/data";
+import { useEventBroker } from "@/hooks/useEventBroker";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
+import { BaseEvent, EventTypes } from "@/services/EventBroker";
+import { useEventAssistantStore } from "@/stores/useEventAssistantStore";
 import MapboxGL from "@rnmapbox/maps";
 import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Platform, StyleSheet, Text, View } from "react-native";
-import { eventSuggestions } from "@/components/RefactoredAssistant/data";
-import { useEventAssistantStore } from "@/stores/useEventAssistantStore";
-import EventDrivenAssistant from "@/components/RefactoredAssistant/Assistant";
 
 // Set Mapbox access token
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -17,14 +20,15 @@ export default function HomeScreen() {
   const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const mapRef = useRef<MapboxGL.MapView>(null);
+  const { publish } = useEventBroker();
 
-  // Get the setEventList function from the store to initialize with static data
+  // Get the setCurrentEvent function from the store to initialize with static data
   const { setCurrentEvent } = useEventAssistantStore();
 
   // Use a single WebSocket connection for the entire app
   const mapWebSocketData = useMapWebSocket(process.env.EXPO_PUBLIC_WEB_SOCKET_URL!);
 
-  const { markers, isConnected, updateViewport, currentViewport } = mapWebSocketData;
+  const { markers, isConnected, updateViewport } = mapWebSocketData;
 
   // Log marker updates for debugging
   useEffect(() => {
@@ -74,7 +78,15 @@ export default function HomeScreen() {
         });
 
         // Update state with user coordinates in [longitude, latitude] format for Mapbox
-        setUserLocation([location.coords.longitude, location.coords.latitude]);
+        const userCoords: [number, number] = [location.coords.longitude, location.coords.latitude];
+        setUserLocation(userCoords);
+
+        // Emit user location updated event
+        publish<BaseEvent & { coordinates: [number, number] }>(EventTypes.USER_LOCATION_UPDATED, {
+          timestamp: Date.now(),
+          source: "HomeScreen",
+          coordinates: userCoords,
+        });
       } catch (error) {
         console.error("Error getting location:", error);
         Alert.alert(
@@ -82,13 +94,20 @@ export default function HomeScreen() {
           "Couldn't determine your location. Using default location instead.",
           [{ text: "OK" }]
         );
+
+        // Emit error event
+        publish<BaseEvent & { error: string }>(EventTypes.ERROR_OCCURRED, {
+          timestamp: Date.now(),
+          source: "HomeScreen",
+          error: "Failed to get user location",
+        });
       } finally {
         setIsLoadingLocation(false);
       }
     };
 
     getUserLocation();
-  }, []);
+  }, [publish]);
 
   // Handle map viewport changes
   const handleMapViewportChange = (feature: any) => {
@@ -139,6 +158,12 @@ export default function HomeScreen() {
         onDidFinishLoadingMap={() => {
           console.log("Map finished loading");
           setIsMapReady(true);
+
+          // Emit map ready event
+          publish<BaseEvent>(EventTypes.MAP_READY, {
+            timestamp: Date.now(),
+            source: "HomeScreen",
+          });
         }}
         onRegionDidChange={handleMapViewportChange}
       >
@@ -181,16 +206,8 @@ export default function HomeScreen() {
         )}
       </MapboxGL.MapView>
 
-      {/* Pass WebSocket data as props to EventDrivenAssistant */}
-      <View style={styles.assistantOverlay}>
-        {isMapReady && (
-          <EventDrivenAssistant
-            markers={markers}
-            isConnected={isConnected}
-            currentViewport={currentViewport}
-          />
-        )}
-      </View>
+      {/* EventDrivenAssistant now doesn't need props - it uses the event broker */}
+      <View style={styles.assistantOverlay}>{isMapReady && <EventDrivenAssistant />}</View>
     </View>
   );
 }

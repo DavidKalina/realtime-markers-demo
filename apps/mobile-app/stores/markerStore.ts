@@ -1,4 +1,6 @@
+// stores/useMarkerStore.ts - Updated with EventBroker integration
 import { create } from "zustand";
+import { eventBroker, EventTypes, MarkerEvent, BaseEvent } from "@/services/EventBroker";
 
 interface Marker {
   id: string;
@@ -9,6 +11,7 @@ interface Marker {
     color: string;
     created_at: string;
     updated_at: string;
+    [key: string]: any;
   };
 }
 
@@ -34,7 +37,15 @@ export const useMarkerStore = create<MarkerState>((set, get) => ({
         ? markers.some((m) => m.id === state.selectedMarkerId)
         : false;
 
-      console.log({ selectedExists });
+      console.log("Selected marker exists:", selectedExists);
+
+      // If the selected marker no longer exists, emit a deselection event
+      if (state.selectedMarkerId && !selectedExists) {
+        eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
+          timestamp: Date.now(),
+          source: "useMarkerStore",
+        });
+      }
 
       return {
         markers,
@@ -71,15 +82,51 @@ export const useMarkerStore = create<MarkerState>((set, get) => ({
     }),
 
   deleteMarker: (markerId) =>
-    set((state) => ({
-      markers: state.markers.filter((m) => m.id !== markerId),
-      selectedMarkerId: state.selectedMarkerId === markerId ? null : state.selectedMarkerId,
-      selectedMarker: state.selectedMarkerId === markerId ? null : state.selectedMarker,
-    })),
+    set((state) => {
+      // If we're deleting the currently selected marker, emit deselection event
+      if (state.selectedMarkerId === markerId) {
+        eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
+          timestamp: Date.now(),
+          source: "useMarkerStore",
+        });
+      }
+
+      return {
+        markers: state.markers.filter((m) => m.id !== markerId),
+        selectedMarkerId: state.selectedMarkerId === markerId ? null : state.selectedMarkerId,
+        selectedMarker: state.selectedMarkerId === markerId ? null : state.selectedMarker,
+      };
+    }),
 
   selectMarker: (markerId) =>
-    set((state) => ({
-      selectedMarkerId: markerId,
-      selectedMarker: markerId ? state.markers.find((m) => m.id === markerId) || null : null,
-    })),
+    set((state) => {
+      // If the selected marker is changing, emit appropriate events
+      if (state.selectedMarkerId !== markerId) {
+        // If we had a previously selected marker, emit deselection event
+        if (state.selectedMarkerId) {
+          eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
+            timestamp: Date.now(),
+            source: "useMarkerStore",
+          });
+        }
+
+        // If we're selecting a new marker, emit selection event
+        if (markerId) {
+          const marker = state.markers.find((m) => m.id === markerId);
+          if (marker) {
+            eventBroker.emit<MarkerEvent>(EventTypes.MARKER_SELECTED, {
+              timestamp: Date.now(),
+              source: "useMarkerStore",
+              markerId,
+              markerData: marker,
+            });
+          }
+        }
+      }
+
+      return {
+        selectedMarkerId: markerId,
+        selectedMarker: markerId ? state.markers.find((m) => m.id === markerId) || null : null,
+      };
+    }),
 }));

@@ -1,8 +1,10 @@
-// SimpleMapMarkers.tsx
+// components/MarkerImplementation.tsx - Updated with EventBroker
 import React from "react";
 import MapboxGL from "@rnmapbox/maps";
 import { useMarkerStore } from "@/stores/markerStore";
-import { CustomMapMarker, EventType } from "./CustomMapMarker";
+import { CustomMapMarker } from "./CustomMapMarker";
+import { useEventBroker } from "@/hooks/useEventBroker";
+import { EventTypes, MarkerEvent } from "@/services/EventBroker";
 
 interface SimpleMapMarkersProps {
   markers: Array<{
@@ -26,11 +28,27 @@ export const SimpleMapMarkers: React.FC<SimpleMapMarkersProps> = ({ markers }) =
   // Get selected marker from your store
   const selectedMarker = useMarkerStore((state) => state.selectedMarker);
   const setSelectedMarker = useMarkerStore((state) => state.selectMarker);
+  const { publish } = useEventBroker();
 
   // Handle marker selection
   const handleMarkerPress = (marker: any) => {
     console.log("Marker pressed:", marker.id);
-    setSelectedMarker(marker);
+
+    // If we're selecting the same marker again, do nothing
+    if (selectedMarker?.id === marker.id) {
+      return;
+    }
+
+    // Update the marker store
+    setSelectedMarker(marker.id);
+
+    // Emit marker selection event
+    publish<MarkerEvent>(EventTypes.MARKER_SELECTED, {
+      timestamp: Date.now(),
+      source: "SimpleMapMarkers",
+      markerId: marker.id,
+      markerData: marker,
+    });
   };
 
   return (

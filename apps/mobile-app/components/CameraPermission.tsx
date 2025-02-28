@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useCameraPermissions } from "expo-camera";
-import { MorphingLoader } from "@/components/MorphingLoader";
 import Animated, { FadeIn, ZoomIn } from "react-native-reanimated";
 import * as Linking from "expo-linking";
 import { AppState } from "react-native";
@@ -91,7 +90,6 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
   if (permission === undefined) {
     return (
       <Animated.View style={styles.processingContainer} entering={ZoomIn.duration(500)}>
-        <MorphingLoader size={80} color="#69db7c" />
         <Text style={styles.processingText}>Checking camera permissions...</Text>
       </Animated.View>
     );
@@ -101,7 +99,6 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
   if (isProcessing) {
     return (
       <Animated.View style={styles.processingContainer} entering={FadeIn.duration(500)}>
-        <MorphingLoader size={80} color="#69db7c" />
         <Text style={styles.processingText}>
           {permission?.granted ? "Camera ready!" : "Processing permission request..."}
         </Text>
@@ -169,7 +166,6 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
   // If permission is granted, we show a transition screen
   return (
     <Animated.View style={styles.processingContainer} entering={FadeIn.duration(500)}>
-      <MorphingLoader size={80} color="#69db7c" />
       <Text style={styles.processingText}>Camera permission granted!</Text>
     </Animated.View>
   );

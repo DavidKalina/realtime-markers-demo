@@ -1,5 +1,12 @@
-// hooks/useMapWebsocket.ts
+// hooks/useMapWebsocket.ts - Updated with EventBroker
 import { useEffect, useState, useRef } from "react";
+import {
+  eventBroker,
+  EventTypes,
+  ViewportEvent,
+  MarkersEvent,
+  BaseEvent,
+} from "@/services/EventBroker";
 
 // Mapbox viewport format
 interface MapboxViewport {
@@ -47,6 +54,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
   const ws = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevMarkerCount = useRef<number>(0);
 
   // Create a WebSocket connection
   const connectWebSocket = () => {
@@ -62,6 +70,12 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         console.log("WebSocket connection established");
         setIsConnected(true);
         setError(null);
+
+        // Emit connection event
+        eventBroker.emit<BaseEvent>(EventTypes.WEBSOCKET_CONNECTED, {
+          timestamp: Date.now(),
+          source: "useMapWebSocket",
+        });
 
         // If we have a viewport, immediately send it
         if (currentViewport) {
@@ -88,6 +102,17 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               );
 
               setMarkers(initialMapboxMarkers);
+
+              // Emit markers updated event with count information
+              eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
+                timestamp: Date.now(),
+                source: "useMapWebSocket",
+                markers: initialMapboxMarkers,
+                count: initialMapboxMarkers.length,
+              });
+
+              // Track marker count for comparison
+              prevMarkerCount.current = initialMapboxMarkers.length;
               break;
 
             case "marker_updates_batch":
@@ -100,20 +125,44 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                 mapboxUpdates.forEach((marker: Marker) => {
                   markerMap.set(marker.id, marker);
                 });
-                return Array.from(markerMap.values());
+                const updatedMarkers = Array.from(markerMap.values());
+
+                // Emit markers updated event only if the count changed
+                if (updatedMarkers.length !== prevMarkerCount.current) {
+                  eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
+                    timestamp: Date.now(),
+                    source: "useMapWebSocket",
+                    markers: updatedMarkers,
+                    count: updatedMarkers.length,
+                  });
+                  // Update previous count
+                  prevMarkerCount.current = updatedMarkers.length;
+                }
+
+                return updatedMarkers;
               });
               break;
 
             case "marker_delete":
               console.log("Marker deleted:", data.data.id);
               // Remove deleted marker
-              setMarkers((prevMarkers) =>
-                prevMarkers.filter((marker) => marker.id !== data.data.id)
-              );
-              break;
+              setMarkers((prevMarkers) => {
+                const updatedMarkers = prevMarkers.filter((marker) => marker.id !== data.data.id);
 
-            case "debug_event":
-              console.log("Debug event:", data.data);
+                // Emit markers updated event if count changed
+                if (updatedMarkers.length !== prevMarkerCount.current) {
+                  eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
+                    timestamp: Date.now(),
+                    source: "useMapWebSocket",
+                    markers: updatedMarkers,
+                    count: updatedMarkers.length,
+                  });
+                  // Update previous count
+                  prevMarkerCount.current = updatedMarkers.length;
+                }
+
+                return updatedMarkers;
+              });
               break;
 
             default:
@@ -121,16 +170,32 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               if (Array.isArray(data)) {
                 const mapboxMarkers = data.map((marker: any) => convertRBushToMapbox(marker));
                 setMarkers(mapboxMarkers);
-              } else {
-                console.log("Unknown message type:", data.type);
+
+                // Emit markers updated event
+                eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
+                  timestamp: Date.now(),
+                  source: "useMapWebSocket",
+                  markers: mapboxMarkers,
+                  count: mapboxMarkers.length,
+                });
+
+                // Update previous count
+                prevMarkerCount.current = mapboxMarkers.length;
               }
               break;
           }
         } catch (err) {
           console.error("Error parsing WebSocket message:", err);
-          setError(
-            err instanceof Error ? err : new Error("Unknown error parsing WebSocket message")
-          );
+          const error =
+            err instanceof Error ? err : new Error("Unknown error parsing WebSocket message");
+          setError(error);
+
+          // Emit error event
+          eventBroker.emit<BaseEvent & { error: Error }>(EventTypes.ERROR_OCCURRED, {
+            timestamp: Date.now(),
+            source: "useMapWebSocket",
+            error,
+          });
         }
       };
 
@@ -138,6 +203,12 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
         setIsConnected(false);
         setClientId(null);
+
+        // Emit disconnection event
+        eventBroker.emit<BaseEvent>(EventTypes.WEBSOCKET_DISCONNECTED, {
+          timestamp: Date.now(),
+          source: "useMapWebSocket",
+        });
 
         // Attempt to reconnect after a delay
         if (reconnectTimeoutRef.current) {
@@ -151,13 +222,28 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
       ws.current.onerror = (event) => {
         console.error("WebSocket error:", event);
-        setError(new Error("WebSocket connection error"));
+        const error = new Error("WebSocket connection error");
+        setError(error);
+
+        // Emit error event
+        eventBroker.emit<BaseEvent & { error: Error }>(EventTypes.ERROR_OCCURRED, {
+          timestamp: Date.now(),
+          source: "useMapWebSocket",
+          error,
+        });
       };
     } catch (err) {
       console.error("Error creating WebSocket connection:", err);
-      setError(
-        err instanceof Error ? err : new Error("Unknown error creating WebSocket connection")
-      );
+      const error =
+        err instanceof Error ? err : new Error("Unknown error creating WebSocket connection");
+      setError(error);
+
+      // Emit error event
+      eventBroker.emit<BaseEvent & { error: Error }>(EventTypes.ERROR_OCCURRED, {
+        timestamp: Date.now(),
+        source: "useMapWebSocket",
+        error,
+      });
     }
   };
 
@@ -187,6 +273,13 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         };
 
         ws.current.send(JSON.stringify(message));
+
+        // Emit viewport changed event
+        eventBroker.emit<ViewportEvent>(EventTypes.VIEWPORT_CHANGED, {
+          timestamp: Date.now(),
+          source: "useMapWebSocket",
+          viewport,
+        });
       } catch (err) {
         console.error("Error sending viewport update:", err);
       }

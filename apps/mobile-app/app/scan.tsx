@@ -1,7 +1,6 @@
 import { CameraPermission } from "@/components/CameraPermission";
 import { CaptureButton } from "@/components/CaptureButton";
 import { EnhancedJobProcessor } from "@/components/JobProcessor";
-import { MorphingLoader } from "@/components/MorphingLoader";
 import { ImprovedProcessingView } from "@/components/ProcessingView";
 import { ScannerOverlay } from "@/components/ScannerOverlay";
 import { SuccessScreen } from "@/components/SuccessScreen";
@@ -287,7 +286,7 @@ export default function ScanScreen() {
     return (
       <View style={styles.container}>
         <Animated.View style={styles.processingContainer} entering={FadeIn.duration(500)}>
-          <MorphingLoader size={80} color="#69db7c" />
+          {/* <MorphingLoader size={80} color="#69db7c" /> */}
           <Text style={styles.processingText}>
             {hasPermission ? "Initializing camera..." : "Waiting for camera permissions..."}
           </Text>
