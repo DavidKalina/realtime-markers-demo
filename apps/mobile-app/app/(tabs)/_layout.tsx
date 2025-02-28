@@ -67,6 +67,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="assistant"
+        options={{
+          title: "ASSISTANT",
+          tabBarIcon: ({ color, size }) => (
+            <View style={styles.iconContainer}>
+              <Feather name="search" size={size ? size - 2 : 22} color={color} />
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="search"
         options={{
           title: "SEARCH",
