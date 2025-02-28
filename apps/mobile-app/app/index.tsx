@@ -1,72 +1,188 @@
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Platform } from "react-native";
-import AssistantScreen from "./assistant";
+import React, { useEffect, useState, useRef } from "react";
+import { View, Text, StyleSheet, Platform, ActivityIndicator, Alert } from "react-native";
 import MapboxGL from "@rnmapbox/maps";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { eventSuggestions } from "@/components/Assistant/data";
-import Mapbox from "@rnmapbox/maps";
+import { useMapWebSocket } from "@/hooks/useMapWebsocket";
+import { useMarkerStore } from "@/stores/markerStore";
+import WebSocketDebugger from "@/components/Assistant/WebSocketDebugger";
+import WebSocketEventAssistant from "@/components/Assistant/WebSocketAssistant";
+import * as Location from "expo-location";
+import { SimpleMapMarkers } from "@/components/MarkerImplementation";
 
-Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
-
-// In a real application, you should set your Mapbox access token in a secure way
-// MapboxGL.setAccessToken('your_mapbox_access_token');
-
-// Mock coordinates for the event locations
-const eventCoordinates = [
-  [-73.9857, 40.7484], // Example: Times Square
-  [-73.9762, 40.7614], // Example: Central Park
-  [-74.006, 40.7128], // Example: Downtown
-  [-73.9632, 40.7799], // Example: Upper East Side
-];
+// Set Mapbox access token - use your actual token here
+MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
 
 export default function HomeScreen() {
-  const insets = useSafeAreaInsets();
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+  const mapRef = useRef<MapboxGL.MapView>(null);
+
+  // Connect to the WebSocket
+  const { markers, isConnected, updateViewport } = useMapWebSocket(
+    `wss://20b3-69-162-231-94.ngrok-free.app`
+  );
 
   useEffect(() => {
-    // Initialize Mapbox configuration if needed
+    // Initialize Mapbox configuration
     if (Platform.OS === "android") {
       MapboxGL.setTelemetryEnabled(false);
     }
+
+    // Get user location permission and coordinates
+    const getUserLocation = async () => {
+      try {
+        setIsLoadingLocation(true);
+        console.log("Starting location acquisition process");
+
+        // Request location permissions
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        console.log("Location permission status:", status);
+
+        if (status !== "granted") {
+          setLocationPermissionGranted(false);
+          Alert.alert(
+            "Permission Denied",
+            "Allow location access to center the map on your position.",
+            [{ text: "OK" }]
+          );
+          setIsLoadingLocation(false);
+          return;
+        }
+
+        setLocationPermissionGranted(true);
+
+        // Disable caching and request high accuracy for testing
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+
+        console.log("Raw location received:", location);
+
+        // Update state with user coordinates in [longitude, latitude] format for Mapbox
+        setUserLocation([location.coords.longitude, location.coords.latitude]);
+        console.log("Set user location to:", [location.coords.longitude, location.coords.latitude]);
+      } catch (error) {
+        console.error("Error getting location:", error);
+        Alert.alert(
+          "Location Error",
+          "Couldn't determine your location. Using default location instead.",
+          [{ text: "OK" }]
+        );
+      } finally {
+        setIsLoadingLocation(false);
+      }
+    };
+
+    getUserLocation();
   }, []);
+
+  // Handle map viewport changes
+  const handleMapViewportChange = (feature: any) => {
+    // Debug the structure of the feature object
+    console.log("Map view changed, feature:", JSON.stringify(feature, null, 2));
+
+    // Safely access the bounds properties with proper checks
+    if (
+      feature?.properties?.visibleBounds &&
+      Array.isArray(feature.properties.visibleBounds) &&
+      feature.properties.visibleBounds.length === 2 &&
+      Array.isArray(feature.properties.visibleBounds[0]) &&
+      Array.isArray(feature.properties.visibleBounds[1])
+    ) {
+      // Mapbox GL native visibleBounds format is [[west, north], [east, south]]
+      const [[west, north], [east, south]] = feature.properties.visibleBounds;
+
+      // For longitude values (east/west), ensure west <= east for RBush spatial indexing
+      const adjustedWest = Math.min(west, east);
+      const adjustedEast = Math.max(west, east);
+
+      // Send adjusted coordinates to match RBush requirements
+      updateViewport({
+        north,
+        south,
+        east: adjustedEast,
+        west: adjustedWest,
+      });
+    } else {
+      console.warn("Invalid viewport bounds received:", feature?.properties?.visibleBounds);
+    }
+  };
 
   return (
     <View style={styles.container}>
+      {/* Loading indicator while connecting or getting location */}
+      {(!isConnected || isLoadingLocation) && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#4dabf7" />
+          <Text style={styles.loadingText}>
+            {isLoadingLocation ? "Getting your location..." : "Connecting to event server..."}
+          </Text>
+        </View>
+      )}
+
       {/* Mapbox Map as background */}
       <MapboxGL.MapView
+        ref={mapRef}
         style={styles.map}
-        styleURL={MapboxGL.StyleURL.Dark} // Dark theme to match the assistant UI
+        styleURL={MapboxGL.StyleURL.Light}
         logoEnabled={false}
         attributionEnabled={false}
+        onDidFinishLoadingMap={() => {
+          console.log("Map finished loading");
+          setIsMapReady(true);
+        }}
+        onRegionDidChange={handleMapViewportChange}
       >
-        <MapboxGL.Camera
-          defaultSettings={{
-            centerCoordinate: [-73.9857, 40.7484], // Central NYC area
-            zoomLevel: 13,
-          }}
-          animationDuration={0}
-        />
+        {userLocation ? (
+          <MapboxGL.Camera
+            centerCoordinate={userLocation}
+            zoomLevel={14}
+            animationDuration={1000}
+          />
+        ) : (
+          <MapboxGL.Camera
+            defaultSettings={{
+              // Default to Orem, UT instead of NYC
+              centerCoordinate: [-111.694, 40.298],
+              zoomLevel: 14,
+            }}
+            animationDuration={0}
+          />
+        )}
 
-        {/* Map annotations for each event */}
-        {eventSuggestions.map((event, index) => (
+        {/* User location marker */}
+        {userLocation && locationPermissionGranted && (
           <MapboxGL.PointAnnotation
-            key={`event-${index}`}
-            id={`event-${index}`}
-            coordinate={eventCoordinates[index % eventCoordinates.length]}
-            title={event.title}
+            id="userLocation"
+            coordinate={userLocation}
+            title="Your Location"
           >
-            {/* Custom marker content - Emoji */}
-            <View style={styles.markerContainer}>
-              <View style={styles.markerTextContainer}>
-                <Text style={styles.markerText}>{event.emoji}</Text>
-              </View>
+            <View style={styles.userLocationMarker}>
+              <View style={styles.userLocationDot} />
             </View>
           </MapboxGL.PointAnnotation>
-        ))}
+        )}
+
+        {/* Custom Map Markers - Using our simplified component */}
+        {isMapReady && <SimpleMapMarkers markers={markers} />}
+
+        {/* Add user location layer for the blue dot */}
+        {locationPermissionGranted && (
+          <MapboxGL.UserLocation visible={true} showsUserHeadingIndicator={true} />
+        )}
       </MapboxGL.MapView>
 
-      {/* Original AssistantScreen component positioned on top */}
+      {/* Event Assistant component overlaid on map */}
       <View style={styles.assistantOverlay}>
-        <AssistantScreen />
+        {isMapReady && <WebSocketEventAssistant />}
+
+        {/* Debugger component */}
+        <WebSocketDebugger
+          wsUrl={`wss://20b3-69-162-231-94.ngrok-free.app`}
+          isConnected={isConnected}
+          markers={markers}
+        />
       </View>
     </View>
   );
@@ -75,7 +191,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000", // Black background to avoid flash of white
+    backgroundColor: "#000",
   },
   map: {
     flex: 1,
@@ -87,25 +203,33 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: "transparent",
-    pointerEvents: "box-none", // Allow touch events to pass through to map except when hitting assistant components
+    pointerEvents: "box-none", // Allow touch events to pass through to map
   },
-  markerContainer: {
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  loadingText: {
+    color: "#f8f9fa",
+    fontSize: 16,
+    marginTop: 12,
+    fontFamily: "SpaceMono",
+  },
+  userLocationMarker: {
+    width: 20,
+    height: 20,
     alignItems: "center",
     justifyContent: "center",
-    width: 40,
-    height: 40,
   },
-  markerTextContainer: {
-    backgroundColor: "#3a3a3a",
-    borderRadius: 20,
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#4a4a4a",
-  },
-  markerText: {
-    fontSize: 20,
+  userLocationDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#4dabf7",
+    borderWidth: 3,
+    borderColor: "#fff",
   },
 });

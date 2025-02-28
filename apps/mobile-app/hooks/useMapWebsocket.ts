@@ -28,6 +28,7 @@ export function useMapWebSocket(wsUrl: string) {
     }
 
     console.log("Establishing WebSocket connection to:", wsUrl);
+
     const websocket = new WebSocket(wsUrl);
 
     websocket.onopen = () => {
@@ -151,6 +152,7 @@ export function useMapWebSocket(wsUrl: string) {
   // Function to update viewport
   const updateViewport = useCallback(
     (viewport: ViewPort) => {
+      console.log("VIEWPORT_", viewport);
       if (ws?.readyState === WebSocket.OPEN) {
         ws.send(
           JSON.stringify({

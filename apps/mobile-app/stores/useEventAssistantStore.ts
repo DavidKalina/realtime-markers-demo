@@ -1,8 +1,8 @@
-// hooks/useEventAssistantStore.ts
+// hooks/useEventAssistantStore.ts - Modified to support WebSocket data
 import { create } from "zustand";
 import * as Haptics from "expo-haptics";
 import { EventType } from "@/components/Assistant/types";
-import { eventSuggestions } from "@/components/Assistant/data";
+import { eventSuggestions } from "@/components/Assistant/data"; // Kept for fallback
 import { Platform, Linking } from "react-native";
 
 // Define view types
@@ -19,8 +19,13 @@ interface EventAssistantState {
   transitionMessage: string | null;
   setTransitionMessage: (message: string | null) => void;
 
+  // Events state management
+  eventList: EventType[];
+  setEventList: (events: EventType[]) => void;
+
   // Current event
   currentEvent: EventType;
+  setCurrentEvent: (event: EventType) => void;
   navigateToNext: () => EventType;
   navigateToPrevious: () => EventType;
 
@@ -63,7 +68,8 @@ interface EventAssistantState {
 }
 
 export const useEventAssistantStore = create<EventAssistantState>((set, get) => {
-  // Initial state
+  // Initial state with fallback to hardcoded data
+  // This will be replaced with WebSocket data when available
   const initialEvent = eventSuggestions[0];
   let currentIndex = 0;
 
@@ -78,8 +84,21 @@ export const useEventAssistantStore = create<EventAssistantState>((set, get) => 
     transitionMessage: null,
     setTransitionMessage: (message) => set({ transitionMessage: message }),
 
+    // Events list management - dynamic from WebSocket
+    eventList: eventSuggestions, // Initialize with fallback data
+    setEventList: (events) => {
+      if (events && events.length > 0) {
+        set({ eventList: events });
+      }
+    },
+
     // Current event
     currentEvent: initialEvent,
+    setCurrentEvent: (event) => {
+      if (event) {
+        set({ currentEvent: event });
+      }
+    },
 
     // View management
     activeView: null,
@@ -97,19 +116,61 @@ export const useEventAssistantStore = create<EventAssistantState>((set, get) => 
     scanViewVisible: false,
     setScanViewVisible: (visible) => set({ scanViewVisible: visible }),
 
-    // Navigation handlers
+    // Navigation handlers - updated to use the dynamic eventList
     navigateToNext: () => {
-      currentIndex = (currentIndex + 1) % eventSuggestions.length;
-      const nextEvent = eventSuggestions[currentIndex];
-      set({ currentEvent: nextEvent });
-      return nextEvent;
+      const { eventList, currentEvent } = get();
+
+      // Handle empty event list
+      if (!eventList || eventList.length === 0) {
+        console.warn("Cannot navigate: event list is empty");
+        return currentEvent;
+      }
+
+      try {
+        // Ensure currentIndex stays within bounds
+        currentIndex = Math.min(currentIndex, eventList.length - 1);
+        currentIndex = (currentIndex + 1) % eventList.length;
+        const nextEvent = eventList[currentIndex];
+
+        if (nextEvent) {
+          set({ currentEvent: nextEvent });
+          return nextEvent;
+        } else {
+          console.warn(`Event at index ${currentIndex} is undefined`);
+          return currentEvent;
+        }
+      } catch (error) {
+        console.error("Error navigating to next event:", error);
+        return currentEvent;
+      }
     },
 
     navigateToPrevious: () => {
-      currentIndex = (currentIndex - 1 + eventSuggestions.length) % eventSuggestions.length;
-      const prevEvent = eventSuggestions[currentIndex];
-      set({ currentEvent: prevEvent });
-      return prevEvent;
+      const { eventList, currentEvent } = get();
+
+      // Handle empty event list
+      if (!eventList || eventList.length === 0) {
+        console.warn("Cannot navigate: event list is empty");
+        return currentEvent;
+      }
+
+      try {
+        // Ensure currentIndex stays within bounds
+        currentIndex = Math.min(currentIndex, eventList.length - 1);
+        currentIndex = (currentIndex - 1 + eventList.length) % eventList.length;
+        const prevEvent = eventList[currentIndex];
+
+        if (prevEvent) {
+          set({ currentEvent: prevEvent });
+          return prevEvent;
+        } else {
+          console.warn(`Event at index ${currentIndex} is undefined`);
+          return currentEvent;
+        }
+      } catch (error) {
+        console.error("Error navigating to previous event:", error);
+        return currentEvent;
+      }
     },
 
     // View handlers
