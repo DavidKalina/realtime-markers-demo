@@ -1,5 +1,6 @@
+// ActionBar.tsx - Updated with harmonized styles
 import React, { useState } from "react";
-import { ScrollView, TouchableOpacity, View, Text } from "react-native";
+import { ScrollView, View, Text, TouchableOpacity } from "react-native";
 import {
   Info,
   Navigation,
@@ -15,10 +16,9 @@ import Animated, {
   useAnimatedStyle,
   withSequence,
   withTiming,
-  runOnJS,
   Easing,
 } from "react-native-reanimated";
-import { styles } from "./styles";
+import { styles } from "./styles"; // Using the newly organized styles
 
 interface ActionBarProps {
   onActionPress: (action: string) => void;
@@ -40,35 +40,36 @@ export const ActionBar: React.FC<ActionBarProps> = ({ onActionPress }) => {
     {
       key: "details",
       label: "Details",
-      icon: <Info size={20} color="#fcd34d" style={styles.icon} />,
+      // Updated icon color to match the modern style
+      icon: <Info size={20} color="#4dabf7" style={styles.icon} />,
       scaleValue: detailsScale,
       action: () => handlePress("details"),
     },
     {
       key: "directions",
       label: "Maps",
-      icon: <Navigation size={20} color="#fcd34d" style={styles.icon} />,
+      icon: <Navigation size={20} color="#4dabf7" style={styles.icon} />,
       scaleValue: directionsScale,
       action: () => handlePress("directions"),
     },
     {
       key: "share",
       label: "Share",
-      icon: <Share2 size={20} color="#fcd34d" style={styles.icon} />,
+      icon: <Share2 size={20} color="#4dabf7" style={styles.icon} />,
       scaleValue: shareScale,
       action: () => handlePress("share"),
     },
     {
       key: "search",
       label: "Search",
-      icon: <SearchIcon size={20} color="#fcd34d" style={styles.icon} />,
+      icon: <SearchIcon size={20} color="#4dabf7" style={styles.icon} />,
       scaleValue: searchScale,
       action: () => handlePress("search"),
     },
     {
       key: "scan",
       label: "Scan",
-      icon: <Camera size={20} color="#fcd34d" style={styles.icon} />,
+      icon: <Camera size={20} color="#4dabf7" style={styles.icon} />,
       scaleValue: scanScale,
       action: () => handlePress("camera"),
     },
@@ -156,21 +157,22 @@ export const ActionBar: React.FC<ActionBarProps> = ({ onActionPress }) => {
 
   return (
     <View style={styles.bottomBar}>
-      <Animated.View style={previousAnimatedStyle}>
+      <Animated.View style={[styles.chevronContainer, previousAnimatedStyle]}>
         <TouchableOpacity
           style={[styles.actionButton, activeAction === "previous" && styles.activeActionButton]}
           onPress={() => handlePress("previous")}
         >
-          <ChevronLeft size={20} color="#fcd34d" style={styles.icon} />
+          <ChevronLeft size={24} color="#f8f9fa" />
         </TouchableOpacity>
       </Animated.View>
 
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.scrollViewContainer}
         contentContainerStyle={[
-          styles.scrollableActions,
-          actionCount <= 3 && { flexGrow: 1, justifyContent: "space-evenly" },
+          styles.scrollableActionsContainer,
+          actionCount <= 3 && { justifyContent: "space-evenly" },
         ]}
       >
         {scrollableActions.map((action) => (
@@ -190,12 +192,12 @@ export const ActionBar: React.FC<ActionBarProps> = ({ onActionPress }) => {
         ))}
       </ScrollView>
 
-      <Animated.View style={nextAnimatedStyle}>
+      <Animated.View style={[styles.chevronContainer, nextAnimatedStyle]}>
         <TouchableOpacity
           style={[styles.actionButton, activeAction === "next" && styles.activeActionButton]}
           onPress={() => handlePress("next")}
         >
-          <ChevronRight size={20} color="#fcd34d" style={styles.icon} />
+          <ChevronRight size={24} color="#f8f9fa" />
         </TouchableOpacity>
       </Animated.View>
     </View>

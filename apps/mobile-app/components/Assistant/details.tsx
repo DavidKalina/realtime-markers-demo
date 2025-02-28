@@ -1,0 +1,144 @@
+// styles/details.ts
+import { Platform, StyleSheet } from "react-native";
+
+export const details = StyleSheet.create({
+  detailsScreenContainer: {
+    position: "absolute",
+    top: 40,
+    left: 20,
+    right: 20,
+    bottom: 200, // More space for the assistant at the bottom
+    backgroundColor: "#333",
+    borderRadius: 16, // Add rounded corners
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 1000,
+  },
+  headerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#3a3a3a",
+    borderTopLeftRadius: 16, // Match the container's border radius
+    borderTopRightRadius: 16, // Match the container's border radius
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+  },
+  scrollView: {
+    flex: 1,
+    padding: 16,
+  },
+  detailsCard: {
+    backgroundColor: "#3a3a3a",
+    borderRadius: 12,
+    padding: 16,
+    width: "100%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  eventHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#4a4a4a",
+  },
+  eventTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  eventTitle: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#f8f9fa",
+    flex: 1,
+    fontFamily: "SpaceMono",
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: "#40c057",
+  },
+  statusText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "500",
+    fontFamily: "SpaceMono",
+  },
+  detailsContainer: {
+    marginTop: 4,
+  },
+  label: {
+    fontSize: 13,
+    color: "#adb5bd",
+    marginBottom: 4,
+    fontFamily: "SpaceMono",
+  },
+  value: {
+    fontSize: 15,
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+  },
+  categoriesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 4,
+  },
+  categoryBadge: {
+    backgroundColor: "#4a4a4a",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  categoryText: {
+    fontSize: 12,
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+  },
+  footer: {
+    padding: 16,
+    paddingBottom: Platform.OS === "ios" ? 32 : 20,
+    borderTopWidth: 1,
+    borderTopColor: "#3a3a3a",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    backgroundColor: "#333",
+  },
+  distanceText: {
+    color: "#9ca3af",
+    fontSize: 12,
+    marginLeft: 26,
+    marginTop: 4,
+  },
+  detailSection: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    color: "#93c5fd",
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+    fontFamily: "SpaceMono",
+  },
+});
