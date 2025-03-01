@@ -1,4 +1,4 @@
-// hooks/useEventDrivenMessaging.ts - With improved marker handling
+// hooks/useEventDrivenMessaging.ts - With improved marker handling and emoji support
 import { useEventBroker } from "@/hooks/useEventBroker";
 import {
   BaseEvent,
@@ -19,13 +19,14 @@ enum MessagePriority {
   CRITICAL = 3, // Added even higher priority for marker selection
 }
 
-// Queue message interface
+// Queue message interface updated to include an optional emoji
 interface QueuedMessage {
   text: string;
   priority: MessagePriority;
   timestamp: number;
   eventType?: EventTypes;
   id: string;
+  emoji?: string;
 }
 
 // Define the MapboxViewport type
@@ -41,7 +42,7 @@ export const useEventDrivenMessaging = () => {
   const [isInitialized, setIsInitialized] = useState(false);
 
   const { subscribe } = useEventBroker();
-  const { currentStreamedText, isTyping, simulateTextStreaming, streamCount } =
+  const { currentStreamedText, isTyping, simulateTextStreaming, streamCount, setCurrentEmoji } =
     useTextStreamingStore();
 
   // Message queue
@@ -68,9 +69,14 @@ export const useEventDrivenMessaging = () => {
     return `${text}-${eventType || "general"}-${Date.now()}`;
   }, []);
 
-  // Add a message to the queue
+  // Updated queueMessage to accept an optional emoji parameter
   const queueMessage = useCallback(
-    (text: string, priority: MessagePriority = MessagePriority.MEDIUM, eventType?: EventTypes) => {
+    (
+      text: string,
+      priority: MessagePriority = MessagePriority.MEDIUM,
+      eventType?: EventTypes,
+      emoji?: string
+    ) => {
       // Skip if message is empty
       if (!text || text.trim() === "") return;
 
@@ -101,13 +107,14 @@ export const useEventDrivenMessaging = () => {
 
       console.log(`Queuing message (priority ${priority}): "${text}"`);
 
-      // Add to queue with unique ID
+      // Add to queue with unique ID and emoji
       messageQueue.current.push({
         text,
         priority,
         timestamp: Date.now(),
         eventType,
         id: messageId,
+        emoji,
       });
 
       // Sort the queue by priority (higher first) and then by timestamp (earlier first)
@@ -124,7 +131,7 @@ export const useEventDrivenMessaging = () => {
     [isTyping, generateMessageId]
   );
 
-  // Process the next message in the queue
+  // Process the next message in the queue, now prepending the emoji if provided
   const processNextMessage = useCallback(async () => {
     if (messageQueue.current.length === 0) {
       isProcessingQueue.current = false;
@@ -135,9 +142,13 @@ export const useEventDrivenMessaging = () => {
     const nextMessage = messageQueue.current.shift();
 
     if (nextMessage) {
-      console.log(`Processing message: "${nextMessage.text}"`);
+      // Update the store with the emoji from the queued message
+      setCurrentEmoji(nextMessage.emoji || "");
 
-      await simulateTextStreaming(nextMessage.text);
+      const messageText = nextMessage.emoji ? `${nextMessage.text}` : nextMessage.text;
+      console.log(`Processing message: "${messageText}"`);
+
+      await simulateTextStreaming(messageText);
       console.log("Message streaming complete");
 
       // Small delay between messages
@@ -145,7 +156,7 @@ export const useEventDrivenMessaging = () => {
     } else {
       isProcessingQueue.current = false;
     }
-  }, [simulateTextStreaming]);
+  }, [simulateTextStreaming, setCurrentEmoji]);
 
   // Clear all messages except the currently processing one
   const clearMessageQueue = useCallback(() => {
@@ -172,13 +183,16 @@ export const useEventDrivenMessaging = () => {
         console.log("useEventDrivenMessaging initialized - showing welcome message");
         queueMessage(
           "Hello! I'm your event assistant. I can help you discover events nearby.",
-          MessagePriority.HIGH
+          MessagePriority.HIGH,
+          undefined,
+          "👋" // Welcome emoji
         );
         welcomeMessageShown.current = true;
       }
     }
   }, [queueMessage, isInitialized]);
 
+  // Subscribe to markers update events
   useEffect(() => {
     const unsubscribe = subscribe<MarkersEvent>(EventTypes.MARKERS_UPDATED, (eventData) => {
       const { count, markers } = eventData;
@@ -190,7 +204,8 @@ export const useEventDrivenMessaging = () => {
         queueMessage(
           `No markers found in this area.`,
           MessagePriority.HIGH,
-          EventTypes.MARKERS_UPDATED
+          EventTypes.MARKERS_UPDATED,
+          "😔" // Emoji for no markers
         );
         // Reset last marker count so that future updates always trigger a message
         lastMarkerCount.current = 0;
@@ -207,7 +222,8 @@ export const useEventDrivenMessaging = () => {
             count > 1 ? "s" : ""
           } in this area! Swipe through to explore them.`,
           MessagePriority.CRITICAL,
-          EventTypes.MARKERS_UPDATED
+          EventTypes.MARKERS_UPDATED,
+          "📍" // Marker update emoji
         );
         lastMarkerCount.current = count;
       }
@@ -216,7 +232,7 @@ export const useEventDrivenMessaging = () => {
     return unsubscribe;
   }, [subscribe, queueMessage, clearMessageQueue]);
 
-  // Subscribe to marker selection
+  // Subscribe to marker selection events
   useEffect(() => {
     const unsubscribe = subscribe<MarkerEvent>(EventTypes.MARKER_SELECTED, (eventData) => {
       const { markerData, markerId } = eventData;
@@ -236,25 +252,24 @@ export const useEventDrivenMessaging = () => {
 
         // Generate a random supportive message about the selected marker
         const messages = [
-          `${markerData.data.emoji} ${markerData.data.title} looks interesting! ${
+          `${markerData.data.title} looks interesting! ${
             markerData.data.distance ? `It's ${markerData.data.distance} from you.` : ""
           }`,
-          `Check out ${markerData.data.emoji} ${markerData.data.title}! ${
+          `Check out ${markerData.data.title}! ${
             markerData.data.time ? `Happening ${markerData.data.time}.` : ""
           }`,
-          `How about ${markerData.data.emoji} ${markerData.data.title}? ${
+          `How about ${markerData.data.title}? ${
             markerData.data.distance ? `It's ${markerData.data.distance} away.` : ""
           }`,
-          `${markerData.data.emoji} ${markerData.data.title} might be fun! ${
-            markerData.data.time || ""
-          }`,
+          `${markerData.data.title} might be fun! ${markerData.data.time || ""}`,
         ];
 
         const randomIndex = Math.floor(Math.random() * messages.length);
         queueMessage(
           messages[randomIndex],
           MessagePriority.CRITICAL, // Even higher priority for marker selection
-          EventTypes.MARKER_SELECTED
+          EventTypes.MARKER_SELECTED,
+          markerData.data.emoji // Use the emoji from marker data
         );
 
         // Trigger haptic feedback for marker selection
@@ -278,13 +293,12 @@ export const useEventDrivenMessaging = () => {
     return unsubscribe;
   }, [subscribe]);
 
+  // Subscribe to viewport changes
   useEffect(() => {
     const unsubscribe = subscribe<ViewportEvent & { searching?: boolean }>(
       EventTypes.VIEWPORT_CHANGED,
       (eventData) => {
         const { viewport, markers, searching } = eventData;
-
-        console.log(`================ MARKERS LENGH ================== \n`, markers.length);
 
         if (markers.length > 0) {
           return;
@@ -308,7 +322,8 @@ export const useEventDrivenMessaging = () => {
                 queueMessage(
                   "Looking for events in this new area...",
                   MessagePriority.LOW,
-                  EventTypes.VIEWPORT_CHANGED
+                  EventTypes.VIEWPORT_CHANGED,
+                  "🔍" // Emoji for searching a new area
                 );
               }
               prevViewport.current = viewport;
@@ -333,10 +348,24 @@ export const useEventDrivenMessaging = () => {
       [EventTypes.CLOSE_VIEW]: "What would you like to explore next?",
     };
 
+    // Mapping of event types to corresponding emojis
+    const viewEmojiMap: Record<string, string> = {
+      [EventTypes.OPEN_DETAILS]: "📖",
+      [EventTypes.OPEN_SHARE]: "🔗",
+      [EventTypes.OPEN_SEARCH]: "🔍",
+      [EventTypes.OPEN_SCAN]: "📸",
+      [EventTypes.CLOSE_VIEW]: "👋",
+    };
+
     // Create subscriptions for each view event
     const unsubscribes = Object.entries(viewMessageMap).map(([eventType, message]) => {
       return subscribe<BaseEvent>(eventType as EventTypes, (_eventData) => {
-        queueMessage(message, MessagePriority.MEDIUM, eventType as EventTypes);
+        queueMessage(
+          message,
+          MessagePriority.MEDIUM,
+          eventType as EventTypes,
+          viewEmojiMap[eventType] || "💬"
+        );
       });
     });
 
@@ -348,11 +377,21 @@ export const useEventDrivenMessaging = () => {
   // Subscribe to navigation events
   useEffect(() => {
     const unsubscribeNext = subscribe<BaseEvent>(EventTypes.NEXT_EVENT, (_eventData) => {
-      queueMessage("Showing the next event.", MessagePriority.LOW, EventTypes.NEXT_EVENT);
+      queueMessage(
+        "Showing the next event.",
+        MessagePriority.LOW,
+        EventTypes.NEXT_EVENT,
+        "➡️" // Emoji for next event
+      );
     });
 
     const unsubscribePrevious = subscribe<BaseEvent>(EventTypes.PREVIOUS_EVENT, (_eventData) => {
-      queueMessage("Showing the previous event.", MessagePriority.LOW, EventTypes.PREVIOUS_EVENT);
+      queueMessage(
+        "Showing the previous event.",
+        MessagePriority.LOW,
+        EventTypes.PREVIOUS_EVENT,
+        "⬅️" // Emoji for previous event
+      );
     });
 
     return () => {

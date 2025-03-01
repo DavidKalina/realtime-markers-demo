@@ -5,17 +5,22 @@ import * as Haptics from "expo-haptics";
 interface TextStreamingState {
   currentStreamedText: string;
   isTyping: boolean;
+  currentEmoji: string;
   lastStreamedText: string; // Track the last message we streamed
   streamCount: number; // Track how many times we've streamed
   simulateTextStreaming: (text: string) => Promise<void>;
+  setCurrentEmoji: (emoji: string) => void;
+
   resetText: () => void;
 }
 
 export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
   currentStreamedText: "",
+  currentEmoji: "",
   isTyping: false,
   lastStreamedText: "",
   streamCount: 0,
+  setCurrentEmoji: (emoji: string) => set({ currentEmoji: emoji }),
 
   simulateTextStreaming: async (text: string) => {
     console.log(`TextStreamingStore: Starting text streaming - "${text}"`);

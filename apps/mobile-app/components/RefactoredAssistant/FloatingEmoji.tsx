@@ -4,15 +4,16 @@ import { View } from "react-native";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { create } from "zustand";
 import { styles } from "./styles";
+import { useTextStreamingStore } from "@/stores/useTextStreamingStore";
 
-// Define the store interface
+// Define the store interface for the floating emoji position
 interface FloatingEmojiStore {
   offsetX: number;
   offsetY: number;
   setOffset: (dx: number, dy: number) => void;
 }
 
-// Create the Zustand store
+// Create the Zustand store for emoji position
 const useFloatingEmojiStore = create<FloatingEmojiStore>((set) => ({
   offsetX: 0,
   offsetY: 0,
@@ -20,32 +21,35 @@ const useFloatingEmojiStore = create<FloatingEmojiStore>((set) => ({
 }));
 
 interface FloatingEmojiProps {
-  emoji: string;
+  fallbackEmoji?: string;
   onTouchMove?: (dx: number, dy: number) => void;
 }
 
-export const FloatingEmojiWithStore: React.FC<FloatingEmojiProps> = ({ emoji, onTouchMove }) => {
-  // Get state from Zustand store
+export const FloatingEmojiWithStore: React.FC<FloatingEmojiProps> = ({
+  fallbackEmoji = "💬",
+  onTouchMove,
+}) => {
+  // Get the floating emoji position from the local store.
   const { offsetX, offsetY, setOffset } = useFloatingEmojiStore();
+  // Pull the current emoji directly from the text streaming store.
+  const { currentEmoji } = useTextStreamingStore();
 
-  // Create Reanimated shared values for animations
+  // Use the emoji from the store or fall back if empty.
+  const emojiToDisplay = currentEmoji || fallbackEmoji;
+
+  // Create Reanimated shared values for the floating animation.
   const animatedX = useSharedValue(0);
   const animatedY = useSharedValue(0);
 
-  // Update animated values when store values change
   useEffect(() => {
     animatedX.value = withSpring(offsetX, { damping: 15 });
     animatedY.value = withSpring(offsetY, { damping: 15 });
   }, [offsetX, offsetY]);
 
-  // Create animated style
-  const animatedEmojiStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: animatedX.value }, { translateY: animatedY.value }],
-    };
-  });
+  const animatedEmojiStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: animatedX.value }, { translateY: animatedY.value }],
+  }));
 
-  // Connect onTouchMove prop to store update
   useEffect(() => {
     if (onTouchMove) {
       const updatePosition = (dx: number, dy: number) => {
@@ -53,7 +57,6 @@ export const FloatingEmojiWithStore: React.FC<FloatingEmojiProps> = ({ emoji, on
         onTouchMove(dx, dy);
       };
 
-      // Simulate some gentle floating movement on mount
       const interval = setInterval(() => {
         const randomX = (Math.random() - 0.5) * 0.5;
         const randomY = (Math.random() - 0.5) * 0.5;
@@ -62,12 +65,11 @@ export const FloatingEmojiWithStore: React.FC<FloatingEmojiProps> = ({ emoji, on
 
       return () => clearInterval(interval);
     }
-  }, [onTouchMove]);
+  }, [onTouchMove, setOffset]);
 
   return (
     <View style={styles.emojiWrapper}>
       <View style={styles.emojiContainer}>
-        {/* Add a subtle shadow to make the emoji stand out like the event details icon */}
         <View
           style={[
             styles.emojiCircle,
@@ -80,7 +82,9 @@ export const FloatingEmojiWithStore: React.FC<FloatingEmojiProps> = ({ emoji, on
             },
           ]}
         >
-          <Animated.Text style={[styles.emojiText, animatedEmojiStyle]}>{emoji}</Animated.Text>
+          <Animated.Text style={[styles.emojiText, animatedEmojiStyle]}>
+            {emojiToDisplay}
+          </Animated.Text>
         </View>
         <View style={styles.emojiOverlay} />
       </View>

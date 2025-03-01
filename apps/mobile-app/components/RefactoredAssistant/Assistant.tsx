@@ -245,7 +245,7 @@ const EventDrivenAssistant: React.FC = () => {
       <View style={styles.innerContainer} onLayout={handleLayout}>
         <View style={styles.card}>
           <View style={styles.row}>
-            <FloatingEmojiWithStore emoji={currentEvent.emoji} />
+            <FloatingEmojiWithStore />
             <MessageBubble
               message={
                 currentStreamedText ||
