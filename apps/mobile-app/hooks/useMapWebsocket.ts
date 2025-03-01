@@ -94,7 +94,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
   const emitMarkersUpdated = useCallback(
     (updatedMarkers: Marker[]) => {
-      // Use the ref value instead of state variable.
+      // Handle marker deselection if needed
       if (selectedMarkerIdRef.current && updatedMarkers.length === 0) {
         console.log("No markers in current viewport, deselecting current marker");
         selectMarker(null);
@@ -116,17 +116,26 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         }
       }
 
-      if (
-        Math.abs(updatedMarkers.length - prevMarkerCount.current) > 0 ||
-        prevMarkerCount.current === 0
-      ) {
+      // IMPORTANT: Always emit when going from markers to no markers
+      // This ensures we update the UI when the user pans away from events
+      const wasShowingMarkers = prevMarkerCount.current > 0;
+      const isEmptyNow = updatedMarkers.length === 0;
+
+      // Only emit marker updates in these cases:
+      // 1. When going from some markers to no markers (moved away from events)
+      // 2. When going from no markers to some markers (found new events)
+      // 3. When there's a significant change in the number of markers
+      const significantChange = Math.abs(updatedMarkers.length - prevMarkerCount.current) >= 2;
+      const isFirstResult = prevMarkerCount.current === 0 && updatedMarkers.length > 0;
+      const clearedAllMarkers = wasShowingMarkers && isEmptyNow;
+
+      if (significantChange || isFirstResult || clearedAllMarkers) {
         console.log(`Emitting markers updated: ${updatedMarkers.length} markers`);
-        eventBroker.emit<MarkersEvent & { searching: boolean }>(EventTypes.MARKERS_UPDATED, {
+        eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
           timestamp: Date.now(),
           source: "useMapWebSocket",
           markers: updatedMarkers,
           count: updatedMarkers.length,
-          searching: false, // search is complete now
         });
         prevMarkerCount.current = updatedMarkers.length;
       } else {
@@ -138,24 +147,14 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
   const batchMarkerUpdates = useCallback(
     (updates: Marker[]) => {
-      markerUpdateBatchRef.current = [...markerUpdateBatchRef.current, ...updates];
+      // For simplicity, just update markers immediately instead of batching
+      // This reduces complexity while maintaining responsiveness
+      setMarkers(updates);
 
-      if (markerUpdateTimeoutRef.current) return;
-
-      markerUpdateTimeoutRef.current = setTimeout(() => {
-        markerUpdateTimeoutRef.current = null;
-        const batchToEmit = markerUpdateBatchRef.current;
-        markerUpdateBatchRef.current = [];
-
-        const now = Date.now();
-        if (
-          batchToEmit.length > 0 &&
-          now - lastMarkersUpdateRef.current > MARKER_EMIT_THROTTLE_MS
-        ) {
-          emitMarkersUpdated(batchToEmit);
-          lastMarkersUpdateRef.current = now;
-        }
-      }, MARKER_UPDATE_BATCH_MS);
+      // Only emit events for significant updates
+      if (updates.length > 0 || prevMarkerCount.current > 0) {
+        emitMarkersUpdated(updates);
+      }
     },
     [emitMarkersUpdated]
   );
@@ -262,60 +261,14 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               );
               setMarkers(initialMapboxMarkers);
 
-              // Mark that initial markers have been received
-              hasReceivedInitialMarkersRef.current = true;
-
-              // Handle deselection if needed
-              if (initialMapboxMarkers.length === 0 && selectedMarkerIdRef.current) {
-                console.log("No markers in initial data, deselecting current marker");
-                selectMarker(null);
-                eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
-                  timestamp: Date.now(),
-                  source: "useMapWebSocket",
-                });
-              }
-
-              // Emit that markers were updated with the search complete
-              const now = Date.now();
-              if (now - lastMarkersUpdateRef.current > MARKER_EMIT_THROTTLE_MS) {
-                eventBroker.emit<MarkersEvent & { searching: boolean }>(
-                  EventTypes.MARKERS_UPDATED,
-                  {
-                    timestamp: now,
-                    source: "useMapWebSocket",
-                    markers: initialMapboxMarkers,
-                    count: initialMapboxMarkers.length,
-                    searching: false, // Explicitly indicate search is complete
-                  }
-                );
-                lastMarkersUpdateRef.current = now;
-              }
-
-              // Now emit that the viewport is settled with results
-              eventBroker.emit<ViewportEvent & { searching: boolean }>(
-                EventTypes.VIEWPORT_CHANGED,
-                {
-                  timestamp: now,
-                  source: "useMapWebSocket",
-                  viewport: currentViewportRef.current!,
-                  markers: initialMapboxMarkers,
-                  searching: false, // Explicitly indicate search is complete
-                }
-              );
-              console.log("Viewport update with initial markers complete");
+              // Always emit on initial marker load, regardless of count
+              // This ensures proper state handling for both empty and populated areas
+              emitMarkersUpdated(initialMapboxMarkers);
               break;
             }
 
             case "marker_updates_batch": {
               const mapboxUpdates = data.data.map((marker: any) => convertRBushToMapbox(marker));
-              if (mapboxUpdates.length === 0 && selectedMarkerIdRef.current) {
-                console.log("No markers in update batch, deselecting current marker");
-                selectMarker(null);
-                eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
-                  timestamp: Date.now(),
-                  source: "useMapWebSocket",
-                });
-              }
               batchMarkerUpdates(mapboxUpdates);
               break;
             }
@@ -332,7 +285,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               }
               setMarkers((prevMarkers) => {
                 const updatedMarkers = prevMarkers.filter((marker) => marker.id !== data.data.id);
-                batchMarkerUpdates(updatedMarkers);
+                emitMarkersUpdated(updatedMarkers);
                 return updatedMarkers;
               });
               break;
@@ -342,16 +295,8 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               // Fallback if server sends an array of markers
               if (Array.isArray(data)) {
                 const mapboxMarkers = data.map((marker: any) => convertRBushToMapbox(marker));
-                if (mapboxMarkers.length === 0 && selectedMarkerIdRef.current) {
-                  console.log("No markers in array data, deselecting current marker");
-                  selectMarker(null);
-                  eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
-                    timestamp: Date.now(),
-                    source: "useMapWebSocket",
-                  });
-                }
                 setMarkers(mapboxMarkers);
-                batchMarkerUpdates(mapboxMarkers);
+                emitMarkersUpdated(mapboxMarkers);
               }
               break;
             }
@@ -368,7 +313,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           });
         }
       };
-
       ws.current.onclose = (event) => {
         console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
         setIsConnected(false);

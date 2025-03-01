@@ -1,88 +1,221 @@
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Animated } from "react-native";
+import React, { useEffect, useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { Wifi, WifiOff } from "lucide-react-native";
+import { EventTypes } from "@/services/EventBroker";
+import { useEventBroker } from "@/hooks/useEventBroker";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  cancelAnimation,
+  Easing,
+  FadeIn,
+  FadeOut,
+  Layout,
+} from "react-native-reanimated";
 
 interface ConnectionIndicatorProps {
-  isConnected: boolean;
-  eventsCount: number;
+  eventsCount?: number;
+  initialConnectionState?: boolean;
+  position?: "top-right" | "top-left" | "bottom-right" | "bottom-left";
+  showAnimation?: boolean;
 }
 
-const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({ isConnected, eventsCount }) => {
-  // Animation for pulsing effect when disconnected
-  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
+  eventsCount = 0,
+  initialConnectionState = false,
+  position = "top-right",
+  showAnimation = true,
+}) => {
+  // Track connection status from WebSocket events
+  const [isConnected, setIsConnected] = useState(initialConnectionState);
+  const [hasConnectionEverBeenEstablished, setHasConnectionEverBeenEstablished] =
+    useState(initialConnectionState);
 
+  // Reanimated shared values for animations
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+
+  // Use the event broker hook
+  const { subscribe } = useEventBroker();
+
+  // Listen to WebSocket connection events
   useEffect(() => {
-    if (!isConnected) {
-      // Create pulsing animation for disconnected state
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.2,
+    const handleConnected = () => {
+      console.log("ConnectionIndicator: WebSocket connected");
+      setIsConnected(true);
+      setHasConnectionEverBeenEstablished(true);
+    };
+
+    const handleDisconnected = () => {
+      console.log("ConnectionIndicator: WebSocket disconnected");
+      setIsConnected(false);
+    };
+
+    // Check initial connection status by subscribing to any marker updates
+    const handleMarkersUpdated = () => {
+      setIsConnected(true);
+      setHasConnectionEverBeenEstablished(true);
+    };
+
+    const handleError = (event: any) => {
+      if (
+        event.error &&
+        (event.error.message?.includes("WebSocket") ||
+          event.source?.includes("WebSocket") ||
+          event.source?.includes("useMapWebSocket"))
+      ) {
+        console.log("ConnectionIndicator: WebSocket error detected");
+        setIsConnected(false);
+      }
+    };
+
+    // Subscribe to events using the hook (cleanup is handled automatically)
+    subscribe(EventTypes.WEBSOCKET_CONNECTED, handleConnected);
+    subscribe(EventTypes.WEBSOCKET_DISCONNECTED, handleDisconnected);
+    subscribe(EventTypes.MARKERS_UPDATED, handleMarkersUpdated);
+    subscribe(EventTypes.ERROR_OCCURRED, handleError);
+
+    // No need for manual cleanup as the hook handles it
+  }, [subscribe]);
+
+  // Handle animation based on connection status
+  useEffect(() => {
+    if (!isConnected && showAnimation) {
+      // Create smoother pulsing animation for disconnected state
+      scale.value = withRepeat(
+        withSequence(
+          withTiming(1.2, {
             duration: 800,
-            useNativeDriver: true,
+            easing: Easing.inOut(Easing.sin),
           }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
+          withTiming(1, {
             duration: 800,
-            useNativeDriver: true,
+            easing: Easing.inOut(Easing.sin),
+          })
+        ),
+        -1, // infinite repetitions
+        false // not reverse
+      );
+
+      opacity.value = withRepeat(
+        withSequence(
+          withTiming(0.7, {
+            duration: 800,
+            easing: Easing.inOut(Easing.sin),
           }),
-        ])
-      ).start();
+          withTiming(1, {
+            duration: 800,
+            easing: Easing.inOut(Easing.sin),
+          })
+        ),
+        -1, // infinite repetitions
+        false // not reverse
+      );
     } else {
-      // Stop animation when connected
-      pulseAnim.setValue(1);
+      // Reset animation when connected with a smooth transition
+      cancelAnimation(scale);
+      cancelAnimation(opacity);
+      scale.value = withTiming(1, {
+        duration: 300,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      });
+      opacity.value = withTiming(1, {
+        duration: 300,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      });
     }
 
     return () => {
-      // Cleanup animation
-      pulseAnim.stopAnimation();
+      // Cleanup animations
+      cancelAnimation(scale);
+      cancelAnimation(opacity);
     };
-  }, [isConnected, pulseAnim]);
+  }, [isConnected, scale, opacity, showAnimation]);
 
-  // Animation style
-  const animatedStyle = {
-    transform: [{ scale: pulseAnim }],
-    opacity: pulseAnim.interpolate({
-      inputRange: [1, 1.2],
-      outputRange: [1, 0.7],
-    }),
+  // Create animated styles using Reanimated
+  const animatedStyles = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }],
+      opacity: opacity.value,
+    };
+  });
+
+  // Get the right status text based on connection history
+  const getStatusText = () => {
+    if (isConnected) return "Connected";
+    if (hasConnectionEverBeenEstablished) return "Reconnecting...";
+    return "Connecting...";
+  };
+
+  // Get position styles based on position prop
+  const getPositionStyle = () => {
+    switch (position) {
+      case "top-left":
+        return { top: 50, left: 16 };
+      case "bottom-right":
+        return { bottom: 50, right: 16 };
+      case "bottom-left":
+        return { bottom: 50, left: 16 };
+      case "top-right":
+      default:
+        return { top: 50, right: 16 };
+    }
   };
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, getPositionStyle()]} layout={Layout.springify()}>
       <Animated.View
         style={[
           styles.indicator,
           isConnected ? styles.connected : styles.disconnected,
-          !isConnected && animatedStyle,
+          !isConnected && showAnimation && animatedStyles,
         ]}
+        layout={Layout.springify()}
       >
         {isConnected ? <Wifi size={16} color="#fff" /> : <WifiOff size={16} color="#fff" />}
       </Animated.View>
 
       <View style={styles.textContainer}>
-        <Text style={styles.statusText}>{isConnected ? "Connected" : "Connecting..."}</Text>
+        <Animated.Text
+          style={styles.statusText}
+          entering={FadeIn.duration(300)}
+          exiting={FadeOut.duration(300)}
+          layout={Layout.springify()}
+        >
+          {getStatusText()}
+        </Animated.Text>
+
         {isConnected && eventsCount > 0 && (
-          <Text style={styles.countText}>
+          <Animated.Text
+            style={styles.countText}
+            entering={FadeIn.duration(400).delay(100)}
+            layout={Layout.springify()}
+          >
             {eventsCount} event{eventsCount !== 1 ? "s" : ""} in this area
-          </Text>
+          </Animated.Text>
         )}
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    top: 50,
-    right: 16,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.7)",
     borderRadius: 20,
     padding: 8,
     zIndex: 1000,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   indicator: {
     width: 30,

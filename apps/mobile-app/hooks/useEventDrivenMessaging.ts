@@ -1,4 +1,4 @@
-// hooks/useEventDrivenMessaging.ts - Enhanced message coordination
+// Simplified useEventDrivenMessaging.ts - Focus on core messaging
 import { useEventBroker } from "@/hooks/useEventBroker";
 import {
   BaseEvent,
@@ -13,12 +13,12 @@ import { useEffect, useRef, useCallback, useState } from "react";
 
 // Enhanced message priority levels
 enum MessagePriority {
-  BACKGROUND = 0, // For non-critical background information
-  LOW = 1, // For supplementary information
-  MEDIUM = 2, // For standard notifications
-  HIGH = 3, // For important events (new markers found)
-  CRITICAL = 4, // For user-initiated actions (marker selection)
-  IMMEDIATE = 5, // Forces immediate display, interrupts other messages
+  BACKGROUND = 0,
+  LOW = 1,
+  MEDIUM = 2,
+  HIGH = 3,
+  CRITICAL = 4,
+  IMMEDIATE = 5,
 }
 
 // Queue message interface updated to include an optional emoji
@@ -29,7 +29,6 @@ interface QueuedMessage {
   eventType?: EventTypes;
   id: string;
   emoji?: string;
-  // Add a flag to mark messages that shouldn't be cleared by certain events
   preserveOnMarkerSelect?: boolean;
 }
 
@@ -62,9 +61,10 @@ export const useEventDrivenMessaging = () => {
   // Tracking message state
   const lastMessageTimestamp = useRef<number>(0);
   const isInSearchingState = useRef<boolean>(false);
+  const lastPanningMessageTime = useRef<number>(0);
 
-  // Minimum meaningful change in marker count to show a message
-  const MIN_COUNT_CHANGE = 2;
+  // Track the last marker count
+  const lastMarkerCount = useRef<number>(0);
 
   // Track the last selected marker ID
   const lastSelectedMarkerId = useRef<string | null>(null);
@@ -72,18 +72,23 @@ export const useEventDrivenMessaging = () => {
   // Track if welcome message has been shown
   const welcomeMessageShown = useRef(false);
 
-  // Track the last marker count
-  const lastMarkerCount = useRef<number>(0);
-
   // Track previous viewport
   const prevViewport = useRef<MapboxViewport | null>(null);
+
+  // Panning state tracking
+  const isPanningContinuously = useRef<boolean>(false);
+  const lastPanEventTimestamp = useRef<number>(0);
+  const PANNING_CONTINUOUS_THRESHOLD = 300; // ms
+
+  // Minimum change in marker count to show message
+  const MIN_COUNT_CHANGE = 2;
 
   // Generate a unique ID for messages
   const generateMessageId = useCallback((text: string, eventType?: EventTypes) => {
     return `${text}-${eventType || "general"}-${Date.now()}`;
   }, []);
 
-  // Updated queueMessage to accept an optional preserveOnMarkerSelect parameter
+  // Simplified queueMessage with strict focus on core messages
   const queueMessage = useCallback(
     (
       text: string,
@@ -95,27 +100,42 @@ export const useEventDrivenMessaging = () => {
       // Skip if message is empty
       if (!text || text.trim() === "") return;
 
-      // Skip connection-related messages
-      if (
-        text.includes("Connection") ||
-        text.includes("Connected") ||
-        text.includes("connecting")
-      ) {
+      // Allow only our two core message types (plus welcome)
+      const isWelcomeMessage = text.includes("Hello") || text.includes("I can help you discover");
+      const isScanningMessage = text.includes("Scanning area");
+      const isFoundEventsMessage = text.includes("Found") && text.includes("event");
+
+      // Only allow our target message types, plus welcome on initial load
+      if (!isWelcomeMessage && !isScanningMessage && !isFoundEventsMessage) {
         return;
       }
 
-      // Skip "No events" messages
-      if (text.includes("No events") || text.includes("no events")) {
+      // For scanning messages, implement a short debounce
+      if (isScanningMessage) {
+        const now = Date.now();
+        const SCANNING_MESSAGE_DEBOUNCE = 2000; // 2 seconds
+
+        if (now - lastPanningMessageTime.current < SCANNING_MESSAGE_DEBOUNCE) {
+          return; // Skip if we recently showed a scanning message
+        }
+
+        lastPanningMessageTime.current = now;
+      }
+
+      // Prevent duplicate messages of the same type
+      const hasSimilarScanningMessage =
+        isScanningMessage && messageQueue.current.some((m) => m.text.includes("Scanning area"));
+
+      const hasSimilarFoundMessage =
+        isFoundEventsMessage &&
+        messageQueue.current.some((m) => m.text.includes("Found") && m.text.includes("event"));
+
+      if (hasSimilarScanningMessage || hasSimilarFoundMessage) {
         return;
       }
 
       // Generate a unique ID for this message
       const messageId = generateMessageId(text, eventType);
-
-      // Check if this is a duplicate message already in the queue
-      if (messageQueue.current.some((m) => m.text === text)) {
-        return;
-      }
 
       // Add to queue with unique ID and emoji
       messageQueue.current.push({
@@ -132,7 +152,7 @@ export const useEventDrivenMessaging = () => {
       lastMessageTimestamp.current = Date.now();
 
       // If this is a "searching" message, update the state flag
-      if (text.includes("Scanning area") || text.includes("Looking for events")) {
+      if (isScanningMessage) {
         isInSearchingState.current = true;
       }
 
@@ -150,7 +170,21 @@ export const useEventDrivenMessaging = () => {
     [isTyping, generateMessageId]
   );
 
-  // Process the next message in the queue, now with better cancellation support
+  // Simplified clearMessageQueue
+  const clearMessageQueue = useCallback(() => {
+    // Keep track of what we're currently processing
+    const currentProcessing = isProcessingQueue.current ? messageQueue.current.shift() : null;
+
+    // Clear all messages
+    messageQueue.current = [];
+
+    // Put the currently processing message back at the front if it exists
+    if (currentProcessing) {
+      messageQueue.current.unshift(currentProcessing);
+    }
+  }, []);
+
+  // Process the next message in the queue
   const processNextMessage = useCallback(async () => {
     if (messageQueue.current.length === 0) {
       isProcessingQueue.current = false;
@@ -166,18 +200,6 @@ export const useEventDrivenMessaging = () => {
         isInSearchingState.current = false;
       }
 
-      // Check if there's a higher priority message in the queue
-      const hasHigherPriorityMessage = messageQueue.current.some(
-        (msg) => msg.priority > nextMessage.priority
-      );
-
-      // If a higher priority message is waiting, skip this one
-      if (hasHigherPriorityMessage && nextMessage.priority < MessagePriority.HIGH) {
-        console.log("Skipping lower priority message because higher priority message is queued");
-        setTimeout(processNextMessage, 10); // Process the next message immediately
-        return;
-      }
-
       // Update the store with the emoji from the queued message
       setCurrentEmoji(nextMessage.emoji || "");
 
@@ -190,46 +212,9 @@ export const useEventDrivenMessaging = () => {
     } else {
       isProcessingQueue.current = false;
     }
-  }, [simulateTextStreaming, setCurrentEmoji, cancelCurrentStreaming]);
+  }, [simulateTextStreaming, setCurrentEmoji]);
 
-  // Improved clearMessageQueue with selective clearing
-  const clearMessageQueue = useCallback(
-    (preserveHighPriority = false, preserveOnMarkerSelect = false) => {
-      // Keep track of what we're currently processing
-      const currentProcessing = isProcessingQueue.current ? messageQueue.current.shift() : null;
-
-      // Filter the queue based on parameters
-      if (preserveHighPriority && preserveOnMarkerSelect) {
-        messageQueue.current = messageQueue.current.filter(
-          (msg) => msg.priority >= MessagePriority.HIGH || msg.preserveOnMarkerSelect
-        );
-      } else if (preserveHighPriority) {
-        messageQueue.current = messageQueue.current.filter(
-          (msg) => msg.priority >= MessagePriority.HIGH
-        );
-      } else if (preserveOnMarkerSelect) {
-        messageQueue.current = messageQueue.current.filter((msg) => msg.preserveOnMarkerSelect);
-      } else {
-        messageQueue.current = [];
-      }
-
-      // Put the currently processing message back at the front if it exists
-      if (currentProcessing) {
-        messageQueue.current.unshift(currentProcessing);
-      }
-
-      // Re-sort the queue if there are still messages
-      if (messageQueue.current.length > 0) {
-        messageQueue.current.sort((a, b) => {
-          if (a.priority !== b.priority) return b.priority - a.priority;
-          return a.timestamp - b.timestamp;
-        });
-      }
-    },
-    []
-  );
-
-  // Initialize with a welcome message, but only once during the entire app lifecycle
+  // Initialize with a welcome message, but only once
   useEffect(() => {
     if (!isInitialized) {
       setIsInitialized(true);
@@ -252,142 +237,114 @@ export const useEventDrivenMessaging = () => {
     }
   }, [queueMessage, isInitialized]);
 
-  // Subscribe to markers update events - enhanced to handle sequence better
   useEffect(() => {
     const unsubscribe = subscribe<MarkersEvent>(EventTypes.MARKERS_UPDATED, (eventData) => {
       const { count, markers } = eventData;
 
-      // If we're still in searching state and we get results, clear only low-priority messages
-      if (isInSearchingState.current) {
-        clearMessageQueue(true, true); // preserve high priority and marker-select-preserved messages
-        isInSearchingState.current = false;
-      } else {
-        // For other updates, clear all pending messages to show the new marker count
-        clearMessageQueue(false, true); // preserve only marker-select-preserved messages
-      }
+      // Clear existing messages since we're going to show a new state
+      clearMessageQueue();
 
-      if (!markers || markers.length === 0) {
-        queueMessage(
-          `No events found in this area.`,
-          MessagePriority.HIGH,
-          EventTypes.MARKERS_UPDATED,
-          "😔", // Emoji for no markers
-          true // Preserve this message when marker is selected
-        );
-        // Reset last marker count so that future updates always trigger a message
+      // Important: If there are no markers but we previously had some,
+      // we need to show "Scanning area..." again to reset the user's expectation
+      if ((!markers || markers.length === 0) && lastMarkerCount.current > 0) {
+        queueMessage("Scanning area...", MessagePriority.HIGH, EventTypes.VIEWPORT_CHANGING, "🔍");
+
+        // Reset the marker count
         lastMarkerCount.current = 0;
+        // Set searching state
+        isInSearchingState.current = true;
         return;
       }
 
-      // If coming from a fresh viewport (i.e. last count was 0), always announce the new count.
-      // Also announce if there's a significant change in marker count
-      if (
-        lastMarkerCount.current === 0 ||
-        Math.abs(count - lastMarkerCount.current) >= MIN_COUNT_CHANGE
-      ) {
-        queueMessage(
-          `Found ${count} event${
-            count > 1 ? "s" : ""
-          } in this area! Swipe through to explore them.`,
-          MessagePriority.HIGH,
-          EventTypes.MARKERS_UPDATED,
-          "📍", // Marker update emoji
-          true // Preserve this message when marker is selected
-        );
-        lastMarkerCount.current = count;
+      // If user found events, show the count
+      if (markers && markers.length > 0) {
+        // Only show if there's a significant change in count
+        if (
+          lastMarkerCount.current === 0 ||
+          Math.abs(count - lastMarkerCount.current) >= MIN_COUNT_CHANGE
+        ) {
+          queueMessage(
+            `Found ${count} event${count > 1 ? "s" : ""} in this area!`,
+            MessagePriority.HIGH,
+            EventTypes.MARKERS_UPDATED,
+            "📍" // Marker update emoji
+          );
+          lastMarkerCount.current = count;
+        }
+
+        // Exit searching state
+        isInSearchingState.current = false;
       }
     });
 
     return unsubscribe;
   }, [subscribe, queueMessage, clearMessageQueue]);
-
-  // Enhanced marker selection handler to improve coordination
+  // Simplified marker selection handler - keeps markers but removes messages
   useEffect(() => {
     const unsubscribe = subscribe<MarkerEvent>(EventTypes.MARKER_SELECTED, (eventData) => {
-      const { markerData, markerId } = eventData;
-
-      // CRITICAL FIX: Allow reselection of the same marker when in scanning state
-      const allowReselection = isInSearchingState.current;
-
-      // Skip only if it's the same marker being reselected and we're NOT in scanning state
-      if (markerId === lastSelectedMarkerId.current && !allowReselection) {
-        return;
-      }
+      const { markerId } = eventData;
 
       // Update the last selected marker ID
       lastSelectedMarkerId.current = markerId;
 
-      // IMPORTANT: Always reset the scanning state when a marker is selected
+      // Cancel any streaming message
+      if (isTyping) {
+        cancelCurrentStreaming();
+      }
+
+      // Clear the message queue
+      clearMessageQueue();
+
+      // Reset searching state
       isInSearchingState.current = false;
 
-      if (markerData) {
-        // Clear all messages regardless of state
-        clearMessageQueue(false, true); // Clear all except those marked to survive selection
-
-        // Immediately stop any currently streaming message
-        if (isTyping && isProcessingQueue.current) {
-          // Cancel the current message using our new cancelation method
-          cancelCurrentStreaming();
-        }
-
-        // Generate a random supportive message about the selected marker
-        const messages = [
-          `${markerData.data.title} looks interesting! ${
-            markerData.data.distance ? `It's ${markerData.data.distance} from you.` : ""
-          }`,
-          `Check out ${markerData.data.title}! ${
-            markerData.data.time ? `Happening ${markerData.data.time}.` : ""
-          }`,
-          `How about ${markerData.data.title}? ${
-            markerData.data.distance ? `It's ${markerData.data.distance} away.` : ""
-          }`,
-          `${markerData.data.title} might be fun! ${markerData.data.time || ""}`,
-        ];
-
-        const randomIndex = Math.floor(Math.random() * messages.length);
-        queueMessage(
-          messages[randomIndex],
-          MessagePriority.IMMEDIATE, // Use the highest priority to interrupt current message
-          EventTypes.MARKER_SELECTED,
-          markerData.data.emoji // Use the emoji from marker data
-        );
-
-        // Trigger haptic feedback for marker selection
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      }
+      // Trigger haptic feedback for marker selection
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     });
 
     return unsubscribe;
-  }, [subscribe, queueMessage, clearMessageQueue, isTyping]);
+  }, [subscribe, clearMessageQueue, isTyping, cancelCurrentStreaming]);
 
-  // Enhanced viewport changing handler
+  // Simplified viewport changing handler - core scanning message
   useEffect(() => {
     const unsubscribe = subscribe<BaseEvent>(EventTypes.VIEWPORT_CHANGING, (_eventData) => {
-      // Only display "Scanning area" if we haven't shown it recently (within 3 seconds)
       const now = Date.now();
-      const SCANNING_MESSAGE_DEBOUNCE = 3000; // 3 seconds
 
-      // Add check: Don't interrupt if a marker is actively selected
+      // Check if this is continuous panning
+      const isContinuous = now - lastPanEventTimestamp.current < PANNING_CONTINUOUS_THRESHOLD;
+      lastPanEventTimestamp.current = now;
+
+      // Track continuous panning state
+      isPanningContinuously.current = isContinuous;
+
+      // Only show "Scanning area" if:
+      // 1. We're not already in a searching state
+      // 2. No marker is actively selected
+      // 3. Sufficient time has passed since the last scanning message
+      const SCANNING_MESSAGE_DEBOUNCE = 2000; // 2 seconds
       const markerActive = lastSelectedMarkerId.current !== null;
 
-      if (now - lastMessageTimestamp.current > SCANNING_MESSAGE_DEBOUNCE && !markerActive) {
-        // Clear the queue but preserve high priority messages
-        clearMessageQueue(true, true);
+      if (
+        !isInSearchingState.current &&
+        !markerActive &&
+        now - lastPanningMessageTime.current > SCANNING_MESSAGE_DEBOUNCE
+      ) {
+        // Clear any existing messages
+        clearMessageQueue();
 
-        // Show the scanning message with high priority
+        // Show the scanning message
         queueMessage("Scanning area...", MessagePriority.HIGH, EventTypes.VIEWPORT_CHANGING, "🔍");
 
-        // Set the searching state flag
+        // Update timestamps and state
+        lastPanningMessageTime.current = now;
         isInSearchingState.current = true;
-      } else if (markerActive) {
-        // If a marker is selected, don't enter searching state
-        isInSearchingState.current = false;
       }
     });
 
     return unsubscribe;
   }, [subscribe, queueMessage, clearMessageQueue]);
 
+  // Simplified viewport deselection handler
   useEffect(() => {
     const unsubscribe = subscribe<BaseEvent>(EventTypes.MARKER_DESELECTED, (_eventData) => {
       // Reset the last selected marker ID
@@ -396,140 +353,6 @@ export const useEventDrivenMessaging = () => {
 
     return unsubscribe;
   }, [subscribe]);
-
-  // Enhanced viewport changed handler with better debounce logic
-  useEffect(() => {
-    const unsubscribe = subscribe<ViewportEvent & { searching?: boolean }>(
-      EventTypes.VIEWPORT_CHANGED,
-      (eventData) => {
-        const { viewport, markers, searching } = eventData;
-
-        if (markers.length > 0) {
-          return;
-        }
-
-        if (searching) {
-          if (prevViewport.current) {
-            const latChange = Math.abs(
-              (prevViewport.current.north + prevViewport.current.south) / 2 -
-                (viewport.north + viewport.south) / 2
-            );
-            const lonChange = Math.abs(
-              (prevViewport.current.east + prevViewport.current.west) / 2 -
-                (viewport.east + viewport.west) / 2
-            );
-            const SIGNIFICANT_CHANGE = 0.01; // ~1km
-
-            // Only queue if markers are not already present and there's been significant movement
-            if (
-              (latChange > SIGNIFICANT_CHANGE || lonChange > SIGNIFICANT_CHANGE) &&
-              (!markers || markers.length === 0)
-            ) {
-              // Debounce logic - only show message if we haven't recently shown a searching message
-              const now = Date.now();
-              const SEARCHING_MESSAGE_DEBOUNCE = 5000; // 5 seconds
-
-              if (
-                now - lastMessageTimestamp.current > SEARCHING_MESSAGE_DEBOUNCE &&
-                !isInSearchingState.current
-              ) {
-                queueMessage(
-                  "Looking for events in this new area...",
-                  MessagePriority.MEDIUM,
-                  EventTypes.VIEWPORT_CHANGED,
-                  "🔍", // Emoji for searching a new area
-                  true // Preserve when marker selected
-                );
-
-                // Set the searching state flag
-                isInSearchingState.current = true;
-              }
-
-              prevViewport.current = viewport;
-            }
-          } else {
-            prevViewport.current = viewport;
-          }
-        }
-      }
-    );
-    return unsubscribe;
-  }, [subscribe, queueMessage]);
-
-  // Subscribe to UI view events with priority adjustments
-  useEffect(() => {
-    const viewMessageMap: Record<string, string> = {
-      [EventTypes.OPEN_DETAILS]:
-        "Here are the event details. You can get directions or share this event.",
-      [EventTypes.OPEN_SHARE]: "Share this event with friends and family.",
-      [EventTypes.OPEN_SEARCH]: "Search for events by name, location, or category.",
-      [EventTypes.OPEN_SCAN]: "Scan event flyers or posters to add them to your list.",
-      [EventTypes.CLOSE_VIEW]: "What would you like to explore next?",
-    };
-
-    // Mapping of event types to corresponding emojis
-    const viewEmojiMap: Record<string, string> = {
-      [EventTypes.OPEN_DETAILS]: "📖",
-      [EventTypes.OPEN_SHARE]: "🔗",
-      [EventTypes.OPEN_SEARCH]: "🔍",
-      [EventTypes.OPEN_SCAN]: "📸",
-      [EventTypes.CLOSE_VIEW]: "👋",
-    };
-
-    // Mapping of event types to priorities
-    const viewPriorityMap: Record<string, MessagePriority> = {
-      [EventTypes.OPEN_DETAILS]: MessagePriority.CRITICAL,
-      [EventTypes.OPEN_SHARE]: MessagePriority.CRITICAL,
-      [EventTypes.OPEN_SEARCH]: MessagePriority.CRITICAL,
-      [EventTypes.OPEN_SCAN]: MessagePriority.CRITICAL,
-      [EventTypes.CLOSE_VIEW]: MessagePriority.MEDIUM,
-    };
-
-    // Create subscriptions for each view event
-    const unsubscribes = Object.entries(viewMessageMap).map(([eventType, message]) => {
-      return subscribe<BaseEvent>(eventType as EventTypes, (_eventData) => {
-        // Clear the queue for view changes, but preserve high-priority messages
-        clearMessageQueue(true, false);
-
-        queueMessage(
-          message,
-          viewPriorityMap[eventType] || MessagePriority.MEDIUM,
-          eventType as EventTypes,
-          viewEmojiMap[eventType] || "💬"
-        );
-      });
-    });
-
-    return () => {
-      unsubscribes.forEach((unsubscribe) => unsubscribe());
-    };
-  }, [subscribe, queueMessage, clearMessageQueue]);
-
-  // Subscribe to navigation events with lower priority
-  useEffect(() => {
-    const unsubscribeNext = subscribe<BaseEvent>(EventTypes.NEXT_EVENT, (_eventData) => {
-      queueMessage(
-        "Showing the next event.",
-        MessagePriority.LOW,
-        EventTypes.NEXT_EVENT,
-        "➡️" // Emoji for next event
-      );
-    });
-
-    const unsubscribePrevious = subscribe<BaseEvent>(EventTypes.PREVIOUS_EVENT, (_eventData) => {
-      queueMessage(
-        "Showing the previous event.",
-        MessagePriority.LOW,
-        EventTypes.PREVIOUS_EVENT,
-        "⬅️" // Emoji for previous event
-      );
-    });
-
-    return () => {
-      unsubscribeNext();
-      unsubscribePrevious();
-    };
-  }, [subscribe, queueMessage]);
 
   // Monitor streaming count changes to detect when messages complete
   useEffect(() => {

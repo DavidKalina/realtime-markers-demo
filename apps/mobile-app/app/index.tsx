@@ -157,9 +157,9 @@ export default function HomeScreen() {
             source: "HomeScreen",
           });
         }}
-        onRegionDidChange={handleMapViewportChange}
         // TODO IF REGION IS CHANGING EMIT EVENT TO UPDATE ASSISTANT TEXT STREAMING
-        onRegionIsChanging={() => {
+        onRegionIsChanging={(feature) => {
+          handleMapViewportChange(feature);
           publish<BaseEvent>(EventTypes.VIEWPORT_CHANGING, { timestamp: Date.now() });
         }}
       >

@@ -29,15 +29,11 @@ const EventDrivenAssistant: React.FC = () => {
   const { publish, subscribe } = useEventBroker();
 
   // Local UI state
-  const [containerLayout, setContainerLayout] = useState<{ width: number; height: number } | null>(
-    null
-  );
 
   // Use our new event-driven messaging hook
   const { currentStreamedText, isTyping } = useEventDrivenMessaging();
 
   // Track connection status and marker count for the connection indicator
-  const [isConnected, setIsConnected] = useState(false);
   const [markersCount, setMarkersCount] = useState(0);
 
   // Get state and actions from the Zustand store
@@ -70,22 +66,6 @@ const EventDrivenAssistant: React.FC = () => {
     navigateToNext,
     navigateToPrevious,
   } = useEventAssistantStore();
-
-  // Subscribe to websocket connection events
-  useEffect(() => {
-    const unsubscribeConnected = subscribe<BaseEvent>(EventTypes.WEBSOCKET_CONNECTED, () => {
-      setIsConnected(true);
-    });
-
-    const unsubscribeDisconnected = subscribe<BaseEvent>(EventTypes.WEBSOCKET_DISCONNECTED, () => {
-      setIsConnected(false);
-    });
-
-    return () => {
-      unsubscribeConnected();
-      unsubscribeDisconnected();
-    };
-  }, [subscribe]);
 
   // Subscribe to marker updates for count
   useEffect(() => {
@@ -192,16 +172,10 @@ const EventDrivenAssistant: React.FC = () => {
     });
   };
 
-  // Layout event handlers
-  const handleLayout = (e: LayoutChangeEvent) => {
-    const { width, height } = e.nativeEvent.layout;
-    setContainerLayout({ width, height });
-  };
-
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       {/* Connection Indicator with actual connection state */}
-      <ConnectionIndicator isConnected={isConnected} eventsCount={markersCount} />
+      <ConnectionIndicator eventsCount={markersCount} />
 
       {/* Event Details View */}
       {activeView === "details" && (
@@ -241,8 +215,7 @@ const EventDrivenAssistant: React.FC = () => {
         />
       )}
 
-      {/* Main assistant UI - Always visible at the bottom */}
-      <View style={styles.innerContainer} onLayout={handleLayout}>
+      <View style={styles.innerContainer}>
         <View style={styles.card}>
           <View style={styles.row}>
             <FloatingEmojiWithStore />
