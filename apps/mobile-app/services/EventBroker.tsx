@@ -10,6 +10,7 @@ export enum EventTypes {
   MARKER_SELECTED = "marker:selected",
   MARKER_DESELECTED = "marker:deselected",
   VIEWPORT_CHANGED = "viewport:changed",
+  VIEWPORT_CHANGING = "viewport:changing",
 
   // Assistant events
   ASSISTANT_MESSAGE = "assistant:message",

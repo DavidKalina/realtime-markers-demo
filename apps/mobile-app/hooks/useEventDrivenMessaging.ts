@@ -280,7 +280,20 @@ export const useEventDrivenMessaging = () => {
     return unsubscribe;
   }, [subscribe, queueMessage, clearMessageQueue]);
 
-  // Subscribe to marker deselection - REMAIN SILENT
+  useEffect(() => {
+    const unsubscribe = subscribe<BaseEvent>(EventTypes.VIEWPORT_CHANGING, (_eventData) => {
+      clearMessageQueue();
+      queueMessage(
+        "Scanning area...",
+        MessagePriority.CRITICAL, // Even higher priority for marker selection
+        EventTypes.MARKER_SELECTED,
+        "🔍"
+      );
+    });
+
+    return unsubscribe;
+  }, [subscribe, queueMessage]);
+
   useEffect(() => {
     const unsubscribe = subscribe<BaseEvent>(EventTypes.MARKER_DESELECTED, (_eventData) => {
       // Reset the last selected marker ID
