@@ -64,7 +64,7 @@ const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({ isConnected, 
         <Text style={styles.statusText}>{isConnected ? "Connected" : "Connecting..."}</Text>
         {isConnected && eventsCount > 0 && (
           <Text style={styles.countText}>
-            {eventsCount} event{eventsCount !== 1 ? "s" : ""} available
+            {eventsCount} event{eventsCount !== 1 ? "s" : ""} in this area
           </Text>
         )}
       </View>

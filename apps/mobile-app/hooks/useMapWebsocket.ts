@@ -1,5 +1,5 @@
-// hooks/useMapWebsocket.ts - Updated with EventBroker
-import { useEffect, useState, useRef } from "react";
+// hooks/useMapWebsocket.ts - Enhanced with marker deselection
+import { useEffect, useState, useRef, useCallback } from "react";
 import {
   eventBroker,
   EventTypes,
@@ -7,6 +7,7 @@ import {
   MarkersEvent,
   BaseEvent,
 } from "@/services/EventBroker";
+import { useMarkerStore } from "@/stores/markerStore";
 
 // Mapbox viewport format
 interface MapboxViewport {
@@ -52,12 +53,177 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const [currentViewport, setCurrentViewport] = useState<MapboxViewport | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
 
+  // Access the marker store for selected marker handling
+  const selectedMarkerId = useMarkerStore((state) => state.selectedMarkerId);
+  const selectMarker = useMarkerStore((state) => state.selectMarker);
+
   const ws = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevMarkerCount = useRef<number>(0);
 
+  // Refs for event batching and throttling
+  const markerUpdateBatchRef = useRef<Marker[]>([]);
+  const markerUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastViewportUpdateRef = useRef<number>(0);
+  const lastMarkersUpdateRef = useRef<number>(0);
+
+  // Constants for throttling and batching
+  const VIEWPORT_THROTTLE_MS = 500;
+  const MARKER_UPDATE_BATCH_MS = 1000;
+  const MARKER_EMIT_THROTTLE_MS = 2000;
+
+  // Helper to emit marker updates
+  const emitMarkersUpdated = useCallback(
+    (updatedMarkers: Marker[]) => {
+      // Check if we need to deselect the current marker
+      if (selectedMarkerId && updatedMarkers.length === 0) {
+        console.log("No markers in current viewport, deselecting current marker");
+        selectMarker(null);
+
+        // Emit marker deselected event
+        eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
+          timestamp: Date.now(),
+          source: "useMapWebSocket",
+        });
+      } else if (selectedMarkerId && updatedMarkers.length > 0) {
+        // Check if the selected marker still exists in the current markers
+        const selectedMarkerExists = updatedMarkers.some(
+          (marker) => marker.id === selectedMarkerId
+        );
+
+        if (!selectedMarkerExists) {
+          console.log("Selected marker no longer in viewport, deselecting");
+          selectMarker(null);
+
+          // Emit marker deselected event
+          eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
+            timestamp: Date.now(),
+            source: "useMapWebSocket",
+          });
+        }
+      }
+
+      // Only emit if the count changed meaningfully
+      if (
+        Math.abs(updatedMarkers.length - prevMarkerCount.current) > 0 ||
+        prevMarkerCount.current === 0
+      ) {
+        console.log(`Emitting markers updated: ${updatedMarkers.length} markers`);
+
+        eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
+          timestamp: Date.now(),
+          source: "useMapWebSocket",
+          markers: updatedMarkers,
+          count: updatedMarkers.length,
+        });
+
+        // Update previous count
+        prevMarkerCount.current = updatedMarkers.length;
+      } else {
+        console.log(`Skipping markers updated emit: no significant change in count`);
+      }
+    },
+    [selectedMarkerId, selectMarker]
+  );
+
+  // Helper to batch marker updates and emit them periodically
+  const batchMarkerUpdates = useCallback(
+    (updates: Marker[]) => {
+      // Add these updates to our batch
+      markerUpdateBatchRef.current = [...markerUpdateBatchRef.current, ...updates];
+
+      // If we already have a timeout scheduled, don't schedule another one
+      if (markerUpdateTimeoutRef.current) {
+        return;
+      }
+
+      // Schedule emission of batched updates
+      markerUpdateTimeoutRef.current = setTimeout(() => {
+        // Clear the timeout ref
+        markerUpdateTimeoutRef.current = null;
+
+        // Get the current batch of updates
+        const batchToEmit = markerUpdateBatchRef.current;
+
+        // Clear the batch
+        markerUpdateBatchRef.current = [];
+
+        // Only emit if there were updates and enough time has passed
+        const now = Date.now();
+        if (
+          batchToEmit.length > 0 &&
+          now - lastMarkersUpdateRef.current > MARKER_EMIT_THROTTLE_MS
+        ) {
+          emitMarkersUpdated(batchToEmit);
+          lastMarkersUpdateRef.current = now;
+        }
+      }, MARKER_UPDATE_BATCH_MS);
+    },
+    [emitMarkersUpdated]
+  );
+
+  // Helper to convert RBush marker format to Mapbox-friendly format
+  const convertRBushToMapbox = useCallback((rbushMarker: any): Marker => {
+    // For an RBush marker, minX is longitude, minY is latitude
+    return {
+      id: rbushMarker.id,
+      coordinates: [rbushMarker.minX, rbushMarker.minY], // [longitude, latitude] for Mapbox
+      data: {
+        ...rbushMarker.data,
+        // Ensure these fields exist
+        title: rbushMarker.data?.title || "Unnamed Event",
+        emoji: rbushMarker.data?.emoji || "📍",
+        color: rbushMarker.data?.color || "red",
+      },
+    };
+  }, []);
+
+  // Send viewport update to server with throttling
+  const sendViewportUpdate = useCallback((viewport: MapboxViewport) => {
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      try {
+        const now = Date.now();
+
+        // Only send if we haven't sent recently
+        if (now - lastViewportUpdateRef.current > VIEWPORT_THROTTLE_MS) {
+          const message = {
+            type: "viewport_update",
+            viewport,
+          };
+
+          ws.current.send(JSON.stringify(message));
+          lastViewportUpdateRef.current = now;
+
+          // Emit viewport changed event
+          eventBroker.emit<ViewportEvent>(EventTypes.VIEWPORT_CHANGED, {
+            timestamp: now,
+            source: "useMapWebSocket",
+            viewport,
+          });
+
+          console.log("Viewport update sent and event emitted");
+        } else {
+          console.log("Throttled viewport update, too soon since last one");
+        }
+      } catch (err) {
+        console.error("Error sending viewport update:", err);
+      }
+    }
+  }, []);
+
+  // Update viewport state and send to server if connected
+  const updateViewport = useCallback(
+    (viewport: MapboxViewport) => {
+      setCurrentViewport(viewport);
+      if (isConnected) {
+        sendViewportUpdate(viewport);
+      }
+    },
+    [isConnected, sendViewportUpdate]
+  );
+
   // Create a WebSocket connection
-  const connectWebSocket = () => {
+  const connectWebSocket = useCallback(() => {
     try {
       if (ws.current?.readyState === WebSocket.OPEN) {
         return; // Already connected
@@ -103,63 +269,68 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
               setMarkers(initialMapboxMarkers);
 
-              // Emit markers updated event with count information
-              eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
-                timestamp: Date.now(),
-                source: "useMapWebSocket",
-                markers: initialMapboxMarkers,
-                count: initialMapboxMarkers.length,
-              });
+              // If there are no markers and we have a selected marker, deselect it
+              if (initialMapboxMarkers.length === 0 && selectedMarkerId) {
+                console.log("No markers in initial data, deselecting current marker");
+                selectMarker(null);
 
-              // Track marker count for comparison
-              prevMarkerCount.current = initialMapboxMarkers.length;
+                // Emit marker deselected event
+                eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
+                  timestamp: Date.now(),
+                  source: "useMapWebSocket",
+                });
+              }
+
+              // Always emit for initial markers, but only after a short delay
+              // to prevent rapid emission if server sends multiple initial batches
+              const now = Date.now();
+              if (now - lastMarkersUpdateRef.current > MARKER_EMIT_THROTTLE_MS) {
+                emitMarkersUpdated(initialMapboxMarkers);
+                lastMarkersUpdateRef.current = now;
+              }
+
               break;
 
             case "marker_updates_batch":
-              console.log(`Received ${data.data.length} marker updates`);
-              // Convert and merge updates with existing markers
+              // Add to batch and potentially schedule emission
               const mapboxUpdates = data.data.map((marker: any) => convertRBushToMapbox(marker));
 
-              setMarkers((prevMarkers) => {
-                const markerMap = new Map(prevMarkers.map((m) => [m.id, m]));
-                mapboxUpdates.forEach((marker: Marker) => {
-                  markerMap.set(marker.id, marker);
+              // If we get an empty update and have a selected marker, deselect it
+              if (mapboxUpdates.length === 0 && selectedMarkerId) {
+                console.log("No markers in update batch, deselecting current marker");
+                selectMarker(null);
+
+                // Emit marker deselected event
+                eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
+                  timestamp: Date.now(),
+                  source: "useMapWebSocket",
                 });
-                const updatedMarkers = Array.from(markerMap.values());
+              }
 
-                // Emit markers updated event only if the count changed
-                if (updatedMarkers.length !== prevMarkerCount.current) {
-                  eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
-                    timestamp: Date.now(),
-                    source: "useMapWebSocket",
-                    markers: updatedMarkers,
-                    count: updatedMarkers.length,
-                  });
-                  // Update previous count
-                  prevMarkerCount.current = updatedMarkers.length;
-                }
-
-                return updatedMarkers;
-              });
+              batchMarkerUpdates(mapboxUpdates);
               break;
 
             case "marker_delete":
               console.log("Marker deleted:", data.data.id);
+
+              // If the deleted marker is the selected one, deselect it
+              if (data.data.id === selectedMarkerId) {
+                console.log("Currently selected marker was deleted, deselecting");
+                selectMarker(null);
+
+                // Emit marker deselected event
+                eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
+                  timestamp: Date.now(),
+                  source: "useMapWebSocket",
+                });
+              }
+
               // Remove deleted marker
               setMarkers((prevMarkers) => {
                 const updatedMarkers = prevMarkers.filter((marker) => marker.id !== data.data.id);
 
-                // Emit markers updated event if count changed
-                if (updatedMarkers.length !== prevMarkerCount.current) {
-                  eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
-                    timestamp: Date.now(),
-                    source: "useMapWebSocket",
-                    markers: updatedMarkers,
-                    count: updatedMarkers.length,
-                  });
-                  // Update previous count
-                  prevMarkerCount.current = updatedMarkers.length;
-                }
+                // Add deletion to the update batch to emit later
+                batchMarkerUpdates(updatedMarkers);
 
                 return updatedMarkers;
               });
@@ -169,18 +340,21 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               // If server sends direct array of markers (fallback)
               if (Array.isArray(data)) {
                 const mapboxMarkers = data.map((marker: any) => convertRBushToMapbox(marker));
+
+                // If we get an empty array and have a selected marker, deselect it
+                if (mapboxMarkers.length === 0 && selectedMarkerId) {
+                  console.log("No markers in array data, deselecting current marker");
+                  selectMarker(null);
+
+                  // Emit marker deselected event
+                  eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
+                    timestamp: Date.now(),
+                    source: "useMapWebSocket",
+                  });
+                }
+
                 setMarkers(mapboxMarkers);
-
-                // Emit markers updated event
-                eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
-                  timestamp: Date.now(),
-                  source: "useMapWebSocket",
-                  markers: mapboxMarkers,
-                  count: mapboxMarkers.length,
-                });
-
-                // Update previous count
-                prevMarkerCount.current = mapboxMarkers.length;
+                batchMarkerUpdates(mapboxMarkers);
               }
               break;
           }
@@ -245,54 +419,16 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         error,
       });
     }
-  };
-
-  // Helper to convert RBush marker format to Mapbox-friendly format
-  const convertRBushToMapbox = (rbushMarker: any): Marker => {
-    // For an RBush marker, minX is longitude, minY is latitude
-    return {
-      id: rbushMarker.id,
-      coordinates: [rbushMarker.minX, rbushMarker.minY], // [longitude, latitude] for Mapbox
-      data: {
-        ...rbushMarker.data,
-        // Ensure these fields exist
-        title: rbushMarker.data?.title || "Unnamed Event",
-        emoji: rbushMarker.data?.emoji || "📍",
-        color: rbushMarker.data?.color || "red",
-      },
-    };
-  };
-
-  // Send viewport update to server
-  const sendViewportUpdate = (viewport: MapboxViewport) => {
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      try {
-        const message = {
-          type: "viewport_update",
-          viewport,
-        };
-
-        ws.current.send(JSON.stringify(message));
-
-        // Emit viewport changed event
-        eventBroker.emit<ViewportEvent>(EventTypes.VIEWPORT_CHANGED, {
-          timestamp: Date.now(),
-          source: "useMapWebSocket",
-          viewport,
-        });
-      } catch (err) {
-        console.error("Error sending viewport update:", err);
-      }
-    }
-  };
-
-  // Update viewport state and send to server if connected
-  const updateViewport = (viewport: MapboxViewport) => {
-    setCurrentViewport(viewport);
-    if (isConnected) {
-      sendViewportUpdate(viewport);
-    }
-  };
+  }, [
+    batchMarkerUpdates,
+    convertRBushToMapbox,
+    currentViewport,
+    emitMarkersUpdated,
+    selectMarker,
+    selectedMarkerId,
+    sendViewportUpdate,
+    url,
+  ]);
 
   // Connect on mount, disconnect on unmount
   useEffect(() => {
@@ -306,8 +442,12 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
+
+      if (markerUpdateTimeoutRef.current) {
+        clearTimeout(markerUpdateTimeoutRef.current);
+      }
     };
-  }, [url]);
+  }, [connectWebSocket]);
 
   return {
     markers,
