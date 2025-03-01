@@ -187,6 +187,11 @@ export const useEventDrivenMessaging = () => {
       // Skip if there's no data - REMAIN SILENT
       if (!markers || markers.length === 0) {
         console.log("No markers found, remaining silent");
+        queueMessage(
+          `No markers found in this area.`,
+          MessagePriority.HIGH,
+          EventTypes.MARKERS_UPDATED
+        );
         return;
       }
 
