@@ -11,7 +11,7 @@ export const layout = StyleSheet.create({
     margin: "auto",
     width: "95%", // Slightly narrower for better proportions
     alignSelf: "center",
-    zIndex: 500, // Lower than fullscreen views
+    zIndex: 10000000, // Lower than fullscreen views
   },
   card: {
     backgroundColor: "#333", // Match event details dark background

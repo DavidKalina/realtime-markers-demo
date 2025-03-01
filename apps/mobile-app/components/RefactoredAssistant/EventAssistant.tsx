@@ -1,10 +1,10 @@
 // Updated EventAssistant.tsx using the unified location store
+import { useLocationStore } from "@/stores/useLocationStore";
+import { useTextStreamingStore } from "@/stores/useTextStreamingStore";
 import React, { useEffect, useState } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { ActionBar } from "./ActionBar";
-import ConnectionIndicator from "./ConnectionIndicator";
 import { EventDetailsView } from "./EventDetailsView";
 import { FloatingEmojiWithStore } from "./FloatingEmoji";
 import { MessageBubble } from "./MessageBubble";
@@ -12,7 +12,6 @@ import { ScanView } from "./ScanView";
 import { SearchView } from "./SearchView";
 import { ShareView } from "./ShareView";
 import { styles } from "./styles";
-import { useTextStreamingStore } from "@/stores/useTextStreamingStore";
 
 const EventAssistant: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -290,9 +289,6 @@ const EventAssistant: React.FC = () => {
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-      {/* Connection Indicator with actual connection state */}
-      <ConnectionIndicator eventsCount={markersCount} />
-
       {/* Event Details View */}
       {activeView === "details" && (
         <EventDetailsView

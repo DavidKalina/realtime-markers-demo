@@ -4,7 +4,7 @@ import { Platform, StyleSheet } from "react-native";
 export const details = StyleSheet.create({
   detailsScreenContainer: {
     position: "absolute",
-    top: 40,
+    top: -770,
     width: "95%",
     margin: "auto",
     alignSelf: "center",
@@ -15,8 +15,8 @@ export const details = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 8,
-    zIndex: 1000,
+    elevation: 18,
+    zIndex: 10000000,
   },
   headerContainer: {
     flexDirection: "row",
