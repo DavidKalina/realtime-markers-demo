@@ -166,6 +166,8 @@ export default function HomeScreen() {
           });
         }}
         onRegionDidChange={handleMapViewportChange}
+        // TODO IF REGION IS CHANGING EMIT EVENT TO UPDATE ASSISTANT TEXT STREAMING
+        onRegionIsChanging={() => {}}
       >
         {userLocation ? (
           <MapboxGL.Camera
