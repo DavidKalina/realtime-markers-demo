@@ -38,7 +38,6 @@ export const useCamera = () => {
   useEffect(() => {
     const updatePermission = async () => {
       try {
-        console.log("Checking camera permission status");
         setDebugInfo((prev) => ({
           ...prev,
           permissionChecks: prev.permissionChecks + 1,
@@ -55,7 +54,6 @@ export const useCamera = () => {
 
         // If permission is denied and can ask again, request it automatically
         if (!permission.granted && permission.canAskAgain) {
-          console.log("Requesting camera permission");
           const result = await requestPermission();
           setHasPermission(result.granted);
         }
@@ -76,7 +74,6 @@ export const useCamera = () => {
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
       const isActive = nextAppState === "active";
-      console.log("App state changed:", { nextAppState, wasActive: appActive, isActive });
 
       setAppActive(isActive);
 
@@ -116,7 +113,6 @@ export const useCamera = () => {
 
   // Handle camera readiness
   const onCameraReady = useCallback(() => {
-    console.log("Camera ready event fired");
     setIsCameraReady(true);
     setDebugInfo((prev) => ({
       ...prev,

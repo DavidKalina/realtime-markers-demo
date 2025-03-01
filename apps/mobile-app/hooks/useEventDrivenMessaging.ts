@@ -86,13 +86,11 @@ export const useEventDrivenMessaging = () => {
         text.includes("Connected") ||
         text.includes("connecting")
       ) {
-        console.log(`Skipping connection message: "${text}"`);
         return;
       }
 
       // Skip "No events" messages
       if (text.includes("No events") || text.includes("no events")) {
-        console.log(`Skipping "no events" message: "${text}"`);
         return;
       }
 
@@ -101,11 +99,8 @@ export const useEventDrivenMessaging = () => {
 
       // Check if this is a duplicate message already in the queue
       if (messageQueue.current.some((m) => m.text === text)) {
-        console.log(`Skipping duplicate message in queue: "${text}"`);
         return;
       }
-
-      console.log(`Queuing message (priority ${priority}): "${text}"`);
 
       // Add to queue with unique ID and emoji
       messageQueue.current.push({
@@ -146,10 +141,8 @@ export const useEventDrivenMessaging = () => {
       setCurrentEmoji(nextMessage.emoji || "");
 
       const messageText = nextMessage.emoji ? `${nextMessage.text}` : nextMessage.text;
-      console.log(`Processing message: "${messageText}"`);
 
       await simulateTextStreaming(messageText);
-      console.log("Message streaming complete");
 
       // Small delay between messages
       setTimeout(processNextMessage, 300);
@@ -170,8 +163,6 @@ export const useEventDrivenMessaging = () => {
     if (currentMessage) {
       messageQueue.current.push(currentMessage);
     }
-
-    console.log("Message queue cleared");
   }, []);
 
   // Initialize with a welcome message, but only once during the entire app lifecycle
@@ -180,7 +171,6 @@ export const useEventDrivenMessaging = () => {
       setIsInitialized(true);
 
       if (!welcomeMessageShown.current) {
-        console.log("useEventDrivenMessaging initialized - showing welcome message");
         queueMessage(
           "Hello! I'm your event assistant. I can help you discover events nearby.",
           MessagePriority.HIGH,
@@ -239,7 +229,6 @@ export const useEventDrivenMessaging = () => {
 
       // Only skip if it's the exact same marker being reselected
       if (markerId === lastSelectedMarkerId.current) {
-        console.log("Skipping message - same marker reselected:", markerId);
         return;
       }
 
@@ -298,9 +287,6 @@ export const useEventDrivenMessaging = () => {
     const unsubscribe = subscribe<BaseEvent>(EventTypes.MARKER_DESELECTED, (_eventData) => {
       // Reset the last selected marker ID
       lastSelectedMarkerId.current = null;
-
-      // Just log but don't show a message to the user
-      console.log("Marker deselected - remaining silent");
     });
 
     return unsubscribe;

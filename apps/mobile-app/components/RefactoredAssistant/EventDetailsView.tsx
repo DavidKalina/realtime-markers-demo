@@ -44,8 +44,6 @@ export const EventDetailsView: React.FC<EventDetailsViewProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  console.log(eventId);
-
   // Fetch event details when the component becomes visible
   useEffect(() => {
     let isMounted = true;

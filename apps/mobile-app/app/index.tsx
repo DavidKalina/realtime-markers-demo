@@ -30,11 +30,6 @@ export default function HomeScreen() {
 
   const { markers, isConnected, updateViewport } = mapWebSocketData;
 
-  // Log marker updates for debugging
-  useEffect(() => {
-    console.log(`HomeScreen: WebSocket markers updated, count=${markers.length}`);
-  }, [markers.length]);
-
   // Initialize the event assistant store with static data
   useEffect(() => {
     // Set the current event to the first one
@@ -53,11 +48,9 @@ export default function HomeScreen() {
     const getUserLocation = async () => {
       try {
         setIsLoadingLocation(true);
-        console.log("Starting location acquisition process");
 
         // Request location permissions
         const { status } = await Location.requestForegroundPermissionsAsync();
-        console.log("Location permission status:", status);
 
         if (status !== "granted") {
           setLocationPermissionGranted(false);
@@ -156,7 +149,6 @@ export default function HomeScreen() {
         logoEnabled={false}
         attributionEnabled={false}
         onDidFinishLoadingMap={() => {
-          console.log("Map finished loading");
           setIsMapReady(true);
 
           // Emit map ready event
@@ -168,7 +160,6 @@ export default function HomeScreen() {
         onRegionDidChange={handleMapViewportChange}
         // TODO IF REGION IS CHANGING EMIT EVENT TO UPDATE ASSISTANT TEXT STREAMING
         onRegionIsChanging={() => {
-          console.log("IS_REGION_CHANING");
           publish<BaseEvent>(EventTypes.VIEWPORT_CHANGING, { timestamp: Date.now() });
         }}
       >

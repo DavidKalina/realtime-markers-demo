@@ -23,7 +23,6 @@ export const EventBrokerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // Clean up event listeners when the app is unmounted
     return () => {
       unsubscribe();
-      console.log("EventBrokerProvider: Cleaning up event broker system");
     };
   }, []);
 
@@ -35,8 +34,6 @@ export const EventBrokerProvider: React.FC<{ children: React.ReactNode }> = ({ c
  * (e.g., in service workers or non-component contexts)
  */
 export function initializeEventBroker() {
-  console.log("Initializing event broker system outside of React context");
-
   // Set up any global configuration for the event broker
   eventBroker.setDebugMode(__DEV__);
 

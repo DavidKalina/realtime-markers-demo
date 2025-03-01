@@ -32,7 +32,6 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
       if (nextAppState === "active" && hasSettingsOpened) {
-        console.log("App active after settings");
         setHasSettingsOpened(false);
 
         // Check if permissions have changed
@@ -74,7 +73,6 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
     try {
       setIsProcessing(true);
       const result = await requestPermission();
-      console.log("Permission request result:", result);
 
       // If permission was denied and can't ask again, we'll need to go to settings
       if (!result.granted && !result.canAskAgain) {

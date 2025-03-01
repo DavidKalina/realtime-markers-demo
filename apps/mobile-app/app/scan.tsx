@@ -62,7 +62,6 @@ export default function ScanScreen() {
         // Add a backup timer to exit initialization state
         const backupTimer = setTimeout(() => {
           if (hasPermission === true) {
-            console.log("Backup timer forcing exit from initialization state");
             setIsCameraInitializing(false);
           }
         }, 6000); // 6 second backup
@@ -82,7 +81,6 @@ export default function ScanScreen() {
     // This is a fallback safety mechanism to ensure we don't get stuck
     const masterSafetyTimer = setTimeout(() => {
       if (isCameraInitializing && hasPermission === true) {
-        console.log("MASTER safety timeout triggered - forcing camera initialization complete");
         setIsCameraInitializing(false);
       }
     }, 10000); // 10 second master safety timeout
@@ -92,12 +90,6 @@ export default function ScanScreen() {
 
   // Modified code:
   useEffect(() => {
-    console.log("Camera initialization state check:", {
-      hasPermission,
-      isCameraReady,
-      isCameraActive,
-    });
-
     if (hasPermission && isCameraReady) {
       // Both permission granted and camera is ready
       setIsCameraInitializing(false);
@@ -108,7 +100,6 @@ export default function ScanScreen() {
       // Permission is granted, camera is active but not ready yet
       // Set a safety timeout to avoid being stuck in initializing state
       const safetyTimer = setTimeout(() => {
-        console.log("Safety timeout triggered - forcing camera initialization complete");
         setIsCameraInitializing(false);
       }, 5000); // 5 second safety timeout
 
@@ -220,7 +211,6 @@ export default function ScanScreen() {
   };
 
   const handlePermissionGranted = useCallback(() => {
-    console.log("Permission granted callback");
     // Force reset the initialization state when we get permission
     // This will let us re-evaluate in the effect above
     setIsCameraInitializing(true);
