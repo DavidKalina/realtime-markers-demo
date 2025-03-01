@@ -1,4 +1,4 @@
-// hooks/useEventDrivenMessaging.ts - With connection messages removed
+// hooks/useEventDrivenMessaging.ts - With improved marker handling
 import { useEventBroker } from "@/hooks/useEventBroker";
 import {
   BaseEvent,
@@ -16,6 +16,7 @@ enum MessagePriority {
   LOW = 0,
   MEDIUM = 1,
   HIGH = 2,
+  CRITICAL = 3, // Added even higher priority for marker selection
 }
 
 // Queue message interface
@@ -83,6 +84,12 @@ export const useEventDrivenMessaging = () => {
         return;
       }
 
+      // Skip "No events" messages
+      if (text.includes("No events") || text.includes("no events")) {
+        console.log(`Skipping "no events" message: "${text}"`);
+        return;
+      }
+
       // Generate a unique ID for this message
       const messageId = generateMessageId(text, eventType);
 
@@ -140,6 +147,22 @@ export const useEventDrivenMessaging = () => {
     }
   }, [simulateTextStreaming]);
 
+  // Clear all messages except the currently processing one
+  const clearMessageQueue = useCallback(() => {
+    // Get the current message being processed (if any)
+    const currentMessage = messageQueue.current.length > 0 ? messageQueue.current[0] : null;
+
+    // Clear the queue
+    messageQueue.current = [];
+
+    // If there was a message being processed, put it back
+    if (currentMessage) {
+      messageQueue.current.push(currentMessage);
+    }
+
+    console.log("Message queue cleared");
+  }, []);
+
   // Initialize with a welcome message, but only once during the entire app lifecycle
   useEffect(() => {
     if (!isInitialized) {
@@ -156,21 +179,14 @@ export const useEventDrivenMessaging = () => {
     }
   }, [queueMessage, isInitialized]);
 
-  // We're NOT subscribing to WebSocket connection events
-  // since we want to hide those messages completely
-
-  // Subscribe to marker updates
+  // Subscribe to marker updates - SILENT WHEN EMPTY
   useEffect(() => {
     const unsubscribe = subscribe<MarkersEvent>(EventTypes.MARKERS_UPDATED, (eventData) => {
       const { count, markers } = eventData;
 
-      // Skip if there's no data
+      // Skip if there's no data - REMAIN SILENT
       if (!markers || markers.length === 0) {
-        queueMessage(
-          "No events found in this area. Try moving the map to explore more locations.",
-          MessagePriority.MEDIUM,
-          EventTypes.MARKERS_UPDATED
-        );
+        console.log("No markers found, remaining silent");
         return;
       }
 
@@ -207,6 +223,9 @@ export const useEventDrivenMessaging = () => {
       lastSelectedMarkerId.current = markerId;
 
       if (markerData) {
+        // For new marker selections, clear any pending messages to prioritize this
+        clearMessageQueue();
+
         // Generate a random supportive message about the selected marker
         const messages = [
           `${markerData.data.emoji} ${markerData.data.title} looks interesting! ${
@@ -224,7 +243,11 @@ export const useEventDrivenMessaging = () => {
         ];
 
         const randomIndex = Math.floor(Math.random() * messages.length);
-        queueMessage(messages[randomIndex], MessagePriority.HIGH, EventTypes.MARKER_SELECTED);
+        queueMessage(
+          messages[randomIndex],
+          MessagePriority.CRITICAL, // Even higher priority for marker selection
+          EventTypes.MARKER_SELECTED
+        );
 
         // Trigger haptic feedback for marker selection
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -232,24 +255,20 @@ export const useEventDrivenMessaging = () => {
     });
 
     return unsubscribe;
-  }, [subscribe, queueMessage]);
+  }, [subscribe, queueMessage, clearMessageQueue]);
 
-  // Subscribe to marker deselection
+  // Subscribe to marker deselection - REMAIN SILENT
   useEffect(() => {
     const unsubscribe = subscribe<BaseEvent>(EventTypes.MARKER_DESELECTED, (_eventData) => {
       // Reset the last selected marker ID
       lastSelectedMarkerId.current = null;
 
-      // Let the user know there are no events in this area
-      queueMessage(
-        "No events in this area now. You can explore different locations or zoom out to see more.",
-        MessagePriority.MEDIUM,
-        EventTypes.MARKER_DESELECTED
-      );
+      // Just log but don't show a message to the user
+      console.log("Marker deselected - remaining silent");
     });
 
     return unsubscribe;
-  }, [subscribe, queueMessage]);
+  }, [subscribe]);
 
   // Subscribe to viewport changes with significant movement detection
   useEffect(() => {
