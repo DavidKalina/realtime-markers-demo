@@ -2,16 +2,14 @@
 import { SimpleMapMarkers } from "@/components/MarkerImplementation";
 import EventAssistant from "@/components/RefactoredAssistant/EventAssistant";
 import ConnectionIndicator from "@/components/RefactoredAssistant/ConnectionIndicator";
-import { eventSuggestions } from "@/components/RefactoredAssistant/data";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
 import { BaseEvent, EventTypes } from "@/services/EventBroker";
-import { useEventAssistantStore } from "@/stores/useEventAssistantStore";
-import { useMarkerStore } from "@/stores/markerStore";
 import MapboxGL from "@rnmapbox/maps";
 import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Platform, StyleSheet, Text, View } from "react-native";
+import { useLocationStore } from "@/stores/useLocationStore";
 
 // Set Mapbox access token
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -25,23 +23,14 @@ export default function HomeScreen() {
   const { publish } = useEventBroker();
 
   // Get the selected marker ID from marker store
-  const selectedMarkerId = useMarkerStore((state) => state.selectedMarkerId);
 
   // Get the setCurrentEvent function from the store to initialize with static data
-  const { setCurrentEvent } = useEventAssistantStore();
+  const selectedMarkerId = useLocationStore((state) => state.selectedMarkerId);
 
   // Use a single WebSocket connection for the entire app
   const mapWebSocketData = useMapWebSocket(process.env.EXPO_PUBLIC_WEB_SOCKET_URL!);
 
   const { markers, isConnected, updateViewport } = mapWebSocketData;
-
-  // Initialize the event assistant store with static data
-  useEffect(() => {
-    // Set the current event to the first one
-    if (eventSuggestions.length > 0) {
-      setCurrentEvent(eventSuggestions[0]);
-    }
-  }, []);
 
   useEffect(() => {
     // Initialize Mapbox configuration

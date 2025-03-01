@@ -1,13 +1,12 @@
-// components/MarkerImplementation.tsx - Updated with EventBroker
+// components/MarkerImplementation.tsx - Using unified location store
 import React from "react";
 import MapboxGL from "@rnmapbox/maps";
-import { useMarkerStore } from "@/stores/markerStore";
+import { useLocationStore } from "@/stores/useLocationStore";
 import { CustomMapMarker } from "./CustomMapMarker";
-import { useEventBroker } from "@/hooks/useEventBroker";
-import { EventTypes, MarkerEvent } from "@/services/EventBroker";
 
 interface SimpleMapMarkersProps {
-  markers: Array<{
+  // Optional markers prop - if not provided, will use markers from the store
+  markers?: Array<{
     id: string;
     coordinates: [number, number];
     data: {
@@ -24,29 +23,25 @@ interface SimpleMapMarkersProps {
   }>;
 }
 
-export const SimpleMapMarkers: React.FC<SimpleMapMarkersProps> = ({ markers }) => {
-  // Get selected marker from your store
-  const selectedMarker = useMarkerStore((state) => state.selectedMarker);
-  const setSelectedMarker = useMarkerStore((state) => state.selectMarker);
-  const { publish } = useEventBroker();
+export const SimpleMapMarkers: React.FC<SimpleMapMarkersProps> = ({ markers: propMarkers }) => {
+  // Get marker data from store
+  const storeMarkers = useLocationStore((state) => state.markers);
+  const selectedMarkerId = useLocationStore((state) => state.selectedMarkerId);
+  const selectMarker = useLocationStore((state) => state.selectMarker);
+
+  // Use provided markers or fall back to store markers
+  const markers = propMarkers || storeMarkers;
 
   // Handle marker selection
   const handleMarkerPress = (marker: any) => {
+    console.log({ marker });
     // If we're selecting the same marker again, do nothing
-    if (selectedMarker?.id === marker.id) {
+    if (selectedMarkerId === marker.id) {
       return;
     }
 
-    // Update the marker store
-    setSelectedMarker(marker.id);
-
-    // Emit marker selection event
-    publish<MarkerEvent>(EventTypes.MARKER_SELECTED, {
-      timestamp: Date.now(),
-      source: "SimpleMapMarkers",
-      markerId: marker.id,
-      markerData: marker,
-    });
+    // Update marker selection in the unified store
+    selectMarker(marker.id);
   };
 
   return (
@@ -78,7 +73,7 @@ export const SimpleMapMarkers: React.FC<SimpleMapMarkersProps> = ({ markers }) =
                 isVerified: marker.data.isVerified || false,
                 color: marker.data.color,
               }}
-              isSelected={selectedMarker?.id === marker.id}
+              isSelected={selectedMarkerId === marker.id}
               isHighlighted={false}
               onPress={() => handleMarkerPress(marker)}
             />

@@ -2,14 +2,7 @@
 import * as Haptics from "expo-haptics";
 import { ArrowLeft, Navigation, Share2 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   Easing,
   FadeIn,
@@ -18,10 +11,9 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import apiClient from "../../services/ApiClient"; // Adjust the import path as needed
 import { styles } from "./styles";
 import { EventType } from "./types";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import apiClient from "../../services/ApiClient"; // Adjust the import path as needed
 
 interface EventDetailsViewProps {
   isVisible: boolean;
@@ -38,8 +30,6 @@ export const EventDetailsView: React.FC<EventDetailsViewProps> = ({
   onShare,
   onGetDirections,
 }) => {
-  const { height, width } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
   const [event, setEvent] = useState<EventType | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,38 +69,6 @@ export const EventDetailsView: React.FC<EventDetailsViewProps> = ({
       isMounted = false;
     };
   }, [isVisible, eventId]);
-
-  // Calculate appropriate spacing based on device size
-  const bottomSpacing = () => {
-    // Base spacing
-    let spacing = Math.max(20, insets.bottom);
-
-    // Add additional spacing on taller devices
-    if (height > 800) {
-      spacing += 20;
-    }
-
-    // Calculate spacing as a percentage of screen height for consistent feel
-    const dynamicSpacing = height * 0.05; // 5% of screen height
-
-    return Math.max(spacing, dynamicSpacing);
-  };
-
-  // Calculate the assistant width based on screen size
-  const assistantWidth = () => {
-    // For smaller devices, use more width
-    if (width < 375) {
-      return "95%";
-    }
-
-    // For larger devices, use less width
-    if (width > 428) {
-      return "85%";
-    }
-
-    // Default
-    return "90%";
-  };
 
   // Animation values
   const animationProgress = useSharedValue(0);
@@ -248,7 +206,7 @@ export const EventDetailsView: React.FC<EventDetailsViewProps> = ({
               <Animated.View style={styles.detailRow} entering={FadeIn.delay(400).duration(400)}>
                 <Text style={styles.label}>Categories</Text>
                 <View style={styles.categoriesContainer}>
-                  {event.categories.map((category, index) => (
+                  {event.categories.map((category: any, index: number) => (
                     <View key={index} style={styles.categoryBadge}>
                       <Text style={styles.categoryText}>{category}</Text>
                     </View>

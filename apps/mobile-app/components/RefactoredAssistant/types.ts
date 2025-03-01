@@ -11,8 +11,6 @@ export interface EventType {
   description: string;
   location: string;
   time: string;
-  distance: string;
-  categories: string[];
   coordinates?: Coordinates;
   isVerified?: boolean;
   color?: string;

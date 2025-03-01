@@ -1,4 +1,4 @@
-// hooks/useTextStreamingStore.ts - Simplified for direct use
+// hooks/useTextStreamingStore.ts - Enhanced for smoother transitions
 import { create } from "zustand";
 import * as Haptics from "expo-haptics";
 
@@ -90,10 +90,23 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
     const minRenderInterval = 16; // ~60fps, prevents too frequent renders
 
     try {
-      // Determine typing speed - faster for shorter messages and emoji messages
-      const hasEmoji = /\p{Emoji}/u.test(text);
-      const isShort = text.length < 30;
-      const typingSpeed = isShort ? 10 : hasEmoji ? 12 : 18;
+      // Adaptive typing speed based on message characteristics
+      const getTypingSpeed = (message: string, index: number) => {
+        // Faster at the beginning to give a quick response feeling
+        if (index < 5) return 15;
+
+        // Faster for emoji
+        if (/\p{Emoji}/u.test(message[index])) return 10;
+
+        // Slow down for punctuation to create natural pauses
+        if ([".", ",", "!", "?", ";", ":"].includes(message[index])) return 40;
+
+        // Default typing speed based on message length
+        const baseSpeed = message.length < 30 ? 18 : message.length < 60 ? 22 : 25;
+
+        // Add slight randomness for natural feel
+        return baseSpeed + Math.floor(Math.random() * 8) - 4;
+      };
 
       // Use a buffer to batch character additions
       let buffer = "";
@@ -126,8 +139,8 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
           lastRenderTime = now;
         }
 
-        // Wait before adding the next character
-        await new Promise((resolve) => setTimeout(resolve, typingSpeed));
+        // Wait before adding the next character - dynamic typing speed
+        await new Promise((resolve) => setTimeout(resolve, getTypingSpeed(text, i)));
       }
 
       // Final haptic to signal completion

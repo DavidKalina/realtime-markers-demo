@@ -64,4 +64,14 @@ export const message = StyleSheet.create({
   detailRow: {
     marginBottom: 16,
   },
+  typingIndicator: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#888",
+    marginLeft: 2,
+    marginTop: -5,
+    opacity: 0.8,
+    // For an animated ellipsis effect, you could use the Animated API
+    // but this static style will work with the basic indicator
+  },
 });

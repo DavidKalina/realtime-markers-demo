@@ -7,7 +7,7 @@ import {
   MarkersEvent,
   BaseEvent,
 } from "@/services/EventBroker";
-import { useMarkerStore } from "@/stores/markerStore";
+import { useLocationStore } from "@/stores/useLocationStore";
 
 // Mapbox viewport format
 interface MapboxViewport {
@@ -18,7 +18,7 @@ interface MapboxViewport {
 }
 
 // Server marker structure adjusted for Mapbox
-interface Marker {
+export interface Marker {
   id: string;
   coordinates: [number, number]; // [longitude, latitude]
   data: {
@@ -53,6 +53,8 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const [currentViewport, setCurrentViewport] = useState<MapboxViewport | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
 
+  const setStoreMarkers = useLocationStore.getState().setMarkers;
+
   const markersRef = useRef<Marker[]>(markers);
 
   // Update the ref whenever markers state changes.
@@ -60,9 +62,14 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     markersRef.current = markers;
   }, [markers]);
 
+  useEffect(() => {
+    // Update the global store whenever the local markers state changes
+    setStoreMarkers(markers);
+  }, [markers]);
+
   // Store selected marker id from the marker store.
-  const selectedMarkerId = useMarkerStore((state) => state.selectedMarkerId);
-  const selectMarker = useMarkerStore((state) => state.selectMarker);
+  const selectedMarkerId = useLocationStore((state) => state.selectedMarkerId);
+  const selectMarker = useLocationStore((state) => state.selectMarker);
 
   // Create refs for values that change frequently so they don't force reconnection.
   const selectedMarkerIdRef = useRef<string | null>(selectedMarkerId);
@@ -82,15 +89,11 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
   // Refs for throttling and batching marker updates.
   const prevMarkerCount = useRef<number>(0);
-  const markerUpdateBatchRef = useRef<Marker[]>([]);
   const markerUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastViewportUpdateRef = useRef<number>(0);
-  const lastMarkersUpdateRef = useRef<number>(0);
 
   // Throttling constants
   const VIEWPORT_THROTTLE_MS = 0;
-  const MARKER_UPDATE_BATCH_MS = 0;
-  const MARKER_EMIT_THROTTLE_MS = 500;
 
   const emitMarkersUpdated = useCallback(
     (updatedMarkers: Marker[]) => {
@@ -197,7 +200,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   }, []);
 
   // Add a ref to track if initial markers have been received.
-  const hasReceivedInitialMarkersRef = useRef<boolean>(false);
 
   const updateViewport = useCallback((viewport: MapboxViewport) => {
     setCurrentViewport(viewport);

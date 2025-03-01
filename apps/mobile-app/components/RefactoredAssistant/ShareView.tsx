@@ -1,43 +1,43 @@
 // ShareView.tsx - Updated with contact selection
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  FlatList,
-  ActivityIndicator,
-} from "react-native";
-import {
-  ArrowLeft,
-  Share2,
-  Copy,
-  MessageSquare,
-  Mail,
-  Link,
-  Search,
-  Check,
-  User,
-  Users,
-  AlertCircle,
-} from "lucide-react-native";
-import * as Haptics from "expo-haptics";
 import * as Contacts from "expo-contacts";
+import * as Haptics from "expo-haptics";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  Copy,
+  Link,
+  Mail,
+  MessageSquare,
+  Search,
+  Share2,
+  Users,
+} from "lucide-react-native";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
   Easing,
   FadeIn,
   SlideInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import { styles } from "./styles";
 import { EventType } from "./types";
+import { Marker } from "@/stores/useLocationStore";
 
 interface ShareViewProps {
   isVisible: boolean;
-  event: EventType;
+  event: Marker;
   onClose: () => void;
 }
 
@@ -186,7 +186,7 @@ export const ShareView: React.FC<ShareViewProps> = ({ isVisible, event, onClose 
     { id: "more", name: "More Options", icon: <Link size={20} color="#4dabf7" /> },
   ];
 
-  const shareText = `Check out this event: ${event.title} at ${event.location} on ${event.time}. ${event.description}`;
+  const shareText = `Check out this event: ${event.data.title} at ${event.coordinates} on ${event.data.created_at}. ${event.data.emoji}`;
 
   // Don't render if not visible and animation is complete
   if (!isVisible && animationProgress.value === 0) {
@@ -684,14 +684,14 @@ export const ShareView: React.FC<ShareViewProps> = ({ isVisible, event, onClose 
         >
           <View style={styles.eventHeader}>
             <View style={styles.eventTitleContainer}>
-              <Text style={styles.emoji}>{event.emoji}</Text>
-              <Text style={styles.eventTitle}>{event.title}</Text>
+              <Text style={styles.emoji}>{event.data.emoji}</Text>
+              <Text style={styles.eventTitle}>{event.data.title}</Text>
             </View>
           </View>
 
           <Animated.View entering={FadeIn.delay(150).duration(300)}>
             <Text style={styles.value}>
-              {event.time} at {event.location}
+              {event.data.emoji} at {event.data.color}
             </Text>
           </Animated.View>
         </Animated.View>
