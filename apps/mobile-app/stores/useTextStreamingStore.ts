@@ -1,4 +1,4 @@
-// hooks/useTextStreamingStore.ts - Improved text streaming with reduced flickering
+// hooks/useTextStreamingStore.ts - With added ability to cancel streaming
 import { create } from "zustand";
 import * as Haptics from "expo-haptics";
 
@@ -8,9 +8,11 @@ interface TextStreamingState {
   currentEmoji: string;
   lastStreamedText: string; // Track the last message we streamed
   streamCount: number; // Track how many times we've streamed
+  cancelationRequested: boolean; // New flag to request cancelation
   simulateTextStreaming: (text: string) => Promise<void>;
   setCurrentEmoji: (emoji: string) => void;
   resetText: () => void;
+  cancelCurrentStreaming: () => void; // New method to cancel current streaming
 }
 
 export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
@@ -19,10 +21,29 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
   isTyping: false,
   lastStreamedText: "",
   streamCount: 0,
+  cancelationRequested: false,
+
   setCurrentEmoji: (emoji: string) => set({ currentEmoji: emoji }),
+
+  // Add method to request cancelation of current streaming
+  cancelCurrentStreaming: () => {
+    console.log("TextStreamingStore: Canceling current text streaming");
+    set({
+      cancelationRequested: true,
+      isTyping: false, // Force typing to end immediately
+    });
+
+    // Reset the cancelation flag after a short delay
+    setTimeout(() => {
+      set({ cancelationRequested: false });
+    }, 100);
+  },
 
   simulateTextStreaming: async (text: string) => {
     console.log(`TextStreamingStore: Starting text streaming - "${text}"`);
+
+    // Reset cancelation flag at the start
+    set({ cancelationRequested: false });
 
     // Skip if text is empty
     if (!text || text.length === 0) {
@@ -77,6 +98,12 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
       const hapticInterval = 200; // Limit haptics to reduce interference
 
       for (let i = 0; i < text.length; i++) {
+        // Check if cancelation was requested
+        if (get().cancelationRequested) {
+          console.log("TextStreamingStore: Streaming canceled");
+          break;
+        }
+
         // Add character to buffer
         buffer += text[i];
         currentText += text[i];
@@ -113,6 +140,10 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
 
   resetText: () => {
     console.log("TextStreamingStore: Resetting text");
-    set({ currentStreamedText: "", isTyping: false });
+    set({
+      currentStreamedText: "",
+      isTyping: false,
+      cancelationRequested: false,
+    });
   },
 }));

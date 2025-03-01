@@ -46,8 +46,14 @@ export const useEventDrivenMessaging = () => {
   const [isInitialized, setIsInitialized] = useState(false);
 
   const { subscribe } = useEventBroker();
-  const { currentStreamedText, isTyping, simulateTextStreaming, streamCount, setCurrentEmoji } =
-    useTextStreamingStore();
+  const {
+    currentStreamedText,
+    isTyping,
+    simulateTextStreaming,
+    streamCount,
+    setCurrentEmoji,
+    cancelCurrentStreaming,
+  } = useTextStreamingStore();
 
   // Message queue
   const messageQueue = useRef<QueuedMessage[]>([]);
@@ -144,7 +150,7 @@ export const useEventDrivenMessaging = () => {
     [isTyping, generateMessageId]
   );
 
-  // Process the next message in the queue, now prepending the emoji if provided
+  // Process the next message in the queue, now with better cancellation support
   const processNextMessage = useCallback(async () => {
     if (messageQueue.current.length === 0) {
       isProcessingQueue.current = false;
@@ -160,6 +166,18 @@ export const useEventDrivenMessaging = () => {
         isInSearchingState.current = false;
       }
 
+      // Check if there's a higher priority message in the queue
+      const hasHigherPriorityMessage = messageQueue.current.some(
+        (msg) => msg.priority > nextMessage.priority
+      );
+
+      // If a higher priority message is waiting, skip this one
+      if (hasHigherPriorityMessage && nextMessage.priority < MessagePriority.HIGH) {
+        console.log("Skipping lower priority message because higher priority message is queued");
+        setTimeout(processNextMessage, 10); // Process the next message immediately
+        return;
+      }
+
       // Update the store with the emoji from the queued message
       setCurrentEmoji(nextMessage.emoji || "");
 
@@ -172,7 +190,7 @@ export const useEventDrivenMessaging = () => {
     } else {
       isProcessingQueue.current = false;
     }
-  }, [simulateTextStreaming, setCurrentEmoji]);
+  }, [simulateTextStreaming, setCurrentEmoji, cancelCurrentStreaming]);
 
   // Improved clearMessageQueue with selective clearing
   const clearMessageQueue = useCallback(
@@ -282,17 +300,29 @@ export const useEventDrivenMessaging = () => {
     const unsubscribe = subscribe<MarkerEvent>(EventTypes.MARKER_SELECTED, (eventData) => {
       const { markerData, markerId } = eventData;
 
-      // Only skip if it's the exact same marker being reselected
-      if (markerId === lastSelectedMarkerId.current) {
+      // CRITICAL FIX: Allow reselection of the same marker when in scanning state
+      const allowReselection = isInSearchingState.current;
+
+      // Skip only if it's the same marker being reselected and we're NOT in scanning state
+      if (markerId === lastSelectedMarkerId.current && !allowReselection) {
         return;
       }
 
       // Update the last selected marker ID
       lastSelectedMarkerId.current = markerId;
 
+      // IMPORTANT: Always reset the scanning state when a marker is selected
+      isInSearchingState.current = false;
+
       if (markerData) {
-        // Clear messages but preserve those marked to survive marker selection
-        clearMessageQueue(false, true);
+        // Clear all messages regardless of state
+        clearMessageQueue(false, true); // Clear all except those marked to survive selection
+
+        // Immediately stop any currently streaming message
+        if (isTyping && isProcessingQueue.current) {
+          // Cancel the current message using our new cancelation method
+          cancelCurrentStreaming();
+        }
 
         // Generate a random supportive message about the selected marker
         const messages = [
@@ -322,7 +352,7 @@ export const useEventDrivenMessaging = () => {
     });
 
     return unsubscribe;
-  }, [subscribe, queueMessage, clearMessageQueue]);
+  }, [subscribe, queueMessage, clearMessageQueue, isTyping]);
 
   // Enhanced viewport changing handler
   useEffect(() => {
@@ -331,7 +361,10 @@ export const useEventDrivenMessaging = () => {
       const now = Date.now();
       const SCANNING_MESSAGE_DEBOUNCE = 3000; // 3 seconds
 
-      if (now - lastMessageTimestamp.current > SCANNING_MESSAGE_DEBOUNCE) {
+      // Add check: Don't interrupt if a marker is actively selected
+      const markerActive = lastSelectedMarkerId.current !== null;
+
+      if (now - lastMessageTimestamp.current > SCANNING_MESSAGE_DEBOUNCE && !markerActive) {
         // Clear the queue but preserve high priority messages
         clearMessageQueue(true, true);
 
@@ -340,6 +373,9 @@ export const useEventDrivenMessaging = () => {
 
         // Set the searching state flag
         isInSearchingState.current = true;
+      } else if (markerActive) {
+        // If a marker is selected, don't enter searching state
+        isInSearchingState.current = false;
       }
     });
 
