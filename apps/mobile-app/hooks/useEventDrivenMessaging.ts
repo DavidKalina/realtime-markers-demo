@@ -206,7 +206,7 @@ export const useEventDrivenMessaging = () => {
           `Found ${count} event${
             count > 1 ? "s" : ""
           } in this area! Swipe through to explore them.`,
-          MessagePriority.HIGH,
+          MessagePriority.CRITICAL,
           EventTypes.MARKERS_UPDATED
         );
         lastMarkerCount.current = count;
@@ -284,7 +284,12 @@ export const useEventDrivenMessaging = () => {
       (eventData) => {
         const { viewport, markers, searching } = eventData;
 
-        // Only queue the "Looking for events..." message if the searching flag is true.
+        console.log(`================ MARKERS LENGH ================== \n`, markers.length);
+
+        if (markers.length > 0) {
+          return;
+        }
+
         if (searching) {
           if (prevViewport.current) {
             const latChange = Math.abs(
