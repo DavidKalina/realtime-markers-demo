@@ -30,11 +30,7 @@ export const message = StyleSheet.create({
     textAlign: "center", // Keep this centered since it's a status message
     fontFamily: "SpaceMono",
   },
-  dots: {
-    color: "#4dabf7", // Match the blue color from event details buttons
-    fontSize: 14,
-    fontWeight: "bold",
-  },
+
   // Rest of the message styles remain the same
   detailTitle: {
     color: "#93c5fd",

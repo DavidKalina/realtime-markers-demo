@@ -207,7 +207,7 @@ const EventDrivenAssistant: React.FC = () => {
       {activeView === "details" && (
         <EventDetailsView
           isVisible={detailsViewVisible}
-          event={currentEvent}
+          eventId={currentEvent.id ?? ""}
           onClose={handleCloseDetailsView}
           onShare={shareEvent}
           onGetDirections={() => openMaps(currentEvent.location)}

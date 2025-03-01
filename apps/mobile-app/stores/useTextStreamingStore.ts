@@ -1,4 +1,4 @@
-// hooks/useTextStreamingStore.ts - Improved text streaming
+// hooks/useTextStreamingStore.ts - Improved text streaming with reduced flickering
 import { create } from "zustand";
 import * as Haptics from "expo-haptics";
 
@@ -10,7 +10,6 @@ interface TextStreamingState {
   streamCount: number; // Track how many times we've streamed
   simulateTextStreaming: (text: string) => Promise<void>;
   setCurrentEmoji: (emoji: string) => void;
-
   resetText: () => void;
 }
 
@@ -31,22 +30,22 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
       return;
     }
 
-    // If we're already typing, finish current message immediately if it's different
-    if (get().isTyping && text !== get().lastStreamedText) {
-      console.log("TextStreamingStore: Already typing, immediately finishing current message");
-      // Immediately complete the current text and start the new one
-      set({
-        isTyping: true,
-        currentStreamedText: get().lastStreamedText,
-        lastStreamedText: text,
-        streamCount: get().streamCount + 1,
-      });
+    // If we're already typing, handle it more gracefully
+    if (get().isTyping) {
+      if (text !== get().lastStreamedText) {
+        console.log("TextStreamingStore: Already typing, finishing current message first");
+        // Set a flag to avoid state thrashing
+        set((state) => ({
+          isTyping: false,
+          currentStreamedText: state.lastStreamedText,
+        }));
 
-      // Small delay before starting new text
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    } else if (get().isTyping) {
-      console.warn("TextStreamingStore: Already typing same message, request ignored");
-      return;
+        // Small delay before starting new text to prevent flickering
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      } else {
+        console.warn("TextStreamingStore: Already typing same message, request ignored");
+        return;
+      }
     }
 
     // Skip if this is the exact same text we just streamed and we're not already typing
@@ -55,36 +54,49 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
       return;
     }
 
+    // Use a single state update to reduce React re-renders
     set({
       isTyping: true,
-      currentStreamedText: "",
-      // Store this text as the last streamed text to prevent duplicates
+      currentStreamedText: "", // Start with empty string
       lastStreamedText: text,
-      // Increment the stream count
       streamCount: get().streamCount + 1,
     });
 
-    // Fix for text reversal bug: Add text character by character in correct order
     let currentText = "";
+    let lastRenderTime = Date.now();
+    const minRenderInterval = 16; // ~60fps, prevents too frequent renders
 
     try {
-      // Use a faster typing speed for marker selection messages (identifiable by containing an emoji)
+      // Determine typing speed - faster for emoji messages
       const hasEmoji = /\p{Emoji}/u.test(text);
-      const typingSpeed = hasEmoji ? 8 : 15; // Faster for event messages with emojis
+      const typingSpeed = hasEmoji ? 8 : 15;
+
+      // Use a buffer to batch character additions
+      let buffer = "";
+      let lastHapticTime = 0;
+      const hapticInterval = 200; // Limit haptics to reduce interference
 
       for (let i = 0; i < text.length; i++) {
-        // Trigger a subtle haptic every 5 characters to reduce vibration
-        if (i % 5 === 0) {
-          Haptics.selectionAsync();
-        }
-
-        // Add next character to the current text
+        // Add character to buffer
+        buffer += text[i];
         currentText += text[i];
 
-        // Important: Create a new string to ensure React detects the state change
-        set({ currentStreamedText: currentText });
+        // Trigger haptic feedback with rate limiting
+        const now = Date.now();
+        if (now - lastHapticTime >= hapticInterval && i % 5 === 0) {
+          Haptics.selectionAsync();
+          lastHapticTime = now;
+        }
 
-        // Wait before adding the next character - use shorter delay for testing
+        // Only update state at controlled intervals to prevent flickering
+        if (now - lastRenderTime >= minRenderInterval || i === text.length - 1) {
+          // Important: Create a completely new string to ensure React detects the state change
+          set({ currentStreamedText: String(currentText) });
+          buffer = "";
+          lastRenderTime = now;
+        }
+
+        // Wait before adding the next character
         await new Promise((resolve) => setTimeout(resolve, typingSpeed));
       }
 
@@ -93,7 +105,10 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
       console.error("TextStreamingStore: Error during text streaming:", error);
     }
 
-    set({ isTyping: false });
+    // Use a timeout before setting isTyping to false to prevent visual glitches
+    setTimeout(() => {
+      set({ isTyping: false });
+    }, 50);
   },
 
   resetText: () => {
