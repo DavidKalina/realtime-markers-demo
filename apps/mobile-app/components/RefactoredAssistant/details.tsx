@@ -4,11 +4,10 @@ import { Platform, StyleSheet } from "react-native";
 export const details = StyleSheet.create({
   detailsScreenContainer: {
     position: "absolute",
-    top: -770,
     width: "95%",
+    bottom: 200,
     margin: "auto",
     alignSelf: "center",
-    bottom: 200, // More space for the assistant at the bottom
     backgroundColor: "#333",
     borderRadius: 16, // Add rounded corners
     shadowColor: "#000",
@@ -46,6 +45,7 @@ export const details = StyleSheet.create({
     padding: 16,
     width: "100%",
     shadowColor: "#000",
+    overflowY: "scroll",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,

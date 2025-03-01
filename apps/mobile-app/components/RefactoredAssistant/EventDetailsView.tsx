@@ -2,7 +2,14 @@
 import * as Haptics from "expo-haptics";
 import { ArrowLeft, Navigation, Share2 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Dimensions,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Animated, {
   Easing,
   FadeIn,
@@ -33,6 +40,12 @@ export const EventDetailsView: React.FC<EventDetailsViewProps> = ({
   const [event, setEvent] = useState<EventType | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { height: screenHeight } = Dimensions.get("window");
+
+  // Calculate dynamic max height - adjust the divisor based on how much of the screen you want to use
+  // This makes the scrollView take about 45% of the screen height, but ensures it's not too large or small
+  const dynamicMaxHeight = Math.min(Math.max(screenHeight * 0.45, 250), 450);
 
   // Fetch event details when the component becomes visible
   useEffect(() => {
@@ -168,7 +181,7 @@ export const EventDetailsView: React.FC<EventDetailsViewProps> = ({
     }
 
     return (
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={[styles.scrollView, { maxHeight: dynamicMaxHeight }]}>
         <Animated.View
           style={styles.detailsCard}
           entering={SlideInUp.delay(100).springify().damping(15)}
