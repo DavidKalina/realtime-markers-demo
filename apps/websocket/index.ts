@@ -349,7 +349,7 @@ const server = {
   },
 };
 
-console.log(`WebSocket server started on port 8080`);
+console.log(`WebSocket server started on port 8081`);
 
 // Start the server with proper typing
 async function startServer() {

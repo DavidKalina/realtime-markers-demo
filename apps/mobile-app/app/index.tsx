@@ -198,7 +198,7 @@ export default function HomeScreen() {
         )}
 
         {/* Custom Map Markers - Using our simplified component */}
-        {isMapReady && <SimpleMapMarkers markers={markers} />}
+        {isMapReady && !isLoadingLocation && <SimpleMapMarkers markers={markers} />}
 
         {/* Add user location layer for the blue dot */}
         {locationPermissionGranted && (
@@ -207,7 +207,9 @@ export default function HomeScreen() {
       </MapboxGL.MapView>
 
       {/* EventDrivenAssistant now doesn't need props - it uses the event broker */}
-      <View style={styles.assistantOverlay}>{isMapReady && <EventDrivenAssistant />}</View>
+      <View style={styles.assistantOverlay}>
+        {isMapReady && !isLoadingLocation && <EventDrivenAssistant />}
+      </View>
     </View>
   );
 }
