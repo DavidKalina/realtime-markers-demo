@@ -53,6 +53,13 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const [currentViewport, setCurrentViewport] = useState<MapboxViewport | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
 
+  const markersRef = useRef<Marker[]>(markers);
+
+  // Update the ref whenever markers state changes.
+  useEffect(() => {
+    markersRef.current = markers;
+  }, [markers]);
+
   // Store selected marker id from the marker store.
   const selectedMarkerId = useMarkerStore((state) => state.selectedMarkerId);
   const selectMarker = useMarkerStore((state) => state.selectMarker);
@@ -82,8 +89,8 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
   // Throttling constants
   const VIEWPORT_THROTTLE_MS = 500;
-  const MARKER_UPDATE_BATCH_MS = 1000;
-  const MARKER_EMIT_THROTTLE_MS = 2000;
+  const MARKER_UPDATE_BATCH_MS = 500;
+  const MARKER_EMIT_THROTTLE_MS = 500;
 
   const emitMarkersUpdated = useCallback(
     (updatedMarkers: Marker[]) => {
@@ -114,11 +121,12 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         prevMarkerCount.current === 0
       ) {
         console.log(`Emitting markers updated: ${updatedMarkers.length} markers`);
-        eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
+        eventBroker.emit<MarkersEvent & { searching: boolean }>(EventTypes.MARKERS_UPDATED, {
           timestamp: Date.now(),
           source: "useMapWebSocket",
           markers: updatedMarkers,
           count: updatedMarkers.length,
+          searching: false, // search is complete now
         });
         prevMarkerCount.current = updatedMarkers.length;
       } else {
@@ -180,6 +188,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           timestamp: now,
           source: "useMapWebSocket",
           viewport: currentViewportRef.current,
+          markers: markersRef.current,
         });
         console.log("Viewport update sent and event emitted");
       } else {
@@ -188,11 +197,20 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     }
   }, []);
 
-  // updateViewport now only changes state and its ref.
   const updateViewport = useCallback(
     (viewport: MapboxViewport) => {
       setCurrentViewport(viewport);
       currentViewportRef.current = viewport;
+
+      // Immediately emit a "search started" event.
+      eventBroker.emit<ViewportEvent & { searching: boolean }>(EventTypes.VIEWPORT_CHANGED, {
+        timestamp: Date.now(),
+        source: "useMapWebSocket",
+        viewport,
+        markers: [], // no markers yet
+        searching: true, // indicate search in progress
+      });
+
       if (ws.current?.readyState === WebSocket.OPEN) {
         sendViewportUpdate();
       }

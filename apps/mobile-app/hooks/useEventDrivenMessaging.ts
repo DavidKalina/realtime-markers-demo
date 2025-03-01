@@ -179,25 +179,29 @@ export const useEventDrivenMessaging = () => {
     }
   }, [queueMessage, isInitialized]);
 
-  // Subscribe to marker updates - SILENT WHEN EMPTY
   useEffect(() => {
     const unsubscribe = subscribe<MarkersEvent>(EventTypes.MARKERS_UPDATED, (eventData) => {
       const { count, markers } = eventData;
 
-      // Skip if there's no data - REMAIN SILENT
+      // Always clear the queued messages (which may include the "searching" message)
+      clearMessageQueue();
+
       if (!markers || markers.length === 0) {
-        console.log("No markers found, remaining silent");
         queueMessage(
           `No markers found in this area.`,
           MessagePriority.HIGH,
           EventTypes.MARKERS_UPDATED
         );
+        // Reset last marker count so that future updates always trigger a message
+        lastMarkerCount.current = 0;
         return;
       }
 
-      // Only show a message if the count changed significantly
-      const countDifference = Math.abs(count - lastMarkerCount.current);
-      if (countDifference >= MIN_COUNT_CHANGE || lastMarkerCount.current === 0) {
+      // If coming from a fresh viewport (i.e. last count was 0), always announce the new count.
+      if (
+        lastMarkerCount.current === 0 ||
+        Math.abs(count - lastMarkerCount.current) >= MIN_COUNT_CHANGE
+      ) {
         queueMessage(
           `Found ${count} event${
             count > 1 ? "s" : ""
@@ -205,13 +209,12 @@ export const useEventDrivenMessaging = () => {
           MessagePriority.HIGH,
           EventTypes.MARKERS_UPDATED
         );
-        // Update last marker count
         lastMarkerCount.current = count;
       }
     });
 
     return unsubscribe;
-  }, [subscribe, queueMessage]);
+  }, [subscribe, queueMessage, clearMessageQueue]);
 
   // Subscribe to marker selection
   useEffect(() => {
@@ -275,39 +278,42 @@ export const useEventDrivenMessaging = () => {
     return unsubscribe;
   }, [subscribe]);
 
-  // Subscribe to viewport changes with significant movement detection
   useEffect(() => {
-    const unsubscribe = subscribe<ViewportEvent>(EventTypes.VIEWPORT_CHANGED, (eventData) => {
-      const { viewport } = eventData;
+    const unsubscribe = subscribe<ViewportEvent & { searching?: boolean }>(
+      EventTypes.VIEWPORT_CHANGED,
+      (eventData) => {
+        const { viewport, markers, searching } = eventData;
 
-      // Only trigger a message if the map moved significantly
-      if (prevViewport.current) {
-        // Calculate how much the viewport has changed
-        const latChange = Math.abs(
-          (prevViewport.current.north + prevViewport.current.south) / 2 -
-            (viewport.north + viewport.south) / 2
-        );
+        // Only queue the "Looking for events..." message if the searching flag is true.
+        if (searching) {
+          if (prevViewport.current) {
+            const latChange = Math.abs(
+              (prevViewport.current.north + prevViewport.current.south) / 2 -
+                (viewport.north + viewport.south) / 2
+            );
+            const lonChange = Math.abs(
+              (prevViewport.current.east + prevViewport.current.west) / 2 -
+                (viewport.east + viewport.west) / 2
+            );
+            const SIGNIFICANT_CHANGE = 0.01; // ~1km
 
-        const lonChange = Math.abs(
-          (prevViewport.current.east + prevViewport.current.west) / 2 -
-            (viewport.east + viewport.west) / 2
-        );
-
-        // Only show message if moved enough (approximately 1km at equator)
-        const SIGNIFICANT_CHANGE = 0.01; // ~1km
-        if (latChange > SIGNIFICANT_CHANGE || lonChange > SIGNIFICANT_CHANGE) {
-          queueMessage(
-            "Looking for events in this new area...",
-            MessagePriority.LOW,
-            EventTypes.VIEWPORT_CHANGED
-          );
-          prevViewport.current = viewport;
+            if (latChange > SIGNIFICANT_CHANGE || lonChange > SIGNIFICANT_CHANGE) {
+              // Only queue if markers are not already present.
+              if (!markers || markers.length === 0) {
+                queueMessage(
+                  "Looking for events in this new area...",
+                  MessagePriority.LOW,
+                  EventTypes.VIEWPORT_CHANGED
+                );
+              }
+              prevViewport.current = viewport;
+            }
+          } else {
+            prevViewport.current = viewport;
+          }
         }
-      } else {
-        prevViewport.current = viewport;
       }
-    });
-
+    );
     return unsubscribe;
   }, [subscribe, queueMessage]);
 

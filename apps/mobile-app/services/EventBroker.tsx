@@ -55,6 +55,15 @@ export interface ViewportEvent extends BaseEvent {
     east: number;
     west: number;
   };
+  markers: any[];
+}
+
+export interface ExtendedViewportEvent extends ViewportEvent {
+  searching: boolean;
+}
+
+export interface ExtendedMarkersEvent extends MarkersEvent {
+  searching: boolean;
 }
 
 export interface AssistantMessageEvent extends BaseEvent {
