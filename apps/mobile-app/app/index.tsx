@@ -1,6 +1,6 @@
 // screens/HomeScreen.tsx - Updated to only show Assistant on marker selection
 import { SimpleMapMarkers } from "@/components/MarkerImplementation";
-import EventDrivenAssistant from "@/components/RefactoredAssistant/Assistant";
+import EventAssistant from "@/components/RefactoredAssistant/EventAssistant";
 import ConnectionIndicator from "@/components/RefactoredAssistant/ConnectionIndicator";
 import { eventSuggestions } from "@/components/RefactoredAssistant/data";
 import { useEventBroker } from "@/hooks/useEventBroker";
@@ -219,7 +219,7 @@ export default function HomeScreen() {
       {/* Only show Assistant when a marker is selected */}
       {isMapReady && !isLoadingLocation && selectedMarkerId && (
         <View style={styles.assistantOverlay}>
-          <EventDrivenAssistant />
+          <EventAssistant />
         </View>
       )}
     </View>
