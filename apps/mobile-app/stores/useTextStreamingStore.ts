@@ -1,4 +1,4 @@
-// hooks/useTextStreamingStore.ts - With added ability to cancel streaming
+// hooks/useTextStreamingStore.ts - Simplified for direct use
 import { create } from "zustand";
 import * as Haptics from "expo-haptics";
 
@@ -6,13 +6,13 @@ interface TextStreamingState {
   currentStreamedText: string;
   isTyping: boolean;
   currentEmoji: string;
-  lastStreamedText: string; // Track the last message we streamed
-  streamCount: number; // Track how many times we've streamed
-  cancelationRequested: boolean; // New flag to request cancelation
+  lastStreamedText: string;
+  streamCount: number;
+  cancelationRequested: boolean;
   simulateTextStreaming: (text: string) => Promise<void>;
   setCurrentEmoji: (emoji: string) => void;
   resetText: () => void;
-  cancelCurrentStreaming: () => void; // New method to cancel current streaming
+  cancelCurrentStreaming: () => void;
 }
 
 export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
@@ -25,15 +25,13 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
 
   setCurrentEmoji: (emoji: string) => set({ currentEmoji: emoji }),
 
-  // Add method to request cancelation of current streaming
   cancelCurrentStreaming: () => {
     console.log("TextStreamingStore: Canceling current text streaming");
     set({
       cancelationRequested: true,
-      isTyping: false, // Force typing to end immediately
+      isTyping: false,
     });
 
-    // Reset the cancelation flag after a short delay
     setTimeout(() => {
       set({ cancelationRequested: false });
     }, 100);
@@ -51,18 +49,19 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
       return;
     }
 
-    // If we're already typing, handle it more gracefully
+    // Handle already typing scenario
     if (get().isTyping) {
       if (text !== get().lastStreamedText) {
-        console.log("TextStreamingStore: Already typing, finishing current message first");
-        // Set a flag to avoid state thrashing
-        set((state) => ({
+        console.log("TextStreamingStore: Already typing, canceling current stream");
+        // Cancel current streaming and reset
+        set({
           isTyping: false,
-          currentStreamedText: state.lastStreamedText,
-        }));
+          cancelationRequested: true,
+        });
 
-        // Small delay before starting new text to prevent flickering
+        // Small delay before starting new text
         await new Promise((resolve) => setTimeout(resolve, 150));
+        set({ cancelationRequested: false });
       } else {
         console.warn("TextStreamingStore: Already typing same message, request ignored");
         return;
@@ -75,7 +74,7 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
       return;
     }
 
-    // Use a single state update to reduce React re-renders
+    // Update state for streaming start
     set({
       isTyping: true,
       currentStreamedText: "", // Start with empty string
@@ -83,19 +82,23 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
       streamCount: get().streamCount + 1,
     });
 
+    // Provide haptic feedback to indicate message is coming
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
     let currentText = "";
     let lastRenderTime = Date.now();
     const minRenderInterval = 16; // ~60fps, prevents too frequent renders
 
     try {
-      // Determine typing speed - faster for emoji messages
+      // Determine typing speed - faster for shorter messages and emoji messages
       const hasEmoji = /\p{Emoji}/u.test(text);
-      const typingSpeed = hasEmoji ? 8 : 15;
+      const isShort = text.length < 30;
+      const typingSpeed = isShort ? 10 : hasEmoji ? 12 : 18;
 
       // Use a buffer to batch character additions
       let buffer = "";
       let lastHapticTime = 0;
-      const hapticInterval = 200; // Limit haptics to reduce interference
+      const hapticInterval = 300; // Reduced haptic frequency for smoother experience
 
       for (let i = 0; i < text.length; i++) {
         // Check if cancelation was requested
@@ -108,9 +111,9 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
         buffer += text[i];
         currentText += text[i];
 
-        // Trigger haptic feedback with rate limiting
+        // Trigger haptic feedback with rate limiting for longer text only
         const now = Date.now();
-        if (now - lastHapticTime >= hapticInterval && i % 5 === 0) {
+        if (text.length > 50 && now - lastHapticTime >= hapticInterval && i % 15 === 0) {
           Haptics.selectionAsync();
           lastHapticTime = now;
         }
@@ -125,6 +128,11 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
 
         // Wait before adding the next character
         await new Promise((resolve) => setTimeout(resolve, typingSpeed));
+      }
+
+      // Final haptic to signal completion
+      if (text.length > 10) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
 
       console.log(`TextStreamingStore: Finished text streaming - "${text}"`);
