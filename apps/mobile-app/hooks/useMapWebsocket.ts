@@ -204,11 +204,16 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     setCurrentViewport(viewport);
     currentViewportRef.current = viewport;
 
-    // Optionally, if you still need to indicate that a search is starting,
-    // you could emit a “search started” event separately if desired.
-    // For now, we remove the immediate viewport:changed event.
+    // First emit that the viewport is changing and we're starting to search
+    eventBroker.emit<ViewportEvent & { searching: boolean }>(EventTypes.VIEWPORT_CHANGED, {
+      timestamp: Date.now(),
+      source: "useMapWebSocket",
+      viewport: viewport,
+      markers: markersRef.current,
+      searching: true, // Explicitly indicate search is starting
+    });
 
-    // Send the viewport update to the server.
+    // Send the viewport update to the server
     if (ws.current?.readyState === WebSocket.OPEN) {
       const message = {
         type: "viewport_update",
@@ -256,9 +261,11 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                 convertRBushToMapbox(marker)
               );
               setMarkers(initialMapboxMarkers);
-              // Mark that initial markers have been received.
+
+              // Mark that initial markers have been received
               hasReceivedInitialMarkersRef.current = true;
 
+              // Handle deselection if needed
               if (initialMapboxMarkers.length === 0 && selectedMarkerIdRef.current) {
                 console.log("No markers in initial data, deselecting current marker");
                 selectMarker(null);
@@ -267,19 +274,35 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                   source: "useMapWebSocket",
                 });
               }
+
+              // Emit that markers were updated with the search complete
               const now = Date.now();
               if (now - lastMarkersUpdateRef.current > MARKER_EMIT_THROTTLE_MS) {
-                emitMarkersUpdated(initialMapboxMarkers);
+                eventBroker.emit<MarkersEvent & { searching: boolean }>(
+                  EventTypes.MARKERS_UPDATED,
+                  {
+                    timestamp: now,
+                    source: "useMapWebSocket",
+                    markers: initialMapboxMarkers,
+                    count: initialMapboxMarkers.length,
+                    searching: false, // Explicitly indicate search is complete
+                  }
+                );
                 lastMarkersUpdateRef.current = now;
               }
-              // Now, after processing the initial markers, emit the viewport changed event.
-              eventBroker.emit<ViewportEvent>(EventTypes.VIEWPORT_CHANGED, {
-                timestamp: now,
-                source: "useMapWebSocket",
-                viewport: currentViewportRef.current!,
-                markers: initialMapboxMarkers,
-              });
-              console.log("Viewport update sent and event emitted after initial markers");
+
+              // Now emit that the viewport is settled with results
+              eventBroker.emit<ViewportEvent & { searching: boolean }>(
+                EventTypes.VIEWPORT_CHANGED,
+                {
+                  timestamp: now,
+                  source: "useMapWebSocket",
+                  viewport: currentViewportRef.current!,
+                  markers: initialMapboxMarkers,
+                  searching: false, // Explicitly indicate search is complete
+                }
+              );
+              console.log("Viewport update with initial markers complete");
               break;
             }
 

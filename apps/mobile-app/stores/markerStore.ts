@@ -100,27 +100,44 @@ export const useMarkerStore = create<MarkerState>((set, get) => ({
 
   selectMarker: (markerId) =>
     set((state) => {
-      // If the selected marker is changing, emit appropriate events
-      if (state.selectedMarkerId !== markerId) {
-        // If we had a previously selected marker, emit deselection event
-        if (state.selectedMarkerId) {
-          eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
-            timestamp: Date.now(),
-            source: "useMarkerStore",
-          });
-        }
+      // Skip if trying to select the same marker that's already selected
+      if (state.selectedMarkerId === markerId) {
+        return state; // No change needed
+      }
 
-        // If we're selecting a new marker, emit selection event
+      // First handle deselection if we had a previously selected marker
+      if (state.selectedMarkerId && markerId !== state.selectedMarkerId) {
+        eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
+          timestamp: Date.now(),
+          source: "useMarkerStore",
+        });
+
+        // Small delay before selecting the new marker to allow deselection event to process
         if (markerId) {
           const marker = state.markers.find((m) => m.id === markerId);
           if (marker) {
-            eventBroker.emit<MarkerEvent>(EventTypes.MARKER_SELECTED, {
-              timestamp: Date.now(),
-              source: "useMarkerStore",
-              markerId,
-              markerData: marker,
-            });
+            // Use setTimeout to create a slight separation between deselect and select events
+            setTimeout(() => {
+              eventBroker.emit<MarkerEvent>(EventTypes.MARKER_SELECTED, {
+                timestamp: Date.now(),
+                source: "useMarkerStore",
+                markerId,
+                markerData: marker,
+              });
+            }, 50); // Small delay to ensure proper event sequence
           }
+        }
+      }
+      // If we're selecting a new marker with nothing previously selected
+      else if (markerId && !state.selectedMarkerId) {
+        const marker = state.markers.find((m) => m.id === markerId);
+        if (marker) {
+          eventBroker.emit<MarkerEvent>(EventTypes.MARKER_SELECTED, {
+            timestamp: Date.now(),
+            source: "useMarkerStore",
+            markerId,
+            markerData: marker,
+          });
         }
       }
 
