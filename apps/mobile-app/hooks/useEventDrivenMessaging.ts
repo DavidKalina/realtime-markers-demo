@@ -236,7 +236,13 @@ export const useEventDrivenMessaging = () => {
 
       if (!welcomeMessageShown.current) {
         queueMessage(
-          "Hello! I'm your event assistant. I can help you discover events nearby.",
+          "Hello! I'm your event assistant.",
+          MessagePriority.HIGH,
+          undefined,
+          "👋" // Welcome emoji
+        );
+        queueMessage(
+          "I can help you discover events nearby.",
           MessagePriority.HIGH,
           undefined,
           "👋" // Welcome emoji
