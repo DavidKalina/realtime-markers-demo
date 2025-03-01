@@ -1,11 +1,13 @@
-// screens/HomeScreen.tsx - Updated with EventBroker
+// screens/HomeScreen.tsx - Updated to only show Assistant on marker selection
 import { SimpleMapMarkers } from "@/components/MarkerImplementation";
 import EventDrivenAssistant from "@/components/RefactoredAssistant/Assistant";
+import ConnectionIndicator from "@/components/RefactoredAssistant/ConnectionIndicator";
 import { eventSuggestions } from "@/components/RefactoredAssistant/data";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
 import { BaseEvent, EventTypes } from "@/services/EventBroker";
 import { useEventAssistantStore } from "@/stores/useEventAssistantStore";
+import { useMarkerStore } from "@/stores/markerStore";
 import MapboxGL from "@rnmapbox/maps";
 import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
@@ -21,6 +23,9 @@ export default function HomeScreen() {
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const mapRef = useRef<MapboxGL.MapView>(null);
   const { publish } = useEventBroker();
+
+  // Get the selected marker ID from marker store
+  const selectedMarkerId = useMarkerStore((state) => state.selectedMarkerId);
 
   // Get the setCurrentEvent function from the store to initialize with static data
   const { setCurrentEvent } = useEventAssistantStore();
@@ -157,7 +162,6 @@ export default function HomeScreen() {
             source: "HomeScreen",
           });
         }}
-        // TODO IF REGION IS CHANGING EMIT EVENT TO UPDATE ASSISTANT TEXT STREAMING
         onRegionIsChanging={(feature) => {
           handleMapViewportChange(feature);
           publish<BaseEvent>(EventTypes.VIEWPORT_CHANGING, { timestamp: Date.now() });
@@ -202,10 +206,22 @@ export default function HomeScreen() {
         )}
       </MapboxGL.MapView>
 
-      {/* EventDrivenAssistant now doesn't need props - it uses the event broker */}
-      <View style={styles.assistantOverlay}>
-        {isMapReady && !isLoadingLocation && <EventDrivenAssistant />}
-      </View>
+      {/* Always visible ConnectionIndicator */}
+      {isMapReady && !isLoadingLocation && (
+        <ConnectionIndicator
+          eventsCount={markers.length}
+          initialConnectionState={isConnected}
+          position="top-right"
+          showAnimation={!selectedMarkerId} // More animated when no marker selected
+        />
+      )}
+
+      {/* Only show Assistant when a marker is selected */}
+      {isMapReady && !isLoadingLocation && selectedMarkerId && (
+        <View style={styles.assistantOverlay}>
+          <EventDrivenAssistant />
+        </View>
+      )}
     </View>
   );
 }
@@ -220,10 +236,9 @@ const styles = StyleSheet.create({
   },
   assistantOverlay: {
     position: "absolute",
-    top: 0,
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
     backgroundColor: "transparent",
     pointerEvents: "box-none", // Allow touch events to pass through to map
   },

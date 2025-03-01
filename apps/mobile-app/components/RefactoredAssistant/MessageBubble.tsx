@@ -1,11 +1,6 @@
 import React, { memo, useEffect, useRef } from "react";
 import { Text, View } from "react-native";
-import Animated, {
-  FadeIn,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
+import Animated, { FadeIn, useSharedValue, withSpring } from "react-native-reanimated";
 import { styles } from "./styles";
 
 interface MessageBubbleProps {
