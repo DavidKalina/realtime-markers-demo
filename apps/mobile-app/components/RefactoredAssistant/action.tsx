@@ -54,7 +54,7 @@ export const action = StyleSheet.create({
   },
   actionButtonText: {
     fontFamily: "SpaceMono",
-    color: "#cbd5e1", // steel blue light variant
+    color: "#fff", // steel blue light variant
     fontSize: 12,
     fontWeight: "500",
   },

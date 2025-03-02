@@ -1,32 +1,27 @@
 // Update in EventAssistant.tsx - Enhanced location details and distance calculation
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useTextStreamingStore } from "@/stores/useTextStreamingStore";
-import React, { useEffect, useState, useRef } from "react";
-import { View, Text, TouchableOpacity, Animated as RNAnimated } from "react-native";
+import { useRouter } from "expo-router";
+import { Navigation, Share2 } from "lucide-react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated as RNAnimated, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActionBar } from "./ActionBar";
+import { ActionView } from "./ActionView";
+import EventDetails from "./EventDetails";
 import { FloatingEmoji } from "./FloatingEmoji";
 import { MessageBubble } from "./MessageBubble";
 import { styles } from "./styles";
-import { ActionView } from "./ActionView";
-import { Navigation, Share2, Search, LinkIcon } from "lucide-react-native";
-import EventDetails from "./EventDetails";
-import { useRouter } from "expo-router";
-// Import the Marker interface from useMapWebSocket
-// Import the useUserLocation hook
+
+import { Marker } from "@/hooks/useMapWebsocket";
 import { useUserLocation } from "@/hooks/useUserLocation";
 import Animated, {
-  FadeIn,
-  FadeOut,
-  SlideInUp,
-  SlideOutDown,
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
-  Easing,
 } from "react-native-reanimated";
-import { Marker } from "@/hooks/useMapWebsocket";
 import ShareEvent from "./ShareEvent";
 
 // Helper function to calculate distance between two coordinates
@@ -149,7 +144,6 @@ const EventAssistant: React.FC = () => {
     detailsViewVisible,
     shareViewVisible,
     searchViewVisible,
-    scanViewVisible,
     selectedMarker,
     selectedMarkerId,
 
@@ -187,7 +181,7 @@ const EventAssistant: React.FC = () => {
     const locationName = marker.data?.location || "";
 
     // Create an array of messages to be displayed in sequence
-    const messages = [`You discovered ${title}! 👋`];
+    const messages = [`You discovered ${title}! ❗`];
 
     // Add type information
     messages.push(`This is a ${type.toLowerCase()}`);
@@ -498,7 +492,7 @@ const EventAssistant: React.FC = () => {
     } else if (action === "share") {
       openShareView();
     } else if (action === "search") {
-      openSearchView();
+      navigate("search" as never);
     } else if (action === "camera") {
       // Navigate to the scan screen instead of opening a view
       navigate("scan" as never);
@@ -576,48 +570,6 @@ const EventAssistant: React.FC = () => {
     </TouchableOpacity>
   );
 
-  // Render search view content
-  const renderSearchContent = () => {
-    return (
-      <View style={styles.actionContent}>
-        <Text style={styles.sectionTitle}>Search Nearby Locations</Text>
-
-        {/* Search input would go here */}
-        <View>
-          <Search size={20} color="#4dabf7" />
-          <Text>Search locations...</Text>
-        </View>
-
-        {/* Search results would go here */}
-        <View>
-          <Text style={styles.label}>Popular Searches</Text>
-
-          <TouchableOpacity>
-            <Text>Restaurants</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity>
-            <Text>Museums</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity>
-            <Text>Parks</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
-  // Legacy animations from RN Animated
-  const translateY = assistantAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [50, 0], // Start 50px below and animate up
-  });
-  const opacity = assistantAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-
   const animatedCardContainerStyle = useAnimatedStyle(() => {
     return {
       height: cardHeight.value,
@@ -667,13 +619,6 @@ const EventAssistant: React.FC = () => {
             eventDetails={selectedMarker.data}
             onClose={handleCloseShareView}
           />
-        </ActionView>
-      )}
-
-      {/* Search View */}
-      {activeView === "search" && (
-        <ActionView isVisible={searchViewVisible} title="Search" onClose={handleCloseSearchView}>
-          {renderSearchContent()}
         </ActionView>
       )}
 

@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "#333",
     borderRadius: 20,
     padding: 8,
     zIndex: 1000,
