@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { shareEventStyles as styles } from "./share-event-styles";
+import { ShareEventSkeleton } from "./ShareEventSkeleton";
 
 interface ShareEventProps {
   eventId: string;
@@ -501,14 +502,7 @@ const ShareEvent: React.FC<ShareEventProps> = ({
   );
 
   if (loading) {
-    return (
-      <View style={styles.centerContent}>
-        <ActivityIndicator size="large" color="#93c5fd" />
-        <Text style={{ color: "#f8f9fa", fontFamily: "SpaceMono" }}>
-          {!event ? "Loading event details..." : "Loading contacts..."}
-        </Text>
-      </View>
-    );
+    return <ShareEventSkeleton />;
   }
 
   // If event details couldn't be loaded, show error state
