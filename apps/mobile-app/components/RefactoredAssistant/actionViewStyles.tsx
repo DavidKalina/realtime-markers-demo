@@ -25,6 +25,8 @@ export const actionView = StyleSheet.create({
     shadowRadius: 8,
     elevation: 18,
     zIndex: 10,
+    display: "flex",
+    flexDirection: "column", // Ensure flex direction is column for proper layout
   },
   actionHeader: {
     flexDirection: "row",
@@ -45,7 +47,7 @@ export const actionView = StyleSheet.create({
     fontFamily: "SpaceMono",
   },
   actionScrollView: {
-    flex: 1,
+    flex: 1, // This ensures ScrollView takes available space
     padding: 16,
   },
   actionContent: {

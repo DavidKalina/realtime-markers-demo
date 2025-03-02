@@ -30,26 +30,6 @@ export const ActionView: React.FC<ActionViewProps> = ({
 }) => {
   const { height: screenHeight } = Dimensions.get("window");
 
-  // Create the content container style as a variable, not a function
-  const contentContainerStyle = React.useMemo(() => {
-    // If maxHeight is a string (like '50%'), use it directly
-    if (maxHeight && typeof maxHeight === "string") {
-      return StyleSheet.create({
-        container: {
-          maxHeight: maxHeight as any, // Type assertion to handle string percentages
-        },
-      }).container;
-    }
-
-    // Calculate default height if not provided or if it's a number
-    const heightValue = (maxHeight as number) || Math.min(Math.max(screenHeight * 0.45, 250), 450);
-    return StyleSheet.create({
-      container: {
-        maxHeight: heightValue,
-      },
-    }).container;
-  }, [maxHeight, screenHeight]);
-
   // Animation value
   const animationProgress = useSharedValue(0);
 
@@ -76,6 +56,21 @@ export const ActionView: React.FC<ActionViewProps> = ({
     };
   });
 
+  // Calculate the maxHeight dynamically
+  const getMaxHeight = () => {
+    if (typeof maxHeight === "string") {
+      // Handle percentage values
+      if (maxHeight.endsWith("%")) {
+        const percentage = parseFloat(maxHeight) / 100;
+        return screenHeight * percentage;
+      }
+      return maxHeight;
+    }
+
+    // Default height calculation if not provided or if it's a number
+    return maxHeight || Math.min(Math.max(screenHeight * 0.7, 300), 500);
+  };
+
   // Handle close button
   const handleClose = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -89,7 +84,9 @@ export const ActionView: React.FC<ActionViewProps> = ({
 
   return (
     <View style={styles.actionContainer}>
-      <Animated.View style={[styles.actionModal, viewAnimatedStyle]}>
+      <Animated.View
+        style={[styles.actionModal, viewAnimatedStyle, { maxHeight: getMaxHeight() as number }]}
+      >
         <View style={styles.actionHeader}>
           <TouchableOpacity style={styles.actionBackButton} onPress={handleClose}>
             <ArrowLeft size={22} color="#f8f9fa" />
@@ -97,7 +94,12 @@ export const ActionView: React.FC<ActionViewProps> = ({
           <Text style={styles.actionTitle}>{title}</Text>
         </View>
 
-        <ScrollView style={styles.actionScrollView} contentContainerStyle={contentContainerStyle}>
+        {/* ScrollView to make content scrollable */}
+        <ScrollView
+          style={styles.actionScrollView}
+          contentContainerStyle={{ paddingBottom: 20 }} // Add some bottom padding
+          showsVerticalScrollIndicator={true} // Explicitly show scrollbar
+        >
           {children}
         </ScrollView>
 

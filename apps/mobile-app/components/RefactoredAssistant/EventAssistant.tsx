@@ -326,7 +326,7 @@ const EventAssistant: React.FC = () => {
 
   // Status badge component for details view
   const StatusBadge = () => (
-    <View style={styles.statusBadge}>
+    <View>
       <Text style={styles.statusText}>VERIFIED</Text>
     </View>
   );
@@ -340,19 +340,18 @@ const EventAssistant: React.FC = () => {
   const renderDetailsContent = () => {
     if (loading) {
       return (
-        <View style={styles.loadingContainer}>
+        <View>
           <ActivityIndicator size="large" color="#4287f5" />
-          <Text style={styles.loadingText}>Loading event details...</Text>
+          <Text>Loading event details...</Text>
         </View>
       );
     }
 
     if (error) {
       return (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+        <View>
+          <Text>{error}</Text>
           <TouchableOpacity
-            style={styles.retryButton}
             onPress={() => {
               setEvent(null);
               setError(null);
@@ -370,7 +369,7 @@ const EventAssistant: React.FC = () => {
                 .finally(() => setLoading(false));
             }}
           >
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text>Retry</Text>
           </TouchableOpacity>
         </View>
       );
@@ -378,8 +377,8 @@ const EventAssistant: React.FC = () => {
 
     if (!event) {
       return (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>No event details available</Text>
+        <View>
+          <Text>No event details available</Text>
         </View>
       );
     }
@@ -459,8 +458,8 @@ const EventAssistant: React.FC = () => {
   const renderShareContent = () => {
     if (!selectedMarker) {
       return (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>No event selected to share</Text>
+        <View>
+          <Text>No event selected to share</Text>
         </View>
       );
     }
@@ -472,14 +471,14 @@ const EventAssistant: React.FC = () => {
         <View style={styles.detailRow}>
           <Text style={styles.label}>Share Options</Text>
 
-          <TouchableOpacity style={styles.shareOption}>
+          <TouchableOpacity>
             <LinkIcon size={20} color="#4dabf7" />
-            <Text style={styles.shareOptionText}>Copy Link</Text>
+            <Text>Copy Link</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.shareOption}>
+          <TouchableOpacity>
             <Share2 size={20} color="#4dabf7" />
-            <Text style={styles.shareOptionText}>Share to Social Media</Text>
+            <Text>Share to Social Media</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -501,7 +500,7 @@ const EventAssistant: React.FC = () => {
         <Text style={styles.sectionTitle}>Search Nearby Locations</Text>
 
         {/* Search input would go here */}
-        <View style={styles.searchInputContainer}>
+        <View>
           <Search size={20} color="#4dabf7" />
           <Text>Search locations...</Text>
         </View>
@@ -510,15 +509,15 @@ const EventAssistant: React.FC = () => {
         <View>
           <Text style={styles.label}>Popular Searches</Text>
 
-          <TouchableOpacity style={styles.searchResultItem}>
+          <TouchableOpacity>
             <Text>Restaurants</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.searchResultItem}>
+          <TouchableOpacity>
             <Text>Museums</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.searchResultItem}>
+          <TouchableOpacity>
             <Text>Parks</Text>
           </TouchableOpacity>
         </View>
