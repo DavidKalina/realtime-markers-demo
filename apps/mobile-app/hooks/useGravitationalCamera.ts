@@ -247,8 +247,12 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     if (!needsCentering(centroid)) return;
 
     // We have a valid centering target, apply the pull
-    isPullingRef.current = true;
-    setIsGravitating(true);
+    // Only set isGravitating once to prevent overlay flashing
+    if (!isPullingRef.current) {
+      isPullingRef.current = true;
+      setIsGravitating(true);
+      setIsHighVelocity(isHighVelocityPan);
+    }
 
     // Select animation parameters based on velocity
     const animationDuration = isHighVelocityPan
@@ -280,7 +284,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       });
 
       // Reset pull state after animation completes
-      setTimeout(() => {
+      const resetTimeout = setTimeout(() => {
         isPullingRef.current = false;
         setIsGravitating(false);
         setIsHighVelocity(false);
@@ -290,7 +294,10 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
           timestamp: Date.now(),
           source: "GravitationalCamera",
         });
-      }, animationDuration + 100);
+      }, animationDuration + 50);
+
+      // Clean up timeout if component unmounts during animation
+      return () => clearTimeout(resetTimeout);
     }
   }, [
     isGravitatingEnabled,

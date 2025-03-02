@@ -67,26 +67,6 @@ export default function HomeScreen() {
   });
 
   // Start pulsing animation when gravitating
-  useEffect(() => {
-    if (isGravitating) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      pulseAnim.setValue(1);
-    }
-  }, [isGravitating, pulseAnim]);
 
   useEffect(() => {
     // Initialize Mapbox configuration
@@ -259,17 +239,13 @@ export default function HomeScreen() {
         )}
       </MapboxGL.MapView>
 
-      {/* Gravitational pull indicator - shown as pulsing overlay during active pull */}
       {isGravitating && (
         <Animated.View
           style={[
             styles.pulseOverlay,
             {
-              transform: [{ scale: pulseAnim }],
-              opacity: pulseAnim.interpolate({
-                inputRange: [1, 1.2],
-                outputRange: [0.1, 0],
-              }),
+              // Simple fixed opacity instead of interpolation
+              opacity: 0.15,
             },
           ]}
         />
@@ -396,7 +372,7 @@ const styles = StyleSheet.create({
   },
   pulseOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#4dabf7",
+    backgroundColor: "rgba(77, 171, 247, 0.4)",
     pointerEvents: "none", // Don't block touch events
     zIndex: 50,
   },
