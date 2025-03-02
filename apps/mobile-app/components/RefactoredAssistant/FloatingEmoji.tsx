@@ -1,4 +1,4 @@
-// FloatingEmojiWithStore.tsx
+// FloatingEmoji.tsx
 import React, { useEffect, useState } from "react";
 import { View } from "react-native";
 import Animated, {
@@ -11,43 +11,29 @@ import Animated, {
   Easing,
   runOnJS,
 } from "react-native-reanimated";
-import { create } from "zustand";
 import { styles } from "./styles";
 import { useTextStreamingStore } from "@/stores/useTextStreamingStore";
-
-// Define the store interface for the floating emoji position
-interface FloatingEmojiStore {
-  offsetX: number;
-  offsetY: number;
-  setOffset: (dx: number, dy: number) => void;
-}
-
-// Create the Zustand store for emoji position
-const useFloatingEmojiStore = create<FloatingEmojiStore>((set) => ({
-  offsetX: 0,
-  offsetY: 0,
-  setOffset: (dx: number, dy: number) => set({ offsetX: dx, offsetY: dy }),
-}));
 
 interface FloatingEmojiProps {
   fallbackEmoji?: string;
   onTouchMove?: (dx: number, dy: number) => void;
 }
 
-export const FloatingEmojiWithStore: React.FC<FloatingEmojiProps> = ({
+export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({
   fallbackEmoji = "💬",
   onTouchMove,
 }) => {
-  // Get the floating emoji position from the local store.
-  const { offsetX, offsetY, setOffset } = useFloatingEmojiStore();
-  // Pull the current emoji directly from the text streaming store.
+  // Local state for position instead of using a separate store
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+
+  // Pull the current emoji directly from the text streaming store
   const { currentEmoji } = useTextStreamingStore();
   const [previousEmoji, setPreviousEmoji] = useState(currentEmoji || fallbackEmoji);
 
-  // Use the emoji from the store or fall back if empty.
+  // Use the emoji from the store or fall back if empty
   const emojiToDisplay = currentEmoji || fallbackEmoji;
 
-  // Create Reanimated shared values for just the emoji animation
+  // Animation shared values
   const animatedX = useSharedValue(0);
   const animatedY = useSharedValue(0);
   const scale = useSharedValue(1);
@@ -57,36 +43,29 @@ export const FloatingEmojiWithStore: React.FC<FloatingEmojiProps> = ({
   // Handle emoji changes
   useEffect(() => {
     if (emojiToDisplay !== previousEmoji) {
-      // Fade and scale transition
+      // Fade out, update emoji, fade in
       opacity.value = withTiming(0, { duration: 150 }, () => {
         runOnJS(setPreviousEmoji)(emojiToDisplay);
         scale.value = 0.8;
-
         opacity.value = withTiming(1, { duration: 250 });
         scale.value = withSpring(1, { damping: 12, stiffness: 100 });
       });
     }
   }, [emojiToDisplay]);
 
-  // Main position animation (from store)
+  // Position animation
   useEffect(() => {
-    animatedX.value = withSpring(offsetX, { damping: 15 });
-    animatedY.value = withSpring(offsetY, { damping: 15 });
-  }, [offsetX, offsetY]);
+    animatedX.value = withSpring(offset.x, { damping: 15 });
+    animatedY.value = withSpring(offset.y, { damping: 15 });
+  }, [offset.x, offset.y]);
 
-  // Start bobbing animation
+  // Bobbing animation and random movement
   useEffect(() => {
-    // Create gentle bobbing effect just for the emoji
+    // Create gentle bobbing effect
     bobY.value = withRepeat(
       withSequence(
-        withTiming(-2, {
-          duration: 1500,
-          easing: Easing.inOut(Easing.sin),
-        }),
-        withTiming(2, {
-          duration: 1500,
-          easing: Easing.inOut(Easing.sin),
-        })
+        withTiming(-2, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+        withTiming(2, { duration: 1500, easing: Easing.inOut(Easing.sin) })
       ),
       -1, // Infinite repetitions
       true // Reverse animation
@@ -94,19 +73,18 @@ export const FloatingEmojiWithStore: React.FC<FloatingEmojiProps> = ({
 
     // Simple random movement
     const updatePosition = () => {
-      if (onTouchMove) {
-        const randomX = (Math.random() - 0.5) * 0.8;
-        const randomY = (Math.random() - 0.5) * 0.8;
-        setOffset(randomX, randomY);
-        onTouchMove(randomX, randomY);
-      }
+      const randomX = (Math.random() - 0.5) * 0.8;
+      const randomY = (Math.random() - 0.5) * 0.8;
+
+      setOffset({ x: randomX, y: randomY });
+      if (onTouchMove) onTouchMove(randomX, randomY);
     };
 
     const interval = setInterval(updatePosition, 3000);
     return () => clearInterval(interval);
-  }, [onTouchMove, setOffset]);
+  }, [onTouchMove]);
 
-  // Combined animation styles just for the emoji text
+  // Combined animation style
   const animatedEmojiStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: animatedX.value },
@@ -117,25 +95,22 @@ export const FloatingEmojiWithStore: React.FC<FloatingEmojiProps> = ({
   }));
 
   return (
-    <View style={styles.emojiWrapper}>
-      <View style={styles.emojiContainer}>
-        <View
-          style={[
-            styles.emojiCircle,
-            {
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 3,
-              elevation: 2,
-            },
-          ]}
-        >
-          <Animated.Text style={[styles.emojiText, animatedEmojiStyle]}>
-            {previousEmoji}
-          </Animated.Text>
-        </View>
-        <View style={styles.emojiOverlay} />
+    <View style={styles.emojiContainer}>
+      <View
+        style={[
+          styles.emojiCircle,
+          {
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 3,
+            elevation: 2,
+          },
+        ]}
+      >
+        <Animated.Text style={[styles.emojiText, animatedEmojiStyle]}>
+          {previousEmoji}
+        </Animated.Text>
       </View>
     </View>
   );

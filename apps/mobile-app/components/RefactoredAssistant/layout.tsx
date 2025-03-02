@@ -33,6 +33,7 @@ export const layout = StyleSheet.create({
     flexDirection: "row",
     flex: 1,
     padding: 8,
+    gap: 4,
   },
   textWrapper: {
     flex: 1,

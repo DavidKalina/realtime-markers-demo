@@ -1,17 +1,20 @@
-// Update in EventAssistant.tsx - Pass isStandalone prop to ActionBar
+// Update in EventAssistant.tsx - Enhanced location details and distance calculation
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useTextStreamingStore } from "@/stores/useTextStreamingStore";
 import React, { useEffect, useState, useRef } from "react";
 import { View, Text, TouchableOpacity, Animated as RNAnimated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActionBar } from "./ActionBar";
-import { FloatingEmojiWithStore } from "./FloatingEmoji";
+import { FloatingEmoji } from "./FloatingEmoji";
 import { MessageBubble } from "./MessageBubble";
 import { styles } from "./styles";
 import { ActionView } from "./ActionView";
 import { Navigation, Share2, Search, LinkIcon } from "lucide-react-native";
 import EventDetails from "./EventDetails";
 import { useRouter } from "expo-router";
+// Import the Marker interface from useMapWebSocket
+// Import the useUserLocation hook
+import { useUserLocation } from "@/hooks/useUserLocation";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -23,21 +26,113 @@ import Animated, {
   withTiming,
   Easing,
 } from "react-native-reanimated";
+import { Marker } from "@/hooks/useMapWebsocket";
+import ShareEvent from "./ShareEvent";
+
+// Helper function to calculate distance between two coordinates
+const calculateDistance = (
+  userCoords: [number, number] | null,
+  markerCoords: [number, number]
+): number | null => {
+  if (!userCoords) return null;
+
+  // Convert longitude and latitude from degrees to radians
+  const toRad = (value: number) => (value * Math.PI) / 180;
+
+  // Haversine formula to calculate distance
+  const R = 6371; // Earth's radius in km
+  const dLon = toRad(markerCoords[0] - userCoords[0]);
+  const dLat = toRad(markerCoords[1] - userCoords[1]);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(userCoords[1])) *
+      Math.cos(toRad(markerCoords[1])) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c;
+
+  return distance;
+};
+
+// Helper function to format distance in a user-friendly way
+const formatDistance = (distance: number | null): string => {
+  if (distance === null) return "Unknown distance";
+
+  if (distance < 1) {
+    // Convert to meters if less than 1 km
+    const meters = Math.round(distance * 1000);
+    return `${meters} meters away`;
+  } else {
+    // Keep in km with one decimal place
+    return `${distance.toFixed(1)} km away`;
+  }
+};
+
+// Helper to format time until event starts or indicates if it's happening now
+const formatTimeInfo = (timeString: string | undefined): string => {
+  if (!timeString) return "";
+
+  try {
+    // This is a simple implementation - you might need to adjust based on your time format
+    const eventTime = new Date(timeString);
+    const now = new Date();
+
+    // If date is invalid, return the original string
+    if (isNaN(eventTime.getTime())) {
+      return timeString;
+    }
+
+    // Check if event is happening now
+    if (now >= eventTime && now <= new Date(eventTime.getTime() + 2 * 60 * 60 * 1000)) {
+      // Assuming events last 2 hours
+      return "Happening now";
+    }
+
+    // Calculate time difference
+    const diffMs = eventTime.getTime() - now.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 0) {
+      return `Starts in ${diffDays} day${diffDays > 1 ? "s" : ""}`;
+    }
+
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (diffHours > 0) {
+      return `Starts in ${diffHours} hour${diffHours > 1 ? "s" : ""}`;
+    }
+
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    if (diffMinutes > 0) {
+      return `Starts in ${diffMinutes} minute${diffMinutes > 1 ? "s" : ""}`;
+    }
+
+    return "Starting soon";
+  } catch (e) {
+    // If there's any error parsing the time, just return the original
+    return timeString;
+  }
+};
 
 const EventAssistant: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const { navigate } = useRouter(); // Initialize navigation hook
+  const { navigate } = useRouter();
 
   // Animation value for the assistant (legacy)
   const assistantAnimation = useRef(new RNAnimated.Value(0)).current;
 
   // New Reanimated shared values for better animations
-  const cardOpacity = useSharedValue(0);
+  const cardOpacity = useSharedValue(1);
   const cardTranslateY = useSharedValue(50);
-  const cardHeight = useSharedValue(0);
+  const cardHeight = useSharedValue(8);
 
   // Use shared value for standalone mode to control timing
   const isCardHidden = useSharedValue(true);
+
+  // Get user location using the hook
+  const { userLocation } = useUserLocation();
 
   // Get text streaming store state and functions
   const { currentStreamedText, isTyping, simulateTextStreaming, setCurrentEmoji, resetText } =
@@ -71,30 +166,65 @@ const EventAssistant: React.FC = () => {
   } = useLocationStore();
 
   // Generate message sequence based on marker data
-  const generateMessageSequence = (marker: any): string[] => {
+  const generateMessageSequence = (marker: Marker): string[] => {
     // Safety check
     if (!marker || !marker.data) {
       return ["Sorry, I couldn't load information about this location."];
     }
 
     const title = marker.data?.title || "this location";
-    const type = marker.data?.category || marker.data?.type || "place";
-    const time = marker.data?.time || "";
+    const type =
+      marker.data?.categories?.[0] || marker.data?.category || marker.data?.type || "place";
+
+    // Calculate distance from user
+    const distance = calculateDistance(userLocation, marker.coordinates);
+    const distanceText = formatDistance(distance);
+
+    // Format time information
+    const timeInfo = formatTimeInfo(marker.data?.time);
+
+    // Get location name
+    const locationName = marker.data?.location || "";
 
     // Create an array of messages to be displayed in sequence
-    const messages = [`Welcome to ${title}! 👋`, `This ${type} is one of our featured locations.`];
+    const messages = [`You discovered ${title}! 👋`];
 
-    // Add conditional messages based on marker data
-    if (time) {
-      messages.push(`The best time to visit is ${time}.`);
+    // Add type information
+    messages.push(`This is a ${type.toLowerCase()}`);
+
+    // Add location information if available
+    if (locationName) {
+      messages.push(`Located at ${locationName}`);
     }
 
+    // Add distance information
+    if (distance !== null) {
+      messages.push(`${distanceText} from your current location`);
+    }
+
+    // Add time information if available
+    if (timeInfo) {
+      messages.push(timeInfo);
+    }
+
+    // Add verification status if available
+    if (marker.data?.isVerified) {
+      messages.push("This is a verified location ✓");
+    }
+
+    // Add rating if available
     if (marker.data?.rating) {
       messages.push(`It has a rating of ${marker.data.rating}/5 stars based on visitor reviews.`);
     }
 
+    // Add description if available
     if (marker.data?.description) {
       messages.push(marker.data.description);
+    }
+
+    // Show all categories if multiple are available
+    if (marker.data?.categories && marker.data.categories.length > 1) {
+      messages.push(`Categories: ${marker.data.categories.join(", ")}`);
     }
 
     messages.push("How can I help you explore this place?");
@@ -109,9 +239,7 @@ const EventAssistant: React.FC = () => {
       case "details":
         return ["Opening detailed information about this location."];
       case "share":
-        return [
-          "Let's share this place with your friends! You can send via message or social media.",
-        ];
+        return ["Let's share this place with your friends!"];
       case "search":
         return ["Looking for something specific? You can search nearby locations or events."];
       case "camera":
@@ -140,12 +268,22 @@ const EventAssistant: React.FC = () => {
         setMessageQueue(updatedQueue);
 
         // Set appropriate emoji based on message content
-        if (nextMessage.includes("Welcome")) {
+        if (nextMessage.includes("discovered")) {
+          setCurrentEmoji("🔭");
+        } else if (nextMessage.includes("Welcome")) {
           setCurrentEmoji("👋");
-        } else if (nextMessage.includes("rating")) {
-          setCurrentEmoji("⭐");
-        } else if (nextMessage.includes("time")) {
+        } else if (
+          nextMessage.includes("time") ||
+          nextMessage.includes("Starts in") ||
+          nextMessage.includes("Happening now")
+        ) {
           setCurrentEmoji("⏰");
+        } else if (nextMessage.includes("meters away") || nextMessage.includes("km away")) {
+          setCurrentEmoji("📍");
+        } else if (nextMessage.includes("Located at")) {
+          setCurrentEmoji("🗺️");
+        } else if (nextMessage.includes("verified")) {
+          setCurrentEmoji("✅");
         } else if (nextMessage.includes("Opening detailed")) {
           setCurrentEmoji("📝");
         } else if (nextMessage.includes("share")) {
@@ -158,6 +296,8 @@ const EventAssistant: React.FC = () => {
           setCurrentEmoji("⏭️");
         } else if (nextMessage.includes("previous")) {
           setCurrentEmoji("⏮️");
+        } else if (nextMessage.includes("Categories")) {
+          setCurrentEmoji("🏷️");
         } else {
           setCurrentEmoji("");
         }
@@ -186,7 +326,7 @@ const EventAssistant: React.FC = () => {
         resetText();
 
         // Generate message sequence and set to queue
-        const messages = generateMessageSequence(selectedMarker);
+        const messages = generateMessageSequence(selectedMarker as Marker);
         setMessageQueue(messages);
 
         // Track that we've processed this marker
@@ -198,7 +338,7 @@ const EventAssistant: React.FC = () => {
         // Animate with Reanimated - smoother physics-based animations
         // First animate height to create space
         cardHeight.value = withTiming(
-          120,
+          80,
           {
             duration: 300,
             easing: Easing.bezier(0.25, 0.1, 0.25, 1),
@@ -234,7 +374,7 @@ const EventAssistant: React.FC = () => {
       setLastProcessedMarkerId(null);
 
       // Animate with Reanimated - first fade out content
-      cardOpacity.value = withTiming(0, {
+      cardOpacity.value = withTiming(1, {
         duration: 150,
         easing: Easing.out(Easing.ease),
       });
@@ -247,7 +387,7 @@ const EventAssistant: React.FC = () => {
         () => {
           // Then collapse the height
           cardHeight.value = withTiming(
-            0,
+            8,
             {
               duration: 200,
               easing: Easing.bezier(0.25, 0.1, 0.25, 1),
@@ -276,6 +416,7 @@ const EventAssistant: React.FC = () => {
     cardTranslateY,
     cardHeight,
     isCardHidden,
+    userLocation, // Add userLocation as a dependency to recalculate distance when it changes
   ]);
 
   // Handle action button presses
@@ -427,37 +568,6 @@ const EventAssistant: React.FC = () => {
     </>
   );
 
-  // Render share view content
-  const renderShareContent = () => {
-    if (!selectedMarker) {
-      return (
-        <View>
-          <Text>No event selected to share</Text>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.actionContent}>
-        <Text style={styles.eventTitle}>{selectedMarker.data?.title || "Event"}</Text>
-
-        <View style={styles.detailRow}>
-          <Text style={styles.label}>Share Options</Text>
-
-          <TouchableOpacity>
-            <LinkIcon size={20} color="#4dabf7" />
-            <Text>Copy Link</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity>
-            <Share2 size={20} color="#4dabf7" />
-            <Text>Share to Social Media</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
   // Create share view footer button
   const shareFooterButton = (
     <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={shareEvent}>
@@ -508,14 +618,6 @@ const EventAssistant: React.FC = () => {
     outputRange: [0, 1],
   });
 
-  // New Reanimated animation styles - more performant, runs on UI thread
-  const animatedCardStyle = useAnimatedStyle(() => {
-    return {
-      opacity: cardOpacity.value,
-      transform: [{ translateY: cardTranslateY.value }],
-    };
-  });
-
   const animatedCardContainerStyle = useAnimatedStyle(() => {
     return {
       height: cardHeight.value,
@@ -560,7 +662,11 @@ const EventAssistant: React.FC = () => {
           onClose={handleCloseShareView}
           footer={shareFooterButton}
         >
-          {renderShareContent()}
+          <ShareEvent
+            eventId={selectedMarker.id}
+            eventDetails={selectedMarker.data}
+            onClose={handleCloseShareView}
+          />
         </ActionView>
       )}
 
@@ -575,10 +681,10 @@ const EventAssistant: React.FC = () => {
         {/* Always render the card container, but animate its height */}
         <Animated.View style={[styles.card, animatedCardContainerStyle]}>
           {/* Inner animated container for the assistant components */}
-          <Animated.View style={[styles.row, animatedCardStyle]}>
-            <FloatingEmojiWithStore />
+          <View style={[styles.row]}>
+            <FloatingEmoji />
             <MessageBubble message={currentStreamedText} isTyping={isTyping} />
-          </Animated.View>
+          </View>
         </Animated.View>
 
         {/* Pass the animated style directly to ActionBar */}
