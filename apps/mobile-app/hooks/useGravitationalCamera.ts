@@ -44,8 +44,8 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
   // Merge defaults with user config
   const gravitationConfig: GravitationConfig = {
     minMarkersForPull: 1, // Even one marker can trigger a pull
-    animationDuration: 500, // Regular animation duration
-    highVelocityAnimationDuration: 300, // Faster animation for high velocity
+    animationDuration: 650, // Slightly longer for smoother regular transitions
+    highVelocityAnimationDuration: 450, // Slightly longer for smoother high-velocity transitions
     cooldownPeriod: 2000, // Don't pull again for 2 seconds
     gravityZoomLevel: 14, // Regular zoom level when gravitating
     highVelocityZoomLevel: 14.5, // Slightly higher zoom for high velocity (show more detail)
@@ -270,12 +270,13 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       }
     );
 
-    // Use camera ref to animate to the target
+    // Use camera ref to animate to the target with smoother transitions
     if (cameraRef.current) {
       cameraRef.current.setCamera({
         centerCoordinate: centroid,
         zoomLevel: zoomLevel,
         animationDuration: animationDuration,
+        animationMode: "easeTo",
       });
 
       // Reset pull state after animation completes
@@ -392,6 +393,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
           centerCoordinate: coordinates,
           zoomLevel: zoom || gravitationConfig.gravityZoomLevel,
           animationDuration: duration,
+          animationMode: "easeTo",
         });
       }
     },
