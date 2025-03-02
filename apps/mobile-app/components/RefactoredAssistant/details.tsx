@@ -142,4 +142,22 @@ export const details = StyleSheet.create({
     marginBottom: 8,
     fontFamily: "SpaceMono",
   },
+  // Event Details styles
+  centerContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  retryButton: {
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: "#4287f5",
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontWeight: "500",
+  },
 });

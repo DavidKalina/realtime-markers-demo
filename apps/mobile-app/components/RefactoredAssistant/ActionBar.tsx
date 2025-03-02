@@ -1,22 +1,14 @@
 // ActionBar.tsx - Updated with harmonized styles
-import React, { useState } from "react";
-import { ScrollView, View, Text, TouchableOpacity } from "react-native";
-import {
-  Info,
-  Navigation,
-  Share2,
-  SearchIcon,
-  Camera,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react-native";
 import * as Haptics from "expo-haptics";
+import { Camera, ChevronLeft, ChevronRight, Info, SearchIcon, Share2 } from "lucide-react-native";
+import React, { useState } from "react";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
-  useSharedValue,
+  Easing,
   useAnimatedStyle,
+  useSharedValue,
   withSequence,
   withTiming,
-  Easing,
 } from "react-native-reanimated";
 import { styles } from "./styles"; // Using the newly organized styles
 
@@ -61,8 +53,8 @@ export const ActionBar: React.FC<ActionBarProps> = ({ onActionPress }) => {
       action: () => handlePress("search"),
     },
     {
-      key: "scan",
-      label: "Scan",
+      key: "camera", // Change from "scan" to "camera"
+      label: "Scan", // Keep the user-facing label as "Scan"
       icon: <Camera size={20} color="#4dabf7" style={styles.icon} />,
       scaleValue: scanScale,
       action: () => handlePress("camera"),

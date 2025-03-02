@@ -9,6 +9,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles"; // Using the centralized styles
 
 interface ActionViewProps {
@@ -29,6 +30,12 @@ export const ActionView: React.FC<ActionViewProps> = ({
   maxHeight,
 }) => {
   const { height: screenHeight } = Dimensions.get("window");
+  const insets = useSafeAreaInsets(); // Get the safe area insets
+
+  // Calculate available height by subtracting top and bottom insets
+  // When used in a partial overlay context (like over a map), consider remaining height
+  // You may need to adjust this based on your specific layout
+  const availableHeight = screenHeight * 0.75; // Approximate space for the modal (75% of screen)
 
   // Animation value
   const animationProgress = useSharedValue(0);
@@ -56,19 +63,22 @@ export const ActionView: React.FC<ActionViewProps> = ({
     };
   });
 
-  // Calculate the maxHeight dynamically
+  // Calculate the maxHeight dynamically with insets taken into account
   const getMaxHeight = () => {
     if (typeof maxHeight === "string") {
       // Handle percentage values
       if (maxHeight.endsWith("%")) {
         const percentage = parseFloat(maxHeight) / 100;
-        return screenHeight * percentage;
+        return availableHeight * percentage;
       }
       return maxHeight;
     }
 
     // Default height calculation if not provided or if it's a number
-    return maxHeight || Math.min(Math.max(screenHeight * 0.7, 300), 500);
+    // Use availableHeight instead of screenHeight for calculations
+    // When used over a map or other content, we want to take most of the remaining space
+    // while still leaving some room for context
+    return maxHeight || Math.min(availableHeight * 0.95, Math.max(300, availableHeight * 0.95));
   };
 
   // Handle close button
@@ -83,7 +93,7 @@ export const ActionView: React.FC<ActionViewProps> = ({
   }
 
   return (
-    <View style={styles.actionContainer}>
+    <View style={[styles.actionContainer, { paddingBottom: insets.bottom }]}>
       <Animated.View
         style={[styles.actionModal, viewAnimatedStyle, { maxHeight: getMaxHeight() as number }]}
       >
