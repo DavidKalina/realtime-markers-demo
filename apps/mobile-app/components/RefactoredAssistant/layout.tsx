@@ -14,8 +14,10 @@ export const layout = StyleSheet.create({
     zIndex: 10000000, // Lower than fullscreen views
   },
   card: {
-    backgroundColor: "#333", // Match event details dark background
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
     borderRadius: 16,
+    borderBottomRightRadius: 0,
+    borderBottomLeftRadius: 0,
     shadowColor: "#000",
     shadowOpacity: 0.2,
     shadowRadius: 10,

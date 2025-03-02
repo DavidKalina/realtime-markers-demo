@@ -31,6 +31,14 @@ export enum EventTypes {
   MAP_READY = "map:ready",
   USER_LOCATION_UPDATED = "user:location:updated",
   ERROR_OCCURRED = "error:occurred",
+
+  JOB_QUEUED = "job_queued",
+  JOB_STARTED = "job_started",
+  JOB_COMPLETED = "job_completed",
+  JOB_CANCELED = "job_canceled",
+  JOB_QUEUE_CLEARED = "job_queue_cleared",
+
+  NOTIFICATION = "notification",
 }
 
 // Base event interface that all event payloads should extend

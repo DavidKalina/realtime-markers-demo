@@ -1,6 +1,6 @@
-// ActionBar.tsx - Updated with harmonized styles
+// ActionBar.tsx - Updated with conditional rounded corners and centered buttons
 import * as Haptics from "expo-haptics";
-import { Camera, ChevronLeft, ChevronRight, Info, SearchIcon, Share2 } from "lucide-react-native";
+import { Camera, Info, SearchIcon, Share2 } from "lucide-react-native";
 import React, { useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
@@ -14,9 +14,15 @@ import { styles } from "./styles"; // Using the newly organized styles
 
 interface ActionBarProps {
   onActionPress: (action: string) => void;
+  isStandalone?: boolean; // Boolean prop to determine if ActionBar is standalone (no marker selected)
+  animatedStyle?: any; // Add animated style prop for dynamic styling
 }
 
-export const ActionBar: React.FC<ActionBarProps> = ({ onActionPress }) => {
+export const ActionBar: React.FC<ActionBarProps> = ({
+  onActionPress,
+  isStandalone = false,
+  animatedStyle,
+}) => {
   const [activeAction, setActiveAction] = useState<string | null>(null);
 
   // Create shared values for each button's scale animation
@@ -72,18 +78,6 @@ export const ActionBar: React.FC<ActionBarProps> = ({ onActionPress }) => {
       };
     });
   };
-
-  const previousAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: previousScale.value }],
-    };
-  });
-
-  const nextAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: nextScale.value }],
-    };
-  });
 
   // Function to get the correct shared value for a button
   const getScaleValue = (key: string) => {
@@ -141,24 +135,22 @@ export const ActionBar: React.FC<ActionBarProps> = ({ onActionPress }) => {
     onActionPress(action);
   };
 
-  return (
-    <View style={styles.bottomBar}>
-      <Animated.View style={[styles.chevronContainer, previousAnimatedStyle]}>
-        <TouchableOpacity
-          style={[styles.actionButton, activeAction === "previous" && styles.activeActionButton]}
-          onPress={() => handlePress("previous")}
-        >
-          <ChevronLeft size={24} color="#f8f9fa" />
-        </TouchableOpacity>
-      </Animated.View>
+  // Apply conditional styles based on isStandalone prop
+  const bottomBarStyle = [styles.bottomBar, animatedStyle];
 
+  return (
+    <View style={bottomBarStyle}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.scrollViewContainer}
         contentContainerStyle={[
           styles.scrollableActionsContainer,
-          actionCount <= 3 && { justifyContent: "space-evenly" },
+          // Center the buttons when in standalone mode or when there are few buttons
+          (isStandalone || actionCount <= 3) && {
+            justifyContent: "center",
+            flexGrow: 1,
+          },
         ]}
       >
         {scrollableActions.map((action) => (
@@ -177,15 +169,6 @@ export const ActionBar: React.FC<ActionBarProps> = ({ onActionPress }) => {
           </Animated.View>
         ))}
       </ScrollView>
-
-      <Animated.View style={[styles.chevronContainer, nextAnimatedStyle]}>
-        <TouchableOpacity
-          style={[styles.actionButton, activeAction === "next" && styles.activeActionButton]}
-          onPress={() => handlePress("next")}
-        >
-          <ChevronRight size={24} color="#f8f9fa" />
-        </TouchableOpacity>
-      </Animated.View>
     </View>
   );
 };

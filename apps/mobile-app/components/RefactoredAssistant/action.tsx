@@ -10,6 +10,8 @@ export const action = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 0,
     borderTopWidth: 1,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
     borderTopColor: "#3a3a3a", // Subtle border like event details
   },
   chevronContainer: {

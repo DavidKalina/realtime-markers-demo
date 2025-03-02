@@ -1,4 +1,4 @@
-// screens/HomeScreen.tsx - Updated to only show Assistant on marker selection
+// screens/HomeScreen.tsx
 import { SimpleMapMarkers } from "@/components/MarkerImplementation";
 import EventAssistant from "@/components/RefactoredAssistant/EventAssistant";
 import ConnectionIndicator from "@/components/RefactoredAssistant/ConnectionIndicator";
@@ -10,26 +10,30 @@ import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Platform, StyleSheet, Text, View } from "react-native";
 import { useLocationStore } from "@/stores/useLocationStore";
+import QueueIndicator from "@/components/RefactoredAssistant/QueueIndicator";
+import { useUserLocationStore } from "@/stores/useUserLocationStore";
 
 // Set Mapbox access token
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
 
 export default function HomeScreen() {
   const [isMapReady, setIsMapReady] = useState(false);
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const mapRef = useRef<MapboxGL.MapView>(null);
   const { publish } = useEventBroker();
 
-  // Get the selected marker ID from marker store
-
-  // Get the setCurrentEvent function from the store to initialize with static data
-  const selectedMarkerId = useLocationStore((state) => state.selectedMarkerId);
+  // Get everything from the location store
+  const {
+    selectedMarkerId,
+    userLocation,
+    setUserLocation,
+    locationPermissionGranted,
+    setLocationPermissionGranted,
+    isLoadingLocation,
+    setIsLoadingLocation,
+  } = useUserLocationStore();
 
   // Use a single WebSocket connection for the entire app
   const mapWebSocketData = useMapWebSocket(process.env.EXPO_PUBLIC_WEB_SOCKET_URL!);
-
   const { markers, isConnected, updateViewport } = mapWebSocketData;
 
   useEffect(() => {
@@ -38,63 +42,66 @@ export default function HomeScreen() {
       MapboxGL.setTelemetryEnabled(false);
     }
 
-    // Get user location permission and coordinates
-    const getUserLocation = async () => {
-      try {
-        setIsLoadingLocation(true);
+    // Only fetch location if we don't already have it
+    if (!userLocation) {
+      getUserLocation();
+    }
+  }, [userLocation, publish]);
 
-        // Request location permissions
-        const { status } = await Location.requestForegroundPermissionsAsync();
+  // Get user location permission and coordinates
+  const getUserLocation = async () => {
+    try {
+      setIsLoadingLocation(true);
 
-        if (status !== "granted") {
-          setLocationPermissionGranted(false);
-          Alert.alert(
-            "Permission Denied",
-            "Allow location access to center the map on your position.",
-            [{ text: "OK" }]
-          );
-          setIsLoadingLocation(false);
-          return;
-        }
+      // Request location permissions
+      const { status } = await Location.requestForegroundPermissionsAsync();
 
-        setLocationPermissionGranted(true);
-
-        // Disable caching and request high accuracy for testing
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
-
-        // Update state with user coordinates in [longitude, latitude] format for Mapbox
-        const userCoords: [number, number] = [location.coords.longitude, location.coords.latitude];
-        setUserLocation(userCoords);
-
-        // Emit user location updated event
-        publish<BaseEvent & { coordinates: [number, number] }>(EventTypes.USER_LOCATION_UPDATED, {
-          timestamp: Date.now(),
-          source: "HomeScreen",
-          coordinates: userCoords,
-        });
-      } catch (error) {
-        console.error("Error getting location:", error);
+      if (status !== "granted") {
+        setLocationPermissionGranted(false);
         Alert.alert(
-          "Location Error",
-          "Couldn't determine your location. Using default location instead.",
+          "Permission Denied",
+          "Allow location access to center the map on your position.",
           [{ text: "OK" }]
         );
-
-        // Emit error event
-        publish<BaseEvent & { error: string }>(EventTypes.ERROR_OCCURRED, {
-          timestamp: Date.now(),
-          source: "HomeScreen",
-          error: "Failed to get user location",
-        });
-      } finally {
         setIsLoadingLocation(false);
+        return;
       }
-    };
 
-    getUserLocation();
-  }, [publish]);
+      setLocationPermissionGranted(true);
+
+      // Disable caching and request high accuracy for testing
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      // Update state with user coordinates in [longitude, latitude] format for Mapbox
+      const userCoords: [number, number] = [location.coords.longitude, location.coords.latitude];
+      setUserLocation(userCoords);
+
+      // Emit user location updated event
+      publish<BaseEvent & { coordinates: [number, number] }>(EventTypes.USER_LOCATION_UPDATED, {
+        timestamp: Date.now(),
+        source: "HomeScreen",
+        coordinates: userCoords,
+      });
+    } catch (error) {
+      console.error("Error getting location:", error);
+      Alert.alert(
+        "Location Error",
+        "Couldn't determine your location. Using default location instead.",
+        [{ text: "OK" }]
+      );
+
+      // Emit error event
+      publish<BaseEvent & { error: string }>(EventTypes.ERROR_OCCURRED, {
+        timestamp: Date.now(),
+        source: "HomeScreen",
+        error: "Failed to get user location",
+      });
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  };
 
   // Handle map viewport changes
   const handleMapViewportChange = (feature: any) => {
@@ -137,6 +144,8 @@ export default function HomeScreen() {
 
       {/* Mapbox Map as background */}
       <MapboxGL.MapView
+        rotateEnabled={false}
+        pitchEnabled={false}
         ref={mapRef}
         style={styles.map}
         styleURL={MapboxGL.StyleURL.Light}
@@ -197,16 +206,19 @@ export default function HomeScreen() {
 
       {/* Always visible ConnectionIndicator */}
       {isMapReady && !isLoadingLocation && (
-        <ConnectionIndicator
-          eventsCount={markers.length}
-          initialConnectionState={isConnected}
-          position="top-right"
-          showAnimation={!selectedMarkerId} // More animated when no marker selected
-        />
+        <>
+          <ConnectionIndicator
+            eventsCount={markers.length}
+            initialConnectionState={isConnected}
+            position="top-right"
+            showAnimation={!selectedMarkerId}
+          />
+          <QueueIndicator position="top-left" />
+        </>
       )}
 
       {/* Only show Assistant when a marker is selected */}
-      {isMapReady && !isLoadingLocation && selectedMarkerId && (
+      {isMapReady && !isLoadingLocation && (
         <View style={styles.assistantOverlay}>
           <EventAssistant />
         </View>

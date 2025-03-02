@@ -1,22 +1,20 @@
 import { CameraPermission } from "@/components/CameraPermission";
 import { CaptureButton } from "@/components/CaptureButton";
-import { EnhancedJobProcessor } from "@/components/JobProcessor";
-import { ImprovedProcessingView } from "@/components/ProcessingView";
 import { ScannerOverlay } from "@/components/ScannerOverlay";
-import { SuccessScreen } from "@/components/SuccessScreen";
 import { useCamera } from "@/hooks/useCamera";
 import { Feather } from "@expo/vector-icons";
 import { CameraView } from "expo-camera";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
 import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
 import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "@/services/ApiClient";
-import { styles as globalStyles } from "@/components/RefactoredAssistant/styles";
+import { useEventBroker } from "@/hooks/useEventBroker";
+import { EventTypes } from "@/services/EventBroker";
+import { useJobQueueStore } from "@/stores/useJobQueueStore";
 
 type DetectionStatus = "none" | "detecting" | "aligned";
-type ProcessingStatus = "none" | "capturing" | "uploading" | "processing";
 
 export default function ScanScreen() {
   const {
@@ -34,18 +32,14 @@ export default function ScanScreen() {
   const detectionIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [detectionStatus, setDetectionStatus] = useState<DetectionStatus>("none");
   const [isFrameReady, setIsFrameReady] = useState(false);
-
-  // State for job tracking
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [processingResult, setProcessingResult] = useState<any>(null);
-
-  // Processing status state to show immediate feedback
-  const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>("none");
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  // Camera initialization state - we're waiting for both permission and for camera to be ready
   const [isCameraInitializing, setIsCameraInitializing] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Access job queue store directly
+  const addJob = useJobQueueStore((state) => state.addJob);
+
+  // Get the event broker
+  const { publish } = useEventBroker();
 
   // Clear detection interval function
   const clearDetectionInterval = useCallback(() => {
@@ -78,7 +72,7 @@ export default function ScanScreen() {
     }, [isCameraActive, isCameraReady, hasPermission, clearDetectionInterval])
   );
 
-  // Also add a master safety timer as a separate effect
+  // Safety timer
   useEffect(() => {
     // This is a fallback safety mechanism to ensure we don't get stuck
     const masterSafetyTimer = setTimeout(() => {
@@ -90,7 +84,7 @@ export default function ScanScreen() {
     return () => clearTimeout(masterSafetyTimer);
   }, [isCameraInitializing, hasPermission]);
 
-  // Modified code:
+  // Camera initialization
   useEffect(() => {
     if (hasPermission && isCameraReady) {
       // Both permission granted and camera is ready
@@ -109,7 +103,7 @@ export default function ScanScreen() {
     }
   }, [hasPermission, isCameraReady, isCameraActive]);
 
-  // Setup mock document detection
+  // Document detection simulation
   const startDocumentDetection = useCallback(() => {
     // Clear any existing interval first
     clearDetectionInterval();
@@ -144,7 +138,7 @@ export default function ScanScreen() {
 
   // Start detection when camera becomes active and ready
   useEffect(() => {
-    if (isCameraActive && isCameraReady && !isCapturing && processingStatus === "none") {
+    if (isCameraActive && isCameraReady && !isCapturing && !isUploading) {
       startDocumentDetection();
     } else {
       clearDetectionInterval();
@@ -158,29 +152,56 @@ export default function ScanScreen() {
     isCameraActive,
     isCameraReady,
     isCapturing,
-    processingStatus,
+    isUploading,
     startDocumentDetection,
     clearDetectionInterval,
   ]);
 
-  // Clean up ALL resources on component unmount
   useEffect(() => {
+    // The cleanup function
     return () => {
+      // Make sure to cancel any ongoing operations when unmounting
       clearDetectionInterval();
+
+      // Just call releaseCamera directly instead of using a timeout with nested cleanup
       releaseCamera();
     };
   }, [clearDetectionInterval, releaseCamera]);
 
-  // Updated method to use ApiClient
-  const uploadImage = async (uri: string) => {
-    try {
-      setProcessingStatus("uploading");
+  // Handle job queuing and navigation in one place to avoid race conditions
+  const queueJobAndNavigate = useCallback(
+    (jobId: string) => {
+      if (!jobId) return;
 
+      // Add to job queue
+      addJob(jobId);
+
+      // Publish event
+      publish(EventTypes.JOB_QUEUED, {
+        timestamp: Date.now(),
+        source: "ScanScreen",
+        jobId: jobId,
+        message: "Document scan queued for processing",
+      });
+
+      // Clean up before navigation
+      clearDetectionInterval();
+
+      // Delay navigation slightly to allow state to settle
+      setTimeout(() => {
+        router.push("/");
+      }, 300);
+    },
+    [addJob, publish, clearDetectionInterval, router]
+  );
+
+  // Upload image and queue job
+  const uploadImageAndQueueJob = async (uri: string) => {
+    try {
       // Create a FormData object to send the image
       const formData = new FormData();
 
       // Create a File object from the URI
-      // Note: In React Native, we need to use a different approach since File is not available
       const imageFile = {
         uri,
         name: "image.jpg",
@@ -189,45 +210,40 @@ export default function ScanScreen() {
 
       formData.append("image", imageFile);
 
-      // Use the ApiClient to process the image
-      // Since apiClient expects a File and we're in React Native, we need to adapt
-      try {
-        // We'll attempt to use the ApiClient's method but adapt it for React Native
-        // by using fetch directly with our custom FormData
-        const response = await fetch(`${apiClient.baseUrl}/api/events/process`, {
-          method: "POST",
-          body: formData,
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
+      // Use fetch directly with our custom FormData
+      const response = await fetch(`${apiClient.baseUrl}/api/events/process`, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
-        const result = await response.json();
+      const result = await response.json();
 
-        if (result.jobId) {
-          // Store the job ID to start streaming updates
-          setJobId(result.jobId);
-          setProcessingStatus("processing");
-        } else {
-          throw new Error("No job ID returned");
-        }
-      } catch (error) {
-        console.error("Processing failed:", error);
-        throw error;
+      if (result.jobId) {
+        // Use our simplified function to queue job and navigate
+        queueJobAndNavigate(result.jobId);
+        return result.jobId;
+      } else {
+        throw new Error("No job ID returned");
       }
     } catch (error) {
       console.error("Upload failed:", error);
-      // Handle upload error
-      setUploadError("Failed to upload image. Please try again.");
-      setProcessingStatus("none");
-      // If upload failed, restart detection
-      startDocumentDetection();
+
+      // Publish error event
+      publish(EventTypes.ERROR_OCCURRED, {
+        timestamp: Date.now(),
+        source: "ScanScreen",
+        error: `Failed to upload image: ${error}`,
+      });
+
+      throw error; // Re-throw to handle in the calling function
     }
   };
 
   const handlePermissionGranted = useCallback(() => {
     // Force reset the initialization state when we get permission
-    // This will let us re-evaluate in the effect above
     setIsCameraInitializing(true);
   }, []);
 
@@ -235,50 +251,55 @@ export default function ScanScreen() {
     // Stop detection while capturing
     clearDetectionInterval();
 
-    // Immediately show the processing state
-    setProcessingStatus("capturing");
-    setUploadError(null);
+    // Set loading state
+    setIsUploading(true);
 
     try {
+      // Capture the image
       const uri = await takePicture();
-      if (uri) {
-        setImageUri(uri);
-        await uploadImage(uri);
-      } else {
+
+      if (!uri) {
         throw new Error("Failed to capture image");
       }
+
+      // Show a brief toast or indicator that we're processing
+      publish(EventTypes.NOTIFICATION, {
+        timestamp: Date.now(),
+        source: "ScanScreen",
+        message: "Processing document...",
+      });
+
+      // Upload the image and queue the job
+      await uploadImageAndQueueJob(uri);
     } catch (error) {
       console.error("Capture failed:", error);
-      setUploadError("Failed to capture image. Please try again.");
-      setProcessingStatus("none");
-      // If capture failed, restart detection
+
+      // Show an error alert
+      Alert.alert("Operation Failed", "Failed to process the document. Please try again.", [
+        { text: "OK" },
+      ]);
+
+      // Reset state to allow retry
+      setIsUploading(false);
+
+      // Restart detection
       startDocumentDetection();
     }
   };
 
   const handleFrameReady = () => {
-    // Optional: Automatically trigger capture when frame is aligned
-  };
-
-  const handleJobComplete = (result: any) => {
-    setProcessingResult(result);
-  };
-
-  const handleNewScan = () => {
-    setJobId(null);
-    setImageUri(null);
-    setProcessingResult(null);
-    setProcessingStatus("none");
-    setUploadError(null);
-    // Restart detection
-    startDocumentDetection();
+    // Optional: auto-capture when frame is well-aligned
   };
 
   const handleBack = () => {
     // Ensure we clean up resources before navigating away
     clearDetectionInterval();
-    releaseCamera();
-    router.push("/");
+
+    // Small delay before navigation
+    setTimeout(() => {
+      releaseCamera();
+      router.push("/");
+    }, 100);
   };
 
   // Don't render camera if we're not on this screen
@@ -307,70 +328,10 @@ export default function ScanScreen() {
     return <CameraPermission onPermissionGranted={handlePermissionGranted} />;
   }
 
-  // Show success screen after processing is complete
-  if (processingResult && imageUri && processingResult.eventId) {
-    return (
-      <SuccessScreen
-        imageUri={imageUri}
-        onNewScan={handleNewScan}
-        eventId={processingResult.eventId}
-      />
-    );
-  }
-
-  // Show job processor once we have a job ID
-  if (jobId) {
-    return (
-      <EnhancedJobProcessor jobId={jobId} onComplete={handleJobComplete} onReset={handleNewScan} />
-    );
-  }
-
-  // Show capturing/uploading UI while waiting for job ID
-  if (processingStatus === "capturing" || processingStatus === "uploading") {
-    // Define comprehensive progress steps that cover the entire process
-    const progressSteps = [
-      "Initializing...",
-      "Capturing...",
-      "Processing...",
-      "Uploading...",
-      "Preparing...",
-      "Analyzing...",
-      "Extracting...",
-      "Finalizing...",
-    ];
-
-    // Determine current step based on the processing status
-    const currentStep =
-      processingStatus === "capturing" ? 1 : processingStatus === "uploading" ? 3 : 0;
-
-    return (
-      <View style={styles.container}>
-        <ImprovedProcessingView
-          text={processingStatus === "capturing" ? "Capturing" : "Uploading"}
-          progressSteps={progressSteps}
-          currentStep={currentStep}
-          isComplete={false}
-          hasError={!!uploadError}
-          errorMessage={uploadError || undefined}
-          isCaptureState={processingStatus === "capturing"}
-        />
-
-        {uploadError && (
-          <TouchableOpacity
-            style={[globalStyles.button, globalStyles.primaryButton, styles.resetButton]}
-            onPress={handleNewScan}
-          >
-            <Text style={globalStyles.primaryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  }
-
   // Main camera view
   return (
     <SafeAreaView style={styles.container}>
-      {/* Refined Header */}
+      {/* Header */}
       <Animated.View style={styles.header} entering={FadeIn.duration(500)}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
           <View style={styles.backButtonContainer}>
@@ -385,11 +346,25 @@ export default function ScanScreen() {
           <CameraView ref={cameraRef} style={styles.camera} onCameraReady={onCameraReady}>
             <ScannerOverlay detectionStatus={detectionStatus} onFrameReady={handleFrameReady} />
           </CameraView>
+
+          {/* Separate overlay view to avoid conflicts with CameraView */}
+          {isUploading && (
+            <View style={styles.uploadingOverlay}>
+              <View style={styles.uploadingIndicator}>
+                <Feather name="upload-cloud" size={24} color="#fff" />
+              </View>
+              <Text style={styles.uploadingText}>Capturing...</Text>
+            </View>
+          )}
         </Animated.View>
       </View>
 
       <Animated.View entering={SlideInDown.duration(500).delay(200)}>
-        <CaptureButton onPress={handleCapture} isCapturing={isCapturing} isReady={isFrameReady} />
+        <CaptureButton
+          onPress={handleCapture}
+          isCapturing={isCapturing || isUploading}
+          isReady={isFrameReady}
+        />
       </Animated.View>
     </SafeAreaView>
   );
@@ -463,29 +438,30 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
+    position: "relative", // Important for overlay positioning
   },
   camera: {
     flex: 1,
   },
-  errorContainer: {
-    flex: 1,
-    backgroundColor: "#333",
+  uploadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
+    zIndex: 10,
   },
-  errorText: {
-    color: "#f8f9fa",
-    fontSize: 16,
-    marginTop: 20,
-    marginBottom: 24,
-    textAlign: "center",
-    fontFamily: "SpaceMono",
+  uploadingIndicator: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "rgba(77, 171, 247, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  resetButton: {
-    alignSelf: "center",
+  uploadingText: {
+    color: "#fff",
     marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    fontSize: 16,
+    fontFamily: "SpaceMono",
   },
 });
