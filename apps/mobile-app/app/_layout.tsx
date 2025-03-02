@@ -31,7 +31,10 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="scan" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="scan"
+          options={{ headerShown: false, presentation: "modal", animation: "slide_from_bottom" }}
+        />
         <Stack.Screen name="results" options={{ headerShown: false }} />
         <Stack.Screen name="search" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />

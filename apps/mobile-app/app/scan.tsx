@@ -6,7 +6,15 @@ import { Feather } from "@expo/vector-icons";
 import { CameraView } from "expo-camera";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
+import {
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  Alert,
+  Platform,
+} from "react-native";
 import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
 import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "@/services/ApiClient";
@@ -189,7 +197,7 @@ export default function ScanScreen() {
 
       // Delay navigation slightly to allow state to settle
       setTimeout(() => {
-        router.push("/");
+        router.replace("/");
       }, 300);
     },
     [addJob, publish, clearDetectionInterval, router]
@@ -298,7 +306,7 @@ export default function ScanScreen() {
     // Small delay before navigation
     setTimeout(() => {
       releaseCamera();
-      router.push("/");
+      router.replace("/");
     }, 100);
   };
 
@@ -341,8 +349,9 @@ export default function ScanScreen() {
         <Text style={styles.headerText}>Scan Document</Text>
       </Animated.View>
 
-      <View style={styles.cameraWrapper}>
-        <Animated.View style={styles.contentContainer} entering={FadeIn.duration(800)}>
+      {/* Flexible camera container */}
+      <View style={styles.flexContainer}>
+        <Animated.View style={styles.cameraContainer} entering={FadeIn.duration(800)}>
           <CameraView ref={cameraRef} style={styles.camera} onCameraReady={onCameraReady}>
             <ScannerOverlay detectionStatus={detectionStatus} onFrameReady={handleFrameReady} />
           </CameraView>
@@ -359,13 +368,19 @@ export default function ScanScreen() {
         </Animated.View>
       </View>
 
-      <Animated.View entering={SlideInDown.duration(500).delay(200)}>
-        <CaptureButton
-          onPress={handleCapture}
-          isCapturing={isCapturing || isUploading}
-          isReady={isFrameReady}
-        />
-      </Animated.View>
+      {/* Bottom button container with fixed height */}
+      <View style={styles.buttonContainer}>
+        <Animated.View
+          entering={SlideInDown.duration(500).delay(200)}
+          style={styles.captureButtonWrapper}
+        >
+          <CaptureButton
+            onPress={handleCapture}
+            isCapturing={isCapturing || isUploading}
+            isReady={isFrameReady}
+          />
+        </Animated.View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -374,6 +389,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#333", // Matches the app's dark theme
+    display: "flex",
+    flexDirection: "column",
   },
   processingContainer: {
     flex: 1,
@@ -405,11 +422,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 16,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#3a3a3a",
     backgroundColor: "#333", // Match the app theme
+    // Using explicit height to ensure consistent spacing
+    height: 60,
   },
   backButton: {
     marginRight: 12,
@@ -433,12 +452,14 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     fontFamily: "SpaceMono",
   },
-  cameraWrapper: {
-    flex: 1,
+  flexContainer: {
+    flex: 1, // This will take all available space between header and button
+    position: "relative",
   },
-  contentContainer: {
+  cameraContainer: {
     flex: 1,
     position: "relative", // Important for overlay positioning
+    overflow: "hidden", // Ensure nothing overflows
   },
   camera: {
     flex: 1,
@@ -463,5 +484,16 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     fontFamily: "SpaceMono",
+  },
+  buttonContainer: {
+    height: 150,
+    justifyContent: "center",
+    alignItems: "center",
+    // Safeguard for devices with notches or home indicators
+    paddingBottom: Platform.OS === "ios" ? 16 : 0,
+  },
+  captureButtonWrapper: {
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

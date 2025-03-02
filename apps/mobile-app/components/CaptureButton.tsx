@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View, Platform } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -16,18 +16,25 @@ interface CaptureButtonProps {
   onPress: () => void;
   isCapturing?: boolean;
   isReady?: boolean;
+  size?: "normal" | "compact";
 }
 
 export const CaptureButton: React.FC<CaptureButtonProps> = ({
   onPress,
   isCapturing = false,
   isReady = false,
+  size = "normal",
 }) => {
   // Animation values
   const buttonScale = useSharedValue(1);
   const readyGlow = useSharedValue(0);
   const colorProgress = useSharedValue(0);
   const iconOpacity = useSharedValue(0);
+
+  // Determine sizes based on the size prop
+  const buttonSize = size === "compact" ? 48 : 56;
+  const innerSize = size === "compact" ? 36 : 42;
+  const glowSize = size === "compact" ? 64 : 72;
 
   // Setup animations based on state
   useEffect(() => {
@@ -93,6 +100,9 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
 
     return {
       backgroundColor,
+      width: innerSize,
+      height: innerSize,
+      borderRadius: innerSize / 2,
     };
   });
 
@@ -106,6 +116,9 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
     return {
       opacity: readyGlow.value * 0.8,
       backgroundColor,
+      width: glowSize,
+      height: glowSize,
+      borderRadius: glowSize / 2,
     };
   });
 
@@ -122,9 +135,16 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
       <Animated.View style={[styles.glowEffect, glowStyle]} />
 
       {/* Capture button */}
-      <Animated.View style={[styles.buttonContainer, buttonAnimatedStyle]}>
+      <Animated.View style={[buttonAnimatedStyle]}>
         <TouchableOpacity
-          style={styles.button}
+          style={[
+            styles.button,
+            {
+              width: buttonSize,
+              height: buttonSize,
+              borderRadius: buttonSize / 2,
+            },
+          ]}
           onPress={onPress}
           activeOpacity={0.7}
           disabled={isCapturing}
@@ -132,7 +152,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
           <Animated.View style={[styles.innerCircle, innerCircleStyle]}>
             {/* Camera icon that appears when ready */}
             <Animated.View style={[styles.iconContainer, iconStyle]}>
-              <Feather name="camera" size={20} color="#1a1a1a" />
+              <Feather name="camera" size={size === "compact" ? 18 : 20} color="#1a1a1a" />
             </Animated.View>
           </Animated.View>
         </TouchableOpacity>
@@ -145,20 +165,14 @@ const styles = StyleSheet.create({
   container: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 24,
+    paddingVertical: Platform.OS === "ios" ? 20 : 24,
     position: "relative",
   },
   glowEffect: {
     position: "absolute",
-    width: 72,
-    height: 72,
-    borderRadius: 36,
     opacity: 0,
   },
   button: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
     backgroundColor: "rgba(255, 255, 255, 0.15)",
     justifyContent: "center",
     alignItems: "center",
@@ -166,14 +180,8 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.3)",
   },
   innerCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
     justifyContent: "center",
     alignItems: "center",
-  },
-  buttonContainer: {
-    // This wrapper allows for scale animation
   },
   iconContainer: {
     justifyContent: "center",
