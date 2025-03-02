@@ -88,7 +88,6 @@ class ApiClient {
   // Fetch a single event by ID
   async getEventById(id: string): Promise<EventType> {
     const url = `${this.baseUrl}/api/events/${id}`;
-    console.log({ url });
     const response = await fetch(url);
     const data = await this.handleResponse<ApiEvent>(response);
 

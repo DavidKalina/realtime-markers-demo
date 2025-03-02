@@ -160,4 +160,14 @@ export const details = StyleSheet.create({
     color: "#fff",
     fontWeight: "500",
   },
+  skeletonBox: {
+    backgroundColor: "#E1E9EE",
+    borderRadius: 4,
+    overflow: "hidden",
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  descriptionSkeleton: {
+    width: "70%",
+  },
 });

@@ -44,13 +44,11 @@ const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
   // Listen to WebSocket connection events
   useEffect(() => {
     const handleConnected = () => {
-      console.log("ConnectionIndicator: WebSocket connected");
       setIsConnected(true);
       setHasConnectionEverBeenEstablished(true);
     };
 
     const handleDisconnected = () => {
-      console.log("ConnectionIndicator: WebSocket disconnected");
       setIsConnected(false);
     };
 
@@ -67,7 +65,6 @@ const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
           event.source?.includes("WebSocket") ||
           event.source?.includes("useMapWebSocket"))
       ) {
-        console.log("ConnectionIndicator: WebSocket error detected");
         setIsConnected(false);
       }
     };
@@ -218,8 +215,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   indicator: {
-    width: 30,
-    height: 30,
+    width: 28,
+    height: 28,
     borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",

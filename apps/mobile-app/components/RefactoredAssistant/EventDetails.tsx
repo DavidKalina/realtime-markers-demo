@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import apiClient from "../../services/ApiClient";
 import { styles } from "./styles";
+import { EventDetailsSkeleton } from "./EventDetailsSkeleton";
+import Animated, { FadeIn, FadeOut, FadeOutDown } from "react-native-reanimated";
 
 interface EventDetailsProps {
   eventId: string;
@@ -61,17 +63,12 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId }) => {
   };
 
   if (loading) {
-    return (
-      <View style={styles.centerContent}>
-        <ActivityIndicator size="large" color="#4287f5" />
-        <Text>Loading event details...</Text>
-      </View>
-    );
+    return <EventDetailsSkeleton />;
   }
 
   if (error) {
     return (
-      <View style={styles.centerContent}>
+      <Animated.View style={styles.centerContent} entering={FadeIn.duration(300)}>
         <Text>{error}</Text>
         <TouchableOpacity
           style={styles.retryButton}
@@ -94,20 +91,24 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId }) => {
         >
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     );
   }
 
   if (!event) {
     return (
-      <View style={styles.centerContent}>
+      <Animated.View style={styles.centerContent} entering={FadeIn.duration(300)}>
         <Text>No event details available</Text>
-      </View>
+      </Animated.View>
     );
   }
 
   return (
-    <View style={styles.actionContent}>
+    <Animated.View
+      style={styles.actionContent}
+      entering={FadeIn.duration(300)}
+      exiting={FadeOut.duration(300)}
+    >
       <View style={styles.eventHeader}>
         <View style={styles.eventTitleContainer}>
           <Text style={styles.emoji}>{event.emoji}</Text>
@@ -150,7 +151,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId }) => {
           </View>
         )}
       </View>
-    </View>
+    </Animated.View>
   );
 };
 

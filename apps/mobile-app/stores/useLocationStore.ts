@@ -138,11 +138,8 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
     set((state) => {
       // Skip if trying to select the same marker that's already selected
       if (state.selectedMarkerId === markerId) {
-        console.log("SKIPPING");
         return state; // No change needed
       }
-
-      console.log(state.markers);
 
       const selectedMarker = markerId ? state.markers.find((m) => m.id === markerId) || null : null;
 

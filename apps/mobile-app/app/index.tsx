@@ -210,12 +210,10 @@ export default function HomeScreen() {
           <ConnectionIndicator
             eventsCount={markers.length}
             initialConnectionState={isConnected}
-            position="top-left"
+            position="top-right"
             showAnimation={!selectedMarkerId}
           />
-          <View style={styles.queueIndicatorContainer}>
-            <QueueIndicator position="custom" />
-          </View>
+          <QueueIndicator position="top-left" />
         </>
       )}
 
@@ -271,11 +269,5 @@ const styles = StyleSheet.create({
     backgroundColor: "#4dabf7",
     borderWidth: 3,
     borderColor: "#fff",
-  },
-  queueIndicatorContainer: {
-    position: "absolute",
-    top: 100, // Position below the connection indicator
-    left: 16,
-    zIndex: 1000,
   },
 });

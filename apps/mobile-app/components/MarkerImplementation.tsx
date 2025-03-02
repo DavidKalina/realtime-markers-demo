@@ -34,7 +34,6 @@ export const SimpleMapMarkers: React.FC<SimpleMapMarkersProps> = ({ markers: pro
 
   // Handle marker selection
   const handleMarkerPress = (marker: any) => {
-    console.log({ marker });
     // If we're selecting the same marker again, do nothing
     if (selectedMarkerId === marker.id) {
       return;

@@ -99,7 +99,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     (updatedMarkers: Marker[]) => {
       // Handle marker deselection if needed
       if (selectedMarkerIdRef.current && updatedMarkers.length === 0) {
-        console.log("No markers in current viewport, deselecting current marker");
         selectMarker(null);
         eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
           timestamp: Date.now(),
@@ -110,7 +109,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           (marker) => marker.id === selectedMarkerIdRef.current
         );
         if (!selectedMarkerExists) {
-          console.log("Selected marker no longer in viewport, deselecting");
           selectMarker(null);
           eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
             timestamp: Date.now(),
@@ -133,7 +131,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       const clearedAllMarkers = wasShowingMarkers && isEmptyNow;
 
       if (significantChange || isFirstResult || clearedAllMarkers) {
-        console.log(`Emitting markers updated: ${updatedMarkers.length} markers`);
         eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
           timestamp: Date.now(),
           source: "useMapWebSocket",
@@ -141,8 +138,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           count: updatedMarkers.length,
         });
         prevMarkerCount.current = updatedMarkers.length;
-      } else {
-        console.log("Skipping markers updated emit: no significant change in count");
       }
     },
     [selectMarker]
@@ -192,9 +187,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           viewport: currentViewportRef.current,
           markers: markersRef.current,
         });
-        console.log("Viewport update sent and event emitted");
-      } else {
-        console.log("Throttled viewport update, too soon since last one");
       }
     }
   }, []);
@@ -222,7 +214,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       };
       ws.current.send(JSON.stringify(message));
       lastViewportUpdateRef.current = Date.now();
-      console.log("Viewport update sent to server");
     }
   }, []);
 
@@ -230,11 +221,9 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const connectWebSocket = useCallback(() => {
     try {
       if (ws.current && ws.current.readyState === WebSocket.OPEN) return;
-      console.log("Connecting to WebSocket server:", url);
       ws.current = new WebSocket(url);
 
       ws.current.onopen = () => {
-        console.log("WebSocket connection established");
         setIsConnected(true);
         setError(null);
         eventBroker.emit<BaseEvent>(EventTypes.WEBSOCKET_CONNECTED, {
@@ -252,12 +241,10 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
           switch (data.type) {
             case "connection_established":
-              console.log("Connection established, client ID:", data.clientId);
               setClientId(data.clientId);
               break;
 
             case "initial_markers": {
-              console.log(`Received ${data.data.length} initial markers`);
               const initialMapboxMarkers = data.data.map((marker: any) =>
                 convertRBushToMapbox(marker)
               );
@@ -276,9 +263,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
             }
 
             case "marker_delete": {
-              console.log("Marker deleted:", data.data.id);
               if (data.data.id === selectedMarkerIdRef.current) {
-                console.log("Currently selected marker was deleted, deselecting");
                 selectMarker(null);
                 eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
                   timestamp: Date.now(),
@@ -316,7 +301,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         }
       };
       ws.current.onclose = (event) => {
-        console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
         setIsConnected(false);
         setClientId(null);
         eventBroker.emit<BaseEvent>(EventTypes.WEBSOCKET_DISCONNECTED, {

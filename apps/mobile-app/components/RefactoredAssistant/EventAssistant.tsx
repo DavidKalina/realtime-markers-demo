@@ -181,10 +181,7 @@ const EventAssistant: React.FC = () => {
     const locationName = marker.data?.location || "";
 
     // Create an array of messages to be displayed in sequence
-    const messages = [`You discovered ${title}! ❗`];
-
-    // Add type information
-    messages.push(`This is a ${type.toLowerCase()}`);
+    const messages = [`You discovered ${title}❗`];
 
     // Add location information if available
     if (locationName) {
@@ -314,8 +311,6 @@ const EventAssistant: React.FC = () => {
     // Only process if there's a selected marker and it's different from the last one we processed
     if (selectedMarker && selectedMarkerId !== lastProcessedMarkerId) {
       try {
-        console.log("Processing new marker selection:", selectedMarkerId);
-
         // Reset text before starting new sequence
         resetText();
 
@@ -415,8 +410,6 @@ const EventAssistant: React.FC = () => {
 
   // Handle action button presses
   const onActionPress = (action: string) => {
-    console.log(selectedMarker);
-
     // Skip actions if no current event is selected
     if (!selectedMarker && ["details", "share"].includes(action)) {
       resetText();

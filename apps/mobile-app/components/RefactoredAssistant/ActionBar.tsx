@@ -39,7 +39,7 @@ export const ActionBar: React.FC<ActionBarProps> = ({
       key: "details",
       label: "Details",
       // Updated icon color to match the modern style
-      icon: <Info size={20} color="#4dabf7" style={styles.icon} />,
+      icon: <Info size={20} color="#fff" style={styles.icon} />,
       scaleValue: detailsScale,
       action: () => handlePress("details"),
     },
@@ -47,21 +47,21 @@ export const ActionBar: React.FC<ActionBarProps> = ({
     {
       key: "share",
       label: "Share",
-      icon: <Share2 size={20} color="#4dabf7" style={styles.icon} />,
+      icon: <Share2 size={20} color="#fff" style={styles.icon} />,
       scaleValue: shareScale,
       action: () => handlePress("share"),
     },
     {
       key: "search",
       label: "Search",
-      icon: <SearchIcon size={20} color="#4dabf7" style={styles.icon} />,
+      icon: <SearchIcon size={20} color="#fff" style={styles.icon} />,
       scaleValue: searchScale,
       action: () => handlePress("search"),
     },
     {
       key: "camera", // Change from "scan" to "camera"
       label: "Scan", // Keep the user-facing label as "Scan"
-      icon: <Camera size={20} color="#4dabf7" style={styles.icon} />,
+      icon: <Camera size={20} color="#fff" style={styles.icon} />,
       scaleValue: scanScale,
       action: () => handlePress("camera"),
     },

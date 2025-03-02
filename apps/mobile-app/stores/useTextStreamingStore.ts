@@ -26,7 +26,6 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
   setCurrentEmoji: (emoji: string) => set({ currentEmoji: emoji }),
 
   cancelCurrentStreaming: () => {
-    console.log("TextStreamingStore: Canceling current text streaming");
     set({
       cancelationRequested: true,
       isTyping: false,
@@ -38,21 +37,17 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
   },
 
   simulateTextStreaming: async (text: string) => {
-    console.log(`TextStreamingStore: Starting text streaming - "${text}"`);
-
     // Reset cancelation flag at the start
     set({ cancelationRequested: false });
 
     // Skip if text is empty
     if (!text || text.length === 0) {
-      console.warn("TextStreamingStore: Empty text received, nothing to stream");
       return;
     }
 
     // Handle already typing scenario
     if (get().isTyping) {
       if (text !== get().lastStreamedText) {
-        console.log("TextStreamingStore: Already typing, canceling current stream");
         // Cancel current streaming and reset
         set({
           isTyping: false,
@@ -63,7 +58,6 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
         await new Promise((resolve) => setTimeout(resolve, 150));
         set({ cancelationRequested: false });
       } else {
-        console.warn("TextStreamingStore: Already typing same message, request ignored");
         return;
       }
     }
@@ -116,7 +110,6 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
       for (let i = 0; i < text.length; i++) {
         // Check if cancelation was requested
         if (get().cancelationRequested) {
-          console.log("TextStreamingStore: Streaming canceled");
           break;
         }
 
@@ -147,8 +140,6 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
       if (text.length > 10) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
-
-      console.log(`TextStreamingStore: Finished text streaming - "${text}"`);
     } catch (error) {
       console.error("TextStreamingStore: Error during text streaming:", error);
     }
@@ -160,7 +151,6 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
   },
 
   resetText: () => {
-    console.log("TextStreamingStore: Resetting text");
     set({
       currentStreamedText: "",
       isTyping: false,

@@ -1,7 +1,7 @@
 import { useJobQueueManager } from "@/hooks/useJobQueueManager";
 import { useJobStreamEnhanced } from "@/hooks/useJobStream";
 import { useJobQueueStore } from "@/stores/useJobQueueStore";
-import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react-native";
+import { AlertTriangle, CheckCircle, Cog } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
@@ -50,13 +50,15 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
   const [status, setStatus] = useState<"idle" | "processing" | "completed" | "failed">("idle");
 
   // Animated values
-  const spinValue = useSharedValue(0);
+  const rotationValue = useSharedValue(0);
   const checkmarkScale = useSharedValue(0);
   const iconOpacity = useSharedValue(1);
 
-  // Derived values
-  const currentProgressText =
-    activeJobId && progressSteps[currentStep] ? progressSteps[currentStep] : "Processing...";
+  // Calculate progress percentage
+  const progressPercentage =
+    progressSteps.length > 0
+      ? Math.min(100, Math.round((currentStep / (progressSteps.length - 1)) * 100))
+      : 0;
 
   // Setup visibility
   useEffect(() => {
@@ -84,10 +86,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
   useEffect(() => {
     // If there are no active jobs but there are completed/failed jobs
     if (jobIds.length === 0 && activeJobId === null && (hasCompletedJobs || hasFailedJobs)) {
-      console.log("[QueueIndicator] No active jobs, starting auto-dismiss timer");
-
       const timer = setTimeout(() => {
-        console.log("[QueueIndicator] Auto-dismissing indicator");
         setIsVisible(false);
 
         // Clear the jobs after the exit animation completes
@@ -103,12 +102,12 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
   // Handle animations based on status
   useEffect(() => {
     if (status === "processing") {
-      // Start spinning animation
-      spinValue.value = 0;
+      // Start rotation animation for cog
+      rotationValue.value = 0;
       iconOpacity.value = withTiming(1, { duration: 300 });
-      spinValue.value = withRepeat(
+      rotationValue.value = withRepeat(
         withTiming(1, {
-          duration: 1000,
+          duration: 2000,
           easing: Easing.linear,
         }),
         -1, // Infinite repeats
@@ -116,8 +115,8 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
       );
       checkmarkScale.value = 0;
     } else if (status === "completed" || status === "failed") {
-      // Stop spinning and transition to checkmark/error icon
-      spinValue.value = withTiming(0, { duration: 200 });
+      // Stop rotation and transition to checkmark/error icon
+      rotationValue.value = withTiming(rotationValue.value, { duration: 200 });
       iconOpacity.value = withTiming(0, { duration: 200 }, () => {
         "worklet";
         checkmarkScale.value = withTiming(1, {
@@ -126,12 +125,12 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
         });
       });
     }
-  }, [status, spinValue, iconOpacity, checkmarkScale]);
+  }, [status, rotationValue, iconOpacity, checkmarkScale]);
 
   // Create animated styles
-  const spinAnimatedStyle = useAnimatedStyle(() => {
+  const rotationAnimatedStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ rotate: `${spinValue.value * 360}deg` }],
+      transform: [{ rotate: `${rotationValue.value * 360}deg` }],
       opacity: iconOpacity.value,
     };
   });
@@ -193,10 +192,12 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
         style={[styles.indicator, { backgroundColor: getStatusColor() }]}
         layout={Layout.springify()}
       >
-        {/* Spinning loader or completion icon */}
-        <Animated.View style={spinAnimatedStyle}>
-          <Loader2 size={16} color="#fff" />
-        </Animated.View>
+        {/* Rotating cog for processing */}
+        {status === "processing" && (
+          <Animated.View style={rotationAnimatedStyle}>
+            <Cog size={16} color="#fff" />
+          </Animated.View>
+        )}
 
         {/* Checkmark or error icon that appears when complete */}
         <Animated.View style={checkmarkAnimatedStyle}>
@@ -208,23 +209,19 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
         </Animated.View>
       </Animated.View>
 
-      <View style={styles.textContainer}>
-        <Animated.Text
-          style={styles.statusText}
-          entering={FadeIn.duration(300)}
-          exiting={FadeOut.duration(300)}
-          layout={Layout.springify()}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {status === "processing"
-            ? currentProgressText
-            : status === "completed"
-            ? "Complete"
-            : status === "failed"
-            ? "Failed"
-            : "Idle"}
-        </Animated.Text>
+      <View style={styles.contentContainer}>
+        {/* Progress bar */}
+        {status === "processing" && (
+          <View style={styles.progressBarContainer}>
+            <Animated.View
+              style={[
+                styles.progressBar,
+                { width: `${progressPercentage}%`, backgroundColor: getStatusColor() },
+              ]}
+              layout={Layout.springify()}
+            />
+          </View>
+        )}
 
         {totalJobs > 0 && (
           <Animated.Text
@@ -232,7 +229,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
             entering={FadeIn.duration(400).delay(100)}
             layout={Layout.springify()}
           >
-            {totalJobs} job{totalJobs !== 1 ? "s" : ""} total
+            {totalJobs} job{totalJobs !== 1 ? "s" : ""}
           </Animated.Text>
         )}
       </View>
@@ -245,7 +242,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "#333",
     borderRadius: 20,
     padding: 8,
     zIndex: 1000,
@@ -254,30 +251,43 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    maxWidth: 300,
+    maxWidth: 140, // More compact width
   },
   indicator: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 8,
   },
-  textContainer: {
+  contentContainer: {
     flexDirection: "column",
     flex: 1,
   },
   statusText: {
     color: "#fff",
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "SpaceMono",
     fontWeight: "600",
   },
   countText: {
     color: "#e0e0e0",
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: "SpaceMono",
+    marginTop: 2,
+  },
+  progressBarContainer: {
+    height: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 1.5,
+    marginVertical: 4,
+    width: "100%",
+    overflow: "hidden",
+  },
+  progressBar: {
+    height: "100%",
+    borderRadius: 1.5,
   },
 });
 

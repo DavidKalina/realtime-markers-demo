@@ -32,7 +32,7 @@ export const useCamera = () => {
   const [isCameraActive, setIsCameraActive] = useState(false);
 
   // Add initialization timeout tracking
-  const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Proper permission handling - maintain the tri-state
   useEffect(() => {
@@ -129,27 +129,16 @@ export const useCamera = () => {
 
   useEffect(() => {
     const shouldBeActive = isFocused && appActive && hasPermission === true;
-    console.log("Camera active state calculation:", {
-      isFocused,
-      appActive,
-      hasPermission,
-      shouldBeActive,
-      currentlyActive: isCameraActive,
-      isCameraReady,
-    });
 
     if (shouldBeActive !== isCameraActive) {
-      console.log(`Setting camera active: ${shouldBeActive}`);
       setIsCameraActive(shouldBeActive);
     }
 
     // Fix: Only start timer when camera should be active and has permission, but isn't ready yet
     if (shouldBeActive && hasPermission === true && !isCameraReady) {
-      console.log("Starting camera ready safety timer");
       // Set a safety timer to ensure camera ready state is set
       const readyTimer = setTimeout(() => {
         if (!isCameraReady) {
-          console.log("Camera ready state forced after timeout");
           setIsCameraReady(true);
         }
       }, 3000);
@@ -167,8 +156,6 @@ export const useCamera = () => {
 
   // Explicit function to release camera resources
   const releaseCamera = useCallback(() => {
-    console.log("Releasing camera resources");
-
     // Reset all camera states
     setIsCameraReady(false);
     setIsCapturing(false);
@@ -196,12 +183,6 @@ export const useCamera = () => {
   const takePicture = async () => {
     // Defensive check for all required states
     if (!cameraRef.current || isCapturing || !isCameraReady || !isCameraActive) {
-      console.log("Cannot take picture:", {
-        hasRef: !!cameraRef.current,
-        isCapturing,
-        isCameraReady,
-        isCameraActive,
-      });
       return null;
     }
 
@@ -247,7 +228,6 @@ export const useCamera = () => {
   // Force permission check function
   const checkPermission = useCallback(async () => {
     try {
-      console.log("Manually checking permission");
       const result = await requestPermission();
       setHasPermission(result.granted);
       return result.granted;
