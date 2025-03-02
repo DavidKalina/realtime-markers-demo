@@ -1,4 +1,3 @@
-// styles/share-event-dark-styles.ts
 import { Platform, StyleSheet } from "react-native";
 
 export const shareEventStyles = StyleSheet.create({
@@ -14,33 +13,33 @@ export const shareEventStyles = StyleSheet.create({
     alignItems: "center",
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#3a3a3a", // Darker divider line
+    borderBottomColor: "#3a3a3a",
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "500",
-    color: "#f8f9fa", // Light text color
+    color: "#f8f9fa",
     fontFamily: "SpaceMono",
   },
   closeButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#4a4a4a", // Darker button background
+    backgroundColor: "#4a4a4a",
     justifyContent: "center",
     alignItems: "center",
   },
   closeButtonText: {
     fontSize: 24,
-    color: "#f8f9fa", // Light text color
+    color: "#f8f9fa",
   },
   eventPreview: {
     padding: 16,
     marginVertical: 16,
-    backgroundColor: "#3a3a3a", // Darker card background
-    borderRadius: 12, // Matching the detailsCard radius
+    backgroundColor: "#3a3a3a",
+    borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: "#93c5fd", // Using the sectionTitle color from details
+    borderLeftColor: "#93c5fd",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -50,78 +49,82 @@ export const shareEventStyles = StyleSheet.create({
   previewTitle: {
     fontSize: 18,
     fontWeight: "500",
-    color: "#f8f9fa", // Light text color
+    color: "#f8f9fa",
     marginBottom: 8,
     fontFamily: "SpaceMono",
   },
   previewTime: {
     fontSize: 15,
-    color: "#f8f9fa", // Light text color
+    color: "#f8f9fa",
     marginBottom: 4,
     fontFamily: "SpaceMono",
   },
   previewLocation: {
     fontSize: 15,
-    color: "#f8f9fa", // Light text color
+    color: "#f8f9fa",
     fontFamily: "SpaceMono",
   },
   customMessageContainer: {
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#4a4a4a", // Darker border
+    borderColor: "#4a4a4a",
     borderRadius: 12,
-    backgroundColor: "#3a3a3a", // Darker background
+    backgroundColor: "#3a3a3a",
   },
   customMessageInput: {
     padding: 12,
     height: 80,
     textAlignVertical: "top",
-    color: "#f8f9fa", // Light text color
+    color: "#f8f9fa",
     fontFamily: "SpaceMono",
   },
   searchContainer: {
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#4a4a4a", // Darker border
+    borderColor: "#4a4a4a",
     borderRadius: 12,
-    backgroundColor: "#3a3a3a", // Darker background
+    backgroundColor: "#3a3a3a",
   },
   searchInput: {
     padding: 10,
-    color: "#f8f9fa", // Light text color
+    color: "#f8f9fa",
     fontFamily: "SpaceMono",
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: "600",
     marginBottom: 8,
-    color: "#93c5fd", // Matching sectionTitle from details
+    color: "#93c5fd",
     fontFamily: "SpaceMono",
   },
   contactsList: {
     flex: 1,
+  },
+  contactsContainer: {
+    flex: 1,
+    marginBottom: 8,
   },
   contactItem: {
     flexDirection: "row",
     alignItems: "center",
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#4a4a4a", // Darker divider
+    borderBottomColor: "#4a4a4a",
   },
   contactItemSelected: {
-    backgroundColor: "#4a4a4a", // Slightly lighter than background for selection
+    backgroundColor: "#4a4a4a",
   },
   contactAvatarPlaceholder: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#93c5fd", // Using accent color
+    backgroundColor: "#93c5fd",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
   contactInitial: {
-    color: "#333", // Dark text on light background
+    color: "#333",
     fontSize: 18,
     fontWeight: "bold",
     fontFamily: "SpaceMono",
@@ -132,12 +135,12 @@ export const shareEventStyles = StyleSheet.create({
   contactName: {
     fontSize: 15,
     fontWeight: "500",
-    color: "#f8f9fa", // Light text color
+    color: "#f8f9fa",
     fontFamily: "SpaceMono",
   },
   contactDetail: {
     fontSize: 13,
-    color: "#adb5bd", // Lighter gray for secondary text
+    color: "#adb5bd",
     fontFamily: "SpaceMono",
   },
   checkboxContainer: {
@@ -148,42 +151,47 @@ export const shareEventStyles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: "#adb5bd", // Light border
+    borderColor: "#adb5bd",
     justifyContent: "center",
     alignItems: "center",
   },
   checkboxSelected: {
-    backgroundColor: "#40c057", // Using the statusBadge color from details
+    backgroundColor: "#40c057",
     borderColor: "#40c057",
   },
   checkmark: {
-    color: "#f8f9fa", // Light check color
+    color: "#f8f9fa",
     fontSize: 16,
   },
   footer: {
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: "#3a3a3a", // Darker divider
-    paddingBottom: Platform.OS === "ios" ? 32 : 20, // Matching footer padding
+    borderTopColor: "#3a3a3a",
+    paddingBottom: Platform.OS === "ios" ? 32 : 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
   },
   shareButton: {
-    backgroundColor: "#93c5fd", // Using accent color
-    borderRadius: 10, // Matching categoryBadge
+    backgroundColor: "#93c5fd",
+    borderRadius: 10,
     padding: 16,
     alignItems: "center",
+    justifyContent: "center",
+    flex: 3,
   },
   shareButtonDisabled: {
-    backgroundColor: "#4a4a4a", // Darker disabled state
+    backgroundColor: "#4a4a4a",
     opacity: 0.7,
   },
   shareButtonText: {
-    color: "#333", // Dark text on light button
+    color: "#333",
     fontSize: 15,
     fontWeight: "500",
     fontFamily: "SpaceMono",
   },
   errorText: {
-    color: "#f97583", // Error red that works on dark background
+    color: "#f97583",
     marginBottom: 16,
     textAlign: "center",
     fontFamily: "SpaceMono",
@@ -192,25 +200,105 @@ export const shareEventStyles = StyleSheet.create({
     marginTop: 12,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: "#93c5fd", // Using accent color
+    backgroundColor: "#93c5fd",
     borderRadius: 10,
   },
   retryButtonText: {
-    color: "#333", // Dark text on light button
+    color: "#333",
     fontWeight: "500",
     fontFamily: "SpaceMono",
   },
   permissionButton: {
-    backgroundColor: "#93c5fd", // Using accent color
+    backgroundColor: "#93c5fd",
     borderRadius: 10,
     padding: 12,
     alignItems: "center",
     minWidth: 160,
   },
   permissionButtonText: {
-    color: "#333", // Dark text on light button
+    color: "#333",
     fontSize: 15,
     fontWeight: "500",
+    fontFamily: "SpaceMono",
+  },
+
+  // New styles for direct SMS feature
+  progressText: {
+    color: "#f8f9fa",
+    fontSize: 15,
+    fontWeight: "500",
+    marginTop: 16,
+    fontFamily: "SpaceMono",
+  },
+  contactItemNoPhone: {
+    borderLeftWidth: 4,
+    borderLeftColor: "#f59e0b",
+  },
+  emailContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  emailWarning: {
+    color: "#f59e0b",
+    fontSize: 12,
+    marginLeft: 6,
+    fontFamily: "SpaceMono",
+  },
+  emailButton: {
+    backgroundColor: "#f59e0b",
+    borderRadius: 10,
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 2,
+  },
+  emailButtonText: {
+    color: "#333",
+    fontSize: 15,
+    fontWeight: "500",
+    fontFamily: "SpaceMono",
+  },
+  actionContent: {
+    flex: 1,
+    padding: 16,
+  },
+  compactEventInfo: {
+    backgroundColor: "#3a3a3a",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: "#93c5fd",
+  },
+  mapButton: {
+    backgroundColor: "#2d3748",
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#4a5568",
+  },
+  mapButtonText: {
+    color: "#93c5fd",
+    fontSize: 14,
+    fontWeight: "500",
+    fontFamily: "SpaceMono",
+  },
+  eventHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  eventEmoji: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  eventTextContainer: {
+    flex: 1,
+  },
+  previewDetails: {
+    fontSize: 14,
+    color: "#adb5bd",
     fontFamily: "SpaceMono",
   },
 });

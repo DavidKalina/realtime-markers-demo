@@ -1,21 +1,22 @@
+import apiClient from "@/services/ApiClient";
+import * as Contacts from "expo-contacts";
 import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
   ActivityIndicator,
-  FlatList,
-  TextInput,
   Alert,
+  Linking,
+  Platform,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import * as Contacts from "expo-contacts";
-import * as Sharing from "expo-sharing";
-import { styles } from "./styles";
+import { shareEventStyles as styles } from "./share-event-styles";
 
 interface ShareEventProps {
   eventId: string;
-  eventDetails: any; // You can replace with a more specific type
   onClose: () => void;
+  prefillMessage?: string;
 }
 
 interface Contact {
@@ -26,18 +27,120 @@ interface Contact {
   selected: boolean;
 }
 
-const ShareEvent: React.FC<ShareEventProps> = ({ eventId, eventDetails, onClose }) => {
+const ShareEvent: React.FC<ShareEventProps> = ({
+  eventId,
+  onClose,
+  prefillMessage = `Check out this event I'm attending!`,
+}) => {
+  const [event, setEvent] = useState<any | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading true since we need to fetch event
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [hasPermission, setHasPermission] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
-  const [customMessage, setCustomMessage] = useState("");
+  const [customMessage, setCustomMessage] = useState(prefillMessage);
+  // Add states to track sharing progress and map links
+  const [sharingProgress, setSharingProgress] = useState({
+    inProgress: false,
+    current: 0,
+    total: 0,
+  });
+  const [mapLinks, setMapLinks] = useState<{
+    universalLink: string;
+    googleLink: string;
+    appleLink: string;
+  } | null>(null);
+
+  // Fetch event details when eventId changes
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchEventDetails = async () => {
+      console.log({ eventId });
+      if (!eventId) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const eventData = await apiClient.getEventById(eventId);
+        if (isMounted) {
+          setEvent(eventData);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(
+            `Failed to load event details: ${err instanceof Error ? err.message : "Unknown error"}`
+          );
+          console.error("Error fetching event details:", err);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    // Only fetch if we don't have details passed as props
+    fetchEventDetails();
+    // If we have details as props, just use those directly
+
+    return () => {
+      isMounted = false;
+    };
+  }, [eventId]);
+
+  // Generate map link for the location
+  const generateMapLink = () => {
+    const { location, coordinates } = event;
+    // Encode the location for URL
+    const encodedLocation = encodeURIComponent(location);
+
+    // If we have precise coordinates, use them for more accurate mapping
+    if (coordinates && coordinates.latitude && coordinates.longitude) {
+      const { latitude, longitude } = coordinates;
+
+      // Create Apple Maps link with exact coordinates
+      const appleMapLink = `https://maps.apple.com/?q=${encodedLocation}&ll=${latitude},${longitude}`;
+
+      // Create Google Maps link with exact coordinates
+      const googleMapLink = `https://maps.google.com/?q=${latitude},${longitude}`;
+
+      return {
+        universalLink: Platform.OS === "ios" ? appleMapLink : googleMapLink,
+        googleLink: googleMapLink,
+        appleLink: appleMapLink,
+      };
+    } else {
+      // Create universal map link that works on both iOS and Android, but just with location name
+      const mapLink = `https://maps.apple.com/?q=${encodedLocation}`;
+
+      // Alternative: create a Google Maps link that works on both platforms
+      const googleMapLink = `https://maps.google.com/?q=${encodedLocation}`;
+
+      return {
+        universalLink: Platform.OS === "ios" ? mapLink : googleMapLink,
+        googleLink: googleMapLink,
+        appleLink: mapLink,
+      };
+    }
+  };
+
+  // Generate map links when event details change
+  useEffect(() => {
+    if (event) {
+      const links = generateMapLink();
+      setMapLinks(links);
+    }
+  }, [event]);
 
   // Request contacts permission and fetch contacts
   useEffect(() => {
+    // Don't fetch contacts if we're still loading event details
+    if (!event) return;
+
     const getContacts = async () => {
       setLoading(true);
 
@@ -98,7 +201,7 @@ const ShareEvent: React.FC<ShareEventProps> = ({ eventId, eventDetails, onClose 
     };
 
     getContacts();
-  }, []);
+  }, [event]);
 
   // Filter contacts based on search query
   useEffect(() => {
@@ -145,12 +248,20 @@ const ShareEvent: React.FC<ShareEventProps> = ({ eventId, eventDetails, onClose 
 
   // Generate share message
   const generateShareMessage = () => {
-    const { title, time, location, description } = eventDetails;
+    if (!event) {
+      return "Sorry, event details are not available.";
+    }
+
+    const { title, time, location, description } = event;
+    const mapLinks = generateMapLink();
 
     let message = customMessage ? `${customMessage}\n\n` : "";
     message += `Event: ${title}\n`;
     message += `When: ${time}\n`;
     message += `Where: ${location}\n`;
+
+    // Add map link - Google Maps is more universal so we use that in the message
+    message += `Location Map: ${mapLinks.googleLink}\n`;
 
     if (description) {
       message += `Details: ${description}\n`;
@@ -161,41 +272,182 @@ const ShareEvent: React.FC<ShareEventProps> = ({ eventId, eventDetails, onClose 
     return message;
   };
 
-  // Share event with selected contacts
-  const shareEvent = async () => {
-    if (selectedContacts.length === 0) {
-      Alert.alert("No contacts selected", "Please select at least one contact to share with.");
+  // Function to send SMS to a single contact
+  const sendSMS = async (phoneNumber: string, message: string) => {
+    // Format phone number by removing non-digit characters
+    const formattedNumber = phoneNumber.replace(/\D/g, "");
+
+    // Create SMS URI
+    let smsUri = "";
+
+    if (Platform.OS === "ios") {
+      // iOS uses & for query parameters in SMS links
+      smsUri = `sms:${formattedNumber}&body=${encodeURIComponent(message)}`;
+    } else {
+      // Android uses ? for query parameters in SMS links
+      smsUri = `sms:${formattedNumber}?body=${encodeURIComponent(message)}`;
+    }
+
+    // Check if linking can open the URL
+    const canOpen = await Linking.canOpenURL(smsUri);
+
+    if (canOpen) {
+      await Linking.openURL(smsUri);
+      return true;
+    } else {
+      console.error(`Cannot open URL: ${smsUri}`);
+      return false;
+    }
+  };
+
+  // Share event with selected contacts directly via SMS
+  const shareViaDirectSMS = async () => {
+    // Check if any contacts with phone numbers are selected
+    const contactsWithPhone = selectedContacts.filter((contact) => contact.phoneNumber);
+
+    if (contactsWithPhone.length === 0) {
+      Alert.alert(
+        "No phone numbers available",
+        "None of the selected contacts have phone numbers. Please select contacts with phone numbers."
+      );
       return;
     }
 
-    try {
-      const message = generateShareMessage();
+    // Generate message
+    const message = generateShareMessage();
 
-      // This is a simplified version. In a real app, you would likely:
-      // 1. Use a specific sharing library based on platform (SMS, email, etc.)
-      // 2. Handle different share methods based on available contact info
-      // 3. Potentially track sharing status in your backend
+    // Set up progress tracking
+    setSharingProgress({
+      inProgress: true,
+      current: 0,
+      total: contactsWithPhone.length,
+    });
 
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(message, {
-          dialogTitle: `Share "${eventDetails.title}" with ${selectedContacts.length} contacts`,
-          mimeType: "text/plain",
-          UTI: "public.plain-text",
-        });
-
-        Alert.alert(
-          "Shared Successfully",
-          `Event shared with ${selectedContacts.length} contacts!`,
-          [{ text: "OK", onPress: onClose }]
-        );
-      } else {
-        Alert.alert("Sharing not available", "Sharing is not available on this device");
-      }
-    } catch (err) {
+    // Ask for confirmation if multiple contacts selected
+    if (contactsWithPhone.length > 1) {
       Alert.alert(
-        "Share Failed",
-        `Failed to share event: ${err instanceof Error ? err.message : "Unknown error"}`
+        "Send Multiple Messages",
+        `You're about to send individual messages to ${contactsWithPhone.length} contacts. Would you like to proceed?`,
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => setSharingProgress({ inProgress: false, current: 0, total: 0 }),
+          },
+          {
+            text: "Send",
+            onPress: async () => {
+              // For each contact with a phone number, send an SMS
+              for (let i = 0; i < contactsWithPhone.length; i++) {
+                const contact = contactsWithPhone[i];
+                if (contact.phoneNumber) {
+                  setSharingProgress({
+                    inProgress: true,
+                    current: i + 1,
+                    total: contactsWithPhone.length,
+                  });
+
+                  try {
+                    await sendSMS(contact.phoneNumber, message);
+                    // Add a slight delay between messages to avoid overwhelming the system
+                    if (i < contactsWithPhone.length - 1) {
+                      await new Promise((resolve) => setTimeout(resolve, 1000));
+                    }
+                  } catch (error) {
+                    console.error(`Error sending SMS to ${contact.name}:`, error);
+                  }
+                }
+              }
+
+              // Complete
+              setSharingProgress({ inProgress: false, current: 0, total: 0 });
+
+              // Show success message
+              Alert.alert(
+                "Messages Sent",
+                `Event shared with ${contactsWithPhone.length} contact${
+                  contactsWithPhone.length !== 1 ? "s" : ""
+                }!`,
+                [{ text: "OK", onPress: onClose }]
+              );
+            },
+          },
+        ]
       );
+    } else {
+      // Single contact - just send directly
+      const contact = contactsWithPhone[0];
+      if (contact.phoneNumber) {
+        try {
+          await sendSMS(contact.phoneNumber, message);
+
+          // Show success message
+          Alert.alert("Message Sent", `Event shared with ${contact.name}!`, [
+            { text: "OK", onPress: onClose },
+          ]);
+        } catch (error) {
+          console.error(`Error sending SMS to ${contact.name}:`, error);
+          Alert.alert("Sending Failed", `Unable to send SMS to ${contact.name}. Please try again.`);
+        } finally {
+          setSharingProgress({ inProgress: false, current: 0, total: 0 });
+        }
+      }
+    }
+  };
+
+  // Function to share via email (when contacts don't have phone numbers)
+  const shareViaEmail = async () => {
+    const contactsWithEmail = selectedContacts.filter((contact) => contact.email);
+
+    if (contactsWithEmail.length === 0) {
+      Alert.alert(
+        "No email addresses available",
+        "None of the selected contacts have email addresses. Please select contacts with email addresses."
+      );
+      return;
+    }
+
+    // Generate message
+    const message = generateShareMessage();
+    const emails = contactsWithEmail
+      .map((c) => c.email)
+      .filter(Boolean)
+      .join(",");
+
+    // Create email URI
+    const emailUri = `mailto:${emails}?subject=${encodeURIComponent(
+      event.title
+    )}&body=${encodeURIComponent(message)}`;
+
+    // Check if linking can open the URL
+    const canOpen = await Linking.canOpenURL(emailUri);
+
+    if (canOpen) {
+      await Linking.openURL(emailUri);
+    } else {
+      console.error(`Cannot open URL: ${emailUri}`);
+      Alert.alert(
+        "Email Not Available",
+        "Unable to open email client. Please check if you have an email app configured."
+      );
+    }
+  };
+
+  // Function to open map directly
+  const openMap = async () => {
+    if (!mapLinks) return;
+
+    try {
+      const canOpen = await Linking.canOpenURL(mapLinks.universalLink);
+      if (canOpen) {
+        await Linking.openURL(mapLinks.universalLink);
+      } else {
+        // Fall back to Google Maps if the universal link doesn't work
+        await Linking.openURL(mapLinks.googleLink);
+      }
+    } catch (error) {
+      console.error("Error opening map:", error);
+      Alert.alert("Cannot Open Map", "Unable to open maps application.");
     }
   };
 
@@ -219,7 +471,12 @@ const ShareEvent: React.FC<ShareEventProps> = ({ eventId, eventDetails, onClose 
   // Render contact item
   const renderContactItem = ({ item }: { item: Contact }) => (
     <TouchableOpacity
-      style={[styles.contactItem, item.selected && styles.contactItemSelected]}
+      key={item.id}
+      style={[
+        styles.contactItem,
+        item.selected && styles.contactItemSelected,
+        !item.phoneNumber && styles.contactItemNoPhone,
+      ]}
       onPress={() => toggleContactSelection(item.id)}
     >
       <View style={styles.contactAvatarPlaceholder}>
@@ -228,7 +485,12 @@ const ShareEvent: React.FC<ShareEventProps> = ({ eventId, eventDetails, onClose 
       <View style={styles.contactInfo}>
         <Text style={styles.contactName}>{item.name}</Text>
         {item.phoneNumber && <Text style={styles.contactDetail}>{item.phoneNumber}</Text>}
-        {item.email && !item.phoneNumber && <Text style={styles.contactDetail}>{item.email}</Text>}
+        {item.email && !item.phoneNumber && (
+          <View style={styles.emailContainer}>
+            <Text style={styles.contactDetail}>{item.email}</Text>
+            <Text style={styles.emailWarning}>(via email)</Text>
+          </View>
+        )}
       </View>
       <View style={styles.checkboxContainer}>
         <View style={[styles.checkbox, item.selected && styles.checkboxSelected]}>
@@ -242,7 +504,38 @@ const ShareEvent: React.FC<ShareEventProps> = ({ eventId, eventDetails, onClose 
     return (
       <View style={styles.centerContent}>
         <ActivityIndicator size="large" color="#93c5fd" />
-        <Text style={{ color: "#f8f9fa", fontFamily: "SpaceMono" }}>Loading contacts...</Text>
+        <Text style={{ color: "#f8f9fa", fontFamily: "SpaceMono" }}>
+          {!event ? "Loading event details..." : "Loading contacts..."}
+        </Text>
+      </View>
+    );
+  }
+
+  // If event details couldn't be loaded, show error state
+  if (!event) {
+    return (
+      <View style={styles.centerContent}>
+        <Text style={styles.errorText}>Event details could not be loaded. Please try again.</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => {
+            setLoading(true);
+            // This will trigger the useEffect to fetch event details again
+          }}
+        >
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (sharingProgress.inProgress) {
+    return (
+      <View style={styles.centerContent}>
+        <ActivityIndicator size="large" color="#93c5fd" />
+        <Text style={styles.progressText}>
+          Sending messages ({sharingProgress.current} of {sharingProgress.total})...
+        </Text>
       </View>
     );
   }
@@ -276,18 +569,57 @@ const ShareEvent: React.FC<ShareEventProps> = ({ eventId, eventDetails, onClose 
     );
   }
 
+  // Count selected contacts with phone numbers
+  const phoneContactsCount = selectedContacts.filter((c) => c.phoneNumber).length;
+  // Count selected contacts with email only
+  const emailContactsCount = selectedContacts.filter((c) => c.email && !c.phoneNumber).length;
+
   return (
     <View style={styles.actionContent}>
-      <View style={styles.eventPreview}>
-        <Text style={styles.previewTitle}>{eventDetails.title}</Text>
-        <Text style={styles.previewTime}>{eventDetails.time}</Text>
-        <Text style={styles.previewLocation}>{eventDetails.location}</Text>
+      {/* Event Preview Card */}
+      <View style={styles.compactEventInfo}>
+        <View style={styles.eventHeaderRow}>
+          <Text style={styles.eventEmoji}>{event.emoji || "🎉"}</Text>
+          <View style={styles.eventTextContainer}>
+            <Text style={styles.previewTitle} numberOfLines={1} ellipsizeMode="tail">
+              {event.title}
+            </Text>
+            <Text style={styles.previewDetails} numberOfLines={1} ellipsizeMode="tail">
+              {event.time} • {event.location}
+            </Text>
+          </View>
+        </View>
+
+        {/* Map link button */}
+        <TouchableOpacity style={styles.mapButton} onPress={openMap} activeOpacity={0.7}>
+          <Text style={styles.mapButtonText}>📍 Open Location in Maps</Text>
+        </TouchableOpacity>
       </View>
 
+      {/* Search Container - Moved up for prominence */}
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search contacts..."
+          placeholderTextColor="#adb5bd"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoFocus={true}
+        />
+      </View>
+
+      <Text style={styles.sectionTitle}>SELECT CONTACTS ({selectedContacts.length} SELECTED)</Text>
+
+      {/* Contacts List - Using View instead of FlatList */}
+      <View style={styles.contactsContainer}>
+        {filteredContacts.map((item) => renderContactItem({ item }))}
+      </View>
+
+      {/* Custom Message Input - Moved to bottom */}
       <View style={styles.customMessageContainer}>
         <TextInput
           style={styles.customMessageInput}
-          placeholder="Add a personal message (optional)"
+          placeholder="Add a personal message"
           placeholderTextColor="#adb5bd"
           value={customMessage}
           onChangeText={setCustomMessage}
@@ -296,34 +628,40 @@ const ShareEvent: React.FC<ShareEventProps> = ({ eventId, eventDetails, onClose 
         />
       </View>
 
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search contacts..."
-          placeholderTextColor="#adb5bd"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
-      <Text style={styles.sectionTitle}>Select contacts ({selectedContacts.length} selected)</Text>
-
-      <FlatList
-        data={filteredContacts}
-        renderItem={renderContactItem}
-        keyExtractor={(item) => item.id}
-        style={styles.contactsList}
-      />
-
+      {/* Footer with SMS and Email options */}
       <View style={styles.footer}>
+        {/* SMS Button */}
         <TouchableOpacity
-          style={[styles.shareButton, selectedContacts.length === 0 && styles.shareButtonDisabled]}
-          onPress={shareEvent}
-          disabled={selectedContacts.length === 0}
+          style={[styles.shareButton, phoneContactsCount === 0 && styles.shareButtonDisabled]}
+          onPress={
+            phoneContactsCount > 0
+              ? shareViaDirectSMS
+              : () =>
+                  Alert.alert(
+                    "No phone contacts selected",
+                    "Please select at least one contact with a phone number to send SMS."
+                  )
+          }
+          activeOpacity={0.7}
         >
-          <Text style={styles.shareButtonText}>
-            Share with {selectedContacts.length} Contact{selectedContacts.length !== 1 ? "s" : ""}
-          </Text>
+          <Text style={styles.shareButtonText}>SMS ({phoneContactsCount})</Text>
+        </TouchableOpacity>
+
+        {/* Email Button */}
+        <TouchableOpacity
+          style={[styles.emailButton, emailContactsCount === 0 && styles.shareButtonDisabled]}
+          onPress={
+            emailContactsCount > 0
+              ? shareViaEmail
+              : () =>
+                  Alert.alert(
+                    "No email contacts",
+                    "None of your selected contacts have email addresses only."
+                  )
+          }
+          activeOpacity={0.7}
+        >
+          <Text style={styles.emailButtonText}>EMAIL ({emailContactsCount})</Text>
         </TouchableOpacity>
       </View>
     </View>

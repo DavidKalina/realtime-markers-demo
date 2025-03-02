@@ -143,7 +143,6 @@ const EventAssistant: React.FC = () => {
     activeView,
     detailsViewVisible,
     shareViewVisible,
-    searchViewVisible,
     selectedMarker,
     selectedMarkerId,
 
@@ -515,28 +514,6 @@ const EventAssistant: React.FC = () => {
     }
   };
 
-  const handleCloseSearchView = () => {
-    closeSearchView();
-
-    if (selectedMarker) {
-      const messages = [
-        "Search closed. Let me know if you need anything else about this location.",
-      ];
-      resetText();
-      setMessageQueue(messages);
-    }
-  };
-
-  const handleCloseScanView = () => {
-    closeScanView();
-
-    if (selectedMarker) {
-      const messages = ["Camera closed. Returning to location information."];
-      resetText();
-      setMessageQueue(messages);
-    }
-  };
-
   // The current event ID comes from the selected marker
   const eventId = selectedMarkerId || "";
 
@@ -553,14 +530,6 @@ const EventAssistant: React.FC = () => {
         <Text style={styles.primaryButtonText}>Directions</Text>
       </TouchableOpacity>
     </>
-  );
-
-  // Create share view footer button
-  const shareFooterButton = (
-    <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={shareEvent}>
-      <Share2 size={16} color="#FFFFFF" style={styles.buttonIcon} />
-      <Text style={styles.primaryButtonText}>Share Now</Text>
-    </TouchableOpacity>
   );
 
   const animatedCardContainerStyle = useAnimatedStyle(() => {
@@ -601,17 +570,8 @@ const EventAssistant: React.FC = () => {
 
       {/* Share View */}
       {activeView === "share" && selectedMarker && (
-        <ActionView
-          isVisible={shareViewVisible}
-          title="Share Event"
-          onClose={handleCloseShareView}
-          footer={shareFooterButton}
-        >
-          <ShareEvent
-            eventId={selectedMarker.id}
-            eventDetails={selectedMarker.data}
-            onClose={handleCloseShareView}
-          />
+        <ActionView isVisible={shareViewVisible} title="Share Event" onClose={handleCloseShareView}>
+          <ShareEvent eventId={selectedMarker.id} onClose={handleCloseShareView} />
         </ActionView>
       )}
 

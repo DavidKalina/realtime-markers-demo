@@ -191,7 +191,7 @@ const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
             entering={FadeIn.duration(400).delay(100)}
             layout={Layout.springify()}
           >
-            {eventsCount} event{eventsCount !== 1 ? "s" : ""} in this area
+            {eventsCount} event{eventsCount !== 1 ? "s" : ""} in area
           </Animated.Text>
         )}
       </View>
@@ -233,13 +233,13 @@ const styles = StyleSheet.create({
   },
   statusText: {
     color: "#fff",
-    fontSize: 12,
+    fontSize: 10,
     fontFamily: "SpaceMono",
     fontWeight: "600",
   },
   countText: {
     color: "#e0e0e0",
-    fontSize: 10,
+    fontSize: 8,
     fontFamily: "SpaceMono",
   },
 });
