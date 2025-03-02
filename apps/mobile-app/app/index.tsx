@@ -204,16 +204,18 @@ export default function HomeScreen() {
         )}
       </MapboxGL.MapView>
 
-      {/* Always visible ConnectionIndicator */}
+      {/* Indicators positioned on the left side */}
       {isMapReady && !isLoadingLocation && (
         <>
           <ConnectionIndicator
             eventsCount={markers.length}
             initialConnectionState={isConnected}
-            position="top-right"
+            position="top-left"
             showAnimation={!selectedMarkerId}
           />
-          <QueueIndicator position="top-left" />
+          <View style={styles.queueIndicatorContainer}>
+            <QueueIndicator position="custom" />
+          </View>
         </>
       )}
 
@@ -269,5 +271,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#4dabf7",
     borderWidth: 3,
     borderColor: "#fff",
+  },
+  queueIndicatorContainer: {
+    position: "absolute",
+    top: 100, // Position below the connection indicator
+    left: 16,
+    zIndex: 1000,
   },
 });

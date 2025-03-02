@@ -1,24 +1,24 @@
+import { useJobQueueManager } from "@/hooks/useJobQueueManager";
+import { useJobStreamEnhanced } from "@/hooks/useJobStream";
+import { useJobQueueStore } from "@/stores/useJobQueueStore";
+import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { CheckCircle, AlertTriangle, Loader2 } from "lucide-react-native";
-import { useJobQueueStore } from "@/stores/useJobQueueStore";
-import { useJobStreamEnhanced } from "@/hooks/useJobStream";
-import { useJobQueueManager } from "@/hooks/useJobQueueManager";
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
+  BounceIn,
+  BounceOut,
   Easing,
   FadeIn,
   FadeOut,
-  SlideInRight,
-  SlideOutRight,
   Layout,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
 } from "react-native-reanimated";
 
 interface QueueIndicatorProps {
-  position?: "top-right" | "top-left" | "bottom-right" | "bottom-left";
+  position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
   autoDismissDelay?: number; // Time in ms to auto-dismiss after all jobs are complete/failed
 }
 
@@ -154,6 +154,10 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
       case "bottom-left":
         return { bottom: 50, left: 16 };
       case "top-left":
+        return { top: 50, left: 16 };
+      case "custom":
+        // No positioning here as it's handled by the parent container
+        return {};
       default:
         return { top: 50, left: 16 };
     }
@@ -181,8 +185,8 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
   return (
     <Animated.View
       style={[styles.container, getPositionStyle()]}
-      entering={SlideInRight.duration(300).springify()}
-      exiting={SlideOutRight.duration(300)}
+      entering={BounceIn.duration(300).springify()}
+      exiting={BounceOut.duration(300)}
       layout={Layout.springify()}
     >
       <Animated.View
@@ -250,7 +254,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    maxWidth: 220,
+    maxWidth: 300,
   },
   indicator: {
     width: 30,
