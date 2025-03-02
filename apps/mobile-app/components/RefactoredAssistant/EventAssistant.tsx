@@ -9,14 +9,13 @@ import { FloatingEmojiWithStore } from "./FloatingEmoji";
 import { MessageBubble } from "./MessageBubble";
 import { styles } from "./styles";
 import { ActionView } from "./ActionView";
-import { Navigation, Share2, Camera, Search, LinkIcon } from "lucide-react-native";
+import { Navigation, Share2, Search, LinkIcon } from "lucide-react-native";
 import EventDetails from "./EventDetails";
-import ScanView from "./ScanView";
+import { useRouter } from "expo-router";
 
 const EventAssistant: React.FC = () => {
   const insets = useSafeAreaInsets();
-
-  // Get location store state
+  const { navigate } = useRouter(); // Initialize navigation hook
 
   // Get text streaming store state and functions
   const { currentStreamedText, isTyping, simulateTextStreaming, setCurrentEmoji, resetText } =
@@ -168,8 +167,6 @@ const EventAssistant: React.FC = () => {
         const messages = generateMessageSequence(selectedMarker);
         setMessageQueue(messages);
 
-        // Reset last action since we're displaying marker information now
-
         // Track that we've processed this marker
         setLastProcessedMarkerId(selectedMarkerId);
       } catch (error) {
@@ -195,8 +192,6 @@ const EventAssistant: React.FC = () => {
       return;
     }
 
-    // Store the last action performed
-
     // Generate and queue action response messages
     const actionMessages = generateActionMessages(action);
 
@@ -212,15 +207,14 @@ const EventAssistant: React.FC = () => {
     } else if (action === "search") {
       openSearchView();
     } else if (action === "camera") {
-      openScanView();
+      // Navigate to the scan screen instead of opening a view
+      navigate("scan" as never);
     }
   };
 
   // Close view handlers with response messages
   const handleCloseDetailsView = () => {
     closeDetailsView();
-
-    // Reset last action
 
     // If there's a selected marker, return to showing its information
     if (selectedMarker) {
@@ -233,8 +227,6 @@ const EventAssistant: React.FC = () => {
   const handleCloseShareView = () => {
     closeShareView();
 
-    // Reset last action
-
     // Return to marker information
     if (selectedMarker) {
       const messages = ["Sharing cancelled. How else can I help you with this location?"];
@@ -245,8 +237,6 @@ const EventAssistant: React.FC = () => {
 
   const handleCloseSearchView = () => {
     closeSearchView();
-
-    // Reset last action
 
     if (selectedMarker) {
       const messages = [
@@ -259,8 +249,6 @@ const EventAssistant: React.FC = () => {
 
   const handleCloseScanView = () => {
     closeScanView();
-
-    // Reset last action
 
     if (selectedMarker) {
       const messages = ["Camera closed. Returning to location information."];
@@ -358,8 +346,6 @@ const EventAssistant: React.FC = () => {
     );
   };
 
-  // No longer needed - ScanView component handles all this internally
-
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       {/* Details View */}
@@ -390,35 +376,6 @@ const EventAssistant: React.FC = () => {
       {activeView === "search" && (
         <ActionView isVisible={searchViewVisible} title="Search" onClose={handleCloseSearchView}>
           {renderSearchContent()}
-        </ActionView>
-      )}
-
-      {/* Scan View */}
-      {activeView === "camera" && (
-        <ActionView
-          isVisible={scanViewVisible}
-          title="Scan Event Flyer"
-          onClose={handleCloseScanView}
-        >
-          <ScanView
-            onUploadSuccess={(eventData) => {
-              // Handle successful upload
-              console.log("Upload successful", eventData);
-
-              // Close the scan view after successful upload
-              setTimeout(() => {
-                handleCloseScanView();
-
-                // Show a success message in the chat bubble
-                resetText();
-                setMessageQueue([
-                  "Successfully scanned event details!",
-                  `Found: ${eventData.title}`,
-                  "Would you like to see more information about this event?",
-                ]);
-              }, 2000);
-            }}
-          />
         </ActionView>
       )}
 

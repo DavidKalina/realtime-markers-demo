@@ -5,7 +5,6 @@ import { action } from "./action";
 import { emoji } from "./emoji";
 import { entity } from "./entity";
 import { details } from "./details";
-import { scanStyles } from "./scanStyles";
 
 import { actionView } from "./actionViewStyles";
 
@@ -17,8 +16,7 @@ export const styles = {
   ...emoji,
   ...entity,
   ...details,
-  ...scanStyles,
   ...actionView,
 };
 
-export { layout, message, action, emoji, entity, details, actionView, scanStyles };
+export { layout, message, action, emoji, entity, details, actionView };
