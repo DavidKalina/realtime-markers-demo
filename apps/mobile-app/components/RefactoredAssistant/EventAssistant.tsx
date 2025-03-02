@@ -1,17 +1,17 @@
-// Updated EventAssistant.tsx using the unified location store
+// Updated EventAssistant.tsx using the ActionView component
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useTextStreamingStore } from "@/stores/useTextStreamingStore";
 import React, { useEffect, useState } from "react";
-import { View } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActionBar } from "./ActionBar";
-import { EventDetailsView } from "./EventDetailsView";
 import { FloatingEmojiWithStore } from "./FloatingEmoji";
 import { MessageBubble } from "./MessageBubble";
-import { ScanView } from "./ScanView";
-import { SearchView } from "./SearchView";
-import { ShareView } from "./ShareView";
 import { styles } from "./styles";
+import { ActionView } from "./ActionView";
+import Animated, { FadeIn } from "react-native-reanimated";
+import { Navigation, Share2, Camera, Search, LinkIcon } from "lucide-react-native";
+import apiClient from "../../services/ApiClient"; // Adjust the import path as needed
 
 const EventAssistant: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -29,6 +29,9 @@ const EventAssistant: React.FC = () => {
   const [markersCount, setMarkersCount] = useState(0);
   const [lastAction, setLastAction] = useState<string | null>(null);
   const [lastProcessedMarkerId, setLastProcessedMarkerId] = useState<string | null>(null);
+  const [event, setEvent] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const {
     activeView,
@@ -51,12 +54,46 @@ const EventAssistant: React.FC = () => {
     shareEvent,
   } = useLocationStore();
 
-  console.log({ activeView });
-
   // Update markers count for connection indicator
   useEffect(() => {
     setMarkersCount(markers.length);
   }, [markers]);
+
+  // Fetch event details when selected marker changes
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchEventDetails = async () => {
+      if (!selectedMarkerId) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const eventData = await apiClient.getEventById(selectedMarkerId);
+        if (isMounted) {
+          setEvent(eventData);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(
+            `Failed to load event details: ${err instanceof Error ? err.message : "Unknown error"}`
+          );
+          console.error("Error fetching event details:", err);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchEventDetails();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedMarkerId]);
 
   // Generate message sequence based on marker data
   const generateMessageSequence = (marker: any): string[] => {
@@ -287,44 +324,277 @@ const EventAssistant: React.FC = () => {
   // The current event ID comes from the selected marker or current event (if available)
   const eventId = selectedMarkerId || "";
 
+  // Status badge component for details view
+  const StatusBadge = () => (
+    <View style={styles.statusBadge}>
+      <Text style={styles.statusText}>VERIFIED</Text>
+    </View>
+  );
+
+  // Format the event time (helper for details view)
+  const formatDate = (timeString: string) => {
+    return timeString;
+  };
+
+  // Render details view content
+  const renderDetailsContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4287f5" />
+          <Text style={styles.loadingText}>Loading event details...</Text>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              setEvent(null);
+              setError(null);
+              setLoading(true);
+              apiClient
+                .getEventById(eventId)
+                .then((data) => setEvent(data))
+                .catch((err) =>
+                  setError(
+                    `Failed to load event details: ${
+                      err instanceof Error ? err.message : "Unknown error"
+                    }`
+                  )
+                )
+                .finally(() => setLoading(false));
+            }}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (!event) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>No event details available</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.actionContent}>
+        <View style={styles.eventHeader}>
+          <View style={styles.eventTitleContainer}>
+            <Text style={styles.emoji}>{event.emoji}</Text>
+            <Text style={styles.eventTitle}>{event.title}</Text>
+          </View>
+          <StatusBadge />
+        </View>
+
+        <View style={styles.detailsContainer}>
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>Date & Time</Text>
+            <Text style={styles.value}>{formatDate(event.time)}</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>Location</Text>
+            <Text style={styles.value}>{event.location}</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>Distance</Text>
+            <Text style={styles.value}>{event.distance}</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>Description</Text>
+            <Text style={styles.value}>{event.description}</Text>
+          </View>
+
+          {event.categories && event.categories.length > 0 && (
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>Categories</Text>
+              <View style={styles.categoriesContainer}>
+                {event.categories.map((category: any, index: number) => (
+                  <View key={index} style={styles.categoryBadge}>
+                    <Text style={styles.categoryText}>{category}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  // Create details view footer buttons
+  const detailsFooterButtons = (
+    <>
+      <TouchableOpacity
+        style={[styles.button, styles.secondaryButton]}
+        onPress={shareEvent}
+        disabled={!event}
+      >
+        <Share2 size={16} color="#f8f9fa" style={styles.buttonIcon} />
+        <Text style={styles.secondaryButtonText}>Share</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.button, styles.primaryButton]}
+        onPress={() => {}}
+        disabled={!event}
+      >
+        <Navigation size={16} color="#FFFFFF" style={styles.buttonIcon} />
+        <Text style={styles.primaryButtonText}>Directions</Text>
+      </TouchableOpacity>
+    </>
+  );
+
+  // Render share view content
+  const renderShareContent = () => {
+    if (!selectedMarker) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>No event selected to share</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.actionContent}>
+        <Text style={styles.eventTitle}>{selectedMarker.data?.title || "Event"}</Text>
+
+        <View style={styles.detailRow}>
+          <Text style={styles.label}>Share Options</Text>
+
+          <TouchableOpacity style={styles.shareOption}>
+            <LinkIcon size={20} color="#4dabf7" />
+            <Text style={styles.shareOptionText}>Copy Link</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.shareOption}>
+            <Share2 size={20} color="#4dabf7" />
+            <Text style={styles.shareOptionText}>Share to Social Media</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  // Create share view footer button
+  const shareFooterButton = (
+    <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={shareEvent}>
+      <Share2 size={16} color="#FFFFFF" style={styles.buttonIcon} />
+      <Text style={styles.primaryButtonText}>Share Now</Text>
+    </TouchableOpacity>
+  );
+
+  // Render search view content
+  const renderSearchContent = () => {
+    return (
+      <View style={styles.actionContent}>
+        <Text style={styles.sectionTitle}>Search Nearby Locations</Text>
+
+        {/* Search input would go here */}
+        <View style={styles.searchInputContainer}>
+          <Search size={20} color="#4dabf7" />
+          <Text>Search locations...</Text>
+        </View>
+
+        {/* Search results would go here */}
+        <View>
+          <Text style={styles.label}>Popular Searches</Text>
+
+          <TouchableOpacity style={styles.searchResultItem}>
+            <Text>Restaurants</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.searchResultItem}>
+            <Text>Museums</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.searchResultItem}>
+            <Text>Parks</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  // Render scan view content
+  const renderScanContent = () => {
+    return (
+      <View style={styles.actionContent}>
+        <Text style={styles.sectionTitle}>Scan QR Code</Text>
+
+        <View>
+          <Camera size={48} color="#4dabf7" />
+          <Text>Camera permission required. Please enable camera access.</Text>
+        </View>
+
+        <Text>
+          Point your camera at a QR code to scan and get information about a location or event.
+        </Text>
+      </View>
+    );
+  };
+
+  // Create scan view footer button
+  const scanFooterButton = (
+    <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={() => {}}>
+      <Camera size={16} color="#FFFFFF" style={styles.buttonIcon} />
+      <Text style={styles.primaryButtonText}>Enable Camera</Text>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-      {/* Event Details View */}
+      {/* Details View */}
       {activeView === "details" && (
-        <EventDetailsView
+        <ActionView
           isVisible={detailsViewVisible}
-          eventId={eventId}
+          title="Event Details"
           onClose={handleCloseDetailsView}
-          onShare={shareEvent}
-          onGetDirections={() => {}}
-        />
+          footer={detailsFooterButtons}
+        >
+          {renderDetailsContent()}
+        </ActionView>
       )}
 
       {/* Share View */}
       {activeView === "share" && selectedMarker && (
-        <ShareView
+        <ActionView
           isVisible={shareViewVisible}
-          event={selectedMarker}
+          title="Share Event"
           onClose={handleCloseShareView}
-        />
+          footer={shareFooterButton}
+        >
+          {renderShareContent()}
+        </ActionView>
       )}
 
       {/* Search View */}
       {activeView === "search" && (
-        <SearchView
-          isVisible={searchViewVisible}
-          onClose={handleCloseSearchView}
-          onSelectEvent={() => {}}
-        />
+        <ActionView isVisible={searchViewVisible} title="Search" onClose={handleCloseSearchView}>
+          {renderSearchContent()}
+        </ActionView>
       )}
 
       {/* Scan View */}
       {activeView === "camera" && (
-        <ScanView
+        <ActionView
           isVisible={scanViewVisible}
+          title="Scan QR Code"
           onClose={handleCloseScanView}
-          onScanComplete={() => {}}
-        />
+          footer={scanFooterButton}
+        >
+          {renderScanContent()}
+        </ActionView>
       )}
 
       <View style={styles.innerContainer}>

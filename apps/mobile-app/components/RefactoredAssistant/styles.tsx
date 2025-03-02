@@ -9,6 +9,7 @@ import { overlays } from "./overlay";
 import { search } from "./search";
 import { share } from "./share";
 import { scan } from "./scan";
+import { actionView } from "./actionViewStyles";
 
 // Merge all style objects into one
 export const styles = {
@@ -22,9 +23,9 @@ export const styles = {
   ...search, // Include search styles
   ...share,
   ...scan,
+  ...actionView,
 };
 
-// Also export individual style groups for direct access
 export {
   layout,
   message,
@@ -33,7 +34,8 @@ export {
   entity,
   details,
   overlays,
-  search, // Export search styles
+  search,
   share,
   scan,
+  actionView, // Add this line
 };
