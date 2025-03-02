@@ -39,6 +39,10 @@ export enum EventTypes {
   JOB_QUEUE_CLEARED = "job_queue_cleared",
 
   NOTIFICATION = "notification",
+
+  GRAVITATIONAL_PULL_STARTED = "gravitational:pull:started",
+  GRAVITATIONAL_PULL_TOGGLED = "gravitational:pull:toggled",
+  GRAVITATIONAL_PULL_COMPLETED = "gravitational:pull:completed",
 }
 
 // Base event interface that all event payloads should extend
@@ -78,6 +82,14 @@ export interface ExtendedMarkersEvent extends MarkersEvent {
 export interface AssistantMessageEvent extends BaseEvent {
   message: string;
   priority: "low" | "medium" | "high";
+}
+
+export interface GravitationalPullStartedEvent extends BaseEvent {
+  target: [number, number]; // The coordinates we're pulling towards
+}
+
+export interface GravitationalPullToggledEvent extends BaseEvent {
+  enabled: boolean; // Whether gravitational pull is enabled or disabled
 }
 
 export interface ErrorEvent extends BaseEvent {
