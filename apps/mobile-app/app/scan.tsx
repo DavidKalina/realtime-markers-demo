@@ -10,8 +10,10 @@ import { CameraView } from "expo-camera";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
 import { useFocusEffect } from "@react-navigation/native";
+import apiClient from "@/services/ApiClient";
+import { styles as globalStyles } from "@/components/RefactoredAssistant/styles";
 
 type DetectionStatus = "none" | "detecting" | "aligned";
 type ProcessingStatus = "none" | "capturing" | "uploading" | "processing";
@@ -73,7 +75,7 @@ export default function ScanScreen() {
         // Clean up on unfocus
         clearDetectionInterval();
       };
-    }, [isCameraActive, isCameraReady, hasPermission, clearDetectionInterval]) // Removed isCameraInitializing from dependencies
+    }, [isCameraActive, isCameraReady, hasPermission, clearDetectionInterval])
   );
 
   // Also add a master safety timer as a separate effect
@@ -169,36 +171,49 @@ export default function ScanScreen() {
     };
   }, [clearDetectionInterval, releaseCamera]);
 
+  // Updated method to use ApiClient
   const uploadImage = async (uri: string) => {
     try {
       setProcessingStatus("uploading");
 
       // Create a FormData object to send the image
       const formData = new FormData();
-      formData.append("image", {
+
+      // Create a File object from the URI
+      // Note: In React Native, we need to use a different approach since File is not available
+      const imageFile = {
         uri,
         name: "image.jpg",
         type: "image/jpeg",
-      } as any);
+      } as any;
 
-      // Upload the image
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL!}/events/process`, {
-        method: "POST",
-        body: formData,
-        headers: {
-          "Content-Type": "multipart/form-data",
-          // Add any auth headers needed
-        },
-      });
+      formData.append("image", imageFile);
 
-      const result = await response.json();
+      // Use the ApiClient to process the image
+      // Since apiClient expects a File and we're in React Native, we need to adapt
+      try {
+        // We'll attempt to use the ApiClient's method but adapt it for React Native
+        // by using fetch directly with our custom FormData
+        const response = await fetch(`${apiClient.baseUrl}/api/events/process`, {
+          method: "POST",
+          body: formData,
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
 
-      if (result.jobId) {
-        // Store the job ID to start streaming updates
-        setJobId(result.jobId);
-        setProcessingStatus("processing");
-      } else {
-        throw new Error("No job ID returned");
+        const result = await response.json();
+
+        if (result.jobId) {
+          // Store the job ID to start streaming updates
+          setJobId(result.jobId);
+          setProcessingStatus("processing");
+        } else {
+          throw new Error("No job ID returned");
+        }
+      } catch (error) {
+        console.error("Processing failed:", error);
+        throw error;
       }
     } catch (error) {
       console.error("Upload failed:", error);
@@ -276,7 +291,9 @@ export default function ScanScreen() {
     return (
       <View style={styles.container}>
         <Animated.View style={styles.processingContainer} entering={FadeIn.duration(500)}>
-          {/* <MorphingLoader size={80} color="#69db7c" /> */}
+          <Animated.View style={styles.loadingIcon}>
+            <Feather name="camera" size={36} color="#4dabf7" />
+          </Animated.View>
           <Text style={styles.processingText}>
             {hasPermission ? "Initializing camera..." : "Waiting for camera permissions..."}
           </Text>
@@ -339,8 +356,11 @@ export default function ScanScreen() {
         />
 
         {uploadError && (
-          <TouchableOpacity style={styles.resetButton} onPress={handleNewScan}>
-            <Text style={styles.resetButtonText}>Try Again</Text>
+          <TouchableOpacity
+            style={[globalStyles.button, globalStyles.primaryButton, styles.resetButton]}
+            onPress={handleNewScan}
+          >
+            <Text style={globalStyles.primaryButtonText}>Try Again</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -368,7 +388,9 @@ export default function ScanScreen() {
         </Animated.View>
       </View>
 
-      <CaptureButton onPress={handleCapture} isCapturing={isCapturing} isReady={isFrameReady} />
+      <Animated.View entering={SlideInDown.duration(500).delay(200)}>
+        <CaptureButton onPress={handleCapture} isCapturing={isCapturing} isReady={isFrameReady} />
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -376,13 +398,27 @@ export default function ScanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#333",
+    backgroundColor: "#333", // Matches the app's dark theme
   },
   processingContainer: {
     flex: 1,
     backgroundColor: "#333",
     justifyContent: "center",
     alignItems: "center",
+  },
+  loadingIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#3a3a3a",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   processingText: {
     marginTop: 16,
@@ -394,25 +430,31 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#3a3a3a",
+    backgroundColor: "#333", // Match the app theme
   },
   backButton: {
     marginRight: 12,
   },
   backButtonContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#3a3a3a",
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
   headerText: {
     color: "#f8f9fa",
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "500",
     fontFamily: "SpaceMono",
   },
@@ -441,22 +483,9 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
   },
   resetButton: {
-    backgroundColor: "#4dabf7",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 16,
     alignSelf: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  resetButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "500",
-    fontFamily: "SpaceMono",
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
   },
 });

@@ -11,6 +11,7 @@ import Animated, {
   FadeIn,
 } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
+import { styles } from "./RefactoredAssistant/styles";
 
 interface ScannerOverlayProps {
   guideText?: string;
@@ -25,6 +26,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
   const borderWidth = useSharedValue(2);
   const colorAnimation = useSharedValue(0);
   const cornerOpacity = useSharedValue(0.4);
+  const scaleAnimation = useSharedValue(1);
 
   // Simple state
   const [message, setMessage] = useState(guideText);
@@ -38,18 +40,30 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
         setIcon("move");
         colorAnimation.value = withTiming(0, { duration: 300 });
         cornerOpacity.value = withTiming(0.4, { duration: 300 });
+        scaleAnimation.value = withTiming(1, { duration: 300 });
         break;
       case "detecting":
         setMessage("Almost there...");
         setIcon("search");
         colorAnimation.value = withTiming(0.5, { duration: 300 });
         cornerOpacity.value = withTiming(0.6, { duration: 300 });
+        scaleAnimation.value = withTiming(1.02, { duration: 300 });
         break;
       case "aligned":
         setMessage("Perfect!");
         setIcon("check-circle");
         colorAnimation.value = withTiming(1, { duration: 300 });
         cornerOpacity.value = withTiming(0.8, { duration: 300 });
+        scaleAnimation.value = withTiming(1.05, { duration: 300 });
+        // Pulse animation when aligned
+        scaleAnimation.value = withRepeat(
+          withSequence(
+            withTiming(1.05, { duration: 400, easing: Easing.inOut(Easing.ease) }),
+            withTiming(1.02, { duration: 400, easing: Easing.inOut(Easing.ease) })
+          ),
+          3,
+          true
+        );
         break;
     }
   }, [detectionStatus, guideText]);
@@ -85,6 +99,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
     return {
       borderWidth: borderWidth.value,
       borderColor,
+      transform: [{ scale: scaleAnimation.value }],
     };
   });
 
@@ -95,21 +110,21 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
   });
 
   return (
-    <View style={styles.overlay}>
+    <View style={overlayStyles.overlay}>
       {/* Frame container */}
-      <View style={styles.frameContainer}>
+      <View style={overlayStyles.frameContainer}>
         {/* Animated frame */}
-        <Animated.View style={[styles.frame, frameStyle]}>
+        <Animated.View style={[overlayStyles.frame, frameStyle]}>
           {/* Corners for additional visual guidance */}
-          <Animated.View style={[styles.corner, styles.topLeft, cornerStyle]} />
-          <Animated.View style={[styles.corner, styles.topRight, cornerStyle]} />
-          <Animated.View style={[styles.corner, styles.bottomLeft, cornerStyle]} />
-          <Animated.View style={[styles.corner, styles.bottomRight, cornerStyle]} />
+          <Animated.View style={[overlayStyles.corner, overlayStyles.topLeft, cornerStyle]} />
+          <Animated.View style={[overlayStyles.corner, overlayStyles.topRight, cornerStyle]} />
+          <Animated.View style={[overlayStyles.corner, overlayStyles.bottomLeft, cornerStyle]} />
+          <Animated.View style={[overlayStyles.corner, overlayStyles.bottomRight, cornerStyle]} />
         </Animated.View>
       </View>
 
-      {/* Message container with icon */}
-      <Animated.View style={styles.messageContainer} entering={FadeIn.duration(400)}>
+      {/* Message container with icon - updated to match app styles */}
+      <Animated.View style={overlayStyles.messageContainer} entering={FadeIn.duration(400)}>
         {icon && (
           <Feather
             name={icon as any}
@@ -124,13 +139,13 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
             style={styles.icon}
           />
         )}
-        <Text style={styles.message}>{message}</Text>
+        <Text style={overlayStyles.message}>{message}</Text>
       </Animated.View>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const overlayStyles = StyleSheet.create({
   overlay: {
     position: "absolute",
     top: 0,
@@ -151,12 +166,13 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     position: "relative",
-    borderRadius: 8,
+    borderRadius: 12, // Updated to match app's rounded corners (16px in cards, 12px in details)
+    backgroundColor: "rgba(51, 51, 51, 0.1)", // Slight background tint that matches #333
   },
   corner: {
     position: "absolute",
-    width: 20,
-    height: 20,
+    width: 24, // Slightly larger for better visibility
+    height: 24,
     borderColor: "#f8f9fa",
   },
   topLeft: {
@@ -164,45 +180,49 @@ const styles = StyleSheet.create({
     left: -2,
     borderTopWidth: 3,
     borderLeftWidth: 3,
-    borderTopLeftRadius: 8,
+    borderTopLeftRadius: 12,
   },
   topRight: {
     top: -2,
     right: -2,
     borderTopWidth: 3,
     borderRightWidth: 3,
-    borderTopRightRadius: 8,
+    borderTopRightRadius: 12,
   },
   bottomLeft: {
     bottom: -2,
     left: -2,
     borderBottomWidth: 3,
     borderLeftWidth: 3,
-    borderBottomLeftRadius: 8,
+    borderBottomLeftRadius: 12,
   },
   bottomRight: {
     bottom: -2,
     right: -2,
     borderBottomWidth: 3,
     borderRightWidth: 3,
-    borderBottomRightRadius: 8,
+    borderBottomRightRadius: 12,
   },
   messageContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "#333", // Matches the card background color in the app
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingVertical: 12,
+    borderRadius: 12, // Match app's border radius
     marginTop: 24,
+    borderWidth: 1,
+    borderColor: "#3a3a3a", // Subtle border like in other components
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   message: {
     color: "#f8f9fa",
     fontSize: 15,
-    fontFamily: "SpaceMono",
+    fontFamily: "SpaceMono", // Using your app's font
     fontWeight: "500",
-  },
-  icon: {
-    marginRight: 8,
   },
 });
