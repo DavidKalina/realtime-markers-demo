@@ -26,6 +26,7 @@
     "@rnmapbox/maps": "^10.1.36",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
+    "eventemitter3": "^5.0.1",
     "expo": "~52.0.37",
     "expo-asset": "~11.0.4",
     "expo-blur": "~14.0.3",
