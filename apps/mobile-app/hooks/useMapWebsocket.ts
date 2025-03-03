@@ -306,7 +306,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               break;
             }
 
-            // Real-time update for marker deletion
             case MessageTypes.MARKER_DELETED:
             case MessageTypes.MARKER_DELETE: {
               // Support both new and legacy types
@@ -322,8 +321,11 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                 });
               }
 
-              // Don't update markers state - let batch updates handle it
-              // Just emit the notification event
+              // Important: We need to update the markers state directly for deletions
+              // Unlike additions (which can wait for batch updates), deletions need to be immediate
+              setMarkers((prevMarkers) => prevMarkers.filter((marker) => marker.id !== deletedId));
+
+              // Emit the notification event
               console.log(`[DEBUG] Emitting MARKER_REMOVED event`);
               eventBroker.emit<MarkersEvent>(EventTypes.MARKER_REMOVED, {
                 timestamp: Date.now(),
