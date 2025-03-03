@@ -8,20 +8,10 @@ import { useGravitationalCamera } from "@/hooks/useGravitationalCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
 import { BaseEvent, EventTypes } from "@/services/EventBroker";
 import { useUserLocationStore } from "@/stores/useUserLocationStore";
-import { Ionicons } from "@expo/vector-icons";
 import MapboxGL from "@rnmapbox/maps";
 import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Animated, Platform, Text, View } from "react-native";
 
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
 
@@ -220,15 +210,6 @@ export default function HomeScreen() {
             },
           ]}
         />
-      )}
-
-      {userLocation && isMapReady && !isLoadingLocation && (
-        <TouchableOpacity
-          style={styles.recenterButton}
-          onPress={() => animateToLocation(userLocation, 800, 14)}
-        >
-          <Ionicons name="locate" size={24} color="#4dabf7" />
-        </TouchableOpacity>
       )}
 
       {isMapReady && !isLoadingLocation && (

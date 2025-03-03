@@ -60,7 +60,6 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
   const [isGravitating, setIsGravitating] = useState(false);
   const [isHighVelocity, setIsHighVelocity] = useState(false);
   const { publish } = useEventBroker();
-  const { userLocation } = useUserLocationStore();
 
   // Ref to store the last time we applied a gravitational pull
   const lastPullTimeRef = useRef<number>(0);
