@@ -3,15 +3,14 @@ import EventAssistant from "@/components/EventAssistant/EventAssistant";
 import { styles } from "@/components/homeScreenStyles";
 import { SimpleMapMarkers } from "@/components/Markers/MarkerImplementation";
 import QueueIndicator from "@/components/QueueIndicator/QueueIndicator";
-import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useGravitationalCamera } from "@/hooks/useGravitationalCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
 import {
   BaseEvent,
+  CameraAnimateToLocationEvent,
   EventTypes,
   UserLocationEvent,
-  CameraAnimateToLocationEvent,
 } from "@/services/EventBroker";
 import { useUserLocationStore } from "@/stores/useUserLocationStore";
 import MapboxGL from "@rnmapbox/maps";
@@ -24,7 +23,7 @@ MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
 export default function HomeScreen() {
   const [isMapReady, setIsMapReady] = useState(false);
   const mapRef = useRef<MapboxGL.MapView>(null);
-  const { publish, subscribe } = useEventBroker();
+  const { publish } = useEventBroker();
 
   const {
     selectedMarkerId,
