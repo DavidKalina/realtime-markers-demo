@@ -1,13 +1,28 @@
 #!/bin/bash
 set -e
 
-# Wait for PostgreSQL
-until PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\q'; do
-  echo "PostgreSQL is unavailable - sleeping"
+# Wait for PostgreSQL service to be available
+until PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "postgres" -c '\q'; do
+  echo "PostgreSQL service unavailable - sleeping"
   sleep 1
 done
 
-echo "PostgreSQL is up - checking extensions"
+echo "PostgreSQL service is up - checking if database exists"
+
+# Create the database if it doesn't exist
+PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "postgres" <<-EOSQL
+    SELECT 'CREATE DATABASE $POSTGRES_DB' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$POSTGRES_DB')\gexec
+EOSQL
+
+echo "Ensuring database $POSTGRES_DB exists - now connecting"
+
+# Wait for the database to be accessible
+until PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\q'; do
+  echo "Database $POSTGRES_DB not yet accessible - sleeping"
+  sleep 1
+done
+
+echo "PostgreSQL database $POSTGRES_DB is up - checking extensions"
 
 # Create extensions and indexes safely
 PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<-EOSQL
