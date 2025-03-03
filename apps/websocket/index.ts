@@ -1,6 +1,8 @@
+// Enhanced WebSocket server with session management
 import Redis from "ioredis";
 import RBush from "rbush";
 import type { Server, ServerWebSocket } from "bun";
+import { SessionManager } from "./SessionManager";
 
 // --- Type Definitions ---
 interface MarkerData {
@@ -22,6 +24,7 @@ interface WebSocketData {
   clientId: string;
   viewport?: BBox;
   lastActivity?: number;
+  sessionId?: string; // Added for session management
 }
 
 interface BBox {
@@ -49,6 +52,17 @@ const MessageTypes = {
   MARKER_DELETE: "marker_delete",
   MARKER_UPDATES_BATCH: "marker_updates_batch",
   DEBUG_EVENT: "debug_event",
+
+  // New types for job session handling
+  CREATE_SESSION: "create_session",
+  JOIN_SESSION: "join_session",
+  SESSION_CREATED: "session_created",
+  SESSION_JOINED: "session_joined",
+  SESSION_UPDATE: "session_update",
+  ADD_JOB: "add_job",
+  JOB_ADDED: "job_added",
+  CANCEL_JOB: "cancel_job",
+  CLEAR_SESSION: "clear_session",
 };
 
 // --- In-Memory State ---
@@ -56,11 +70,20 @@ const tree = new RBush<MarkerData>();
 const pendingUpdates = new Map<string, Set<MarkerData>>();
 const clients = new Map<string, ServerWebSocket<WebSocketData>>();
 
+// --- Create Redis Client ---
+const redis = new Redis({
+  host: process.env.REDIS_HOST || "localhost",
+  port: parseInt(process.env.REDIS_PORT || "6379"),
+});
+
 // --- Create Redis Subscriber ---
 const redisSub = new Redis({
   host: process.env.REDIS_HOST || "localhost",
   port: parseInt(process.env.REDIS_PORT || "6379"),
 });
+
+// --- Initialize Session Manager ---
+const sessionManager = new SessionManager(redis);
 
 // Subscribe to the "event_changes" channel immediately
 redisSub.subscribe("event_changes").catch((err) => {
@@ -151,133 +174,139 @@ function isMarkerInViewport(marker: MarkerData, viewport: BBox): boolean {
 
 // IMPORTANT: This is where we handle real-time updates from Redis
 redisSub.on("message", (channel, message) => {
-  try {
-    const { operation, record } = JSON.parse(message);
+  // Handle event_changes for markers
+  if (channel === "event_changes") {
+    try {
+      const { operation, record } = JSON.parse(message);
 
-    // --- DELETION HANDLING ---
-    if (operation === "DELETE") {
-      // Find and remove the marker from the R-tree
-      const markerToDelete = tree.all().find((marker) => marker.id === record.id);
-      if (markerToDelete) {
-        tree.remove(markerToDelete, (a, b) => a.id === b.id);
+      // --- DELETION HANDLING ---
+      if (operation === "DELETE") {
+        // Find and remove the marker from the R-tree
+        const markerToDelete = tree.all().find((marker) => marker.id === record.id);
+        if (markerToDelete) {
+          tree.remove(markerToDelete, (a, b) => a.id === b.id);
 
-        // Send real-time deletion notification to all clients
-        const deletePayload = JSON.stringify({
-          type: MessageTypes.MARKER_DELETED, // New message type
-          data: {
-            id: record.id,
-            timestamp: new Date().toISOString(),
-          },
-        });
+          // Send real-time deletion notification to all clients
+          const deletePayload = JSON.stringify({
+            type: MessageTypes.MARKER_DELETED, // New message type
+            data: {
+              id: record.id,
+              timestamp: new Date().toISOString(),
+            },
+          });
 
-        // Also send legacy message type for backward compatibility
-        const legacyDeletePayload = JSON.stringify({
-          type: MessageTypes.MARKER_DELETE, // Original message type
-          data: {
-            id: record.id,
-            timestamp: new Date().toISOString(),
-          },
-        });
+          // Also send legacy message type for backward compatibility
+          const legacyDeletePayload = JSON.stringify({
+            type: MessageTypes.MARKER_DELETE, // Original message type
+            data: {
+              id: record.id,
+              timestamp: new Date().toISOString(),
+            },
+          });
 
-        clients.forEach((client) => {
-          try {
-            // Send both new and legacy message types
-            client.send(deletePayload);
-            client.send(legacyDeletePayload);
-          } catch (error) {
-            console.error(`Failed to send delete event to client ${client.data.clientId}:`, error);
-          }
-        });
-      }
-      return;
-    }
-
-    // --- CREATION/UPDATE HANDLING ---
-    const [lng, lat] = record.location.coordinates;
-
-    const markerData: MarkerData = {
-      id: record.id,
-      minX: lng,
-      minY: lat,
-      maxX: lng,
-      maxY: lat,
-      data: {
-        title: record.title,
-        emoji: record.emoji,
-        color: record.color,
-        created_at: record.created_at,
-        updated_at: record.updated_at,
-      },
-    };
-
-    // Determine if this is a new marker or an update
-    const isUpdate = operation === "UPDATE";
-    const isCreate = operation === "CREATE" || operation === "INSERT";
-
-    // If it's an update, remove the old marker first
-    if (isUpdate) {
-      tree.remove(markerData, (a, b) => a.id === b.id);
-    }
-
-    // Insert the new marker position
-    tree.insert(markerData);
-
-    // Add to pending updates for batch system (existing functionality)
-    let updates = pendingUpdates.get(record.id);
-    if (!updates) {
-      updates = new Set();
-      pendingUpdates.set(record.id, updates);
-    }
-    updates.add(markerData);
-
-    // IMPORTANT NEW FEATURE: Send real-time marker created/updated notifications
-    // This is separate from the viewport update system
-    const realTimePayload = JSON.stringify({
-      type: isCreate ? MessageTypes.MARKER_CREATED : MessageTypes.MARKER_UPDATED,
-      data: markerData,
-      timestamp: new Date().toISOString(),
-    });
-
-    // Send notifications to clients that have this marker in viewport
-    clients.forEach((client) => {
-      if (client.data.viewport && isMarkerInViewport(markerData, client.data.viewport)) {
-        try {
-          client.send(realTimePayload);
-          console.log(
-            `[Real-time] Sent ${isCreate ? "creation" : "update"} for marker ${
-              markerData.id
-            } to client ${client.data.clientId}`
-          );
-        } catch (error) {
-          console.error(
-            `Failed to send real-time update to client ${client.data.clientId}:`,
-            error
-          );
+          clients.forEach((client) => {
+            try {
+              // Send both new and legacy message types
+              client.send(deletePayload);
+              client.send(legacyDeletePayload);
+            } catch (error) {
+              console.error(
+                `Failed to send delete event to client ${client.data.clientId}:`,
+                error
+              );
+            }
+          });
         }
+        return;
       }
-    });
 
-    // Send debug event to all connected clients (existing functionality)
-    const debugPayload = JSON.stringify({
-      type: MessageTypes.DEBUG_EVENT,
-      data: {
-        operation,
-        eventId: record.id,
+      // --- CREATION/UPDATE HANDLING ---
+      const [lng, lat] = record.location.coordinates;
+
+      const markerData: MarkerData = {
+        id: record.id,
+        minX: lng,
+        minY: lat,
+        maxX: lng,
+        maxY: lat,
+        data: {
+          title: record.title,
+          emoji: record.emoji,
+          color: record.color,
+          created_at: record.created_at,
+          updated_at: record.updated_at,
+        },
+      };
+
+      // Determine if this is a new marker or an update
+      const isUpdate = operation === "UPDATE";
+      const isCreate = operation === "CREATE" || operation === "INSERT";
+
+      // If it's an update, remove the old marker first
+      if (isUpdate) {
+        tree.remove(markerData, (a, b) => a.id === b.id);
+      }
+
+      // Insert the new marker position
+      tree.insert(markerData);
+
+      // Add to pending updates for batch system (existing functionality)
+      let updates = pendingUpdates.get(record.id);
+      if (!updates) {
+        updates = new Set();
+        pendingUpdates.set(record.id, updates);
+      }
+      updates.add(markerData);
+
+      // IMPORTANT NEW FEATURE: Send real-time marker created/updated notifications
+      // This is separate from the viewport update system
+      const realTimePayload = JSON.stringify({
+        type: isCreate ? MessageTypes.MARKER_CREATED : MessageTypes.MARKER_UPDATED,
+        data: markerData,
         timestamp: new Date().toISOString(),
-        coordinates: [lng, lat],
-        details: record,
-      },
-    });
+      });
 
-    clients.forEach((client) => {
-      try {
-        client.send(debugPayload);
-      } catch (error) {
-        console.error(`Failed to send debug event to client ${client.data.clientId}:`, error);
-      }
-    });
-  } catch (error) {
-    console.error("Error processing Redis message:", error);
+      // Send notifications to clients that have this marker in viewport
+      clients.forEach((client) => {
+        if (client.data.viewport && isMarkerInViewport(markerData, client.data.viewport)) {
+          try {
+            client.send(realTimePayload);
+            console.log(
+              `[Real-time] Sent ${isCreate ? "creation" : "update"} for marker ${
+                markerData.id
+              } to client ${client.data.clientId}`
+            );
+          } catch (error) {
+            console.error(
+              `Failed to send real-time update to client ${client.data.clientId}:`,
+              error
+            );
+          }
+        }
+      });
+
+      // Send debug event to all connected clients (existing functionality)
+      const debugPayload = JSON.stringify({
+        type: MessageTypes.DEBUG_EVENT,
+        data: {
+          operation,
+          eventId: record.id,
+          timestamp: new Date().toISOString(),
+          coordinates: [lng, lat],
+          details: record,
+        },
+      });
+
+      clients.forEach((client) => {
+        try {
+          client.send(debugPayload);
+        } catch (error) {
+          console.error(`Failed to send debug event to client ${client.data.clientId}:`, error);
+        }
+      });
+    } catch (error) {
+      console.error("Error processing Redis message:", error);
+    }
   }
 });
 
@@ -338,6 +367,9 @@ const server = {
       };
       clients.set(clientId, ws);
 
+      // Register client with session manager
+      sessionManager.registerClient(ws);
+
       ws.send(
         JSON.stringify({
           type: MessageTypes.CONNECTION_ESTABLISHED,
@@ -353,7 +385,22 @@ const server = {
       try {
         const data = JSON.parse(message.toString());
 
-        // Handle viewport updates
+        // --- Session Management Messages ---
+        if (
+          [
+            MessageTypes.CREATE_SESSION,
+            MessageTypes.JOIN_SESSION,
+            MessageTypes.ADD_JOB,
+            MessageTypes.CANCEL_JOB,
+            MessageTypes.CLEAR_SESSION,
+          ].includes(data.type)
+        ) {
+          // Forward to session manager
+          sessionManager.handleMessage(ws, message.toString());
+          return;
+        }
+
+        // --- Viewport Updates (Existing Functionality) ---
         if (data.type === MessageTypes.VIEWPORT_UPDATE) {
           // First, create the viewport object
           const viewportBounds = {
@@ -469,6 +516,10 @@ const server = {
     },
 
     close(ws: ServerWebSocket<WebSocketData>) {
+      // Unregister from session manager
+      sessionManager.unregisterClient(ws.data.clientId);
+
+      // Clean up client registration
       clients.delete(ws.data.clientId);
     },
   },

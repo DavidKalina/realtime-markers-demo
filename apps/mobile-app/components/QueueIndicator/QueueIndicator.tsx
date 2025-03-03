@@ -1,6 +1,3 @@
-import { useJobQueueManager } from "@/hooks/useJobQueueManager";
-import { useJobStreamEnhanced } from "@/hooks/useJobStream";
-import { useJobQueueStore } from "@/stores/useJobQueueStore";
 import { AlertTriangle, CheckCircle, Cog } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { View } from "react-native";
@@ -16,36 +13,38 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
+import { useJobSession } from "@/hooks/useJobSession";
 import { styles } from "./styles";
 
 interface QueueIndicatorProps {
   position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
   autoDismissDelay?: number; // Time in ms to auto-dismiss after all jobs are complete/failed
+  sessionId?: string;
 }
 
 const QueueIndicator: React.FC<QueueIndicatorProps> = ({
   position = "top-right",
   autoDismissDelay = 3000, // Default: auto-dismiss after 3 seconds
+  sessionId,
 }) => {
-  // Get job queue state from store
-  const { jobIds, activeJobId, completedJobIds, failedJobIds } = useJobQueueStore();
-
-  // Get the clearAllJobs function from the job queue manager
-  const { clearAllJobs } = useJobQueueManager();
-
-  // Use the job stream hook for the active job
-  const { isComplete, error, currentStep, progressSteps } = useJobStreamEnhanced(activeJobId);
+  // Use our job session hook
+  const {
+    jobs,
+    activeJobs,
+    completedJobs,
+    failedJobs,
+    activeJob,
+    totalJobs,
+    hasActiveJobs,
+    clearAllJobs,
+  } = useJobSession(sessionId);
 
   // State to track if component is visible
   const [isVisible, setIsVisible] = useState(false);
 
   // Derive status for the indicator
-  const hasActiveJobs = jobIds.length > 0;
-  const hasCompletedJobs = completedJobIds.length > 0;
-  const hasFailedJobs = failedJobIds.length > 0;
-
-  // Count total jobs (in queue, completed, and failed)
-  const totalJobs = jobIds.length + completedJobIds.length + failedJobIds.length;
+  const hasCompletedJobs = completedJobs.length > 0;
+  const hasFailedJobs = failedJobs.length > 0;
 
   // Determine the status to display
   const [status, setStatus] = useState<"idle" | "processing" | "completed" | "failed">("idle");
@@ -55,11 +54,8 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
   const checkmarkScale = useSharedValue(0);
   const iconOpacity = useSharedValue(1);
 
-  // Calculate progress percentage
-  const progressPercentage =
-    progressSteps.length > 0
-      ? Math.min(100, Math.round((currentStep / (progressSteps.length - 1)) * 100))
-      : 0;
+  // Calculate progress percentage for active job
+  const progressPercentage = activeJob ? activeJob.progress : 0;
 
   // Setup visibility
   useEffect(() => {
@@ -70,23 +66,21 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
 
   // Update status based on job states
   useEffect(() => {
-    if (error) {
+    if (hasFailedJobs) {
       setStatus("failed");
-    } else if (activeJobId && !isComplete) {
-      setStatus("processing");
-    } else if ((hasCompletedJobs || hasFailedJobs) && !hasActiveJobs) {
-      setStatus(hasFailedJobs ? "failed" : "completed");
     } else if (hasActiveJobs) {
       setStatus("processing");
+    } else if (hasCompletedJobs && !hasActiveJobs) {
+      setStatus("completed");
     } else {
       setStatus("idle");
     }
-  }, [activeJobId, hasActiveJobs, hasCompletedJobs, hasFailedJobs, isComplete, error]);
+  }, [hasActiveJobs, hasCompletedJobs, hasFailedJobs]);
 
   // Auto-dismiss timer when all active jobs are done
   useEffect(() => {
     // If there are no active jobs but there are completed/failed jobs
-    if (jobIds.length === 0 && activeJobId === null && (hasCompletedJobs || hasFailedJobs)) {
+    if (!hasActiveJobs && (hasCompletedJobs || hasFailedJobs)) {
       const timer = setTimeout(() => {
         setIsVisible(false);
 
@@ -98,7 +92,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
 
       return () => clearTimeout(timer);
     }
-  }, [jobIds.length, activeJobId, hasCompletedJobs, hasFailedJobs, clearAllJobs, autoDismissDelay]);
+  }, [hasActiveJobs, hasCompletedJobs, hasFailedJobs, clearAllJobs, autoDismissDelay]);
 
   // Handle animations based on status
   useEffect(() => {
@@ -231,6 +225,16 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
             layout={Layout.springify()}
           >
             {totalJobs} job{totalJobs !== 1 ? "s" : ""}
+          </Animated.Text>
+        )}
+
+        {activeJob && (
+          <Animated.Text
+            entering={FadeIn.duration(400)}
+            exiting={FadeOut.duration(200)}
+            layout={Layout.springify()}
+          >
+            {activeJob.progressStep}
           </Animated.Text>
         )}
       </View>
