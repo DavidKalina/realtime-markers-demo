@@ -112,7 +112,7 @@ const EventAssistant: React.FC = () => {
 
     // Simply clear messages and hide the assistant immediately
     clearMessagesImmediate();
-    animationControls.quickTransition();
+    animationControls.hideAssistant();
   }, [clearMessagesImmediate, animationControls]);
   // Use marker effects hook to handle marker selection/deselection
   useMarkerEffects({
