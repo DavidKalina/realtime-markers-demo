@@ -13,7 +13,7 @@ interface MarkerEffectsProps {
 
   // Callback functions
   onMarkerSelect: (marker: Marker, messages: string[]) => void;
-  onMarkerDeselect: (goodbyeMessage: string) => void;
+  onMarkerDeselect: () => void; // Remove goodbyeMessage parameter
 }
 
 /**
@@ -30,13 +30,12 @@ export const useMarkerEffects = ({
   const currentMarkerIdRef = useRef<string | null>(null);
   const lastMarkerNameRef = useRef<string>("");
 
-  // Update currentMarkerIdRef when selectedMarkerId changes and detect deselection
   useEffect(() => {
     // Note: we need to keep track of marker deselection
     const wasMarkerSelected = Boolean(currentMarkerIdRef.current);
     const isMarkerSelected = Boolean(selectedMarkerId);
 
-    // If we just deselected a marker, we'll want to show a goodbye message
+    // If we just deselected a marker, trigger cleanup
     const markerDeselected = wasMarkerSelected && !isMarkerSelected;
 
     // Reset processedMarkerRef when marker is deselected
@@ -47,11 +46,9 @@ export const useMarkerEffects = ({
     // Update our reference
     currentMarkerIdRef.current = selectedMarkerId;
 
-    // Handle marker deselection with goodbye message
+    // Handle marker deselection with simple cleanup
     if (markerDeselected) {
-      const markerName = lastMarkerNameRef.current;
-      const goodbyeMessage = generateGoodbyeMessage(markerName);
-      onMarkerDeselect(goodbyeMessage);
+      onMarkerDeselect(); // No need to pass a goodbye message anymore
     }
   }, [selectedMarkerId, onMarkerDeselect]);
 

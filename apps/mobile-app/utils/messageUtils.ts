@@ -162,14 +162,11 @@ export const getMessageEmoji = (message: string, markerId: string | null = null)
     return "⏮️";
   } else if (message.includes("Categories")) {
     return "🏷️";
-  } else if (
-    message.includes("moved away") ||
-    message.includes("Goodbye") ||
-    markerId === "goodbye"
-  ) {
-    // For goodbye messages
-    return "👋";
   }
+  // Remove the goodbye-related condition:
+  // else if (message.includes("moved away") || message.includes("Goodbye") || markerId === "goodbye") {
+  //   return "👋";
+  // }
 
   return "";
 };

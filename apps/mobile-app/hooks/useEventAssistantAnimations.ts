@@ -25,7 +25,7 @@ interface AnimationControls {
   showAssistant: (duration?: number) => void;
   hideAssistant: (duration?: number) => void;
   showAndHideWithDelay: (delay?: number) => void;
-  // Removed isVisible boolean that was causing issues
+  quickTransition: () => void;
 }
 
 /**
@@ -77,9 +77,20 @@ export const useAssistantAnimations = (): {
     };
   });
 
+  const quickTransition = useCallback(() => {
+    // Immediate hide/cleanup without animations
+    isCardHidden.value = true;
+    cardHeight.value = 8;
+    cardOpacity.value = 0;
+    cardTranslateY.value = 50;
+
+    // Use React Native animation for immediate effect
+    legacyAnimation.setValue(0);
+  }, [cardHeight, cardOpacity, cardTranslateY, isCardHidden, legacyAnimation]);
+
   // Show the assistant with animations
   const showAssistant = useCallback(
-    (duration: number = 300) => {
+    (duration: number = 200) => {
       // Mark card as visible for styling
       isCardHidden.value = false;
 
@@ -116,7 +127,7 @@ export const useAssistantAnimations = (): {
 
   // Hide the assistant with animations
   const hideAssistant = useCallback(
-    (duration: number = 300) => {
+    (duration: number = 150) => {
       // First fade out content
       cardOpacity.value = withTiming(0, {
         duration: 150,
@@ -188,6 +199,7 @@ export const useAssistantAnimations = (): {
       showAssistant,
       hideAssistant,
       showAndHideWithDelay,
+      quickTransition,
       // Remove direct access to .value here
     },
   };

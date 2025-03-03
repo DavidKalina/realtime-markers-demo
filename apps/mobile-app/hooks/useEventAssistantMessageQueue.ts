@@ -58,6 +58,25 @@ export const useMessageQueue = () => {
     messageQueueRef.current = messageQueueState;
   }, [messageQueueState]);
 
+  const clearMessagesImmediate = useCallback(() => {
+    // Cancel any ongoing streaming without waiting
+    storeActionsRef.current.cancelCurrentStreaming();
+
+    // Update queue state with new version immediately
+    setMessageQueueState((prevState) => ({
+      messages: [],
+      version: prevState.version + 1,
+      processing: false,
+      markerId: null,
+    }));
+
+    // Reset emoji
+    storeActionsRef.current.setCurrentEmoji("");
+
+    // No waiting, return immediately
+    return Promise.resolve();
+  }, []);
+
   /**
    * Clear and reset messaging state
    */
@@ -196,6 +215,7 @@ export const useMessageQueue = () => {
     isTyping,
     queueMessages: setNewMessages,
     clearMessages: clearMessageQueue,
+    clearMessagesImmediate, // Add new immediate version
     isEmpty: messageQueueState.messages.length === 0 && !isTyping,
     currentMarkerId: messageQueueState.markerId,
   };

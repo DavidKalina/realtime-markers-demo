@@ -59,22 +59,11 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
       abortController: null,
       isTyping: false,
       streamingVersion: newVersion,
+      currentStreamedText: "",
       // Don't clear text here to prevent flicker
     }));
 
-    // Small delay to ensure cancellation is processed
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        // Only now clear the text if this is still the current version
-        if (get().streamingVersion === newVersion) {
-          set((state) => ({
-            ...state,
-            currentStreamedText: "",
-          }));
-        }
-        resolve();
-      }, 50);
-    });
+    return Promise.resolve();
   },
 
   simulateTextStreaming: async (text: string) => {

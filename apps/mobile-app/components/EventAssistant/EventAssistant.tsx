@@ -45,8 +45,13 @@ const EventAssistant: React.FC = () => {
   const { styles: animationStyles, controls: animationControls } = useAssistantAnimations();
 
   // Message queue management
-  const { currentText, isTyping, queueMessages, clearMessages } = useMessageQueue();
-
+  const {
+    currentText,
+    isTyping,
+    queueMessages,
+    clearMessages,
+    clearMessagesImmediate, // Add this new function
+  } = useMessageQueue();
   const markerSelectionCountRef = useRef<{ [key: string]: number }>({});
   const previousMarkerIdRef = useRef<string | null>(null);
 
@@ -65,6 +70,7 @@ const EventAssistant: React.FC = () => {
     previousMarkerIdRef.current = selectedMarkerId;
   }, [selectedMarkerId]);
 
+  // Then update handleMarkerSelect to use it:
   const handleMarkerSelect = useCallback(
     (marker: Marker, messages: string[]) => {
       // Count selection to prevent multiple calls
@@ -74,34 +80,40 @@ const EventAssistant: React.FC = () => {
 
       // Only proceed if this is the first selection
       if (markerSelectionCountRef.current[markerId] === 1) {
-        queueMessages(messages, marker.id);
-        animationControls.showAssistant();
+        // Immediate reset of all previous content (no waiting for animations)
+        if (previousMarkerIdRef.current && previousMarkerIdRef.current !== markerId) {
+          // Use quickTransition if we're switching between markers
+          animationControls.quickTransition();
+
+          // Clear messages immediately without waiting
+          clearMessagesImmediate(); // Use the immediate version
+
+          // Queue new messages immediately
+          queueMessages(messages, marker.id);
+
+          // Show assistant with faster animation
+          animationControls.showAssistant(150);
+        } else {
+          // First-time selection, use normal approach
+          queueMessages(messages, marker.id);
+          animationControls.showAssistant(200);
+        }
       }
     },
-    [queueMessages, animationControls]
+    [queueMessages, clearMessagesImmediate, animationControls]
   );
 
-  // Handle marker deselection
-  const handleMarkerDeselect = useCallback(
-    (goodbyeMessage: string) => {
-      // Reset selection counter for the deselected marker
-      if (previousMarkerIdRef.current) {
-        delete markerSelectionCountRef.current[previousMarkerIdRef.current];
-      }
+  // Also update handleMarkerDeselect to use the immediate version
+  const handleMarkerDeselect = useCallback(() => {
+    // Reset selection counter for the deselected marker
+    if (previousMarkerIdRef.current) {
+      delete markerSelectionCountRef.current[previousMarkerIdRef.current];
+    }
 
-      // Avoid potential .then() chain that might cause issues with dependencies
-      const showGoodbye = async () => {
-        await clearMessages();
-        queueMessages([goodbyeMessage], "goodbye");
-        animationControls.showAndHideWithDelay(5000);
-      };
-
-      // Execute without returning a promise to the render cycle
-      showGoodbye();
-    },
-    [clearMessages, queueMessages, animationControls]
-  );
-
+    // Simply clear messages and hide the assistant immediately
+    clearMessagesImmediate();
+    animationControls.quickTransition();
+  }, [clearMessagesImmediate, animationControls]);
   // Use marker effects hook to handle marker selection/deselection
   useMarkerEffects({
     selectedMarker,
