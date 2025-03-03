@@ -1,4 +1,4 @@
-// hooks/useMarkerEffects.ts
+// hooks/useMarkerEffects.ts - Fixed version
 import { useEffect, useRef } from "react";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { generateMessageSequence, generateGoodbyeMessage } from "../utils/messageUtils";
@@ -39,6 +39,11 @@ export const useMarkerEffects = ({
     // If we just deselected a marker, we'll want to show a goodbye message
     const markerDeselected = wasMarkerSelected && !isMarkerSelected;
 
+    // Reset processedMarkerRef when marker is deselected
+    if (markerDeselected) {
+      processedMarkerRef.current = null;
+    }
+
     // Update our reference
     currentMarkerIdRef.current = selectedMarkerId;
 
@@ -59,7 +64,12 @@ export const useMarkerEffects = ({
       return;
     }
 
-    // Skip if we've already processed this exact marker
+    // Reset processing state if this is a DIFFERENT marker than before
+    if (processedMarkerRef.current && processedMarkerRef.current !== selectedMarkerId) {
+      processedMarkerRef.current = null;
+    }
+
+    // Skip if we've already processed this exact marker in this selection cycle
     if (processedMarkerRef.current === selectedMarkerId) {
       return;
     }
@@ -82,6 +92,7 @@ export const useMarkerEffects = ({
       onMarkerSelect(selectedMarker, ["Sorry, I couldn't load information about this location."]);
     }
   }, [selectedMarker, selectedMarkerId, userLocation, onMarkerSelect]);
+
   // We're only using refs here, not Reanimated shared values, so this should be fine
   return {
     currentMarkerId: currentMarkerIdRef.current,

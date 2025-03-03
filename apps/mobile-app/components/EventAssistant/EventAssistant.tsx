@@ -1,4 +1,4 @@
-// EventAssistant.tsx - Refactored version
+// EventAssistant.tsx - Edited to fix marker reselection bug
 import React, { useCallback, useRef } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
@@ -48,6 +48,22 @@ const EventAssistant: React.FC = () => {
   const { currentText, isTyping, queueMessages, clearMessages } = useMessageQueue();
 
   const markerSelectionCountRef = useRef<{ [key: string]: number }>({});
+  const previousMarkerIdRef = useRef<string | null>(null);
+
+  // Track when marker selection changes
+  React.useEffect(() => {
+    // If marker changed, reset the counter for the previous marker
+    if (previousMarkerIdRef.current && previousMarkerIdRef.current !== selectedMarkerId) {
+      delete markerSelectionCountRef.current[previousMarkerIdRef.current];
+    }
+
+    // If marker deselected completely, reset all counters
+    if (!selectedMarkerId) {
+      markerSelectionCountRef.current = {};
+    }
+
+    previousMarkerIdRef.current = selectedMarkerId;
+  }, [selectedMarkerId]);
 
   const handleMarkerSelect = useCallback(
     (marker: Marker, messages: string[]) => {
@@ -68,6 +84,11 @@ const EventAssistant: React.FC = () => {
   // Handle marker deselection
   const handleMarkerDeselect = useCallback(
     (goodbyeMessage: string) => {
+      // Reset selection counter for the deselected marker
+      if (previousMarkerIdRef.current) {
+        delete markerSelectionCountRef.current[previousMarkerIdRef.current];
+      }
+
       // Avoid potential .then() chain that might cause issues with dependencies
       const showGoodbye = async () => {
         await clearMessages();
