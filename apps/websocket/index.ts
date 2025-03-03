@@ -276,32 +276,64 @@ const server = {
 
       try {
         const data = JSON.parse(message.toString());
+        // Replace your viewport update handler with this:
         if (data.type === "viewport_update") {
-          console.log(`[Viewport Update] Client ${ws.data.clientId}:`, {
-            timestamp: new Date().toISOString(),
-            viewport: data.viewport,
-            currentMarkersInView: tree.search({
-              minX: data.viewport.west,
-              minY: data.viewport.south,
-              maxX: data.viewport.east,
-              maxY: data.viewport.north,
-            }).length,
-          });
-          // Convert viewport to RBush format
-          ws.data.viewport = {
+          // First, create the viewport object
+          const viewportBounds = {
             minX: data.viewport.west,
             minY: data.viewport.south,
             maxX: data.viewport.east,
             maxY: data.viewport.north,
           };
 
-          // Send initial markers in viewport
-          const markersInView = tree.search(ws.data.viewport);
+          // Store it
+          ws.data.viewport = viewportBounds;
+
+          // Do a single search with the same object
+          const markersInView = tree.search(viewportBounds);
+
+          // Log comprehensive details
+          console.log(`[Viewport Update] Client ${ws.data.clientId}:`, {
+            timestamp: new Date().toISOString(),
+            viewport: data.viewport,
+            currentMarkersInView: markersInView.length,
+          });
+
+          // Log all markers in the tree to debug
+          const allMarkers = tree.all();
+          console.log(`[Debug] All ${allMarkers.length} markers in tree:`);
+
+          // Log each marker and whether it's in the viewport
+          allMarkers.forEach((marker) => {
+            const isInView =
+              marker.minX >= viewportBounds.minX &&
+              marker.minX <= viewportBounds.maxX &&
+              marker.minY >= viewportBounds.minY &&
+              marker.minY <= viewportBounds.maxY;
+
+            console.log(
+              `[Debug] Marker ${marker.id}: [${marker.minX}, ${marker.minY}], in viewport: ${isInView}`
+            );
+          });
+
+          // Send markers only if there are any in the viewport
           if (markersInView.length > 0) {
+            console.log(
+              `[Send] Sending ${markersInView.length} markers to client ${ws.data.clientId}`
+            );
             ws.send(
               JSON.stringify({
                 type: "initial_markers",
                 data: markersInView,
+              })
+            );
+          } else {
+            // Send an empty markers update to clear any existing markers
+            console.log(`[Send] Sending empty markers array to client ${ws.data.clientId}`);
+            ws.send(
+              JSON.stringify({
+                type: "initial_markers",
+                data: [],
               })
             );
           }
@@ -317,7 +349,7 @@ const server = {
   },
 };
 
-console.log(`WebSocket server started on port 8080`);
+console.log(`WebSocket server started on port 8081`);
 
 // Start the server with proper typing
 async function startServer() {
@@ -332,7 +364,7 @@ async function startServer() {
     }
 
     // Start the server after initialization is complete
-    Bun.serve<WebSocketData>(server);
+    Bun.serve(server);
     console.log(`WebSocket server started on port ${server.port}`);
   } catch (error) {
     console.error("[Startup] Failed to start server:", error);

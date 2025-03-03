@@ -1,12 +1,11 @@
-import { Brackets, DataSource, Repository, type DeepPartial } from "typeorm";
-import { Event, EventStatus } from "../entities/Event";
 import { type Point } from "geojson";
-import { Category } from "../entities/Category";
-import { ThirdSpace } from "../entities/ThirdSpace";
 import pgvector from "pgvector";
-import OpenAI from "openai";
-import { OpenAIService } from "./OpenAIService";
+import { Brackets, DataSource, Repository, type DeepPartial } from "typeorm";
+import { Category } from "../entities/Category";
+import { Event, EventStatus } from "../entities/Event";
+import { ThirdSpace } from "../entities/ThirdSpace";
 import { CacheService } from "./CacheService";
+import { OpenAIService } from "./OpenAIService";
 
 interface SearchResult {
   event: Event;

@@ -172,7 +172,6 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
     let unmounted = false;
     if (!jobId) return;
 
-    console.log(`[JobStream] Starting job stream for job ${jobId}`);
     // Reset state for the new job
     setSeenStepSequence([]);
     setDisplayIndex(0);
@@ -186,15 +185,13 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
         eventSourceRef.current.close();
       }
       try {
-        const url = `${process.env.EXPO_PUBLIC_API_URL!}/jobs/${jobId}/stream`;
-        console.log(`[JobStream] Connecting to SSE stream: ${url}`);
+        const url = `${process.env.EXPO_PUBLIC_API_URL!}/api/jobs/${jobId}/stream`;
         const es = new EventSource(url);
         eventSourceRef.current = es as ExtendedEventSource;
 
         // On connection open, only add the initial step if not already set.
         es.addEventListener("open", () => {
           if (unmounted) return;
-          console.log("[JobStream] SSE connection established");
           setIsConnected(true);
           setError(null);
           setSeenStepSequence((prev) => (prev.length === 0 ? [0] : prev));
@@ -204,7 +201,6 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
         es.addEventListener("message", (event) => {
           if (unmounted) return;
           try {
-            console.log(`[JobStream] Received message: ${event.data}`);
             setLastReceivedMessage(event.data);
             const data: JobUpdate = JSON.parse(event.data || "");
             setJobState(data);
@@ -215,7 +211,6 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
               addStepToSequence(0);
             } else if (data.status === "processing" && data.progress) {
               const stepIndex = getStepIndex(data.progress);
-              console.log(`[JobStream] Mapped progress "${data.progress}" to step ${stepIndex}`);
               addStepToSequence(stepIndex);
               updateStepWithMetadata(stepIndex, data);
             } else if (data.status === "completed") {
@@ -242,12 +237,10 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
             } else if (data.status === "failed") {
               setError(data.error || "Unknown error");
               setIsComplete(true);
-              console.log(`[JobStream] Job failed: ${data.error}`);
               es.close();
             } else if (data.status === "not_found") {
               setError("Job not found");
               setIsComplete(true);
-              console.log("[JobStream] Job not found");
               es.close();
             }
           } catch (parseError) {
@@ -293,7 +286,6 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
   }, [jobId]);
 
   const resetStream = () => {
-    console.log("[JobStream] Resetting job stream");
     setJobState(null);
     setIsConnected(false);
     setError(null);

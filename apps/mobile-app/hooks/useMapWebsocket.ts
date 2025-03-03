@@ -1,174 +1,356 @@
-import { useMarkerStore } from "@/stores/markerStore";
-import { useState, useEffect, useCallback, useRef } from "react";
+// hooks/useMapWebsocket.ts - Using refs for stability
+import { useEffect, useState, useRef, useCallback } from "react";
+import {
+  eventBroker,
+  EventTypes,
+  ViewportEvent,
+  MarkersEvent,
+  BaseEvent,
+} from "@/services/EventBroker";
+import { useLocationStore } from "@/stores/useLocationStore";
 
-interface ViewPort {
+// Mapbox viewport format
+interface MapboxViewport {
   north: number;
   south: number;
   east: number;
   west: number;
 }
 
-export function useMapWebSocket(wsUrl: string) {
-  const [ws, setWs] = useState<WebSocket | null>(null);
+// Server marker structure adjusted for Mapbox
+export interface Marker {
+  id: string;
+  coordinates: [number, number]; // [longitude, latitude]
+  data: {
+    title: string;
+    emoji: string;
+    color: string;
+    location?: string;
+    distance?: string;
+    time?: string;
+    description?: string;
+    categories?: string[];
+    isVerified?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    [key: string]: any;
+  };
+}
+
+interface MapWebSocketResult {
+  markers: Marker[];
+  isConnected: boolean;
+  error: Error | null;
+  currentViewport: MapboxViewport | null;
+  updateViewport: (viewport: MapboxViewport) => void;
+  clientId: string | null;
+}
+
+export const useMapWebSocket = (url: string): MapWebSocketResult => {
+  const [markers, setMarkers] = useState<Marker[]>([]);
+  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [currentViewport, setCurrentViewport] = useState<MapboxViewport | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  // Using ReturnType<typeof setTimeout> instead of NodeJS.Timeout for better compatibility
-  const heartbeatInterval = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastPongTime = useRef<number>(Date.now());
 
-  const { setMarkers, updateMarkers, deleteMarker } = useMarkerStore();
+  const setStoreMarkers = useLocationStore.getState().setMarkers;
 
-  // Function to establish WebSocket connection
-  const connectWebSocket = useCallback(() => {
-    // Clear any existing reconnect timeouts
-    if (reconnectTimeout.current) {
-      clearTimeout(reconnectTimeout.current);
-      reconnectTimeout.current = null;
-    }
+  const markersRef = useRef<Marker[]>(markers);
 
-    console.log("Establishing WebSocket connection to:", wsUrl);
-    const websocket = new WebSocket(wsUrl);
-
-    websocket.onopen = () => {
-      console.log("WebSocket connection established");
-      setIsConnected(true);
-      lastPongTime.current = Date.now();
-    };
-
-    websocket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-
-      switch (message.type) {
-        case "connection_established":
-          setClientId(message.clientId);
-          break;
-
-        case "marker_delete":
-          deleteMarker(message.data.id);
-          break;
-
-        case "initial_markers":
-          setMarkers(
-            message.data.map((marker: any) => ({
-              id: marker.id,
-              coordinates: [marker.minX, marker.minY],
-              data: marker.data,
-            }))
-          );
-          break;
-
-        case "marker_updates_batch":
-          const updates = message.data.map((update: any) => ({
-            id: update.id,
-            coordinates: [update.minX, update.minY],
-            data: update.data,
-          }));
-          updateMarkers(updates);
-          break;
-
-        case "pong":
-          // Update the last time we received a pong
-          lastPongTime.current = Date.now();
-          break;
-      }
-    };
-
-    websocket.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      setIsConnected(false);
-    };
-
-    websocket.onclose = (event) => {
-      console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
-      setIsConnected(false);
-      setWs(null);
-
-      // Schedule reconnection after a delay
-      reconnectTimeout.current = setTimeout(() => {
-        console.log("Attempting to reconnect WebSocket...");
-        connectWebSocket();
-      }, 3000); // 3 second reconnect delay
-    };
-
-    setWs(websocket);
-    return websocket;
-  }, [wsUrl, setMarkers, updateMarkers, deleteMarker]);
-
-  // Initialize WebSocket connection
+  // Update the ref whenever markers state changes.
   useEffect(() => {
-    const websocket = connectWebSocket();
+    markersRef.current = markers;
+  }, [markers]);
 
-    // Cleanup function
+  useEffect(() => {
+    // Update the global store whenever the local markers state changes
+    setStoreMarkers(markers);
+  }, [markers]);
+
+  // Store selected marker id from the marker store.
+  const selectedMarkerId = useLocationStore((state) => state.selectedMarkerId);
+  const selectMarker = useLocationStore((state) => state.selectMarker);
+
+  // Create refs for values that change frequently so they don't force reconnection.
+  const selectedMarkerIdRef = useRef<string | null>(selectedMarkerId);
+  const currentViewportRef = useRef<MapboxViewport | null>(currentViewport);
+
+  useEffect(() => {
+    selectedMarkerIdRef.current = selectedMarkerId;
+  }, [selectedMarkerId]);
+
+  useEffect(() => {
+    currentViewportRef.current = currentViewport;
+  }, [currentViewport]);
+
+  // WebSocket and reconnect refs
+  const ws = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Refs for throttling and batching marker updates.
+  const prevMarkerCount = useRef<number>(0);
+  const markerUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastViewportUpdateRef = useRef<number>(0);
+
+  // Throttling constants
+  const VIEWPORT_THROTTLE_MS = 0;
+
+  const emitMarkersUpdated = useCallback(
+    (updatedMarkers: Marker[]) => {
+      // Handle marker deselection if needed
+      if (selectedMarkerIdRef.current && updatedMarkers.length === 0) {
+        selectMarker(null);
+        eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
+          timestamp: Date.now(),
+          source: "useMapWebSocket",
+        });
+      } else if (selectedMarkerIdRef.current && updatedMarkers.length > 0) {
+        const selectedMarkerExists = updatedMarkers.some(
+          (marker) => marker.id === selectedMarkerIdRef.current
+        );
+        if (!selectedMarkerExists) {
+          selectMarker(null);
+          eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
+            timestamp: Date.now(),
+            source: "useMapWebSocket",
+          });
+        }
+      }
+
+      const wasShowingMarkers = prevMarkerCount.current > 0;
+      const isEmptyNow = updatedMarkers.length === 0;
+
+      const significantChange = Math.abs(updatedMarkers.length - prevMarkerCount.current) >= 2;
+      const isFirstResult = prevMarkerCount.current === 0 && updatedMarkers.length > 0;
+      const clearedAllMarkers = wasShowingMarkers && isEmptyNow;
+
+      if (significantChange || isFirstResult || clearedAllMarkers) {
+        eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
+          timestamp: Date.now(),
+          source: "useMapWebSocket",
+          markers: updatedMarkers,
+          count: updatedMarkers.length,
+        });
+        prevMarkerCount.current = updatedMarkers.length;
+      }
+    },
+    [selectMarker]
+  );
+
+  const batchMarkerUpdates = useCallback(
+    (updates: Marker[]) => {
+      setMarkers((prev) => [...prev, ...updates]);
+
+      // Only emit events for significant updates
+      if (updates.length > 0 || prevMarkerCount.current > 0) {
+        emitMarkersUpdated(updates);
+      }
+    },
+    [emitMarkersUpdated]
+  );
+
+  const convertRBushToMapbox = useCallback((rbushMarker: any): Marker => {
+    return {
+      id: rbushMarker.id,
+      coordinates: [rbushMarker.minX, rbushMarker.minY],
+      data: {
+        ...rbushMarker.data,
+        title: rbushMarker.data?.title || "Unnamed Event",
+        emoji: rbushMarker.data?.emoji || "📍",
+        color: rbushMarker.data?.color || "red",
+      },
+    };
+  }, []);
+
+  // Use a function that reads currentViewportRef so it does not change on every render.
+  const sendViewportUpdate = useCallback(() => {
+    if (ws.current?.readyState === WebSocket.OPEN && currentViewportRef.current) {
+      const now = Date.now();
+      if (now - lastViewportUpdateRef.current > VIEWPORT_THROTTLE_MS) {
+        const message = {
+          type: "viewport_update",
+          viewport: currentViewportRef.current,
+        };
+        ws.current.send(JSON.stringify(message));
+        lastViewportUpdateRef.current = now;
+        eventBroker.emit<ViewportEvent>(EventTypes.VIEWPORT_CHANGED, {
+          timestamp: now,
+          source: "useMapWebSocket",
+          viewport: currentViewportRef.current,
+          markers: markersRef.current,
+        });
+      }
+    }
+  }, []);
+
+  // Add a ref to track if initial markers have been received.
+
+  const updateViewport = useCallback((viewport: MapboxViewport) => {
+    setCurrentViewport(viewport);
+    currentViewportRef.current = viewport;
+
+    // First emit that the viewport is changing and we're starting to search
+    eventBroker.emit<ViewportEvent & { searching: boolean }>(EventTypes.VIEWPORT_CHANGED, {
+      timestamp: Date.now(),
+      source: "useMapWebSocket",
+      viewport: viewport,
+      markers: markersRef.current,
+      searching: true, // Explicitly indicate search is starting
+    });
+
+    // Send the viewport update to the server
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      const message = {
+        type: "viewport_update",
+        viewport: viewport,
+      };
+      ws.current.send(JSON.stringify(message));
+      lastViewportUpdateRef.current = Date.now();
+    }
+  }, []);
+
+  // Create a stable websocket connection.
+  const connectWebSocket = useCallback(() => {
+    try {
+      if (ws.current && ws.current.readyState === WebSocket.OPEN) return;
+      ws.current = new WebSocket(url);
+
+      ws.current.onopen = () => {
+        setIsConnected(true);
+        setError(null);
+        eventBroker.emit<BaseEvent>(EventTypes.WEBSOCKET_CONNECTED, {
+          timestamp: Date.now(),
+          source: "useMapWebSocket",
+        });
+        if (currentViewportRef.current) {
+          sendViewportUpdate();
+        }
+      };
+
+      ws.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          switch (data.type) {
+            case "connection_established":
+              setClientId(data.clientId);
+              break;
+
+            case "initial_markers": {
+              const initialMapboxMarkers = data.data.map((marker: any) =>
+                convertRBushToMapbox(marker)
+              );
+              setMarkers(initialMapboxMarkers);
+
+              // Always emit on initial marker load, regardless of count
+              // This ensures proper state handling for both empty and populated areas
+              emitMarkersUpdated(initialMapboxMarkers);
+              break;
+            }
+
+            case "marker_updates_batch": {
+              const mapboxUpdates = data.data.map((marker: any) => convertRBushToMapbox(marker));
+              batchMarkerUpdates(mapboxUpdates);
+              break;
+            }
+
+            case "marker_delete": {
+              if (data.data.id === selectedMarkerIdRef.current) {
+                selectMarker(null);
+                eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
+                  timestamp: Date.now(),
+                  source: "useMapWebSocket",
+                });
+              }
+              setMarkers((prevMarkers) => {
+                const updatedMarkers = prevMarkers.filter((marker) => marker.id !== data.data.id);
+                emitMarkersUpdated(updatedMarkers);
+                return updatedMarkers;
+              });
+              break;
+            }
+
+            default: {
+              // Fallback if server sends an array of markers
+              if (Array.isArray(data)) {
+                const mapboxMarkers = data.map((marker: any) => convertRBushToMapbox(marker));
+                setMarkers(mapboxMarkers);
+                emitMarkersUpdated(mapboxMarkers);
+              }
+              break;
+            }
+          }
+        } catch (err) {
+          console.error("Error parsing WebSocket message:", err);
+          const errorObj =
+            err instanceof Error ? err : new Error("Unknown error parsing WebSocket message");
+          setError(errorObj);
+          eventBroker.emit<BaseEvent & { error: Error }>(EventTypes.ERROR_OCCURRED, {
+            timestamp: Date.now(),
+            source: "useMapWebSocket",
+            error: errorObj,
+          });
+        }
+      };
+      ws.current.onclose = (event) => {
+        setIsConnected(false);
+        setClientId(null);
+        eventBroker.emit<BaseEvent>(EventTypes.WEBSOCKET_DISCONNECTED, {
+          timestamp: Date.now(),
+          source: "useMapWebSocket",
+        });
+        if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connectWebSocket();
+        }, 5000); // Reconnect every 5 seconds
+      };
+
+      ws.current.onerror = (event) => {
+        console.error("WebSocket error:", event);
+        const errorObj = new Error("WebSocket connection error");
+        setError(errorObj);
+        eventBroker.emit<BaseEvent & { error: Error }>(EventTypes.ERROR_OCCURRED, {
+          timestamp: Date.now(),
+          source: "useMapWebSocket",
+          error: errorObj,
+        });
+      };
+    } catch (err) {
+      console.error("Error creating WebSocket connection:", err);
+      const errorObj =
+        err instanceof Error ? err : new Error("Unknown error creating WebSocket connection");
+      setError(errorObj);
+      eventBroker.emit<BaseEvent & { error: Error }>(EventTypes.ERROR_OCCURRED, {
+        timestamp: Date.now(),
+        source: "useMapWebSocket",
+        error: errorObj,
+      });
+    }
+  }, [
+    url,
+    batchMarkerUpdates,
+    convertRBushToMapbox,
+    emitMarkersUpdated,
+    selectMarker,
+    sendViewportUpdate,
+  ]);
+
+  // Connect on mount and clean up on unmount.
+  useEffect(() => {
+    connectWebSocket();
     return () => {
-      if (heartbeatInterval.current) {
-        clearInterval(heartbeatInterval.current);
-      }
-
-      if (reconnectTimeout.current) {
-        clearTimeout(reconnectTimeout.current);
-      }
-
-      if (
-        websocket.readyState === WebSocket.OPEN ||
-        websocket.readyState === WebSocket.CONNECTING
-      ) {
-        websocket.close();
-      }
+      if (ws.current) ws.current.close();
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (markerUpdateTimeoutRef.current) clearTimeout(markerUpdateTimeoutRef.current);
     };
   }, [connectWebSocket]);
 
-  // Setup heartbeat mechanism
-  useEffect(() => {
-    if (!ws) return;
-
-    // Send ping every 30 seconds
-    heartbeatInterval.current = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        // Send a ping message
-        ws.send(JSON.stringify({ type: "ping" }));
-
-        // Check if we've received a pong within the last 45 seconds
-        const now = Date.now();
-        if (now - lastPongTime.current > 45000) {
-          console.log("No pong received for 45 seconds, reconnecting...");
-
-          // Close the current connection
-          ws.close();
-
-          // connectWebSocket will be called by the onclose handler
-        }
-      }
-    }, 30000); // 30 second interval
-
-    return () => {
-      if (heartbeatInterval.current) {
-        clearInterval(heartbeatInterval.current);
-      }
-    };
-  }, [ws, connectWebSocket]);
-
-  // Function to update viewport
-  const updateViewport = useCallback(
-    (viewport: ViewPort) => {
-      if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(
-          JSON.stringify({
-            type: "viewport_update",
-            viewport,
-          })
-        );
-      }
-    },
-    [ws]
-  );
-
-  const markers = useMarkerStore((state) => state.markers);
-
   return {
     markers,
-    clientId,
-    updateViewport,
     isConnected,
+    error,
+    currentViewport,
+    updateViewport,
+    clientId,
   };
-}
+};
