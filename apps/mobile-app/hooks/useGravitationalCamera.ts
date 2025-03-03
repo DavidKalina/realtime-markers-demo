@@ -32,6 +32,10 @@ interface GravitationConfig {
   velocityMeasurementWindow: number;
   // How many viewport samples to keep for velocity calculation
   velocitySampleSize: number;
+  // Max zoom out adjustment for widely spread markers
+  maxZoomOutAdjustment: number;
+  // Max zoom in adjustment for closely clustered markers
+  maxZoomInAdjustment: number;
 }
 
 interface ViewportSample {
@@ -58,6 +62,8 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     highVelocityThreshold: 0.001, // Degrees/ms (approx 100m/s at the equator)
     velocityMeasurementWindow: 300, // Look at pan movements in the last 300ms
     velocitySampleSize: 5, // Keep 5 recent viewport positions for velocity calculation
+    maxZoomOutAdjustment: 2, // Maximum amount to zoom out for spread out markers
+    maxZoomInAdjustment: 1, // Maximum amount to zoom in for clustered markers
     ...config,
   };
 
@@ -147,7 +153,8 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     });
   }, [markers]);
 
-  // Calculate the marker centroid (simply the center of all visible markers)
+  // MODIFIED: Calculate the target marker to gravitate toward
+  // Now prioritizes the nearest marker to the viewport center
   const calculateMarkersCentroid = useCallback(() => {
     const visibleMarkers = findVisibleMarkers();
     visibleMarkersRef.current = visibleMarkers;
@@ -156,19 +163,106 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       return null;
     }
 
-    // Calculate pure centroid (average position of all markers)
-    const centroid: [number, number] = visibleMarkers.reduce(
-      (acc, marker) => {
-        return [acc[0] + marker.coordinates[0], acc[1] + marker.coordinates[1]];
-      },
-      [0, 0]
-    );
+    // If there's only one marker, return its coordinates
+    if (visibleMarkers.length === 1) {
+      return visibleMarkers[0].coordinates;
+    }
 
-    centroid[0] /= visibleMarkers.length;
-    centroid[1] /= visibleMarkers.length;
+    // Get current viewport center
+    const viewportCenter = getViewportCenter();
+    if (!viewportCenter) {
+      // Fallback to regular centroid if we can't get viewport center
+      const centroid: [number, number] = visibleMarkers.reduce(
+        (acc, marker) => {
+          return [acc[0] + marker.coordinates[0], acc[1] + marker.coordinates[1]];
+        },
+        [0, 0]
+      );
+      centroid[0] /= visibleMarkers.length;
+      centroid[1] /= visibleMarkers.length;
+      return centroid;
+    }
 
-    return centroid;
-  }, [findVisibleMarkers, gravitationConfig.minMarkersForPull]);
+    // Find the nearest marker to the current viewport center
+    let nearestMarker = visibleMarkers[0];
+    let minDistance = Infinity;
+
+    visibleMarkers.forEach((marker) => {
+      const [lng, lat] = marker.coordinates;
+      const distance = Math.sqrt(
+        Math.pow(viewportCenter.longitude - lng, 2) + Math.pow(viewportCenter.latitude - lat, 2)
+      );
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestMarker = marker;
+      }
+    });
+
+    // Return the coordinates of the nearest marker
+    return nearestMarker.coordinates;
+  }, [findVisibleMarkers, getViewportCenter, gravitationConfig.minMarkersForPull]);
+
+  // NEW: Determine appropriate zoom level based on marker distribution
+  const determineZoomLevel = useCallback(
+    (targetCoordinates: [number, number]) => {
+      const visibleMarkers = visibleMarkersRef.current;
+
+      // Default zoom level from config
+      let zoomLevel = gravitationConfig.gravityZoomLevel;
+
+      // If there's only one marker, use the standard zoom level
+      if (visibleMarkers.length <= 1) {
+        return zoomLevel;
+      }
+
+      // Calculate the maximum distance between the target marker and any other marker
+      const maxDistance = visibleMarkers.reduce((maxDist, marker) => {
+        if (
+          marker.coordinates[0] === targetCoordinates[0] &&
+          marker.coordinates[1] === targetCoordinates[1]
+        ) {
+          return maxDist; // Skip the target marker itself
+        }
+
+        const distance = Math.sqrt(
+          Math.pow(targetCoordinates[0] - marker.coordinates[0], 2) +
+            Math.pow(targetCoordinates[1] - marker.coordinates[1], 2)
+        );
+
+        return Math.max(maxDist, distance);
+      }, 0);
+
+      // Adjust zoom level based on maximum distance
+      // These thresholds would need tuning based on your specific map usage
+      if (maxDistance > 0.05) {
+        // Markers are very spread out (approx 5km)
+        zoomLevel = Math.max(
+          gravitationConfig.gravityZoomLevel - gravitationConfig.maxZoomOutAdjustment,
+          10 // Don't zoom out too far
+        );
+      } else if (maxDistance > 0.02) {
+        // Spread out markers (approx 2km)
+        zoomLevel = Math.max(
+          gravitationConfig.gravityZoomLevel - gravitationConfig.maxZoomOutAdjustment / 2,
+          12 // Moderate zoom out
+        );
+      } else if (maxDistance < 0.001) {
+        // Very close markers (approx 100m)
+        zoomLevel = Math.min(
+          gravitationConfig.gravityZoomLevel + gravitationConfig.maxZoomInAdjustment,
+          16 // Don't zoom in too far
+        );
+      }
+
+      return zoomLevel;
+    },
+    [
+      gravitationConfig.gravityZoomLevel,
+      gravitationConfig.maxZoomOutAdjustment,
+      gravitationConfig.maxZoomInAdjustment,
+    ]
+  );
 
   // Check if we need to center the camera on the markers
   const needsCentering = useCallback(
@@ -212,7 +306,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     }, 100);
   }, []);
 
-  // Apply the gravitational pull if conditions are met
+  // MODIFIED: Apply the gravitational pull with nearest marker and dynamic zoom
   const applyGravitationalPull = useCallback(() => {
     // Skip if gravity is disabled or already pulling or in cooldown period
     const now = Date.now();
@@ -243,12 +337,20 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     const isHighVelocityPan = velocity >= gravitationConfig.highVelocityThreshold;
     setIsHighVelocity(isHighVelocityPan);
 
-    // Calculate the center of visible markers
+    // Calculate the nearest marker as our target
     const centroid = calculateMarkersCentroid();
     if (!centroid) return;
 
     // Check if we need to center (avoid small adjustments if already centered)
     if (!needsCentering(centroid)) return;
+
+    // Determine appropriate zoom level based on marker distribution
+    const baseZoomLevel = isHighVelocityPan
+      ? gravitationConfig.highVelocityZoomLevel
+      : gravitationConfig.gravityZoomLevel;
+
+    // Use our dynamic zoom calculation, passing the base level
+    const zoomLevel = determineZoomLevel(centroid);
 
     // We have a valid centering target, apply the pull
     // Only set isGravitating once to prevent overlay flashing
@@ -262,10 +364,6 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     const animationDuration = isHighVelocityPan
       ? gravitationConfig.highVelocityAnimationDuration
       : gravitationConfig.animationDuration;
-
-    const zoomLevel = isHighVelocityPan
-      ? gravitationConfig.highVelocityZoomLevel
-      : gravitationConfig.gravityZoomLevel;
 
     // Publish event about gravitational pull
     publish<BaseEvent & { target: [number, number]; isHighVelocity: boolean }>(
@@ -282,7 +380,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     if (cameraRef.current) {
       cameraRef.current.setCamera({
         centerCoordinate: centroid,
-        zoomLevel: zoomLevel,
+        zoomLevel: zoomLevel, // Using our dynamically calculated zoom
         animationDuration: animationDuration,
         animationMode: "easeTo",
       });
@@ -309,6 +407,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     calculateMarkersCentroid,
     calculatePanningVelocity,
     needsCentering,
+    determineZoomLevel,
     gravitationConfig,
     publish,
   ]);
