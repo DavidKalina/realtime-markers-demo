@@ -11,16 +11,22 @@ import Animated, {
   FadeIn,
 } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
-import { styles } from "../globalStyles";
+import { ScannerAnimation } from "@/components/ScannerAnimation";
 
 interface ScannerOverlayProps {
   guideText?: string;
   detectionStatus?: "none" | "detecting" | "aligned";
+  isCapturing?: boolean;
   onFrameReady?: () => void;
 }
 
 export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
-  const { guideText = "Position your document", detectionStatus = "none", onFrameReady } = props;
+  const {
+    guideText = "Position your document",
+    detectionStatus = "none",
+    isCapturing = false,
+    onFrameReady,
+  } = props;
 
   // Animated values
   const borderWidth = useSharedValue(2);
@@ -31,9 +37,20 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
   // Simple state
   const [message, setMessage] = useState(guideText);
   const [icon, setIcon] = useState<string | null>(null);
+  const [scanColor, setScanColor] = useState("#4dabf7");
 
   // Update message and icon based on status
   useEffect(() => {
+    if (isCapturing) {
+      setMessage("Capturing document...");
+      setIcon("camera");
+      colorAnimation.value = withTiming(1, { duration: 300 });
+      cornerOpacity.value = withTiming(0.9, { duration: 300 });
+      scaleAnimation.value = withTiming(1.05, { duration: 300 });
+      setScanColor("#37D05C");
+      return;
+    }
+
     switch (detectionStatus) {
       case "none":
         setMessage(guideText);
@@ -41,6 +58,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
         colorAnimation.value = withTiming(0, { duration: 300 });
         cornerOpacity.value = withTiming(0.4, { duration: 300 });
         scaleAnimation.value = withTiming(1, { duration: 300 });
+        setScanColor("#4dabf7");
         break;
       case "detecting":
         setMessage("Almost there...");
@@ -48,9 +66,10 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
         colorAnimation.value = withTiming(0.5, { duration: 300 });
         cornerOpacity.value = withTiming(0.6, { duration: 300 });
         scaleAnimation.value = withTiming(1.02, { duration: 300 });
+        setScanColor("#4dabf7");
         break;
       case "aligned":
-        setMessage("Perfect!");
+        setMessage("Ready to capture!");
         setIcon("check-circle");
         colorAnimation.value = withTiming(1, { duration: 300 });
         cornerOpacity.value = withTiming(0.8, { duration: 300 });
@@ -64,9 +83,10 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
           3,
           true
         );
+        setScanColor("#37D05C");
         break;
     }
-  }, [detectionStatus, guideText]);
+  }, [detectionStatus, guideText, isCapturing]);
 
   // Animate border width
   useEffect(() => {
@@ -83,7 +103,8 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
   // Handle callback
   useEffect(() => {
     if (detectionStatus === "aligned" && onFrameReady) {
-      const timer = setTimeout(onFrameReady, 500);
+      // Reduced the delay from 500ms to 300ms
+      const timer = setTimeout(onFrameReady, 300);
       return () => clearTimeout(timer);
     }
   }, [detectionStatus, onFrameReady]);
@@ -109,12 +130,22 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
     };
   });
 
+  // Show scanning animation when in detecting, aligned, or capturing modes
+  const showScanning = detectionStatus !== "none" || isCapturing;
+
   return (
     <View style={overlayStyles.overlay}>
       {/* Frame container */}
       <View style={overlayStyles.frameContainer}>
         {/* Animated frame */}
         <Animated.View style={[overlayStyles.frame, frameStyle]}>
+          {/* Scanner animation component */}
+          <ScannerAnimation
+            isActive={showScanning}
+            color={scanColor}
+            speed={isCapturing ? 1000 : 1500}
+          />
+
           {/* Corners for additional visual guidance */}
           <Animated.View style={[overlayStyles.corner, overlayStyles.topLeft, cornerStyle]} />
           <Animated.View style={[overlayStyles.corner, overlayStyles.topRight, cornerStyle]} />
@@ -123,20 +154,20 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
         </Animated.View>
       </View>
 
-      {/* Message container with icon - updated to match app styles */}
+      {/* Message container with icon */}
       <Animated.View style={overlayStyles.messageContainer} entering={FadeIn.duration(400)}>
         {icon && (
           <Feather
             name={icon as any}
             size={18}
             color={
-              detectionStatus === "aligned"
+              detectionStatus === "aligned" || isCapturing
                 ? "#37D05C"
                 : detectionStatus === "detecting"
                 ? "#4dabf7"
                 : "#f8f9fa"
             }
-            style={styles.icon}
+            style={{ marginRight: 8 }}
           />
         )}
         <Text style={overlayStyles.message}>{message}</Text>
@@ -166,12 +197,13 @@ const overlayStyles = StyleSheet.create({
     width: "100%",
     height: "100%",
     position: "relative",
-    borderRadius: 12, // Updated to match app's rounded corners (16px in cards, 12px in details)
-    backgroundColor: "rgba(51, 51, 51, 0.1)", // Slight background tint that matches #333
+    borderRadius: 12,
+    backgroundColor: "rgba(51, 51, 51, 0.1)",
+    overflow: "hidden", // Important for the scanner animation
   },
   corner: {
     position: "absolute",
-    width: 24, // Slightly larger for better visibility
+    width: 24,
     height: 24,
     borderColor: "#f8f9fa",
   },
@@ -206,23 +238,26 @@ const overlayStyles = StyleSheet.create({
   messageContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#333", // Matches the card background color in the app
+    backgroundColor: "#333",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 12, // Match app's border radius
+    borderRadius: 12,
     marginTop: 24,
     borderWidth: 1,
-    borderColor: "#3a3a3a", // Subtle border like in other components
+    borderColor: "#3a3a3a",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
   },
+  icon: {
+    marginRight: 8,
+  },
   message: {
     color: "#f8f9fa",
     fontSize: 15,
-    fontFamily: "SpaceMono", // Using your app's font
+    fontFamily: "SpaceMono",
     fontWeight: "500",
   },
 });

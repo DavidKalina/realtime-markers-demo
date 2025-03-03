@@ -65,12 +65,12 @@ export default function ScanScreen() {
       if (!isCameraActive || !isCameraReady) {
         setIsCameraInitializing(true);
 
-        // Add a backup timer to exit initialization state
+        // Reduced backup timer from 6s to a more reasonable 3s
         const backupTimer = setTimeout(() => {
           if (hasPermission === true) {
             setIsCameraInitializing(false);
           }
-        }, 6000); // 6 second backup
+        }, 3000); // 3 second backup (reduced from 6s)
 
         return () => clearTimeout(backupTimer);
       }
@@ -82,14 +82,13 @@ export default function ScanScreen() {
     }, [isCameraActive, isCameraReady, hasPermission, clearDetectionInterval])
   );
 
-  // Safety timer
+  // Safety timer - reduced from 10s to 5s
   useEffect(() => {
-    // This is a fallback safety mechanism to ensure we don't get stuck
     const masterSafetyTimer = setTimeout(() => {
       if (isCameraInitializing && hasPermission === true) {
         setIsCameraInitializing(false);
       }
-    }, 10000); // 10 second master safety timeout
+    }, 5000); // 5 second master safety timeout (reduced from 10s)
 
     return () => clearTimeout(masterSafetyTimer);
   }, [isCameraInitializing, hasPermission]);
@@ -103,24 +102,27 @@ export default function ScanScreen() {
       // If permission is explicitly denied, we should not show loading
       setIsCameraInitializing(false);
     } else if (hasPermission === true && !isCameraReady && isCameraActive) {
-      // Permission is granted, camera is active but not ready yet
-      // Set a safety timeout to avoid being stuck in initializing state
+      // Safety timeout reduced from 5s to 3s
       const safetyTimer = setTimeout(() => {
         setIsCameraInitializing(false);
-      }, 5000); // 5 second safety timeout
+      }, 3000); // 3 second safety timeout (reduced from 5s)
 
       return () => clearTimeout(safetyTimer);
     }
   }, [hasPermission, isCameraReady, isCameraActive]);
 
-  // Document detection simulation
+  // Document detection logic - improved to be more responsive and less random
   const startDocumentDetection = useCallback(() => {
     // Clear any existing interval first
     clearDetectionInterval();
 
     if (!isCameraActive || !isCameraReady) return;
 
-    // Simulate varying detection confidence
+    // Counter for detection stability
+    let counter = 0;
+    let lastStatus: DetectionStatus = "none";
+
+    // Reduced interval from 800ms to 400ms for more responsiveness
     const interval = setInterval(() => {
       // Only process if component is still mounted and camera is active
       if (!isCameraActive || !isCameraReady) {
@@ -128,20 +130,47 @@ export default function ScanScreen() {
         return;
       }
 
+      // Use a more controlled progression instead of random values
       const random = Math.random();
 
-      // Provide guidance based on simulated detection
-      if (random < 0.3) {
-        setDetectionStatus("none");
+      if (counter < 3) {
+        // Initial state - start with "none" then move to "detecting"
+        if (counter === 0) {
+          setDetectionStatus("none");
+          lastStatus = "none";
+        } else {
+          setDetectionStatus("detecting");
+          lastStatus = "detecting";
+        }
         setIsFrameReady(false);
-      } else if (random < 0.7) {
-        setDetectionStatus("detecting");
-        setIsFrameReady(false);
+      } else if (counter < 7) {
+        // Once we've spent a few cycles detecting, oscillate between detecting and aligned
+        // to simulate the process of finding the right position
+        if (random > 0.4) {
+          setDetectionStatus("aligned");
+          lastStatus = "aligned";
+          setIsFrameReady(true);
+        } else {
+          setDetectionStatus("detecting");
+          lastStatus = "detecting";
+          setIsFrameReady(false);
+        }
       } else {
-        setDetectionStatus("aligned");
-        setIsFrameReady(true);
+        // After a few more cycles, stabilize to "aligned" most of the time
+        if (random > 0.2) {
+          setDetectionStatus("aligned");
+          lastStatus = "aligned";
+          setIsFrameReady(true);
+        } else {
+          // Occasionally go back to detecting to simulate minor adjustments
+          setDetectionStatus("detecting");
+          lastStatus = "detecting";
+          setIsFrameReady(false);
+        }
       }
-    }, 800); // Update every 800ms
+
+      counter++;
+    }, 400); // Update every 400ms (reduced from 800ms)
 
     detectionIntervalRef.current = interval;
   }, [isCameraActive, isCameraReady, clearDetectionInterval]);
@@ -168,17 +197,13 @@ export default function ScanScreen() {
   ]);
 
   useEffect(() => {
-    // The cleanup function
     return () => {
-      // Make sure to cancel any ongoing operations when unmounting
       clearDetectionInterval();
-
-      // Just call releaseCamera directly instead of using a timeout with nested cleanup
       releaseCamera();
     };
   }, [clearDetectionInterval, releaseCamera]);
 
-  // Handle job queuing and navigation in one place to avoid race conditions
+  // Handle job queuing and navigation - reduced delay from 300ms to 200ms
   const queueJobAndNavigate = useCallback(
     (jobId: string) => {
       if (!jobId) return;
@@ -197,10 +222,10 @@ export default function ScanScreen() {
       // Clean up before navigation
       clearDetectionInterval();
 
-      // Delay navigation slightly to allow state to settle
+      // Reduced delay from 300ms to 200ms
       setTimeout(() => {
         router.replace("/");
-      }, 300);
+      }, 200);
     },
     [addJob, publish, clearDetectionInterval, router]
   );
@@ -302,19 +327,15 @@ export default function ScanScreen() {
     }
   };
 
-  const handleFrameReady = () => {
-    // Optional: auto-capture when frame is well-aligned
-  };
-
   const handleBack = () => {
     // Ensure we clean up resources before navigating away
     clearDetectionInterval();
 
-    // Small delay before navigation
+    // Small delay before navigation - reduced from 100ms to 50ms
     setTimeout(() => {
       releaseCamera();
       router.replace("/");
-    }, 100);
+    }, 50);
   };
 
   // Don't render camera if we're not on this screen
@@ -360,18 +381,13 @@ export default function ScanScreen() {
       <View style={styles.flexContainer}>
         <Animated.View style={styles.cameraContainer} entering={FadeIn.duration(800)}>
           <CameraView ref={cameraRef} style={styles.camera} onCameraReady={onCameraReady}>
-            <ScannerOverlay detectionStatus={detectionStatus} onFrameReady={handleFrameReady} />
+            <ScannerOverlay
+              detectionStatus={detectionStatus}
+              isCapturing={isCapturing || isUploading}
+            />
           </CameraView>
 
-          {/* Separate overlay view to avoid conflicts with CameraView */}
-          {isUploading && (
-            <View style={styles.uploadingOverlay}>
-              <View style={styles.uploadingIndicator}>
-                <Feather name="upload-cloud" size={24} color="#fff" />
-              </View>
-              <Text style={styles.uploadingText}>Capturing...</Text>
-            </View>
-          )}
+          {/* We can remove this separate overlay since we've integrated it into the ScannerOverlay component */}
         </Animated.View>
       </View>
 
@@ -470,27 +486,6 @@ const styles = StyleSheet.create({
   },
   camera: {
     flex: 1,
-  },
-  uploadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10,
-  },
-  uploadingIndicator: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: "rgba(77, 171, 247, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  uploadingText: {
-    color: "#fff",
-    marginTop: 16,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
   },
   buttonContainer: {
     height: 150,
