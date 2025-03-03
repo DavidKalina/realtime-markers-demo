@@ -2,7 +2,7 @@
 import React from "react";
 import MapboxGL from "@rnmapbox/maps";
 import { useLocationStore } from "@/stores/useLocationStore";
-import { CustomMapMarker } from "./CustomMapMarker";
+import { MysteryBoxMarker } from "./CustomMapMarker";
 
 interface SimpleMapMarkersProps {
   // Optional markers prop - if not provided, will use markers from the store
@@ -60,7 +60,7 @@ export const SimpleMapMarkers: React.FC<SimpleMapMarkersProps> = ({ markers: pro
             coordinate={marker.coordinates}
             anchor={{ x: 0.5, y: 1.0 }}
           >
-            <CustomMapMarker
+            <MysteryBoxMarker
               event={{
                 title: marker.data.title || "Unnamed Event",
                 emoji: marker.data.emoji || "📍",
