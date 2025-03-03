@@ -1,4 +1,4 @@
-// hooks/useTextStreamingStore.ts - Complete rewrite with robust cancellation
+// hooks/useTextStreamingStore.ts - With fixes for stability
 import { create } from "zustand";
 import * as Haptics from "expo-haptics";
 
@@ -19,11 +19,11 @@ interface TextStreamingState {
   lastStreamedText: string;
   streamCount: number;
 
-  // New fields for more robust control
+  // Control fields
   streamingVersion: number;
   abortController: AbortController | null;
 
-  // Enhanced API methods
+  // API methods
   simulateTextStreaming: (text: string) => Promise<void>;
   setCurrentEmoji: (emoji: string) => void;
   resetText: () => void;
@@ -37,17 +37,15 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
   lastStreamedText: "",
   streamCount: 0,
 
-  // New fields
   streamingVersion: 0,
   abortController: null,
 
   setCurrentEmoji: (emoji: string) => set({ currentEmoji: emoji }),
 
-  // Enhanced cancelation that returns a Promise
   cancelCurrentStreaming: async () => {
     const { abortController } = get();
 
-    // Signal abortion
+    // Signal abortion if controller exists
     if (abortController) {
       abortController.abort();
     }
@@ -55,17 +53,27 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
     // Increment version to prevent old streams from continuing
     const newVersion = get().streamingVersion + 1;
 
-    // Reset state and clear text immediately
-    set({
+    // Reset state immediately - create a new state object to ensure update
+    set((state) => ({
+      ...state, // Keep other state
       abortController: null,
       isTyping: false,
-      currentStreamedText: "",
       streamingVersion: newVersion,
-    });
+      // Don't clear text here to prevent flicker
+    }));
 
     // Small delay to ensure cancellation is processed
     return new Promise<void>((resolve) => {
-      setTimeout(resolve, 50);
+      setTimeout(() => {
+        // Only now clear the text if this is still the current version
+        if (get().streamingVersion === newVersion) {
+          set((state) => ({
+            ...state,
+            currentStreamedText: "",
+          }));
+        }
+        resolve();
+      }, 50);
     });
   },
 
@@ -82,21 +90,26 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
     const abortController = new AbortController();
     const currentVersion = get().streamingVersion;
 
-    // Set up initial state for new streaming session
-    set({
+    // Set up initial state for new streaming session - use functional update
+    set((state) => ({
+      ...state,
       isTyping: true,
       currentStreamedText: "", // Start with empty string
       lastStreamedText: text,
-      streamCount: get().streamCount + 1,
+      streamCount: state.streamCount + 1,
       abortController,
-    });
+    }));
 
     // Provide haptic feedback to indicate message is coming
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (e) {
+      // Ignore haptic errors
+    }
 
     let currentText = "";
     let lastRenderTime = Date.now();
-    const minRenderInterval = 16; // ~60fps, prevents too frequent renders
+    const minRenderInterval = 16; // ~60fps
 
     try {
       // Adaptive typing speed based on message characteristics
@@ -140,8 +153,12 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
         // Trigger haptic feedback with rate limiting for longer text only
         const now = Date.now();
         if (text.length > 50 && now - lastHapticTime >= hapticInterval && i % 15 === 0) {
-          Haptics.selectionAsync();
-          lastHapticTime = now;
+          try {
+            await Haptics.selectionAsync();
+            lastHapticTime = now;
+          } catch (e) {
+            // Ignore haptic errors
+          }
         }
 
         // Only update state at controlled intervals to prevent flickering
@@ -152,7 +169,12 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
           }
 
           // Important: Create a completely new string to ensure React detects the state change
-          set({ currentStreamedText: String(currentText) });
+          // Use functional update to avoid stale closures
+          set((state) => ({
+            ...state,
+            currentStreamedText: String(currentText),
+          }));
+
           buffer = "";
           lastRenderTime = now;
         }
@@ -183,7 +205,11 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
 
       // Final haptic to signal completion
       if (text.length > 10) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        try {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        } catch (e) {
+          // Ignore haptic errors
+        }
       }
     } catch (error) {
       // Handle abortion gracefully
@@ -198,20 +224,18 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
     } finally {
       // Check if this session is still the current version
       if (get().streamingVersion === currentVersion) {
-        // Final state update
-        set({
+        // Final state update - use functional update
+        set((state) => ({
+          ...state,
           isTyping: false,
           abortController: null,
-        });
+        }));
       }
     }
   },
 
   resetText: () => {
-    // Cancel any ongoing streaming first
-    const { cancelCurrentStreaming } = get();
-    cancelCurrentStreaming().then(() => {
-      // Additional reset logic if needed
-    });
+    // Don't wait for the promise here - just trigger the cancellation
+    get().cancelCurrentStreaming();
   },
 }));
