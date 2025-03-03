@@ -151,52 +151,85 @@ const ShareEvent: React.FC<ShareEventProps> = ({
 
         if (status === "granted") {
           setHasPermission(true);
-          const { data } = await Contacts.getContactsAsync({
-            fields: [Contacts.Fields.Emails, Contacts.Fields.PhoneNumbers, Contacts.Fields.Name],
-          });
 
-          if (data.length > 0) {
+          // Add error handling around the contacts fetch
+          try {
+            const { data } = await Contacts.getContactsAsync({
+              fields: [Contacts.Fields.Emails, Contacts.Fields.PhoneNumbers, Contacts.Fields.Name],
+            });
+
+            // Better error handling for empty data
+            if (!data || data.length === 0) {
+              setContacts([]);
+              setFilteredContacts([]);
+              setError("No contacts found on this device");
+              setLoading(false);
+              return;
+            }
+
             // Safe mapping function for contacts that ensures valid IDs
             const processedContacts: Contact[] = [];
 
             for (const contact of data) {
-              // Skip contacts without an ID
+              // Skip contacts without an ID or name
               if (!contact.id) continue;
 
-              const phoneNumber =
-                contact.phoneNumbers && contact.phoneNumbers.length > 0
-                  ? contact.phoneNumbers[0].number
-                  : undefined;
+              // Safely access phoneNumber - add defensive coding
+              let phoneNumber: string | undefined = undefined;
+              if (
+                contact.phoneNumbers &&
+                Array.isArray(contact.phoneNumbers) &&
+                contact.phoneNumbers.length > 0 &&
+                contact.phoneNumbers[0]?.number
+              ) {
+                phoneNumber = contact.phoneNumbers[0].number;
+              }
 
-              const email =
-                contact.emails && contact.emails.length > 0 ? contact.emails[0].email : undefined;
+              // Safely access email - add defensive coding
+              let email: string | undefined = undefined;
+              if (
+                contact.emails &&
+                Array.isArray(contact.emails) &&
+                contact.emails.length > 0 &&
+                contact.emails[0]?.email
+              ) {
+                email = contact.emails[0].email;
+              }
 
-              // Skip contacts without any contact method
-              if (!phoneNumber && !email) continue;
-
-              processedContacts.push({
-                id: contact.id,
-                name: contact.name || "Unknown",
-                phoneNumber,
-                email,
-                selected: false,
-              });
+              // Only include contacts with at least one contact method
+              if (phoneNumber || email) {
+                processedContacts.push({
+                  id: contact.id,
+                  name: contact.name || "Unknown",
+                  phoneNumber,
+                  email,
+                  selected: false,
+                });
+              }
             }
 
             setContacts(processedContacts);
             setFilteredContacts(processedContacts);
-          } else {
-            setError("No contacts found on this device");
+          } catch (contactsError) {
+            console.error("Error processing contacts:", contactsError);
+            setError(
+              `Failed to process contacts: ${
+                contactsError instanceof Error ? contactsError.message : "Unknown error"
+              }`
+            );
           }
         } else {
           setHasPermission(false);
           setError("Permission to access contacts was denied");
         }
-      } catch (err) {
+      } catch (permissionErr) {
+        console.error("Permission error:", permissionErr);
         setError(
-          `Failed to load contacts: ${err instanceof Error ? err.message : "Unknown error"}`
+          `Failed to request contacts permission: ${
+            permissionErr instanceof Error ? permissionErr.message : "Unknown error"
+          }`
         );
-        console.error("Error fetching contacts:", err);
+        setHasPermission(false);
       } finally {
         setLoading(false);
       }
