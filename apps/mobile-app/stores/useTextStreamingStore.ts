@@ -1,6 +1,16 @@
-// hooks/useTextStreamingStore.ts - Enhanced for smoother transitions
+// hooks/useTextStreamingStore.ts - Complete rewrite with robust cancellation
 import { create } from "zustand";
 import * as Haptics from "expo-haptics";
+
+// Custom AbortError class since DOMException isn't available in React Native
+class AbortError extends Error {
+  name: string;
+
+  constructor(message = "The operation was aborted") {
+    super(message);
+    this.name = "AbortError";
+  }
+}
 
 interface TextStreamingState {
   currentStreamedText: string;
@@ -8,11 +18,16 @@ interface TextStreamingState {
   currentEmoji: string;
   lastStreamedText: string;
   streamCount: number;
-  cancelationRequested: boolean;
+
+  // New fields for more robust control
+  streamingVersion: number;
+  abortController: AbortController | null;
+
+  // Enhanced API methods
   simulateTextStreaming: (text: string) => Promise<void>;
   setCurrentEmoji: (emoji: string) => void;
   resetText: () => void;
-  cancelCurrentStreaming: () => void;
+  cancelCurrentStreaming: () => Promise<void>;
 }
 
 export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
@@ -21,59 +36,59 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
   isTyping: false,
   lastStreamedText: "",
   streamCount: 0,
-  cancelationRequested: false,
+
+  // New fields
+  streamingVersion: 0,
+  abortController: null,
 
   setCurrentEmoji: (emoji: string) => set({ currentEmoji: emoji }),
 
-  cancelCurrentStreaming: () => {
+  // Enhanced cancelation that returns a Promise
+  cancelCurrentStreaming: async () => {
+    const { abortController } = get();
+
+    // Signal abortion
+    if (abortController) {
+      abortController.abort();
+    }
+
+    // Increment version to prevent old streams from continuing
+    const newVersion = get().streamingVersion + 1;
+
+    // Reset state and clear text immediately
     set({
-      cancelationRequested: true,
+      abortController: null,
       isTyping: false,
+      currentStreamedText: "",
+      streamingVersion: newVersion,
     });
 
-    setTimeout(() => {
-      set({ cancelationRequested: false });
-    }, 100);
+    // Small delay to ensure cancellation is processed
+    return new Promise<void>((resolve) => {
+      setTimeout(resolve, 50);
+    });
   },
 
   simulateTextStreaming: async (text: string) => {
-    // Reset cancelation flag at the start
-    set({ cancelationRequested: false });
-
     // Skip if text is empty
     if (!text || text.length === 0) {
       return;
     }
 
-    // Handle already typing scenario
-    if (get().isTyping) {
-      if (text !== get().lastStreamedText) {
-        // Cancel current streaming and reset
-        set({
-          isTyping: false,
-          cancelationRequested: true,
-        });
+    // Cancel any current streaming before starting
+    await get().cancelCurrentStreaming();
 
-        // Small delay before starting new text
-        await new Promise((resolve) => setTimeout(resolve, 150));
-        set({ cancelationRequested: false });
-      } else {
-        return;
-      }
-    }
+    // Create new AbortController for this streaming session
+    const abortController = new AbortController();
+    const currentVersion = get().streamingVersion;
 
-    // Skip if this is the exact same text we just streamed and we're not already typing
-    if (text === get().lastStreamedText && !get().isTyping) {
-      console.warn("TextStreamingStore: Duplicate text streaming request ignored");
-      return;
-    }
-
-    // Update state for streaming start
+    // Set up initial state for new streaming session
     set({
       isTyping: true,
       currentStreamedText: "", // Start with empty string
       lastStreamedText: text,
       streamCount: get().streamCount + 1,
+      abortController,
     });
 
     // Provide haptic feedback to indicate message is coming
@@ -108,9 +123,14 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
       const hapticInterval = 300; // Reduced haptic frequency for smoother experience
 
       for (let i = 0; i < text.length; i++) {
-        // Check if cancelation was requested
-        if (get().cancelationRequested) {
-          break;
+        // Check if cancelation was requested via abort controller
+        if (abortController.signal.aborted) {
+          throw new AbortError("Aborted");
+        }
+
+        // Check if this streaming session is still the current version
+        if (get().streamingVersion !== currentVersion) {
+          throw new Error("Streaming version changed");
         }
 
         // Add character to buffer
@@ -126,6 +146,11 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
 
         // Only update state at controlled intervals to prevent flickering
         if (now - lastRenderTime >= minRenderInterval || i === text.length - 1) {
+          // Check cancellation again before updating state
+          if (abortController.signal.aborted || get().streamingVersion !== currentVersion) {
+            throw new AbortError("Aborted");
+          }
+
           // Important: Create a completely new string to ensure React detects the state change
           set({ currentStreamedText: String(currentText) });
           buffer = "";
@@ -133,7 +158,27 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
         }
 
         // Wait before adding the next character - dynamic typing speed
-        await new Promise((resolve) => setTimeout(resolve, getTypingSpeed(text, i)));
+        await new Promise((resolve, reject) => {
+          // Set up abort handler
+          const abortHandler = () => {
+            reject(new AbortError("Aborted"));
+          };
+
+          // Add abort listener for this promise
+          abortController.signal.addEventListener("abort", abortHandler, { once: true });
+
+          // Set timeout for next character
+          const timeout = setTimeout(() => {
+            abortController.signal.removeEventListener("abort", abortHandler);
+            resolve(undefined);
+          }, getTypingSpeed(text, i));
+
+          // Also clean up timeout if aborted
+          if (abortController.signal.aborted) {
+            clearTimeout(timeout);
+            abortHandler();
+          }
+        });
       }
 
       // Final haptic to signal completion
@@ -141,20 +186,32 @@ export const useTextStreamingStore = create<TextStreamingState>((set, get) => ({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     } catch (error) {
-      console.error("TextStreamingStore: Error during text streaming:", error);
+      // Handle abortion gracefully
+      if (error instanceof AbortError) {
+        console.log("TextStreamingStore: Streaming was aborted");
+      } else if (error instanceof Error && error.message === "Streaming version changed") {
+        console.log("TextStreamingStore: Streaming version changed");
+      } else {
+        console.error("TextStreamingStore: Error during text streaming:", error);
+      }
+      return; // Exit early
+    } finally {
+      // Check if this session is still the current version
+      if (get().streamingVersion === currentVersion) {
+        // Final state update
+        set({
+          isTyping: false,
+          abortController: null,
+        });
+      }
     }
-
-    // Use a timeout before setting isTyping to false to prevent visual glitches
-    setTimeout(() => {
-      set({ isTyping: false });
-    }, 50);
   },
 
   resetText: () => {
-    set({
-      currentStreamedText: "",
-      isTyping: false,
-      cancelationRequested: false,
+    // Cancel any ongoing streaming first
+    const { cancelCurrentStreaming } = get();
+    cancelCurrentStreaming().then(() => {
+      // Additional reset logic if needed
     });
   },
 }));
