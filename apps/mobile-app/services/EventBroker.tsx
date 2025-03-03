@@ -43,6 +43,10 @@ export enum EventTypes {
   GRAVITATIONAL_PULL_STARTED = "gravitational:pull:started",
   GRAVITATIONAL_PULL_TOGGLED = "gravitational:pull:toggled",
   GRAVITATIONAL_PULL_COMPLETED = "gravitational:pull:completed",
+
+  // New camera events
+  CAMERA_ANIMATE_TO_LOCATION = "camera:animate:to:location",
+  CAMERA_ANIMATE_TO_BOUNDS = "camera:animate:to:bounds",
 }
 
 // Base event interface that all event payloads should extend
@@ -101,6 +105,24 @@ export interface NavigationEvent extends BaseEvent {
 export interface UserLocationEvent extends BaseEvent {
   coordinates: [number, number]; // [longitude, latitude]
   accuracy?: number;
+}
+
+// Camera animation events
+export interface CameraAnimateToLocationEvent extends BaseEvent {
+  coordinates: [number, number]; // [longitude, latitude]
+  duration?: number; // milliseconds
+  zoomLevel?: number;
+}
+
+export interface CameraAnimateToBoundsEvent extends BaseEvent {
+  bounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  };
+  padding?: number; // padding in pixels
+  duration?: number; // milliseconds
 }
 
 // Gravitational pull events
