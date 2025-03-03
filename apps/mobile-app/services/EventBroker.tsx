@@ -32,11 +32,11 @@ export enum EventTypes {
   USER_LOCATION_UPDATED = "user:location:updated",
   ERROR_OCCURRED = "error:occurred",
 
-  JOB_QUEUED = "job_queued",
-  JOB_STARTED = "job_started",
-  JOB_COMPLETED = "job_completed",
-  JOB_CANCELED = "job_canceled",
-  JOB_QUEUE_CLEARED = "job_queue_cleared",
+  JOB_QUEUED = "job:queued",
+  JOB_STARTED = "job:started",
+  JOB_COMPLETED = "job:completed",
+  JOB_CANCELED = "job:canceled",
+  JOB_QUEUE_CLEARED = "job:queue:cleared",
 
   NOTIFICATION = "notification",
 
@@ -51,6 +51,7 @@ export interface BaseEvent {
   source?: string;
 }
 
+// Marker related events
 export interface MarkerEvent extends BaseEvent {
   markerId: string;
   markerData: any;
@@ -61,6 +62,11 @@ export interface MarkersEvent extends BaseEvent {
   count: number;
 }
 
+export interface ExtendedMarkersEvent extends MarkersEvent {
+  searching: boolean;
+}
+
+// Viewport related events
 export interface ViewportEvent extends BaseEvent {
   viewport: {
     north: number;
@@ -75,15 +81,29 @@ export interface ExtendedViewportEvent extends ViewportEvent {
   searching: boolean;
 }
 
-export interface ExtendedMarkersEvent extends MarkersEvent {
-  searching: boolean;
-}
-
+// Assistant related events
 export interface AssistantMessageEvent extends BaseEvent {
   message: string;
   priority: "low" | "medium" | "high";
 }
 
+export interface AssistantActionEvent extends BaseEvent {
+  action: string;
+  parameters?: Record<string, any>;
+}
+
+// Navigation related events
+export interface NavigationEvent extends BaseEvent {
+  currentId?: string;
+}
+
+// User location events
+export interface UserLocationEvent extends BaseEvent {
+  coordinates: [number, number]; // [longitude, latitude]
+  accuracy?: number;
+}
+
+// Gravitational pull events
 export interface GravitationalPullStartedEvent extends BaseEvent {
   target: [number, number]; // The coordinates we're pulling towards
 }
@@ -92,6 +112,43 @@ export interface GravitationalPullToggledEvent extends BaseEvent {
   enabled: boolean; // Whether gravitational pull is enabled or disabled
 }
 
+export interface GravitationalPullCompletedEvent extends BaseEvent {
+  target: [number, number];
+  duration: number; // How long the pull took in milliseconds
+}
+
+// Job related events
+export interface JobEvent extends BaseEvent {
+  jobId: string;
+  jobType: string;
+}
+
+export interface JobStartedEvent extends JobEvent {
+  estimatedDuration?: number; // in milliseconds
+}
+
+export interface JobCompletedEvent extends JobEvent {
+  result: any;
+  duration: number; // How long the job took in milliseconds
+}
+
+export interface JobCanceledEvent extends JobEvent {
+  reason?: string;
+}
+
+export interface JobQueueClearedEvent extends BaseEvent {
+  jobIds: string[];
+}
+
+// Notification event
+export interface NotificationEvent extends BaseEvent {
+  title: string;
+  message: string;
+  type: "info" | "success" | "warning" | "error";
+  duration?: number; // How long to show the notification in milliseconds
+}
+
+// Error event
 export interface ErrorEvent extends BaseEvent {
   error: Error | string;
   context?: string;
