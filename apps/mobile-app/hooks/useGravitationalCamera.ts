@@ -3,7 +3,12 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { useUserLocationStore } from "@/stores/useUserLocationStore";
 import { useEventBroker } from "@/hooks/useEventBroker";
-import { EventTypes, BaseEvent } from "@/services/EventBroker";
+import {
+  EventTypes,
+  BaseEvent,
+  CameraAnimateToLocationEvent,
+  CameraAnimateToBoundsEvent,
+} from "@/services/EventBroker";
 import MapboxGL from "@rnmapbox/maps";
 
 interface GravitationConfig {
@@ -59,7 +64,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
   const [isGravitatingEnabled, setIsGravitatingEnabled] = useState(true);
   const [isGravitating, setIsGravitating] = useState(false);
   const [isHighVelocity, setIsHighVelocity] = useState(false);
-  const { publish } = useEventBroker();
+  const { publish, subscribe } = useEventBroker();
 
   // Ref to store the last time we applied a gravitational pull
   const lastPullTimeRef = useRef<number>(0);
@@ -406,6 +411,65 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     [gravitationConfig.gravityZoomLevel]
   );
 
+  // Camera animation methods to animate to bounds
+  const animateToBounds = useCallback(
+    (
+      bounds: {
+        north: number;
+        south: number;
+        east: number;
+        west: number;
+      },
+      padding = 50,
+      duration = 1000
+    ) => {
+      if (cameraRef.current) {
+        cameraRef.current.fitBounds(
+          [bounds.west, bounds.south],
+          [bounds.east, bounds.north],
+          padding,
+          duration
+        );
+      }
+    },
+    []
+  );
+
+  // Event listeners for camera commands
+  useEffect(() => {
+    // Subscribe to camera:animate:to:location events
+    const unsubscribeAnimateToLocation = subscribe<CameraAnimateToLocationEvent>(
+      EventTypes.CAMERA_ANIMATE_TO_LOCATION,
+      (event) => {
+        // Use default values if not provided in the event
+        const duration = event.duration || 1000;
+        const zoomLevel = event.zoomLevel || gravitationConfig.gravityZoomLevel;
+
+        // Animate to the requested location
+        animateToLocation(event.coordinates, duration, zoomLevel);
+      }
+    );
+
+    // Subscribe to camera:animate:to:bounds events
+    const unsubscribeAnimateToBounds = subscribe<CameraAnimateToBoundsEvent>(
+      EventTypes.CAMERA_ANIMATE_TO_BOUNDS,
+      (event) => {
+        // Use default values if not provided in the event
+        const duration = event.duration || 1000;
+        const padding = event.padding || 50;
+
+        // Animate to the requested bounds
+        animateToBounds(event.bounds, padding, duration);
+      }
+    );
+
+    // Clean up listeners on unmount
+    return () => {
+      unsubscribeAnimateToLocation();
+      unsubscribeAnimateToBounds();
+    };
+  }, [subscribe, animateToLocation, animateToBounds, gravitationConfig.gravityZoomLevel]);
+
   // The returned API
   return {
     cameraRef,
@@ -415,6 +479,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     toggleGravitation,
     handleViewportChange,
     animateToLocation,
+    animateToBounds,
     visibleMarkers: visibleMarkersRef.current,
     updateConfig: (newConfig: Partial<GravitationConfig>) => {
       Object.assign(gravitationConfig, newConfig);

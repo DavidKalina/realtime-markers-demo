@@ -1,6 +1,6 @@
-// ActionBar.tsx - Updated with Reanimated 3 layout animations
+// ActionBar.tsx - Updated with event emission for camera actions
 import * as Haptics from "expo-haptics";
-import { Camera, Info, SearchIcon, Share2 } from "lucide-react-native";
+import { Camera, Info, Navigation, SearchIcon, Share2 } from "lucide-react-native";
 import React, { useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
@@ -15,6 +15,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { styles } from "./styles";
 import { styles as globalStles } from "@/components/globalStyles";
+import { useUserLocation } from "@/hooks/useUserLocation";
+import { useEventBroker } from "@/hooks/useEventBroker";
+import { EventTypes, CameraAnimateToLocationEvent } from "@/services/EventBroker";
 
 interface ActionBarProps {
   onActionPress: (action: string) => void;
@@ -29,12 +32,17 @@ export const ActionBar: React.FC<ActionBarProps> = ({
   animatedStyle,
   availableActions,
 }) => {
+  // Get access to the event broker
+  const { publish } = useEventBroker();
+
   // Dynamically determine which actions to show based on isStandalone
   const effectiveAvailableActions =
     availableActions ||
-    (isStandalone ? ["search", "camera"] : ["details", "share", "search", "camera"]);
+    (isStandalone ? ["search", "camera", "locate"] : ["details", "share", "search", "camera"]);
 
   const [activeAction, setActiveAction] = useState<string | null>(null);
+
+  const { userLocation } = useUserLocation();
 
   // Create shared values for each button's scale animation
   const detailsScale = useSharedValue(1);
@@ -43,6 +51,7 @@ export const ActionBar: React.FC<ActionBarProps> = ({
   const scanScale = useSharedValue(1);
   const previousScale = useSharedValue(1);
   const nextScale = useSharedValue(1);
+  const locateScale = useSharedValue(1);
 
   const allPossibleActions = [
     {
@@ -72,6 +81,14 @@ export const ActionBar: React.FC<ActionBarProps> = ({
       icon: <Camera size={20} color="#fff" style={globalStles.icon} />,
       scaleValue: scanScale,
       action: () => handlePress("camera"),
+    },
+    {
+      key: "locate",
+      label: "Locate",
+      icon: <Navigation size={20} color="#fff" style={globalStles.icon} />,
+      scaleValue: locateScale,
+      action: () => handlePress("locate"),
+      disabled: !userLocation, // Disable if no user location is available
     },
   ];
 
@@ -125,6 +142,13 @@ export const ActionBar: React.FC<ActionBarProps> = ({
     };
   });
 
+  const locateAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: locateScale.value }],
+      opacity: locateScale.value === 0.9 ? 0.8 : 1,
+    };
+  });
+
   // Function to get the correct animated style for a button
   const getAnimatedStyle = (key: string) => {
     switch (key) {
@@ -140,6 +164,8 @@ export const ActionBar: React.FC<ActionBarProps> = ({
         return previousAnimatedStyle;
       case "next":
         return nextAnimatedStyle;
+      case "locate":
+        return locateAnimatedStyle;
       default:
         return detailsAnimatedStyle;
     }
@@ -168,6 +194,9 @@ export const ActionBar: React.FC<ActionBarProps> = ({
       case "next":
         scaleValue = nextScale;
         break;
+      case "locate":
+        scaleValue = locateScale;
+        break;
       default:
         scaleValue = detailsScale;
     }
@@ -191,6 +220,18 @@ export const ActionBar: React.FC<ActionBarProps> = ({
 
     // Animate button
     animateButton(action);
+
+    // Special handling for locate action
+    if (action === "locate" && userLocation) {
+      // Emit event to animate camera to user location
+      publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
+        timestamp: Date.now(),
+        source: "ActionBar",
+        coordinates: userLocation,
+        duration: 1000,
+        zoomLevel: 15, // Zoom in a bit more for user location
+      });
+    }
 
     // Reset active action after a short delay
     setTimeout(() => {
@@ -234,6 +275,7 @@ export const ActionBar: React.FC<ActionBarProps> = ({
                 styles.labeledActionButton,
                 activeAction === action.key && styles.activeActionButton,
               ]}
+              disabled={action.disabled}
               onPress={action.action}
             >
               {action.icon}

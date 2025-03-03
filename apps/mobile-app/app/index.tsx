@@ -3,10 +3,16 @@ import EventAssistant from "@/components/EventAssistant/EventAssistant";
 import { styles } from "@/components/homeScreenStyles";
 import { SimpleMapMarkers } from "@/components/Markers/MarkerImplementation";
 import QueueIndicator from "@/components/QueueIndicator/QueueIndicator";
+import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useGravitationalCamera } from "@/hooks/useGravitationalCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
-import { BaseEvent, EventTypes } from "@/services/EventBroker";
+import {
+  BaseEvent,
+  EventTypes,
+  UserLocationEvent,
+  CameraAnimateToLocationEvent,
+} from "@/services/EventBroker";
 import { useUserLocationStore } from "@/stores/useUserLocationStore";
 import MapboxGL from "@rnmapbox/maps";
 import * as Location from "expo-location";
@@ -18,7 +24,7 @@ MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
 export default function HomeScreen() {
   const [isMapReady, setIsMapReady] = useState(false);
   const mapRef = useRef<MapboxGL.MapView>(null);
-  const { publish } = useEventBroker();
+  const { publish, subscribe } = useEventBroker();
 
   const {
     selectedMarkerId,
@@ -54,7 +60,53 @@ export default function HomeScreen() {
     if (!userLocation) {
       getUserLocation();
     }
-  }, [userLocation, publish]);
+  }, []);
+
+  // Handle action bar actions
+  const handleActionPress = (action: string) => {
+    switch (action) {
+      case "locate":
+        if (userLocation) {
+          // This will now be handled by the event listener in useGravitationalCamera
+          publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
+            timestamp: Date.now(),
+            source: "HomeScreen",
+            coordinates: userLocation,
+            duration: 1000,
+            zoomLevel: 15,
+          });
+        } else {
+          getUserLocation();
+        }
+        break;
+      case "search":
+        publish<BaseEvent>(EventTypes.OPEN_SEARCH, {
+          timestamp: Date.now(),
+          source: "HomeScreen",
+        });
+        break;
+      case "camera":
+        publish<BaseEvent>(EventTypes.OPEN_SCAN, {
+          timestamp: Date.now(),
+          source: "HomeScreen",
+        });
+        break;
+      case "details":
+        publish<BaseEvent>(EventTypes.OPEN_DETAILS, {
+          timestamp: Date.now(),
+          source: "HomeScreen",
+        });
+        break;
+      case "share":
+        publish<BaseEvent>(EventTypes.OPEN_SHARE, {
+          timestamp: Date.now(),
+          source: "HomeScreen",
+        });
+        break;
+      default:
+        console.warn(`Unhandled action: ${action}`);
+    }
+  };
 
   const getUserLocation = async () => {
     try {
@@ -82,14 +134,21 @@ export default function HomeScreen() {
       const userCoords: [number, number] = [location.coords.longitude, location.coords.latitude];
       setUserLocation(userCoords);
 
-      publish<BaseEvent & { coordinates: [number, number] }>(EventTypes.USER_LOCATION_UPDATED, {
+      publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
         timestamp: Date.now(),
         source: "HomeScreen",
         coordinates: userCoords,
       });
 
       if (userCoords) {
-        animateToLocation(userCoords, 1000, 14);
+        // Emit an event to animate to the user's location after obtaining it
+        publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
+          timestamp: Date.now(),
+          source: "HomeScreen",
+          coordinates: userCoords,
+          duration: 1000,
+          zoomLevel: 14,
+        });
       }
     } catch (error) {
       console.error("Error getting location:", error);
