@@ -1,7 +1,7 @@
 // styles/emoji.ts
 import { StyleSheet } from "react-native";
 
-export const emoji = StyleSheet.create({
+export const styles = StyleSheet.create({
   emojiWrapper: {
     marginRight: 16,
     alignItems: "center",

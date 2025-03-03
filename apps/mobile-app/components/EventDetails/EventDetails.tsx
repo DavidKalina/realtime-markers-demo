@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import apiClient from "../../services/ApiClient";
-import { styles } from "./styles";
 import { EventDetailsSkeleton } from "./EventDetailsSkeleton";
-import Animated, { FadeIn, FadeOut, FadeOutDown } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { styles } from "./styles";
+import { styles as globalStyles } from "@/components/globalStyles";
 
 interface EventDetailsProps {
   eventId: string;
@@ -105,41 +106,41 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId }) => {
 
   return (
     <Animated.View
-      style={styles.actionContent}
+      style={globalStyles.actionContent}
       entering={FadeIn.duration(300)}
       exiting={FadeOut.duration(300)}
     >
       <View style={styles.eventHeader}>
         <View style={styles.eventTitleContainer}>
-          <Text style={styles.emoji}>{event.emoji}</Text>
+          <Text style={globalStyles.eventEmoji}>{event.emoji}</Text>
           <Text style={styles.eventTitle}>{event.title}</Text>
         </View>
         <StatusBadge />
       </View>
 
       <View style={styles.detailsContainer}>
-        <View style={styles.detailRow}>
+        <View style={globalStyles.detailRow}>
           <Text style={styles.label}>Date & Time</Text>
           <Text style={styles.value}>{formatDate(event.time)}</Text>
         </View>
 
-        <View style={styles.detailRow}>
+        <View style={globalStyles.detailRow}>
           <Text style={styles.label}>Location</Text>
           <Text style={styles.value}>{event.location}</Text>
         </View>
 
-        <View style={styles.detailRow}>
+        <View style={globalStyles.detailRow}>
           <Text style={styles.label}>Distance</Text>
           <Text style={styles.value}>{event.distance}</Text>
         </View>
 
-        <View style={styles.detailRow}>
+        <View style={globalStyles.detailRow}>
           <Text style={styles.label}>Description</Text>
           <Text style={styles.value}>{event.description}</Text>
         </View>
 
         {event.categories && event.categories.length > 0 && (
-          <View style={styles.detailRow}>
+          <View style={globalStyles.detailRow}>
             <Text style={styles.label}>Categories</Text>
             <View style={styles.categoriesContainer}>
               {event.categories.map((category: any, index: number) => (

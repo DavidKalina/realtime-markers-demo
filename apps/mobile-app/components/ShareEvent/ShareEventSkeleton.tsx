@@ -1,5 +1,5 @@
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { styles } from "./styles";
+import { styles } from "../globalStyles";
 import { StyleSheet, View } from "react-native";
 
 export const ShareEventSkeleton = () => {

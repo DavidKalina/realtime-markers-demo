@@ -11,8 +11,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { shareEventStyles as styles } from "./share-event-styles";
 import { ShareEventSkeleton } from "./ShareEventSkeleton";
+import { styles } from "./styles";
+import { styles as globalStyles } from "@/components/globalStyles";
 
 interface ShareEventProps {
   eventId: string;
@@ -573,7 +574,7 @@ const ShareEvent: React.FC<ShareEventProps> = ({
       {/* Event Preview Card */}
       <View style={styles.compactEventInfo}>
         <View style={styles.eventHeaderRow}>
-          <Text style={styles.eventEmoji}>{event.emoji || "🎉"}</Text>
+          <Text style={globalStyles.eventEmoji}>{event.emoji || "🎉"}</Text>
           <View style={styles.eventTextContainer}>
             <Text style={styles.previewTitle} numberOfLines={1} ellipsizeMode="tail">
               {event.title}

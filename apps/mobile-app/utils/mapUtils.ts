@@ -1,5 +1,5 @@
 // mapUtils.ts - Utility functions for map-event conversions
-import { EventType, Marker, Coordinates } from "./types";
+import { EventType, Marker, Coordinates } from "../types/types";
 
 /**
  * Converts an EventType to a Marker format for use with maps

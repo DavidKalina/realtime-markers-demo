@@ -1,8 +1,8 @@
 // stores/useLocationStore.ts - Unified store combining marker and event functionality
 import { create } from "zustand";
 import * as Linking from "expo-linking";
-import { EventType, MapboxViewport } from "@/components/RefactoredAssistant/types";
-import { markerToEvent, isValidCoordinates } from "@/components/RefactoredAssistant/mapUtils";
+import { EventType, MapboxViewport } from "@/types/types";
+import { markerToEvent, isValidCoordinates } from "@/utils/mapUtils";
 import { Marker } from "@/hooks/useMapWebsocket";
 
 type ActiveView = "none" | "details" | "share" | "search" | "camera" | "map";

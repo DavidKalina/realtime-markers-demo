@@ -1,6 +1,6 @@
-import { CameraPermission } from "@/components/CameraPermission";
-import { CaptureButton } from "@/components/CaptureButton";
-import { ScannerOverlay } from "@/components/ScannerOverlay";
+import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
+import { CaptureButton } from "@/components/CaptureButton/CaptureButton";
+import { ScannerOverlay } from "@/components/ScannerOverlay/ScannerOverlay";
 import { useCamera } from "@/hooks/useCamera";
 import { Feather } from "@expo/vector-icons";
 import { CameraView } from "expo-camera";

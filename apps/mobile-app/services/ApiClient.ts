@@ -1,6 +1,6 @@
 // src/services/ApiClient.ts
 
-import { EventType } from "@/components/RefactoredAssistant/types";
+import { EventType } from "@/types/types";
 
 // Define base API types from your backend
 interface Location {

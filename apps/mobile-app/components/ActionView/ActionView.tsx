@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { styles } from "./styles"; // Using the centralized styles
+import { styles } from "../globalStyles"; // Using the centralized styles
 
 interface ActionViewProps {
   isVisible: boolean;

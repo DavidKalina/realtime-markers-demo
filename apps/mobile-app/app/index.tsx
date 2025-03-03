@@ -1,8 +1,8 @@
-// screens/HomeScreen.tsx with improved gravitational camera
-import { SimpleMapMarkers } from "@/components/MarkerImplementation";
-import ConnectionIndicator from "@/components/RefactoredAssistant/ConnectionIndicator";
-import EventAssistant from "@/components/RefactoredAssistant/EventAssistant";
-import QueueIndicator from "@/components/RefactoredAssistant/QueueIndicator";
+import ConnectionIndicator from "@/components/ConnectionIndicator/ConnectionIndicator";
+import EventAssistant from "@/components/EventAssistant/EventAssistant";
+import { styles } from "@/components/homeScreenStyles";
+import { SimpleMapMarkers } from "@/components/Markers/MarkerImplementation";
+import QueueIndicator from "@/components/QueueIndicator/QueueIndicator";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useGravitationalCamera } from "@/hooks/useGravitationalCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
@@ -23,7 +23,6 @@ import {
   View,
 } from "react-native";
 
-// Set Mapbox access token
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
 
 export default function HomeScreen() {
@@ -31,10 +30,6 @@ export default function HomeScreen() {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const { publish } = useEventBroker();
 
-  // Animation value for the pulse effect
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  // Get everything from the location store
   const {
     selectedMarkerId,
     userLocation,
@@ -45,47 +40,36 @@ export default function HomeScreen() {
     setIsLoadingLocation,
   } = useUserLocationStore();
 
-  // Use a single WebSocket connection for the entire app
   const mapWebSocketData = useMapWebSocket(process.env.EXPO_PUBLIC_WEB_SOCKET_URL!);
   const { markers, isConnected, updateViewport } = mapWebSocketData;
 
-  // Initialize the gravitational camera hook with refined settings
   const {
     cameraRef,
-    isGravitatingEnabled,
     isGravitating,
-    toggleGravitation,
     handleViewportChange: handleGravitationalViewportChange,
     animateToLocation,
-    visibleMarkers,
   } = useGravitationalCamera(markers, {
-    minMarkersForPull: 1, // Even one event should trigger
-    animationDuration: 500, // Faster animation for more immediate feedback
-    cooldownPeriod: 2000, // Don't pull too frequently
-    gravityZoomLevel: 14, // Good zoom level for event details
-    centeringThreshold: 0.002, // Center when markers are off-center
+    minMarkersForPull: 1,
+    animationDuration: 500,
+    cooldownPeriod: 2000,
+    gravityZoomLevel: 14,
+    centeringThreshold: 0.002,
   });
 
-  // Start pulsing animation when gravitating
-
   useEffect(() => {
-    // Initialize Mapbox configuration
     if (Platform.OS === "android") {
       MapboxGL.setTelemetryEnabled(false);
     }
 
-    // Only fetch location if we don't already have it
     if (!userLocation) {
       getUserLocation();
     }
   }, [userLocation, publish]);
 
-  // Get user location permission and coordinates
   const getUserLocation = async () => {
     try {
       setIsLoadingLocation(true);
 
-      // Request location permissions
       const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== "granted") {
@@ -101,23 +85,19 @@ export default function HomeScreen() {
 
       setLocationPermissionGranted(true);
 
-      // Disable caching and request high accuracy for testing
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
 
-      // Update state with user coordinates in [longitude, latitude] format for Mapbox
       const userCoords: [number, number] = [location.coords.longitude, location.coords.latitude];
       setUserLocation(userCoords);
 
-      // Emit user location updated event
       publish<BaseEvent & { coordinates: [number, number] }>(EventTypes.USER_LOCATION_UPDATED, {
         timestamp: Date.now(),
         source: "HomeScreen",
         coordinates: userCoords,
       });
 
-      // Animate to user location using our camera ref
       if (userCoords) {
         animateToLocation(userCoords, 1000, 14);
       }
@@ -140,9 +120,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Handle map viewport changes
   const handleMapViewportChange = (feature: any) => {
-    // First, process standard viewport change for RBush indexing
     if (
       feature?.properties?.visibleBounds &&
       Array.isArray(feature.properties.visibleBounds) &&
@@ -150,14 +128,11 @@ export default function HomeScreen() {
       Array.isArray(feature.properties.visibleBounds[0]) &&
       Array.isArray(feature.properties.visibleBounds[1])
     ) {
-      // Mapbox GL native visibleBounds format is [[west, north], [east, south]]
       const [[west, north], [east, south]] = feature.properties.visibleBounds;
 
-      // For longitude values (east/west), ensure west <= east for RBush spatial indexing
       const adjustedWest = Math.min(west, east);
       const adjustedEast = Math.max(west, east);
 
-      // Send adjusted coordinates to match RBush requirements
       updateViewport({
         north,
         south,
@@ -165,7 +140,6 @@ export default function HomeScreen() {
         west: adjustedWest,
       });
 
-      // Then, check for gravitational pull opportunities
       handleGravitationalViewportChange(feature);
     } else {
       console.warn("Invalid viewport bounds received:", feature?.properties?.visibleBounds);
@@ -174,7 +148,6 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Loading indicator while getting location */}
       {isLoadingLocation && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#4dabf7" />
@@ -182,7 +155,6 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Mapbox Map as background */}
       <MapboxGL.MapView
         scaleBarEnabled={false}
         rotateEnabled={false}
@@ -244,14 +216,12 @@ export default function HomeScreen() {
           style={[
             styles.pulseOverlay,
             {
-              // Simple fixed opacity instead of interpolation
               opacity: 0.15,
             },
           ]}
         />
       )}
 
-      {/* Recenter button */}
       {userLocation && isMapReady && !isLoadingLocation && (
         <TouchableOpacity
           style={styles.recenterButton}
@@ -261,7 +231,6 @@ export default function HomeScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Indicators positioned on the left side */}
       {isMapReady && !isLoadingLocation && (
         <>
           <ConnectionIndicator
@@ -274,7 +243,6 @@ export default function HomeScreen() {
         </>
       )}
 
-      {/* Only show Assistant when a marker is selected */}
       {isMapReady && !isLoadingLocation && (
         <View style={styles.assistantOverlay}>
           <EventAssistant />
@@ -283,113 +251,3 @@ export default function HomeScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  map: {
-    flex: 1,
-  },
-  assistantOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "transparent",
-    pointerEvents: "box-none", // Allow touch events to pass through to map
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1000,
-  },
-  loadingText: {
-    color: "#f8f9fa",
-    fontSize: 16,
-    marginTop: 12,
-    fontFamily: "SpaceMono",
-  },
-  userLocationMarker: {
-    width: 20,
-    height: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  userLocationDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#4dabf7",
-    borderWidth: 3,
-    borderColor: "#fff",
-  },
-  smartNavToggle: {
-    position: "absolute",
-    top: 80,
-    right: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  toggleButtonText: {
-    color: "#ffffff",
-    fontWeight: "bold",
-    fontSize: 14,
-    marginLeft: 6,
-  },
-  smartNavContainer: {
-    position: "absolute",
-    top: 130,
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
-  },
-  smartNavText: {
-    color: "#333",
-    fontSize: 13,
-    fontWeight: "500",
-    marginLeft: 6,
-  },
-  pulseOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(77, 171, 247, 0.4)",
-    pointerEvents: "none", // Don't block touch events
-    zIndex: 50,
-  },
-  recenterButton: {
-    position: "absolute",
-    bottom: 100,
-    right: 16,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "white",
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-});

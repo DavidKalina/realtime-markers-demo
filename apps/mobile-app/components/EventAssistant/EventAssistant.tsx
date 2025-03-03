@@ -6,12 +6,12 @@ import { Navigation, Share2 } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated as RNAnimated, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ActionBar } from "./ActionBar";
-import { ActionView } from "./ActionView";
-import EventDetails from "./EventDetails";
-import { FloatingEmoji } from "./FloatingEmoji";
-import { MessageBubble } from "./MessageBubble";
-import { styles } from "./styles";
+import { ActionBar } from "../ActionBar/ActionBar";
+import { ActionView } from "../ActionView/ActionView";
+import EventDetails from "../EventDetails/EventDetails";
+import { FloatingEmoji } from "../EventAssistantEmoji/FloatingEmoji";
+import { MessageBubble } from "../MessageBubble/MessageBubble";
+import { styles } from "../globalStyles";
 
 import { Marker } from "@/hooks/useMapWebsocket";
 import { useUserLocation } from "@/hooks/useUserLocation";
@@ -22,7 +22,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import ShareEvent from "./ShareEvent";
+import ShareEvent from "../ShareEvent/ShareEvent";
 
 // Helper function to calculate distance between two coordinates
 const calculateDistance = (

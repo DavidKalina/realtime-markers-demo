@@ -14,6 +14,7 @@ import Animated, {
   FadeOut,
 } from "react-native-reanimated";
 import { styles } from "./styles";
+import { styles as globalStles } from "@/components/globalStyles";
 
 interface ActionBarProps {
   onActionPress: (action: string) => void;
@@ -47,28 +48,28 @@ export const ActionBar: React.FC<ActionBarProps> = ({
     {
       key: "details",
       label: "Details",
-      icon: <Info size={20} color="#fff" style={styles.icon} />,
+      icon: <Info size={20} color="#fff" style={globalStles.icon} />,
       scaleValue: detailsScale,
       action: () => handlePress("details"),
     },
     {
       key: "share",
       label: "Share",
-      icon: <Share2 size={20} color="#fff" style={styles.icon} />,
+      icon: <Share2 size={20} color="#fff" style={globalStles.icon} />,
       scaleValue: shareScale,
       action: () => handlePress("share"),
     },
     {
       key: "search",
       label: "Search",
-      icon: <SearchIcon size={20} color="#fff" style={styles.icon} />,
+      icon: <SearchIcon size={20} color="#fff" style={globalStles.icon} />,
       scaleValue: searchScale,
       action: () => handlePress("search"),
     },
     {
       key: "camera",
       label: "Scan",
-      icon: <Camera size={20} color="#fff" style={styles.icon} />,
+      icon: <Camera size={20} color="#fff" style={globalStles.icon} />,
       scaleValue: scanScale,
       action: () => handlePress("camera"),
     },
@@ -208,9 +209,9 @@ export const ActionBar: React.FC<ActionBarProps> = ({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.scrollViewContainer}
+        style={globalStles.scrollViewContainer}
         contentContainerStyle={[
-          styles.scrollableActionsContainer,
+          globalStles.scrollableActionsContainer,
           // Center the buttons when in standalone mode or when there are few buttons
           (isStandalone || actionCount <= 3) && {
             justifyContent: "center",

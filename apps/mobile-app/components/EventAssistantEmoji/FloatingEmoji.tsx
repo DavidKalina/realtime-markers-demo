@@ -11,8 +11,8 @@ import Animated, {
   Easing,
   runOnJS,
 } from "react-native-reanimated";
-import { styles } from "./styles";
 import { useTextStreamingStore } from "@/stores/useTextStreamingStore";
+import { styles } from "./emoji";
 
 interface FloatingEmojiProps {
   fallbackEmoji?: string;

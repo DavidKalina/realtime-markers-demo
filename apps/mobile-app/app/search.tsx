@@ -20,7 +20,7 @@ import Animated, { FadeIn, SlideInUp } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import apiClient from "@/services/ApiClient";
 import { Marker } from "@/hooks/useMapWebsocket";
-import { EventType } from "@/components/RefactoredAssistant/types";
+import { EventType } from "@/types/types";
 import { useLocationStore } from "@/stores/useLocationStore";
 
 // Convert Marker to EventType for consistent handling

@@ -1,6 +1,6 @@
 import { StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { styles } from "./styles";
+import { styles } from "../globalStyles";
 
 export const EventDetailsSkeleton = () => {
   return (

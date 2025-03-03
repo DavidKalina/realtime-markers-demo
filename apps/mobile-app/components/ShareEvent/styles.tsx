@@ -1,6 +1,6 @@
 import { Platform, StyleSheet } from "react-native";
 
-export const shareEventStyles = StyleSheet.create({
+export const styles = StyleSheet.create({
   centerContent: {
     flex: 1,
     justifyContent: "center",
@@ -288,10 +288,6 @@ export const shareEventStyles = StyleSheet.create({
   eventHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-  },
-  eventEmoji: {
-    fontSize: 24,
-    marginRight: 12,
   },
   eventTextContainer: {
     flex: 1,

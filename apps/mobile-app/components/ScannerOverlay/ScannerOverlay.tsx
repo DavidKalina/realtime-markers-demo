@@ -11,7 +11,7 @@ import Animated, {
   FadeIn,
 } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
-import { styles } from "./RefactoredAssistant/styles";
+import { styles } from "../globalStyles";
 
 interface ScannerOverlayProps {
   guideText?: string;

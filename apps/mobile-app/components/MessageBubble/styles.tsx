@@ -1,7 +1,7 @@
 // styles/message.ts - Updated text alignment
 import { StyleSheet } from "react-native";
 
-export const message = StyleSheet.create({
+export const styles = StyleSheet.create({
   messageBubble: {
     backgroundColor: "#3a3a3a", // Match the event details card background
     borderRadius: 12,
@@ -71,7 +71,8 @@ export const message = StyleSheet.create({
     marginLeft: 2,
     marginTop: -5,
     opacity: 0.8,
-    // For an animated ellipsis effect, you could use the Animated API
-    // but this static style will work with the basic indicator
+  },
+  textWrapper: {
+    flex: 1,
   },
 });

@@ -1,7 +1,11 @@
 // styles/details.ts
 import { Platform, StyleSheet } from "react-native";
 
-export const details = StyleSheet.create({
+export const styles = StyleSheet.create({
+  eventEmoji: {
+    fontSize: 24,
+    marginRight: 12,
+  },
   detailsScreenContainer: {
     position: "absolute",
     width: "95%",

@@ -35,9 +35,7 @@ export const layout = StyleSheet.create({
     padding: 8,
     gap: 4,
   },
-  textWrapper: {
-    flex: 1,
-  },
+
   fixedActionContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -54,5 +52,53 @@ export const layout = StyleSheet.create({
     alignItems: "center",
     height: 50,
     paddingHorizontal: 4,
+  },
+  detailRow: {
+    marginBottom: 16,
+  },
+  button: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    flex: 1,
+    marginHorizontal: 5,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  primaryButton: {
+    backgroundColor: "#4dabf7", // Keep this blue for directions
+  },
+  secondaryButton: {
+    backgroundColor: "#4a4a4a",
+    borderWidth: 1,
+    borderColor: "#5a5a5a",
+  },
+  primaryButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
+    fontFamily: "SpaceMono",
+  },
+  secondaryButtonText: {
+    color: "#f8f9fa",
+    fontSize: 14,
+    fontWeight: "500",
+    fontFamily: "SpaceMono",
+  },
+  buttonIcon: {
+    marginRight: 8,
+  },
+  eventEmoji: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  icon: {
+    marginRight: 4,
   },
 });
