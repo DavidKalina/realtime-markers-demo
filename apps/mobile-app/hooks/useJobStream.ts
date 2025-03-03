@@ -326,6 +326,8 @@ export const useJobStreamEnhanced = (jobId: string | null) => {
     isComplete,
     resetStream,
     result: jobState?.result,
+    eventId: jobState?.result?.eventId,
+    eventCoordinates: jobState?.result?.coordinates,
     lastReceivedMessage,
     debugInfo: {
       allUpdates,

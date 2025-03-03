@@ -21,6 +21,7 @@ import apiClient from "@/services/ApiClient";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes } from "@/services/EventBroker";
 import { useJobQueueStore } from "@/stores/useJobQueueStore";
+import { useUserLocationStore } from "@/stores/useUserLocationStore";
 
 type DetectionStatus = "none" | "detecting" | "aligned";
 
@@ -42,6 +43,7 @@ export default function ScanScreen() {
   const [isFrameReady, setIsFrameReady] = useState(false);
   const [isCameraInitializing, setIsCameraInitializing] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const userLocation = useUserLocationStore.getState().userLocation;
 
   // Access job queue store directly
   const addJob = useJobQueueStore((state) => state.addJob);
@@ -217,6 +219,11 @@ export default function ScanScreen() {
       } as any;
 
       formData.append("image", imageFile);
+
+      if (userLocation) {
+        formData.append("userLng", userLocation[0].toString());
+        formData.append("userLat", userLocation[1].toString());
+      }
 
       // Use fetch directly with our custom FormData
       const response = await fetch(`${apiClient.baseUrl}/api/events/process`, {

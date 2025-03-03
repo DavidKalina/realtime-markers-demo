@@ -122,10 +122,12 @@ async function initializeWorker() {
           await new Promise((resolve) => setTimeout(resolve, 300));
         };
 
-        // Process the image with progress reporting
         const scanResult = await eventProcessingService.processFlyerFromImage(
           bufferData,
-          progressCallback
+          progressCallback,
+          {
+            userCoordinates: job.data.userCoordinates, // Ensure this is being passed
+          }
         );
 
         console.log(`[Worker] Image analyzed with confidence: ${scanResult.confidence}`);
@@ -160,12 +162,14 @@ async function initializeWorker() {
           );
 
           // Mark as completed with success
+          // In worker.ts, when marking the job as completed
           await jobQueue.updateJobStatus(jobId, {
             status: "completed",
             eventId: newEvent.id,
             result: {
               eventId: newEvent.id,
               title: eventDetails.title,
+              coordinates: newEvent.location.coordinates, // Add coordinates here
             },
             completed: new Date().toISOString(),
           });

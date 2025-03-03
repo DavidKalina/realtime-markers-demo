@@ -275,6 +275,18 @@ events.post("/process", async (c) => {
     // Extract form data from the request
     const formData = await c.req.formData();
     const imageEntry = formData.get("image");
+    const userLat = formData.get("userLat");
+    const userLng = formData.get("userLng");
+
+    const userCoordinates =
+      userLat && userLng
+        ? {
+            lat: parseFloat(userLat.toString()),
+            lng: parseFloat(userLng.toString()),
+          }
+        : null;
+
+    console.log({ userCoordinates });
 
     if (!imageEntry) {
       return c.json({ error: "Missing image file" }, 400);
@@ -305,6 +317,7 @@ events.post("/process", async (c) => {
         filename: file.name,
         contentType: file.type,
         size: buffer.length,
+        userCoordinates: userCoordinates, // Add user coordinates
       },
       {
         bufferData: buffer,

@@ -43,6 +43,7 @@ export default function HomeScreen() {
     isGravitating,
     handleViewportChange: handleGravitationalViewportChange,
     animateToLocation,
+    toggleGravitation,
   } = useGravitationalCamera(markers, {
     minMarkersForPull: 1,
     animationDuration: 500,
@@ -60,52 +61,6 @@ export default function HomeScreen() {
       getUserLocation();
     }
   }, []);
-
-  // Handle action bar actions
-  const handleActionPress = (action: string) => {
-    switch (action) {
-      case "locate":
-        if (userLocation) {
-          // This will now be handled by the event listener in useGravitationalCamera
-          publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
-            timestamp: Date.now(),
-            source: "HomeScreen",
-            coordinates: userLocation,
-            duration: 1000,
-            zoomLevel: 15,
-          });
-        } else {
-          getUserLocation();
-        }
-        break;
-      case "search":
-        publish<BaseEvent>(EventTypes.OPEN_SEARCH, {
-          timestamp: Date.now(),
-          source: "HomeScreen",
-        });
-        break;
-      case "camera":
-        publish<BaseEvent>(EventTypes.OPEN_SCAN, {
-          timestamp: Date.now(),
-          source: "HomeScreen",
-        });
-        break;
-      case "details":
-        publish<BaseEvent>(EventTypes.OPEN_DETAILS, {
-          timestamp: Date.now(),
-          source: "HomeScreen",
-        });
-        break;
-      case "share":
-        publish<BaseEvent>(EventTypes.OPEN_SHARE, {
-          timestamp: Date.now(),
-          source: "HomeScreen",
-        });
-        break;
-      default:
-        console.warn(`Unhandled action: ${action}`);
-    }
-  };
 
   const getUserLocation = async () => {
     try {

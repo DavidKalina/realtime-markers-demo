@@ -8,6 +8,11 @@ import type { Point } from "geojson";
 import type { CategoryProcessingService } from "./CategoryProcessingService";
 import type { Category } from "../entities/Category";
 
+interface LocationContext {
+  userCoordinates?: { lat: number; lng: number };
+  organizationHints?: string[];
+}
+
 interface EventDetails {
   emoji: string;
   title: string;
@@ -77,7 +82,8 @@ export class EventProcessingService {
   // Modified processFlyerFromImage method in EventProcessingService.ts
   async processFlyerFromImage(
     imageData: Buffer | string,
-    progressCallback?: ProgressCallback
+    progressCallback?: ProgressCallback,
+    locationContext?: LocationContext
   ): Promise<ScanResult> {
     // Report progress: Starting image processing
     if (progressCallback) {
@@ -129,9 +135,8 @@ export class EventProcessingService {
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
-    // Process event details in parallel with embedding generation
     const [eventDetailsWithCategories, embedding] = await Promise.all([
-      this.extractEventDetailsWithCategories(extractedText),
+      this.extractEventDetailsWithCategories(extractedText, locationContext),
       embeddingPromise,
     ]);
 
@@ -220,46 +225,125 @@ export class EventProcessingService {
     };
   }
 
-  private async extractEventDetailsWithCategories(text: string): Promise<EventDetails> {
+  private async extractEventDetailsWithCategories(
+    text: string,
+    locationContext?: LocationContext
+  ): Promise<EventDetails> {
     // Get current date to provide as context
     const currentDate = new Date().toISOString();
 
+    // First, try to get user's city and state if coordinates are provided
+    let userCityState = "";
+    if (locationContext?.userCoordinates) {
+      try {
+        // Reverse geocode the user's coordinates to get city/state
+        const response = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${locationContext.userCoordinates.lng},${locationContext.userCoordinates.lat}.json?access_token=${process.env.MAPBOX_GEOCODING_TOKEN}&types=place,region`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.features && data.features.length > 0) {
+            // Extract city and state when available
+            const place = data.features.find((f: any) => f.place_type.includes("place"));
+            const region = data.features.find((f: any) => f.place_type.includes("region"));
+
+            if (place && region) {
+              userCityState = `${place.text}, ${region.text}`;
+              console.log("User location context:", userCityState);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error reverse geocoding user coordinates:", error);
+      }
+    }
+
+    // Build location context for the prompt
+    const userLocationPrompt = userCityState
+      ? `The user is currently in ${userCityState}. Consider this for location inference.`
+      : locationContext?.userCoordinates
+      ? `The user is currently located near latitude ${locationContext.userCoordinates.lat}, longitude ${locationContext.userCoordinates.lng}.`
+      : "";
+
+    // Extract event details with enhanced location awareness
     const response = await this.openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: `You are a precise event information extractor. Extract event details and format them consistently. 
-                For dates, always return them in ISO-8601 format (YYYY-MM-DDTHH:mm:ss.sssZ).
-                For past events, return the original date even if it's in the past.
-                For relative date references (e.g., "tomorrow", "next Friday", "in two weeks"), convert them to absolute dates based on the current date: ${currentDate}.
-                When dates have no year specified, assume the current year or next year if the date would otherwise be in the past.
-                Also identify 2-5 relevant categories for the event.`,
+          content: `You are a precise event information extractor with location awareness.
+            Extract event details from flyers and promotional materials.
+            For dates, always return them in ISO-8601 format (YYYY-MM-DDTHH:mm:ss.sssZ).
+            
+            ${userLocationPrompt}
+            
+            When extracting locations:
+            - Look for explicit addresses in standard format
+            - Identify organization names, institution logos, venue details
+            - Notice building codes and room numbers as location clues
+            - Use the user's current location to help resolve ambiguous locations
+            - For university events (with codes like "LC 301"), connect them to the appropriate campus`,
         },
         {
           role: "user",
           content: `Extract the following details from this text in a JSON format:
-               - emoji: The most relevant emoji
-               - title: The event title
-               - date: The event date and time in ISO-8601 format
-               - address: The complete address including street, city, state, and zip if available
-               - description: Full description of the event
-               - categoryNames: Array of 2-5 category names that best describe this event
-               
-               Today's date is: ${currentDate}
-               
-               Text to extract from:
-               ${text}`,
+           - emoji: The most relevant emoji
+           - title: The event title
+           - date: The event date and time in ISO-8601 format
+           - organization: The organization hosting the event
+           - venue: The specific venue or room information
+           - description: Full description of the event
+           - categoryNames: Array of 2-5 category names that best describe this event
+           - locationClues: Array of all possible clues about the location (building codes, room numbers, logos, etc.)
+           
+           Today's date is: ${currentDate}
+           
+           Text to extract from:
+           ${text}`,
         },
       ],
       response_format: { type: "json_object" },
     });
 
     const parsedDetails = JSON.parse(response.choices[0]?.message.content?.trim() ?? "{}");
-    const address = parsedDetails.address || "";
 
-    // Get coordinates from address using Mapbox
-    const location = await this.geocodeAddress(address);
+    // Now infer address using all collected information
+    let address = "";
+    const locationClues = [
+      parsedDetails.organization || "",
+      parsedDetails.venue || "",
+      ...(Array.isArray(parsedDetails.locationClues) ? parsedDetails.locationClues : []),
+    ].filter(Boolean);
+
+    console.log("Location clues found:", locationClues);
+
+    if (locationClues.length > 0) {
+      // We have some location clues, let's infer the address
+      address = await this.inferAddressFromLocationClues(
+        locationClues,
+        userCityState,
+        locationContext?.userCoordinates
+      );
+    }
+
+    let location: Point;
+    if (address) {
+      location = await this.geocodeAddress(address);
+    } else if (locationContext?.userCoordinates) {
+      // If we still don't have an address but have user coordinates, use them as fallback
+      console.log("Using user coordinates as fallback location");
+      location = {
+        type: "Point",
+        coordinates: [locationContext.userCoordinates.lng, locationContext.userCoordinates.lat],
+      };
+    } else {
+      // Ultimate fallback to a default location
+      location = {
+        type: "Point",
+        coordinates: [-111.6585, 40.2338], // Default location in Provo
+      };
+    }
 
     // Process date with fallback
     let eventDate;
@@ -293,6 +377,54 @@ export class EventProcessingService {
       description: parsedDetails.description || "",
       categories: categories,
     };
+  }
+
+  // New method to infer address from all location clues
+  private async inferAddressFromLocationClues(
+    clues: string[],
+    userCityState: string,
+    userCoordinates?: { lat: number; lng: number }
+  ): Promise<string> {
+    const cluesText = clues.join(", ");
+    const userLocationContext = userCityState
+      ? `The user is currently in ${userCityState}.`
+      : userCoordinates
+      ? `The user is currently at latitude ${userCoordinates.lat}, longitude ${userCoordinates.lng}.`
+      : "";
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are an address resolution expert. ${userLocationContext}
+          
+          Based on the location clues and the user's current location:
+          1. Determine the most likely full address for the event
+          2. If clues mention a university, campus building, or room code, infer the complete address
+          3. Consider the user's current city and state in resolving ambiguous locations
+          
+          Return a complete, geocodable address with street, city, state, and ZIP.`,
+          },
+          {
+            role: "user",
+            content: `Location clues: ${cluesText}
+          
+          Return ONLY the complete address without explanation.
+          If you cannot determine a specific address with reasonable confidence, return "UNKNOWN".`,
+          },
+        ],
+      });
+
+      const inferredAddress = response.choices[0].message.content?.trim();
+      console.log("Inferred address:", inferredAddress);
+
+      return inferredAddress === "UNKNOWN" ? "" : inferredAddress || "";
+    } catch (error) {
+      console.error("Error inferring address from clues:", error);
+      return "";
+    }
   }
 
   private async generateEmbedding(text: string) {

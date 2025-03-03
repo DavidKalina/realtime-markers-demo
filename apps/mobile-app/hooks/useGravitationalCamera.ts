@@ -36,6 +36,8 @@ interface GravitationConfig {
   maxZoomOutAdjustment: number;
   // Max zoom in adjustment for closely clustered markers
   maxZoomInAdjustment: number;
+  // Whether to preserve user's zoom level during gravitational pull
+  preserveUserZoomLevel: boolean;
 }
 
 interface ViewportSample {
@@ -64,6 +66,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     velocitySampleSize: 5, // Keep 5 recent viewport positions for velocity calculation
     maxZoomOutAdjustment: 2, // Maximum amount to zoom out for spread out markers
     maxZoomInAdjustment: 1, // Maximum amount to zoom in for clustered markers
+    preserveUserZoomLevel: true, // NEW: Preserve user's current zoom level during gravitational pull
     ...config,
   };
 
@@ -93,6 +96,12 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
   const isUserPanningRef = useRef<boolean>(false);
   // Timeout for detecting when panning stops
   const panningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // NEW: Store current zoom level
+  const currentZoomLevelRef = useRef<number | null>(null);
+  // NEW: Track if user is actively zooming
+  const isUserZoomingRef = useRef<boolean>(false);
+  // NEW: Timeout for detecting when zooming stops
+  const zoomingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Calculate the center of the current viewport
   const getViewportCenter = useCallback(() => {
@@ -206,6 +215,11 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
   // NEW: Determine appropriate zoom level based on marker distribution
   const determineZoomLevel = useCallback(
     (targetCoordinates: [number, number]) => {
+      // NEW: If we should preserve the user's zoom level and we have a current zoom level, use it
+      if (gravitationConfig.preserveUserZoomLevel && currentZoomLevelRef.current !== null) {
+        return currentZoomLevelRef.current;
+      }
+
       const visibleMarkers = visibleMarkersRef.current;
 
       // Default zoom level from config
@@ -261,6 +275,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       gravitationConfig.gravityZoomLevel,
       gravitationConfig.maxZoomOutAdjustment,
       gravitationConfig.maxZoomInAdjustment,
+      gravitationConfig.preserveUserZoomLevel,
     ]
   );
 
@@ -306,6 +321,27 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     }, 100);
   }, []);
 
+  // NEW: Handle zooming state
+  const handleZoomingStart = useCallback(() => {
+    isUserZoomingRef.current = true;
+
+    // Clear any existing timeout
+    if (zoomingTimeoutRef.current) {
+      clearTimeout(zoomingTimeoutRef.current);
+    }
+  }, []);
+
+  const handleZoomingEnd = useCallback(() => {
+    // Set a timeout to mark zooming as ended after a short delay
+    if (zoomingTimeoutRef.current) {
+      clearTimeout(zoomingTimeoutRef.current);
+    }
+
+    zoomingTimeoutRef.current = setTimeout(() => {
+      isUserZoomingRef.current = false;
+    }, 100);
+  }, []);
+
   // MODIFIED: Apply the gravitational pull with nearest marker and dynamic zoom
   const applyGravitationalPull = useCallback(() => {
     // Skip if gravity is disabled or already pulling or in cooldown period
@@ -344,11 +380,6 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     // Check if we need to center (avoid small adjustments if already centered)
     if (!needsCentering(centroid)) return;
 
-    // Determine appropriate zoom level based on marker distribution
-    const baseZoomLevel = isHighVelocityPan
-      ? gravitationConfig.highVelocityZoomLevel
-      : gravitationConfig.gravityZoomLevel;
-
     // Use our dynamic zoom calculation, passing the base level
     const zoomLevel = determineZoomLevel(centroid);
 
@@ -380,7 +411,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     if (cameraRef.current) {
       cameraRef.current.setCamera({
         centerCoordinate: centroid,
-        zoomLevel: zoomLevel, // Using our dynamically calculated zoom
+        zoomLevel: zoomLevel, // Using our dynamically calculated zoom or user's current zoom
         animationDuration: animationDuration,
         animationMode: "easeTo",
       });
@@ -412,7 +443,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     publish,
   ]);
 
-  // Handle viewport change
+  // MODIFIED: Handle viewport change to detect zoom changes
   const handleViewportChange = useCallback(
     (feature: any) => {
       // Mark the start of panning if not already panning
@@ -431,12 +462,42 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
         const [[west, north], [east, south]] = feature.properties.visibleBounds;
 
         // Store normalized bounds
+        const previousBounds = currentViewportRef.current;
         currentViewportRef.current = {
           north,
           south,
           east: Math.max(west, east),
           west: Math.min(west, east),
         };
+
+        // NEW: Detect zoom changes
+        // Get the current zoom level if available in the feature
+        if (feature.properties.zoomLevel !== undefined) {
+          if (currentZoomLevelRef.current !== feature.properties.zoomLevel) {
+            // Zoom level has changed
+            handleZoomingStart();
+            handleZoomingEnd(); // Start the timer to reset zooming state
+          }
+          currentZoomLevelRef.current = feature.properties.zoomLevel;
+        } else {
+          // If zoomLevel is not directly available, try to detect zoom by comparing bounds size
+          if (previousBounds) {
+            const oldWidth = previousBounds.east - previousBounds.west;
+            const oldHeight = previousBounds.north - previousBounds.south;
+
+            const newWidth = currentViewportRef.current.east - currentViewportRef.current.west;
+            const newHeight = currentViewportRef.current.north - currentViewportRef.current.south;
+
+            // If the bounds size has changed significantly, assume a zoom operation
+            if (
+              Math.abs(newWidth / oldWidth - 1) > 0.1 ||
+              Math.abs(newHeight / oldHeight - 1) > 0.1
+            ) {
+              handleZoomingStart();
+              handleZoomingEnd(); // Start the timer to reset zooming state
+            }
+          }
+        }
 
         // Get viewport center
         const center = getViewportCenter();
@@ -467,6 +528,8 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       getViewportCenter,
       handlePanningStart,
       handlePanningEnd,
+      handleZoomingStart,
+      handleZoomingEnd,
       gravitationConfig.velocitySampleSize,
     ]
   );
@@ -568,6 +631,18 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       unsubscribeAnimateToBounds();
     };
   }, [subscribe, animateToLocation, animateToBounds, gravitationConfig.gravityZoomLevel]);
+
+  // Clean up timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (panningTimeoutRef.current) {
+        clearTimeout(panningTimeoutRef.current);
+      }
+      if (zoomingTimeoutRef.current) {
+        clearTimeout(zoomingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // The returned API
   return {
