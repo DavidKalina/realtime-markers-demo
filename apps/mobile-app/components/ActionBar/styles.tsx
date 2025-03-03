@@ -39,7 +39,7 @@ export const styles = StyleSheet.create({
   },
   actionButtonLabel: {
     color: "#f8f9fa", // Match event details text color
-    fontSize: 10,
+    fontSize: 8,
     fontFamily: "SpaceMono",
     marginTop: 4,
     textAlign: "center",
@@ -85,20 +85,6 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "SpaceMono",
     marginLeft: 4,
-  },
-  detailButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  detailButtonText: {
-    fontFamily: "SpaceMono",
-    color: "#cbd5e1", // steel blue light variant
-    fontSize: 14,
-    fontWeight: "500",
   },
   iconSmall: {
     marginRight: 2,
