@@ -26,7 +26,7 @@ export default {
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "7",
+      buildNumber: "8",
     },
     android: {
       adaptiveIcon: {
