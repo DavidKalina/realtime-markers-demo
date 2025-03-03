@@ -163,7 +163,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "center",
     paddingVertical: Platform.OS === "ios" ? 20 : 24,
     position: "relative",
