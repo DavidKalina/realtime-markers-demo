@@ -117,15 +117,9 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         }
       }
 
-      // IMPORTANT: Always emit when going from markers to no markers
-      // This ensures we update the UI when the user pans away from events
       const wasShowingMarkers = prevMarkerCount.current > 0;
       const isEmptyNow = updatedMarkers.length === 0;
 
-      // Only emit marker updates in these cases:
-      // 1. When going from some markers to no markers (moved away from events)
-      // 2. When going from no markers to some markers (found new events)
-      // 3. When there's a significant change in the number of markers
       const significantChange = Math.abs(updatedMarkers.length - prevMarkerCount.current) >= 2;
       const isFirstResult = prevMarkerCount.current === 0 && updatedMarkers.length > 0;
       const clearedAllMarkers = wasShowingMarkers && isEmptyNow;
@@ -145,9 +139,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
   const batchMarkerUpdates = useCallback(
     (updates: Marker[]) => {
-      // For simplicity, just update markers immediately instead of batching
-      // This reduces complexity while maintaining responsiveness
-      setMarkers(updates);
+      setMarkers((prev) => [...prev, ...updates]);
 
       // Only emit events for significant updates
       if (updates.length > 0 || prevMarkerCount.current > 0) {
