@@ -137,7 +137,6 @@ class EventBroker {
     // Listen to all events for debugging
     const originalEmit = this.emitter.emit;
     this.emitter.emit = (type, ...args) => {
-      console.log(`[EventBroker] Event emitted: ${String(type)}`, ...args);
       return originalEmit.call(this.emitter, type, ...args);
     };
     this._hasDebugListeners = true;
