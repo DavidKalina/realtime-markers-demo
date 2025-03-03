@@ -1,5 +1,5 @@
 // services/EventBroker.ts
-import { EventEmitter } from "events";
+import { EventEmitter } from "eventemitter3";
 
 // Define event types for better type checking
 export enum EventTypes {
@@ -185,7 +185,6 @@ class EventBroker {
   private constructor() {
     this.emitter = new EventEmitter();
     // Increase max listeners to prevent Node.js warning
-    this.emitter.setMaxListeners(50);
     this.debugMode = __DEV__; // Use React Native's __DEV__ global
 
     // Set up debugging in dev mode
