@@ -21,7 +21,7 @@ interface MarkerData {
 interface WebSocketData {
   clientId: string;
   viewport?: BBox;
-  lastActivity?: number; // Add this field to track last activity timestamp
+  lastActivity?: number;
 }
 
 interface BBox {
@@ -30,6 +30,26 @@ interface BBox {
   maxX: number;
   maxY: number;
 }
+
+// Define clear message types to keep code consistent
+const MessageTypes = {
+  // Connection messages
+  CONNECTION_ESTABLISHED: "connection_established",
+
+  // Viewport-related (what's visible to the user)
+  VIEWPORT_UPDATE: "viewport_update",
+  INITIAL_MARKERS: "initial_markers",
+
+  // Real-time updates (actual data changes)
+  MARKER_CREATED: "marker_created",
+  MARKER_UPDATED: "marker_updated",
+  MARKER_DELETED: "marker_deleted",
+
+  // Existing message types (for compatibility)
+  MARKER_DELETE: "marker_delete",
+  MARKER_UPDATES_BATCH: "marker_updates_batch",
+  DEBUG_EVENT: "debug_event",
+};
 
 // --- In-Memory State ---
 const tree = new RBush<MarkerData>();
@@ -119,19 +139,40 @@ async function initializeState() {
   }
 }
 
+// Helper function to check if a marker is in viewport
+function isMarkerInViewport(marker: MarkerData, viewport: BBox): boolean {
+  return (
+    marker.minX >= viewport.minX &&
+    marker.minX <= viewport.maxX &&
+    marker.minY >= viewport.minY &&
+    marker.minY <= viewport.maxY
+  );
+}
+
+// IMPORTANT: This is where we handle real-time updates from Redis
 redisSub.on("message", (channel, message) => {
   try {
     const { operation, record } = JSON.parse(message);
 
+    // --- DELETION HANDLING ---
     if (operation === "DELETE") {
       // Find and remove the marker from the R-tree
       const markerToDelete = tree.all().find((marker) => marker.id === record.id);
       if (markerToDelete) {
         tree.remove(markerToDelete, (a, b) => a.id === b.id);
 
-        // Send immediate delete notification to all clients
+        // Send real-time deletion notification to all clients
         const deletePayload = JSON.stringify({
-          type: "marker_delete",
+          type: MessageTypes.MARKER_DELETED, // New message type
+          data: {
+            id: record.id,
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        // Also send legacy message type for backward compatibility
+        const legacyDeletePayload = JSON.stringify({
+          type: MessageTypes.MARKER_DELETE, // Original message type
           data: {
             id: record.id,
             timestamp: new Date().toISOString(),
@@ -140,7 +181,9 @@ redisSub.on("message", (channel, message) => {
 
         clients.forEach((client) => {
           try {
+            // Send both new and legacy message types
             client.send(deletePayload);
+            client.send(legacyDeletePayload);
           } catch (error) {
             console.error(`Failed to send delete event to client ${client.data.clientId}:`, error);
           }
@@ -149,6 +192,7 @@ redisSub.on("message", (channel, message) => {
       return;
     }
 
+    // --- CREATION/UPDATE HANDLING ---
     const [lng, lat] = record.location.coordinates;
 
     const markerData: MarkerData = {
@@ -166,15 +210,19 @@ redisSub.on("message", (channel, message) => {
       },
     };
 
+    // Determine if this is a new marker or an update
+    const isUpdate = operation === "UPDATE";
+    const isCreate = operation === "CREATE" || operation === "INSERT";
+
     // If it's an update, remove the old marker first
-    if (operation === "UPDATE") {
+    if (isUpdate) {
       tree.remove(markerData, (a, b) => a.id === b.id);
     }
 
     // Insert the new marker position
     tree.insert(markerData);
 
-    // Add to pending updates
+    // Add to pending updates for batch system (existing functionality)
     let updates = pendingUpdates.get(record.id);
     if (!updates) {
       updates = new Set();
@@ -182,9 +230,36 @@ redisSub.on("message", (channel, message) => {
     }
     updates.add(markerData);
 
-    // Send debug event to all connected clients
+    // IMPORTANT NEW FEATURE: Send real-time marker created/updated notifications
+    // This is separate from the viewport update system
+    const realTimePayload = JSON.stringify({
+      type: isCreate ? MessageTypes.MARKER_CREATED : MessageTypes.MARKER_UPDATED,
+      data: markerData,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Send notifications to clients that have this marker in viewport
+    clients.forEach((client) => {
+      if (client.data.viewport && isMarkerInViewport(markerData, client.data.viewport)) {
+        try {
+          client.send(realTimePayload);
+          console.log(
+            `[Real-time] Sent ${isCreate ? "creation" : "update"} for marker ${
+              markerData.id
+            } to client ${client.data.clientId}`
+          );
+        } catch (error) {
+          console.error(
+            `Failed to send real-time update to client ${client.data.clientId}:`,
+            error
+          );
+        }
+      }
+    });
+
+    // Send debug event to all connected clients (existing functionality)
     const debugPayload = JSON.stringify({
-      type: "debug_event",
+      type: MessageTypes.DEBUG_EVENT,
       data: {
         operation,
         eventId: record.id,
@@ -207,6 +282,7 @@ redisSub.on("message", (channel, message) => {
 });
 
 // --- Batch Update Routine ---
+// This is kept for compatibility with existing system
 setInterval(() => {
   clients.forEach((client, clientId) => {
     if (!client.data.viewport) return;
@@ -224,7 +300,7 @@ setInterval(() => {
 
     if (relevantUpdates.size > 0) {
       const payload = JSON.stringify({
-        type: "marker_updates_batch",
+        type: MessageTypes.MARKER_UPDATES_BATCH,
         data: Array.from(relevantUpdates),
         timestamp: Date.now(),
       });
@@ -264,7 +340,7 @@ const server = {
 
       ws.send(
         JSON.stringify({
-          type: "connection_established",
+          type: MessageTypes.CONNECTION_ESTABLISHED,
           clientId,
           instanceId: process.env.HOSTNAME,
         })
@@ -276,8 +352,9 @@ const server = {
 
       try {
         const data = JSON.parse(message.toString());
-        // Replace your viewport update handler with this:
-        if (data.type === "viewport_update") {
+
+        // Handle viewport updates
+        if (data.type === MessageTypes.VIEWPORT_UPDATE) {
           // First, create the viewport object
           const viewportBounds = {
             minX: data.viewport.west,
@@ -299,23 +376,6 @@ const server = {
             currentMarkersInView: markersInView.length,
           });
 
-          // Log all markers in the tree to debug
-          const allMarkers = tree.all();
-          console.log(`[Debug] All ${allMarkers.length} markers in tree:`);
-
-          // Log each marker and whether it's in the viewport
-          allMarkers.forEach((marker) => {
-            const isInView =
-              marker.minX >= viewportBounds.minX &&
-              marker.minX <= viewportBounds.maxX &&
-              marker.minY >= viewportBounds.minY &&
-              marker.minY <= viewportBounds.maxY;
-
-            console.log(
-              `[Debug] Marker ${marker.id}: [${marker.minX}, ${marker.minY}], in viewport: ${isInView}`
-            );
-          });
-
           // Send markers only if there are any in the viewport
           if (markersInView.length > 0) {
             console.log(
@@ -323,7 +383,7 @@ const server = {
             );
             ws.send(
               JSON.stringify({
-                type: "initial_markers",
+                type: MessageTypes.INITIAL_MARKERS,
                 data: markersInView,
               })
             );
@@ -332,10 +392,75 @@ const server = {
             console.log(`[Send] Sending empty markers array to client ${ws.data.clientId}`);
             ws.send(
               JSON.stringify({
-                type: "initial_markers",
+                type: MessageTypes.INITIAL_MARKERS,
                 data: [],
               })
             );
+          }
+        }
+
+        // Handle test events
+        else if (data.type === "test_event") {
+          console.log(`[TEST] Received test event command: ${data.command}`);
+
+          if (data.command === "add_marker") {
+            // Create a test marker
+            const testMarker = {
+              id: `test-${Date.now()}`,
+              minX: (ws.data.viewport?.minX || 0) + 0.001,
+              minY: (ws.data.viewport?.minY || 0) + 0.001,
+              maxX: (ws.data.viewport?.minX || 0) + 0.001,
+              maxY: (ws.data.viewport?.minY || 0) + 0.001,
+              data: {
+                title: "Test Marker",
+                emoji: "🧪",
+                color: "blue",
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            };
+
+            // Add to the tree
+            tree.insert(testMarker);
+
+            // Only send if viewport exists
+            if (ws.data.viewport) {
+              console.log(`[TEST] Sending test marker_created message`);
+              ws.send(
+                JSON.stringify({
+                  type: MessageTypes.MARKER_CREATED,
+                  data: testMarker,
+                  count: 1,
+                  timestamp: Date.now(),
+                })
+              );
+            }
+          }
+
+          if (data.command === "remove_marker" && ws.data.viewport) {
+            // Get markers in viewport
+            const markersInView = tree.search(ws.data.viewport);
+
+            if (markersInView.length > 0) {
+              // Take the first marker to remove
+              const markerToRemove = markersInView[0];
+
+              // Remove from the tree
+              tree.remove(markerToRemove, (a, b) => a.id === b.id);
+
+              console.log(`[TEST] Sending test marker_deleted message for ${markerToRemove.id}`);
+              ws.send(
+                JSON.stringify({
+                  type: MessageTypes.MARKER_DELETED,
+                  data: {
+                    id: markerToRemove.id,
+                    timestamp: new Date().toISOString(),
+                  },
+                  count: 1,
+                  timestamp: Date.now(),
+                })
+              );
+            }
           }
         }
       } catch (error) {

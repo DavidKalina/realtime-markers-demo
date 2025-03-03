@@ -29,6 +29,13 @@ export const styles = StyleSheet.create({
   disconnected: {
     backgroundColor: "#f44336",
   },
+  // Add new styles for notification types
+  notificationAdded: {
+    backgroundColor: "#2196f3", // Blue for additions
+  },
+  notificationRemoved: {
+    backgroundColor: "#ff9800", // Orange for removals
+  },
   textContainer: {
     flexDirection: "column",
   },

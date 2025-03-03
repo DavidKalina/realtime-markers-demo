@@ -1,4 +1,4 @@
-// hooks/useMapWebsocket.ts - Using refs for stability
+// hooks/useMapWebsocket.ts
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   eventBroker,
@@ -46,6 +46,26 @@ interface MapWebSocketResult {
   clientId: string | null;
 }
 
+// Define message types to keep code consistent
+const MessageTypes = {
+  // Connection messages
+  CONNECTION_ESTABLISHED: "connection_established",
+
+  // Viewport-related (what's visible to the user)
+  VIEWPORT_UPDATE: "viewport_update",
+  INITIAL_MARKERS: "initial_markers",
+
+  // Real-time updates (actual data changes)
+  MARKER_CREATED: "marker_created",
+  MARKER_UPDATED: "marker_updated",
+  MARKER_DELETED: "marker_deleted",
+
+  // Legacy message types (for compatibility)
+  MARKER_DELETE: "marker_delete",
+  MARKER_UPDATES_BATCH: "marker_updates_batch",
+  DEBUG_EVENT: "debug_event",
+};
+
 export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const [markers, setMarkers] = useState<Marker[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
@@ -65,7 +85,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   useEffect(() => {
     // Update the global store whenever the local markers state changes
     setStoreMarkers(markers);
-  }, [markers]);
+  }, [markers, setStoreMarkers]);
 
   // Store selected marker id from the marker store.
   const selectedMarkerId = useLocationStore((state) => state.selectedMarkerId);
@@ -168,7 +188,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       const now = Date.now();
       if (now - lastViewportUpdateRef.current > VIEWPORT_THROTTLE_MS) {
         const message = {
-          type: "viewport_update",
+          type: MessageTypes.VIEWPORT_UPDATE,
           viewport: currentViewportRef.current,
         };
         ws.current.send(JSON.stringify(message));
@@ -201,7 +221,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     // Send the viewport update to the server
     if (ws.current?.readyState === WebSocket.OPEN) {
       const message = {
-        type: "viewport_update",
+        type: MessageTypes.VIEWPORT_UPDATE,
         viewport: viewport,
       };
       ws.current.send(JSON.stringify(message));
@@ -230,42 +250,86 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       ws.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          console.log(`[DEBUG] WebSocket received message type: ${data.type}`);
 
           switch (data.type) {
-            case "connection_established":
+            case MessageTypes.CONNECTION_ESTABLISHED:
               setClientId(data.clientId);
               break;
 
-            case "initial_markers": {
+            // Viewport synchronization (basic map marker display)
+            case MessageTypes.INITIAL_MARKERS: {
+              console.log(`[DEBUG] Received initial_markers with ${data.data.length} markers`);
               const initialMapboxMarkers = data.data.map((marker: any) =>
                 convertRBushToMapbox(marker)
               );
               setMarkers(initialMapboxMarkers);
 
-              // Always emit on initial marker load, regardless of count
-              // This ensures proper state handling for both empty and populated areas
+              // Standard marker update event (for event count display)
               emitMarkersUpdated(initialMapboxMarkers);
               break;
             }
 
-            case "marker_updates_batch": {
+            // Legacy batch updates (keep for compatibility)
+            case MessageTypes.MARKER_UPDATES_BATCH: {
               const mapboxUpdates = data.data.map((marker: any) => convertRBushToMapbox(marker));
               batchMarkerUpdates(mapboxUpdates);
               break;
             }
 
-            case "marker_delete": {
-              if (data.data.id === selectedMarkerIdRef.current) {
+            // Real-time update for marker creation
+            case MessageTypes.MARKER_CREATED: {
+              console.log(`[DEBUG] Received marker_created for ${data.data.id}`);
+
+              // Emit event for notification
+              console.log(`[DEBUG] Emitting MARKER_ADDED event`);
+              eventBroker.emit<MarkersEvent>(EventTypes.MARKER_ADDED, {
+                timestamp: Date.now(),
+                source: "useMapWebSocket",
+                markers: [],
+                count: 1,
+              });
+              break;
+            }
+
+            // Real-time update for marker modification
+            case MessageTypes.MARKER_UPDATED: {
+              console.log(`[DEBUG] Received marker_updated for ${data.data.id}`);
+              const updatedMarker = convertRBushToMapbox(data.data);
+
+              // Replace in existing markers
+              setMarkers((prev) =>
+                prev.map((marker) => (marker.id === updatedMarker.id ? updatedMarker : marker))
+              );
+
+              // Could emit a MARKER_MODIFIED event if needed
+              break;
+            }
+
+            // Real-time update for marker deletion
+            case MessageTypes.MARKER_DELETED:
+            case MessageTypes.MARKER_DELETE: {
+              // Support both new and legacy types
+              console.log(`[DEBUG] Received marker deletion for ${data.data.id}`);
+              const deletedId = data.data.id;
+
+              // Handle marker deselection if needed
+              if (deletedId === selectedMarkerIdRef.current) {
                 selectMarker(null);
                 eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
                   timestamp: Date.now(),
                   source: "useMapWebSocket",
                 });
               }
-              setMarkers((prevMarkers) => {
-                const updatedMarkers = prevMarkers.filter((marker) => marker.id !== data.data.id);
-                emitMarkersUpdated(updatedMarkers);
-                return updatedMarkers;
+
+              // Don't update markers state - let batch updates handle it
+              // Just emit the notification event
+              console.log(`[DEBUG] Emitting MARKER_REMOVED event`);
+              eventBroker.emit<MarkersEvent>(EventTypes.MARKER_REMOVED, {
+                timestamp: Date.now(),
+                source: "useMapWebSocket",
+                markers: [],
+                count: 1,
               });
               break;
             }

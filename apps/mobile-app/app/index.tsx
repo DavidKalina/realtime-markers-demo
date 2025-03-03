@@ -1,4 +1,4 @@
-import ConnectionIndicator from "@/components/ConnectionIndicator/ConnectionIndicator";
+import { ConnectionIndicator } from "@/components/ConnectionIndicator/ConnectionIndicator";
 import EventAssistant from "@/components/EventAssistant/EventAssistant";
 import { styles } from "@/components/homeScreenStyles";
 import { SimpleMapMarkers } from "@/components/Markers/MarkerImplementation";

@@ -9,6 +9,8 @@ export enum EventTypes {
   MARKERS_UPDATED = "markers:updated",
   MARKER_SELECTED = "marker:selected",
   MARKER_DESELECTED = "marker:deselected",
+  MARKER_ADDED = "marker:added",
+  MARKER_REMOVED = "marker:removed",
   VIEWPORT_CHANGED = "viewport:changed",
   VIEWPORT_CHANGING = "viewport:changing",
 

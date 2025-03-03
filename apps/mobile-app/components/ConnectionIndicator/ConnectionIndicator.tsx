@@ -1,19 +1,19 @@
-import React, { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
-import { Wifi, WifiOff } from "lucide-react-native";
-import { EventTypes } from "@/services/EventBroker";
 import { useEventBroker } from "@/hooks/useEventBroker";
+import { EventTypes } from "@/services/EventBroker";
+import { AlertCircle, Minus, Plus, Wifi, WifiOff } from "lucide-react-native";
+import React, { useEffect, useState } from "react";
+import { View } from "react-native";
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
   cancelAnimation,
   Easing,
   FadeIn,
   FadeOut,
   Layout,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
 import { styles } from "./styles";
 
@@ -24,7 +24,10 @@ interface ConnectionIndicatorProps {
   showAnimation?: boolean;
 }
 
-const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
+// Define notification types
+type NotificationType = "none" | "added" | "removed" | "reconnecting" | "connecting";
+
+export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
   eventsCount = 0,
   initialConnectionState = false,
   position = "top-right",
@@ -35,6 +38,16 @@ const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
   const [hasConnectionEverBeenEstablished, setHasConnectionEverBeenEstablished] =
     useState(initialConnectionState);
 
+  // Add state for the transient notifications
+  const [activeNotification, setActiveNotification] = useState<NotificationType>("none");
+  const [notificationData, setNotificationData] = useState<{ count: number; text: string }>({
+    count: 0,
+    text: "",
+  });
+  const [notificationTimer, setNotificationTimer] = useState<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
   // Reanimated shared values for animations
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
@@ -42,24 +55,79 @@ const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
   // Use the event broker hook
   const { subscribe } = useEventBroker();
 
+  // Show a notification for a limited time
+  const showNotification = (type: NotificationType, count: number, duration: number = 5000) => {
+    // Clear any existing timeout
+    if (notificationTimer) {
+      clearTimeout(notificationTimer);
+    }
+
+    console.log(`[CI-DEBUG] showNotification called with type=${type}, count=${count}`);
+
+    // Set the notification type and data
+    setActiveNotification(type);
+
+    let text = "";
+    switch (type) {
+      case "added":
+        text = `${count} new event${count !== 1 ? "s" : ""} added!`;
+        break;
+      case "removed":
+        text = `${count} event${count !== 1 ? "s" : ""} removed`;
+        break;
+      case "reconnecting":
+        text = "Reconnecting...";
+        break;
+      case "connecting":
+        text = "Connecting...";
+        break;
+    }
+
+    setNotificationData({ count, text });
+
+    // Set timeout to clear notification
+    const timer = setTimeout(() => {
+      console.log(`[CI-DEBUG] Notification timeout triggered, clearing notification`);
+      setActiveNotification("none");
+      setNotificationTimer(null);
+    }, duration);
+
+    setNotificationTimer(timer);
+  };
+
   // Listen to WebSocket connection events
   useEffect(() => {
+    console.log("[CI-DEBUG] Setting up event subscriptions");
+
     const handleConnected = () => {
+      console.log("[CI-DEBUG] WEBSOCKET_CONNECTED event received");
       setIsConnected(true);
       setHasConnectionEverBeenEstablished(true);
+
+      // Clear reconnecting notification if active
+      if (activeNotification === "reconnecting" || activeNotification === "connecting") {
+        setActiveNotification("none");
+      }
     };
 
     const handleDisconnected = () => {
+      console.log("[CI-DEBUG] WEBSOCKET_DISCONNECTED event received");
       setIsConnected(false);
+      if (hasConnectionEverBeenEstablished) {
+        showNotification("reconnecting", 0);
+      } else {
+        showNotification("connecting", 0);
+      }
     };
 
-    // Check initial connection status by subscribing to any marker updates
     const handleMarkersUpdated = () => {
+      console.log("[CI-DEBUG] MARKERS_UPDATED event received");
       setIsConnected(true);
       setHasConnectionEverBeenEstablished(true);
     };
 
     const handleError = (event: any) => {
+      console.log("[CI-DEBUG] ERROR_OCCURRED event received:", event);
       if (
         event.error &&
         (event.error.message?.includes("WebSocket") ||
@@ -70,19 +138,61 @@ const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
       }
     };
 
+    // Add handlers for marker added/removed events
+    const handleMarkerAdded = (event: any) => {
+      console.log(`[CI-DEBUG] MARKER_ADDED event received:`, event);
+      console.log(
+        `[CI-DEBUG] Event count: ${event.count}, Has markers: ${event.markers?.length > 0}`
+      );
+
+      if (event.count > 0) {
+        console.log(`[CI-DEBUG] Showing 'added' notification for ${event.count} markers`);
+        showNotification("added", event.count);
+      }
+    };
+
+    const handleMarkerRemoved = (event: any) => {
+      console.log(`[CI-DEBUG] MARKER_REMOVED event received:`, event);
+      console.log(
+        `[CI-DEBUG] Event count: ${event.count}, Has markers: ${event.markers?.length > 0}`
+      );
+
+      if (event.count > 0) {
+        console.log(`[CI-DEBUG] Showing 'removed' notification for ${event.count} markers`);
+        showNotification("removed", event.count);
+      }
+    };
+
     // Subscribe to events using the hook (cleanup is handled automatically)
-    subscribe(EventTypes.WEBSOCKET_CONNECTED, handleConnected);
-    subscribe(EventTypes.WEBSOCKET_DISCONNECTED, handleDisconnected);
-    subscribe(EventTypes.MARKERS_UPDATED, handleMarkersUpdated);
-    subscribe(EventTypes.ERROR_OCCURRED, handleError);
+    const unsubConnect = subscribe(EventTypes.WEBSOCKET_CONNECTED, handleConnected);
+    const unsubDisconnect = subscribe(EventTypes.WEBSOCKET_DISCONNECTED, handleDisconnected);
+    const unsubMarkers = subscribe(EventTypes.MARKERS_UPDATED, handleMarkersUpdated);
+    const unsubError = subscribe(EventTypes.ERROR_OCCURRED, handleError);
+    const unsubMarkerAdded = subscribe(EventTypes.MARKER_ADDED, handleMarkerAdded);
+    const unsubMarkerRemoved = subscribe(EventTypes.MARKER_REMOVED, handleMarkerRemoved);
 
-    // No need for manual cleanup as the hook handles it
-  }, [subscribe]);
+    // Cleanup function
+    return () => {
+      if (notificationTimer) {
+        clearTimeout(notificationTimer);
+      }
 
-  // Handle animation based on connection status
+      // Explicitly unsubscribe from all events
+      unsubConnect();
+      unsubDisconnect();
+      unsubMarkers();
+      unsubError();
+      unsubMarkerAdded();
+      unsubMarkerRemoved();
+    };
+  }, [subscribe, activeNotification, hasConnectionEverBeenEstablished, notificationTimer]);
+
+  // Handle animation based on connection status and notifications
   useEffect(() => {
-    if (!isConnected && showAnimation) {
-      // Create smoother pulsing animation for disconnected state
+    const shouldAnimate = !isConnected || activeNotification !== "none";
+
+    if (shouldAnimate && showAnimation) {
+      // Create smoother pulsing animation
       scale.value = withRepeat(
         withSequence(
           withTiming(1.2, {
@@ -113,7 +223,7 @@ const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
         false // not reverse
       );
     } else {
-      // Reset animation when connected with a smooth transition
+      // Reset animation with a smooth transition
       cancelAnimation(scale);
       cancelAnimation(opacity);
       scale.value = withTiming(1, {
@@ -131,7 +241,7 @@ const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
       cancelAnimation(scale);
       cancelAnimation(opacity);
     };
-  }, [isConnected, scale, opacity, showAnimation]);
+  }, [isConnected, scale, opacity, showAnimation, activeNotification]);
 
   // Create animated styles using Reanimated
   const animatedStyles = useAnimatedStyle(() => {
@@ -140,13 +250,6 @@ const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
       opacity: opacity.value,
     };
   });
-
-  // Get the right status text based on connection history
-  const getStatusText = () => {
-    if (isConnected) return "Connected";
-    if (hasConnectionEverBeenEstablished) return "Reconnecting...";
-    return "Connecting...";
-  };
 
   // Get position styles based on position prop
   const getPositionStyle = () => {
@@ -163,41 +266,91 @@ const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
     }
   };
 
+  // Get the notification icon based on type
+  const getNotificationIcon = () => {
+    switch (activeNotification) {
+      case "added":
+        return <Plus size={16} color="#fff" />;
+      case "removed":
+        return <Minus size={16} color="#fff" />;
+      case "reconnecting":
+      case "connecting":
+        return <AlertCircle size={16} color="#fff" />;
+      default:
+        return isConnected ? <Wifi size={16} color="#fff" /> : <WifiOff size={16} color="#fff" />;
+    }
+  };
+
+  // Get notification styles based on type
+  const getNotificationStyle = () => {
+    switch (activeNotification) {
+      case "added":
+        return styles.notificationAdded;
+      case "removed":
+        return styles.notificationRemoved;
+      case "reconnecting":
+      case "connecting":
+        return styles.disconnected;
+      default:
+        return isConnected ? styles.connected : styles.disconnected;
+    }
+  };
+
+  // Log changes to active notification for debugging
+  useEffect(() => {
+    console.log(`[CI-DEBUG] activeNotification changed to: ${activeNotification}`);
+  }, [activeNotification]);
+
   return (
     <Animated.View style={[styles.container, getPositionStyle()]} layout={Layout.springify()}>
       <Animated.View
         style={[
           styles.indicator,
-          isConnected ? styles.connected : styles.disconnected,
-          !isConnected && showAnimation && animatedStyles,
+          getNotificationStyle(),
+          (!isConnected || activeNotification !== "none") && showAnimation && animatedStyles,
         ]}
         layout={Layout.springify()}
       >
-        {isConnected ? <Wifi size={16} color="#fff" /> : <WifiOff size={16} color="#fff" />}
+        {getNotificationIcon()}
       </Animated.View>
 
       <View style={styles.textContainer}>
-        <Animated.Text
-          style={styles.statusText}
-          entering={FadeIn.duration(300)}
-          exiting={FadeOut.duration(300)}
-          layout={Layout.springify()}
-        >
-          {getStatusText()}
-        </Animated.Text>
-
-        {isConnected && eventsCount > 0 && (
+        {activeNotification !== "none" ? (
           <Animated.Text
-            style={styles.countText}
-            entering={FadeIn.duration(400).delay(100)}
+            style={styles.statusText}
+            entering={FadeIn.duration(300)}
+            exiting={FadeOut.duration(300)}
             layout={Layout.springify()}
           >
-            {eventsCount} event{eventsCount !== 1 ? "s" : ""} in area
+            {notificationData.text}
           </Animated.Text>
+        ) : (
+          <>
+            <Animated.Text
+              style={styles.statusText}
+              entering={FadeIn.duration(300)}
+              exiting={FadeOut.duration(300)}
+              layout={Layout.springify()}
+            >
+              {isConnected
+                ? "Connected"
+                : hasConnectionEverBeenEstablished
+                ? "Reconnecting..."
+                : "Connecting..."}
+            </Animated.Text>
+
+            {isConnected && eventsCount > 0 && (
+              <Animated.Text
+                style={styles.countText}
+                entering={FadeIn.duration(400).delay(100)}
+                layout={Layout.springify()}
+              >
+                {eventsCount} event{eventsCount !== 1 ? "s" : ""} in area
+              </Animated.Text>
+            )}
+          </>
         )}
       </View>
     </Animated.View>
   );
 };
-
-export default ConnectionIndicator;
