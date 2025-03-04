@@ -1,40 +1,89 @@
-// hooks/useSimplifiedTextStreaming.ts
+// hooks/useEnhancedTextStreaming.ts
 import { useState, useCallback, useRef, useEffect } from "react";
 import * as Haptics from "expo-haptics";
 
 /**
- * A simplified text streaming hook that uses word-by-word streaming
- * rather than character-by-character for better performance and easier management.
- * Each message completely replaces the previous one.
+ * An enhanced text streaming hook that handles rapid marker transitions
+ * with improved cancellation, debouncing, and transition handling.
  */
-export const useSimplifiedTextStreaming = () => {
+export const useEnhancedTextStreaming = () => {
   // Core states
   const [currentText, setCurrentText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [queuedStream, setQueuedStream] = useState<{
+    messages: string[];
+    onComplete?: () => void;
+    options?: {
+      wordDelayMs?: number;
+      messageDelayMs?: number;
+    };
+  } | null>(null);
+
+  // Track the current streaming ID to handle multiple requests
+  const streamIdRef = useRef<number>(0);
 
   // Single abort controller for the current streaming operation
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Track any active timers for cleanup
+  const activeTimersRef = useRef<number[]>([]);
+
+  // Track if we're in a transition state (between markers)
+  const isTransitioningRef = useRef<boolean>(false);
+
+  // Track the latest marker ID being streamed
+  const currentMarkerIdRef = useRef<string | null>(null);
+
+  // Track debounce timer
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
+      cleanupAllStreaming();
     };
   }, []);
 
   /**
-   * Cancel any ongoing streaming operation
+   * Clean up all timers
    */
-  const cancelStreaming = useCallback(() => {
+  const clearAllTimers = useCallback(() => {
+    // Clear all active timers
+    activeTimersRef.current.forEach((timerId) => clearTimeout(timerId));
+    activeTimersRef.current = [];
+
+    // Clear debounce timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Complete cleanup of all streaming operations
+   */
+  const cleanupAllStreaming = useCallback(() => {
+    // Abort any controller
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+
+    // Clear all timers
+    clearAllTimers();
+
+    // Reset state
     setIsStreaming(false);
-  }, []);
+    setQueuedStream(null);
+    isTransitioningRef.current = false;
+  }, [clearAllTimers]);
+
+  /**
+   * Cancel any ongoing streaming operation and prepare for a new one
+   */
+  const cancelStreaming = useCallback(() => {
+    cleanupAllStreaming();
+  }, [cleanupAllStreaming]);
 
   /**
    * Reset the streaming state
@@ -42,13 +91,30 @@ export const useSimplifiedTextStreaming = () => {
   const resetStreaming = useCallback(() => {
     cancelStreaming();
     setCurrentText("");
+    currentMarkerIdRef.current = null;
   }, [cancelStreaming]);
 
   /**
-   * Stream a series of messages word-by-word with a callback on completion.
-   * Each message completely replaces the previous one.
+   * Process the next queued stream if available
    */
-  const streamMessages = useCallback(
+  const processQueuedStream = useCallback(() => {
+    if (queuedStream) {
+      const { messages, onComplete, options } = queuedStream;
+      setQueuedStream(null);
+
+      // Small delay to ensure UI is updated before starting new stream
+      const timerId = setTimeout(() => {
+        _streamMessages(messages, onComplete, options);
+      }, 50);
+
+      activeTimersRef.current.push(timerId as unknown as number);
+    }
+  }, [queuedStream]);
+
+  /**
+   * Internal implementation of streamMessages
+   */
+  const _streamMessages = useCallback(
     async (
       messages: string[],
       onComplete?: () => void,
@@ -60,8 +126,8 @@ export const useSimplifiedTextStreaming = () => {
       // Cancel any ongoing streaming
       cancelStreaming();
 
-      // Reset the current text
-      setCurrentText("");
+      // Generate a unique ID for this streaming session
+      const streamId = ++streamIdRef.current;
 
       // No messages to stream
       if (!messages.length) {
@@ -90,6 +156,11 @@ export const useSimplifiedTextStreaming = () => {
 
         // Process each message in sequence
         for (let messageIndex = 0; messageIndex < messages.length; messageIndex++) {
+          // Check if this streaming session is still current
+          if (streamId !== streamIdRef.current || controller.signal.aborted) {
+            throw new Error("Streaming superseded by newer stream");
+          }
+
           const message = messages[messageIndex];
 
           // Always start with empty text for each new message
@@ -101,8 +172,8 @@ export const useSimplifiedTextStreaming = () => {
           // Process each word
           let displayText = "";
           for (let wordIndex = 0; wordIndex < words.length; wordIndex++) {
-            // Check if aborted
-            if (controller.signal.aborted) {
+            // Check if aborted or superseded
+            if (streamId !== streamIdRef.current || controller.signal.aborted) {
               throw new Error("Streaming aborted");
             }
 
@@ -121,11 +192,18 @@ export const useSimplifiedTextStreaming = () => {
                   resolve();
                 }, wordDelay);
 
+                // Add timer to active timers list
+                const timerId = timer as unknown as number;
+                activeTimersRef.current.push(timerId);
+
                 // Handle abort during wait
                 controller.signal.addEventListener(
                   "abort",
                   () => {
                     clearTimeout(timer);
+                    activeTimersRef.current = activeTimersRef.current.filter(
+                      (id) => id !== timerId
+                    );
                     reject(new Error("Streaming aborted during word delay"));
                   },
                   { once: true }
@@ -141,11 +219,16 @@ export const useSimplifiedTextStreaming = () => {
                 resolve();
               }, messageDelay);
 
+              // Add timer to active timers list
+              const timerId = timer as unknown as number;
+              activeTimersRef.current.push(timerId);
+
               // Handle abort during wait
               controller.signal.addEventListener(
                 "abort",
                 () => {
                   clearTimeout(timer);
+                  activeTimersRef.current = activeTimersRef.current.filter((id) => id !== timerId);
                   reject(new Error("Streaming aborted during message delay"));
                 },
                 { once: true }
@@ -162,19 +245,108 @@ export const useSimplifiedTextStreaming = () => {
         }
 
         // Streaming completed successfully
-        setIsStreaming(false);
-        abortControllerRef.current = null;
+        if (streamId === streamIdRef.current) {
+          setIsStreaming(false);
+          abortControllerRef.current = null;
+          isTransitioningRef.current = false;
 
-        // Call completion callback if provided
-        if (onComplete) onComplete();
+          // Call completion callback if provided
+          if (onComplete) onComplete();
+
+          // Process any queued streams
+          processQueuedStream();
+        }
       } catch (error) {
         // Streaming was cancelled or failed
         console.log("Streaming cancelled:", error);
-        setIsStreaming(false);
-        abortControllerRef.current = null;
+
+        if (streamId === streamIdRef.current) {
+          setIsStreaming(false);
+          abortControllerRef.current = null;
+
+          // Process any queued streams if this was the current stream
+          processQueuedStream();
+        }
       }
     },
-    [cancelStreaming]
+    [cancelStreaming, processQueuedStream]
+  );
+
+  /**
+   * Stream messages with debouncing to handle rapid marker changes
+   */
+  const streamMessages = useCallback(
+    (
+      messages: string[],
+      onComplete?: () => void,
+      options?: {
+        wordDelayMs?: number;
+        messageDelayMs?: number;
+        markerId?: string;
+        debounceMs?: number;
+      }
+    ) => {
+      const markerId = options?.markerId;
+      const debounceTime = options?.debounceMs ?? 300; // Default debounce time
+
+      // Clear any existing debounce timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+
+      // If the marker ID changes, indicate we're transitioning
+      if (markerId && markerId !== currentMarkerIdRef.current) {
+        isTransitioningRef.current = true;
+        currentMarkerIdRef.current = markerId;
+      }
+
+      // If we're already streaming, queue this stream for later
+      if (isStreaming && !isTransitioningRef.current) {
+        setQueuedStream({
+          messages,
+          onComplete,
+          options,
+        });
+        return;
+      }
+
+      // Use debouncing to avoid rapid switching
+      debounceTimerRef.current = setTimeout(() => {
+        debounceTimerRef.current = null;
+        _streamMessages(messages, onComplete, options);
+      }, debounceTime);
+    },
+    [isStreaming, _streamMessages]
+  );
+
+  /**
+   * Stream a message sequence immediately for a specific marker
+   * This takes precedence over any existing streams or queues
+   */
+  const streamForMarker = useCallback(
+    (
+      markerId: string,
+      messages: string[],
+      onComplete?: () => void,
+      options?: {
+        wordDelayMs?: number;
+        messageDelayMs?: number;
+      }
+    ) => {
+      // Cancel all existing streams
+      cancelStreaming();
+
+      // Update marker ID
+      currentMarkerIdRef.current = markerId;
+
+      // Remove any queued streams
+      setQueuedStream(null);
+
+      // Stream immediately without debouncing
+      _streamMessages(messages, onComplete, options);
+    },
+    [cancelStreaming, _streamMessages]
   );
 
   /**
@@ -187,7 +359,8 @@ export const useSimplifiedTextStreaming = () => {
 
       if (onComplete) {
         // Small delay to ensure UI updates before callback
-        setTimeout(onComplete, 50);
+        const timerId = setTimeout(onComplete, 50);
+        activeTimersRef.current.push(timerId as unknown as number);
       }
     },
     [cancelStreaming]
@@ -197,8 +370,11 @@ export const useSimplifiedTextStreaming = () => {
     currentText,
     isStreaming,
     streamMessages,
+    streamForMarker,
     streamImmediate,
     cancelStreaming,
     resetStreaming,
+    isTransitioning: isTransitioningRef.current,
+    currentMarkerId: currentMarkerIdRef.current,
   };
 };
