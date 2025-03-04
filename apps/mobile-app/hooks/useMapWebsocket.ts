@@ -250,7 +250,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       ws.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log(`[DEBUG] WebSocket received message type: ${data.type}`);
 
           switch (data.type) {
             case MessageTypes.CONNECTION_ESTABLISHED:
@@ -259,7 +258,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
             // Viewport synchronization (basic map marker display)
             case MessageTypes.INITIAL_MARKERS: {
-              console.log(`[DEBUG] Received initial_markers with ${data.data.length} markers`);
               const initialMapboxMarkers = data.data.map((marker: any) =>
                 convertRBushToMapbox(marker)
               );
@@ -279,10 +277,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
             // Real-time update for marker creation
             case MessageTypes.MARKER_CREATED: {
-              console.log(`[DEBUG] Received marker_created for ${data.data.id}`);
-
               // Emit event for notification
-              console.log(`[DEBUG] Emitting MARKER_ADDED event`);
               eventBroker.emit<MarkersEvent>(EventTypes.MARKER_ADDED, {
                 timestamp: Date.now(),
                 source: "useMapWebSocket",
@@ -294,7 +289,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
             // Real-time update for marker modification
             case MessageTypes.MARKER_UPDATED: {
-              console.log(`[DEBUG] Received marker_updated for ${data.data.id}`);
               const updatedMarker = convertRBushToMapbox(data.data);
 
               // Replace in existing markers
@@ -309,7 +303,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
             case MessageTypes.MARKER_DELETED:
             case MessageTypes.MARKER_DELETE: {
               // Support both new and legacy types
-              console.log(`[DEBUG] Received marker deletion for ${data.data.id}`);
               const deletedId = data.data.id;
 
               // Handle marker deselection if needed
@@ -326,7 +319,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               setMarkers((prevMarkers) => prevMarkers.filter((marker) => marker.id !== deletedId));
 
               // Emit the notification event
-              console.log(`[DEBUG] Emitting MARKER_REMOVED event`);
               eventBroker.emit<MarkersEvent>(EventTypes.MARKER_REMOVED, {
                 timestamp: Date.now(),
                 source: "useMapWebSocket",

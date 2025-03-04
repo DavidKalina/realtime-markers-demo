@@ -60,7 +60,6 @@ const ShareEvent: React.FC<ShareEventProps> = ({
     let isMounted = true;
 
     const fetchEventDetails = async () => {
-      console.log({ eventId });
       if (!eventId) return;
 
       setLoading(true);

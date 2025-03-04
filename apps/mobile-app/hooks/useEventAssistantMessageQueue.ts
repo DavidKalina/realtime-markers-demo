@@ -164,7 +164,6 @@ export const useMessageQueue = () => {
 
         // Check if version still matches
         if (messageQueueRef.current.version !== version) {
-          console.log("Message queue version changed during processing");
           isProcessing = false;
           scheduleNextFrame();
           return;

@@ -9,7 +9,6 @@ import { eventBroker, EventTypes, BaseEvent } from "@/services/EventBroker";
 export const EventBrokerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   useEffect(() => {
     // Set up global event listeners or initialize other event-related services here
-    console.log("EventBrokerProvider: Initializing event broker system");
 
     // Example of a global error handler for events
     const unsubscribe = eventBroker.on<BaseEvent & { error: Error | string }>(

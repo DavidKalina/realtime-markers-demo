@@ -62,8 +62,6 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
       clearTimeout(notificationTimer);
     }
 
-    console.log(`[CI-DEBUG] showNotification called with type=${type}, count=${count}`);
-
     // Set the notification type and data
     setActiveNotification(type);
 
@@ -87,7 +85,6 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
 
     // Set timeout to clear notification
     const timer = setTimeout(() => {
-      console.log(`[CI-DEBUG] Notification timeout triggered, clearing notification`);
       setActiveNotification("none");
       setNotificationTimer(null);
     }, duration);
@@ -97,10 +94,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
 
   // Listen to WebSocket connection events
   useEffect(() => {
-    console.log("[CI-DEBUG] Setting up event subscriptions");
-
     const handleConnected = () => {
-      console.log("[CI-DEBUG] WEBSOCKET_CONNECTED event received");
       setIsConnected(true);
       setHasConnectionEverBeenEstablished(true);
 
@@ -111,7 +105,6 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
     };
 
     const handleDisconnected = () => {
-      console.log("[CI-DEBUG] WEBSOCKET_DISCONNECTED event received");
       setIsConnected(false);
       if (hasConnectionEverBeenEstablished) {
         showNotification("reconnecting", 0);
@@ -121,13 +114,11 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
     };
 
     const handleMarkersUpdated = () => {
-      console.log("[CI-DEBUG] MARKERS_UPDATED event received");
       setIsConnected(true);
       setHasConnectionEverBeenEstablished(true);
     };
 
     const handleError = (event: any) => {
-      console.log("[CI-DEBUG] ERROR_OCCURRED event received:", event);
       if (
         event.error &&
         (event.error.message?.includes("WebSocket") ||
@@ -140,25 +131,13 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
 
     // Add handlers for marker added/removed events
     const handleMarkerAdded = (event: any) => {
-      console.log(`[CI-DEBUG] MARKER_ADDED event received:`, event);
-      console.log(
-        `[CI-DEBUG] Event count: ${event.count}, Has markers: ${event.markers?.length > 0}`
-      );
-
       if (event.count > 0) {
-        console.log(`[CI-DEBUG] Showing 'added' notification for ${event.count} markers`);
         showNotification("added", event.count);
       }
     };
 
     const handleMarkerRemoved = (event: any) => {
-      console.log(`[CI-DEBUG] MARKER_REMOVED event received:`, event);
-      console.log(
-        `[CI-DEBUG] Event count: ${event.count}, Has markers: ${event.markers?.length > 0}`
-      );
-
       if (event.count > 0) {
-        console.log(`[CI-DEBUG] Showing 'removed' notification for ${event.count} markers`);
         showNotification("removed", event.count);
       }
     };
@@ -297,9 +276,6 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
   };
 
   // Log changes to active notification for debugging
-  useEffect(() => {
-    console.log(`[CI-DEBUG] activeNotification changed to: ${activeNotification}`);
-  }, [activeNotification]);
 
   return (
     <Animated.View style={[styles.container, getPositionStyle()]} layout={Layout.springify()}>
