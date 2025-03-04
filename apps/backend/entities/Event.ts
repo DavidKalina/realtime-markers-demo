@@ -13,7 +13,6 @@ import {
 } from "typeorm";
 import { type Point } from "geojson";
 import { Category } from "./Category";
-import { ThirdSpace } from "./ThirdSpace";
 
 export enum EventStatus {
   PENDING = "PENDING",
@@ -67,9 +66,6 @@ export class Event {
     default: EventStatus.PENDING,
   })
   status!: EventStatus;
-
-  @ManyToOne(() => ThirdSpace, (space) => space.events)
-  thirdSpace?: ThirdSpace;
 
   @ManyToMany(() => Category, (category) => category.events)
   @JoinTable({

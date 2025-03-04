@@ -3,7 +3,6 @@ import pgvector from "pgvector";
 import { Brackets, DataSource, Repository, type DeepPartial } from "typeorm";
 import { Category } from "../entities/Category";
 import { Event, EventStatus } from "../entities/Event";
-import { ThirdSpace } from "../entities/ThirdSpace";
 import { CacheService } from "./CacheService";
 import { OpenAIService } from "./OpenAIService";
 
@@ -27,12 +26,10 @@ interface CreateEventInput {
 export class EventService {
   private eventRepository: Repository<Event>;
   private categoryRepository: Repository<Category>;
-  private thirdSpaceRepository: Repository<ThirdSpace>;
 
   constructor(private dataSource: DataSource) {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
-    this.thirdSpaceRepository = dataSource.getRepository(ThirdSpace);
   }
 
   private async generateEmbedding(text: string): Promise<number[]> {
@@ -129,14 +126,6 @@ export class EventService {
       event.categories = categories;
     }
 
-    // Handle thirdSpace if provided
-    if (input.thirdSpaceId) {
-      const space = await this.thirdSpaceRepository.findOneBy({ id: input.thirdSpaceId });
-      if (space) {
-        event.thirdSpace = space;
-      }
-    }
-
     const savedEvent = await this.eventRepository.save(event);
 
     await CacheService.invalidateSearchCache();
@@ -158,14 +147,6 @@ export class EventService {
     if (eventData.categoryIds) {
       const categories = await this.categoryRepository.findByIds(eventData.categoryIds);
       event.categories = categories;
-    }
-
-    // Handle thirdSpace if provided
-    if (eventData.thirdSpaceId) {
-      const space = await this.thirdSpaceRepository.findOneBy({ id: eventData.thirdSpaceId });
-      if (space) {
-        event.thirdSpace = space;
-      }
     }
 
     await CacheService.invalidateSearchCache();
