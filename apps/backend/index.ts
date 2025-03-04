@@ -136,20 +136,21 @@ app.use("*", async (c, next) => {
 
 const events = new Hono<{ Variables: AppVariables }>();
 
-events.get("/", async (c) => {
+// Get event by id
+events.get("/:id", async (c) => {
   try {
-    const limit = c.req.query("limit");
-    const offset = c.req.query("offset");
+    const id = c.req.param("id");
+    console.log({ idParam: id });
+    const event = await services.eventService.getEventById(id);
 
-    const eventsData = await services.eventService.getEvents({
-      limit: limit ? parseInt(limit) : undefined,
-      offset: offset ? parseInt(offset) : undefined,
-    });
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
 
-    return c.json(eventsData);
+    return c.json(event);
   } catch (error) {
-    console.error("Error fetching events:", error);
-    return c.json({ error: "Failed to fetch events" }, 500);
+    console.error("Error fetching event:", error);
+    return c.json({ error: "Failed to fetch event" }, 500);
   }
 });
 
@@ -393,6 +394,23 @@ events.post("/", async (c) => {
   }
 });
 
+events.get("/", async (c) => {
+  try {
+    const limit = c.req.query("limit");
+    const offset = c.req.query("offset");
+
+    const eventsData = await services.eventService.getEvents({
+      limit: limit ? parseInt(limit) : undefined,
+      offset: offset ? parseInt(offset) : undefined,
+    });
+
+    return c.json(eventsData);
+  } catch (error) {
+    console.error("Error fetching events:", error);
+    return c.json({ error: "Failed to fetch events" }, 500);
+  }
+});
+
 // Register event routes
 app.route("/api/events", events);
 
@@ -502,24 +520,6 @@ events.delete("/:id", async (c) => {
   } catch (error) {
     console.error("Error deleting event:", error);
     return c.json({ error: "Failed to delete event" }, 500);
-  }
-});
-
-// Get event by id
-events.get("/:id", async (c) => {
-  try {
-    const id = c.req.param("id");
-    console.log({ idParam: id });
-    const event = await services.eventService.getEventById(id);
-
-    if (!event) {
-      return c.json({ error: "Event not found" }, 404);
-    }
-
-    return c.json(event);
-  } catch (error) {
-    console.error("Error fetching event:", error);
-    return c.json({ error: "Failed to fetch event" }, 500);
   }
 });
 
