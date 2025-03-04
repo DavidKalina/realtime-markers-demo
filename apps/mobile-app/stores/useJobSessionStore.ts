@@ -101,8 +101,6 @@ export const useJobSessionStore = create<JobSessionStore>((set, get) => {
           try {
             const data = JSON.parse(event.data);
 
-            console.log("EVENT", event);
-
             switch (data.type) {
               case MessageTypes.SESSION_CREATED:
               case MessageTypes.SESSION_JOINED:

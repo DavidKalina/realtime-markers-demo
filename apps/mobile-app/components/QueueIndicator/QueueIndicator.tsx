@@ -1,3 +1,4 @@
+import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { AlertTriangle, CheckCircle, Cog } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { View } from "react-native";
@@ -6,7 +7,6 @@ import Animated, {
   BounceOut,
   Easing,
   FadeIn,
-  FadeOut,
   Layout,
   useAnimatedStyle,
   useSharedValue,
@@ -14,7 +14,6 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { styles } from "./styles";
-import { useJobSessionStore } from "@/stores/useJobSessionStore";
 
 interface QueueIndicatorProps {
   position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
@@ -218,16 +217,6 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
             layout={Layout.springify()}
           >
             {totalJobs} job{totalJobs !== 1 ? "s" : ""}
-          </Animated.Text>
-        )}
-
-        {activeJob && (
-          <Animated.Text
-            entering={FadeIn.duration(400)}
-            exiting={FadeOut.duration(200)}
-            layout={Layout.springify()}
-          >
-            {activeJob.progressStep}
           </Animated.Text>
         )}
       </View>
