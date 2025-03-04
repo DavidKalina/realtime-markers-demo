@@ -394,6 +394,33 @@ events.post("/", async (c) => {
   }
 });
 
+// Delete event
+events.delete("/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const event = await services.eventService.getEventById(id);
+    const isSuccess = await services.eventService.deleteEvent(id);
+
+    if (isSuccess && event) {
+      await redisPub.publish(
+        "event_changes",
+        JSON.stringify({
+          operation: "DELETE",
+          record: {
+            id: event.id,
+            location: event.location,
+          },
+        })
+      );
+    }
+
+    return c.json({ success: isSuccess });
+  } catch (error) {
+    console.error("Error deleting event:", error);
+    return c.json({ error: "Failed to delete event" }, 500);
+  }
+});
+
 events.get("/", async (c) => {
   try {
     const limit = c.req.query("limit");
@@ -494,33 +521,6 @@ app.get("/api/jobs/:jobId/stream", async (c) => {
       stream.close();
     }
   });
-});
-
-// Delete event
-events.delete("/:id", async (c) => {
-  try {
-    const id = c.req.param("id");
-    const event = await services.eventService.getEventById(id);
-    const isSuccess = await services.eventService.deleteEvent(id);
-
-    if (isSuccess && event) {
-      await redisPub.publish(
-        "event_changes",
-        JSON.stringify({
-          operation: "DELETE",
-          record: {
-            id: event.id,
-            location: event.location,
-          },
-        })
-      );
-    }
-
-    return c.json({ success: isSuccess });
-  } catch (error) {
-    console.error("Error deleting event:", error);
-    return c.json({ error: "Failed to delete event" }, 500);
-  }
 });
 
 // =============================================================================
