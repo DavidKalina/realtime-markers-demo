@@ -11,12 +11,10 @@ import {
   StatusBar,
   SafeAreaView,
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
 } from "react-native";
-import { ArrowLeft, Search, X, Calendar, MapPin, Tag } from "lucide-react-native";
+import { ArrowLeft, Search, X, Calendar, MapPin } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeIn, SlideInUp } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import apiClient from "@/services/ApiClient";
 import { Marker } from "@/hooks/useMapWebsocket";
@@ -40,11 +38,9 @@ const markerToEventType = (marker: Marker): EventType => {
 const SearchView: React.FC = () => {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventResults, setEventResults] = useState<EventType[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -54,21 +50,6 @@ const SearchView: React.FC = () => {
 
   const searchInputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList>(null);
-
-  // Load categories on mount
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const categoriesData = await apiClient.getAllCategories();
-        setCategories(categoriesData.map((cat) => cat.name));
-      } catch (err) {
-        console.error("Failed to load categories:", err);
-        // Don't set error state - categories aren't critical
-      }
-    };
-
-    loadCategories();
-  }, []);
 
   // Initialize with stored markers if available
   useEffect(() => {
@@ -97,22 +78,20 @@ const SearchView: React.FC = () => {
     );
 
     // Auto-focus the search input when the screen opens
-    // Delay to ensure rendering is complete
     setTimeout(() => {
       searchInputRef.current?.focus();
     }, 500);
 
-    // Clean up listeners on unmount
     return () => {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
     };
   }, []);
 
-  // Perform search when query changes or when filter changes
+  // Perform search when query changes
   useEffect(() => {
-    if (!searchQuery.trim() && !activeFilter) {
-      // If search is cleared and no filter, show stored markers again
+    if (!searchQuery.trim()) {
+      // If search is cleared, show stored markers again
       if (storedMarkers.length > 0) {
         const initialEvents = storedMarkers.map(markerToEventType);
         setEventResults(initialEvents);
@@ -129,7 +108,6 @@ const SearchView: React.FC = () => {
       setError(null);
 
       try {
-        // Use the API client to search events
         const response = await apiClient.searchEvents(searchQuery);
         let results = response.results.map((event) => ({
           id: event.id,
@@ -137,19 +115,10 @@ const SearchView: React.FC = () => {
           description: event.description || "",
           time: new Date(event.eventDate).toLocaleString(),
           location: event.address || "Location not specified",
-          distance: "", // This would be calculated based on user's location
+          distance: "",
           emoji: event.emoji || "📍",
           categories: event.categories?.map((c) => c.name) || [],
         }));
-
-        // Apply category filter if active
-        if (activeFilter) {
-          results = results.filter((event) =>
-            event.categories.some(
-              (category) => category.toLowerCase() === activeFilter.toLowerCase()
-            )
-          );
-        }
 
         setEventResults(results);
         setHasSearched(true);
@@ -168,7 +137,7 @@ const SearchView: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(debounceTimer);
-  }, [searchQuery, activeFilter, hasSearched, storedMarkers]);
+  }, [searchQuery, hasSearched, storedMarkers]);
 
   // Handle back button
   const handleBack = () => {
@@ -181,12 +150,6 @@ const SearchView: React.FC = () => {
   const handleSelectEvent = (event: EventType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Keyboard.dismiss();
-  };
-
-  // Handle filter selection
-  const toggleFilter = (filter: string) => {
-    Haptics.selectionAsync();
-    setActiveFilter(activeFilter === filter ? null : filter);
   };
 
   // Clear search query
@@ -203,29 +166,26 @@ const SearchView: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={fixedStyles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#333" />
 
-      {/* Header */}
-      <View style={fixedStyles.header}>
-        <TouchableOpacity style={fixedStyles.backButton} onPress={handleBack}>
-          <ArrowLeft size={24} color="#f8f9fa" />
+      {/* Simplified Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+          <ArrowLeft size={22} color="#f8f9fa" />
         </TouchableOpacity>
-        <Text style={fixedStyles.headerTitle}>Search Events</Text>
+        <Text style={styles.headerTitle}>Search</Text>
       </View>
 
-      {/* Content Area - completely separate from header */}
-      <View style={fixedStyles.contentArea}>
+      {/* Content Area */}
+      <View style={styles.contentArea}>
         {/* Search Input */}
-        <Animated.View
-          style={fixedStyles.searchInputContainer}
-          entering={SlideInUp.delay(100).springify().damping(15)}
-        >
-          <Search size={20} color="#4dabf7" style={{ marginRight: 8 }} />
+        <View style={styles.searchInputContainer}>
+          <Search size={18} color="#4dabf7" style={{ marginRight: 8 }} />
           <TextInput
             ref={searchInputRef}
-            style={fixedStyles.searchInput}
-            placeholder="Search events, venues, categories..."
+            style={styles.searchInput}
+            placeholder="Search events, venues..."
             placeholderTextColor="#919191"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -236,118 +196,70 @@ const SearchView: React.FC = () => {
           />
           {searchQuery !== "" && (
             <TouchableOpacity onPress={clearSearch}>
-              <X size={18} color="#4dabf7" />
+              <X size={16} color="#4dabf7" />
             </TouchableOpacity>
           )}
-        </Animated.View>
+        </View>
 
         {/* Main Content */}
         {isLoading ? (
-          <View style={fixedStyles.loadingContainer}>
+          <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#93c5fd" />
-            <Text style={fixedStyles.loadingText}>Searching events...</Text>
+            <Text style={styles.loadingText}>Searching events...</Text>
           </View>
         ) : (
           <FlatList
             ref={listRef}
             data={eventResults}
             ListHeaderComponent={() => (
-              <>
-                {/* Filter Chips */}
-                {categories.length > 0 && (
-                  <Animated.View
-                    entering={SlideInUp.delay(150).springify().damping(15)}
-                    style={fixedStyles.filtersContainer}
-                  >
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={{ paddingRight: 16 }}
-                    >
-                      {categories.slice(0, 8).map((filter) => (
-                        <TouchableOpacity
-                          key={filter}
-                          style={[
-                            fixedStyles.filterChip,
-                            activeFilter === filter && fixedStyles.activeFilterChip,
-                          ]}
-                          onPress={() => toggleFilter(filter)}
-                        >
-                          <Tag
-                            size={14}
-                            color={activeFilter === filter ? "#333" : "#4dabf7"}
-                            style={{ marginRight: 6 }}
-                          />
-                          <Text
-                            style={[
-                              fixedStyles.filterChipText,
-                              activeFilter === filter && fixedStyles.activeFilterChipText,
-                            ]}
-                          >
-                            {filter.toLowerCase()}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </Animated.View>
-                )}
-
+              <View>
                 {/* Results Count */}
-                <Animated.View entering={FadeIn.delay(200).duration(400)}>
-                  <Text style={fixedStyles.resultsText}>
-                    {hasSearched
-                      ? `${eventResults.length} ${
-                          eventResults.length === 1 ? "result" : "results"
-                        } found`
-                      : "Showing nearby events"}
-                  </Text>
-                </Animated.View>
-              </>
+                <Text style={styles.resultsText}>
+                  {hasSearched
+                    ? `${eventResults.length} ${
+                        eventResults.length === 1 ? "result" : "results"
+                      } found`
+                    : "Showing nearby events"}
+                </Text>
+              </View>
             )}
-            renderItem={({ item, index }) => (
-              <Animated.View entering={FadeIn.delay(300 + index * 50).duration(300)}>
-                <TouchableOpacity
-                  style={fixedStyles.searchResultItem}
-                  onPress={() => handleSelectEvent(item)}
-                >
-                  <Text style={fixedStyles.resultEmoji}>{item.emoji}</Text>
-                  <View style={fixedStyles.resultTextContainer}>
-                    <Text style={fixedStyles.resultTitle}>{item.title}</Text>
-                    <View style={fixedStyles.resultDetailsRow}>
-                      <Calendar size={14} color="#93c5fd" style={{ marginRight: 4 }} />
-                      <Text style={fixedStyles.resultDetailText}>{item.time}</Text>
-                      <MapPin size={14} color="#93c5fd" style={{ marginLeft: 8, marginRight: 4 }} />
-                      <Text style={fixedStyles.resultDetailText}>
-                        {item.distance ? item.distance : item.location}
-                      </Text>
-                    </View>
-                    <View style={fixedStyles.resultCategoriesRow}>
-                      {item.categories?.map((category: string, catIndex: number) => (
-                        <View key={catIndex} style={fixedStyles.resultCategoryChip}>
-                          <Text style={fixedStyles.resultCategoryText}>{category}</Text>
-                        </View>
-                      ))}
-                    </View>
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.searchResultItem}
+                onPress={() => handleSelectEvent(item)}
+              >
+                <Text style={styles.resultEmoji}>{item.emoji}</Text>
+                <View style={styles.resultTextContainer}>
+                  <Text style={styles.resultTitle} numberOfLines={1} ellipsizeMode="tail">
+                    {item.title}
+                  </Text>
+                  <View style={styles.resultDetailsRow}>
+                    <Calendar size={12} color="#93c5fd" style={{ marginRight: 4 }} />
+                    <Text style={styles.resultDetailText} numberOfLines={1} ellipsizeMode="tail">
+                      {item.time}
+                    </Text>
                   </View>
-                </TouchableOpacity>
-              </Animated.View>
+                  <View style={styles.resultDetailsRow}>
+                    <MapPin size={12} color="#93c5fd" style={{ marginRight: 4 }} />
+                    <Text style={styles.resultDetailText} numberOfLines={1} ellipsizeMode="tail">
+                      {item.distance ? item.distance : item.location}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
             )}
             ListEmptyComponent={() =>
               hasSearched && !isLoading ? (
-                <View style={fixedStyles.noResults}>
-                  <Text style={fixedStyles.noResultsText}>
-                    No events found matching your search.
-                  </Text>
-                  <Text style={fixedStyles.noResultsSubtext}>
-                    Try a different search term or remove filters.
-                  </Text>
+                <View style={styles.noResults}>
+                  <Text style={styles.noResultsText}>No events found matching your search.</Text>
+                  <Text style={styles.noResultsSubtext}>Try a different search term.</Text>
                 </View>
               ) : null
             }
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
-              fixedStyles.listContent,
+              styles.listContent,
               keyboardVisible && { paddingBottom: keyboardHeight },
               eventResults.length === 0 && { flexGrow: 1 },
             ]}
@@ -356,10 +268,10 @@ const SearchView: React.FC = () => {
         )}
 
         {error && (
-          <View style={fixedStyles.errorContainer}>
-            <Text style={fixedStyles.errorText}>{error}</Text>
-            <TouchableOpacity style={fixedStyles.retryButton} onPress={handleSearch}>
-              <Text style={fixedStyles.retryButtonText}>Retry</Text>
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={handleSearch}>
+              <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -370,8 +282,7 @@ const SearchView: React.FC = () => {
 
 export default SearchView;
 
-// Define styles directly in the component for more direct control
-const fixedStyles = StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#333",
@@ -380,85 +291,53 @@ const fixedStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 20, // Increased bottom padding
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#3a3a3a",
-    marginBottom: 16, // Added explicit margin at the bottom
-    backgroundColor: "#333", // Ensure header has background color
-    zIndex: 10, // Ensure header is above other elements
+    backgroundColor: "#333",
+    zIndex: 10,
   },
   backButton: {
     padding: 8,
     marginRight: 12,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: "600",
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
-    marginLeft: 4,
   },
   contentArea: {
     flex: 1,
-    paddingTop: 8, // Add padding at the top of content
+    paddingTop: 8,
   },
   searchInputContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#3a3a3a",
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 10,
+    padding: 10,
     marginHorizontal: 16,
-    marginBottom: 20,
+    marginBottom: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 2,
     elevation: 2,
   },
   searchInput: {
     flex: 1,
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
-    fontSize: 16,
+    fontSize: 15,
     marginLeft: 4,
     marginRight: 4,
   },
-  filtersContainer: {
-    marginHorizontal: 16,
-    paddingBottom: 16,
-    flexDirection: "row",
-  },
-  filterChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#3a3a3a",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginRight: 10,
-    marginBottom: 4,
-    borderWidth: 1,
-    borderColor: "#4a4a4a",
-  },
-  activeFilterChip: {
-    backgroundColor: "#4dabf7",
-    borderColor: "#4dabf7",
-  },
-  filterChipText: {
-    color: "#f8f9fa",
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-  },
-  activeFilterChipText: {
-    color: "#333",
-  },
   resultsText: {
     color: "#adb5bd",
-    fontSize: 16,
+    fontSize: 14,
     marginHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 12,
     fontFamily: "SpaceMono",
     fontWeight: "500",
   },
@@ -468,56 +347,41 @@ const fixedStyles = StyleSheet.create({
   searchResultItem: {
     flexDirection: "row",
     backgroundColor: "#3a3a3a",
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    padding: 14,
     marginHorizontal: 16,
     marginBottom: 12,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 2,
     elevation: 2,
   },
   resultEmoji: {
-    fontSize: 32,
-    marginRight: 16,
+    fontSize: 28,
+    marginRight: 14,
   },
   resultTextContainer: {
     flex: 1,
+    overflow: "hidden", // Prevent content from leaking
   },
   resultTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "500",
     color: "#f8f9fa",
-    marginBottom: 8,
+    marginBottom: 6,
     fontFamily: "SpaceMono",
   },
   resultDetailsRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
-  },
-  resultDetailText: {
-    fontSize: 14,
-    color: "#adb5bd",
-    fontFamily: "SpaceMono",
-  },
-  resultCategoriesRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  resultCategoryChip: {
-    backgroundColor: "#4a4a4a",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginRight: 8,
     marginBottom: 4,
   },
-  resultCategoryText: {
-    fontSize: 12,
-    color: "#f8f9fa",
+  resultDetailText: {
+    fontSize: 13,
+    color: "#adb5bd",
     fontFamily: "SpaceMono",
+    flex: 1, // Allow text to take available space
   },
   noResults: {
     padding: 20,
