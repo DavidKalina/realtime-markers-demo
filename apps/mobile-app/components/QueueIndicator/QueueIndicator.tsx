@@ -13,8 +13,8 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { useJobSession } from "@/hooks/useJobSession";
 import { styles } from "./styles";
+import { useJobSessionStore } from "@/stores/useJobSessionStore";
 
 interface QueueIndicatorProps {
   position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
@@ -27,24 +27,24 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
   autoDismissDelay = 3000, // Default: auto-dismiss after 3 seconds
   sessionId,
 }) => {
-  // Use our job session hook
-  const {
-    jobs,
-    activeJobs,
-    completedJobs,
-    failedJobs,
-    activeJob,
-    totalJobs,
-    hasActiveJobs,
-    clearAllJobs,
-  } = useJobSession(sessionId);
+  // Get jobs and clearAllJobs action from our store.
+  const jobs = useJobSessionStore((state) => state.jobs);
+  const clearAllJobs = useJobSessionStore((state) => state.clearAllJobs);
+
+  // Derive computed values from the jobs array.
+  const activeJobs = jobs.filter((job) => job.status === "pending" || job.status === "processing");
+  const completedJobs = jobs.filter((job) => job.status === "completed");
+  const failedJobs = jobs.filter((job) => job.status === "failed");
+  const totalJobs = jobs.length;
+  const activeJob =
+    activeJobs.length > 0
+      ? activeJobs.reduce((prev, current) =>
+          new Date(prev.updatedAt) > new Date(current.updatedAt) ? prev : current
+        )
+      : null;
 
   // State to track if component is visible
   const [isVisible, setIsVisible] = useState(false);
-
-  // Derive status for the indicator
-  const hasCompletedJobs = completedJobs.length > 0;
-  const hasFailedJobs = failedJobs.length > 0;
 
   // Determine the status to display
   const [status, setStatus] = useState<"idle" | "processing" | "completed" | "failed">("idle");
@@ -57,7 +57,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
   // Calculate progress percentage for active job
   const progressPercentage = activeJob ? activeJob.progress : 0;
 
-  // Setup visibility
+  // Setup visibility when there are jobs
   useEffect(() => {
     if (totalJobs > 0) {
       setIsVisible(true);
@@ -66,24 +66,22 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
 
   // Update status based on job states
   useEffect(() => {
-    if (hasFailedJobs) {
+    if (failedJobs.length > 0) {
       setStatus("failed");
-    } else if (hasActiveJobs) {
+    } else if (activeJobs.length > 0) {
       setStatus("processing");
-    } else if (hasCompletedJobs && !hasActiveJobs) {
+    } else if (completedJobs.length > 0 && activeJobs.length === 0) {
       setStatus("completed");
     } else {
       setStatus("idle");
     }
-  }, [hasActiveJobs, hasCompletedJobs, hasFailedJobs]);
+  }, [activeJobs, completedJobs, failedJobs]);
 
   // Auto-dismiss timer when all active jobs are done
   useEffect(() => {
-    // If there are no active jobs but there are completed/failed jobs
-    if (!hasActiveJobs && (hasCompletedJobs || hasFailedJobs)) {
+    if (activeJobs.length === 0 && (completedJobs.length > 0 || failedJobs.length > 0)) {
       const timer = setTimeout(() => {
         setIsVisible(false);
-
         // Clear the jobs after the exit animation completes
         setTimeout(() => {
           clearAllJobs();
@@ -92,7 +90,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
 
       return () => clearTimeout(timer);
     }
-  }, [hasActiveJobs, hasCompletedJobs, hasFailedJobs, clearAllJobs, autoDismissDelay]);
+  }, [activeJobs, completedJobs, failedJobs, clearAllJobs, autoDismissDelay]);
 
   // Handle animations based on status
   useEffect(() => {
@@ -123,20 +121,16 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
   }, [status, rotationValue, iconOpacity, checkmarkScale]);
 
   // Create animated styles
-  const rotationAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ rotate: `${rotationValue.value * 360}deg` }],
-      opacity: iconOpacity.value,
-    };
-  });
+  const rotationAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotationValue.value * 360}deg` }],
+    opacity: iconOpacity.value,
+  }));
 
-  const checkmarkAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: checkmarkScale.value }],
-      opacity: checkmarkScale.value,
-      position: "absolute",
-    };
-  });
+  const checkmarkAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: checkmarkScale.value }],
+    opacity: checkmarkScale.value,
+    position: "absolute",
+  }));
 
   // Get position styles
   const getPositionStyle = () => {
@@ -150,14 +144,13 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
       case "top-left":
         return { top: 50, left: 16 };
       case "custom":
-        // No positioning here as it's handled by the parent container
         return {};
       default:
         return { top: 50, left: 16 };
     }
   };
 
-  // Status-based styles
+  // Get status-based color
   const getStatusColor = () => {
     switch (status) {
       case "processing":

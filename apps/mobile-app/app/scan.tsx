@@ -20,8 +20,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import apiClient from "@/services/ApiClient";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes } from "@/services/EventBroker";
-import { useJobQueueStore } from "@/stores/useJobQueueStore";
 import { useUserLocationStore } from "@/stores/useUserLocationStore";
+import { useJobSessionStore } from "@/stores/useJobSessionStore";
 
 type DetectionStatus = "none" | "detecting" | "aligned";
 
@@ -46,7 +46,7 @@ export default function ScanScreen() {
   const userLocation = useUserLocationStore.getState().userLocation;
 
   // Access job queue store directly
-  const addJob = useJobQueueStore((state) => state.addJob);
+  const addJob = useJobSessionStore((state) => state.addJob);
 
   // Get the event broker
   const { publish } = useEventBroker();

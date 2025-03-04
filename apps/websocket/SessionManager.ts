@@ -64,8 +64,15 @@ export class SessionManager {
     });
 
     // Subscribe to job updates
-    this.redisSub.subscribe("job:*:updates");
-    this.redisSub.on("message", this.handleRedisMessage.bind(this));
+    // In your SessionManager constructor:
+    this.redisSub.psubscribe("job:*:updates", (err, count) => {
+      if (err) {
+        console.error("Failed to psubscribe:", err);
+      }
+    });
+    this.redisSub.on("pmessage", (pattern, channel, message) => {
+      this.handleRedisMessage(channel, message);
+    });
   }
 
   /**
