@@ -11,7 +11,6 @@ import Animated, {
   Easing,
   runOnJS,
   cancelAnimation,
-  interpolate,
   withDelay,
 } from "react-native-reanimated";
 import { useLocationStore } from "@/stores/useLocationStore";
