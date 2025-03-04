@@ -1,19 +1,30 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  StatusBar,
+  SafeAreaView,
+  ScrollView,
+} from "react-native";
+import { ArrowLeft, Calendar, MapPin, Info } from "lucide-react-native";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import apiClient from "../../services/ApiClient";
-import { EventDetailsSkeleton } from "./EventDetailsSkeleton";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { styles } from "./styles";
-import { styles as globalStyles } from "@/components/globalStyles";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 interface EventDetailsProps {
   eventId: string;
+  onBack?: () => void;
 }
 
-const EventDetails: React.FC<EventDetailsProps> = ({ eventId }) => {
+const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   // Fetch event details when eventId changes
   useEffect(() => {
@@ -51,108 +62,132 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId }) => {
     };
   }, [eventId]);
 
-  // Status badge component for details view
-  const StatusBadge = () => (
-    <View>
-      <Text style={styles.statusText}>VERIFIED</Text>
-    </View>
-  );
-
-  // Format the event time (helper for details view)
+  // Format the event time
   const formatDate = (timeString: string) => {
     return timeString;
   };
 
-  if (loading) {
-    return <EventDetailsSkeleton />;
-  }
+  // Handle back button
+  const handleBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (onBack) {
+      onBack();
+    } else {
+      router.back();
+    }
+  };
 
-  if (error) {
-    return (
-      <Animated.View style={styles.centerContent} entering={FadeIn.duration(300)}>
-        <Text>{error}</Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={() => {
-            setEvent(null);
-            setError(null);
-            setLoading(true);
-            apiClient
-              .getEventById(eventId)
-              .then((data) => setEvent(data))
-              .catch((err) =>
-                setError(
-                  `Failed to load event details: ${
-                    err instanceof Error ? err.message : "Unknown error"
-                  }`
-                )
-              )
-              .finally(() => setLoading(false));
-          }}
-        >
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  }
-
-  if (!event) {
-    return (
-      <Animated.View style={styles.centerContent} entering={FadeIn.duration(300)}>
-        <Text>No event details available</Text>
-      </Animated.View>
-    );
-  }
+  // Retry fetching event details
+  const handleRetry = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setEvent(null);
+    setError(null);
+    setLoading(true);
+    apiClient
+      .getEventById(eventId)
+      .then((data) => setEvent(data))
+      .catch((err) =>
+        setError(
+          `Failed to load event details: ${err instanceof Error ? err.message : "Unknown error"}`
+        )
+      )
+      .finally(() => setLoading(false));
+  };
 
   return (
-    <Animated.View
-      style={globalStyles.actionContent}
-      entering={FadeIn.duration(300)}
-      exiting={FadeOut.duration(300)}
-    >
-      <View style={styles.eventHeader}>
-        <View style={styles.eventTitleContainer}>
-          <Text style={globalStyles.eventEmoji}>{event.emoji}</Text>
-          <Text style={styles.eventTitle}>{event.title}</Text>
-        </View>
-        <StatusBadge />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#333" />
+
+      {/* Header similar to Search component */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+          <ArrowLeft size={22} color="#f8f9fa" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Event Details</Text>
       </View>
 
-      <View style={styles.detailsContainer}>
-        <View style={globalStyles.detailRow}>
-          <Text style={styles.label}>Date & Time</Text>
-          <Text style={styles.value}>{formatDate(event.time)}</Text>
-        </View>
-
-        <View style={globalStyles.detailRow}>
-          <Text style={styles.label}>Location</Text>
-          <Text style={styles.value}>{event.location}</Text>
-        </View>
-
-        <View style={globalStyles.detailRow}>
-          <Text style={styles.label}>Distance</Text>
-          <Text style={styles.value}>{event.distance}</Text>
-        </View>
-
-        <View style={globalStyles.detailRow}>
-          <Text style={styles.label}>Description</Text>
-          <Text style={styles.value}>{event.description}</Text>
-        </View>
-
-        {event.categories && event.categories.length > 0 && (
-          <View style={globalStyles.detailRow}>
-            <Text style={styles.label}>Categories</Text>
-            <View style={styles.categoriesContainer}>
-              {event.categories.map((category: any, index: number) => (
-                <View key={index} style={styles.categoryBadge}>
-                  <Text style={styles.categoryText}>{category}</Text>
-                </View>
-              ))}
-            </View>
+      {/* Content Area */}
+      <View style={styles.contentArea}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#93c5fd" />
+            <Text style={styles.loadingText}>Loading event details...</Text>
           </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : !event ? (
+          <View style={styles.noResults}>
+            <Text style={styles.noResultsText}>No event details available</Text>
+          </View>
+        ) : (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.eventContainer}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+            >
+              {/* Event Header with Emoji and Title */}
+              <View style={styles.eventHeaderContainer}>
+                <Text style={styles.resultEmoji}>{event.emoji || "📍"}</Text>
+                <View style={styles.eventTitleWrapper}>
+                  <Text style={styles.resultTitle}>{event.title}</Text>
+                  {event.verified && (
+                    <View style={styles.statusBadge}>
+                      <Text style={styles.statusText}>VERIFIED</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Event Details */}
+              <View style={styles.detailsContainer}>
+                <View style={styles.detailSection}>
+                  <View style={styles.resultDetailsRow}>
+                    <Calendar size={16} color="#93c5fd" style={{ marginRight: 8 }} />
+                    <Text style={styles.detailLabel}>Date & Time</Text>
+                  </View>
+                  <Text style={styles.detailValue}>{formatDate(event.time)}</Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <View style={styles.resultDetailsRow}>
+                    <MapPin size={16} color="#93c5fd" style={{ marginRight: 8 }} />
+                    <Text style={styles.detailLabel}>Location</Text>
+                  </View>
+                  <Text style={styles.detailValue}>{event.location}</Text>
+                  {event.distance && <Text style={styles.distanceText}>{event.distance} away</Text>}
+                </View>
+
+                <View style={styles.detailSection}>
+                  <View style={styles.resultDetailsRow}>
+                    <Info size={16} color="#93c5fd" style={{ marginRight: 8 }} />
+                    <Text style={styles.detailLabel}>Description</Text>
+                  </View>
+                  <Text style={styles.detailValue}>{event.description}</Text>
+                </View>
+
+                {event.categories && event.categories.length > 0 && (
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>Categories</Text>
+                    <View style={styles.categoriesContainer}>
+                      {event.categories.map((category: string, index: number) => (
+                        <View key={index} style={styles.categoryBadge}>
+                          <Text style={styles.categoryText}>{category}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+          </Animated.View>
         )}
       </View>
-    </Animated.View>
+    </SafeAreaView>
   );
 };
 

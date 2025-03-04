@@ -1,179 +1,204 @@
-// hooks/useTextStreaming.ts
-import { useState, useCallback, useRef } from "react";
+// hooks/useSimplifiedTextStreaming.ts
+import { useState, useCallback, useRef, useEffect } from "react";
 import * as Haptics from "expo-haptics";
 
-// Custom AbortError class since DOMException isn't available in React Native
-class AbortError extends Error {
-  name: string;
-  constructor(message = "The operation was aborted") {
-    super(message);
-    this.name = "AbortError";
-  }
-}
+/**
+ * A simplified text streaming hook that uses word-by-word streaming
+ * rather than character-by-character for better performance and easier management.
+ * Each message completely replaces the previous one.
+ */
+export const useSimplifiedTextStreaming = () => {
+  // Core states
+  const [currentText, setCurrentText] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
 
-export const useTextStreaming = () => {
-  // Local state for text streaming
-  const [currentStreamedText, setCurrentStreamedText] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [currentEmoji, setCurrentEmoji] = useState("");
-  const [lastStreamedText, setLastStreamedText] = useState("");
-  const [streamCount, setStreamCount] = useState(0);
-  const [streamingVersion, setStreamingVersion] = useState(0);
-
-  // Ref to hold the current AbortController
+  // Single abort controller for the current streaming operation
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const cancelCurrentStreaming = useCallback(async () => {
-    console.log("Cancelling streaming - version:", streamingVersion);
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, []);
+
+  /**
+   * Cancel any ongoing streaming operation
+   */
+  const cancelStreaming = useCallback(() => {
     if (abortControllerRef.current) {
-      console.log("Aborting controller explicitly");
       abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
-    // Increment the version so that any in-progress streaming recognizes the change
-    setStreamingVersion((prev) => prev + 1);
-    setIsTyping(false);
-    setCurrentStreamedText("");
-    abortControllerRef.current = null;
-    // Optionally reset the emoji
-    setCurrentEmoji("");
-    return Promise.resolve();
-  }, [streamingVersion]);
+    setIsStreaming(false);
+  }, []);
 
-  const simulateTextStreaming = useCallback(
-    async (text: string) => {
-      if (!text || text.length === 0) return;
+  /**
+   * Reset the streaming state
+   */
+  const resetStreaming = useCallback(() => {
+    cancelStreaming();
+    setCurrentText("");
+  }, [cancelStreaming]);
 
-      // Cancel any ongoing streaming before starting
-      await cancelCurrentStreaming();
+  /**
+   * Stream a series of messages word-by-word with a callback on completion.
+   * Each message completely replaces the previous one.
+   */
+  const streamMessages = useCallback(
+    async (
+      messages: string[],
+      onComplete?: () => void,
+      options?: {
+        wordDelayMs?: number;
+        messageDelayMs?: number;
+      }
+    ) => {
+      // Cancel any ongoing streaming
+      cancelStreaming();
 
-      // Capture the current version for this streaming session
-      const currentVersion = streamingVersion;
-      const newAbortController = new AbortController();
-      abortControllerRef.current = newAbortController;
+      // Reset the current text
+      setCurrentText("");
 
-      // Initialize streaming state
-      setIsTyping(true);
-      setCurrentStreamedText("");
-      setLastStreamedText(text);
-      setStreamCount((prev) => prev + 1);
-
-      // Provide initial haptic feedback
-      try {
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch (e) {
-        // Ignore haptic errors
+      // No messages to stream
+      if (!messages.length) {
+        if (onComplete) onComplete();
+        return;
       }
 
-      let currentText = "";
-      let lastRenderTime = Date.now();
-      const minRenderInterval = 16; // ~60fps
+      // Configure timing options
+      const wordDelay = options?.wordDelayMs ?? 100; // 100ms between words
+      const messageDelay = options?.messageDelayMs ?? 1000; // 1000ms between messages
 
-      // Function to compute typing speed
-      const getTypingSpeed = (message: string, index: number) => {
-        if (index < 5) return 15;
-        if (/\p{Emoji}/u.test(message[index])) return 10;
-        if ([".", ",", "!", "?", ";", ":"].includes(message[index])) return 40;
-        const baseSpeed = message.length < 30 ? 18 : message.length < 60 ? 22 : 25;
-        return baseSpeed + Math.floor(Math.random() * 8) - 4;
-      };
+      // Create a new abort controller for this streaming session
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
-      let lastHapticTime = 0;
-      const hapticInterval = 300; // Reduced frequency for smoother experience
+      // Start streaming
+      setIsStreaming(true);
 
       try {
-        for (let i = 0; i < text.length; i++) {
-          // Check if streaming was aborted
-          if (newAbortController.signal.aborted) {
-            throw new AbortError("Aborted");
-          }
-          // Ensure this streaming session is still current
-          if (streamingVersion !== currentVersion) {
-            throw new Error("Streaming version changed");
-          }
+        // Initial haptic feedback
+        try {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        } catch (e) {
+          // Ignore haptic errors
+        }
 
-          currentText += text[i];
+        // Process each message in sequence
+        for (let messageIndex = 0; messageIndex < messages.length; messageIndex++) {
+          const message = messages[messageIndex];
 
-          const now = Date.now();
-          // Trigger periodic haptic feedback for longer texts
-          if (text.length > 50 && now - lastHapticTime >= hapticInterval && i % 15 === 0) {
-            try {
-              await Haptics.selectionAsync();
-              lastHapticTime = now;
-            } catch (e) {
-              // Ignore haptic errors
+          // Always start with empty text for each new message
+          setCurrentText("");
+
+          // Process the entire message at once, word by word
+          const words = message.split(/\s+/);
+
+          // Process each word
+          let displayText = "";
+          for (let wordIndex = 0; wordIndex < words.length; wordIndex++) {
+            // Check if aborted
+            if (controller.signal.aborted) {
+              throw new Error("Streaming aborted");
+            }
+
+            const word = words[wordIndex];
+
+            // Add word to display text
+            displayText += (wordIndex > 0 ? " " : "") + word;
+
+            // Update text display - only show the current message being streamed
+            setCurrentText(displayText);
+
+            // Wait between words
+            if (wordIndex < words.length - 1) {
+              await new Promise<void>((resolve, reject) => {
+                const timer = setTimeout(() => {
+                  resolve();
+                }, wordDelay);
+
+                // Handle abort during wait
+                controller.signal.addEventListener(
+                  "abort",
+                  () => {
+                    clearTimeout(timer);
+                    reject(new Error("Streaming aborted during word delay"));
+                  },
+                  { once: true }
+                );
+              });
             }
           }
 
-          // Update state only at controlled intervals to reduce flickering
-          if (now - lastRenderTime >= minRenderInterval || i === text.length - 1) {
-            if (newAbortController.signal.aborted || streamingVersion !== currentVersion) {
-              throw new AbortError("Aborted");
-            }
-            setCurrentStreamedText(String(currentText));
-            lastRenderTime = now;
-          }
+          // Wait between messages
+          if (messageIndex < messages.length - 1) {
+            await new Promise<void>((resolve, reject) => {
+              const timer = setTimeout(() => {
+                resolve();
+              }, messageDelay);
 
-          // Wait before adding the next character using a dynamic delay
-          await new Promise<void>((resolve, reject) => {
-            const abortHandler = () => {
-              clearTimeout(timeout);
-              reject(new AbortError("Aborted during character typing"));
-            };
-            newAbortController.signal.addEventListener("abort", abortHandler);
-            const timeout = setTimeout(() => {
-              newAbortController.signal.removeEventListener("abort", abortHandler);
-              resolve();
-            }, getTypingSpeed(text, i));
-          });
-        }
-
-        // Final haptic feedback to signal completion
-        if (text.length > 10) {
-          try {
-            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          } catch (e) {
-            // Ignore haptic errors
+              // Handle abort during wait
+              controller.signal.addEventListener(
+                "abort",
+                () => {
+                  clearTimeout(timer);
+                  reject(new Error("Streaming aborted during message delay"));
+                },
+                { once: true }
+              );
+            });
           }
         }
+
+        // Final haptic feedback
+        try {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        } catch (e) {
+          // Ignore haptic errors
+        }
+
+        // Streaming completed successfully
+        setIsStreaming(false);
+        abortControllerRef.current = null;
+
+        // Call completion callback if provided
+        if (onComplete) onComplete();
       } catch (error) {
-        if (error instanceof AbortError) {
-          console.log("TextStreaming: Streaming was aborted", {
-            message: error.message,
-            streamingVersion,
-            currentVersion,
-            isTyping,
-          });
-        } else if (error instanceof Error && error.message === "Streaming version changed") {
-          console.log("TextStreaming: Streaming version changed");
-        } else {
-          console.error("TextStreaming: Error during text streaming:", error);
-        }
-        return; // Exit early on error
-      } finally {
-        // If still the current session, finalize state
-        if (streamingVersion === currentVersion) {
-          setIsTyping(false);
-          abortControllerRef.current = null;
-        }
+        // Streaming was cancelled or failed
+        console.log("Streaming cancelled:", error);
+        setIsStreaming(false);
+        abortControllerRef.current = null;
       }
     },
-    [cancelCurrentStreaming, streamingVersion]
+    [cancelStreaming]
   );
 
-  const resetText = useCallback(() => {
-    cancelCurrentStreaming();
-  }, [cancelCurrentStreaming]);
+  /**
+   * Stream a single message immediately without animation
+   */
+  const streamImmediate = useCallback(
+    (message: string, onComplete?: () => void) => {
+      cancelStreaming();
+      setCurrentText(message);
+
+      if (onComplete) {
+        // Small delay to ensure UI updates before callback
+        setTimeout(onComplete, 50);
+      }
+    },
+    [cancelStreaming]
+  );
 
   return {
-    currentStreamedText,
-    isTyping,
-    currentEmoji,
-    lastStreamedText,
-    streamCount,
-    streamingVersion,
-    simulateTextStreaming,
-    setCurrentEmoji,
-    resetText,
-    cancelCurrentStreaming,
+    currentText,
+    isStreaming,
+    streamMessages,
+    streamImmediate,
+    cancelStreaming,
+    resetStreaming,
   };
 };

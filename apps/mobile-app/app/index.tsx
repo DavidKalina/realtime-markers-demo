@@ -42,12 +42,10 @@ export default function HomeScreen() {
     cameraRef,
     isGravitating,
     handleViewportChange: handleGravitationalViewportChange,
-    animateToLocation,
-    toggleGravitation,
   } = useGravitationalCamera(markers, {
     minMarkersForPull: 1,
     animationDuration: 500,
-    cooldownPeriod: 2000,
+    cooldownPeriod: 100,
     gravityZoomLevel: 14,
     centeringThreshold: 0.002,
   });
