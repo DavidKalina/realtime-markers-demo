@@ -75,4 +75,11 @@ export const styles = StyleSheet.create({
   textWrapper: {
     flex: 1,
   },
+  typingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#888",
+    marginHorizontal: 2,
+  },
 });
