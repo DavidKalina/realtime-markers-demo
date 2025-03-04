@@ -1,11 +1,9 @@
-// EventAssistant.tsx - Updated to use a global message queue and a local text streaming hook
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "../globalStyles";
 
-// Hooks & stores
 import { useAssistantAnimations } from "@/hooks/useEventAssistantAnimations";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { useMarkerEffects } from "@/hooks/useMarkerEffects";
@@ -16,7 +14,6 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import { generateActionMessages } from "@/utils/messageUtils";
 import AssistantActions from "./AssistantActions";
 import AssistantCard from "./AssistantCard";
-import AssistantViews from "./AssistantViews";
 
 const EventAssistant: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -27,16 +24,12 @@ const EventAssistant: React.FC = () => {
 
   // Location store (for marker selection, views, etc.)
   const {
-    activeView,
-    detailsViewVisible,
-    shareViewVisible,
     selectedMarker,
     selectedMarkerId,
     openDetailsView,
     closeDetailsView,
     openShareView,
     closeShareView,
-    shareEvent,
   } = useLocationStore();
 
   // Animation hooks
@@ -134,7 +127,7 @@ const EventAssistant: React.FC = () => {
       processAction();
 
       if (action === "details") {
-        openDetailsView();
+        navigate(`details?eventId=${selectedMarkerId}` as never);
       } else if (action === "share") {
         openShareView();
       } else if (action === "search") {
@@ -154,34 +147,6 @@ const EventAssistant: React.FC = () => {
       navigate,
     ]
   );
-
-  // Close view handlers
-  const handleCloseDetailsView = useCallback(() => {
-    closeDetailsView();
-    const updateMessages = async () => {
-      await clearMessages();
-      if (selectedMarker) {
-        queueMessages(["Returning to location overview."], selectedMarkerId);
-        setProcessedMessageIndex(-1); // Reset the processed message index
-      }
-    };
-    updateMessages();
-  }, [closeDetailsView, clearMessages, queueMessages, selectedMarker, selectedMarkerId]);
-
-  const handleCloseShareView = useCallback(() => {
-    closeShareView();
-    const updateMessages = async () => {
-      await clearMessages();
-      if (selectedMarker) {
-        queueMessages(
-          ["Sharing cancelled. How else can I help you with this location?"],
-          selectedMarkerId
-        );
-        setProcessedMessageIndex(-1); // Reset the processed message index
-      }
-    };
-    updateMessages();
-  }, [closeShareView, clearMessages, queueMessages, selectedMarker, selectedMarkerId]);
 
   // Modified message processing effect
   useEffect(() => {
@@ -221,16 +186,6 @@ const EventAssistant: React.FC = () => {
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-      <AssistantViews
-        activeView={activeView}
-        detailsViewVisible={detailsViewVisible}
-        shareViewVisible={shareViewVisible}
-        selectedMarker={selectedMarker}
-        onCloseDetailsView={handleCloseDetailsView}
-        onCloseShareView={handleCloseShareView}
-        onShareEvent={shareEvent}
-      />
-
       <View style={styles.innerContainer}>
         <AssistantCard
           message={currentStreamedText}

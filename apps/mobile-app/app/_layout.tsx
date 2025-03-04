@@ -41,8 +41,11 @@ export default function RootLayout() {
           name="scan"
           options={{ headerShown: false, presentation: "modal", animation: "slide_from_bottom" }}
         />
-        <Stack.Screen name="results" options={{ headerShown: false }} />
-        <Stack.Screen name="search" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="search"
+          options={{ headerShown: false, animation: "slide_from_bottom" }}
+        />
+        <Stack.Screen name="details" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
