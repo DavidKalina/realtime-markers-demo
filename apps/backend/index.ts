@@ -509,6 +509,7 @@ events.delete("/:id", async (c) => {
 events.get("/:id", async (c) => {
   try {
     const id = c.req.param("id");
+    console.log({ idParam: id });
     const event = await services.eventService.getEventById(id);
 
     if (!event) {
