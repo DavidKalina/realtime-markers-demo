@@ -78,10 +78,10 @@ services:
       - backend_app_node_modules:/app/apps/backend/node_modules
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: on-failure:5
 
   worker:
@@ -107,7 +107,7 @@ services:
       redis:
         condition: service_healthy
       backend:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - ./apps/backend:/app/apps/backend
       - /app/apps/backend/node_modules
@@ -120,7 +120,7 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - BACKEND_URL=http://backend:3000 # Add this environment variable
+      - BACKEND_URL=http://backend:3000
     ports:
       - "8081:8081"
     networks:
@@ -129,10 +129,17 @@ services:
       redis:
         condition: service_healthy
       backend:
-        condition: service_started # Add this dependency
+        condition: service_healthy
     volumes:
       - ./apps/websocket:/app/apps/websocket
       - /app/apps/websocket/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://backend:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: on-failure:3
 
 networks:
   marker-network:
