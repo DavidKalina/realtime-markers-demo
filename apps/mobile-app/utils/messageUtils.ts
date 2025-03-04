@@ -12,12 +12,29 @@ const GOODBYE_MESSAGES = [
   "That's all for this location. Let me know when you're ready for more!",
 ];
 
+// Welcome back messages when returning from navigation
+const WELCOME_BACK_MESSAGES = [
+  "Welcome back! Would you like to continue exploring?",
+  "Glad you're back! What would you like to do next?",
+  "Welcome back to the map! Let me know if you need any assistance.",
+  "You've returned! Let's continue our exploration.",
+  "Nice to see you again! Let's keep exploring.",
+];
+
 /**
  * Get a random goodbye message from the list
  */
 export const getRandomGoodbyeMessage = (): string => {
   const randomIndex = Math.floor(Math.random() * GOODBYE_MESSAGES.length);
   return GOODBYE_MESSAGES[randomIndex];
+};
+
+/**
+ * Get a random welcome back message from the list
+ */
+export const getRandomWelcomeBackMessage = (): string => {
+  const randomIndex = Math.floor(Math.random() * WELCOME_BACK_MESSAGES.length);
+  return WELCOME_BACK_MESSAGES[randomIndex];
 };
 
 /**
@@ -29,6 +46,45 @@ export const generateGoodbyeMessage = (markerName: string = ""): string => {
     return `You've moved away from ${markerName}. ${getRandomGoodbyeMessage()}`;
   }
   return getRandomGoodbyeMessage();
+};
+
+/**
+ * Generate a welcome back message sequence based on the previous action
+ * @param markerName The name of the marker
+ * @param previousAction The previous action taken
+ */
+export const generateWelcomeBackMessage = (
+  markerName: string,
+  previousAction: string
+): string[] => {
+  const messages: string[] = [];
+
+  // Add a personalized welcome back message
+  messages.push(`Welcome back to ${markerName}!`);
+
+  // Add action-specific messages
+  switch (previousAction) {
+    case "details":
+      messages.push("I hope the details were helpful.");
+      break;
+    case "share":
+      messages.push("Did you successfully share this location with your friends?");
+      break;
+    case "search":
+      messages.push("Did you find what you were looking for?");
+      break;
+    case "camera":
+      messages.push("Did you manage to scan any QR codes?");
+      break;
+    default:
+      messages.push(getRandomWelcomeBackMessage());
+      break;
+  }
+
+  // Add a final prompt
+  messages.push("What would you like to do now?");
+
+  return messages;
 };
 
 /**
@@ -127,6 +183,17 @@ export const generateActionMessages = (action: string): string[] => {
 };
 
 /**
+ * Generate navigation preparation messages
+ * @param markerName The name of the marker being navigated from
+ */
+export const generateNavigationPreparationMessages = (markerName: string): string[] => {
+  return [
+    `I'll remember our place at ${markerName}.`,
+    "You can continue exploring when you return.",
+  ];
+};
+
+/**
  * Determine emoji based on message content
  * @param message The message text
  * @param markerId The marker ID or "goodbye" for goodbye messages
@@ -134,6 +201,8 @@ export const generateActionMessages = (action: string): string[] => {
 export const getMessageEmoji = (message: string, markerId: string | null = null): string => {
   if (message.includes("discovered")) {
     return "🔭";
+  } else if (message.includes("Welcome back")) {
+    return "👋";
   } else if (message.includes("Welcome")) {
     return "👋";
   } else if (
@@ -172,6 +241,18 @@ export const getMessageEmoji = (message: string, markerId: string | null = null)
     return "💬";
   } else if (message.includes("rating")) {
     return "⭐";
+  } else if (message.includes("remember")) {
+    return "🧠";
+  } else if (message.includes("hope the details were helpful")) {
+    return "📊";
+  } else if (message.includes("successfully share")) {
+    return "🔄";
+  } else if (message.includes("find what you were looking for")) {
+    return "🔍";
+  } else if (message.includes("scan any QR codes")) {
+    return "📲";
+  } else if (message.includes("What would you like to do now")) {
+    return "❓";
   }
 
   return "";

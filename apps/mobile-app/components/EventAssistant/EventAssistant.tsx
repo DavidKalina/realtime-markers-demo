@@ -1,5 +1,5 @@
-import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "../globalStyles";
@@ -7,16 +7,20 @@ import { styles } from "../globalStyles";
 import { useAssistantAnimations } from "@/hooks/useEventAssistantAnimations";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { useMarkerEffects } from "@/hooks/useMarkerEffects";
+import { useSimplifiedTextStreaming } from "@/hooks/useTextStreaming";
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { useLocationStore } from "@/stores/useLocationStore";
-import { generateActionMessages, generateMessageSequence } from "@/utils/messageUtils";
+import {
+  generateActionMessages,
+  generateMessageSequence,
+  generateGoodbyeMessage,
+  generateWelcomeBackMessage,
+} from "@/utils/messageUtils";
 import AssistantActions from "./AssistantActions";
 import AssistantCard from "./AssistantCard";
-import { useSimplifiedTextStreaming } from "@/hooks/useTextStreaming";
 
 /**
- * EventAssistant component using a simplified, functional approach
- * with word-by-word text streaming and minimal state management.
+ * EventAssistant component with enhanced navigation flow
  */
 const EventAssistant: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -26,20 +30,32 @@ const EventAssistant: React.FC = () => {
   const { userLocation } = useUserLocation();
 
   // Location store (for marker selection)
-  const { selectedMarker, selectedMarkerId, openShareView, selectMarker } = useLocationStore();
+  const { selectedMarker, selectedMarkerId, openShareView } = useLocationStore();
 
   // Animation hooks
   const { styles: animationStyles, controls: animationControls } = useAssistantAnimations();
 
   // Simplified text streaming
-  const { currentText, isStreaming, streamMessages, cancelStreaming, resetStreaming } =
-    useSimplifiedTextStreaming();
+  const {
+    currentText,
+    isStreaming,
+    streamMessages,
+    streamImmediate,
+    cancelStreaming,
+    resetStreaming,
+  } = useSimplifiedTextStreaming();
 
   // Track marker selection count to prevent multiple processes for same marker
   const markerSelectionCountRef = useRef<Record<string, number>>({});
 
   // Check if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true);
+
+  // Keep track of navigation state
+  const [isReturningFromNavigation, setIsReturningFromNavigation] = useState(false);
+  const previousMarkerRef = useRef<Marker | null>(null);
+  const navigationActionRef = useRef<string | null>(null);
+  const isNavigatingRef = useRef<boolean>(false);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -50,6 +66,41 @@ const EventAssistant: React.FC = () => {
       cancelStreaming();
     };
   }, [cancelStreaming]);
+
+  // Handle screen focus/blur with the useFocusEffect hook from expo-router
+  useFocusEffect(
+    useCallback(() => {
+      console.log("EventAssistant screen is now focused");
+
+      // Only show welcome back when returning from navigation (not on initial load)
+      if (isReturningFromNavigation && selectedMarker && navigationActionRef.current) {
+        const action = navigationActionRef.current;
+        const markerName = selectedMarker.data?.title || "this location";
+
+        // Generate a welcome back message based on the previous action
+        const welcomeBackMessages = generateWelcomeBackMessage(markerName, action);
+
+        // Show welcome back message
+        streamMessages(welcomeBackMessages);
+        animationControls.showAssistant(200);
+
+        // Reset the returning flag and action
+        setIsReturningFromNavigation(false);
+        navigationActionRef.current = null;
+      }
+
+      // Reset navigation flag when focusing on this screen
+      isNavigatingRef.current = false;
+
+      return () => {
+        // Only set returning flag if we're actually navigating away
+        // (not unmounting for other reasons)
+        if (isNavigatingRef.current) {
+          setIsReturningFromNavigation(true);
+        }
+      };
+    }, [isReturningFromNavigation, selectedMarker, animationControls, streamMessages])
+  );
 
   // Handle marker selection
   const handleMarkerSelect = useCallback(
@@ -83,18 +134,27 @@ const EventAssistant: React.FC = () => {
     // Skip if not mounted
     if (!isMountedRef.current) return;
 
+    // If we have a selected marker, show a goodbye message
+    if (selectedMarker) {
+      const markerName = selectedMarker.data?.title || "";
+      const goodbyeMessage = generateGoodbyeMessage(markerName);
+
+      // Show goodbye message and then hide assistant
+      streamMessages([goodbyeMessage], () => {
+        // Hide assistant after showing goodbye message
+        animationControls.hideAssistant();
+        resetStreaming();
+      });
+    } else {
+      // No marker selected, just hide
+      cancelStreaming();
+      animationControls.hideAssistant();
+      resetStreaming();
+    }
+
     // Reset marker selection tracking
     markerSelectionCountRef.current = {};
-
-    // Cancel any ongoing streaming
-    cancelStreaming();
-
-    // Hide assistant
-    animationControls.hideAssistant();
-
-    // Reset text
-    resetStreaming();
-  }, [animationControls, cancelStreaming, resetStreaming]);
+  }, [selectedMarker, animationControls, cancelStreaming, resetStreaming, streamMessages]);
 
   // Use marker effects hook to handle marker selection/deselection
   useMarkerEffects({
@@ -104,6 +164,15 @@ const EventAssistant: React.FC = () => {
     onMarkerSelect: handleMarkerSelect,
     onMarkerDeselect: handleMarkerDeselect,
   });
+
+  // Execute navigation with proper state setting
+  const executeNavigation = useCallback((navigateFn: () => void) => {
+    // Set that we're navigating (not just unmounting)
+    isNavigatingRef.current = true;
+
+    // Execute the navigation function
+    navigateFn();
+  }, []);
 
   // Handle action button presses
   const handleActionPress = useCallback(
@@ -124,31 +193,33 @@ const EventAssistant: React.FC = () => {
       // Generate action-specific messages
       const actionMessages = generateActionMessages(action);
 
-      // Display action messages
+      // Store the current action for when we return
+      navigationActionRef.current = action;
+
+      // Handle different actions
       switch (action) {
         case "details":
-          // Show message and navigate to details screen
-          streamMessages(actionMessages, () => {
-            resetStreaming();
-            animationControls.hideAssistant();
-            selectMarker(null);
-            navigate(`details?eventId=${selectedMarkerId}` as never);
-          });
+          // Show action message, then navigate
+          streamMessages(actionMessages, () =>
+            executeNavigation(() => navigate(`details?eventId=${selectedMarkerId}` as never))
+          );
           break;
 
         case "share":
-          // Show message and open share view
-          streamMessages(actionMessages, () => openShareView());
+          // Show action message, then open share view
+          streamMessages(actionMessages, () => executeNavigation(() => openShareView()));
           break;
 
         case "search":
-          // Show message and navigate to search screen
-          streamMessages(actionMessages, () => navigate("search" as never));
+          // Show action message, then navigate to search
+          streamMessages(actionMessages, () =>
+            executeNavigation(() => navigate("search" as never))
+          );
           break;
 
         case "camera":
-          // Show message and navigate to scan screen
-          streamMessages(actionMessages, () => navigate("scan" as never));
+          // Show action message, then navigate to camera
+          streamMessages(actionMessages, () => executeNavigation(() => navigate("scan" as never)));
           break;
 
         default:
@@ -157,7 +228,15 @@ const EventAssistant: React.FC = () => {
           break;
       }
     },
-    [selectedMarker, selectedMarkerId, animationControls, streamMessages, navigate, openShareView]
+    [
+      selectedMarker,
+      selectedMarkerId,
+      animationControls,
+      streamMessages,
+      navigate,
+      openShareView,
+      executeNavigation,
+    ]
   );
 
   return (
