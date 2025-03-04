@@ -136,24 +136,6 @@ app.use("*", async (c, next) => {
 
 const events = new Hono<{ Variables: AppVariables }>();
 
-// Get event by id
-events.get("/:id", async (c) => {
-  try {
-    const id = c.req.param("id");
-    console.log({ idParam: id });
-    const event = await services.eventService.getEventById(id);
-
-    if (!event) {
-      return c.json({ error: "Event not found" }, 404);
-    }
-
-    return c.json(event);
-  } catch (error) {
-    console.error("Error fetching event:", error);
-    return c.json({ error: "Failed to fetch event" }, 500);
-  }
-});
-
 // Get nearby events
 events.get("/nearby", async (c) => {
   try {
@@ -418,6 +400,24 @@ events.delete("/:id", async (c) => {
   } catch (error) {
     console.error("Error deleting event:", error);
     return c.json({ error: "Failed to delete event" }, 500);
+  }
+});
+
+// Get event by id
+events.get("/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    console.log({ idParam: id });
+    const event = await services.eventService.getEventById(id);
+
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
+
+    return c.json(event);
+  } catch (error) {
+    console.error("Error fetching event:", error);
+    return c.json({ error: "Failed to fetch event" }, 500);
   }
 });
 
