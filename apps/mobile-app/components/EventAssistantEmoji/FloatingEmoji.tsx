@@ -1,5 +1,5 @@
 // FloatingEmoji.tsx - Now using the emoji util
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { View } from "react-native";
 import Animated, {
   useSharedValue,
@@ -18,13 +18,10 @@ import { getMessageEmoji } from "@/utils/messageUtils";
 
 interface FloatingEmojiProps {
   fallbackEmoji?: string;
-  onTouchMove?: (dx: number, dy: number) => void;
+  message: string;
 }
 
-export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({
-  fallbackEmoji = "💬",
-  onTouchMove,
-}) => {
+export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({ message }) => {
   // Local state for position
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
@@ -38,30 +35,7 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({
   // Goodbye state
   const [isInGoodbyeState, setIsInGoodbyeState] = useState(false);
 
-  // Determine which emoji to display using the emoji util.
-  // For example, if a marker is selected, we assume a "discovered" message.
-  const getEmojiToDisplay = () => {
-    if (selectedMarkerId) {
-      return getMessageEmoji("discovered", selectedMarkerId) || fallbackEmoji;
-    }
-    return fallbackEmoji;
-  };
-
-  // Displayed emoji state, initially calculated from the util
-  const [displayedEmoji, setDisplayedEmoji] = useState(getEmojiToDisplay());
-
-  // When the marker changes, update the displayed emoji
-  useEffect(() => {
-    const newEmoji = getEmojiToDisplay();
-    if (newEmoji !== displayedEmoji) {
-      opacity.value = withTiming(0, { duration: 150 }, () => {
-        runOnJS(setDisplayedEmoji)(newEmoji);
-        scale.value = 0.8;
-        opacity.value = withTiming(1, { duration: 250 });
-        scale.value = withSpring(1, { damping: 12, stiffness: 100 });
-      });
-    }
-  }, [selectedMarkerId]);
+  const emoji = useMemo(() => getMessageEmoji(message), [message]);
 
   // Animation shared values
   const animatedX = useSharedValue(0);
@@ -118,7 +92,6 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({
             const randomX = (Math.random() - 0.5) * movementRange;
             const randomY = (Math.random() - 0.5) * movementRange;
             setOffset({ x: randomX, y: randomY });
-            if (onTouchMove) onTouchMove(randomX, randomY);
           },
           isInGoodbyeState ? 3000 : 4000
         );
@@ -133,7 +106,7 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (goodbyeTimeoutRef.current) clearTimeout(goodbyeTimeoutRef.current);
     };
-  }, [hasMarker, isInGoodbyeState, onTouchMove]);
+  }, [hasMarker, isInGoodbyeState]);
 
   // Handle marker deselection and trigger goodbye animation
   useEffect(() => {
@@ -191,9 +164,7 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({
           },
         ]}
       >
-        <Animated.Text style={[styles.emojiText, animatedEmojiStyle]}>
-          {displayedEmoji}
-        </Animated.Text>
+        <Animated.Text style={[styles.emojiText, animatedEmojiStyle]}>{emoji}</Animated.Text>
       </View>
     </View>
   );

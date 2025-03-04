@@ -28,12 +28,12 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
       {/* If contentStyle is provided, wrap inner content with additional animation */}
       {contentStyle ? (
         <Animated.View style={[styles.row, contentStyle]}>
-          <FloatingEmoji />
+          <FloatingEmoji message={message} />
           <MessageBubble message={message} isTyping={isTyping} />
         </Animated.View>
       ) : (
         <View style={styles.row}>
-          <FloatingEmoji />
+          <FloatingEmoji message={message} />
           <MessageBubble message={message} isTyping={isTyping} />
         </View>
       )}
