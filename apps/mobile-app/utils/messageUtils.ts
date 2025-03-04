@@ -162,11 +162,18 @@ export const getMessageEmoji = (message: string, markerId: string | null = null)
     return "⏮️";
   } else if (message.includes("Categories")) {
     return "🏷️";
+  } else if (
+    message.includes("moved away") ||
+    message.includes("Goodbye") ||
+    markerId === "goodbye"
+  ) {
+    return "👋";
+  } else if (message.includes("How can I help")) {
+    return "💬";
+  } else if (message.includes("rating")) {
+    return "⭐";
   }
-  // Remove the goodbye-related condition:
-  // else if (message.includes("moved away") || message.includes("Goodbye") || markerId === "goodbye") {
-  //   return "👋";
-  // }
 
-  return "";
+  // Default emoji for any other message
+  return "ℹ️";
 };

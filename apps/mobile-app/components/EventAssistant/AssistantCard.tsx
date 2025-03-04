@@ -33,7 +33,7 @@ const AssistantCard: React.FC<AssistantCardProps> = ({
         </Animated.View>
       ) : (
         <View style={styles.row}>
-          {/* <FloatingEmoji /> */}
+          <FloatingEmoji />
           <MessageBubble message={message} isTyping={isTyping} />
         </View>
       )}

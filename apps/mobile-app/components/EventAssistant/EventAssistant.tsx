@@ -1,18 +1,18 @@
-// EventAssistant.tsx - Edited to fix marker reselection bug
-import React, { useCallback, useRef } from "react";
-import { View } from "react-native";
+// EventAssistant.tsx - Updated to use a global message queue and a local text streaming hook
 import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "../globalStyles";
 
-// Hooks
-import { useUserLocation } from "@/hooks/useUserLocation";
-import { useLocationStore } from "@/stores/useLocationStore";
-
-import { Marker } from "@/hooks/useMapWebsocket";
+// Hooks & stores
 import { useAssistantAnimations } from "@/hooks/useEventAssistantAnimations";
-import { useMessageQueue } from "@/hooks/useEventAssistantMessageQueue";
+import { Marker } from "@/hooks/useMapWebsocket";
 import { useMarkerEffects } from "@/hooks/useMarkerEffects";
+import { useTextStreaming } from "@/hooks/useTextStreaming"; // local text streaming
+import { useUserLocation } from "@/hooks/useUserLocation";
+import { useMessageQueueStore } from "@/stores/useEventAssistantMessageQueueStore";
+import { useLocationStore } from "@/stores/useLocationStore";
 import { generateActionMessages } from "@/utils/messageUtils";
 import AssistantActions from "./AssistantActions";
 import AssistantCard from "./AssistantCard";
@@ -22,80 +22,69 @@ const EventAssistant: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { navigate } = useRouter();
 
-  // Get user location using the hook
+  // User location
   const { userLocation } = useUserLocation();
 
-  // Get location store state and functions
+  // Location store (for marker selection, views, etc.)
   const {
     activeView,
     detailsViewVisible,
     shareViewVisible,
     selectedMarker,
     selectedMarkerId,
-
     openDetailsView,
     closeDetailsView,
     openShareView,
     closeShareView,
-
     shareEvent,
   } = useLocationStore();
 
-  // Animation hooks - with proper memoization
+  // Animation hooks
   const { styles: animationStyles, controls: animationControls } = useAssistantAnimations();
 
-  // Message queue management
-  const {
-    currentText,
-    isTyping,
-    queueMessages,
-    clearMessages,
-    clearMessagesImmediate, // Add this new function
-  } = useMessageQueue();
+  // Global message queue store – managing only the messages, version, markerId
+  const { queueMessages, clearMessages, clearMessagesImmediate, messages } = useMessageQueueStore();
+
+  // Local state to track which messages have been processed
+  const [processedMessageIndex, setProcessedMessageIndex] = useState(-1);
+
+  // Local text streaming hook – handles character-by-character display and UI effects
+  const { currentStreamedText, isTyping, simulateTextStreaming, cancelCurrentStreaming } =
+    useTextStreaming();
+
+  // Counters to prevent duplicate marker selections
   const markerSelectionCountRef = useRef<{ [key: string]: number }>({});
   const previousMarkerIdRef = useRef<string | null>(null);
 
-  // Track when marker selection changes
-  React.useEffect(() => {
-    // If marker changed, reset the counter for the previous marker
+  // Track marker selection changes
+  useEffect(() => {
     if (previousMarkerIdRef.current && previousMarkerIdRef.current !== selectedMarkerId) {
       delete markerSelectionCountRef.current[previousMarkerIdRef.current];
     }
-
-    // If marker deselected completely, reset all counters
     if (!selectedMarkerId) {
       markerSelectionCountRef.current = {};
     }
-
     previousMarkerIdRef.current = selectedMarkerId;
   }, [selectedMarkerId]);
 
-  // Then update handleMarkerSelect to use it:
+  // Handle marker selection
   const handleMarkerSelect = useCallback(
-    (marker: Marker, messages: string[]) => {
-      // Count selection to prevent multiple calls
+    (marker: Marker, newMessages: string[]) => {
       const markerId = marker.id;
       markerSelectionCountRef.current[markerId] =
         (markerSelectionCountRef.current[markerId] || 0) + 1;
 
-      // Only proceed if this is the first selection
+      // Only process the first selection
       if (markerSelectionCountRef.current[markerId] === 1) {
-        // Immediate reset of all previous content (no waiting for animations)
         if (previousMarkerIdRef.current && previousMarkerIdRef.current !== markerId) {
-          // Use quickTransition if we're switching between markers
           animationControls.quickTransition();
-
-          // Clear messages immediately without waiting
-          clearMessagesImmediate(); // Use the immediate version
-
-          // Queue new messages immediately
-          queueMessages(messages, marker.id);
-
-          // Show assistant with faster animation
+          clearMessagesImmediate();
+          queueMessages(newMessages, marker.id);
+          setProcessedMessageIndex(-1); // Reset the processed message index
           animationControls.showAssistant(150);
         } else {
-          // First-time selection, use normal approach
-          queueMessages(messages, marker.id);
+          queueMessages(newMessages, marker.id);
+          setProcessedMessageIndex(-1); // Reset the processed message index
           animationControls.showAssistant(200);
         }
       }
@@ -103,18 +92,17 @@ const EventAssistant: React.FC = () => {
     [queueMessages, clearMessagesImmediate, animationControls]
   );
 
-  // Also update handleMarkerDeselect to use the immediate version
+  // Handle marker deselection
   const handleMarkerDeselect = useCallback(() => {
-    // Reset selection counter for the deselected marker
     if (previousMarkerIdRef.current) {
       delete markerSelectionCountRef.current[previousMarkerIdRef.current];
     }
-
-    // Simply clear messages and hide the assistant immediately
     clearMessagesImmediate();
+    setProcessedMessageIndex(-1); // Reset the processed message index
     animationControls.hideAssistant();
   }, [clearMessagesImmediate, animationControls]);
-  // Use marker effects hook to handle marker selection/deselection
+
+  // Use marker effects hook
   useMarkerEffects({
     selectedMarker,
     selectedMarkerId,
@@ -126,39 +114,25 @@ const EventAssistant: React.FC = () => {
   // Handle action button presses
   const handleActionPress = useCallback(
     (action: string) => {
-      // Skip actions if no current event is selected for certain actions
       if (!selectedMarker && ["details", "share"].includes(action)) {
-        // Use a local async function to avoid returning promises to render
         const showError = async () => {
-          // Clear any existing messages first
           await clearMessages();
-
-          // Set temporary error message
           queueMessages(["Please select a location first."]);
-
-          // Show and then hide after delay
+          setProcessedMessageIndex(-1); // Reset the processed message index
           animationControls.showAndHideWithDelay(3000);
         };
-
-        // Execute without returning a promise
         showError();
         return;
       }
 
-      // Use a local async function instead of top-level async
       const processAction = async () => {
-        // Clear existing queue and stop any current streaming
         await clearMessages();
-
-        // Generate and queue action response messages
         const actionMessages = generateActionMessages(action);
         queueMessages(actionMessages, selectedMarkerId);
+        setProcessedMessageIndex(-1); // Reset the processed message index
       };
-
-      // Execute without returning a promise
       processAction();
 
-      // Perform the actual action
       if (action === "details") {
         openDetailsView();
       } else if (action === "share") {
@@ -166,7 +140,6 @@ const EventAssistant: React.FC = () => {
       } else if (action === "search") {
         navigate("search" as never);
       } else if (action === "camera") {
-        // Navigate to the scan screen instead of opening a view
         navigate("scan" as never);
       }
     },
@@ -185,46 +158,69 @@ const EventAssistant: React.FC = () => {
   // Close view handlers
   const handleCloseDetailsView = useCallback(() => {
     closeDetailsView();
-
-    // Use local async function
     const updateMessages = async () => {
-      // Clear existing queue first
       await clearMessages();
-
-      // If there's a selected marker, return to showing its information
       if (selectedMarker) {
         queueMessages(["Returning to location overview."], selectedMarkerId);
+        setProcessedMessageIndex(-1); // Reset the processed message index
       }
     };
-
-    // Execute without returning a promise
     updateMessages();
   }, [closeDetailsView, clearMessages, queueMessages, selectedMarker, selectedMarkerId]);
 
   const handleCloseShareView = useCallback(() => {
     closeShareView();
-
-    // Use local async function
     const updateMessages = async () => {
-      // Clear existing queue first
       await clearMessages();
-
-      // Return to marker information
       if (selectedMarker) {
         queueMessages(
           ["Sharing cancelled. How else can I help you with this location?"],
           selectedMarkerId
         );
+        setProcessedMessageIndex(-1); // Reset the processed message index
       }
     };
-
-    // Execute without returning a promise
     updateMessages();
   }, [closeShareView, clearMessages, queueMessages, selectedMarker, selectedMarkerId]);
 
+  // Modified message processing effect
+  useEffect(() => {
+    const processNextMessage = async () => {
+      // Don't process if already typing or if all messages have been processed
+      if (isTyping || processedMessageIndex >= messages.length - 1) {
+        return;
+      }
+
+      // Get the next message to process
+      const nextIndex = processedMessageIndex + 1;
+      if (nextIndex < messages.length) {
+        const nextMessage = messages[nextIndex];
+
+        // Update the processed index before streaming
+        setProcessedMessageIndex(nextIndex);
+
+        // Stream the message
+        await simulateTextStreaming(nextMessage);
+
+        // After streaming completes, check if we should process the next message
+        // This will trigger this effect again through state update
+      }
+    };
+
+    processNextMessage();
+  }, [messages, isTyping, processedMessageIndex, simulateTextStreaming]);
+
+  // Debug log for message queue state
+  useEffect(() => {
+    console.log("Message queue:", {
+      count: messages.length,
+      processed: processedMessageIndex,
+      isTyping,
+    });
+  }, [messages, processedMessageIndex, isTyping]);
+
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-      {/* Views component */}
       <AssistantViews
         activeView={activeView}
         detailsViewVisible={detailsViewVisible}
@@ -236,15 +232,13 @@ const EventAssistant: React.FC = () => {
       />
 
       <View style={styles.innerContainer}>
-        {/* Card component */}
         <AssistantCard
-          message={currentText}
+          message={currentStreamedText}
           isTyping={isTyping}
           containerStyle={animationStyles.cardContainer}
           contentStyle={animationStyles.cardContent}
         />
 
-        {/* Actions component */}
         <AssistantActions
           onActionPress={handleActionPress}
           isStandalone={!selectedMarkerId}
