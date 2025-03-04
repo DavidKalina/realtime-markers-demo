@@ -177,8 +177,6 @@ export class EventService {
     const normalizedQuery = `Title: ${query}`;
     let searchEmbedding = CacheService.getCachedEmbedding(normalizedQuery);
 
-    const openai = OpenAIService.getInstance();
-
     if (!searchEmbedding) {
       // Generate new embedding if not in cache
       const openai = OpenAIService.getInstance();
@@ -197,7 +195,6 @@ export class EventService {
     let cursorData: { id: string; score: number } | undefined;
     if (cursor) {
       try {
-        // For Node.js environment
         const jsonStr = Buffer.from(cursor, "base64").toString("utf-8");
         cursorData = JSON.parse(jsonStr);
       } catch (e) {
@@ -205,29 +202,9 @@ export class EventService {
       }
     }
 
-    // Build query
-    let queryBuilder = this.eventRepository
-      .createQueryBuilder("event")
-      .leftJoinAndSelect("event.categories", "category")
-      .where("event.embedding IS NOT NULL");
-
-    // Add text matching conditions
-    queryBuilder = queryBuilder.andWhere(
-      new Brackets((qb) => {
-        qb.where("LOWER(event.title) LIKE LOWER(:query)", {
-          query: `%${query}%`,
-        }).orWhere("LOWER(event.description) LIKE LOWER(:query)", {
-          query: `%${query}%`,
-        });
-      })
-    );
-
-    // Add score calculation
-    queryBuilder = queryBuilder.addSelect(
-      `
-    -- Vector similarity (normalized to 0-1)
+    // Define our score expression for consistency
+    const scoreExpression = `
     (1 - (embedding <-> :embedding)::float) * 0.6 +
-    -- Text matching score (normalized to 0-1)
     (CASE 
       WHEN LOWER(event.title) LIKE LOWER(:exactQuery) THEN 1.0
       WHEN LOWER(event.title) LIKE LOWER(:partialQuery) THEN 0.7
@@ -235,9 +212,27 @@ export class EventService {
       WHEN LOWER(event.description) LIKE LOWER(:partialQuery) THEN 0.3
       ELSE 0
     END) * 0.4
-    `,
-      "combined_score"
+  `;
+
+    // Build query
+    let queryBuilder = this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .where("event.embedding IS NOT NULL");
+
+    // Add text matching conditions for a better performance pre-filter
+    queryBuilder = queryBuilder.andWhere(
+      new Brackets((qb) => {
+        qb.where("LOWER(event.title) LIKE LOWER(:partialQuery)", {
+          partialQuery: `%${query.toLowerCase()}%`,
+        }).orWhere("LOWER(event.description) LIKE LOWER(:partialQuery)", {
+          partialQuery: `%${query.toLowerCase()}%`,
+        });
+      })
     );
+
+    // Add score calculation using our expression
+    queryBuilder = queryBuilder.addSelect(scoreExpression, "combined_score");
 
     // Add parameters
     queryBuilder = queryBuilder.setParameters({
@@ -248,35 +243,27 @@ export class EventService {
 
     // Add cursor-based pagination if provided
     if (cursorData) {
-      const scoreExpr = `
-      (1 - (embedding <-> :embedding)::float) * 0.6 +
-      (CASE 
-        WHEN LOWER(event.title) LIKE LOWER(:exactQuery) THEN 1.0
-        WHEN LOWER(event.title) LIKE LOWER(:partialQuery) THEN 0.7
-        WHEN LOWER(event.description) LIKE LOWER(:exactQuery) THEN 0.5
-        WHEN LOWER(event.description) LIKE LOWER(:partialQuery) THEN 0.3
-        ELSE 0
-      END) * 0.4
-    `;
-
       queryBuilder = queryBuilder.andWhere(
         new Brackets((qb) => {
-          qb.where(`${scoreExpr} < :cursorScore`, { cursorScore: cursorData.score }).orWhere(
+          qb.where(`${scoreExpression} < :cursorScore`, {
+            cursorScore: cursorData.score,
+          }).orWhere(
             new Brackets((qb2) => {
               qb2
-                .where(`${scoreExpr} = :cursorScore`, { cursorScore: cursorData.score })
-                .andWhere("event.id > :cursorId", { cursorId: cursorData.id });
+                .where(`${scoreExpression} = :cursorScore`, {
+                  cursorScore: cursorData.score,
+                })
+                .andWhere("event.id > :cursorId", {
+                  cursorId: cursorData.id,
+                });
             })
           );
         })
       );
     }
 
-    // Complete the query
+    // Complete the query - fix the groupBy to match joined tables
     queryBuilder = queryBuilder
-      .groupBy("event.id")
-      .addGroupBy("category.id")
-      .addGroupBy("space.id")
       .orderBy("combined_score", "DESC")
       .addOrderBy("event.id", "ASC") // Secondary sort for deterministic pagination
       .limit(limit + 1); // Fetch one extra to determine if there are more results
@@ -285,10 +272,15 @@ export class EventService {
     const results = await queryBuilder.getRawAndEntities();
 
     // Process results
-    const searchResults = results.entities.slice(0, limit).map((event, index) => ({
-      event,
-      score: parseFloat(results.raw[index].combined_score),
-    }));
+    const searchResults: SearchResult[] = [];
+
+    // Map results ensuring correct score association
+    for (let i = 0; i < Math.min(results.entities.length, limit); i++) {
+      searchResults.push({
+        event: results.entities[i],
+        score: parseFloat(results.raw[i].combined_score),
+      });
+    }
 
     // Generate next cursor if we have more results
     let nextCursor: string | undefined;
@@ -298,11 +290,14 @@ export class EventService {
         id: lastResult.event.id,
         score: lastResult.score,
       };
-      // For Node.js environment
       nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString("base64");
     }
 
-    return { results: searchResults, nextCursor };
+    // Store in cache
+    const resultObject = { results: searchResults, nextCursor };
+    await CacheService.setCachedSearch(cacheKey, resultObject);
+
+    return resultObject;
   }
   async deleteEvent(id: string): Promise<boolean> {
     const result = await this.eventRepository.delete(id);

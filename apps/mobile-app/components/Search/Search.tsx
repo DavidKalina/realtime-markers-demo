@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,6 @@ import {
   StatusBar,
   SafeAreaView,
   ActivityIndicator,
-  StyleSheet,
 } from "react-native";
 import { ArrowLeft, Search, X, Calendar, MapPin } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
@@ -20,6 +19,7 @@ import apiClient from "@/services/ApiClient";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { EventType } from "@/types/types";
 import { useLocationStore } from "@/stores/useLocationStore";
+import { styles } from "./styles";
 
 // Convert Marker to EventType for consistent handling
 const markerToEventType = (marker: Marker): EventType => {
@@ -44,6 +44,11 @@ const SearchView: React.FC = () => {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+
+  // Pagination state
+  const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
+  const [hasMoreResults, setHasMoreResults] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
 
   // Get stored markers from location store to show nearby events initially
   const storedMarkers = useLocationStore((state) => state.markers);
@@ -88,56 +93,102 @@ const SearchView: React.FC = () => {
     };
   }, []);
 
-  // Perform search when query changes
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      // If search is cleared, show stored markers again
-      if (storedMarkers.length > 0) {
-        const initialEvents = storedMarkers.map(markerToEventType);
-        setEventResults(initialEvents);
-      } else {
-        setEventResults([]);
+  // Initial search function
+  const searchEvents = useCallback(
+    async (reset = true) => {
+      if (!searchQuery.trim()) {
+        // If search is cleared, show stored markers again
+        if (storedMarkers.length > 0) {
+          const initialEvents = storedMarkers.map(markerToEventType);
+          setEventResults(initialEvents);
+        } else {
+          setEventResults([]);
+        }
+        setHasMoreResults(false);
+        setNextCursor(undefined);
+        return;
       }
-      return;
-    }
 
-    const searchEvents = async () => {
-      if (!hasSearched && !searchQuery.trim()) return;
-
-      setIsLoading(true);
+      if (reset) {
+        setIsLoading(true);
+      } else {
+        setIsFetchingMore(true);
+      }
       setError(null);
 
       try {
-        const response = await apiClient.searchEvents(searchQuery);
-        let results = response.results.map((event) => ({
-          id: event.id,
-          title: event.title,
-          description: event.description || "",
-          time: new Date(event.eventDate).toLocaleString(),
-          location: event.address || "Location not specified",
+        // Use the cursor for pagination if we're loading more
+        const cursorToUse = reset ? undefined : nextCursor;
+
+        const response = await apiClient.searchEvents(
+          searchQuery,
+          10, // Limit
+          cursorToUse
+        );
+
+        // Map API results to EventType
+        const newResults = response.results.map((result) => ({
+          id: result.id,
+          title: result.title,
+          description: result.description || "",
+          time: new Date(result.eventDate).toLocaleString(),
+          location: result.address || "Location not specified",
           distance: "",
-          emoji: event.emoji || "📍",
-          categories: event.categories?.map((c) => c.name) || [],
+          emoji: result.emoji || "📍",
+          categories: result.categories?.map((c) => c.name) || [],
         }));
 
-        setEventResults(results);
+        // Update pagination state
+        setNextCursor(response.nextCursor);
+        setHasMoreResults(!!response.nextCursor);
+
+        // If resetting, replace results. Otherwise, append to existing results
+        if (reset) {
+          setEventResults(newResults);
+        } else {
+          // Check for duplicates before appending
+          const existingIds = new Set(eventResults.map((event) => event.id));
+          const uniqueNewResults = newResults.filter((event) => !existingIds.has(event.id));
+
+          setEventResults((prev) => [...prev, ...uniqueNewResults]);
+        }
+
         setHasSearched(true);
       } catch (err) {
         console.error("Search error:", err);
         setError("Failed to search events. Please try again.");
-        setEventResults([]);
+        if (reset) {
+          setEventResults([]);
+        }
       } finally {
         setIsLoading(false);
+        setIsFetchingMore(false);
       }
-    };
+    },
+    [searchQuery, nextCursor, eventResults, storedMarkers]
+  );
+
+  // Perform search when query changes
+  useEffect(() => {
+    if (!searchQuery.trim() && !hasSearched) {
+      return;
+    }
 
     // Use a debounce to avoid too many API calls
     const debounceTimer = setTimeout(() => {
-      searchEvents();
+      // Reset search when query changes
+      searchEvents(true);
     }, 300);
 
     return () => clearTimeout(debounceTimer);
-  }, [searchQuery, hasSearched, storedMarkers]);
+  }, [searchQuery, searchEvents]);
+
+  // Handle loading more results
+  const handleLoadMore = () => {
+    if (!isLoading && !isFetchingMore && hasMoreResults && searchQuery.trim()) {
+      searchEvents(false);
+    }
+  };
 
   // Handle back button
   const handleBack = () => {
@@ -150,6 +201,7 @@ const SearchView: React.FC = () => {
   const handleSelectEvent = (event: EventType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Keyboard.dismiss();
+    // Add navigation logic here
   };
 
   // Clear search query
@@ -163,6 +215,19 @@ const SearchView: React.FC = () => {
   const handleSearch = () => {
     Keyboard.dismiss();
     setHasSearched(true);
+    searchEvents(true);
+  };
+
+  // Render footer with loading indicator when fetching more
+  const renderFooter = () => {
+    if (!isFetchingMore) return null;
+
+    return (
+      <View style={styles.loadingFooter}>
+        <ActivityIndicator size="small" color="#93c5fd" />
+        <Text style={styles.loadingFooterText}>Loading more...</Text>
+      </View>
+    );
   };
 
   return (
@@ -202,7 +267,7 @@ const SearchView: React.FC = () => {
         </View>
 
         {/* Main Content */}
-        {isLoading ? (
+        {isLoading && eventResults.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#93c5fd" />
             <Text style={styles.loadingText}>Searching events...</Text>
@@ -256,6 +321,7 @@ const SearchView: React.FC = () => {
                 </View>
               ) : null
             }
+            ListFooterComponent={renderFooter}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
@@ -264,13 +330,15 @@ const SearchView: React.FC = () => {
               eventResults.length === 0 && { flexGrow: 1 },
             ]}
             keyboardShouldPersistTaps="handled"
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.3}
           />
         )}
 
         {error && (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={handleSearch}>
+            <TouchableOpacity style={styles.retryButton} onPress={() => searchEvents(true)}>
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
@@ -281,165 +349,3 @@ const SearchView: React.FC = () => {
 };
 
 export default SearchView;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#333",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#3a3a3a",
-    backgroundColor: "#333",
-    zIndex: 10,
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 12,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#f8f9fa",
-    fontFamily: "SpaceMono",
-  },
-  contentArea: {
-    flex: 1,
-    paddingTop: 8,
-  },
-  searchInputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#3a3a3a",
-    borderRadius: 10,
-    padding: 10,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  searchInput: {
-    flex: 1,
-    color: "#f8f9fa",
-    fontFamily: "SpaceMono",
-    fontSize: 15,
-    marginLeft: 4,
-    marginRight: 4,
-  },
-  resultsText: {
-    color: "#adb5bd",
-    fontSize: 14,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
-  },
-  listContent: {
-    paddingBottom: 20,
-  },
-  searchResultItem: {
-    flexDirection: "row",
-    backgroundColor: "#3a3a3a",
-    borderRadius: 10,
-    padding: 14,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  resultEmoji: {
-    fontSize: 28,
-    marginRight: 14,
-  },
-  resultTextContainer: {
-    flex: 1,
-    overflow: "hidden", // Prevent content from leaking
-  },
-  resultTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#f8f9fa",
-    marginBottom: 6,
-    fontFamily: "SpaceMono",
-  },
-  resultDetailsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  resultDetailText: {
-    fontSize: 13,
-    color: "#adb5bd",
-    fontFamily: "SpaceMono",
-    flex: 1, // Allow text to take available space
-  },
-  noResults: {
-    padding: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
-  },
-  noResultsText: {
-    color: "#f8f9fa",
-    fontFamily: "SpaceMono",
-    fontSize: 16,
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  noResultsSubtext: {
-    color: "#adb5bd",
-    fontFamily: "SpaceMono",
-    fontSize: 14,
-    textAlign: "center",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    color: "#f8f9fa",
-    fontFamily: "SpaceMono",
-    fontSize: 16,
-    marginTop: 12,
-  },
-  errorContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#3a3a3a",
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#4a4a4a",
-    alignItems: "center",
-  },
-  errorText: {
-    color: "#f97583",
-    fontFamily: "SpaceMono",
-    fontSize: 14,
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  retryButton: {
-    backgroundColor: "#93c5fd",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: "#333",
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
-  },
-});

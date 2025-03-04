@@ -23,8 +23,7 @@ interface ApiEvent {
 
 // Search response from your API
 interface SearchResponse {
-  query: string;
-  results: (ApiEvent & { _score: number })[];
+  results: ApiEvent[];
   nextCursor?: string;
 }
 
@@ -123,16 +122,31 @@ class ApiClient {
     });
   }
 
-  // Search events
-  async searchEvents(query: string, limit?: number, cursor?: string): Promise<SearchResponse> {
+  // Search events with cursor-based pagination
+  async searchEvents(query: string, limit: number = 10, cursor?: string): Promise<SearchResponse> {
     const queryParams = new URLSearchParams({ q: query });
 
     if (limit) queryParams.append("limit", limit.toString());
     if (cursor) queryParams.append("cursor", cursor);
 
     const url = `${this.baseUrl}/api/events/search?${queryParams.toString()}`;
-    const response = await fetch(url);
-    return this.handleResponse<SearchResponse>(response);
+
+    try {
+      const response = await fetch(url);
+      const data = await this.handleResponse<SearchResponse>(response);
+
+      // Log pagination details for debugging
+      console.log(
+        `Search query: "${query}" | Results: ${data.results.length} | Next cursor: ${
+          data.nextCursor || "none"
+        }`
+      );
+
+      return data;
+    } catch (error) {
+      console.error("Search API error:", error);
+      throw error;
+    }
   }
 
   // Get events by categories
