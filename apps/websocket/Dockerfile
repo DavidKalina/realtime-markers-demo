@@ -7,6 +7,7 @@ COPY package.json pnpm-workspace.yaml ./
 COPY apps/websocket/package.json ./apps/websocket/
 
 # Install dependencies
+RUN apt-get update && apt-get install -y curl && apt-get clean
 RUN cd apps/websocket && bun install
 
 # Copy only the necessary files, excluding node_modules

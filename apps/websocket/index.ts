@@ -1,4 +1,4 @@
-// Enhanced WebSocket server with session management
+// Enhanced WebSocket server with session management and health check
 import Redis from "ioredis";
 import RBush from "rbush";
 import type { Server, ServerWebSocket } from "bun";
@@ -85,10 +85,56 @@ const redisSub = new Redis({
 // --- Initialize Session Manager ---
 const sessionManager = new SessionManager(redis);
 
+// System health state
+const systemHealth = {
+  backendConnected: false,
+  redisConnected: false,
+  lastBackendCheck: 0,
+  lastRedisCheck: 0,
+};
+
 // Subscribe to the "event_changes" channel immediately
 redisSub.subscribe("event_changes").catch((err) => {
   console.error("Failed to subscribe to event_changes channel:", err);
 });
+
+// Function to check Redis connection
+async function checkRedisConnection(): Promise<boolean> {
+  try {
+    const pong = await redis.ping();
+    systemHealth.redisConnected = pong === "PONG";
+    systemHealth.lastRedisCheck = Date.now();
+    return systemHealth.redisConnected;
+  } catch (error) {
+    systemHealth.redisConnected = false;
+    systemHealth.lastRedisCheck = Date.now();
+    console.error("Redis connection check failed:", error);
+    return false;
+  }
+}
+
+// Function to check backend connection
+async function checkBackendConnection(): Promise<boolean> {
+  try {
+    const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    const response = await fetch(`${backendUrl}/api/health`, {
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    systemHealth.backendConnected = response.status === 200;
+    systemHealth.lastBackendCheck = Date.now();
+    return systemHealth.backendConnected;
+  } catch (error) {
+    systemHealth.backendConnected = false;
+    systemHealth.lastBackendCheck = Date.now();
+    console.error("Backend connection check failed:", error);
+    return false;
+  }
+}
 
 async function initializeState() {
   const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
@@ -147,6 +193,10 @@ async function initializeState() {
         });
       }
 
+      // Set backend as connected since we just successfully connected
+      systemHealth.backendConnected = true;
+      systemHealth.lastBackendCheck = Date.now();
+
       return; // Success - exit the retry loop
     } catch (error) {
       console.error(`[Init] Attempt ${attempt}/${maxRetries} failed:`, error);
@@ -174,6 +224,10 @@ function isMarkerInViewport(marker: MarkerData, viewport: BBox): boolean {
 
 // IMPORTANT: This is where we handle real-time updates from Redis
 redisSub.on("message", (channel, message) => {
+  // Set redis as connected since we just received a message
+  systemHealth.redisConnected = true;
+  systemHealth.lastRedisCheck = Date.now();
+
   // Handle event_changes for markers
   if (channel === "event_changes") {
     try {
@@ -345,10 +399,67 @@ setInterval(() => {
   pendingUpdates.clear();
 }, 50);
 
+// --- Health Check Routine ---
+// Periodically check external services
+setInterval(async () => {
+  // Only check if last check was more than 30 seconds ago
+  const now = Date.now();
+  if (now - systemHealth.lastBackendCheck > 30000) {
+    await checkBackendConnection();
+  }
+  if (now - systemHealth.lastRedisCheck > 30000) {
+    await checkRedisConnection();
+  }
+}, 60000); // Run every minute
+
 // --- WebSocket Server Definition ---
 const server = {
   port: 8081,
   fetch(req: Request, server: Server): Response | Promise<Response> {
+    // Handle HTTP requests for health check
+    if (req.url.endsWith("/health")) {
+      // Perform fresh checks if it's been over 10 seconds
+      const now = Date.now();
+      const promises = [];
+
+      if (now - systemHealth.lastBackendCheck > 10000) {
+        promises.push(checkBackendConnection());
+      }
+
+      if (now - systemHealth.lastRedisCheck > 10000) {
+        promises.push(checkRedisConnection());
+      }
+
+      // Return health status
+      return Promise.all(promises).then(() => {
+        const isHealthy = systemHealth.backendConnected && systemHealth.redisConnected;
+        const status = isHealthy ? 200 : 503;
+
+        return new Response(
+          JSON.stringify({
+            status: isHealthy ? "healthy" : "unhealthy",
+            timestamp: new Date().toISOString(),
+            services: {
+              redis: {
+                connected: systemHealth.redisConnected,
+                lastChecked: new Date(systemHealth.lastRedisCheck).toISOString(),
+              },
+              backend: {
+                connected: systemHealth.backendConnected,
+                lastChecked: new Date(systemHealth.lastBackendCheck).toISOString(),
+              },
+            },
+            clients: clients.size,
+            markers: tree.all().length,
+          }),
+          {
+            status,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      });
+    }
+
     if (server.upgrade(req)) {
       return new Response();
     }
@@ -525,12 +636,13 @@ const server = {
   },
 };
 
-console.log(`WebSocket server started on port 8081`);
-
 // Start the server with proper typing
 async function startServer() {
   try {
-    // Initialize state first
+    // Initialize connection checks
+    await Promise.all([checkRedisConnection(), checkBackendConnection()]);
+
+    // Initialize state
     await initializeState();
 
     // Log the tree state after initialization

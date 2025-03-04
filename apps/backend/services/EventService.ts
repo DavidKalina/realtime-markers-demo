@@ -18,7 +18,6 @@ interface CreateEventInput {
   eventDate: Date;
   location: Point;
   categoryIds?: string[];
-  thirdSpaceId?: string;
   confidenceScore?: number;
   address?: string; // Add this if you want to store the address
 }
@@ -57,7 +56,7 @@ export class EventService {
     const { limit = 10, offset = 0 } = options;
 
     return this.eventRepository.find({
-      relations: ["categories", "thirdSpace"],
+      relations: ["categories"],
       take: limit,
       skip: offset,
       order: {
@@ -69,7 +68,7 @@ export class EventService {
   async getEventById(id: string): Promise<Event | null> {
     return this.eventRepository.findOne({
       where: { id },
-      relations: ["categories", "thirdSpace"],
+      relations: ["categories"],
     });
   }
 
@@ -83,7 +82,6 @@ export class EventService {
     const query = this.eventRepository
       .createQueryBuilder("event")
       .leftJoinAndSelect("event.categories", "category")
-      .leftJoinAndSelect("event.thirdSpace", "space")
       .where(
         "ST_DWithin(event.location::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radius)",
         { lat, lng, radius }
@@ -211,7 +209,6 @@ export class EventService {
     let queryBuilder = this.eventRepository
       .createQueryBuilder("event")
       .leftJoinAndSelect("event.categories", "category")
-      .leftJoinAndSelect("event.thirdSpace", "space")
       .where("event.embedding IS NOT NULL");
 
     // Add text matching conditions

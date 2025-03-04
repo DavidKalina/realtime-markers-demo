@@ -3,7 +3,7 @@ FROM oven/bun:1.0.35
 WORKDIR /app
 
 # Install PostgreSQL client for initialization
-RUN apt-get update && apt-get install -y postgresql-client && apt-get clean
+RUN apt-get update && apt-get install -y postgresql-client curl && apt-get clean
 
 # Copy workspace and package files first
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./

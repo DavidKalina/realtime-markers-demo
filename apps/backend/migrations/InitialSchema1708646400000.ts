@@ -88,11 +88,8 @@ export class InitialSchema1708646400000 implements MigrationInterface {
         "confidence_score" float,
         "embedding" text,
         "status" event_status NOT NULL DEFAULT 'PENDING',
-        "thirdSpaceId" uuid,
         "created_at" timestamptz NOT NULL DEFAULT now(),
-        "updated_at" timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT "fk_event_third_space" FOREIGN KEY ("thirdSpaceId") 
-          REFERENCES "third_spaces"("id") ON DELETE SET NULL
+        "updated_at" timestamptz NOT NULL DEFAULT now()
       );
 
       CREATE TABLE IF NOT EXISTS "event_categories" (
