@@ -131,7 +131,7 @@ export const generateActionMessages = (action: string): string[] => {
  * @param message The message text
  * @param markerId The marker ID or "goodbye" for goodbye messages
  */
-export const getMessageEmoji = (message: string, markerId: string | null = null): string | void => {
+export const getMessageEmoji = (message: string, markerId: string | null = null): string => {
   if (message.includes("discovered")) {
     return "🔭";
   } else if (message.includes("Welcome")) {
@@ -173,4 +173,6 @@ export const getMessageEmoji = (message: string, markerId: string | null = null)
   } else if (message.includes("rating")) {
     return "⭐";
   }
+
+  return "";
 };
