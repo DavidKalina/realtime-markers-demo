@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -15,54 +15,35 @@ import {
 import { ArrowLeft, Search, X, Calendar, MapPin } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import apiClient from "@/services/ApiClient";
-import { Marker } from "@/hooks/useMapWebsocket";
 import { EventType } from "@/types/types";
 import { useLocationStore } from "@/stores/useLocationStore";
+import useEventSearch from "@/hooks/useEventSearch";
 import { styles } from "./styles";
-
-// Convert Marker to EventType for consistent handling
-const markerToEventType = (marker: Marker): EventType => {
-  return {
-    id: marker.id,
-    title: marker.data.title || "Unnamed Event",
-    description: marker.data.description || "",
-    time: marker.data.time || "Time not specified",
-    location: marker.data.location || "Location not specified",
-    distance: marker.data.distance || "",
-    emoji: marker.data.emoji || "📍",
-    categories: marker.data.categories || [],
-  };
-};
 
 const SearchView: React.FC = () => {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [eventResults, setEventResults] = useState<EventType[]>([]);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-
-  // Pagination state
-  const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
-  const [hasMoreResults, setHasMoreResults] = useState(true);
-  const [isFetchingMore, setIsFetchingMore] = useState(false);
 
   // Get stored markers from location store to show nearby events initially
   const storedMarkers = useLocationStore((state) => state.markers);
 
+  // Use our custom hook
+  const {
+    searchQuery,
+    setSearchQuery,
+    eventResults,
+    isLoading,
+    isFetchingMore,
+    error,
+    hasSearched,
+    searchEvents,
+    handleLoadMore,
+    clearSearch,
+  } = useEventSearch({ initialMarkers: storedMarkers });
+
   const searchInputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList>(null);
-
-  // Initialize with stored markers if available
-  useEffect(() => {
-    if (storedMarkers.length > 0) {
-      const initialEvents = storedMarkers.map(markerToEventType);
-      setEventResults(initialEvents);
-    }
-  }, [storedMarkers]);
 
   // Set up keyboard listeners
   useEffect(() => {
@@ -93,108 +74,18 @@ const SearchView: React.FC = () => {
     };
   }, []);
 
-  // Initial search function
-  const searchEvents = useCallback(
-    async (reset = true) => {
-      if (!searchQuery.trim()) {
-        // If search is cleared, show stored markers again
-        if (storedMarkers.length > 0) {
-          const initialEvents = storedMarkers.map(markerToEventType);
-          setEventResults(initialEvents);
-        } else {
-          setEventResults([]);
-        }
-        setHasMoreResults(false);
-        setNextCursor(undefined);
-        return;
-      }
-
-      if (reset) {
-        setIsLoading(true);
-      } else {
-        setIsFetchingMore(true);
-      }
-      setError(null);
-
-      try {
-        // Use the cursor for pagination if we're loading more
-        const cursorToUse = reset ? undefined : nextCursor;
-
-        const response = await apiClient.searchEvents(
-          searchQuery,
-          10, // Limit
-          cursorToUse
-        );
-
-        // Map API results to EventType
-        const newResults = response.results.map((result) => ({
-          id: result.id,
-          title: result.title,
-          description: result.description || "",
-          time: new Date(result.eventDate).toLocaleString(),
-          location: result.address || "Location not specified",
-          distance: "",
-          emoji: result.emoji || "📍",
-          categories: result.categories?.map((c) => c.name) || [],
-        }));
-
-        // Update pagination state
-        setNextCursor(response.nextCursor);
-        setHasMoreResults(!!response.nextCursor);
-
-        // If resetting, replace results. Otherwise, append to existing results
-        if (reset) {
-          setEventResults(newResults);
-        } else {
-          // Check for duplicates before appending
-          const existingIds = new Set(eventResults.map((event) => event.id));
-          const uniqueNewResults = newResults.filter((event) => !existingIds.has(event.id));
-
-          setEventResults((prev) => [...prev, ...uniqueNewResults]);
-        }
-
-        setHasSearched(true);
-      } catch (err) {
-        console.error("Search error:", err);
-        setError("Failed to search events. Please try again.");
-        if (reset) {
-          setEventResults([]);
-        }
-      } finally {
-        setIsLoading(false);
-        setIsFetchingMore(false);
-      }
-    },
-    [searchQuery, nextCursor, eventResults, storedMarkers]
-  );
-
-  // Perform search when query changes
-  useEffect(() => {
-    if (!searchQuery.trim() && !hasSearched) {
-      return;
-    }
-
-    // Use a debounce to avoid too many API calls
-    const debounceTimer = setTimeout(() => {
-      // Reset search when query changes
-      searchEvents(true);
-    }, 300);
-
-    return () => clearTimeout(debounceTimer);
-  }, [searchQuery, searchEvents]);
-
-  // Handle loading more results
-  const handleLoadMore = () => {
-    if (!isLoading && !isFetchingMore && hasMoreResults && searchQuery.trim()) {
-      searchEvents(false);
-    }
-  };
-
   // Handle back button
   const handleBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Keyboard.dismiss();
     router.back();
+  };
+
+  // Handle clear search with haptic feedback
+  const handleClearSearch = () => {
+    Haptics.selectionAsync();
+    clearSearch();
+    searchInputRef.current?.focus();
   };
 
   // Handle select event
@@ -204,17 +95,9 @@ const SearchView: React.FC = () => {
     // Add navigation logic here
   };
 
-  // Clear search query
-  const clearSearch = () => {
-    Haptics.selectionAsync();
-    setSearchQuery("");
-    searchInputRef.current?.focus();
-  };
-
   // Handle search submission
   const handleSearch = () => {
     Keyboard.dismiss();
-    setHasSearched(true);
     searchEvents(true);
   };
 
@@ -260,7 +143,7 @@ const SearchView: React.FC = () => {
             autoCorrect={false}
           />
           {searchQuery !== "" && (
-            <TouchableOpacity onPress={clearSearch}>
+            <TouchableOpacity onPress={handleClearSearch}>
               <X size={16} color="#4dabf7" />
             </TouchableOpacity>
           )}

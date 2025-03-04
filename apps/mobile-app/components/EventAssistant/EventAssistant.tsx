@@ -30,7 +30,7 @@ const EventAssistant: React.FC = () => {
   const { userLocation } = useUserLocation();
 
   // Location store (for marker selection)
-  const { selectedMarker, selectedMarkerId, openShareView } = useLocationStore();
+  const { selectedMarker, selectedMarkerId } = useLocationStore();
 
   // Animation hooks
   const { styles: animationStyles, controls: animationControls } = useAssistantAnimations();
@@ -221,7 +221,9 @@ const EventAssistant: React.FC = () => {
 
         case "share":
           // Show action message, then open share view
-          streamForMarker(markerId, actionMessages, () => executeNavigation(() => openShareView()));
+          streamForMarker(markerId, actionMessages, () =>
+            executeNavigation(() => navigate(`share?eventId=${selectedMarkerId}` as never))
+          );
           break;
 
         case "search":
@@ -251,7 +253,6 @@ const EventAssistant: React.FC = () => {
       streamMessages,
       streamForMarker,
       navigate,
-      openShareView,
       executeNavigation,
     ]
   );

@@ -1,118 +1,203 @@
-import { Platform, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
-  centerContent: {
+  // Base container styles from EventDetails
+  container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
+    backgroundColor: "#333",
+    fontFamily: "SpaceMono",
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#3a3a3a",
+    padding: 16,
+    paddingBottom: 12,
+    backgroundColor: "#333",
+  },
+  backButton: {
+    padding: 8,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "500",
-    color: "#f8f9fa",
+    fontSize: 24,
     fontFamily: "SpaceMono",
+    fontWeight: "600",
+    color: "#f8f9fa",
+    marginLeft: 16,
   },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#4a4a4a",
+  contentArea: {
+    flex: 1,
+  },
+
+  // Loading and error states from EventDetails
+  loadingContainer: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  closeButtonText: {
-    fontSize: 24,
-    color: "#f8f9fa",
-  },
-  eventPreview: {
-    padding: 16,
-    marginVertical: 16,
-    backgroundColor: "#3a3a3a",
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: "#93c5fd",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  previewTitle: {
-    fontSize: 18,
-    fontWeight: "500",
-    color: "#f8f9fa",
-    marginBottom: 8,
-    fontFamily: "SpaceMono",
-  },
-  previewTime: {
-    fontSize: 15,
-    color: "#f8f9fa",
-    marginBottom: 4,
-    fontFamily: "SpaceMono",
-  },
-  previewLocation: {
-    fontSize: 15,
+  loadingText: {
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
+    fontSize: 16,
+    marginTop: 12,
   },
-  customMessageContainer: {
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#4a4a4a",
-    borderRadius: 12,
-    backgroundColor: "#3a3a3a",
+  errorContainer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
   },
-  customMessageInput: {
-    padding: 12,
-    height: 80,
-    textAlignVertical: "top",
-    color: "#f8f9fa",
+  errorText: {
+    color: "#f97583",
     fontFamily: "SpaceMono",
-  },
-  searchContainer: {
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#4a4a4a",
-    borderRadius: 12,
-    backgroundColor: "#3a3a3a",
-  },
-  searchInput: {
-    padding: 10,
-    color: "#f8f9fa",
-    fontFamily: "SpaceMono",
-  },
-  sectionTitle: {
     fontSize: 14,
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  retryButton: {
+    backgroundColor: "#93c5fd",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#333",
+    fontFamily: "SpaceMono",
+    fontWeight: "500",
+  },
+  noResults: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+  },
+  noResultsText: {
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+    fontSize: 16,
+    textAlign: "center",
+  },
+
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+
+  // Event header styles from EventDetails but modified for ShareEvent
+  eventHeaderContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: 16,
+    backgroundColor: "#444",
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  eventTitleWrapper: {
+    flex: 1,
+  },
+  resultEmoji: {
+    fontSize: 36,
+    marginRight: 12,
+  },
+  resultTitle: {
+    fontSize: 20,
     fontWeight: "600",
-    marginBottom: 8,
+    color: "#fff",
+    marginBottom: 4,
+  },
+  eventDetails: {
+    fontSize: 14,
+    color: "#ccc",
+    marginBottom: 12,
+  },
+
+  // Details container styles from EventDetails
+  detailsContainer: {
+    backgroundColor: "#3a3a3a",
+    borderRadius: 10,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    marginBottom: 16,
+  },
+  detailSection: {
+    marginBottom: 20,
+  },
+  detailLabel: {
+    fontSize: 14,
     color: "#93c5fd",
     fontFamily: "SpaceMono",
-  },
-  contactsList: {
-    flex: 1,
-  },
-  contactsContainer: {
-    flex: 1,
+    fontWeight: "500",
     marginBottom: 8,
   },
+
+  customMessageInput: {
+    backgroundColor: "#444",
+    color: "#fff",
+    borderRadius: 8,
+    padding: 16,
+    fontSize: 16,
+    minHeight: 60,
+  },
+
+  searchInput: {
+    backgroundColor: "#444",
+    color: "#fff",
+    borderRadius: 8,
+    fontFamily: "SpaceMono",
+    padding: 16,
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  contactsListContainer: {
+    flex: 1,
+    backgroundColor: "#444",
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 16,
+  },
+  noContactsText: {
+    color: "#adb5bd",
+    fontFamily: "SpaceMono",
+    fontSize: 14,
+    textAlign: "center",
+    padding: 16,
+  },
+
+  mapButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+  },
+  mapButtonText: {
+    color: "#93c5fd",
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+  },
+
+  // Contact item styles from ShareEvent
   contactItem: {
     flexDirection: "row",
     alignItems: "center",
     padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#4a4a4a",
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: "#444",
   },
   contactItemSelected: {
     backgroundColor: "#4a4a4a",
+    borderLeftWidth: 3,
+    borderLeftColor: "#93c5fd",
+  },
+  contactItemNoPhone: {
+    borderLeftWidth: 3,
+    borderLeftColor: "#f59e0b",
   },
   contactAvatarPlaceholder: {
     width: 40,
@@ -163,77 +248,8 @@ export const styles = StyleSheet.create({
     color: "#f8f9fa",
     fontSize: 16,
   },
-  footer: {
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#3a3a3a",
-    paddingBottom: Platform.OS === "ios" ? 32 : 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  shareButton: {
-    backgroundColor: "#93c5fd",
-    borderRadius: 10,
-    padding: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    flex: 3,
-  },
-  shareButtonDisabled: {
-    backgroundColor: "#4a4a4a",
-    opacity: 0.7,
-  },
-  shareButtonText: {
-    color: "#333",
-    fontSize: 15,
-    fontWeight: "500",
-    fontFamily: "SpaceMono",
-  },
-  errorText: {
-    color: "#f97583",
-    marginBottom: 16,
-    textAlign: "center",
-    fontFamily: "SpaceMono",
-  },
-  retryButton: {
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: "#93c5fd",
-    borderRadius: 10,
-  },
-  retryButtonText: {
-    color: "#333",
-    fontWeight: "500",
-    fontFamily: "SpaceMono",
-  },
-  permissionButton: {
-    backgroundColor: "#93c5fd",
-    borderRadius: 10,
-    padding: 12,
-    alignItems: "center",
-    minWidth: 160,
-  },
-  permissionButtonText: {
-    color: "#333",
-    fontSize: 15,
-    fontWeight: "500",
-    fontFamily: "SpaceMono",
-  },
 
-  // New styles for direct SMS feature
-  progressText: {
-    color: "#f8f9fa",
-    fontSize: 15,
-    fontWeight: "500",
-    marginTop: 16,
-    fontFamily: "SpaceMono",
-  },
-  contactItemNoPhone: {
-    borderLeftWidth: 4,
-    borderLeftColor: "#f59e0b",
-  },
+  // Email specific styles
   emailContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -244,57 +260,92 @@ export const styles = StyleSheet.create({
     marginLeft: 6,
     fontFamily: "SpaceMono",
   },
+
+  actionButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 8,
+    marginTop: "auto", // Pushes the buttons to the bottom
+  },
+
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 8,
+  },
+  actionButtonDisabled: {
+    opacity: 0.5,
+  },
+  actionButtonText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+    fontFamily: "SpaceMono",
+  },
+  smsButton: {
+    backgroundColor: "#93c5fd",
+  },
   emailButton: {
     backgroundColor: "#f59e0b",
-    borderRadius: 10,
+  },
+
+  // Status display
+  progressText: {
+    color: "#f8f9fa",
+    fontSize: 15,
+    fontWeight: "500",
+    marginTop: 16,
+    fontFamily: "SpaceMono",
+  },
+  flatListContent: {
+    flexGrow: 1,
+    paddingBottom: 8,
+  },
+  loadingFooter: {
     padding: 16,
     alignItems: "center",
     justifyContent: "center",
-    flex: 2,
+    flexDirection: "row",
   },
-  emailButtonText: {
-    color: "#333",
-    fontSize: 15,
-    fontWeight: "500",
-    fontFamily: "SpaceMono",
+
+  loadingFooterText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: "#93c5fd",
   },
-  actionContent: {
+  shareContainer: {
     flex: 1,
-    padding: 16,
+    padding: 12,
+    backgroundColor: "#333",
   },
-  compactEventInfo: {
-    backgroundColor: "#3a3a3a",
-    padding: 16,
+  messageContainer: {
+    backgroundColor: "#444",
     borderRadius: 12,
     marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: "#93c5fd",
+    padding: 16,
+    overflow: "hidden",
   },
-  mapButton: {
-    backgroundColor: "#2d3748",
-    borderRadius: 8,
-    padding: 10,
-    marginTop: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#4a5568",
-  },
-  mapButtonText: {
-    color: "#93c5fd",
-    fontSize: 14,
-    fontWeight: "500",
-    fontFamily: "SpaceMono",
-  },
-  eventHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  eventTextContainer: {
+  contactSelectContainer: {
+    backgroundColor: "#333",
+    borderRadius: 12,
+    marginBottom: 16,
+    padding: 16,
     flex: 1,
   },
-  previewDetails: {
-    fontSize: 14,
-    color: "#adb5bd",
+  sectionLabel: {
+    fontSize: 16,
+    color: "#93c5fd",
     fontFamily: "SpaceMono",
+    marginBottom: 12,
+  },
+
+  searchContainer: {
+    marginBottom: 8,
+    backgroundColor: "#444",
+    borderRadius: 8,
+    padding: 12,
   },
 });
