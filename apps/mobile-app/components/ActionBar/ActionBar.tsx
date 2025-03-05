@@ -263,8 +263,7 @@ export const ActionBar: React.FC<ActionBarProps> = ({
         style={globalStles.scrollViewContainer}
         contentContainerStyle={[
           globalStles.scrollableActionsContainer,
-          // Center the buttons when in standalone mode or when there are few buttons
-          (isStandalone || actionCount <= 3) && {
+          {
             justifyContent: "center",
             flexGrow: 1,
           },
