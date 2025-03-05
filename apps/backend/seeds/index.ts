@@ -1,48 +1,34 @@
-// seeds/index.ts
-import { DataSource } from "typeorm";
-import { Category } from "../entities/Category";
-import { categories } from "./categories";
-import { seedEvents } from "./events";
+// src/seed/index.ts
 
-export async function seedDatabase(dataSource: DataSource) {
-  const queryRunner = dataSource.createQueryRunner();
+import { DataSource } from "typeorm";
+import { seedUsers } from "./seedUsers";
+
+export async function seedDatabase(dataSource: DataSource): Promise<void> {
+  console.log("Starting database seeding...");
+
+  // Check if we should run seeds based on environment
+  const shouldSeed = process.env.SEED_DATABASE === "true" || process.env.NODE_ENV === "development";
+
+  if (!shouldSeed) {
+    console.log("Seeding skipped based on environment configuration");
+    return;
+  }
 
   try {
-    // Start transaction
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    // Seed users first
+    await seedUsers(dataSource);
 
-    // Check if already seeded
+    // Add more seed functions as needed:
+    // await seedCategories(dataSource);
+    // await seedEvents(dataSource);
 
-    console.log("Starting database seeding...");
-
-    // Seed categories
-    console.log("Seeding categories...");
-    for (const categoryData of categories) {
-      await queryRunner.manager
-        .createQueryBuilder()
-        .insert()
-        .into(Category)
-        .values(categoryData)
-        .execute();
-    }
-
-    // Verify categories
-    const categoriesCount = await queryRunner.manager.count(Category);
-    console.log(`Categories created: ${categoriesCount}`);
-
-    // Seed events
-    console.log("Seeding events...");
-    await seedEvents(queryRunner.manager);
-
-    // Commit transaction
-    await queryRunner.commitTransaction();
-    console.log("Database seeded successfully!");
+    console.log("✅ Database seeding completed successfully");
   } catch (error) {
-    console.error("Error seeding database:", error);
-    await queryRunner.rollbackTransaction();
-    throw error;
-  } finally {
-    await queryRunner.release();
+    console.error("❌ Database seeding failed:", error);
+
+    // Decide if you want to throw the error or continue
+    if (process.env.SEED_FAIL_HARD === "true") {
+      throw error;
+    }
   }
 }

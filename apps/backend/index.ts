@@ -19,6 +19,8 @@ import { eventsRouter } from "./routes/events";
 import type { AppContext } from "./types/context";
 import { authRouter } from "./routes/auth";
 import { internalRouter } from "./routes/internalRoutes";
+import { seedUsers } from "./seeds/seedUsers";
+import { seedDatabase } from "./seeds";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -56,11 +58,23 @@ app.get("/api/health", (c) => {
   });
 });
 
+// src/index.ts (updated section)
+
+// Update your initialization function
 const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource> => {
   for (let i = 0; i < retries; i++) {
     try {
       await AppDataSource.initialize();
       console.log("Database connection established");
+
+      // Seed the database with test users
+      try {
+        await seedUsers(AppDataSource);
+      } catch (seedError) {
+        console.error("Error seeding users:", seedError);
+        // Continue with application startup even if seeding fails
+      }
+
       return AppDataSource;
     } catch (error) {
       console.error(`Database initialization attempt ${i + 1} failed:`, error);
@@ -98,6 +112,8 @@ async function initializeServices() {
   console.log("Initializing database connection...");
   const dataSource = await initializeDatabase();
   console.log("Database connection established, now initializing services");
+
+  await seedDatabase(dataSource);
 
   const categoryRepository = dataSource.getRepository(Category);
   const eventRepository = dataSource.getRepository(Event);
