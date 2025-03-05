@@ -22,8 +22,8 @@ import { AuthWrapper } from "../AuthWrapper";
 
 const Login: React.FC = () => {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("davidtest@email.com");
+  const [password, setPassword] = useState("poopy123!");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);

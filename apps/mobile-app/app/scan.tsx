@@ -250,16 +250,7 @@ export default function ScanScreen() {
         formData.append("userLat", userLocation[1].toString());
       }
 
-      // Use fetch directly with our custom FormData
-      const response = await fetch(`${apiClient.baseUrl}/api/events/process`, {
-        method: "POST",
-        body: formData,
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      const result = await response.json();
+      const result = await apiClient.processEventImage(imageFile);
 
       if (result.jobId) {
         // Use our simplified function to queue job and navigate

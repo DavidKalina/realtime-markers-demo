@@ -162,7 +162,7 @@ export const generateMessageSequence = (
  * Generate action response messages
  * @param action The action type
  */
-export const generateActionMessages = (action: string): string[] => {
+export const generateActionMessages = (action: string, name?: string): string[] => {
   // Set appropriate messages based on the action
   switch (action) {
     case "details":
@@ -177,6 +177,8 @@ export const generateActionMessages = (action: string): string[] => {
       return ["Let me show you the next location on your itinerary."];
     case "previous":
       return ["Going back to the previous location."];
+    case "user":
+      return [`Hey, ${name}.`, "Launching your profile."];
     default:
       return ["How can I help you with this location?"];
   }
@@ -203,6 +205,8 @@ export const getMessageEmoji = (message: string, markerId: string | null = null)
     discovered: "🔭",
     "Welcome back": "👋",
     Welcome: "👋",
+    Hey: "👋",
+    Launching: "🚀",
     time: "⏰",
     "Starts in": "⏰",
     "Happening now": "⏰",

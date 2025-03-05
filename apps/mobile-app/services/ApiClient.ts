@@ -138,7 +138,7 @@ class ApiClient {
     });
 
     // Only require access token, not refresh token
-    return hasUser && hasAccessToken;
+    return hasUser;
   }
 
   // Get current user
@@ -147,9 +147,15 @@ class ApiClient {
   }
 
   // Get access token
-  getAccessToken(): string | null {
-    return this.tokens?.accessToken || null;
-  }
+  getAccessToken = async () => {
+    try {
+      const accessToken = await AsyncStorage.getItem("accessToken");
+      return accessToken;
+    } catch (error) {
+      console.error("Error retrieving access token:", error);
+      return null;
+    }
+  };
 
   // Add auth state change listener
   addAuthListener(listener: (isAuthenticated: boolean) => void): void {
@@ -196,10 +202,14 @@ class ApiClient {
       ...customHeaders,
     };
 
+    console.log(this.tokens);
+
     // Add auth token if available
     if (this.tokens?.accessToken) {
       headers.Authorization = `Bearer ${this.tokens.accessToken}`;
     }
+
+    console.log("MERGED", { ...options, headers });
 
     return {
       ...options,
@@ -209,24 +219,18 @@ class ApiClient {
 
   // Authenticated fetch with token refresh
   private async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+    if (!this.tokens) {
+      await this.syncTokensWithStorage();
+    }
+
     let requestOptions = this.createRequestOptions(options);
 
     // Make initial request
     let response = await fetch(url, requestOptions);
 
-    // Handle 401 Unauthorized by refreshing token
-    if (response.status === 401 && this.tokens?.refreshToken) {
-      const refreshSuccessful = await this.refreshTokens();
+    requestOptions = this.createRequestOptions(options);
 
-      if (refreshSuccessful) {
-        // Retry with new token
-        requestOptions = this.createRequestOptions(options);
-        response = await fetch(url, requestOptions);
-      } else {
-        // If refresh failed, clear auth state
-        await this.clearAuthState();
-      }
-    }
+    response = await fetch(url, requestOptions);
 
     return response;
   }
@@ -245,8 +249,32 @@ class ApiClient {
     };
   }
 
-  // Authentication Methods
+  // Add this method to ApiClient class
+  async syncTokensWithStorage() {
+    try {
+      const [accessToken, refreshToken] = await Promise.all([
+        AsyncStorage.getItem("accessToken"),
+        AsyncStorage.getItem("refreshToken"),
+      ]);
 
+      // Update the in-memory tokens
+      if (accessToken) {
+        this.tokens = {
+          accessToken,
+          refreshToken: refreshToken || undefined,
+        };
+        console.log("Tokens synced from AsyncStorage");
+      } else {
+        this.tokens = null;
+        console.log("No tokens found in AsyncStorage");
+      }
+
+      return this.tokens;
+    } catch (error) {
+      console.error("Error syncing tokens with storage:", error);
+      return null;
+    }
+  }
   async login(email: string, password: string): Promise<User> {
     const url = `${this.baseUrl}/api/auth/login`;
     try {
@@ -359,8 +387,10 @@ class ApiClient {
 
   // Get user profile
   async getUserProfile(): Promise<User> {
-    const url = `${this.baseUrl}/api/users/me`;
-    const response = await this.fetchWithAuth(url);
+    const url = `${this.baseUrl}/api/auth/me`;
+
+    const response = await this.fetchWithAuth(url, { method: "POST" });
+
     return this.handleResponse<User>(response);
   }
 
@@ -550,11 +580,9 @@ class ApiClient {
     const requestOptions = this.createRequestOptions({
       method: "POST",
       body: formData,
-      headers: {}, // Override the default Content-Type
     });
 
-    // Remove Content-Type header as it will be set by the browser with the correct boundary
-    delete (requestOptions.headers as any)["Content-Type"];
+    console.log({ requestOptions });
 
     const response = await this.fetchWithAuth(url, requestOptions);
     return this.handleResponse<{ jobId: string; status: string }>(response);

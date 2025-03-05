@@ -17,6 +17,7 @@ import {
 } from "@/utils/messageUtils";
 import AssistantActions from "./AssistantActions";
 import AssistantCard from "./AssistantCard";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Configuration constants
 const CONFIG = {
@@ -35,6 +36,8 @@ const EventAssistant: React.FC = () => {
 
   // User location
   const { userLocation } = useUserLocation();
+
+  const { user } = useAuth();
 
   // Location store (for marker selection)
   const { selectedMarker, selectedMarkerId } = useLocationStore();
@@ -201,7 +204,7 @@ const EventAssistant: React.FC = () => {
       }
 
       // Generate action-specific messages
-      const actionMessages = generateActionMessages(action);
+      const actionMessages = generateActionMessages(action, user?.displayName);
 
       // Store the current action for when we return
       navigationActionRef.current = action;
@@ -252,6 +255,16 @@ const EventAssistant: React.FC = () => {
             { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
           );
           break;
+        case "user":
+          // Show action message, then navigate to camera
+          // No marker needed, always show assistant
+          streamForMarker(
+            markerId,
+            actionMessages,
+            () => executeNavigation(() => navigate("user" as never)),
+            { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
+          );
+          break;
 
         default:
           // Just show the messages for other actions with reading pause
@@ -261,7 +274,14 @@ const EventAssistant: React.FC = () => {
           break;
       }
     },
-    [animationControls, streamImmediate, streamForMarker, navigate, executeNavigation]
+    [
+      animationControls,
+      streamImmediate,
+      streamForMarker,
+      navigate,
+      executeNavigation,
+      user?.displayName,
+    ]
     // IMPORTANT: Removed selectedMarker and selectedMarkerId from dependencies
     // since we're accessing them fresh from the store each time
   );

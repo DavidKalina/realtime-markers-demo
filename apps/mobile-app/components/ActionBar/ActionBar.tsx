@@ -1,6 +1,6 @@
 // ActionBar.tsx - With simplified animations and updated layout animations
 import * as Haptics from "expo-haptics";
-import { Camera, Info, Navigation, SearchIcon, Share2 } from "lucide-react-native";
+import { Camera, Info, Navigation, SearchIcon, Share2, User } from "lucide-react-native";
 import React, { useState } from "react";
 import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
@@ -93,7 +93,9 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     // Dynamically determine which actions to show based on isStandalone
     const effectiveAvailableActions =
       availableActions ||
-      (isStandalone ? ["search", "camera", "locate"] : ["details", "share", "search", "camera"]);
+      (isStandalone
+        ? ["search", "camera", "locate", "user"]
+        : ["details", "share", "search", "camera", "user"]);
 
     const [activeAction, setActiveAction] = useState<string | null>(null);
     const insets = useSafeAreaInsets();
@@ -164,6 +166,12 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           icon: <Navigation size={20} color="#fff" style={globalStles.icon} />,
           action: () => handlePress("locate"),
           disabled: !userLocation, // Disable if no user location is available
+        },
+        {
+          key: "user",
+          label: "Me",
+          icon: <User size={20} color="#fff" style={globalStles.icon} />,
+          action: () => handlePress("user"),
         },
       ],
       [userLocation]

@@ -43,6 +43,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="scan" options={{ headerShown: false, presentation: "modal" }} />
           <Stack.Screen name="share" options={{ headerShown: false }} />
+          <Stack.Screen name="user" options={{ headerShown: false }} />
           <Stack.Screen name="search" options={{ headerShown: false }} />
           <Stack.Screen name="details" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" />

@@ -24,8 +24,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState(apiClient.isAuthenticated());
   const { replace } = useRouter();
 
-  console.log(user, isAuthenticated);
-
   // Add diagnostic logging
   useEffect(() => {
     console.log("Auth state:", {
