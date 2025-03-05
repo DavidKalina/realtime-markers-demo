@@ -64,34 +64,54 @@ export const MysteryBoxMarker: React.FC<MysteryBoxMarkerProps> = ({
         easing: Easing.elastic(1.1),
       });
 
-      // Start pulse animation
-      startPulseAnimation();
-
       // Reset the flag
       isFirstRender.current = false;
     }
   }, []);
 
+  // Start pulse animation only when selected
+  useEffect(() => {
+    if (isSelected) {
+      startPulseAnimation();
+    } else {
+      // Reset pulse opacity when not selected
+      pulseOpacity.value = 0;
+    }
+  }, [isSelected]);
+
   // Start a subtle pulse animation that repeats
   const startPulseAnimation = () => {
+    if (!isSelected) return;
+
     pulseOpacity.value = 0;
     pulseOpacity.value = withSequence(
       withTiming(0.8, { duration: 1200 }),
       withTiming(0, { duration: 1200 })
     );
 
-    // Repeat the pulse animation
-    setTimeout(startPulseAnimation, 2500);
+    // Repeat the pulse animation only if still selected
+    setTimeout(() => {
+      if (isSelected) {
+        startPulseAnimation();
+      }
+    }, 2500);
   };
 
   // Handle selection/highlight changes
   useEffect(() => {
     if (isSelected && !isRevealed) {
+      // Scale up when selected
+      scale.value = withTiming(1.4, {
+        duration: 500,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+      });
+
       // Reveal the contents with animation
       revealProgress.value = withTiming(1, {
         duration: 800,
         easing: Easing.bezier(0.16, 1, 0.3, 1), // Custom bezier for a nice reveal
       });
+
       setIsRevealed(true);
 
       // Celebration rotation
@@ -103,11 +123,18 @@ export const MysteryBoxMarker: React.FC<MysteryBoxMarkerProps> = ({
         withTiming(0, { duration: 200 })
       );
     } else if (!isSelected && isRevealed) {
+      // Scale back down when deselected
+      scale.value = withTiming(1, {
+        duration: 500,
+        easing: Easing.out(Easing.quad),
+      });
+
       // Conceal the contents again
       revealProgress.value = withTiming(0, {
         duration: 500,
         easing: Easing.out(Easing.quad),
       });
+
       setIsRevealed(false);
     }
 
@@ -146,7 +173,7 @@ export const MysteryBoxMarker: React.FC<MysteryBoxMarkerProps> = ({
     // Scale animation on press
     scale.value = withSequence(
       withTiming(0.9, { duration: 100 }),
-      withSpring(1, {
+      withSpring(isSelected ? 1.4 : 1, {
         damping: 12,
         stiffness: 150,
       })
@@ -188,8 +215,8 @@ export const MysteryBoxMarker: React.FC<MysteryBoxMarkerProps> = ({
 
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={styles.touchableArea}>
-      {/* Pulse effect (hidden when revealed) */}
-      {!isRevealed && (
+      {/* Pulse effect (only when selected) */}
+      {isSelected && (
         <Animated.View style={[styles.pulseEffect, pulseStyle, { borderColor: baseColor }]} />
       )}
 
@@ -206,7 +233,7 @@ export const MysteryBoxMarker: React.FC<MysteryBoxMarkerProps> = ({
         >
           {/* Question mark (hidden when revealed) */}
           <Animated.View style={[styles.questionMarkContainer, questionMarkStyle]}>
-            <QuestionMark size={16} color={textColor} />
+            <QuestionMark size={14} color={textColor} />
           </Animated.View>
 
           {/* Event content (shown when revealed) */}
@@ -245,7 +272,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#333333",
     borderWidth: 2,
     borderColor: "#444444",
-    borderRadius: 8,
+    borderRadius: 16, // Changed to make it circular
     alignItems: "center",
     justifyContent: "center",
     ...Platform.select({
@@ -284,8 +311,8 @@ const styles = StyleSheet.create({
   },
   verifiedBadge: {
     position: "absolute",
-    top: -6,
-    right: -6,
+    top: -4,
+    right: -4,
     backgroundColor: "#555555",
     borderRadius: 6,
     width: 12,
@@ -310,7 +337,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 40,
     height: 40,
-    borderRadius: 8,
+    borderRadius: 20, // Changed to make it circular
     borderWidth: 2,
     borderColor: "#333333",
   },
