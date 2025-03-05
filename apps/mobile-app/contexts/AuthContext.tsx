@@ -1,6 +1,7 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect } from "react";
 import apiClient, { User } from "../services/ApiClient";
+import { useRouter } from "expo-router";
 
 interface AuthContextType {
   user: User | null;
@@ -21,6 +22,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(apiClient.getCurrentUser());
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(apiClient.isAuthenticated());
+  const { replace } = useRouter();
+
+  console.log(user, isAuthenticated);
+
+  // Add diagnostic logging
+  useEffect(() => {
+    console.log("Auth state:", {
+      user: user?.id ? `User ID: ${user.id}` : "No user",
+      isAuthenticated,
+      apiClientAuth: apiClient.isAuthenticated(),
+      hasAccessToken: !!apiClient.getAccessToken(),
+    });
+  }, [user, isAuthenticated]);
 
   useEffect(() => {
     // Listen for auth state changes from the API client
@@ -37,6 +51,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  // Fix the navigation effect to consider isAuthenticated
+  useEffect(() => {
+    console.log("Checking navigation:", { user: user?.id, isAuthenticated });
+
+    if (user?.id && isAuthenticated) {
+      replace("/");
+    } else if (!isAuthenticated && !isLoading) {
+      replace("/login");
+    }
+  }, [user?.id, isAuthenticated, isLoading, replace]);
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
@@ -48,12 +72,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // In AuthContext.tsx
+
   const register = async (email: string, password: string, displayName?: string) => {
     setIsLoading(true);
     try {
+      // First register the user
       await apiClient.register(email, password, displayName);
-      setUser(apiClient.getCurrentUser());
-      setIsAuthenticated(true);
+
+      // Then log them in separately
+      await login(email, password);
+    } catch (error) {
+      console.error("Registration error:", error);
+      throw error;
     } finally {
       setIsLoading(false);
     }

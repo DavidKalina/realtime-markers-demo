@@ -7,34 +7,38 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
   Keyboard,
   StatusBar,
   SafeAreaView,
   ScrollView,
 } from "react-native";
-import { Lock, Mail, Eye, EyeOff, ArrowLeft } from "lucide-react-native";
+import { Lock, Mail, Eye, EyeOff, ArrowLeft, User } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import apiClient from "@/services/ApiClient";
-import { styles as loginStyles } from "./styles";
-import { AuthWrapper } from "../AuthWrapper";
+import { styles as loginStyles } from "@/components/Login/styles"; // Reusing the same styles
+import { AuthWrapper } from "@/components/AuthWrapper";
 
-const Login: React.FC = () => {
+const RegisterScreen: React.FC = () => {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const emailInputRef = useRef<TextInput>(null);
+  const displayNameInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    // Auto-focus the email input when the screen loads
+    // Auto-focus the display name input when the screen loads
     setTimeout(() => {
-      emailInputRef.current?.focus();
+      displayNameInputRef.current?.focus();
     }, 500);
   }, []);
 
@@ -48,8 +52,19 @@ const Login: React.FC = () => {
     setShowPassword(!showPassword);
   };
 
-  const handleLogin = async () => {
+  const toggleConfirmPasswordVisibility = () => {
+    Haptics.selectionAsync();
+    setShowConfirmPassword(!showConfirmPassword);
+  };
+
+  const handleRegister = async () => {
     // Basic validation
+    if (!displayName.trim()) {
+      setError("Display name is required");
+      displayNameInputRef.current?.focus();
+      return;
+    }
+
     if (!email.trim()) {
       setError("Email is required");
       emailInputRef.current?.focus();
@@ -62,32 +77,38 @@ const Login: React.FC = () => {
       return;
     }
 
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      passwordInputRef.current?.focus();
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      confirmPasswordInputRef.current?.focus();
+      return;
+    }
+
     setError(null);
     setIsLoading(true);
     Keyboard.dismiss();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      await apiClient.login(email, password);
-      // Navigate to the main app screen on successful login
+      await apiClient.register(email, password, displayName);
+      // Navigate to the main app screen on successful registration and login
       router.replace("/");
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      console.error("Login error:", error);
+      console.error("Registration error:", error);
       setError(
         typeof error === "object" && error !== null && "message" in error
           ? String(error.message)
-          : "Failed to login. Please check your credentials and try again."
+          : "Failed to register. Please check your information and try again."
       );
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleCreateAccount = () => {
-    Haptics.selectionAsync();
-    // Navigate to registration screen
-    router.push("/register");
   };
 
   return (
@@ -100,7 +121,7 @@ const Login: React.FC = () => {
           <TouchableOpacity style={loginStyles.backButton} onPress={handleBack}>
             <ArrowLeft size={22} color="#f8f9fa" />
           </TouchableOpacity>
-          <Text style={loginStyles.headerTitle}>Login</Text>
+          <Text style={loginStyles.headerTitle}>Create Account</Text>
         </View>
 
         <KeyboardAvoidingView
@@ -114,7 +135,7 @@ const Login: React.FC = () => {
             <View style={loginStyles.formContainer}>
               {/* App Title or Logo */}
               <Text style={loginStyles.appTitle}>EventFinder</Text>
-              <Text style={loginStyles.welcomeText}>Welcome back</Text>
+              <Text style={loginStyles.welcomeText}>Join our community</Text>
 
               {/* Error Message */}
               {error && (
@@ -122,6 +143,23 @@ const Login: React.FC = () => {
                   <Text style={loginStyles.errorText}>{error}</Text>
                 </View>
               )}
+
+              {/* Display Name Input */}
+              <View style={loginStyles.inputContainer}>
+                <User size={18} color="#4dabf7" style={loginStyles.inputIcon} />
+                <TextInput
+                  ref={displayNameInputRef}
+                  style={loginStyles.input}
+                  placeholder="Display name"
+                  placeholderTextColor="#919191"
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                  onSubmitEditing={() => emailInputRef.current?.focus()}
+                />
+              </View>
 
               {/* Email Input */}
               <View style={loginStyles.inputContainer}>
@@ -153,8 +191,8 @@ const Login: React.FC = () => {
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
-                  returnKeyType="done"
-                  onSubmitEditing={handleLogin}
+                  returnKeyType="next"
+                  onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
                 />
                 <TouchableOpacity onPress={togglePasswordVisibility} style={loginStyles.eyeIcon}>
                   {showPassword ? (
@@ -165,24 +203,52 @@ const Login: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              {/* Login Button */}
+              {/* Confirm Password Input */}
+              <View style={loginStyles.inputContainer}>
+                <Lock size={18} color="#4dabf7" style={loginStyles.inputIcon} />
+                <TextInput
+                  ref={confirmPasswordInputRef}
+                  style={loginStyles.input}
+                  placeholder="Confirm password"
+                  placeholderTextColor="#919191"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  returnKeyType="done"
+                  onSubmitEditing={handleRegister}
+                />
+                <TouchableOpacity
+                  onPress={toggleConfirmPasswordVisibility}
+                  style={loginStyles.eyeIcon}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff size={18} color="#4dabf7" />
+                  ) : (
+                    <Eye size={18} color="#4dabf7" />
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ height: 20 }} />
+
+              {/* Register Button */}
               <TouchableOpacity
                 style={loginStyles.loginButton}
-                onPress={handleLogin}
+                onPress={handleRegister}
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <ActivityIndicator color="#333" size="small" />
                 ) : (
-                  <Text style={loginStyles.loginButtonText}>Login</Text>
+                  <Text style={loginStyles.loginButtonText}>Create Account</Text>
                 )}
               </TouchableOpacity>
 
-              {/* Create Account Link */}
+              {/* Login Link */}
               <View style={loginStyles.createAccountContainer}>
-                <Text style={loginStyles.createAccountText}>Don't have an account? </Text>
-                <TouchableOpacity onPress={handleCreateAccount}>
-                  <Text style={loginStyles.createAccountLink}>Create one</Text>
+                <Text style={loginStyles.createAccountText}>Already have an account? </Text>
+                <TouchableOpacity onPress={() => router.push("/login")}>
+                  <Text style={loginStyles.createAccountLink}>Login</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -193,4 +259,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export default RegisterScreen;

@@ -21,12 +21,14 @@ export interface User {
 
 export interface AuthTokens {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string; // Make refreshToken optional
 }
 
 export interface LoginResponse {
   user: User;
   tokens: AuthTokens;
+  accessToken: string;
+  refreshToken?: string;
 }
 
 interface ApiEvent {
@@ -92,7 +94,6 @@ class ApiClient {
       await Promise.all([
         AsyncStorage.setItem("user", JSON.stringify(user)),
         AsyncStorage.setItem("accessToken", tokens.accessToken),
-        AsyncStorage.setItem("refreshToken", tokens.refreshToken),
       ]);
 
       this.user = user;
@@ -128,7 +129,16 @@ class ApiClient {
 
   // Check if user is authenticated
   isAuthenticated(): boolean {
-    return !!this.user && !!this.tokens?.accessToken;
+    const hasUser = !!this.user;
+    const hasAccessToken = !!this.tokens?.accessToken;
+    console.log("isAuthenticated check:", {
+      hasUser,
+      hasAccessToken,
+      userId: this.user?.id,
+    });
+
+    // Only require access token, not refresh token
+    return hasUser && hasAccessToken;
   }
 
   // Get current user
@@ -237,21 +247,51 @@ class ApiClient {
 
   // Authentication Methods
 
-  // Login user
   async login(email: string, password: string): Promise<User> {
     const url = `${this.baseUrl}/api/auth/login`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const data = await this.handleResponse<LoginResponse>(response);
-    await this.saveAuthState(data.user, data.tokens);
-    return data.user;
+      const data = await this.handleResponse<LoginResponse>(response);
+
+      console.log("Login response received:", {
+        hasUser: !!data.user,
+        hasAccessToken: !!data.accessToken,
+        hasRefreshToken: !!data.refreshToken,
+      });
+
+      // Make sure we have the expected response format
+      if (!data.user) {
+        throw new Error("User data missing from login response");
+      }
+
+      if (!data.accessToken) {
+        throw new Error("Access token missing from login response");
+      }
+
+      // Create tokens object from the response
+      const tokens: AuthTokens = {
+        accessToken: data.accessToken,
+        // Use refreshToken if provided, otherwise use accessToken
+        refreshToken: data.refreshToken || data.accessToken,
+      };
+
+      await this.saveAuthState(data.user, tokens);
+      return data.user;
+    } catch (error) {
+      console.error("Login error:", error);
+      throw error;
+    }
   }
+
+  // Register new user
+  // Update in ApiClient.ts
 
   // Register new user
   async register(email: string, password: string, displayName?: string): Promise<User> {
@@ -265,8 +305,9 @@ class ApiClient {
     });
 
     const user = await this.handleResponse<User>(response);
-    // After registration, log in to get tokens
-    await this.login(email, password);
+
+    // Don't try to login automatically - return the user and let the caller
+    // decide what to do next
     return user;
   }
 
@@ -307,10 +348,7 @@ class ApiClient {
 
       // Update tokens in memory and storage
       this.tokens = newTokens;
-      await Promise.all([
-        AsyncStorage.setItem("accessToken", newTokens.accessToken),
-        AsyncStorage.setItem("refreshToken", newTokens.refreshToken),
-      ]);
+      await Promise.all([AsyncStorage.setItem("accessToken", newTokens.accessToken)]);
 
       return true;
     } catch (error) {

@@ -1,3 +1,4 @@
+import { AuthWrapper } from "@/components/AuthWrapper";
 import { ConnectionIndicator } from "@/components/ConnectionIndicator/ConnectionIndicator";
 import EventAssistant from "@/components/EventAssistant/EventAssistant";
 import { styles } from "@/components/homeScreenStyles";
@@ -148,98 +149,100 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {isLoadingLocation && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#4dabf7" />
-          <Text style={styles.loadingText}>Getting your location...</Text>
-        </View>
-      )}
+    <AuthWrapper>
+      <View style={styles.container}>
+        {isLoadingLocation && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#4dabf7" />
+            <Text style={styles.loadingText}>Getting your location...</Text>
+          </View>
+        )}
 
-      <MapboxGL.MapView
-        scaleBarEnabled={false}
-        rotateEnabled={false}
-        pitchEnabled={false}
-        ref={mapRef}
-        style={styles.map}
-        styleURL={MapboxGL.StyleURL.Light}
-        logoEnabled={false}
-        attributionEnabled={false}
-        onDidFinishLoadingMap={() => {
-          setIsMapReady(true);
+        <MapboxGL.MapView
+          scaleBarEnabled={false}
+          rotateEnabled={false}
+          pitchEnabled={false}
+          ref={mapRef}
+          style={styles.map}
+          styleURL={MapboxGL.StyleURL.Light}
+          logoEnabled={false}
+          attributionEnabled={false}
+          onDidFinishLoadingMap={() => {
+            setIsMapReady(true);
 
-          // Emit map ready event
-          publish<BaseEvent>(EventTypes.MAP_READY, {
-            timestamp: Date.now(),
-            source: "HomeScreen",
-          });
-        }}
-        onRegionIsChanging={(feature) => {
-          handleMapViewportChange(feature);
-          publish<BaseEvent>(EventTypes.VIEWPORT_CHANGING, { timestamp: Date.now() });
-        }}
-      >
-        {/* Use our camera ref for more control */}
-        <MapboxGL.Camera
-          ref={cameraRef}
-          defaultSettings={{
-            // Default to Orem, UT if no user location
-            centerCoordinate: userLocation || [-111.694, 40.298],
-            zoomLevel: 14,
+            // Emit map ready event
+            publish<BaseEvent>(EventTypes.MAP_READY, {
+              timestamp: Date.now(),
+              source: "HomeScreen",
+            });
           }}
-          animationDuration={0}
-        />
-
-        {/* User location marker */}
-        {userLocation && locationPermissionGranted && (
-          <MapboxGL.PointAnnotation
-            id="userLocation"
-            coordinate={userLocation}
-            title="Your Location"
-          >
-            <View style={styles.userLocationMarker}>
-              <View style={styles.userLocationDot} />
-            </View>
-          </MapboxGL.PointAnnotation>
-        )}
-
-        {/* Custom Map Markers - Using our simplified component */}
-        {isMapReady && !isLoadingLocation && <SimpleMapMarkers markers={markers} />}
-
-        {/* Add user location layer for the blue dot */}
-        {locationPermissionGranted && (
-          <MapboxGL.UserLocation visible={true} showsUserHeadingIndicator={true} />
-        )}
-      </MapboxGL.MapView>
-
-      {isGravitating && (
-        <Animated.View
-          style={[
-            styles.pulseOverlay,
-            {
-              opacity: 0.15,
-            },
-          ]}
-        />
-      )}
-
-      {isMapReady && !isLoadingLocation && (
-        <>
-          <ConnectionIndicator
-            eventsCount={markers.length}
-            initialConnectionState={isConnected}
-            position="top-right"
-            showAnimation={!selectedMarkerId}
+          onRegionIsChanging={(feature) => {
+            handleMapViewportChange(feature);
+            publish<BaseEvent>(EventTypes.VIEWPORT_CHANGING, { timestamp: Date.now() });
+          }}
+        >
+          {/* Use our camera ref for more control */}
+          <MapboxGL.Camera
+            ref={cameraRef}
+            defaultSettings={{
+              // Default to Orem, UT if no user location
+              centerCoordinate: userLocation || [-111.694, 40.298],
+              zoomLevel: 14,
+            }}
+            animationDuration={0}
           />
-          <QueueIndicator position="top-left" />
-        </>
-      )}
 
-      {isMapReady && !isLoadingLocation && (
-        <View style={styles.assistantOverlay}>
-          <EventAssistant />
-        </View>
-      )}
-    </View>
+          {/* User location marker */}
+          {userLocation && locationPermissionGranted && (
+            <MapboxGL.PointAnnotation
+              id="userLocation"
+              coordinate={userLocation}
+              title="Your Location"
+            >
+              <View style={styles.userLocationMarker}>
+                <View style={styles.userLocationDot} />
+              </View>
+            </MapboxGL.PointAnnotation>
+          )}
+
+          {/* Custom Map Markers - Using our simplified component */}
+          {isMapReady && !isLoadingLocation && <SimpleMapMarkers markers={markers} />}
+
+          {/* Add user location layer for the blue dot */}
+          {locationPermissionGranted && (
+            <MapboxGL.UserLocation visible={true} showsUserHeadingIndicator={true} />
+          )}
+        </MapboxGL.MapView>
+
+        {isGravitating && (
+          <Animated.View
+            style={[
+              styles.pulseOverlay,
+              {
+                opacity: 0.15,
+              },
+            ]}
+          />
+        )}
+
+        {isMapReady && !isLoadingLocation && (
+          <>
+            <ConnectionIndicator
+              eventsCount={markers.length}
+              initialConnectionState={isConnected}
+              position="top-right"
+              showAnimation={!selectedMarkerId}
+            />
+            <QueueIndicator position="top-left" />
+          </>
+        )}
+
+        {isMapReady && !isLoadingLocation && (
+          <View style={styles.assistantOverlay}>
+            <EventAssistant />
+          </View>
+        )}
+      </View>
+    </AuthWrapper>
   );
 }
