@@ -39,8 +39,6 @@ const EventAssistant: React.FC = () => {
   // Location store (for marker selection)
   const { selectedMarker, selectedMarkerId } = useLocationStore();
 
-  console.log(selectedMarker);
-
   // Animation hooks
   const { styles: animationStyles, controls: animationControls } = useAssistantAnimations();
 
@@ -185,10 +183,6 @@ const EventAssistant: React.FC = () => {
       // This is the key fix - always get fresh data at execution time
       const { selectedMarker: currentMarker, selectedMarkerId: currentMarkerId } =
         useLocationStore.getState();
-
-      console.log("Action pressed:", action);
-      console.log("Current marker from store:", currentMarker);
-      console.log("Current markerId from store:", currentMarkerId);
 
       // Validate marker selection only for marker-dependent actions
       if (!currentMarker && ["details", "share"].includes(action)) {
