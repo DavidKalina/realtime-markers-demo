@@ -1,0 +1,135 @@
+import { StyleSheet } from "react-native";
+
+export const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#333",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#3a3a3a",
+    backgroundColor: "#333",
+    zIndex: 10,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 12,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  formContainer: {
+    flex: 1,
+    padding: 24,
+    justifyContent: "center",
+  },
+  appTitle: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  welcomeText: {
+    fontSize: 18,
+    color: "#adb5bd",
+    fontFamily: "SpaceMono",
+    marginBottom: 32,
+    textAlign: "center",
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#3a3a3a",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  eyeIcon: {
+    padding: 4,
+  },
+  input: {
+    flex: 1,
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+    fontSize: 15,
+  },
+  forgotPasswordButton: {
+    alignSelf: "flex-end",
+    marginBottom: 32,
+  },
+  forgotPasswordText: {
+    color: "#93c5fd",
+    fontFamily: "SpaceMono",
+    fontSize: 14,
+  },
+  loginButton: {
+    backgroundColor: "#93c5fd",
+    borderRadius: 10,
+    padding: 16,
+    alignItems: "center",
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  loginButtonText: {
+    color: "#333",
+    fontFamily: "SpaceMono",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  createAccountContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  createAccountText: {
+    color: "#adb5bd",
+    fontFamily: "SpaceMono",
+    fontSize: 14,
+  },
+  createAccountLink: {
+    color: "#93c5fd",
+    fontFamily: "SpaceMono",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  errorContainer: {
+    backgroundColor: "#3a3a3a",
+    borderLeftWidth: 4,
+    borderLeftColor: "#f97583",
+    padding: 12,
+    marginBottom: 20,
+    borderRadius: 4,
+  },
+  errorText: {
+    color: "#f97583",
+    fontFamily: "SpaceMono",
+    fontSize: 14,
+  },
+});

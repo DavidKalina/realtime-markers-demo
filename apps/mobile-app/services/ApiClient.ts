@@ -1,11 +1,32 @@
 // src/services/ApiClient.ts
 
 import { EventType } from "@/types/types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Define base API types from your backend
 interface Location {
   type: string;
   coordinates: [number, number]; // [longitude, latitude]
+}
+
+// Add user and auth types
+export interface User {
+  id: string;
+  email: string;
+  displayName: string;
+  role: string;
+  avatarUrl?: string;
+  isVerified: boolean;
+}
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface LoginResponse {
+  user: User;
+  tokens: AuthTokens;
 }
 
 interface ApiEvent {
@@ -37,9 +58,104 @@ interface EventOptions {
 
 class ApiClient {
   public baseUrl: string;
+  private user: User | null = null;
+  private tokens: AuthTokens | null = null;
+  private authListeners: ((isAuthenticated: boolean) => void)[] = [];
 
   constructor(baseUrl: string = process.env.EXPO_PUBLIC_API_URL!) {
     this.baseUrl = baseUrl;
+    this.loadAuthState();
+  }
+
+  // Load auth state from storage
+  private async loadAuthState(): Promise<void> {
+    try {
+      const [userJson, accessToken, refreshToken] = await Promise.all([
+        AsyncStorage.getItem("user"),
+        AsyncStorage.getItem("accessToken"),
+        AsyncStorage.getItem("refreshToken"),
+      ]);
+
+      if (userJson) this.user = JSON.parse(userJson);
+      if (accessToken && refreshToken) this.tokens = { accessToken, refreshToken };
+
+      // Notify listeners if we have valid auth
+      this.notifyAuthListeners(this.isAuthenticated());
+    } catch (error) {
+      console.error("Error loading auth state:", error);
+    }
+  }
+
+  // Save auth state to storage
+  private async saveAuthState(user: User, tokens: AuthTokens): Promise<void> {
+    try {
+      await Promise.all([
+        AsyncStorage.setItem("user", JSON.stringify(user)),
+        AsyncStorage.setItem("accessToken", tokens.accessToken),
+        AsyncStorage.setItem("refreshToken", tokens.refreshToken),
+      ]);
+
+      this.user = user;
+      this.tokens = tokens;
+
+      // Notify listeners
+      this.notifyAuthListeners(true);
+    } catch (error) {
+      console.error("Error saving auth state:", error);
+      throw error;
+    }
+  }
+
+  // Clear auth state
+  private async clearAuthState(): Promise<void> {
+    try {
+      await Promise.all([
+        AsyncStorage.removeItem("user"),
+        AsyncStorage.removeItem("accessToken"),
+        AsyncStorage.removeItem("refreshToken"),
+      ]);
+
+      this.user = null;
+      this.tokens = null;
+
+      // Notify listeners
+      this.notifyAuthListeners(false);
+    } catch (error) {
+      console.error("Error clearing auth state:", error);
+      throw error;
+    }
+  }
+
+  // Check if user is authenticated
+  isAuthenticated(): boolean {
+    return !!this.user && !!this.tokens?.accessToken;
+  }
+
+  // Get current user
+  getCurrentUser(): User | null {
+    return this.user;
+  }
+
+  // Get access token
+  getAccessToken(): string | null {
+    return this.tokens?.accessToken || null;
+  }
+
+  // Add auth state change listener
+  addAuthListener(listener: (isAuthenticated: boolean) => void): void {
+    this.authListeners.push(listener);
+    // Immediately notify with current state
+    listener(this.isAuthenticated());
+  }
+
+  // Remove auth state change listener
+  removeAuthListener(listener: (isAuthenticated: boolean) => void): void {
+    this.authListeners = this.authListeners.filter((l) => l !== listener);
+  }
+
+  // Notify all listeners
+  private notifyAuthListeners(isAuthenticated: boolean): void {
+    this.authListeners.forEach((listener) => listener(isAuthenticated));
   }
 
   // Set the base URL (useful for environment switching)
@@ -56,6 +172,55 @@ class ApiClient {
     return response.json() as Promise<T>;
   }
 
+  private createRequestOptions(options: RequestInit = {}): RequestInit {
+    const defaultHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    // Ensure options.headers is treated as a plain object
+    const customHeaders = (options.headers as Record<string, string>) || {};
+
+    // Merge headers with default headers
+    const headers: Record<string, string> = {
+      ...defaultHeaders,
+      ...customHeaders,
+    };
+
+    // Add auth token if available
+    if (this.tokens?.accessToken) {
+      headers.Authorization = `Bearer ${this.tokens.accessToken}`;
+    }
+
+    return {
+      ...options,
+      headers,
+    };
+  }
+
+  // Authenticated fetch with token refresh
+  private async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+    let requestOptions = this.createRequestOptions(options);
+
+    // Make initial request
+    let response = await fetch(url, requestOptions);
+
+    // Handle 401 Unauthorized by refreshing token
+    if (response.status === 401 && this.tokens?.refreshToken) {
+      const refreshSuccessful = await this.refreshTokens();
+
+      if (refreshSuccessful) {
+        // Retry with new token
+        requestOptions = this.createRequestOptions(options);
+        response = await fetch(url, requestOptions);
+      } else {
+        // If refresh failed, clear auth state
+        await this.clearAuthState();
+      }
+    }
+
+    return response;
+  }
+
   // Convert API event to frontend event type
   private mapEventToEventType(apiEvent: ApiEvent): EventType {
     return {
@@ -70,6 +235,156 @@ class ApiClient {
     };
   }
 
+  // Authentication Methods
+
+  // Login user
+  async login(email: string, password: string): Promise<User> {
+    const url = `${this.baseUrl}/api/auth/login`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await this.handleResponse<LoginResponse>(response);
+    await this.saveAuthState(data.user, data.tokens);
+    return data.user;
+  }
+
+  // Register new user
+  async register(email: string, password: string, displayName?: string): Promise<User> {
+    const url = `${this.baseUrl}/api/auth/register`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password, displayName }),
+    });
+
+    const user = await this.handleResponse<User>(response);
+    // After registration, log in to get tokens
+    await this.login(email, password);
+    return user;
+  }
+
+  // Logout user
+  async logout(): Promise<void> {
+    if (this.tokens?.accessToken) {
+      try {
+        const url = `${this.baseUrl}/api/auth/logout`;
+        await this.fetchWithAuth(url, {
+          method: "POST",
+        });
+      } catch (error) {
+        console.error("Logout API error:", error);
+        // Continue with local logout even if API call fails
+      }
+    }
+
+    await this.clearAuthState();
+  }
+
+  // Refresh tokens
+  async refreshTokens(): Promise<boolean> {
+    if (!this.tokens?.refreshToken) return false;
+
+    try {
+      const url = `${this.baseUrl}/api/auth/refresh`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ refreshToken: this.tokens.refreshToken }),
+      });
+
+      if (!response.ok) return false;
+
+      const newTokens = await this.handleResponse<AuthTokens>(response);
+
+      // Update tokens in memory and storage
+      this.tokens = newTokens;
+      await Promise.all([
+        AsyncStorage.setItem("accessToken", newTokens.accessToken),
+        AsyncStorage.setItem("refreshToken", newTokens.refreshToken),
+      ]);
+
+      return true;
+    } catch (error) {
+      console.error("Token refresh error:", error);
+      return false;
+    }
+  }
+
+  // Get user profile
+  async getUserProfile(): Promise<User> {
+    const url = `${this.baseUrl}/api/users/me`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<User>(response);
+  }
+
+  // Update user profile
+  async updateUserProfile(updates: Partial<User>): Promise<User> {
+    const url = `${this.baseUrl}/api/users/me`;
+    const response = await this.fetchWithAuth(url, {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    });
+
+    const updatedUser = await this.handleResponse<User>(response);
+
+    // Update local user state
+    if (this.user) {
+      this.user = { ...this.user, ...updatedUser };
+      await AsyncStorage.setItem("user", JSON.stringify(this.user));
+    }
+
+    return updatedUser;
+  }
+
+  // Change password
+  async changePassword(currentPassword: string, newPassword: string): Promise<boolean> {
+    const url = `${this.baseUrl}/api/users/me/change-password`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+
+    await this.handleResponse<{ success: boolean }>(response);
+    return true;
+  }
+
+  // Get events created by current user
+  async getUserCreatedEvents(options?: EventOptions): Promise<EventType[]> {
+    const queryParams = new URLSearchParams();
+
+    if (options?.limit) queryParams.append("limit", options.limit.toString());
+    if (options?.offset) queryParams.append("offset", options.offset.toString());
+
+    const url = `${this.baseUrl}/api/users/me/events/created?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    const data = await this.handleResponse<ApiEvent[]>(response);
+
+    return data.map(this.mapEventToEventType);
+  }
+
+  // Get events discovered by current user
+  async getUserDiscoveredEvents(options?: EventOptions): Promise<EventType[]> {
+    const queryParams = new URLSearchParams();
+
+    if (options?.limit) queryParams.append("limit", options.limit.toString());
+    if (options?.offset) queryParams.append("offset", options.offset.toString());
+
+    const url = `${this.baseUrl}/api/users/me/events/discovered?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    const data = await this.handleResponse<ApiEvent[]>(response);
+
+    return data.map(this.mapEventToEventType);
+  }
+
   // Fetch all events
   async getEvents(options?: EventOptions): Promise<EventType[]> {
     const queryParams = new URLSearchParams();
@@ -78,7 +393,8 @@ class ApiClient {
     if (options?.offset) queryParams.append("offset", options.offset.toString());
 
     const url = `${this.baseUrl}/api/events?${queryParams.toString()}`;
-    const response = await fetch(url);
+    // Use authenticated fetch for all API calls
+    const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<ApiEvent[]>(response);
 
     return data.map(this.mapEventToEventType);
@@ -87,7 +403,7 @@ class ApiClient {
   // Fetch a single event by ID
   async getEventById(id: string): Promise<EventType> {
     const url = `${this.baseUrl}/api/events/${id}`;
-    const response = await fetch(url);
+    const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<ApiEvent>(response);
 
     return this.mapEventToEventType(data);
@@ -111,7 +427,7 @@ class ApiClient {
     if (endDate) queryParams.append("endDate", endDate.toISOString());
 
     const url = `${this.baseUrl}/api/events/nearby?${queryParams.toString()}`;
-    const response = await fetch(url);
+    const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<ApiEvent[]>(response);
 
     return data.map((event) => {
@@ -132,7 +448,7 @@ class ApiClient {
     const url = `${this.baseUrl}/api/events/search?${queryParams.toString()}`;
 
     try {
-      const response = await fetch(url);
+      const response = await this.fetchWithAuth(url);
       const data = await this.handleResponse<SearchResponse>(response);
 
       // Log pagination details for debugging
@@ -161,7 +477,7 @@ class ApiClient {
     if (options?.endDate) queryParams.append("endDate", options.endDate.toISOString());
 
     const url = `${this.baseUrl}/api/events/by-categories?${queryParams.toString()}`;
-    const response = await fetch(url);
+    const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<ApiEvent[]>(response);
 
     return data.map(this.mapEventToEventType);
@@ -170,18 +486,15 @@ class ApiClient {
   // Get all categories
   async getAllCategories(): Promise<{ id: string; name: string }[]> {
     const url = `${this.baseUrl}/api/events/categories`;
-    const response = await fetch(url);
+    const response = await this.fetchWithAuth(url);
     return this.handleResponse<{ id: string; name: string }[]>(response);
   }
 
   // Create a new event
   async createEvent(eventData: Partial<ApiEvent>): Promise<ApiEvent> {
     const url = `${this.baseUrl}/api/events`;
-    const response = await fetch(url, {
+    const response = await this.fetchWithAuth(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify(eventData),
     });
 
@@ -194,18 +507,25 @@ class ApiClient {
     formData.append("image", imageFile);
 
     const url = `${this.baseUrl}/api/events/process`;
-    const response = await fetch(url, {
+
+    // Create request options without Content-Type header (browser will set it with boundary)
+    const requestOptions = this.createRequestOptions({
       method: "POST",
       body: formData,
+      headers: {}, // Override the default Content-Type
     });
 
+    // Remove Content-Type header as it will be set by the browser with the correct boundary
+    delete (requestOptions.headers as any)["Content-Type"];
+
+    const response = await this.fetchWithAuth(url, requestOptions);
     return this.handleResponse<{ jobId: string; status: string }>(response);
   }
 
   // Get event processing job status
   async getJobStatus(jobId: string): Promise<any> {
     const url = `${this.baseUrl}/api/events/process/${jobId}`;
-    const response = await fetch(url);
+    const response = await this.fetchWithAuth(url);
     return this.handleResponse<any>(response);
   }
 
@@ -218,7 +538,14 @@ class ApiClient {
       onComplete?: () => void;
     }
   ): EventSource {
-    const url = `${this.baseUrl}/api/jobs/${jobId}/stream`;
+    // Add access token to the URL for authentication
+    let url = `${this.baseUrl}/api/jobs/${jobId}/stream`;
+
+    // Add token as a query param for EventSource (it can't set headers)
+    if (this.tokens?.accessToken) {
+      url += `?token=${encodeURIComponent(this.tokens.accessToken)}`;
+    }
+
     const eventSource = new EventSource(url);
 
     eventSource.onmessage = (event) => {
