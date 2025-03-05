@@ -1,42 +1,113 @@
-import React, { useState, useRef, useEffect } from "react";
+import apiClient from "@/services/ApiClient";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
+import { Eye, EyeOff, Lock, Mail, ChevronDown, ChevronUp, User } from "lucide-react-native";
+import React, { useRef, useState } from "react";
 import {
-  View,
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  Alert,
-  Keyboard,
-  StatusBar,
-  SafeAreaView,
-  ScrollView,
+  View,
+  Modal,
+  FlatList,
 } from "react-native";
-import { Lock, Mail, Eye, EyeOff, ArrowLeft } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import apiClient from "@/services/ApiClient";
-import { styles as loginStyles } from "./styles";
 import { AuthWrapper } from "../AuthWrapper";
+import ProfileFloatingEmoji from "./ProfileEmoji";
+import { styles } from "./styles";
+
+// Define types for our data
+interface Profile {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  avatar: string;
+  role: string;
+  emoji: string;
+}
+
+// Test profiles data
+const TEST_PROFILES: Profile[] = [
+  {
+    id: "1",
+    name: "Admin User",
+    email: "admin@example.com",
+    password: "admin123",
+    avatar: "https://randomuser.me/api/portraits/men/1.jpg",
+    role: "ADMIN",
+    emoji: "👑",
+  },
+  {
+    id: "2",
+    name: "Mod User",
+    email: "moderator@example.com",
+    password: "moderator123",
+    avatar: "https://randomuser.me/api/portraits/women/2.jpg",
+    role: "MODERATOR",
+    emoji: "🛡️",
+  },
+  {
+    id: "3",
+    name: "Test User 1",
+    email: "user1@example.com",
+    password: "user123",
+    avatar: "https://randomuser.me/api/portraits/men/3.jpg",
+    role: "USER",
+    emoji: "🙂",
+  },
+  {
+    id: "4",
+    name: "Test User 2",
+    email: "user2@example.com",
+    password: "user123",
+    avatar: "https://randomuser.me/api/portraits/women/4.jpg",
+    role: "USER",
+    emoji: "😎",
+  },
+  {
+    id: "5",
+    name: "Unverified User",
+    email: "unverified@example.com",
+    password: "test123",
+    avatar: "https://randomuser.me/api/portraits/men/5.jpg",
+    role: "USER",
+    emoji: "🤔",
+  },
+];
 
 const Login: React.FC = () => {
   const router = useRouter();
-  const [email, setEmail] = useState("davidtest@email.com");
-  const [password, setPassword] = useState("poopy123!");
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
 
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
 
-  useEffect(() => {
-    // Auto-focus the email input when the screen loads
-    setTimeout(() => {
-      emailInputRef.current?.focus();
-    }, 500);
-  }, []);
+  const handleSelectProfile = (profile: Profile) => {
+    Haptics.selectionAsync();
+    setSelectedProfile(profile);
+    setEmail(profile.email);
+    setPassword(profile.password);
+    setError(null);
+    setIsDropdownOpen(false);
+  };
+
+  const toggleDropdown = () => {
+    Haptics.selectionAsync();
+    setIsDropdownOpen(!isDropdownOpen);
+  };
 
   const togglePasswordVisibility = () => {
     Haptics.selectionAsync();
@@ -44,7 +115,6 @@ const Login: React.FC = () => {
   };
 
   const handleLogin = async () => {
-    // Basic validation
     if (!email.trim()) {
       setError("Email is required");
       emailInputRef.current?.focus();
@@ -64,9 +134,8 @@ const Login: React.FC = () => {
 
     try {
       await apiClient.login(email, password);
-      // Navigate to the main app screen on successful login
       router.replace("/");
-    } catch (error) {
+    } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error("Login error:", error);
       setError(
@@ -81,41 +150,124 @@ const Login: React.FC = () => {
 
   const handleCreateAccount = () => {
     Haptics.selectionAsync();
-    // Navigate to registration screen
     router.push("/register");
+  };
+
+  const renderProfileItem = ({ item }: { item: Profile }) => {
+    return (
+      <TouchableOpacity
+        onPress={() => handleSelectProfile(item)}
+        style={styles.profileDropdownItem}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.profileEmojiSmall}>{item.emoji}</Text>
+        <Text style={styles.profileDropdownName}>{item.name}</Text>
+        <Text style={[styles.profileDropdownRole, { color: getRoleColor(item.role) }]}>
+          {item.role}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  // Helper function to get role color
+  const getRoleColor = (role: string) => {
+    switch (role.toUpperCase()) {
+      case "ADMIN":
+        return "#FFD700"; // Gold
+      case "MODERATOR":
+        return "#4dabf7"; // Blue
+      default:
+        return "#aaa"; // Grey
+    }
   };
 
   return (
     <AuthWrapper requireAuth={false}>
-      <SafeAreaView style={loginStyles.container}>
+      <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#333" />
 
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={loginStyles.keyboardAvoidingView}
+          style={styles.keyboardAvoidingView}
         >
           <ScrollView
-            contentContainerStyle={loginStyles.scrollContent}
+            contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={loginStyles.formContainer}>
-              {/* App Title or Logo */}
-              <Text style={loginStyles.appTitle}>EventFinder</Text>
-              <Text style={loginStyles.welcomeText}>Welcome back</Text>
+            <View style={styles.formContainer}>
+              <Text style={styles.appTitle}>Login</Text>
+
+              {/* Profile Selector (Dropdown Trigger) */}
+              <View style={styles.profileSelectorContainer}>
+                {selectedProfile ? (
+                  <View style={styles.selectedProfileContainer}>
+                    <ProfileFloatingEmoji
+                      emoji={selectedProfile.emoji}
+                      name={selectedProfile.name}
+                      role={selectedProfile.role}
+                      size={60}
+                      isActive={true}
+                    />
+                  </View>
+                ) : (
+                  <View style={styles.noProfileContainer}>
+                    <View style={styles.placeholderAvatar}>
+                      <User size={24} color="#4dabf7" />
+                    </View>
+                    <Text style={styles.selectProfileText}>Select a profile</Text>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={styles.dropdownTrigger}
+                  onPress={toggleDropdown}
+                  activeOpacity={0.7}
+                >
+                  {isDropdownOpen ? (
+                    <ChevronUp size={24} color="#4dabf7" />
+                  ) : (
+                    <ChevronDown size={24} color="#4dabf7" />
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* Profile Dropdown Modal */}
+              <Modal
+                visible={isDropdownOpen}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setIsDropdownOpen(false)}
+              >
+                <TouchableOpacity
+                  style={styles.modalOverlay}
+                  activeOpacity={1}
+                  onPress={() => setIsDropdownOpen(false)}
+                >
+                  <View style={styles.dropdownContainer}>
+                    <FlatList
+                      data={TEST_PROFILES}
+                      renderItem={renderProfileItem}
+                      keyExtractor={(item) => item.id}
+                      showsVerticalScrollIndicator={false}
+                      style={styles.profileList}
+                    />
+                  </View>
+                </TouchableOpacity>
+              </Modal>
 
               {/* Error Message */}
               {error && (
-                <View style={loginStyles.errorContainer}>
-                  <Text style={loginStyles.errorText}>{error}</Text>
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{error}</Text>
                 </View>
               )}
 
               {/* Email Input */}
-              <View style={loginStyles.inputContainer}>
-                <Mail size={18} color="#4dabf7" style={loginStyles.inputIcon} />
+              <View style={styles.inputContainer}>
+                <Mail size={18} color="#4dabf7" style={styles.inputIcon} />
                 <TextInput
                   ref={emailInputRef}
-                  style={loginStyles.input}
+                  style={styles.input}
                   placeholder="Email address"
                   placeholderTextColor="#919191"
                   value={email}
@@ -126,15 +278,16 @@ const Login: React.FC = () => {
                   keyboardType="email-address"
                   returnKeyType="next"
                   onSubmitEditing={() => passwordInputRef.current?.focus()}
+                  editable={!selectedProfile} // Disable when profile is selected
                 />
               </View>
 
               {/* Password Input */}
-              <View style={loginStyles.inputContainer}>
-                <Lock size={18} color="#4dabf7" style={loginStyles.inputIcon} />
+              <View style={styles.inputContainer}>
+                <Lock size={18} color="#4dabf7" style={styles.inputIcon} />
                 <TextInput
                   ref={passwordInputRef}
-                  style={loginStyles.input}
+                  style={styles.input}
                   placeholder="Password"
                   placeholderTextColor="#919191"
                   value={password}
@@ -142,8 +295,9 @@ const Login: React.FC = () => {
                   secureTextEntry={!showPassword}
                   returnKeyType="done"
                   onSubmitEditing={handleLogin}
+                  editable={!selectedProfile} // Disable when profile is selected
                 />
-                <TouchableOpacity onPress={togglePasswordVisibility} style={loginStyles.eyeIcon}>
+                <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
                   {showPassword ? (
                     <EyeOff size={18} color="#4dabf7" />
                   ) : (
@@ -154,22 +308,36 @@ const Login: React.FC = () => {
 
               {/* Login Button */}
               <TouchableOpacity
-                style={loginStyles.loginButton}
+                style={styles.loginButton}
                 onPress={handleLogin}
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <ActivityIndicator color="#333" size="small" />
                 ) : (
-                  <Text style={loginStyles.loginButtonText}>Login</Text>
+                  <Text style={styles.loginButtonText}>Login</Text>
                 )}
               </TouchableOpacity>
 
+              {/* Toggle to Manual Input */}
+              {selectedProfile && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setSelectedProfile(null);
+                    setEmail("");
+                    setPassword("");
+                  }}
+                  style={styles.toggleManualButton}
+                >
+                  <Text style={styles.toggleManualText}>Use different credentials</Text>
+                </TouchableOpacity>
+              )}
+
               {/* Create Account Link */}
-              <View style={loginStyles.createAccountContainer}>
-                <Text style={loginStyles.createAccountText}>Don't have an account? </Text>
+              <View style={styles.createAccountContainer}>
+                <Text style={styles.createAccountText}>Don't have an account? </Text>
                 <TouchableOpacity onPress={handleCreateAccount}>
-                  <Text style={loginStyles.createAccountLink}>Create one</Text>
+                  <Text style={styles.createAccountLink}>Create one</Text>
                 </TouchableOpacity>
               </View>
             </View>
