@@ -204,7 +204,7 @@ const EventAssistant: React.FC = () => {
       }
 
       // Generate action-specific messages
-      const actionMessages = generateActionMessages(action, user?.displayName);
+      const actionMessages = generateActionMessages(action, user?.displayName, userLocation);
 
       // Store the current action for when we return
       navigationActionRef.current = action;

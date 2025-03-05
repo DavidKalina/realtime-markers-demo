@@ -1,26 +1,24 @@
 // ActionBar.tsx - With simplified animations and updated layout animations
+import { styles as globalStles } from "@/components/globalStyles";
+import { useEventBroker } from "@/hooks/useEventBroker";
+import { useUserLocation } from "@/hooks/useUserLocation";
+import { CameraAnimateToLocationEvent, EventTypes } from "@/services/EventBroker";
 import * as Haptics from "expo-haptics";
 import { Camera, Info, Navigation, SearchIcon, Share2, User } from "lucide-react-native";
 import React, { useState } from "react";
 import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
+  // New imports for layout animations
+  BounceIn,
   Easing,
+  FadeOut,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
   withTiming,
-  FadeIn,
-  FadeOut,
-  // New imports for layout animations
-  BounceIn,
-  BounceOut,
 } from "react-native-reanimated";
-import { styles } from "./styles";
-import { styles as globalStles } from "@/components/globalStyles";
-import { useUserLocation } from "@/hooks/useUserLocation";
-import { useEventBroker } from "@/hooks/useEventBroker";
-import { EventTypes, CameraAnimateToLocationEvent } from "@/services/EventBroker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { styles } from "./styles";
 
 interface ActionBarProps {
   onActionPress: (action: string) => void;
@@ -95,7 +93,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
       availableActions ||
       (isStandalone
         ? ["search", "camera", "locate", "user"]
-        : ["details", "share", "search", "camera", "user"]);
+        : ["details", "share", "search", "camera", "user", "locate"]);
 
     const [activeAction, setActiveAction] = useState<string | null>(null);
     const insets = useSafeAreaInsets();

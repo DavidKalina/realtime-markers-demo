@@ -162,7 +162,11 @@ export const generateMessageSequence = (
  * Generate action response messages
  * @param action The action type
  */
-export const generateActionMessages = (action: string, name?: string): string[] => {
+export const generateActionMessages = (
+  action: string,
+  name?: string,
+  coords?: [number, number] | null
+): string[] => {
   // Set appropriate messages based on the action
   switch (action) {
     case "details":
@@ -173,6 +177,8 @@ export const generateActionMessages = (action: string, name?: string): string[] 
       return ["Looking for something specific?"];
     case "camera":
       return ["Camera activated!", "Scan an image of a flyer to get information about an event."];
+    case "locate":
+      return [`Returning to ${coords?.join(", ")}`];
     case "next":
       return ["Let me show you the next location on your itinerary."];
     case "previous":
@@ -206,6 +212,7 @@ export const getMessageEmoji = (message: string, markerId: string | null = null)
     "Welcome back": "👋",
     Welcome: "👋",
     Hey: "👋",
+    Returning: "↩️",
     Launching: "🚀",
     time: "⏰",
     "Starts in": "⏰",
