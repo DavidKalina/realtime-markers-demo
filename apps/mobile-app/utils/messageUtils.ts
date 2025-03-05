@@ -170,9 +170,9 @@ export const generateActionMessages = (action: string): string[] => {
     case "share":
       return ["Let's share this place with your friends!"];
     case "search":
-      return ["Looking for something specific? You can search nearby locations or events."];
+      return ["Looking for something specific?"];
     case "camera":
-      return ["Camera activated! Scan a QR code to get information about a location or event."];
+      return ["Camera activated!", "Scan an image of a flyer to get information about an event."];
     case "next":
       return ["Let me show you the next location on your itinerary."];
     case "previous":
@@ -199,60 +199,46 @@ export const generateNavigationPreparationMessages = (markerName: string): strin
  * @param markerId The marker ID or "goodbye" for goodbye messages
  */
 export const getMessageEmoji = (message: string, markerId: string | null = null): string => {
-  if (message.includes("discovered")) {
-    return "🔭";
-  } else if (message.includes("Welcome back")) {
+  const emojiMap: { [key: string]: string } = {
+    discovered: "🔭",
+    "Welcome back": "👋",
+    Welcome: "👋",
+    time: "⏰",
+    "Starts in": "⏰",
+    "Happening now": "⏰",
+    "meters away": "📍",
+    "km away": "📍",
+    "Located at": "🗺️",
+    verified: "✅",
+    "Opening detailed": "📝",
+    share: "📲",
+    Looking: "🔍",
+    Search: "🔍",
+    flyer: "📜",
+    Camera: "📷",
+    next: "⏭️",
+    previous: "⏮️",
+    Categories: "🏷️",
+    "moved away": "👋",
+    Goodbye: "👋",
+    "How can I help": "💬",
+    rating: "⭐",
+    remember: "🧠",
+    "hope the details were helpful": "📊",
+    "successfully share": "🔄",
+    "find what you were looking for": "🔍",
+    "scan any QR codes": "📲",
+    "What would you like to do now": "❓",
+  };
+
+  if (markerId === "goodbye") {
     return "👋";
-  } else if (message.includes("Welcome")) {
-    return "👋";
-  } else if (
-    message.includes("time") ||
-    message.includes("Starts in") ||
-    message.includes("Happening now")
-  ) {
-    return "⏰";
-  } else if (message.includes("meters away") || message.includes("km away")) {
-    return "📍";
-  } else if (message.includes("Located at")) {
-    return "🗺️";
-  } else if (message.includes("verified")) {
-    return "✅";
-  } else if (message.includes("Opening detailed")) {
-    return "📝";
-  } else if (message.includes("share")) {
-    return "📲";
-  } else if (message.includes("search")) {
-    return "🔍";
-  } else if (message.includes("Camera")) {
-    return "📷";
-  } else if (message.includes("next")) {
-    return "⏭️";
-  } else if (message.includes("previous")) {
-    return "⏮️";
-  } else if (message.includes("Categories")) {
-    return "🏷️";
-  } else if (
-    message.includes("moved away") ||
-    message.includes("Goodbye") ||
-    markerId === "goodbye"
-  ) {
-    return "👋";
-  } else if (message.includes("How can I help")) {
-    return "💬";
-  } else if (message.includes("rating")) {
-    return "⭐";
-  } else if (message.includes("remember")) {
-    return "🧠";
-  } else if (message.includes("hope the details were helpful")) {
-    return "📊";
-  } else if (message.includes("successfully share")) {
-    return "🔄";
-  } else if (message.includes("find what you were looking for")) {
-    return "🔍";
-  } else if (message.includes("scan any QR codes")) {
-    return "📲";
-  } else if (message.includes("What would you like to do now")) {
-    return "❓";
+  }
+
+  for (const [key, emoji] of Object.entries(emojiMap)) {
+    if (message.includes(key)) {
+      return emoji;
+    }
   }
 
   return "";

@@ -7,7 +7,7 @@ import { styles } from "../globalStyles";
 import { useAssistantAnimations } from "@/hooks/useEventAssistantAnimations";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { useMarkerEffects } from "@/hooks/useMarkerEffects";
-import { useEnhancedTextStreaming } from "@/hooks/useTextStreaming"; // Updated import
+import { useEnhancedTextStreaming } from "@/hooks/useTextStreaming"; // Same import
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { useLocationStore } from "@/stores/useLocationStore";
 import {
@@ -19,8 +19,16 @@ import {
 import AssistantActions from "./AssistantActions";
 import AssistantCard from "./AssistantCard";
 
+// Configuration constants
+const CONFIG = {
+  READING_PAUSE_MS: 3000, // Pause after streaming to give users time to read (3 seconds)
+  ACTION_PAUSE_MS: 1500, // Shorter pause for action messages (1.5 seconds)
+  ERROR_PAUSE_MS: 2500, // Pause after error messages (2.5 seconds)
+};
+
 /**
  * EventAssistant component with enhanced navigation flow and improved marker transition handling
+ * Now with reading pauses after text streaming
  */
 const EventAssistant: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -80,7 +88,13 @@ const EventAssistant: React.FC = () => {
         const welcomeBackMessages = generateWelcomeBackMessage(markerName, action);
 
         // Show welcome back message with marker ID to prevent conflicts
-        streamForMarker(selectedMarker.id, welcomeBackMessages);
+        // Add pause time for reading
+        streamForMarker(
+          selectedMarker.id,
+          welcomeBackMessages,
+          undefined, // no completion callback
+          { pauseAfterMs: CONFIG.READING_PAUSE_MS }
+        );
         animationControls.showAssistant(200);
 
         // Reset the returning flag and action
@@ -126,7 +140,13 @@ const EventAssistant: React.FC = () => {
       animationControls.showAssistant(200);
 
       // Use the direct marker streaming function to handle rapid transitions
-      streamForMarker(markerId, messages);
+      // Add pause time for reading
+      streamForMarker(
+        markerId,
+        messages,
+        undefined, // no callback
+        { pauseAfterMs: CONFIG.READING_PAUSE_MS }
+      );
     },
     [userLocation, animationControls, streamForMarker, currentMarkerId]
   );
@@ -153,7 +173,11 @@ const EventAssistant: React.FC = () => {
           animationControls.hideAssistant();
           resetStreaming();
         },
-        { markerId: "goodbye", debounceMs: 0 } // No need to debounce goodbye message
+        {
+          markerId: "goodbye",
+          debounceMs: 0, // No need to debounce goodbye message
+          pauseAfterMs: CONFIG.ACTION_PAUSE_MS, // Shorter pause for goodbye
+        }
       );
     } else {
       // No marker selected, just hide
@@ -172,31 +196,44 @@ const EventAssistant: React.FC = () => {
     onMarkerDeselect: handleMarkerDeselect,
   });
 
-  // Execute navigation with proper state setting
-  const executeNavigation = useCallback((navigateFn: () => void) => {
-    // Set that we're navigating (not just unmounting)
-    isNavigatingRef.current = true;
+  // Execute navigation with proper state setting and assistant cleanup
+  const executeNavigation = useCallback(
+    (navigateFn: () => void) => {
+      // Set that we're navigating (not just unmounting)
+      isNavigatingRef.current = true;
 
-    // Execute the navigation function
-    navigateFn();
-  }, []);
+      // Hide the assistant since we're navigating away
+      animationControls.hideAssistant();
 
-  // Handle action button presses
+      // Small delay before navigation to allow animation to start
+      setTimeout(() => {
+        // Execute the navigation function
+        navigateFn();
+      }, 100);
+    },
+    [animationControls]
+  );
+
   const handleActionPress = useCallback(
     (action: string) => {
       // Skip if not mounted
       if (!isMountedRef.current) return;
 
-      // Validate marker selection for actions that require it
+      // Show assistant with animation (always show for any action press)
+      animationControls.showAssistant(200);
+
+      // Validate marker selection only for marker-dependent actions
       if (!selectedMarker && ["details", "share"].includes(action)) {
-        // Show error message with no debounce
-        streamMessages(
-          ["Please select a location first."],
+        // Show error message with no debounce and a pause to read
+        streamImmediate(
+          "Please select a location first.",
           () => {
             // Auto-hide after showing error
-            animationControls.showAndHideWithDelay(3000);
+            setTimeout(() => {
+              animationControls.hideAssistant();
+            }, 1000); // Additional delay after the pause
           },
-          { debounceMs: 0 }
+          CONFIG.ERROR_PAUSE_MS // Allow time to read error message
         );
         return;
       }
@@ -207,42 +244,58 @@ const EventAssistant: React.FC = () => {
       // Store the current action for when we return
       navigationActionRef.current = action;
 
-      // Use the current marker's ID when streaming action messages
-      const markerId = selectedMarker?.id || "action";
+      // Use the current marker's ID when streaming action messages or a special action ID if no marker
+      const markerId = selectedMarker?.id || `action-${action}`;
 
       // Handle different actions
       switch (action) {
         case "details":
           // Show action message, then navigate
-          streamForMarker(markerId, actionMessages, () =>
-            executeNavigation(() => navigate(`details?eventId=${selectedMarkerId}` as never))
+          streamForMarker(
+            markerId,
+            actionMessages,
+            () => executeNavigation(() => navigate(`details?eventId=${selectedMarkerId}` as never)),
+            { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
           );
           break;
 
         case "share":
-          // Show action message, then open share view
-          streamForMarker(markerId, actionMessages, () =>
-            executeNavigation(() => navigate(`share?eventId=${selectedMarkerId}` as never))
+          // Show action message, then navigate to share
+          streamForMarker(
+            markerId,
+            actionMessages,
+            () => executeNavigation(() => navigate(`share?eventId=${selectedMarkerId}` as never)),
+            { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
           );
           break;
 
         case "search":
           // Show action message, then navigate to search
-          streamForMarker(markerId, actionMessages, () =>
-            executeNavigation(() => navigate("search" as never))
+          // No marker needed, always show assistant
+          streamForMarker(
+            markerId,
+            actionMessages,
+            () => executeNavigation(() => navigate("search" as never)),
+            { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
           );
           break;
 
         case "camera":
           // Show action message, then navigate to camera
-          streamForMarker(markerId, actionMessages, () =>
-            executeNavigation(() => navigate("scan" as never))
+          // No marker needed, always show assistant
+          streamForMarker(
+            markerId,
+            actionMessages,
+            () => executeNavigation(() => navigate("scan" as never)),
+            { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
           );
           break;
 
         default:
-          // Just show the messages for other actions
-          streamForMarker(markerId, actionMessages);
+          // Just show the messages for other actions with reading pause
+          streamForMarker(markerId, actionMessages, undefined, {
+            pauseAfterMs: CONFIG.READING_PAUSE_MS,
+          });
           break;
       }
     },
@@ -250,7 +303,7 @@ const EventAssistant: React.FC = () => {
       selectedMarker,
       selectedMarkerId,
       animationControls,
-      streamMessages,
+      streamImmediate,
       streamForMarker,
       navigate,
       executeNavigation,

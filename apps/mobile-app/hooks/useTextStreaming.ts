@@ -16,6 +16,7 @@ export const useEnhancedTextStreaming = () => {
     options?: {
       wordDelayMs?: number;
       messageDelayMs?: number;
+      pauseAfterMs?: number; // New option for pause after streaming
     };
   } | null>(null);
 
@@ -80,9 +81,15 @@ export const useEnhancedTextStreaming = () => {
 
   /**
    * Cancel any ongoing streaming operation and prepare for a new one
+   * @returns true if something was cancelled, false otherwise
    */
   const cancelStreaming = useCallback(() => {
+    const hadActiveController = abortControllerRef.current !== null;
+    const hadActiveTimers = activeTimersRef.current.length > 0;
+
     cleanupAllStreaming();
+
+    return hadActiveController || hadActiveTimers;
   }, [cleanupAllStreaming]);
 
   /**
@@ -121,6 +128,7 @@ export const useEnhancedTextStreaming = () => {
       options?: {
         wordDelayMs?: number;
         messageDelayMs?: number;
+        pauseAfterMs?: number; // New option for pause after streaming
       }
     ) => {
       // Cancel any ongoing streaming
@@ -138,6 +146,7 @@ export const useEnhancedTextStreaming = () => {
       // Configure timing options
       const wordDelay = options?.wordDelayMs ?? 100; // 100ms between words
       const messageDelay = options?.messageDelayMs ?? 1000; // 1000ms between messages
+      const pauseAfter = options?.pauseAfterMs ?? 2000; // 2000ms pause after streaming completes
 
       // Create a new abort controller for this streaming session
       const controller = new AbortController();
@@ -244,11 +253,53 @@ export const useEnhancedTextStreaming = () => {
           // Ignore haptic errors
         }
 
-        // Streaming completed successfully
+        // Streaming text animation completed
         if (streamId === streamIdRef.current) {
+          // Keep isStreaming true during the pause
+          // but mark that we're no longer in transition
+          isTransitioningRef.current = false;
+
+          // Add a pause after streaming completes to give user time to read
+          // Only start pause if we're still the current stream and not aborted
+          if (streamId === streamIdRef.current && !controller.signal.aborted) {
+            try {
+              await new Promise<void>((resolve, reject) => {
+                // Create a timeout for the pause
+                const timer = setTimeout(() => {
+                  resolve();
+                }, pauseAfter);
+
+                // Add timer to active timers list
+                const timerId = timer as unknown as number;
+                activeTimersRef.current.push(timerId);
+
+                // Handle abort during wait
+                controller.signal.addEventListener(
+                  "abort",
+                  () => {
+                    clearTimeout(timer);
+                    activeTimersRef.current = activeTimersRef.current.filter(
+                      (id) => id !== timerId
+                    );
+                    reject(new Error("Streaming aborted during pause after"));
+                  },
+                  { once: true }
+                );
+              });
+            } catch (error) {
+              // If aborted during pause, break out of the function early
+              console.log("Streaming cancelled during pause:", error);
+              if (streamId === streamIdRef.current) {
+                setIsStreaming(false);
+                abortControllerRef.current = null;
+              }
+              return; // Exit early - don't call onComplete
+            }
+          }
+
+          // Finally mark streaming as complete
           setIsStreaming(false);
           abortControllerRef.current = null;
-          isTransitioningRef.current = false;
 
           // Call completion callback if provided
           if (onComplete) onComplete();
@@ -282,6 +333,7 @@ export const useEnhancedTextStreaming = () => {
       options?: {
         wordDelayMs?: number;
         messageDelayMs?: number;
+        pauseAfterMs?: number; // New option for pause after streaming
         markerId?: string;
         debounceMs?: number;
       }
@@ -332,6 +384,7 @@ export const useEnhancedTextStreaming = () => {
       options?: {
         wordDelayMs?: number;
         messageDelayMs?: number;
+        pauseAfterMs?: number; // New option for pause after streaming
       }
     ) => {
       // Cancel all existing streams
@@ -351,17 +404,55 @@ export const useEnhancedTextStreaming = () => {
 
   /**
    * Stream a single message immediately without animation
+   * but with optional pause after
    */
   const streamImmediate = useCallback(
-    (message: string, onComplete?: () => void) => {
+    (message: string, onComplete?: () => void, pauseAfterMs?: number) => {
+      // Cancel any existing streams
       cancelStreaming();
-      setCurrentText(message);
 
-      if (onComplete) {
-        // Small delay to ensure UI updates before callback
-        const timerId = setTimeout(onComplete, 50);
-        activeTimersRef.current.push(timerId as unknown as number);
-      }
+      // Set the message immediately
+      setCurrentText(message);
+      setIsStreaming(true);
+
+      // Default pause of 2000ms if not specified
+      const pauseAfter = pauseAfterMs ?? 2000;
+
+      // Create a new abort controller for this immediate stream
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      // Generate a unique ID for this streaming session
+      const streamId = ++streamIdRef.current;
+
+      // Add a pause before completing
+      const timerId = setTimeout(() => {
+        // Only proceed if this is still the current stream and not aborted
+        if (streamId === streamIdRef.current && !controller.signal.aborted) {
+          setIsStreaming(false);
+          abortControllerRef.current = null;
+          if (onComplete) onComplete();
+        }
+      }, pauseAfter) as unknown as number;
+
+      // Store the timer ID for cleanup
+      activeTimersRef.current.push(timerId as unknown as number);
+
+      // Set up abort handling for this timer
+      controller.signal.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(timerId);
+          activeTimersRef.current = activeTimersRef.current.filter((id) => id !== timerId);
+
+          // Reset streaming state if this is still the current stream
+          if (streamId === streamIdRef.current) {
+            setIsStreaming(false);
+            abortControllerRef.current = null;
+          }
+        },
+        { once: true }
+      );
     },
     [cancelStreaming]
   );

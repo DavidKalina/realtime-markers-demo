@@ -8,8 +8,8 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
   },
   emojiContainer: {
-    width: 48,
-    height: 48,
+    width: 46,
+    height: 46,
     position: "relative",
     alignItems: "center",
     justifyContent: "center",
@@ -24,7 +24,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
   },
   emojiText: {
-    fontSize: 28,
+    fontSize: 26,
     zIndex: 10,
     color: "#ffffff",
   },
