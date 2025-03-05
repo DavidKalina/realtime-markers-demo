@@ -87,7 +87,7 @@ export class AuthService {
     await this.userRepository.save(user);
 
     // Don't return passwordHash or refreshToken to client
-    delete user.passwordHash;
+    delete (user as any).passwordHash;
     delete user.refreshToken;
 
     return { user, tokens };
@@ -137,7 +137,7 @@ export class AuthService {
     }
 
     // Remove refresh token
-    user.refreshToken = null;
+    user.refreshToken = undefined;
     await this.userRepository.save(user);
 
     return true;
@@ -153,11 +153,9 @@ export class AuthService {
       role: user.role,
     };
 
-    const accessToken = jwt.sign(payload, this.jwtSecret, { expiresIn: this.accessTokenExpiry });
+    const accessToken = jwt.sign(payload, this.jwtSecret);
 
-    const refreshToken = jwt.sign({ userId: user.id }, this.refreshSecret, {
-      expiresIn: this.refreshTokenExpiry,
-    });
+    const refreshToken = jwt.sign({ userId: user.id }, this.refreshSecret);
 
     return { accessToken, refreshToken };
   }
@@ -181,7 +179,7 @@ export class AuthService {
 
     if (user) {
       // Don't return sensitive information
-      delete user.passwordHash;
+      delete (user as any).passwordHash;
       delete user.refreshToken;
     }
 

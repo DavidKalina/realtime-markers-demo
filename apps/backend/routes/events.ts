@@ -2,11 +2,15 @@
 import { Hono } from "hono";
 import * as handlers from "../handlers/eventHandlers";
 import type { AppContext } from "../types/context";
+import { authMiddleware } from "../middleware/authMiddleware";
 
 // Create a router with the correct typing
 export const eventsRouter = new Hono<AppContext>();
 
-// Now all our routes will have properly typed context
+// Apply auth middleware to all routes in this router
+eventsRouter.use("*", authMiddleware);
+
+// Now all our routes will be protected by authMiddleware
 eventsRouter.get("/nearby", handlers.getNearbyEventsHandler);
 eventsRouter.get("/categories", handlers.getCategoriesHandler);
 eventsRouter.get("/by-categories", handlers.getEventsByCategoriesHandler);

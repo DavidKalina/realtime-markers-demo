@@ -126,7 +126,7 @@ async function initializeWorker() {
           bufferData,
           progressCallback,
           {
-            userCoordinates: job.data.userCoordinates, // Ensure this is being passed
+            userCoordinates: job.data.userCoordinates,
           }
         );
 
@@ -150,6 +150,7 @@ async function initializeWorker() {
             confidenceScore: scanResult.confidence,
             address: eventDetails.address,
             categoryIds: eventDetails.categories?.map((cat) => cat.id),
+            creatorId: job.data.creatorId,
           });
 
           // Publish event creation notification

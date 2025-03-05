@@ -17,6 +17,8 @@ import { JobQueue } from "./services/JobQueue";
 import { OpenAIService } from "./services/OpenAIService";
 import { eventsRouter } from "./routes/events";
 import type { AppContext } from "./types/context";
+import { authRouter } from "./routes/auth";
+import { internalRouter } from "./routes/internalRoutes";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -132,6 +134,8 @@ app.use("*", async (c, next) => {
 
 // Register event routes using the router from routes/events.ts
 app.route("/api/events", eventsRouter);
+app.route("/api/auth", authRouter);
+app.route("/api/internal", internalRouter);
 
 // =============================================================================
 // Jobs API - Server-Sent Events

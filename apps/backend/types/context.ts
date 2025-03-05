@@ -10,6 +10,7 @@ export interface AppVariables {
   eventProcessingService: EventProcessingService;
   jobQueue: JobQueue;
   redisClient: Redis;
+  user?: { userId: string; email: string; role: string };
 }
 
 export interface AppContext {

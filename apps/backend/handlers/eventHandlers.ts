@@ -119,6 +119,7 @@ export const processEventImageHandler: EventHandler = async (c) => {
     const imageEntry = formData.get("image");
     const userLat = formData.get("userLat");
     const userLng = formData.get("userLng");
+    const user = c.get("user");
 
     const userCoordinates =
       userLat && userLng
@@ -128,7 +129,9 @@ export const processEventImageHandler: EventHandler = async (c) => {
           }
         : null;
 
-    console.log({ userCoordinates });
+    if (!user || !user?.userId) {
+      return c.json({ error: "Missing user id" }, 404);
+    }
 
     if (!imageEntry) {
       return c.json({ error: "Missing image file" }, 400);
@@ -160,6 +163,7 @@ export const processEventImageHandler: EventHandler = async (c) => {
         contentType: file.type,
         size: buffer.length,
         userCoordinates: userCoordinates, // Add user coordinates
+        creatorId: user.userId,
       },
       {
         bufferData: buffer,
@@ -217,6 +221,7 @@ export const createEventHandler: EventHandler = async (c) => {
     const data = await c.req.json();
     const eventService = c.get("eventService");
     const redisPub = c.get("redisClient");
+    const user = c.get("user");
 
     // Validate input
     if (!data.title || !data.eventDate || !data.location?.coordinates) {
@@ -230,6 +235,12 @@ export const createEventHandler: EventHandler = async (c) => {
         coordinates: data.location.coordinates,
       };
     }
+
+    if (!user?.userId) {
+      return c.json({ error: "Missing user id" });
+    }
+
+    data.creatorId = user.userId;
 
     const newEvent = await eventService.createEvent(data);
 

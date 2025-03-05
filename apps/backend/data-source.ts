@@ -3,12 +3,14 @@ import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { Category } from "./entities/Category";
 import { Event } from "./entities/Event";
+import { User } from "./entities/User";
+import { UserEventDiscovery } from "./entities/UserEventDiscovery";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
   type: "postgres",
   url: process.env.DATABASE_URL,
-  entities: [Event, Category],
+  entities: [Event, Category, User, UserEventDiscovery],
   synchronize: true, // This auto-creates the tables
   logging: ["query", "error", "schema"], // More detailed logging
   ssl: false,
