@@ -1,5 +1,5 @@
-import { useRouter, useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useRef } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "../globalStyles";
@@ -12,9 +12,8 @@ import { useUserLocation } from "@/hooks/useUserLocation";
 import { useLocationStore } from "@/stores/useLocationStore";
 import {
   generateActionMessages,
-  generateMessageSequence,
   generateGoodbyeMessage,
-  generateWelcomeBackMessage,
+  generateMessageSequence,
 } from "@/utils/messageUtils";
 import AssistantActions from "./AssistantActions";
 import AssistantCard from "./AssistantCard";
@@ -40,6 +39,8 @@ const EventAssistant: React.FC = () => {
   // Location store (for marker selection)
   const { selectedMarker, selectedMarkerId } = useLocationStore();
 
+  console.log(selectedMarker);
+
   // Animation hooks
   const { styles: animationStyles, controls: animationControls } = useAssistantAnimations();
 
@@ -59,7 +60,6 @@ const EventAssistant: React.FC = () => {
   const isMountedRef = useRef(true);
 
   // Keep track of navigation state
-  const [isReturningFromNavigation, setIsReturningFromNavigation] = useState(false);
   const previousMarkerRef = useRef<Marker | null>(null);
   const navigationActionRef = useRef<string | null>(null);
   const isNavigatingRef = useRef<boolean>(false);
@@ -73,47 +73,6 @@ const EventAssistant: React.FC = () => {
       cancelStreaming();
     };
   }, [cancelStreaming]);
-
-  // Handle screen focus/blur with the useFocusEffect hook from expo-router
-  useFocusEffect(
-    useCallback(() => {
-      console.log("EventAssistant screen is now focused");
-
-      // Only show welcome back when returning from navigation (not on initial load)
-      if (isReturningFromNavigation && selectedMarker && navigationActionRef.current) {
-        const action = navigationActionRef.current;
-        const markerName = selectedMarker.data?.title || "this location";
-
-        // Generate a welcome back message based on the previous action
-        const welcomeBackMessages = generateWelcomeBackMessage(markerName, action);
-
-        // Show welcome back message with marker ID to prevent conflicts
-        // Add pause time for reading
-        streamForMarker(
-          selectedMarker.id,
-          welcomeBackMessages,
-          undefined, // no completion callback
-          { pauseAfterMs: CONFIG.READING_PAUSE_MS }
-        );
-        animationControls.showAssistant(200);
-
-        // Reset the returning flag and action
-        setIsReturningFromNavigation(false);
-        navigationActionRef.current = null;
-      }
-
-      // Reset navigation flag when focusing on this screen
-      isNavigatingRef.current = false;
-
-      return () => {
-        // Only set returning flag if we're actually navigating away
-        // (not unmounting for other reasons)
-        if (isNavigatingRef.current) {
-          setIsReturningFromNavigation(true);
-        }
-      };
-    }, [isReturningFromNavigation, selectedMarker, animationControls, streamForMarker])
-  );
 
   // Handle marker selection
   const handleMarkerSelect = useCallback(
@@ -222,8 +181,17 @@ const EventAssistant: React.FC = () => {
       // Show assistant with animation (always show for any action press)
       animationControls.showAssistant(200);
 
+      // IMPORTANT: Get the most up-to-date state from the store directly
+      // This is the key fix - always get fresh data at execution time
+      const { selectedMarker: currentMarker, selectedMarkerId: currentMarkerId } =
+        useLocationStore.getState();
+
+      console.log("Action pressed:", action);
+      console.log("Current marker from store:", currentMarker);
+      console.log("Current markerId from store:", currentMarkerId);
+
       // Validate marker selection only for marker-dependent actions
-      if (!selectedMarker && ["details", "share"].includes(action)) {
+      if (!currentMarker && ["details", "share"].includes(action)) {
         // Show error message with no debounce and a pause to read
         streamImmediate(
           "Please select a location first.",
@@ -245,7 +213,7 @@ const EventAssistant: React.FC = () => {
       navigationActionRef.current = action;
 
       // Use the current marker's ID when streaming action messages or a special action ID if no marker
-      const markerId = selectedMarker?.id || `action-${action}`;
+      const markerId = currentMarker?.id || `action-${action}`;
 
       // Handle different actions
       switch (action) {
@@ -254,7 +222,7 @@ const EventAssistant: React.FC = () => {
           streamForMarker(
             markerId,
             actionMessages,
-            () => executeNavigation(() => navigate(`details?eventId=${selectedMarkerId}` as never)),
+            () => executeNavigation(() => navigate(`details?eventId=${currentMarkerId}` as never)),
             { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
           );
           break;
@@ -264,7 +232,7 @@ const EventAssistant: React.FC = () => {
           streamForMarker(
             markerId,
             actionMessages,
-            () => executeNavigation(() => navigate(`share?eventId=${selectedMarkerId}` as never)),
+            () => executeNavigation(() => navigate(`share?eventId=${currentMarkerId}` as never)),
             { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
           );
           break;
@@ -299,15 +267,9 @@ const EventAssistant: React.FC = () => {
           break;
       }
     },
-    [
-      selectedMarker,
-      selectedMarkerId,
-      animationControls,
-      streamImmediate,
-      streamForMarker,
-      navigate,
-      executeNavigation,
-    ]
+    [animationControls, streamImmediate, streamForMarker, navigate, executeNavigation]
+    // IMPORTANT: Removed selectedMarker and selectedMarkerId from dependencies
+    // since we're accessing them fresh from the store each time
   );
 
   return (
