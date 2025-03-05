@@ -195,19 +195,14 @@ const Login: React.FC = () => {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.formContainer}>
-              <Text style={styles.appTitle}>Login</Text>
-
               {/* Profile Selector (Dropdown Trigger) */}
               <View style={styles.profileSelectorContainer}>
                 {selectedProfile ? (
                   <View style={styles.selectedProfileContainer}>
-                    <ProfileFloatingEmoji
-                      emoji={selectedProfile.emoji}
-                      name={selectedProfile.name}
-                      role={selectedProfile.role}
-                      size={60}
-                      isActive={true}
-                    />
+                    <Text>{selectedProfile.emoji}</Text>
+                    <Text style={{ color: "#fff", fontFamily: "SpaceMono" }}>
+                      {selectedProfile.name}
+                    </Text>
                   </View>
                 ) : (
                   <View style={styles.noProfileContainer}>
