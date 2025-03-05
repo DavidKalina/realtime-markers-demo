@@ -12,8 +12,6 @@ interface AuthWrapperProps {
 export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children, requireAuth = true }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
-  console.log({ isAuthenticated });
-
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>

@@ -38,11 +38,6 @@ const Login: React.FC = () => {
     }, 500);
   }, []);
 
-  const handleBack = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
-  };
-
   const togglePasswordVisibility = () => {
     Haptics.selectionAsync();
     setShowPassword(!showPassword);
@@ -94,14 +89,6 @@ const Login: React.FC = () => {
     <AuthWrapper requireAuth={false}>
       <SafeAreaView style={loginStyles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#333" />
-
-        {/* Header */}
-        <View style={loginStyles.header}>
-          <TouchableOpacity style={loginStyles.backButton} onPress={handleBack}>
-            <ArrowLeft size={22} color="#f8f9fa" />
-          </TouchableOpacity>
-          <Text style={loginStyles.headerTitle}>Login</Text>
-        </View>
 
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
