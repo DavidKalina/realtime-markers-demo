@@ -19,7 +19,7 @@ services:
           "CMD-SHELL",
           "pg_isready -U postgres && psql -U postgres -d postgres -c 'SELECT 1 FROM pg_database WHERE datname = '\\''markersdb'\\'''",
         ]
-      interval: 300s
+      interval: 5s
       timeout: 5s
       retries: 5
 
@@ -78,7 +78,7 @@ services:
       - backend_app_node_modules:/app/apps/backend/node_modules
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      interval: 10s
+      interval: 500s
       timeout: 5s
       retries: 5
       start_period: 30s
