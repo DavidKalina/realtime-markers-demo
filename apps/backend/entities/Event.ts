@@ -8,11 +8,15 @@ import {
   UpdateDateColumn,
   ManyToOne,
   ManyToMany,
+  OneToMany,
   JoinTable,
+  JoinColumn,
   Index,
 } from "typeorm";
 import { type Point } from "geojson";
 import { Category } from "./Category";
+import { User } from "./User";
+import { UserEventDiscovery } from "./UserEventDiscovery";
 
 export enum EventStatus {
   PENDING = "PENDING",
@@ -66,6 +70,18 @@ export class Event {
     default: EventStatus.PENDING,
   })
   status!: EventStatus;
+
+  // New: Link to creator user
+  @Column({ name: "creator_id", type: "uuid", nullable: true })
+  creatorId?: string;
+
+  @ManyToOne(() => User, (user) => user.createdEvents, { nullable: true, onDelete: "SET NULL" })
+  @JoinColumn({ name: "creator_id" })
+  creator?: User;
+
+  // Discovery relationship
+  @OneToMany(() => UserEventDiscovery, (discovery) => discovery.event)
+  discoveries!: UserEventDiscovery[];
 
   @ManyToMany(() => Category, (category) => category.events)
   @JoinTable({
