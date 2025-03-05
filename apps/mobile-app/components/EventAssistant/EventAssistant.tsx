@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "../globalStyles";
@@ -10,10 +10,12 @@ import { useMarkerEffects } from "@/hooks/useMarkerEffects";
 import { useEnhancedTextStreaming } from "@/hooks/useTextStreaming"; // Same import
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { useLocationStore } from "@/stores/useLocationStore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   generateActionMessages,
   generateGoodbyeMessage,
   generateMessageSequence,
+  generateFirstTimeWelcomeMessages,
 } from "@/utils/messageUtils";
 import AssistantActions from "./AssistantActions";
 import AssistantCard from "./AssistantCard";
@@ -24,11 +26,13 @@ const CONFIG = {
   READING_PAUSE_MS: 3000, // Pause after streaming to give users time to read (3 seconds)
   ACTION_PAUSE_MS: 1500, // Shorter pause for action messages (1.5 seconds)
   ERROR_PAUSE_MS: 2500, // Pause after error messages (2.5 seconds)
+  STORAGE_KEY: "has_seen_welcome", // Key for storing first-time user state
+  AUTO_DISMISS_DELAY_MS: 3000, // Auto-dismiss delay after streaming completes (8 seconds)
 };
 
 /**
  * EventAssistant component with enhanced navigation flow and improved marker transition handling
- * Now with reading pauses after text streaming
+ * Now with reading pauses after text streaming and first-time user welcome
  */
 const EventAssistant: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -38,6 +42,9 @@ const EventAssistant: React.FC = () => {
   const { userLocation } = useUserLocation();
 
   const { user } = useAuth();
+
+  // Auto-dismiss timer reference
+  const autoDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Location store (for marker selection)
   const { selectedMarker, selectedMarkerId } = useLocationStore();
@@ -57,6 +64,32 @@ const EventAssistant: React.FC = () => {
     currentMarkerId,
   } = useEnhancedTextStreaming();
 
+  // Function to schedule auto-dismiss
+  const scheduleAutoDismiss = useCallback(() => {
+    // Clear any existing auto-dismiss timer
+    if (autoDismissTimerRef.current) {
+      clearTimeout(autoDismissTimerRef.current);
+      autoDismissTimerRef.current = null;
+    }
+
+    // Set a new auto-dismiss timer
+    autoDismissTimerRef.current = setTimeout(() => {
+      if (isMountedRef.current && !isStreaming) {
+        // Only hide if we're not in the middle of streaming
+        animationControls.hideAssistant();
+      }
+      autoDismissTimerRef.current = null;
+    }, CONFIG.AUTO_DISMISS_DELAY_MS);
+  }, [animationControls, isStreaming]);
+
+  // Watch for streaming state changes to handle auto-dismiss
+  useEffect(() => {
+    // If streaming stopped, schedule auto-dismiss
+    if (!isStreaming && isMountedRef.current) {
+      scheduleAutoDismiss();
+    }
+  }, [isStreaming, scheduleAutoDismiss]);
+
   // Check if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true);
 
@@ -65,12 +98,57 @@ const EventAssistant: React.FC = () => {
   const navigationActionRef = useRef<string | null>(null);
   const isNavigatingRef = useRef<boolean>(false);
 
+  // Check for first-time user and show welcome message
+  useEffect(() => {
+    const checkFirstTimeUser = async () => {
+      try {
+        const value = await AsyncStorage.getItem(CONFIG.STORAGE_KEY);
+        const isFirstTime = value === null;
+
+        if (isFirstTime && isMountedRef.current) {
+          // Show welcome message for first-time users
+          const welcomeMessages = generateFirstTimeWelcomeMessages(user?.displayName);
+
+          // Show assistant with animation
+          animationControls.showAssistant(200);
+
+          // Stream welcome messages
+          streamMessages(
+            welcomeMessages,
+            async () => {
+              // Mark as seen after showing welcome
+              if (isMountedRef.current) {
+                await AsyncStorage.setItem(CONFIG.STORAGE_KEY, "true");
+              }
+            },
+            {
+              markerId: "welcome",
+              debounceMs: 0,
+              pauseAfterMs: CONFIG.READING_PAUSE_MS,
+            }
+          );
+        }
+      } catch (error) {
+        console.error("Error checking first-time user status:", error);
+      }
+    };
+
+    checkFirstTimeUser();
+  }, [user?.displayName, animationControls, streamMessages]);
+
   // Cleanup on unmount
   useEffect(() => {
     isMountedRef.current = true;
 
     return () => {
       isMountedRef.current = false;
+
+      // Clear auto-dismiss timer on unmount
+      if (autoDismissTimerRef.current) {
+        clearTimeout(autoDismissTimerRef.current);
+        autoDismissTimerRef.current = null;
+      }
+
       cancelStreaming();
     };
   }, [cancelStreaming]);
@@ -98,6 +176,12 @@ const EventAssistant: React.FC = () => {
 
       // Show assistant with animation (if not already visible)
       animationControls.showAssistant(200);
+
+      // Clear any existing auto-dismiss timer since we're showing new content
+      if (autoDismissTimerRef.current) {
+        clearTimeout(autoDismissTimerRef.current);
+        autoDismissTimerRef.current = null;
+      }
 
       // Use the direct marker streaming function to handle rapid transitions
       // Add pause time for reading
@@ -181,6 +265,12 @@ const EventAssistant: React.FC = () => {
 
       // Show assistant with animation (always show for any action press)
       animationControls.showAssistant(200);
+
+      // Clear any existing auto-dismiss timer since we're showing new content
+      if (autoDismissTimerRef.current) {
+        clearTimeout(autoDismissTimerRef.current);
+        autoDismissTimerRef.current = null;
+      }
 
       // IMPORTANT: Get the most up-to-date state from the store directly
       // This is the key fix - always get fresh data at execution time
@@ -281,6 +371,7 @@ const EventAssistant: React.FC = () => {
       navigate,
       executeNavigation,
       user?.displayName,
+      userLocation,
     ]
     // IMPORTANT: Removed selectedMarker and selectedMarkerId from dependencies
     // since we're accessing them fresh from the store each time
