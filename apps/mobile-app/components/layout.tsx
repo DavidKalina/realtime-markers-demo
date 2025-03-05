@@ -1,21 +1,21 @@
-// styles/layout.ts
+// styles/layout.ts - Update to container and innerContainer
 import { StyleSheet } from "react-native";
 
 export const layout = StyleSheet.create({
   container: {
     flex: 1,
+    width: "100%", // Add full width
   },
   innerContainer: {
     position: "absolute",
-    bottom: 40, // Add bottom margin
-    margin: "auto",
-    width: "95%", // Slightly narrower for better proportions
+    bottom: 0, // Remove bottom margin to anchor at bottom
+    width: "100%", // Full width
     alignSelf: "center",
-    zIndex: 10000000, // Lower than fullscreen views
+    zIndex: 10000000,
   },
   card: {
     backgroundColor: "rgba(0, 0, 0, 0.7)",
-    borderRadius: 16,
+    borderRadius: 0, // Remove the border radius at top
     borderBottomRightRadius: 0,
     borderBottomLeftRadius: 0,
     shadowColor: "#000",

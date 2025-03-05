@@ -2,7 +2,7 @@
 import * as Haptics from "expo-haptics";
 import { Camera, Info, Navigation, SearchIcon, Share2 } from "lucide-react-native";
 import React, { useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -18,6 +18,7 @@ import { styles as globalStles } from "@/components/globalStyles";
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes, CameraAnimateToLocationEvent } from "@/services/EventBroker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ActionBarProps {
   onActionPress: (action: string) => void;
@@ -41,6 +42,7 @@ export const ActionBar: React.FC<ActionBarProps> = ({
     (isStandalone ? ["search", "camera", "locate"] : ["details", "share", "search", "camera"]);
 
   const [activeAction, setActiveAction] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
 
   const { userLocation } = useUserLocation();
 
@@ -246,7 +248,15 @@ export const ActionBar: React.FC<ActionBarProps> = ({
   const bottomBarStyle = [styles.bottomBar, animatedStyle];
 
   return (
-    <View style={bottomBarStyle}>
+    <View
+      style={[
+        bottomBarStyle,
+        {
+          paddingTop: Platform.OS === "ios" ? insets.bottom : 0,
+          paddingBottom: Platform.OS === "ios" ? insets.bottom * 1.45 : 0,
+        },
+      ]}
+    >
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
