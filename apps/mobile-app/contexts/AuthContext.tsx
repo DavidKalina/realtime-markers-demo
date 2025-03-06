@@ -1,7 +1,8 @@
 // src/contexts/AuthContext.tsx
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import apiClient, { User } from "../services/ApiClient";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface AuthContextType {
   user: User | null;
@@ -12,6 +13,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
+  refreshAuth: () => Promise<boolean>; // New method to manually trigger auth refresh
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -22,21 +24,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(apiClient.getCurrentUser());
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(apiClient.isAuthenticated());
-  const { replace } = useRouter();
+  const router = useRouter();
 
-  useEffect(() => {
-    const initAuth = async () => {
-      // Wait for API client to be initialized - call any method to ensure initialization
+  // Enhanced initialization function with token validation
+  const initAuth = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Sync tokens from storage
       await apiClient.syncTokensWithStorage();
 
-      // Now it's safe to get the initial state
+      // Check if we need to refresh the token
+      const accessToken = await AsyncStorage.getItem("accessToken");
+      const refreshToken = await AsyncStorage.getItem("refreshToken");
+
+      if (accessToken && refreshToken) {
+        try {
+          // Try to get user profile to validate token
+          await apiClient.getUserProfile();
+        } catch (error) {
+          console.log("Token validation failed, attempting refresh");
+          // If that fails, try to refresh the token
+          const refreshed = await apiClient.refreshTokens();
+          if (!refreshed) {
+            // If refresh fails, clear auth state
+            await apiClient.clearAuthState();
+          }
+        }
+      }
+
+      // Now set the final auth state
       setUser(apiClient.getCurrentUser());
       setIsAuthenticated(apiClient.isAuthenticated());
+    } catch (error) {
+      console.error("Auth initialization error:", error);
+    } finally {
       setIsLoading(false);
-    };
-
-    initAuth();
+    }
   }, []);
+
+  useEffect(() => {
+    initAuth();
+  }, [initAuth]);
 
   useEffect(() => {
     console.log("Auth state:", {
@@ -65,12 +93,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!isLoading) {
       if (user?.id && isAuthenticated) {
-        replace("/");
+        router.replace("/");
       } else {
-        replace("/login");
+        router.replace("/login");
       }
     }
-  }, [user?.id, isAuthenticated, isLoading, replace]);
+  }, [user?.id, isAuthenticated, isLoading, router]);
+
+  // New method to manually refresh authentication
+  const refreshAuth = async (): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      // Check if refresh token exists
+      const refreshToken = await AsyncStorage.getItem("refreshToken");
+      if (!refreshToken) {
+        return false;
+      }
+
+      // Try to refresh the token
+      const success = await apiClient.refreshTokens();
+
+      if (success) {
+        // If successful, update the user and authentication state
+        setUser(apiClient.getCurrentUser());
+        setIsAuthenticated(true);
+        return true;
+      } else {
+        // If refresh fails, clear authentication
+        setUser(null);
+        setIsAuthenticated(false);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error refreshing authentication:", error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
@@ -82,8 +142,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     }
   };
-
-  // In AuthContext.tsx
 
   const register = async (email: string, password: string, displayName?: string) => {
     setIsLoading(true);
@@ -142,6 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         updateProfile,
         changePassword,
+        refreshAuth, // New method exposed to consumers
       }}
     >
       {children}
