@@ -76,9 +76,8 @@ services:
       - NODE_ENV=production
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - MAPBOX_GEOCODING_TOKEN=${MAPBOX_GEOCODING_TOKEN}
-    # Only expose to nginx, not directly to internet
-    expose:
-      - "3000"
+    ports:
+      - "127.0.0.1:3000:3000" # Only expose to the host for Nginx
     networks:
       - marker-network
     depends_on:
@@ -139,9 +138,8 @@ services:
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - BACKEND_URL=http://backend:3000
-    # Only expose to nginx, not directly to internet
-    expose:
-      - "8081"
+    ports:
+      - "127.0.0.1:8081:8081" # Only expose to the host for Nginx
     networks:
       - marker-network
     depends_on:
@@ -161,24 +159,7 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
-  # Add Nginx as reverse proxy to securely handle external traffic
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/ssl:/etc/nginx/ssl
-      - ./nginx/www:/usr/share/nginx/html
-    depends_on:
-      - backend
-      - websocket
-    networks:
-      - marker-network
-    security_opt:
-      - no-new-privileges:true
-    restart: unless-stopped
+  # Removed the nginx container since we're using the host's nginx
 
 networks:
   marker-network:
