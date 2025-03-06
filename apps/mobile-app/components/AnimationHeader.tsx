@@ -19,11 +19,21 @@ const emojis = ["🗺️", "📍", "🌍", "🏙️", "🏔️", "🏝️", "�
 // Set this to true to make the animation loop
 const LOOP_ANIMATION = true;
 
+// New configuration for animation timing
+const ANIMATION_CONFIG = {
+  burstDuration: 2500, // Duration of emoji bursts
+  gapDuration: 3000, // Duration of gaps between bursts
+  emojisPerBurst: 3, // Number of emojis to emit in each burst
+  emojiSpacing: 150, // Delay between emojis in the same burst
+};
+
 const MapMojiHeader = () => {
   // Animation values
   const textOpacity = useSharedValue(0);
   const textScale = useSharedValue(0.5);
   const textPulse = useSharedValue(1);
+  const inBurstPhase = useSharedValue(false); // Track if we're in a burst phase
+
   const emojiValues = emojis.map(() => ({
     translateX: useSharedValue(0),
     translateY: useSharedValue(0),
@@ -38,6 +48,9 @@ const MapMojiHeader = () => {
   // Need to mark this as a worklet to be called from the UI thread
   const triggerWince = (intensity = 1) => {
     "worklet";
+    // Only wince if we're in a burst phase
+    if (!inBurstPhase.value) return;
+
     // Cancel any ongoing animation
     cancelAnimation(textPulse);
 
@@ -65,6 +78,9 @@ const MapMojiHeader = () => {
 
   // Function to animate a single emoji with delay
   const animateEmoji = (values: any, delay: number, index: number) => {
+    // Only animate if we're in a burst phase
+    if (!inBurstPhase.value) return;
+
     // Random horizontal spread - wider distribution
     const spreadX = (Math.random() * 2 - 1) * width * 0.45;
 
@@ -82,7 +98,7 @@ const MapMojiHeader = () => {
       withSequence(
         withTiming(1, { duration: 150 }, (finished) => {
           "worklet";
-          if (finished) {
+          if (finished && inBurstPhase.value) {
             // Trigger small wince when emoji appears
             triggerWince(0.5);
           }
@@ -91,7 +107,7 @@ const MapMojiHeader = () => {
           800 + Math.random() * 1000, // Display time
           withTiming(0, { duration: 600 }, (finished) => {
             "worklet";
-            if (finished) {
+            if (finished && inBurstPhase.value) {
               // Trigger more significant wince when emoji disappears
               triggerWince(1.5);
               values.active.value = false;
@@ -116,7 +132,7 @@ const MapMojiHeader = () => {
           (finished) => {
             "worklet";
             // Subtle wince from initial movement
-            if (finished && values.active.value) {
+            if (finished && values.active.value && inBurstPhase.value) {
               triggerWince(0.7);
             }
           }
@@ -150,7 +166,7 @@ const MapMojiHeader = () => {
             (finished) => {
               "worklet";
               // Mid-flight wince
-              if (finished && values.active.value) {
+              if (finished && values.active.value && inBurstPhase.value) {
                 triggerWince(0.8);
               }
             }
@@ -182,7 +198,7 @@ const MapMojiHeader = () => {
             (finished) => {
               "worklet";
               // Mid-flight wince
-              if (finished && values.active.value) {
+              if (finished && values.active.value && inBurstPhase.value) {
                 triggerWince(0.8);
               }
             }
@@ -209,7 +225,48 @@ const MapMojiHeader = () => {
     );
   };
 
-  // Start all animations
+  // Emit a burst of emojis
+  const emitEmojiBurst = () => {
+    // Set to burst phase
+    inBurstPhase.value = true;
+
+    // Select random emojis for this burst
+    const emojisToAnimate = [];
+    const availableIndices = emojiValues
+      .map((_, i) => i)
+      .filter((i) => !emojiValues[i].active.value);
+
+    // If we have enough available emojis, use them
+    const count = Math.min(ANIMATION_CONFIG.emojisPerBurst, availableIndices.length);
+    for (let i = 0; i < count; i++) {
+      const randomIndex = Math.floor(Math.random() * availableIndices.length);
+      emojisToAnimate.push(availableIndices[randomIndex]);
+      availableIndices.splice(randomIndex, 1);
+    }
+
+    // Animate the selected emojis with staggered delay
+    emojisToAnimate.forEach((index, i) => {
+      const values = emojiValues[index];
+
+      // Reset position
+      values.translateX.value = 0;
+      values.translateY.value = 0;
+      values.scale.value = 0;
+      values.opacity.value = 0;
+      values.active.value = false;
+
+      // Staggered animation start
+      const delay = i * ANIMATION_CONFIG.emojiSpacing;
+      animateEmoji(values, delay, index);
+    });
+
+    // Schedule the end of burst phase
+    setTimeout(() => {
+      inBurstPhase.value = false;
+    }, ANIMATION_CONFIG.burstDuration);
+  };
+
+  // Initial animation
   const startAnimationForAll = () => {
     // Animate the text appearing quickly
     textOpacity.value = withTiming(1, { duration: 400 });
@@ -238,21 +295,10 @@ const MapMojiHeader = () => {
       })
     );
 
-    // Animate each emoji to fountain out from the middle of the text
-    emojiValues.forEach((values, index) => {
-      // More spread out initial delays
-      const delay = 600 + index * 180; // Longer gaps between emojis for more distinct winces
-
-      // Initial position (hidden inside the text)
-      values.translateX.value = 0;
-      values.translateY.value = 0;
-      values.scale.value = 0;
-      values.opacity.value = 0;
-      values.active.value = false;
-
-      // Animate the emoji
-      animateEmoji(values, delay, index);
-    });
+    // Initial burst after text animation completes
+    setTimeout(() => {
+      emitEmojiBurst();
+    }, 600);
   };
 
   // Start the animation
@@ -262,32 +308,18 @@ const MapMojiHeader = () => {
 
     // Set up animation loop if enabled
     if (LOOP_ANIMATION) {
+      // Set up the rhythmic pattern with bursts and gaps
       const intervalId = setInterval(() => {
-        // Reset and restart animations for a few random emojis
-        const numToRestart = 2; // Just restart 2 at a time for more distinct winces
-        const indicesToRestart = Array.from({ length: numToRestart }, () =>
-          Math.floor(Math.random() * emojis.length)
-        );
+        // Toggle between burst and gap phases
+        if (!inBurstPhase.value) {
+          emitEmojiBurst();
 
-        indicesToRestart.forEach((index) => {
-          if (index < emojiValues.length) {
-            const values = emojiValues[index];
-
-            // Only restart if not currently active
-            if (!values.active.value) {
-              // Reset position
-              values.translateX.value = 0;
-              values.translateY.value = 0;
-              values.scale.value = 0;
-              values.opacity.value = 0;
-              values.active.value = false;
-
-              // Restart with a short random delay
-              animateEmoji(values, Math.random() * 300, index);
-            }
-          }
-        });
-      }, 1200); // More frequent restarts for continuous animation
+          // Schedule next gap after burst duration
+          setTimeout(() => {
+            inBurstPhase.value = false;
+          }, ANIMATION_CONFIG.burstDuration);
+        }
+      }, ANIMATION_CONFIG.burstDuration + ANIMATION_CONFIG.gapDuration);
 
       return () => {
         clearInterval(intervalId);
