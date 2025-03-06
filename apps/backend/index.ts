@@ -21,6 +21,7 @@ import { authRouter } from "./routes/auth";
 import { internalRouter } from "./routes/internalRoutes";
 import { seedUsers } from "./seeds/seedUsers";
 import { seedDatabase } from "./seeds";
+import { password } from "bun";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -94,6 +95,7 @@ const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource
 const redisConfig = {
   host: process.env.REDIS_HOST || "localhost",
   port: parseInt(process.env.REDIS_PORT || "6379"),
+  password: process.env.REDIS_PASSWORD,
   maxRetriesPerRequest: 3,
 };
 
