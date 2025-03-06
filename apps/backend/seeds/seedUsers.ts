@@ -19,14 +19,6 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
   // Create test users
   const testUsers = [
     {
-      email: "david@example.com",
-      password: "password123!",
-      displayName: "David K",
-      bio: "System administrator",
-      role: UserRole.ADMIN,
-      isVerified: true,
-    },
-    {
       email: "josh@example.com",
       password: "password123!",
       displayName: "Josh K",
