@@ -91,9 +91,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     // Dynamically determine which actions to show based on isStandalone
     const effectiveAvailableActions =
       availableActions ||
-      (isStandalone
-        ? ["search", "camera", "locate", "user"]
-        : ["details", "share", "search", "camera", "user", "locate"]);
+      (isStandalone ? ["search", "camera", "locate", "user"] : ["details", "share"]);
 
     const [activeAction, setActiveAction] = useState<string | null>(null);
     const insets = useSafeAreaInsets();
