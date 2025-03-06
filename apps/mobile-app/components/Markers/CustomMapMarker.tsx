@@ -7,6 +7,7 @@ import Animated, {
   withSpring,
   withSequence,
   withTiming,
+  withRepeat,
   Easing,
   interpolate,
 } from "react-native-reanimated";
@@ -25,14 +26,14 @@ export interface EventType {
   color?: string;
 }
 
-interface MysteryBoxMarkerProps {
+interface MysteryEmojiMarkerProps {
   event: EventType;
   isSelected: boolean;
   isHighlighted?: boolean;
   onPress: () => void;
 }
 
-export const MysteryBoxMarker: React.FC<MysteryBoxMarkerProps> = ({
+export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = ({
   event,
   isSelected,
   isHighlighted = false,
@@ -42,150 +43,107 @@ export const MysteryBoxMarker: React.FC<MysteryBoxMarkerProps> = ({
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
   const revealProgress = useSharedValue(0);
+  const pulseScale = useSharedValue(1);
   const pulseOpacity = useSharedValue(0);
+  const floatY = useSharedValue(0);
+
   const isFirstRender = useRef(true);
   const [isRevealed, setIsRevealed] = useState(false);
 
-  // Colors based on your monospace/#333 aesthetic
-  const baseColor = "#333333"; // Main color
-  const accentColor = "#444444"; // Slightly lighter for accents
-  const highlightColor = "#555555"; // For highlights
-  const textColor = "#CCCCCC"; // Light gray for text/symbols
+  // Colors for styling
+  const baseColor = "#333333";
+  const accentColor = "rgba(77, 171, 247, 0.6)";
+  const textColor = "#FFFFFF";
 
   // Handle initial animations
   useEffect(() => {
     if (isFirstRender.current) {
-      // Initial mystery box scale in
-      scale.value = 0.2;
-
-      // Animate the box in
-      scale.value = withTiming(1, {
-        duration: 500,
-        easing: Easing.elastic(1.1),
-      });
-
-      // Reset the flag
+      scale.value = 0.5;
+      scale.value = withTiming(1, { duration: 400 });
       isFirstRender.current = false;
     }
+
+    // Start subtle floating animation
+    floatY.value = withRepeat(
+      withSequence(
+        withTiming(2, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+        withTiming(-2, { duration: 1500, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1, // Infinite repeats
+      true // Reverse
+    );
   }, []);
 
-  // Start pulse animation only when selected
+  // Start pulse animation for selected state
   useEffect(() => {
     if (isSelected) {
-      startPulseAnimation();
+      // Pulsating ring wave
+      pulseScale.value = 1;
+      pulseOpacity.value = 0.7;
+
+      pulseScale.value = withRepeat(
+        withTiming(1.8, { duration: 1500, easing: Easing.out(Easing.ease) }),
+        -1, // Infinite repeats
+        false // Don't reverse
+      );
+
+      pulseOpacity.value = withRepeat(
+        withTiming(0, { duration: 1500, easing: Easing.in(Easing.ease) }),
+        -1, // Infinite repeats
+        false // Don't reverse
+      );
     } else {
-      // Reset pulse opacity when not selected
-      pulseOpacity.value = 0;
+      pulseOpacity.value = withTiming(0, { duration: 300 });
     }
   }, [isSelected]);
-
-  // Start a subtle pulse animation that repeats
-  const startPulseAnimation = () => {
-    if (!isSelected) return;
-
-    pulseOpacity.value = 0;
-    pulseOpacity.value = withSequence(
-      withTiming(0.8, { duration: 1200 }),
-      withTiming(0, { duration: 1200 })
-    );
-
-    // Repeat the pulse animation only if still selected
-    setTimeout(() => {
-      if (isSelected) {
-        startPulseAnimation();
-      }
-    }, 2500);
-  };
 
   // Handle selection/highlight changes
   useEffect(() => {
     if (isSelected && !isRevealed) {
-      // Scale up when selected
-      scale.value = withTiming(1.4, {
-        duration: 500,
-        easing: Easing.bezier(0.16, 1, 0.3, 1),
-      });
+      // Scale up slightly when selected
+      scale.value = withTiming(1.2, { duration: 300 });
 
-      // Reveal the contents with animation
-      revealProgress.value = withTiming(1, {
-        duration: 800,
-        easing: Easing.bezier(0.16, 1, 0.3, 1), // Custom bezier for a nice reveal
-      });
+      // Reveal the contents
+      revealProgress.value = withTiming(1, { duration: 400 });
 
       setIsRevealed(true);
-
-      // Celebration rotation
-      rotation.value = withSequence(
-        withTiming(Math.PI * 2, {
-          duration: 800,
-          easing: Easing.bezier(0.16, 1, 0.3, 1),
-        }),
-        withTiming(0, { duration: 200 })
-      );
     } else if (!isSelected && isRevealed) {
-      // Scale back down when deselected
-      scale.value = withTiming(1, {
-        duration: 500,
-        easing: Easing.out(Easing.quad),
-      });
+      // Scale back down
+      scale.value = withTiming(1, { duration: 300 });
 
-      // Conceal the contents again
-      revealProgress.value = withTiming(0, {
-        duration: 500,
-        easing: Easing.out(Easing.quad),
-      });
+      // Hide contents
+      revealProgress.value = withTiming(0, { duration: 300 });
 
       setIsRevealed(false);
     }
 
-    // Highlight animation
+    // Highlight effect
     if (isHighlighted) {
-      // Make box pulse
       scale.value = withSequence(
-        withTiming(1.15, { duration: 200 }),
-        withTiming(0.95, { duration: 150 }),
-        withSpring(1, {
-          damping: 8,
-          stiffness: 100,
-        })
-      );
-
-      // Small shake
-      rotation.value = withSequence(
-        withTiming(0.1, { duration: 80 }),
-        withTiming(-0.1, { duration: 80 }),
-        withTiming(0.08, { duration: 80 }),
-        withTiming(-0.08, { duration: 80 }),
-        withTiming(0, { duration: 80 })
+        withTiming(1.1, { duration: 150 }),
+        withTiming(1, { duration: 150 })
       );
     }
   }, [isSelected, isHighlighted]);
 
   // Handle press with haptic feedback
   const handlePress = () => {
-    // Medium haptic for standard press
-    if (!isRevealed) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+    Haptics.impactAsync(
+      isRevealed ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
+    );
 
-    // Scale animation on press
     scale.value = withSequence(
       withTiming(0.9, { duration: 100 }),
-      withSpring(isSelected ? 1.4 : 1, {
-        damping: 12,
-        stiffness: 150,
-      })
+      withTiming(isSelected ? 1.2 : 1, { duration: 200 })
     );
 
     onPress();
   };
 
-  // Box container animation
+  // Container animation style
   const containerStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ scale: scale.value }, { rotate: `${rotation.value}rad` }],
+      transform: [{ scale: scale.value }, { translateY: floatY.value }],
     };
   });
 
@@ -205,19 +163,28 @@ export const MysteryBoxMarker: React.FC<MysteryBoxMarkerProps> = ({
     };
   });
 
-  // Pulse effect around the box
+  // Pulse effect animation
   const pulseStyle = useAnimatedStyle(() => {
     return {
       opacity: pulseOpacity.value,
-      transform: [{ scale: interpolate(pulseOpacity.value, [0, 0.8], [1, 1.3]) }],
+      transform: [{ scale: pulseScale.value }],
     };
   });
 
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={styles.touchableArea}>
-      {/* Pulse effect (only when selected) */}
+      {/* Pulsating ring */}
       {isSelected && (
-        <Animated.View style={[styles.pulseEffect, pulseStyle, { borderColor: baseColor }]} />
+        <Animated.View
+          style={[
+            styles.pulseRing,
+            pulseStyle,
+            {
+              borderColor: accentColor,
+              backgroundColor: "rgba(77, 171, 247, 0.1)",
+            },
+          ]}
+        />
       )}
 
       {/* Main container */}
@@ -233,18 +200,18 @@ export const MysteryBoxMarker: React.FC<MysteryBoxMarkerProps> = ({
         >
           {/* Question mark (hidden when revealed) */}
           <Animated.View style={[styles.questionMarkContainer, questionMarkStyle]}>
-            <QuestionMark size={14} color={textColor} />
+            <QuestionMark size={12} color={textColor} />
           </Animated.View>
 
-          {/* Event content (shown when revealed) */}
+          {/* Event emoji (shown when revealed) */}
           <Animated.View style={[styles.contentContainer, contentStyle]}>
             <Text style={styles.emojiText}>{event.emoji}</Text>
           </Animated.View>
 
-          {/* Verified badge - only if event is verified */}
+          {/* Verified badge if applicable */}
           {event.isVerified && (
-            <View style={[styles.verifiedBadge, { backgroundColor: highlightColor }]}>
-              <Star size={8} color={textColor} fill={textColor} />
+            <View style={styles.verifiedBadge}>
+              <Star size={7} color={textColor} fill={textColor} />
             </View>
           )}
         </View>
@@ -255,35 +222,35 @@ export const MysteryBoxMarker: React.FC<MysteryBoxMarkerProps> = ({
 
 const styles = StyleSheet.create({
   touchableArea: {
-    width: 60,
-    height: 60,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
   container: {
-    width: 40,
-    height: 40,
+    width: 28,
+    height: 28,
     alignItems: "center",
     justifyContent: "center",
   },
   mysteryBox: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     backgroundColor: "#333333",
-    borderWidth: 2,
-    borderColor: "#444444",
-    borderRadius: 16, // Changed to make it circular
+    borderWidth: 1,
+    borderColor: "rgba(77, 171, 247, 0.6)",
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
+        shadowColor: "rgba(77, 171, 247, 0.6)",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
         shadowRadius: 4,
       },
       android: {
-        elevation: 4,
+        elevation: 3,
       },
     }),
   },
@@ -302,43 +269,29 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   emojiText: {
-    fontSize: 16,
-    fontFamily: "monospace",
-    // Enhanced text shadow for better visibility against dark background
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    fontSize: 14,
+    textShadowColor: "rgba(77, 171, 247, 0.6)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
   },
   verifiedBadge: {
     position: "absolute",
-    top: -4,
-    right: -4,
-    backgroundColor: "#555555",
-    borderRadius: 6,
-    width: 12,
-    height: 12,
+    top: -3,
+    right: -3,
+    backgroundColor: "#333333",
+    borderRadius: 5,
+    width: 10,
+    height: 10,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#666666",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.3,
-        shadowRadius: 1,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    borderColor: "rgba(77, 171, 247, 0.6)",
   },
-  pulseEffect: {
+  pulseRing: {
     position: "absolute",
-    width: 40,
-    height: 40,
-    borderRadius: 20, // Changed to make it circular
-    borderWidth: 2,
-    borderColor: "#333333",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.5,
   },
 });

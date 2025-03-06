@@ -1,25 +1,30 @@
 import { StyleSheet, Dimensions } from "react-native";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#222",
+  },
+  headerContainer: {
+    paddingTop: 10,
+    paddingBottom: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   keyboardAvoidingView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "center",
+    justifyContent: "flex-start", // Changed from center to flex-start
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 10, // Reduced padding to give more space for header
   },
   formContainer: {
     width: "100%",
     maxWidth: 400,
     alignSelf: "center",
+    marginTop: 20, // Add space after the header
   },
   appTitle: {
     fontSize: 22,
@@ -82,7 +87,7 @@ export const styles = StyleSheet.create({
     color: "#333",
     fontSize: 18,
     fontWeight: "600",
-    fontFamily: "SpaceMono-Bold",
+    fontFamily: "SpaceMono",
   },
   createAccountContainer: {
     flexDirection: "row",
@@ -98,7 +103,7 @@ export const styles = StyleSheet.create({
     color: "#4dabf7",
     fontSize: 14,
     fontWeight: "600",
-    fontFamily: "SpaceMono-Bold",
+    fontFamily: "SpaceMono",
   },
   toggleManualButton: {
     alignSelf: "center",
@@ -159,8 +164,8 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   placeholderAvatar: {
-    width: 46,
-    height: 46,
+    width: 38,
+    height: 38,
     borderRadius: 23,
     backgroundColor: "rgba(77, 171, 247, 0.15)",
     justifyContent: "center",
