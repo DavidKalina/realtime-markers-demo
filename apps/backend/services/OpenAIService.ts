@@ -26,10 +26,13 @@ export class OpenAIService {
   private static rateLimitCounters: Map<string, number> = new Map();
   private static lastRateLimitReset: number = Date.now();
 
-  public static initRedis(options: { host: string; port: number }) {
-    this.redis = new Redis(options);
+  public static initRedis(options: { host: string; port: number; password?: string }) {
+    this.redis = new Redis({
+      host: options.host,
+      port: options.port,
+      password: options.password || undefined,
+    });
   }
-
   public static getInstance(): OpenAI {
     if (!this.instance) {
       if (!process.env.OPENAI_API_KEY) {

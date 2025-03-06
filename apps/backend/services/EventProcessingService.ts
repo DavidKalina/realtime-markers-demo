@@ -1,12 +1,12 @@
 // services/EventProcessingService.ts
 import pgvector from "pgvector";
-
-import { OpenAI } from "openai";
 import { Repository } from "typeorm";
 import { Event } from "../entities/Event";
 import type { Point } from "geojson";
 import type { CategoryProcessingService } from "./CategoryProcessingService";
 import type { Category } from "../entities/Category";
+import { OpenAIService } from "./OpenAIService";
+import { EnhancedLocationService } from "./LocationService";
 
 interface LocationContext {
   userCoordinates?: { lat: number; lng: number };
@@ -30,6 +30,7 @@ interface ScanResult {
     score: number;
     matchingEventId?: string;
   };
+  isDuplicate?: boolean;
 }
 
 // Add this interface for progress reporting
@@ -38,48 +39,22 @@ interface ProgressCallback {
 }
 
 export class EventProcessingService {
+  // Private reference to the location service
+  private locationService: EnhancedLocationService;
+
   constructor(
-    private openai: OpenAI,
     private eventRepository: Repository<Event>,
     private categoryProcessingService: CategoryProcessingService
-  ) {}
-
-  private async geocodeAddress(address: string): Promise<Point> {
-    // Existing geocode implementation...
-    try {
-      const encodedAddress = encodeURIComponent(address);
-      const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${process.env.MAPBOX_GEOCODING_TOKEN}`
-      );
-
-      if (!response.ok) {
-        throw new Error(`Geocoding failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      if (!data.features || data.features.length === 0) {
-        throw new Error("No coordinates found for address");
-      }
-
-      const [longitude, latitude] = data.features[0].center;
-
-      return {
-        type: "Point",
-        coordinates: [longitude, latitude],
-      };
-    } catch (error) {
-      console.error("Geocoding error:", error);
-      // Fallback to a default location in Provo if geocoding fails
-      return {
-        type: "Point",
-        coordinates: [-111.6585, 40.2338],
-      };
-    }
+  ) {
+    // Get the location service instance
+    this.locationService = EnhancedLocationService.getInstance();
   }
 
-  // Add optional progress callback parameter
-  // Modified processFlyerFromImage method in EventProcessingService.ts
+  private async handleDuplicateScan(eventId: string): Promise<void> {
+    await this.eventRepository.increment({ id: eventId }, "scanCount", 1);
+    console.log(`Incremented scan count for duplicate event: ${eventId}`);
+  }
+
   async processFlyerFromImage(
     imageData: Buffer | string,
     progressCallback?: ProgressCallback,
@@ -87,8 +62,8 @@ export class EventProcessingService {
   ): Promise<ScanResult> {
     // Report progress: Starting image processing
     if (progressCallback) {
-      await progressCallback("Analyzing image..."); // CHANGED from "Starting image analysis..."
-      await new Promise((resolve) => setTimeout(resolve, 300)); // Add small delay between steps
+      await progressCallback("Analyzing image...");
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
     // Convert the image data to a base64 string if necessary
@@ -126,8 +101,8 @@ export class EventProcessingService {
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
-    // Generate embeddings for event similarity matching
-    const embeddingPromise = this.generateEmbedding(extractedText);
+    // First pass with the raw text only
+    const initialEmbedding = await this.generateEmbedding(extractedText);
 
     // Report progress: Extracting event details
     if (progressCallback) {
@@ -135,14 +110,14 @@ export class EventProcessingService {
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
-    const [eventDetailsWithCategories, embedding] = await Promise.all([
-      this.extractEventDetailsWithCategories(extractedText, locationContext),
-      embeddingPromise,
-    ]);
+    // Extract detailed event information
+    const eventDetailsWithCategories = await this.extractEventDetailsWithCategories(
+      extractedText,
+      locationContext
+    );
 
-    // CHANGE THIS to match hook's expected format:
+    // Progress update for event details extraction
     if (progressCallback) {
-      // NO LONGER SEND "Event details extracted successfully" - it's not in the hook's steps
       await progressCallback("Extracting event details and categories...", {
         title: eventDetailsWithCategories.title,
         categories: eventDetailsWithCategories.categories?.map((c) => c.name),
@@ -150,20 +125,49 @@ export class EventProcessingService {
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
+    // Generate better embeddings with the structured event details
+    // This will properly weight location, title, date, etc.
+    const finalEmbedding = await this.generateEmbedding(eventDetailsWithCategories);
+
     // Report progress: Finding similar events
     if (progressCallback) {
       await progressCallback("Finding similar events...");
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
-    // Check for similar events
-    const similarity = await this.findSimilarEvents(embedding);
+    // Check for similar events using the multi-factor approach
+    const similarity = await this.findSimilarEvents(finalEmbedding, eventDetailsWithCategories);
+
+    // More lenient threshold (0.78 instead of 0.92)
+    // Plus special override for same location + same date
+    const isDuplicate =
+      (similarity.score > 0.72 && !!similarity.matchingEventId) ||
+      (similarity.matchReason === "Same location and same date" && similarity.score > 0.65);
+
+    // If it's a duplicate, increment the scan count
+    if (isDuplicate && similarity.matchingEventId) {
+      await this.handleDuplicateScan(similarity.matchingEventId);
+
+      if (progressCallback) {
+        await progressCallback("Duplicate event detected!", {
+          isDuplicate: true,
+          matchingEventId: similarity.matchingEventId,
+          similarityScore: similarity.score.toFixed(2),
+          matchReason: similarity.matchReason || "High similarity score",
+          // Include any additional metadata about the match
+          matchDetails: similarity.matchDetails || {},
+        });
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+    }
 
     // Report progress: Processing complete
     if (progressCallback) {
       await progressCallback("Processing complete!", {
         confidence: visionResult.confidence,
         similarityScore: similarity.score,
+        isDuplicate: isDuplicate || false,
+        reasonForMatch: isDuplicate ? similarity.matchReason || "High similarity" : undefined,
       });
     }
 
@@ -171,12 +175,12 @@ export class EventProcessingService {
       confidence: visionResult.confidence || 0,
       eventDetails: eventDetailsWithCategories,
       similarity,
+      isDuplicate: isDuplicate || false,
     };
   }
 
-  // Existing methods below...
   private async processComprehensiveVisionAPI(base64Image: string) {
-    const response = await this.openai.chat.completions.create({
+    const response = await OpenAIService.executeChatCompletion({
       model: "gpt-4o",
       messages: [
         {
@@ -267,7 +271,7 @@ export class EventProcessingService {
       : "";
 
     // Extract event details with enhanced location awareness
-    const response = await this.openai.chat.completions.create({
+    const response = await OpenAIService.executeChatCompletion({
       model: "gpt-4o",
       messages: [
         {
@@ -308,8 +312,7 @@ export class EventProcessingService {
 
     const parsedDetails = JSON.parse(response.choices[0]?.message.content?.trim() ?? "{}");
 
-    // Now infer address using all collected information
-    let address = "";
+    // Collect all location clues
     const locationClues = [
       parsedDetails.organization || "",
       parsedDetails.venue || "",
@@ -318,32 +321,21 @@ export class EventProcessingService {
 
     console.log("Location clues found:", locationClues);
 
-    if (locationClues.length > 0) {
-      // We have some location clues, let's infer the address
-      address = await this.inferAddressFromLocationClues(
-        locationClues,
-        userCityState,
-        locationContext?.userCoordinates
-      );
-    }
+    // Use the enhanced location service to resolve the address and coordinates
+    const resolvedLocation = await this.locationService.resolveLocation(
+      locationClues,
+      userCityState,
+      locationContext?.userCoordinates
+    );
 
-    let location: Point;
-    if (address) {
-      location = await this.geocodeAddress(address);
-    } else if (locationContext?.userCoordinates) {
-      // If we still don't have an address but have user coordinates, use them as fallback
-      console.log("Using user coordinates as fallback location");
-      location = {
-        type: "Point",
-        coordinates: [locationContext.userCoordinates.lng, locationContext.userCoordinates.lat],
-      };
-    } else {
-      // Ultimate fallback to a default location
-      location = {
-        type: "Point",
-        coordinates: [-111.6585, 40.2338], // Default location in Provo
-      };
-    }
+    // Create Point from resolved coordinates
+    const location: Point = {
+      type: "Point",
+      coordinates: resolvedLocation.coordinates,
+    };
+
+    // Log confidence information
+    console.log(`Address resolved with confidence: ${resolvedLocation.confidence.toFixed(2)}`);
 
     // Process date with fallback
     let eventDate;
@@ -372,72 +364,82 @@ export class EventProcessingService {
       emoji: parsedDetails.emoji || "📍",
       title: parsedDetails.title || "",
       date: eventDate,
-      address: address,
+      address: resolvedLocation.address,
       location: location,
       description: parsedDetails.description || "",
       categories: categories,
     };
   }
 
-  // New method to infer address from all location clues
-  private async inferAddressFromLocationClues(
-    clues: string[],
-    userCityState: string,
-    userCoordinates?: { lat: number; lng: number }
-  ): Promise<string> {
-    const cluesText = clues.join(", ");
-    const userLocationContext = userCityState
-      ? `The user is currently in ${userCityState}.`
-      : userCoordinates
-      ? `The user is currently at latitude ${userCoordinates.lat}, longitude ${userCoordinates.lng}.`
-      : "";
+  private async generateEmbedding(eventDetails: EventDetails | string): Promise<number[]> {
+    let inputText: string;
 
-    try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an address resolution expert. ${userLocationContext}
-          
-          Based on the location clues and the user's current location:
-          1. Determine the most likely full address for the event
-          2. If clues mention a university, campus building, or room code, infer the complete address
-          3. Consider the user's current city and state in resolving ambiguous locations
-          
-          Return a complete, geocodable address with street, city, state, and ZIP.`,
-          },
-          {
-            role: "user",
-            content: `Location clues: ${cluesText}
-          
-          Return ONLY the complete address without explanation.
-          If you cannot determine a specific address with reasonable confidence, return "UNKNOWN".`,
-          },
-        ],
+    if (typeof eventDetails === "string") {
+      // Handle the case where raw text is passed - just use it directly
+      inputText = eventDetails;
+    } else {
+      // Extract location data for special weighting
+      const coordinates = eventDetails.location.coordinates;
+      const roundedCoords = [
+        Math.round(coordinates[0] * 1000) / 1000, // Round to 3 decimal places (~110m precision)
+        Math.round(coordinates[1] * 1000) / 1000,
+      ];
+
+      // Format the date in a standardized way
+      let dateStr = "";
+      try {
+        const date = new Date(eventDetails.date);
+        if (!isNaN(date.getTime())) {
+          // Format as YYYY-MM-DD
+          dateStr = date.toISOString().split("T")[0];
+        }
+      } catch (e) {
+        // If date parsing fails, use the original string
+        dateStr = eventDetails.date;
+      }
+
+      // Create a weighted text representation with stronger location emphasis
+      const weightedItems = [
+        // Title gets strong weight (4x)
+        `TITLE: ${eventDetails.title.repeat(4)}`,
+
+        // Date with standardized format for better matching (2x)
+        `DATE: ${dateStr.repeat(2)}`,
+
+        // Location and address get the most weight (5-6x)
+        `COORDS: ${roundedCoords.join(",")}`.repeat(2),
+        `ADDRESS: ${eventDetails.address.repeat(5)}`,
+
+        // Description gets normal weight
+        `DESCRIPTION: ${eventDetails.description}`,
+      ];
+
+      // Join with double newlines for clear section separation
+      inputText = weightedItems.filter(Boolean).join("\n\n");
+
+      console.log("Generating embedding with weighted format:", {
+        title: eventDetails.title,
+        address: eventDetails.address,
+        coordinates: roundedCoords.join(","),
+        textLength: inputText.length,
       });
-
-      const inferredAddress = response.choices[0].message.content?.trim();
-      console.log("Inferred address:", inferredAddress);
-
-      return inferredAddress === "UNKNOWN" ? "" : inferredAddress || "";
-    } catch (error) {
-      console.error("Error inferring address from clues:", error);
-      return "";
     }
+
+    // Use the OpenAIService helper method for embeddings
+    return await OpenAIService.generateEmbedding(inputText);
   }
 
-  private async generateEmbedding(text: string) {
-    const response = await this.openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: text,
-      encoding_format: "float",
-    });
-    return response.data[0].embedding;
-  }
-
-  private async findSimilarEvents(embedding: number[]) {
+  private async findSimilarEvents(
+    embedding: number[],
+    eventDetails: EventDetails
+  ): Promise<{
+    score: number;
+    matchingEventId?: string;
+    matchReason?: string;
+    matchDetails?: Record<string, any>;
+  }> {
     try {
+      // First, use vector search to find potential matches
       const similarEvents = await this.eventRepository
         .createQueryBuilder("event")
         .where("event.embedding IS NOT NULL")
@@ -450,21 +452,192 @@ export class EventProcessingService {
         return { score: 0 };
       }
 
+      // Get best match from vector similarity
       const bestMatch = similarEvents[0];
-      // Calculate similarity score
-      const similarityScore = this.calculateCosineSimilarity(
+
+      // Calculate embedding similarity score
+      const embeddingScore = this.calculateCosineSimilarity(
         embedding,
-        pgvector.fromSql(bestMatch.embedding) // Convert back to number[]
+        pgvector.fromSql(bestMatch.embedding)
       );
 
+      // ---------- TITLE SIMILARITY ----------
+      // Calculate title similarity using Jaccard index for word overlap
+      const titleSimilarity = this.getJaccardSimilarity(
+        eventDetails.title.toLowerCase(),
+        (bestMatch.title || "").toLowerCase()
+      );
+
+      // ---------- LOCATION SIMILARITY ----------
+      // Generate coordinate points for distance calculation
+      const eventCoords = {
+        lat: eventDetails.location.coordinates[1],
+        lng: eventDetails.location.coordinates[0],
+      };
+
+      const matchCoords = {
+        lat: bestMatch.location?.coordinates?.[1] ?? 0,
+        lng: bestMatch.location?.coordinates?.[0] ?? 0,
+      };
+
+      // Calculate distance between coordinates in meters
+      const distanceInMeters = this.calculateDistance(eventCoords, matchCoords);
+
+      // Convert distance to a similarity score (closer = higher score)
+      // Events within 100m get a score of 1.0, decreasing as distance increases
+      const locationSimilarity = Math.max(0, Math.min(1, 1 - distanceInMeters / 1000));
+
+      // ---------- DATE SIMILARITY ----------
+      // Check for date similarity if dates are within 1 day
+      const eventDate = new Date(eventDetails.date);
+      const matchDate = new Date(bestMatch.eventDate || Date.now()); // Fallback to now
+      const dateDiffMs = Math.abs(eventDate.getTime() - matchDate.getTime());
+      const dateDiffDays = dateDiffMs / (1000 * 60 * 60 * 24);
+      const dateSimilarity = dateDiffDays <= 1 ? 1 : Math.max(0, 1 - dateDiffDays / 7);
+
+      // ---------- ADDRESS SIMILARITY ----------
+      // Check if addresses match closely, handling undefined addresses
+      const eventAddress = eventDetails.address || "";
+      const matchAddress = bestMatch.address || "";
+
+      const addressSimilarity = this.getSimilarityScore(
+        eventAddress.toLowerCase(),
+        matchAddress.toLowerCase()
+      );
+
+      // ---------- COMPOSITE SCORE ----------
+      // Calculate weighted composite score
+      // Prioritize location (35%), then title (25%), then date (20%), then address (15%), then embedding (5%)
+      const compositeScore =
+        locationSimilarity * 0.35 +
+        titleSimilarity * 0.25 +
+        dateSimilarity * 0.2 +
+        addressSimilarity * 0.15 +
+        embeddingScore * 0.05;
+
+      // ---------- MATCH REASON ----------
+      // Determine match reason for transparency
+      let matchReason = "";
+
+      if (locationSimilarity > 0.95) {
+        // Essentially same location (within ~50 meters)
+        if (dateSimilarity > 0.9) {
+          matchReason = "Same location and same date";
+          if (titleSimilarity > 0.6) matchReason += " with similar title";
+        } else {
+          matchReason = "Same location, different date";
+        }
+      } else if (locationSimilarity > 0.8 && dateSimilarity > 0.9) {
+        matchReason = "Same date at nearby location";
+      } else if (titleSimilarity > 0.8 && dateSimilarity > 0.8) {
+        matchReason = "Similar title on same date";
+      } else if (embeddingScore > 0.85) {
+        matchReason = "Very similar overall content";
+      } else if (compositeScore > 0.78) {
+        matchReason = "Multiple similarity factors";
+      }
+
+      // Store detailed match data for logging
+      const matchDetails = {
+        distance: `${distanceInMeters.toFixed(0)} meters`,
+        locationSimilarity: locationSimilarity.toFixed(2),
+        titleSimilarity: titleSimilarity.toFixed(2),
+        dateSimilarity: dateSimilarity.toFixed(2),
+        dateDiffDays: dateDiffDays.toFixed(1),
+        addressSimilarity: addressSimilarity.toFixed(2),
+        embeddingScore: embeddingScore.toFixed(2),
+        compositeScore: compositeScore.toFixed(2),
+      };
+
+      console.log("Duplicate detection metrics:", {
+        eventId: bestMatch.id,
+        title: bestMatch.title || "[No title]",
+        eventTitle: eventDetails.title,
+        ...matchDetails,
+        matchReason,
+      });
+
       return {
-        score: similarityScore,
+        score: compositeScore,
         matchingEventId: bestMatch.id,
+        matchReason,
+        matchDetails,
       };
     } catch (error) {
       console.error("Error in findSimilarEvents:", error);
       return { score: 0 };
     }
+  }
+
+  // Helper method to calculate Jaccard similarity for text
+  private getJaccardSimilarity(text1: string, text2: string): number {
+    // Handle undefined or empty inputs
+    if (!text1 || !text2) return 0;
+
+    // Convert texts to word sets
+    const words1 = new Set(text1.split(/\s+/).filter(Boolean));
+    const words2 = new Set(text2.split(/\s+/).filter(Boolean));
+
+    // Handle empty sets
+    if (words1.size === 0 || words2.size === 0) return 0;
+
+    // Count intersection and union
+    const intersection = new Set([...words1].filter((word) => words2.has(word)));
+    const union = new Set([...words1, ...words2]);
+
+    // Return Jaccard index
+    return intersection.size / union.size;
+  }
+
+  // Helper method to calculate string similarity
+  private getSimilarityScore(str1: string, str2: string): number {
+    if (!str1 || !str2) return 0;
+
+    // Simple implementation - calculate percentage of matching words
+    const words1 = str1.split(/\s+/).filter(Boolean);
+    const words2 = str2.split(/\s+/).filter(Boolean);
+
+    // Handle empty strings
+    if (words1.length === 0 || words2.length === 0) return 0;
+
+    // Count matching words
+    let matches = 0;
+    for (const word of words1) {
+      if (words2.includes(word)) matches++;
+    }
+
+    // Return percentage of matches
+    return matches / Math.max(words1.length, words2.length);
+  }
+
+  // Helper method to calculate distance between coordinates in meters
+  private calculateDistance(
+    coords1: { lat: number; lng: number },
+    coords2: { lat: number; lng: number }
+  ): number {
+    // Check for invalid coordinates
+    if (isNaN(coords1.lat) || isNaN(coords1.lng) || isNaN(coords2.lat) || isNaN(coords2.lng)) {
+      return 10000; // Return large distance if coordinates are invalid
+    }
+
+    // Haversine formula for accurate earth distance
+    const toRad = (x: number) => (x * Math.PI) / 180;
+    const R = 6371e3; // Earth radius in meters
+
+    const dLat = toRad(coords2.lat - coords1.lat);
+    const dLng = toRad(coords2.lng - coords1.lng);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(coords1.lat)) *
+        Math.cos(toRad(coords2.lat)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+
+    return distance; // Distance in meters
   }
 
   private calculateCosineSimilarity(a: number[], b: number[]): number {

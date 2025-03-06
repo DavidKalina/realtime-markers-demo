@@ -9,19 +9,18 @@ import { DataSource } from "typeorm";
 import AppDataSource from "./data-source";
 import { Category } from "./entities/Category";
 import { Event } from "./entities/Event";
+import { authRouter } from "./routes/auth";
+import { eventsRouter } from "./routes/events";
+import { internalRouter } from "./routes/internalRoutes";
+import { seedDatabase } from "./seeds";
+import { seedUsers } from "./seeds/seedUsers";
 import { CacheService } from "./services/CacheService";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventProcessingService } from "./services/EventProcessingService";
 import { EventService } from "./services/EventService";
 import { JobQueue } from "./services/JobQueue";
 import { OpenAIService } from "./services/OpenAIService";
-import { eventsRouter } from "./routes/events";
 import type { AppContext } from "./types/context";
-import { authRouter } from "./routes/auth";
-import { internalRouter } from "./routes/internalRoutes";
-import { seedUsers } from "./seeds/seedUsers";
-import { seedDatabase } from "./seeds";
-import { password } from "bun";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -95,7 +94,7 @@ const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource
 const redisConfig = {
   host: process.env.REDIS_HOST || "localhost",
   port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD,
+  password: process.env.REDIS_PASSWORD || undefined,
   maxRetriesPerRequest: 3,
 };
 
@@ -104,6 +103,7 @@ const redisPub = new Redis(redisConfig);
 CacheService.initRedis({
   host: redisConfig.host,
   port: redisConfig.port,
+  password: process.env.REDIS_PASSWORD ?? "",
 });
 
 const openai = OpenAIService.getInstance();
@@ -125,7 +125,6 @@ async function initializeServices() {
   const eventService = new EventService(dataSource);
 
   const eventProcessingService = new EventProcessingService(
-    openai,
     eventRepository,
     categoryProcessingService
   );
@@ -169,7 +168,7 @@ app.get("/api/jobs/:jobId/stream", async (c) => {
     const redisSubscriber = new Redis({
       host: process.env.REDIS_HOST || "localhost",
       port: parseInt(process.env.REDIS_PORT || "6379"),
-      password: process.env.REDIS_PASSWORD,
+      password: process.env.REDIS_PASSWORD || undefined,
     });
 
     try {

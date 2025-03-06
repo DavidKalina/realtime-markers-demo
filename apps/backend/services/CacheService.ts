@@ -11,7 +11,7 @@ export class CacheService {
   private static MAX_EMBEDDING_CACHE_SIZE = 3000; // Increase from 1000
   private static MAX_CATEGORY_CACHE_SIZE = 1000; // Increase from 500
 
-  static initRedis(options: { host: string; port: number }) {
+  static initRedis(options: { host: string; port: number; password: string }) {
     this.redisClient = new Redis(options);
   }
 
