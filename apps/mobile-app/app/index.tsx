@@ -13,10 +13,11 @@ import {
   EventTypes,
   UserLocationEvent,
 } from "@/services/EventBroker";
+import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserLocationStore } from "@/stores/useUserLocationStore";
 import MapboxGL from "@rnmapbox/maps";
 import * as Location from "expo-location";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Animated, Platform, Text, View } from "react-native";
 
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -25,6 +26,8 @@ export default function HomeScreen() {
   const [isMapReady, setIsMapReady] = useState(false);
   const mapRef = useRef<MapboxGL.MapView>(null);
   const { publish } = useEventBroker();
+
+  const { selectMarker } = useLocationStore();
 
   const {
     selectedMarkerId,
@@ -59,6 +62,10 @@ export default function HomeScreen() {
     if (!userLocation) {
       getUserLocation();
     }
+  }, []);
+
+  const handleMarkerPress = useCallback(() => {
+    selectMarker(null);
   }, []);
 
   const getUserLocation = async () => {
@@ -159,6 +166,7 @@ export default function HomeScreen() {
         )}
 
         <MapboxGL.MapView
+          onPress={handleMarkerPress}
           scaleBarEnabled={false}
           rotateEnabled={false}
           pitchEnabled={false}
