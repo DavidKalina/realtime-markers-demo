@@ -17,6 +17,7 @@ import {
   View,
   Modal,
   FlatList,
+  Pressable,
 } from "react-native";
 import { AuthWrapper } from "../AuthWrapper";
 import ProfileFloatingEmoji from "./ProfileEmoji";
@@ -193,7 +194,7 @@ const Login: React.FC = () => {
           >
             <View style={styles.formContainer}>
               {/* Profile Selector (Dropdown Trigger) */}
-              <View style={styles.profileSelectorContainer}>
+              <TouchableOpacity style={styles.profileSelectorContainer} onPress={toggleDropdown}>
                 {selectedProfile ? (
                   <View style={styles.selectedProfileContainer}>
                     <Text>{selectedProfile.emoji}</Text>
@@ -221,7 +222,7 @@ const Login: React.FC = () => {
                     <ChevronDown size={24} color="#4dabf7" />
                   )}
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
 
               {/* Profile Dropdown Modal */}
               <Modal
