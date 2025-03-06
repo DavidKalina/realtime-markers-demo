@@ -76,9 +76,8 @@ export class MessageFlowService {
 
     messages.push("I'm your personal event assistant.");
     messages.push("Tap on any marker to discover events and attractions near you.");
-    messages.push(
-      "You can also use the action buttons below to search, scan event flyers, or view your profile."
-    );
+    messages.push("Use the action buttons below to search, scan event flyers");
+    messages.push(",or view your profile.");
 
     return messages;
   }
