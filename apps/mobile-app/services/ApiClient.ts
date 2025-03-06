@@ -217,22 +217,17 @@ class ApiClient {
     };
   }
 
-  // Authenticated fetch with token refresh
   private async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+    // Make sure we have tokens
     if (!this.tokens) {
       await this.syncTokensWithStorage();
     }
 
-    let requestOptions = this.createRequestOptions(options);
+    // Create request options with current tokens
+    const requestOptions = this.createRequestOptions(options);
 
-    // Make initial request
-    let response = await fetch(url, requestOptions);
-
-    requestOptions = this.createRequestOptions(options);
-
-    response = await fetch(url, requestOptions);
-
-    return response;
+    // Make a single request and return the response
+    return fetch(url, requestOptions);
   }
 
   // Convert API event to frontend event type
