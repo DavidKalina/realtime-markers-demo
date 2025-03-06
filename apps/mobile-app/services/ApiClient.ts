@@ -63,10 +63,12 @@ class ApiClient {
   private user: User | null = null;
   private tokens: AuthTokens | null = null;
   private authListeners: ((isAuthenticated: boolean) => void)[] = [];
+  private isInitialized: boolean = false;
+  private initializationPromise: Promise<void> | null = null;
 
   constructor(baseUrl: string = process.env.EXPO_PUBLIC_API_URL!) {
     this.baseUrl = baseUrl;
-    this.loadAuthState();
+    this.initializationPromise = this.loadAuthState();
   }
 
   // Load auth state from storage
@@ -79,12 +81,29 @@ class ApiClient {
       ]);
 
       if (userJson) this.user = JSON.parse(userJson);
-      if (accessToken && refreshToken) this.tokens = { accessToken, refreshToken };
+      if (accessToken) {
+        this.tokens = {
+          accessToken,
+          refreshToken: refreshToken || undefined,
+        };
+      }
 
       // Notify listeners if we have valid auth
       this.notifyAuthListeners(this.isAuthenticated());
+
+      // Mark as initialized
+      this.isInitialized = true;
     } catch (error) {
       console.error("Error loading auth state:", error);
+      this.isInitialized = true; // Still mark as initialized even on error
+    }
+  }
+
+  // Make sure client is initialized before making any API calls
+  private async ensureInitialized(): Promise<void> {
+    if (this.isInitialized) return;
+    if (this.initializationPromise) {
+      await this.initializationPromise;
     }
   }
 
@@ -218,10 +237,8 @@ class ApiClient {
   }
 
   private async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
-    // Make sure we have tokens
-    if (!this.tokens) {
-      await this.syncTokensWithStorage();
-    }
+    // Wait for initialization to complete
+    await this.ensureInitialized();
 
     // Create request options with current tokens
     const requestOptions = this.createRequestOptions(options);
