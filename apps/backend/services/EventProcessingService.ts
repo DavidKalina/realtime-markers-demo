@@ -509,8 +509,8 @@ export class EventProcessingService {
       // Calculate weighted composite score
       // Prioritize location (35%), then title (25%), then date (20%), then address (15%), then embedding (5%)
       const compositeScore =
-        locationSimilarity * 0.35 +
-        titleSimilarity * 0.25 +
+        locationSimilarity * 0.4 + // Increase from 0.35 to 0.40
+        titleSimilarity * 0.2 + // Decrease from 0.25 to 0.20
         dateSimilarity * 0.2 +
         addressSimilarity * 0.15 +
         embeddingScore * 0.05;
