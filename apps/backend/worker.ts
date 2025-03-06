@@ -5,6 +5,7 @@ import { EventService } from "./services/EventService";
 import AppDataSource from "./data-source";
 import { OpenAIService } from "./services/OpenAIService";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
+import { EnhancedLocationService } from "./services/LocationService";
 import { Event } from "./entities/Event";
 import { Category } from "./entities/Category";
 import { JobQueue } from "./services/JobQueue";
@@ -20,23 +21,39 @@ async function initializeWorker() {
   // Initialize data sources
   await AppDataSource.initialize();
 
-  // Initialize Redis clients
   const redisClient = new Redis({
     host: process.env.REDIS_HOST || "localhost",
     port: parseInt(process.env.REDIS_PORT || "6379"),
-    password: process.env.REDIS_PASSWORD,
+    password: process.env.REDIS_PASSWORD || undefined,
   });
 
-  // Initialize services
-  const openai = OpenAIService.getInstance();
+  // Initialize OpenAI service
+  OpenAIService.initRedis({
+    host: process.env.REDIS_HOST || "localhost",
+    port: parseInt(process.env.REDIS_PORT || "6379"),
+    password: process.env.REDIS_PASSWORD || undefined,
+  });
+
+  // Get OpenAI instance - this initializes the singleton
+  OpenAIService.getInstance();
+
+  // Initialize LocationService singleton (this is just to warm up the cache)
+  EnhancedLocationService.getInstance();
+
+  // Initialize repositories and services
   const eventRepository = AppDataSource.getRepository(Event);
   const categoryRepository = AppDataSource.getRepository(Category);
-  const categoryProcessingService = new CategoryProcessingService(openai, categoryRepository);
+  const categoryProcessingService = new CategoryProcessingService(
+    OpenAIService.getInstance(),
+    categoryRepository
+  );
+
+  // Create event processing service with the updated constructor signature
   const eventProcessingService = new EventProcessingService(
-    openai,
     eventRepository,
     categoryProcessingService
   );
+
   const eventService = new EventService(AppDataSource);
 
   // Initialize JobQueue
@@ -131,10 +148,58 @@ async function initializeWorker() {
           }
         );
 
+        // Add detailed debugging to see what's happening
+        console.log("DETAILED SCAN RESULT:", {
+          confidence: scanResult.confidence,
+          title: scanResult.eventDetails.title,
+          isDuplicate: scanResult.isDuplicate, // Check if this is properly set
+          similarityScore: scanResult.similarity.score,
+          threshold: 0.72,
+          matchingEventId: scanResult.similarity.matchingEventId,
+        });
+
         console.log(`[Worker] Image analyzed with confidence: ${scanResult.confidence}`);
 
+        // Now check if this is a duplicate event
+        if (scanResult.isDuplicate && scanResult.similarity.matchingEventId) {
+          console.log(
+            `[Worker] Duplicate event detected with ID: ${scanResult.similarity.matchingEventId}`
+          );
+
+          // Get the existing event to return its details
+          const existingEvent = await eventRepository.findOne({
+            where: { id: scanResult.similarity.matchingEventId },
+          });
+
+          if (existingEvent) {
+            // Mark as completed with duplicate information
+            await jobQueue.updateJobStatus(jobId, {
+              status: "completed",
+              eventId: existingEvent.id,
+              result: {
+                eventId: existingEvent.id,
+                title: existingEvent.title,
+                coordinates: existingEvent.location.coordinates,
+                isDuplicate: true,
+                similarityScore: scanResult.similarity.score,
+              },
+              completed: new Date().toISOString(),
+            });
+          } else {
+            // This shouldn't happen, but handle the case anyway
+            console.error(
+              `[Worker] Matching event ${scanResult.similarity.matchingEventId} not found`
+            );
+            await jobQueue.updateJobStatus(jobId, {
+              status: "failed",
+              error: "Duplicate event reference not found",
+              completed: new Date().toISOString(),
+            });
+          }
+        }
+
         // Create the event if confidence is high enough
-        if (scanResult.confidence >= 0.75) {
+        else if (scanResult.confidence >= 0.75) {
           // Update for event creation
           await jobQueue.updateJobStatus(jobId, {
             progress: "Creating event...",

@@ -1,7 +1,7 @@
 // src/services/AuthService.ts
 
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import jwt, { type SignOptions } from "jsonwebtoken";
 import { Repository } from "typeorm";
 import { User } from "../entities/User";
 
@@ -20,15 +20,15 @@ export class AuthService {
   private userRepository: Repository<User>;
   private jwtSecret: string;
   private refreshSecret: string;
-  private accessTokenExpiry: string;
-  private refreshTokenExpiry: string;
+  private accessTokenExpiry: SignOptions["expiresIn"];
+  private refreshTokenExpiry: SignOptions["expiresIn"];
 
   constructor(userRepository: Repository<User>) {
     this.userRepository = userRepository;
     this.jwtSecret = process.env.JWT_SECRET || "your-default-jwt-secret";
     this.refreshSecret = process.env.REFRESH_SECRET || "your-default-refresh-secret";
-    this.accessTokenExpiry = process.env.ACCESS_TOKEN_EXPIRY || "1h";
-    this.refreshTokenExpiry = process.env.REFRESH_TOKEN_EXPIRY || "7d";
+    this.accessTokenExpiry = "1h";
+    this.refreshTokenExpiry = "7d";
   }
 
   /**
@@ -153,9 +153,19 @@ export class AuthService {
       role: user.role,
     };
 
-    const accessToken = jwt.sign(payload, this.jwtSecret);
+    const expiresIn = this.accessTokenExpiry as SignOptions["expiresIn"];
 
-    const refreshToken = jwt.sign({ userId: user.id }, this.refreshSecret);
+    const accessToken = jwt.sign(
+      payload,
+      this.jwtSecret as jwt.Secret,
+      { expiresIn } // "1h"
+    );
+
+    const refreshToken = jwt.sign(
+      { userId: user.id },
+      this.refreshSecret as jwt.Secret,
+      { expiresIn } // "7d"
+    );
 
     return { accessToken, refreshToken };
   }

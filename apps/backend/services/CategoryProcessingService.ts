@@ -2,7 +2,6 @@ import { In, Repository } from "typeorm";
 import { OpenAI } from "openai";
 import { Category } from "../entities/Category";
 import { CacheService } from "./CacheService";
-import { OpenAIService } from "./OpenAIService";
 
 export class CategoryProcessingService {
   constructor(private openai: OpenAI, private categoryRepository: Repository<Category>) {}
