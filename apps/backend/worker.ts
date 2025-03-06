@@ -148,7 +148,15 @@ async function initializeWorker() {
           }
         );
 
-        console.log("SIMILARITY", scanResult.similarity);
+        // Add detailed debugging to see what's happening
+        console.log("DETAILED SCAN RESULT:", {
+          confidence: scanResult.confidence,
+          title: scanResult.eventDetails.title,
+          isDuplicate: scanResult.isDuplicate, // Check if this is properly set
+          similarityScore: scanResult.similarity.score,
+          threshold: 0.72,
+          matchingEventId: scanResult.similarity.matchingEventId,
+        });
 
         console.log(`[Worker] Image analyzed with confidence: ${scanResult.confidence}`);
 

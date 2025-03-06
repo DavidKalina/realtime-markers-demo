@@ -41,6 +41,8 @@ interface ProgressCallback {
 export class EventProcessingService {
   // Private reference to the location service
   private locationService: EnhancedLocationService;
+  private readonly DUPLICATE_SIMILARITY_THRESHOLD = 0.72;
+  private readonly SAME_LOCATION_THRESHOLD = 0.65;
 
   constructor(
     private eventRepository: Repository<Event>,
@@ -138,13 +140,20 @@ export class EventProcessingService {
     // Check for similar events using the multi-factor approach
     const similarity = await this.findSimilarEvents(finalEmbedding, eventDetailsWithCategories);
 
-    // More lenient threshold (0.78 instead of 0.92)
-    // Plus special override for same location + same date
     const isDuplicate =
-      (similarity.score > 0.72 && !!similarity.matchingEventId) ||
-      (similarity.matchReason === "Same location and same date" && similarity.score > 0.65);
+      (similarity.score > this.DUPLICATE_SIMILARITY_THRESHOLD && !!similarity.matchingEventId) ||
+      (similarity.matchReason?.includes("Same location") &&
+        similarity.score > this.SAME_LOCATION_THRESHOLD);
 
-    // If it's a duplicate, increment the scan count
+    console.log("DUPLICATE CHECK:", {
+      score: similarity.score,
+      threshold: this.DUPLICATE_SIMILARITY_THRESHOLD,
+      matchingEventId: similarity.matchingEventId,
+      matchReason: similarity.matchReason,
+      locationThreshold: this.SAME_LOCATION_THRESHOLD,
+      isDuplicate,
+    });
+
     if (isDuplicate && similarity.matchingEventId) {
       await this.handleDuplicateScan(similarity.matchingEventId);
 
