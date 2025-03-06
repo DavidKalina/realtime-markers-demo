@@ -31,6 +31,7 @@ const EMOJI_MAP: Record<string, string> = {
   verified: "✅",
   "Opening detailed": "📝",
   share: "📲",
+  attractions: "🎢",
   Looking: "🔍",
   Search: "🔍",
   flyer: "📜",
@@ -78,8 +79,8 @@ export class MessageFlowService {
 
     messages.push("I'm your personal event assistant.");
     messages.push("Tap on any marker to discover events and attractions near you.");
-    messages.push("Use the action buttons below to Search for events, scan event flyers");
-    messages.push("or Launching your profile.");
+    messages.push("Use the action buttons below to search for events, scan event flyers");
+    messages.push("or launch your profile.");
 
     return messages;
   }
