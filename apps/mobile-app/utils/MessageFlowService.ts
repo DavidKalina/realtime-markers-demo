@@ -14,6 +14,7 @@ export interface MessageFlowOptions {
 
 /**
  * Emoji mapping for message content
+ * Ensure each flow has text that matches these keys
  */
 const EMOJI_MAP: Record<string, string> = {
   discovered: "🔭",
@@ -46,13 +47,14 @@ const EMOJI_MAP: Record<string, string> = {
 
 /**
  * Goodbye messages when a marker is deselected
+ * All include "Goodbye" to match the emoji mapping
  */
 const GOODBYE_MESSAGES = [
-  "See you next time! Let me know if you want to explore more locations.",
-  "I'll be here when you're ready to discover more places!",
-  "Until next time! Looking forward to your next exploration.",
+  "Goodbye for now! See you next time! Let me know if you want to explore more locations.",
+  "Goodbye! I'll be here when you're ready to discover more places!",
+  "Goodbye! Until next time! Looking forward to your next exploration.",
   "Goodbye for now! Tap any marker to learn about other places.",
-  "That's all for this location. Let me know when you're ready for more!",
+  "Goodbye from this location. Let me know when you're ready for more!",
 ];
 
 /**
@@ -76,8 +78,8 @@ export class MessageFlowService {
 
     messages.push("I'm your personal event assistant.");
     messages.push("Tap on any marker to discover events and attractions near you.");
-    messages.push("Use the action buttons below to search, scan event flyers");
-    messages.push(",or view your profile.");
+    messages.push("Use the action buttons below to Search for events, scan event flyers");
+    messages.push("or Launching your profile.");
 
     return messages;
   }
@@ -111,7 +113,7 @@ export class MessageFlowService {
     const locationName = marker.data?.location || "";
 
     // Create an array of messages to be displayed in sequence
-    const messages = [`You discovered ${title}❗`];
+    const messages = [`You discovered ${title}!`];
 
     // Add location information if available
     if (locationName) {
@@ -120,12 +122,24 @@ export class MessageFlowService {
 
     // Add distance information
     if (distance !== null) {
-      messages.push(`${distanceText} from your current location`);
+      // Include phrases that match emoji map ("meters away" or "km away")
+      if (distance < 1000) {
+        messages.push(`${distanceText} meters away from your current location`);
+      } else {
+        messages.push(`${distanceText} km away from your current location`);
+      }
     }
 
     // Add time information if available
     if (timeInfo) {
-      messages.push(timeInfo);
+      // Format time message to match emoji map keys
+      if (timeInfo.includes("starting")) {
+        messages.push(timeInfo.replace("starting", "Starts in"));
+      } else if (timeInfo.includes("ongoing")) {
+        messages.push(timeInfo.replace("ongoing", "Happening now"));
+      } else {
+        messages.push(`time: ${timeInfo}`);
+      }
     }
 
     // Add verification status if available
@@ -184,17 +198,17 @@ export class MessageFlowService {
       case "share":
         return ["Let's share this place with your friends!"];
       case "search":
-        return ["Looking for something specific?"];
+        return ["Looking for something specific?", "Search for events that interest you."];
       case "camera":
-        return ["Camera activated!", "Scan an image of a flyer to get information about an event."];
+        return ["Camera activated!", "Scan an event flyer to get information about an event."];
       case "locate":
         return [`Returning to ${userLocation?.join(", ") || "your location"}`];
       case "next":
-        return ["Let me show you the next location on your itinerary."];
+        return ["Let me show you the next event on your itinerary."];
       case "previous":
         return ["Going back to the previous location."];
       case "user":
-        return [`Hey, ${userName || "there"}.`, "Launching your profile."];
+        return [`Hey, ${userName || "there"}!`, "Launching your profile."];
       default:
         return ["How can I help you with this location?"];
     }
@@ -216,6 +230,10 @@ export class MessageFlowService {
         return emoji;
       }
     }
+
+    // Default emoji based on message context if no direct match found
+    if (message.includes("rating")) return "⭐";
+    if (message.includes("assistant")) return "🤖";
 
     return "";
   }

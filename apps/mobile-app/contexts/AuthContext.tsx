@@ -24,13 +24,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState(apiClient.isAuthenticated());
   const { replace } = useRouter();
 
-  // Add diagnostic logging
+  useEffect(() => {
+    const initAuth = async () => {
+      // Wait for API client to be initialized - call any method to ensure initialization
+      await apiClient.syncTokensWithStorage();
+
+      // Now it's safe to get the initial state
+      setUser(apiClient.getCurrentUser());
+      setIsAuthenticated(apiClient.isAuthenticated());
+      setIsLoading(false);
+    };
+
+    initAuth();
+  }, []);
+
   useEffect(() => {
     console.log("Auth state:", {
       user: user?.id ? `User ID: ${user.id}` : "No user",
       isAuthenticated,
       apiClientAuth: apiClient.isAuthenticated(),
-      hasAccessToken: !!apiClient.getAccessToken(),
     });
   }, [user, isAuthenticated]);
 
@@ -42,23 +54,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     apiClient.addAuthListener(authListener);
-    setIsLoading(false);
 
     return () => {
       apiClient.removeAuthListener(authListener);
     };
   }, []);
 
-  // Fix the navigation effect to consider isAuthenticated
   useEffect(() => {
-    console.log("Checking navigation:", { user: user?.id, isAuthenticated });
+    console.log("Checking navigation:", { user: user?.id, isAuthenticated, isLoading });
 
-    if (user?.id && isAuthenticated) {
-      replace("/");
-    } else if (!isAuthenticated && !isLoading) {
-      replace("/login");
+    if (!isLoading) {
+      if (user?.id && isAuthenticated) {
+        replace("/");
+      } else {
+        replace("/login");
+      }
     }
   }, [user?.id, isAuthenticated, isLoading, replace]);
+
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
