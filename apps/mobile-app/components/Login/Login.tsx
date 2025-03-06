@@ -39,9 +39,9 @@ const TEST_PROFILES: Profile[] = [
     id: "074f24d8-14a2-4ed7-a6c2-a28e980a4b01",
     email: "david@example.com",
     password: "password123!",
-    name: "Josh K",
+    name: "David K",
     role: "ADMIN",
-    emoji: "💻",
+    emoji: "☕",
   },
   {
     id: "074f24d8-14a2-4ed7-a6c2-a28e980a4b01",
