@@ -146,7 +146,7 @@ async function initializeState() {
       console.log(
         `[Init] Attempt ${attempt}/${maxRetries} - Fetching events from API at ${backendUrl}/api/events`
       );
-      const res = await fetch(`${backendUrl}/api/events`);
+      const res = await fetch(`${backendUrl}/api/internal/events`);
 
       if (!res.ok) {
         throw new Error(`API returned status ${res.status}`);

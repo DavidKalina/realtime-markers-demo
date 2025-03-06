@@ -20,6 +20,7 @@ interface CreateEventInput {
   categoryIds?: string[];
   confidenceScore?: number;
   address?: string; // Add this if you want to store the address
+  creatorId: string;
 }
 
 export class EventService {
@@ -114,6 +115,7 @@ export class EventService {
       status: EventStatus.PENDING,
       address: input.address,
       embedding: pgvector.toSql(embedding),
+      creatorId: input.creatorId, // Add creator ID if provided
     };
 
     // Create event instance
