@@ -1,0 +1,159 @@
+import { StyleSheet } from "react-native";
+
+export const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#333",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#3a3a3a",
+    backgroundColor: "#333",
+    zIndex: 10,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 12,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+  },
+  clusterCount: {
+    fontSize: 14,
+    color: "#93c5fd",
+    fontFamily: "SpaceMono",
+    marginLeft: 8,
+    alignSelf: "center",
+  },
+  contentArea: {
+    flex: 1,
+    paddingTop: 8,
+  },
+  resultsText: {
+    color: "#adb5bd",
+    fontSize: 14,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    fontFamily: "SpaceMono",
+    fontWeight: "500",
+  },
+  listContent: {
+    paddingBottom: 20,
+  },
+  eventItem: {
+    flexDirection: "row",
+    backgroundColor: "#3a3a3a",
+    borderRadius: 10,
+    padding: 14,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  eventEmoji: {
+    fontSize: 28,
+    marginRight: 14,
+  },
+  eventTextContainer: {
+    flex: 1,
+    overflow: "hidden", // Prevent content from leaking
+  },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#f8f9fa",
+    marginBottom: 6,
+    fontFamily: "SpaceMono",
+  },
+  eventDetailsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  eventDetailText: {
+    fontSize: 13,
+    color: "#adb5bd",
+    fontFamily: "SpaceMono",
+    flex: 1, // Allow text to take available space
+  },
+  noResults: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+  },
+  noResultsText: {
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  noResultsSubtext: {
+    color: "#adb5bd",
+    fontFamily: "SpaceMono",
+    fontSize: 14,
+    textAlign: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+    fontSize: 16,
+    marginTop: 12,
+  },
+  errorContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#3a3a3a",
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#4a4a4a",
+    alignItems: "center",
+  },
+  errorText: {
+    color: "#f97583",
+    fontFamily: "SpaceMono",
+    fontSize: 14,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  retryButton: {
+    backgroundColor: "#93c5fd",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#333",
+    fontFamily: "SpaceMono",
+    fontWeight: "500",
+  },
+  loadingFooter: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 20,
+  },
+  loadingFooterText: {
+    color: "#adb5bd",
+    marginLeft: 8,
+    fontSize: 14,
+  },
+});

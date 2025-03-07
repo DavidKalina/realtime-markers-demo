@@ -52,3 +52,17 @@ export const getMessageEmoji = (message: string, markerId: string | null = null)
 export const generateFirstTimeWelcomeMessages = (userName?: string): string[] => {
   return MessageFlowService.getFirstTimeWelcomeFlow({ userName, isFirstTimeUser: true });
 };
+
+// utils/messageUtils.ts - Add this new function to your messageUtils.ts file
+
+/**
+ * Generate cluster discovery messages based on cluster information
+ * @param clusterCount The number of events in the cluster
+ * @param userLocation User coordinates [longitude, latitude]
+ */
+export const generateClusterMessages = (
+  clusterCount: number,
+  userLocation: [number, number] | null
+): string[] => {
+  return MessageFlowService.getClusterDiscoveryFlow(clusterCount, { userLocation });
+};

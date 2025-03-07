@@ -8,6 +8,8 @@ export enum EventTypes {
   WEBSOCKET_DISCONNECTED = "websocket:disconnected",
   MARKERS_UPDATED = "markers:updated",
   MARKER_SELECTED = "marker:selected",
+  CLUSTER_SELECTED = "cluster_selected",
+  CLUSTER_EXPANDED = "cluster_expanded",
   MARKER_DESELECTED = "marker:deselected",
   MARKER_ADDED = "marker:added",
   MARKER_REMOVED = "marker:removed",
@@ -66,6 +68,20 @@ export interface MarkerEvent extends BaseEvent {
 export interface MarkersEvent extends BaseEvent {
   markers: any[];
   count: number;
+}
+
+export interface ClusterSelectedEvent extends BaseEvent {
+  clusterId: string;
+  clusterInfo: {
+    count: number;
+    coordinates: [number, number];
+  };
+}
+
+// Event for when a cluster is expanded
+export interface ClusterExpandedEvent extends BaseEvent {
+  clusterId: string;
+  childMarkers: string[]; // Array of marker IDs in the cluster
 }
 
 export interface ExtendedMarkersEvent extends MarkersEvent {

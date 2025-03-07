@@ -45,6 +45,7 @@ export default function RootLayout() {
           <Stack.Screen name="share" options={{ headerShown: false }} />
           <Stack.Screen name="user" options={{ headerShown: false }} />
           <Stack.Screen name="saved" options={{ headerShown: false }} />
+          <Stack.Screen name="cluster" options={{ headerShown: false }} />
           <Stack.Screen name="search" options={{ headerShown: false }} />
           <Stack.Screen name="details" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" />

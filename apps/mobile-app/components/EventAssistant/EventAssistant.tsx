@@ -16,10 +16,31 @@ import {
   generateGoodbyeMessage,
   generateMessageSequence,
   generateFirstTimeWelcomeMessages,
+  generateClusterMessages,
 } from "@/utils/messageUtils";
 import AssistantActions from "./AssistantActions";
 import AssistantCard from "./AssistantCard";
 import { useAuth } from "@/contexts/AuthContext";
+
+// Import or define the MapItem types - these should be in a common types file
+interface BaseMapItem {
+  id: string;
+  coordinates: [number, number];
+  type: "marker" | "cluster";
+}
+
+interface MarkerItem extends BaseMapItem {
+  type: "marker";
+  data: Marker["data"];
+}
+
+interface ClusterItem extends BaseMapItem {
+  type: "cluster";
+  count: number;
+  childrenIds?: string[];
+}
+
+type MapItem = MarkerItem | ClusterItem;
 
 // Configuration constants
 const CONFIG = {
@@ -31,8 +52,8 @@ const CONFIG = {
 };
 
 /**
- * EventAssistant component with enhanced navigation flow and improved marker transition handling
- * Now with reading pauses after text streaming and first-time user welcome
+ * EventAssistant component with unified marker/cluster selection logic
+ * Includes reading pauses after text streaming and first-time user welcome
  * Allows interruption of welcome flow when action buttons are pressed
  */
 const EventAssistant: React.FC = () => {
@@ -47,8 +68,8 @@ const EventAssistant: React.FC = () => {
   // Auto-dismiss timer reference
   const autoDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Location store (for marker selection)
-  const { selectedMarker, selectedMarkerId } = useLocationStore();
+  // Get the unified selection state
+  const selectedItem = useLocationStore((state) => state.selectedItem);
 
   // Animation hooks
   const { styles: animationStyles, controls: animationControls } = useAssistantAnimations();
@@ -79,7 +100,7 @@ const EventAssistant: React.FC = () => {
   } = useEnhancedTextStreaming();
 
   // Keep track of navigation state
-  const previousMarkerRef = useRef<Marker | null>(null);
+  const previousItemRef = useRef<MapItem | null>(null);
   const navigationActionRef = useRef<string | null>(null);
   const isNavigatingRef = useRef<boolean>(false);
 
@@ -228,23 +249,31 @@ const EventAssistant: React.FC = () => {
     };
   }, [cancelStreaming]);
 
-  // Handle marker deselection
-  const handleMarkerDeselect = useCallback(() => {
+  // Handle item deselection (works for both markers and clusters)
+  const handleItemDeselect = useCallback(() => {
     // Skip if not mounted
     if (!isMountedRef.current) return;
 
-    // Reset previous marker reference
-    previousMarkerRef.current = null;
+    // Reset previous item reference
+    previousItemRef.current = null;
 
     // If welcome flow is active, don't proceed with deselection behavior
     if (isWelcomeFlowActiveRef.current) {
       return;
     }
 
-    // If we have a selected marker, show a goodbye message
-    if (selectedMarker) {
-      const markerName = selectedMarker.data?.title || "";
-      const goodbyeMessage = generateGoodbyeMessage(markerName);
+    // If we have a selected item, show a goodbye message
+    if (selectedItem) {
+      let itemName = "";
+
+      // Get the appropriate name based on item type
+      if (selectedItem.type === "marker") {
+        itemName = selectedItem.data?.title || "this location";
+      } else if (selectedItem.type === "cluster") {
+        itemName = "this group of events";
+      }
+
+      const goodbyeMessage = generateGoodbyeMessage(itemName);
 
       // Show goodbye message and then hide assistant
       // Use markerId "goodbye" to indicate this is a special case
@@ -262,12 +291,12 @@ const EventAssistant: React.FC = () => {
         }
       );
     } else {
-      // No marker selected, just hide
+      // No item selected, just hide
       cancelStreaming();
       animationControls.hideAssistant();
       resetStreaming();
     }
-  }, [selectedMarker, animationControls, cancelStreaming, resetStreaming, streamMessages]);
+  }, [selectedItem, animationControls, cancelStreaming, resetStreaming, streamMessages]);
 
   // Execute navigation with proper state setting and assistant cleanup
   const executeNavigation = useCallback(
@@ -312,11 +341,10 @@ const EventAssistant: React.FC = () => {
       }
 
       // IMPORTANT: Get the most up-to-date state from the store directly
-      const { selectedMarker: currentMarker, selectedMarkerId: currentMarkerId } =
-        useLocationStore.getState();
+      const currentItem = useLocationStore.getState().selectedItem;
 
-      // Validate marker selection only for marker-dependent actions
-      if (!currentMarker && ["details", "share"].includes(action)) {
+      // Validate item selection only for item-dependent actions
+      if (!currentItem && ["details", "share"].includes(action)) {
         // Show error message with no debounce and a pause to read
         streamImmediate(
           "Please select a location first.",
@@ -337,36 +365,44 @@ const EventAssistant: React.FC = () => {
       // Store the current action for when we return
       navigationActionRef.current = action;
 
-      // Use the current marker's ID when streaming action messages or a special action ID if no marker
-      const markerId = currentMarker?.id || `action-${action}`;
+      // Use the current item's ID when streaming action messages or a special action ID if no item
+      const itemId = currentItem?.id || `action-${action}`;
 
-      // Handle different actions
+      // Handle navigation based on the selected item type and action
       switch (action) {
         case "details":
-          // Show action message, then navigate
-          streamForMarker(
-            markerId,
-            actionMessages,
-            () => executeNavigation(() => navigate(`details?eventId=${currentMarkerId}` as never)),
-            { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
-          );
+          if (currentItem) {
+            // The route depends on the type of item
+            const route =
+              currentItem.type === "marker" ? `details?eventId=${currentItem.id}` : "cluster";
+
+            // Show action message, then navigate
+            streamForMarker(
+              itemId,
+              actionMessages,
+              () => executeNavigation(() => navigate(route as never)),
+              { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
+            );
+          }
           break;
 
         case "share":
-          // Show action message, then navigate to share
-          streamForMarker(
-            markerId,
-            actionMessages,
-            () => executeNavigation(() => navigate(`share?eventId=${currentMarkerId}` as never)),
-            { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
-          );
+          if (currentItem && currentItem.type === "marker") {
+            // Show action message, then navigate to share
+            streamForMarker(
+              itemId,
+              actionMessages,
+              () => executeNavigation(() => navigate(`share?eventId=${currentItem.id}` as never)),
+              { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
+            );
+          }
           break;
 
         case "search":
           // Show action message, then navigate to search
-          // No marker needed, always show assistant
+          // No item needed, always show assistant
           streamForMarker(
-            markerId,
+            itemId,
             actionMessages,
             () => executeNavigation(() => navigate("search" as never)),
             { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
@@ -375,9 +411,9 @@ const EventAssistant: React.FC = () => {
 
         case "camera":
           // Show action message, then navigate to camera
-          // No marker needed, always show assistant
+          // No item needed, always show assistant
           streamForMarker(
-            markerId,
+            itemId,
             actionMessages,
             () => executeNavigation(() => navigate("scan" as never)),
             { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
@@ -385,9 +421,9 @@ const EventAssistant: React.FC = () => {
           break;
         case "user":
           // Show action message, then navigate to user profile
-          // No marker needed, always show assistant
+          // No item needed, always show assistant
           streamForMarker(
-            markerId,
+            itemId,
             actionMessages,
             () => executeNavigation(() => navigate("user" as never)),
             { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
@@ -395,9 +431,9 @@ const EventAssistant: React.FC = () => {
           break;
         case "saved":
           // Show action message, then navigate to user profile
-          // No marker needed, always show assistant
+          // No item needed, always show assistant
           streamForMarker(
-            markerId,
+            itemId,
             actionMessages,
             () => executeNavigation(() => navigate("saved" as never)),
             { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
@@ -406,7 +442,7 @@ const EventAssistant: React.FC = () => {
 
         default:
           // Just show the messages for other actions with reading pause
-          streamForMarker(markerId, actionMessages, undefined, {
+          streamForMarker(itemId, actionMessages, undefined, {
             pauseAfterMs: CONFIG.READING_PAUSE_MS,
           });
           break;
@@ -425,22 +461,21 @@ const EventAssistant: React.FC = () => {
     ]
   );
 
-  // This version directly handles marker interactions in the component
+  // Use our updated marker effects hook with the unified selection model
   useMarkerEffects({
-    selectedMarker,
-    selectedMarkerId,
+    selectedItem,
     userLocation,
-    onMarkerSelect: (marker: Marker) => {
+    onItemSelect: (item: MapItem, messages: string[]) => {
       // Skip if not mounted
       if (!isMountedRef.current) return;
 
-      const markerId = marker.id;
+      const itemId = item.id;
 
-      // Store the previous marker for comparison
-      previousMarkerRef.current = marker;
+      // Store the previous item for comparison
+      previousItemRef.current = item;
 
-      // If we're already showing this marker, don't restart the stream
-      if (currentMarkerId === markerId) {
+      // If we're already showing this item, don't restart the stream
+      if (currentMarkerId === itemId) {
         return;
       }
 
@@ -448,9 +483,6 @@ const EventAssistant: React.FC = () => {
       if (isWelcomeFlowActiveRef.current || isWelcomeFlowActive) {
         interruptWelcomeFlow();
       }
-
-      // Generate messages for this marker
-      const messages = generateMessageSequence(marker, userLocation);
 
       // Show assistant with animation (if not already visible)
       animationControls.showAssistant(200);
@@ -461,16 +493,29 @@ const EventAssistant: React.FC = () => {
         autoDismissTimerRef.current = null;
       }
 
-      // Use the direct marker streaming function to handle rapid transitions
-      // Add pause time for reading
-      streamForMarker(
-        markerId,
-        messages,
-        undefined, // no callback
-        { pauseAfterMs: CONFIG.READING_PAUSE_MS }
-      );
+      // For clusters, we'll show messages and then navigate to cluster details
+      if (item.type === "cluster") {
+        // Stream cluster messages, then navigate to cluster details
+        streamForMarker(
+          itemId,
+          messages,
+          () => {
+            // After the cluster message is done, navigate to the cluster details screen
+            executeNavigation(() => navigate(`cluster` as never));
+          },
+          { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Shorter pause before navigation
+        );
+      } else {
+        // For markers, just show the messages
+        streamForMarker(
+          itemId,
+          messages,
+          undefined, // no callback
+          { pauseAfterMs: CONFIG.READING_PAUSE_MS }
+        );
+      }
     },
-    onMarkerDeselect: handleMarkerDeselect,
+    onItemDeselect: handleItemDeselect,
   });
 
   return (
@@ -485,7 +530,7 @@ const EventAssistant: React.FC = () => {
 
         <AssistantActions
           onActionPress={handleActionPress}
-          isStandalone={!selectedMarkerId}
+          isStandalone={!selectedItem}
           animatedStyle={animationStyles.actionBar}
         />
       </View>

@@ -2,7 +2,7 @@ import { AuthWrapper } from "@/components/AuthWrapper";
 import { ConnectionIndicator } from "@/components/ConnectionIndicator/ConnectionIndicator";
 import EventAssistant from "@/components/EventAssistant/EventAssistant";
 import { styles } from "@/components/homeScreenStyles";
-import { SimpleMapMarkers } from "@/components/Markers/MarkerImplementation";
+import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import QueueIndicator from "@/components/QueueIndicator/QueueIndicator";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useGravitationalCamera } from "@/hooks/useGravitationalCamera";
@@ -27,10 +27,13 @@ export default function HomeScreen() {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const { publish } = useEventBroker();
 
-  const { selectMarker } = useLocationStore();
+  // Use the selectMapItem from the updated store
+  const { selectMapItem } = useLocationStore();
+
+  // We can keep references to these for backward compatibility
+  const selectedItem = useLocationStore((state) => state.selectedItem);
 
   const {
-    selectedMarkerId,
     userLocation,
     setUserLocation,
     locationPermissionGranted,
@@ -40,7 +43,7 @@ export default function HomeScreen() {
   } = useUserLocationStore();
 
   const mapWebSocketData = useMapWebSocket(process.env.EXPO_PUBLIC_WEB_SOCKET_URL!);
-  const { markers, isConnected, updateViewport } = mapWebSocketData;
+  const { markers, isConnected, updateViewport, currentViewport } = mapWebSocketData;
 
   const {
     cameraRef,
@@ -49,7 +52,7 @@ export default function HomeScreen() {
   } = useGravitationalCamera(markers, {
     minMarkersForPull: 1,
     animationDuration: 500,
-    cooldownPeriod: 100,
+    cooldownPeriod: 50,
     gravityZoomLevel: 14,
     centeringThreshold: 0.002,
   });
@@ -77,9 +80,10 @@ export default function HomeScreen() {
     };
   }, [userLocation]);
 
+  // Clear selection when map is pressed (not on a marker)
   const handleMarkerPress = useCallback(() => {
-    selectMarker(null);
-  }, [selectMarker]);
+    selectMapItem(null);
+  }, [selectMapItem]);
 
   const getUserLocation = async () => {
     try {
@@ -155,6 +159,7 @@ export default function HomeScreen() {
       setIsLoadingLocation(false);
     }
   };
+
   const handleMapViewportChange = (feature: any) => {
     try {
       if (
@@ -185,6 +190,7 @@ export default function HomeScreen() {
       // Provide fallback behavior or recovery mechanism
     }
   };
+
   return (
     <AuthWrapper>
       <View style={styles.container}>
@@ -243,8 +249,10 @@ export default function HomeScreen() {
             </MapboxGL.PointAnnotation>
           )}
 
-          {/* Custom Map Markers - Using our simplified component */}
-          {isMapReady && !isLoadingLocation && <SimpleMapMarkers markers={markers} />}
+          {/* Custom Map Markers - Using our simplified component with unified selection */}
+          {isMapReady && !isLoadingLocation && currentViewport && (
+            <ClusteredMapMarkers markers={markers} viewport={currentViewport} />
+          )}
 
           {/* Add user location layer for the blue dot */}
           {locationPermissionGranted && (
@@ -269,7 +277,7 @@ export default function HomeScreen() {
               eventsCount={markers.length}
               initialConnectionState={isConnected}
               position="top-right"
-              showAnimation={!selectedMarkerId}
+              showAnimation={!selectedItem}
             />
             <QueueIndicator position="top-left" />
           </>

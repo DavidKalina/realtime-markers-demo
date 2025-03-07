@@ -1,6 +1,6 @@
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { AlertTriangle, CheckCircle, Cog } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { View } from "react-native";
 import Animated, {
   BounceIn,
@@ -32,17 +32,28 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
   const clearAllJobs = useJobSessionStore((state) => state.clearAllJobs);
   const clearJobsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Derive computed values from the jobs array.
-  const activeJobs = jobs.filter((job) => job.status === "pending" || job.status === "processing");
-  const completedJobs = jobs.filter((job) => job.status === "completed");
-  const failedJobs = jobs.filter((job) => job.status === "failed");
-  const totalJobs = jobs.length;
-  const activeJob =
-    activeJobs.length > 0
-      ? activeJobs.reduce((prev, current) =>
-          new Date(prev.updatedAt) > new Date(current.updatedAt) ? prev : current
-        )
-      : null;
+  // Memoize derived values to prevent unnecessary recalculations
+  const { activeJobs, completedJobs, failedJobs, totalJobs, activeJob, progressPercentage } =
+    React.useMemo(() => {
+      const activeJobs = jobs.filter(
+        (job) => job.status === "pending" || job.status === "processing"
+      );
+      const completedJobs = jobs.filter((job) => job.status === "completed");
+      const failedJobs = jobs.filter((job) => job.status === "failed");
+      const totalJobs = jobs.length;
+
+      const activeJob =
+        activeJobs.length > 0
+          ? activeJobs.reduce((prev, current) =>
+              new Date(prev.updatedAt) > new Date(current.updatedAt) ? prev : current
+            )
+          : null;
+
+      // Calculate progress percentage for active job
+      const progressPercentage = activeJob ? activeJob.progress : 0;
+
+      return { activeJobs, completedJobs, failedJobs, totalJobs, activeJob, progressPercentage };
+    }, [jobs]);
 
   // State to track if component is visible
   const [isVisible, setIsVisible] = useState(false);
@@ -55,9 +66,6 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
   const checkmarkScale = useSharedValue(0);
   const iconOpacity = useSharedValue(1);
 
-  // Calculate progress percentage for active job
-  const progressPercentage = activeJob ? activeJob.progress : 0;
-
   // Setup visibility when there are jobs
   useEffect(() => {
     if (totalJobs > 0) {
@@ -65,20 +73,27 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
     }
   }, [totalJobs]);
 
-  // Update status based on job states
+  // Memoize status determination logic
   useEffect(() => {
-    if (failedJobs.length > 0) {
-      setStatus("failed");
-    } else if (activeJobs.length > 0) {
-      setStatus("processing");
-    } else if (completedJobs.length > 0 && activeJobs.length === 0) {
-      setStatus("completed");
-    } else {
-      setStatus("idle");
-    }
-  }, [activeJobs, completedJobs, failedJobs]);
+    // This derived logic doesn't depend on status itself anymore
+    let newStatus: "idle" | "processing" | "completed" | "failed" = "idle";
 
-  useEffect(() => {
+    if (failedJobs.length > 0) {
+      newStatus = "failed";
+    } else if (activeJobs.length > 0) {
+      newStatus = "processing";
+    } else if (completedJobs.length > 0 && activeJobs.length === 0) {
+      newStatus = "completed";
+    }
+
+    // Only update status if it has changed
+    if (newStatus !== status) {
+      setStatus(newStatus);
+    }
+  }, [activeJobs.length, completedJobs.length, failedJobs.length, status]);
+
+  // Auto-dismiss logic with useCallback to prevent unnecessary function recreations
+  const handleAutoDismiss = useCallback(() => {
     if (activeJobs.length === 0 && (completedJobs.length > 0 || failedJobs.length > 0)) {
       const timer = setTimeout(() => {
         setIsVisible(false);
@@ -96,7 +111,12 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
         }
       };
     }
-  }, [activeJobs, completedJobs, failedJobs, clearAllJobs, autoDismissDelay]);
+  }, [activeJobs.length, completedJobs.length, failedJobs.length, clearAllJobs, autoDismissDelay]);
+
+  // Apply auto-dismiss effect
+  useEffect(() => {
+    return handleAutoDismiss();
+  }, [handleAutoDismiss]);
 
   // Handle animations based on status
   useEffect(() => {
@@ -147,7 +167,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
     };
   }, []);
 
-  // Create animated styles
+  // Memoize animated styles
   const rotationAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotationValue.value * 360}deg` }],
     opacity: iconOpacity.value,
@@ -159,8 +179,8 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
     position: "absolute",
   }));
 
-  // Get position styles
-  const getPositionStyle = () => {
+  // Memoize position style
+  const positionStyle = React.useMemo(() => {
     switch (position) {
       case "top-right":
         return { top: 50, right: 16 };
@@ -175,10 +195,10 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
       default:
         return { top: 50, left: 16 };
     }
-  };
+  }, [position]);
 
-  // Get status-based color
-  const getStatusColor = () => {
+  // Memoize status color
+  const statusColor = React.useMemo(() => {
     switch (status) {
       case "processing":
         return "#1098ad"; // Cyan
@@ -189,7 +209,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
       default:
         return "#868e96"; // Gray
     }
-  };
+  }, [status]);
 
   // If component is not visible or no jobs at all, don't render
   if (!isVisible || (totalJobs === 0 && status === "idle")) {
@@ -198,13 +218,13 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
 
   return (
     <Animated.View
-      style={[styles.container, getPositionStyle()]}
+      style={[styles.container, positionStyle]}
       entering={BounceIn.duration(300).springify()}
       exiting={BounceOut.duration(300)}
       layout={Layout.springify()}
     >
       <Animated.View
-        style={[styles.indicator, { backgroundColor: getStatusColor() }]}
+        style={[styles.indicator, { backgroundColor: statusColor }]}
         layout={Layout.springify()}
       >
         {/* Rotating cog for processing */}
@@ -231,7 +251,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
             <Animated.View
               style={[
                 styles.progressBar,
-                { width: `${progressPercentage}%`, backgroundColor: getStatusColor() },
+                { width: `${progressPercentage}%`, backgroundColor: statusColor },
               ]}
               layout={Layout.springify()}
             />
