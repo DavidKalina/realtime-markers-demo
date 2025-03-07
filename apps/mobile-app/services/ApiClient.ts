@@ -304,6 +304,7 @@ class ApiClient {
       categories: apiEvent.categories?.map((c) => c.name) || [],
       creator: apiEvent?.creator,
       scanCount: apiEvent.scanCount ?? 1,
+      saveCount: apiEvent.saveCount ?? 0,
     };
   }
 

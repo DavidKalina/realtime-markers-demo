@@ -44,6 +44,9 @@ const EMOJI_MAP: Record<string, string> = {
   "How can I help": "💬",
   rating: "⭐",
   remember: "🧠",
+  saved: "🔖",
+  bookmarked: "🔖",
+  favorites: "❤️",
 };
 
 /**
@@ -210,6 +213,8 @@ export class MessageFlowService {
         return ["Going back to the previous location."];
       case "user":
         return [`Hey, ${userName || "there"}!`, "Launching your profile."];
+      case "saved":
+        return ["Opening your saved events!", "Let's see what you've bookmarked for later."];
       default:
         return ["How can I help you with this location?"];
     }
