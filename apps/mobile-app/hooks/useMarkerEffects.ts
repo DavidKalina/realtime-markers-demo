@@ -1,78 +1,87 @@
-// hooks/useMarkerEffects.ts - Fixed version
-import { useEffect, useRef } from "react";
+// hooks/useMarkerEffects.ts
+import { useEventBroker } from "@/hooks/useEventBroker";
 import { Marker } from "@/hooks/useMapWebsocket";
-import { generateMessageSequence, generateGoodbyeMessage } from "../utils/messageUtils";
+import { EventTypes } from "@/services/EventBroker";
+import { useEffect, useRef } from "react";
+import { generateClusterMessages, generateMessageSequence } from "../utils/messageUtils";
 
 interface MarkerEffectsProps {
-  // Selected marker state
+  // Selected marker/cluster state
   selectedMarker: Marker | null;
   selectedMarkerId: string | null;
+  selectedItemType: "marker" | "cluster" | null;
+  selectedCluster: { id: string; count: number; coordinates: [number, number] } | null;
 
   // User location for distance calculations
   userLocation: [number, number] | null;
 
   // Callback functions
   onMarkerSelect: (marker: Marker, messages: string[]) => void;
-  onMarkerDeselect: () => void; // Remove goodbyeMessage parameter
+  onClusterSelect?: (
+    cluster: { id: string; count: number; coordinates: [number, number] },
+    messages: string[]
+  ) => void;
+  onMarkerDeselect: () => void;
 }
 
 /**
- * Custom hook to handle marker selection and deselection effects
+ * Custom hook to handle marker and cluster selection and deselection effects
  */
 export const useMarkerEffects = ({
   selectedMarker,
   selectedMarkerId,
+  selectedItemType,
+  selectedCluster,
   userLocation,
   onMarkerSelect,
+  onClusterSelect,
   onMarkerDeselect,
 }: MarkerEffectsProps) => {
-  // Create a reference to track the current active marker ID and last marker name
+  // Create references to track the current active selection
   const currentMarkerIdRef = useRef<string | null>(null);
+  const currentItemTypeRef = useRef<"marker" | "cluster" | null>(null);
   const lastMarkerNameRef = useRef<string>("");
+  const { subscribe } = useEventBroker();
 
+  // Reference to track already processed markers/clusters to prevent duplicate handling
+  const processedItemRef = useRef<{ id: string; type: "marker" | "cluster" } | null>(null);
+
+  // Handle deselection
   useEffect(() => {
-    // Note: we need to keep track of marker deselection
-    const wasMarkerSelected = Boolean(currentMarkerIdRef.current);
-    const isMarkerSelected = Boolean(selectedMarkerId);
+    const wasItemSelected = Boolean(currentMarkerIdRef.current);
+    const isItemSelected = Boolean(selectedMarkerId) || Boolean(selectedCluster);
 
-    // If we just deselected a marker, trigger cleanup
-    const markerDeselected = wasMarkerSelected && !isMarkerSelected;
-
-    // Reset processedMarkerRef when marker is deselected
-    if (markerDeselected) {
-      processedMarkerRef.current = null;
-    }
+    // If we just deselected an item, trigger cleanup
+    const itemDeselected = wasItemSelected && !isItemSelected;
 
     // Update our reference
     currentMarkerIdRef.current = selectedMarkerId;
+    currentItemTypeRef.current = selectedItemType;
 
-    // Handle marker deselection with simple cleanup
-    if (markerDeselected) {
-      onMarkerDeselect(); // No need to pass a goodbye message anymore
+    // Reset the processed item ref when deselected
+    if (itemDeselected) {
+      processedItemRef.current = null;
+      onMarkerDeselect();
     }
-  }, [selectedMarkerId, onMarkerDeselect]);
+  }, [selectedMarkerId, selectedCluster, selectedItemType, onMarkerDeselect]);
 
-  const processedMarkerRef = useRef<string | null>(null);
-
-  // When selected marker changes, handle selection effects
+  // Handle marker selection
   useEffect(() => {
-    // Skip if no marker is selected
-    if (!selectedMarker || !selectedMarkerId) {
+    // Skip if no marker is selected or if it's not a marker selection
+    if (!selectedMarker || !selectedMarkerId || selectedItemType !== "marker") {
       return;
     }
 
-    // Reset processing state if this is a DIFFERENT marker than before
-    if (processedMarkerRef.current && processedMarkerRef.current !== selectedMarkerId) {
-      processedMarkerRef.current = null;
-    }
-
-    // Skip if we've already processed this exact marker in this selection cycle
-    if (processedMarkerRef.current === selectedMarkerId) {
+    // Skip if we've already processed this exact marker
+    if (
+      processedItemRef.current?.id === selectedMarkerId &&
+      processedItemRef.current?.type === "marker"
+    ) {
       return;
     }
 
-    // Set the processed marker ref
-    processedMarkerRef.current = selectedMarkerId;
+    // Update the processed item ref
+    processedItemRef.current = { id: selectedMarkerId, type: "marker" };
 
     try {
       // Generate message sequence for this marker
@@ -88,11 +97,57 @@ export const useMarkerEffects = ({
       console.error("Error processing selected marker:", error);
       onMarkerSelect(selectedMarker, ["Sorry, I couldn't load information about this location."]);
     }
-  }, [selectedMarker, selectedMarkerId, userLocation, onMarkerSelect]);
+  }, [selectedMarker, selectedMarkerId, selectedItemType, userLocation, onMarkerSelect]);
 
-  // We're only using refs here, not Reanimated shared values, so this should be fine
+  // Handle cluster selection
+  useEffect(() => {
+    // Skip if no cluster is selected or if it's not a cluster selection
+    if (!selectedCluster || selectedItemType !== "cluster" || !onClusterSelect) {
+      return;
+    }
+
+    // Skip if we've already processed this exact cluster
+    if (
+      processedItemRef.current?.id === selectedCluster.id &&
+      processedItemRef.current?.type === "cluster"
+    ) {
+      return;
+    }
+
+    // Update the processed item ref
+    processedItemRef.current = { id: selectedCluster.id, type: "cluster" };
+
+    try {
+      // Generate message sequence for this cluster
+      const messages = generateClusterMessages(selectedCluster.count, userLocation);
+
+      // Trigger the cluster select callback with messages
+      onClusterSelect(selectedCluster, messages);
+    } catch (error) {
+      console.error("Error processing selected cluster:", error);
+      onClusterSelect(selectedCluster, [
+        "Sorry, I couldn't load information about this group of events.",
+      ]);
+    }
+  }, [selectedCluster, selectedItemType, userLocation, onClusterSelect]);
+
+  // Subscribe to marker/cluster selection events from the EventBroker
+  useEffect(() => {
+    const handleClusterSelected = (event: any) => {
+      // Event handling happens via the useEffect hooks above
+      // This is mainly to log the event in development
+      if (__DEV__) {
+        console.log("Cluster selected event:", event);
+      }
+    };
+
+    // Subscribe to the cluster selected event
+    subscribe(EventTypes.CLUSTER_SELECTED, handleClusterSelected);
+  }, [subscribe]);
+
   return {
     currentMarkerId: currentMarkerIdRef.current,
+    currentItemType: currentItemTypeRef.current,
     lastMarkerName: lastMarkerNameRef.current,
   };
 };

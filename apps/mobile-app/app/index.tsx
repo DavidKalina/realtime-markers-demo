@@ -2,7 +2,7 @@ import { AuthWrapper } from "@/components/AuthWrapper";
 import { ConnectionIndicator } from "@/components/ConnectionIndicator/ConnectionIndicator";
 import EventAssistant from "@/components/EventAssistant/EventAssistant";
 import { styles } from "@/components/homeScreenStyles";
-import { SimpleMapMarkers } from "@/components/Markers/MarkerImplementation";
+import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import QueueIndicator from "@/components/QueueIndicator/QueueIndicator";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useGravitationalCamera } from "@/hooks/useGravitationalCamera";
@@ -40,7 +40,7 @@ export default function HomeScreen() {
   } = useUserLocationStore();
 
   const mapWebSocketData = useMapWebSocket(process.env.EXPO_PUBLIC_WEB_SOCKET_URL!);
-  const { markers, isConnected, updateViewport } = mapWebSocketData;
+  const { markers, isConnected, updateViewport, currentViewport } = mapWebSocketData;
 
   const {
     cameraRef,
@@ -244,7 +244,9 @@ export default function HomeScreen() {
           )}
 
           {/* Custom Map Markers - Using our simplified component */}
-          {isMapReady && !isLoadingLocation && <SimpleMapMarkers markers={markers} />}
+          {isMapReady && !isLoadingLocation && currentViewport && (
+            <ClusteredMapMarkers markers={markers} viewport={currentViewport} />
+          )}
 
           {/* Add user location layer for the blue dot */}
           {locationPermissionGranted && (

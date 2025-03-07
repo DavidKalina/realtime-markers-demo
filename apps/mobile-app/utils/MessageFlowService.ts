@@ -220,6 +220,39 @@ export class MessageFlowService {
     }
   }
 
+  // utils/MessageFlowService.ts - Add this new method to your MessageFlowService class
+
+  /**
+   * Generates a cluster discovery message flow
+   * @param clusterCount The number of events in the cluster
+   * @param options Message flow options
+   * @returns Array of cluster discovery messages
+   */
+  static getClusterDiscoveryFlow(clusterCount: number, options: MessageFlowOptions = {}): string[] {
+    const { userLocation } = options;
+    const messages: string[] = [];
+
+    // Cluster discovery message
+    if (clusterCount > 10) {
+      messages.push(`You've found a hotspot with ${clusterCount} events!`);
+    } else {
+      messages.push(`You've found a group of ${clusterCount} events!`);
+    }
+
+    // Different message based on cluster size
+    if (clusterCount > 20) {
+      messages.push("This is a major event hub with lots of activities.");
+    } else if (clusterCount > 10) {
+      messages.push("This location hosts several interesting events.");
+    } else if (clusterCount > 5) {
+      messages.push("A few interesting events are happening at this location.");
+    } else {
+      messages.push("A couple of events are taking place here.");
+    }
+
+    return messages;
+  }
+
   /**
    * Get appropriate emoji for a message based on its content
    * @param message The message text

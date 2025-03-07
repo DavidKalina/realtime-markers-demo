@@ -16,6 +16,7 @@ import {
   generateGoodbyeMessage,
   generateMessageSequence,
   generateFirstTimeWelcomeMessages,
+  generateClusterMessages,
 } from "@/utils/messageUtils";
 import AssistantActions from "./AssistantActions";
 import AssistantCard from "./AssistantCard";
@@ -62,6 +63,9 @@ const EventAssistant: React.FC = () => {
 
   // Track if we've already initiated the welcome flow check in this session
   const hasInitiatedWelcomeCheckRef = useRef(false);
+
+  const selectedItemType = useLocationStore((state) => state.selectedItemType);
+  const selectedCluster = useLocationStore((state) => state.selectedCluster);
 
   // Track if we should skip the welcome flow (e.g., after an action button is pressed)
   const skipWelcomeFlowRef = useRef(false);
@@ -425,12 +429,13 @@ const EventAssistant: React.FC = () => {
     ]
   );
 
-  // This version directly handles marker interactions in the component
   useMarkerEffects({
     selectedMarker,
     selectedMarkerId,
+    selectedItemType,
+    selectedCluster,
     userLocation,
-    onMarkerSelect: (marker: Marker) => {
+    onMarkerSelect: (marker: Marker, messages: string[]) => {
       // Skip if not mounted
       if (!isMountedRef.current) return;
 
@@ -449,9 +454,6 @@ const EventAssistant: React.FC = () => {
         interruptWelcomeFlow();
       }
 
-      // Generate messages for this marker
-      const messages = generateMessageSequence(marker, userLocation);
-
       // Show assistant with animation (if not already visible)
       animationControls.showAssistant(200);
 
@@ -468,6 +470,42 @@ const EventAssistant: React.FC = () => {
         messages,
         undefined, // no callback
         { pauseAfterMs: CONFIG.READING_PAUSE_MS }
+      );
+    },
+    onClusterSelect: (cluster, messages: string[]) => {
+      // Skip if not mounted
+      if (!isMountedRef.current) return;
+
+      const clusterId = cluster.id;
+
+      // If we're already showing this cluster, don't restart the stream
+      if (currentMarkerId === clusterId) {
+        return;
+      }
+
+      // If welcome flow is active, interrupt it
+      if (isWelcomeFlowActiveRef.current || isWelcomeFlowActive) {
+        interruptWelcomeFlow();
+      }
+
+      // Show assistant with animation (if not already visible)
+      animationControls.showAssistant(200);
+
+      // Clear any existing auto-dismiss timer since we're showing new content
+      if (autoDismissTimerRef.current) {
+        clearTimeout(autoDismissTimerRef.current);
+        autoDismissTimerRef.current = null;
+      }
+
+      // Stream cluster messages, then navigate to cluster details
+      streamForMarker(
+        clusterId,
+        messages,
+        () => {
+          // After the cluster message is done, navigate to the cluster details screen
+          executeNavigation(() => navigate(`cluster` as never));
+        },
+        { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Shorter pause before navigation
       );
     },
     onMarkerDeselect: handleMarkerDeselect,
