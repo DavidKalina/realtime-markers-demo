@@ -57,23 +57,24 @@ const EMOJIS = [
 
 // Emoji animation configuration
 const EMOJI_SIZE = 18;
-const EMISSION_INTERVAL = 1000; // ms between emoji emissions (slightly faster for twinkling)
-const MAX_ACTIVE_EMOJIS = 8; // Increased for better twinkling effect across the map
-const ANIMATION_DURATION = 5000; // ms (longer for prettier twinkling)
+const EMISSION_INTERVAL = 1000; // ms between emoji emissions
+const MAX_ACTIVE_EMOJIS = 10; // Increased for better global coverage
+const ANIMATION_DURATION = 5000; // ms
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
-// Camera configuration
+// Globe camera configuration
 const CAMERA_UPDATE_INTERVAL = 16; // ms (approximately 60fps for smoother animation)
-const PITCH = 50; // Fixed pitch for 3D effect
-const BEARING_CHANGE_SPEED = 0.03; // Degrees per update - slower rotation for smoother effect
-const PAN_SPEED = 0.00015; // Speed of position change (in degrees)
-const PAN_RADIUS = 0.008; // Maximum distance to pan from center point
+const MIN_ZOOM = 1; // Farther out to see the globe
+const MAX_ZOOM = 2; // Closer to see details but still show globe curvature
+const ROTATION_SPEED = 0.05; // Degrees per update for globe rotation
+const PITCH_VARIATION = 10; // How much the pitch can vary from center
+const BASE_PITCH = 40; // Base pitch for globe view
 
-// Default map settings
+// Default globe settings
 const DEFAULT_LOCATION = {
-  center: [-122.4324, 37.78825], // San Francisco by default
-  zoom: 14,
+  center: [0, 20], // Start more centered on the globe
+  zoom: 1.5,
   styleURL: Mapbox.StyleURL.Dark,
 };
 
@@ -217,7 +218,7 @@ interface AnimatedEmission {
   index: number;
 }
 
-interface AnimatedMapBackgroundProps {
+interface AnimatedGlobeBackgroundProps {
   location?: {
     center: [number, number]; // [longitude, latitude]
     zoom: number;
@@ -225,7 +226,7 @@ interface AnimatedMapBackgroundProps {
   };
 }
 
-const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
+const AnimatedGlobeBackground: React.FC<AnimatedGlobeBackgroundProps> = ({
   location = DEFAULT_LOCATION,
 }) => {
   const [activeEmissions, setActiveEmissions] = useState<AnimatedEmission[]>([]);
@@ -235,7 +236,7 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
   const [cameraPosition, setCameraPosition] = useState({
     centerCoordinate: location.center,
     zoomLevel: location.zoom,
-    pitch: PITCH,
+    pitch: BASE_PITCH,
     bearing: 0,
   });
 
@@ -245,93 +246,72 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
   const emissionCount = useRef(0);
 
   // Animation control refs
-  const panAnimationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const globeAnimationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeRef = useRef(0);
   const bearingRef = useRef(0);
+  const pitchRef = useRef(BASE_PITCH);
 
-  // Create complex panning pattern reference values
-  const xOffsetFactorRef = useRef(Math.random() * Math.PI * 2);
-  const yOffsetFactorRef = useRef(Math.random() * Math.PI * 2);
-  const xFrequencyRef = useRef(0.0001 + Math.random() * 0.0001);
-  const yFrequencyRef = useRef(0.0001 + Math.random() * 0.0001);
-
-  // Set up continuous panning viewport
+  // Set up continuous globe rotation
   useEffect(() => {
-    // Start with interpolation state
-    let currentXOffset = 0;
-    let currentYOffset = 0;
-    let targetXOffset = 0;
-    let targetYOffset = 0;
-    let currentBearing = 0;
-
-    // For smoother movement, we'll use interpolation
-    const INTERPOLATION_FACTOR = 0.03; // Lower = smoother but slower transitions
-
     // First update to establish initial position
     cameraRef.current?.setCamera({
       centerCoordinate: location.center,
       zoomLevel: location.zoom,
-      pitch: PITCH,
+      pitch: BASE_PITCH,
       animationDuration: 0,
     });
 
-    // Generate new targets periodically
-    const newTargetIntervalRef = setInterval(() => {
-      // Generate new target offsets for complex panning pattern
-      // Creates natural-looking movement that's less predictable
-      targetXOffset = (Math.random() * 2 - 1) * PAN_RADIUS * 0.7;
-      targetYOffset = (Math.random() * 2 - 1) * PAN_RADIUS * 0.7;
-    }, 10000); // Change targets every 10 seconds
+    // For smoother movement, we'll use interpolation
+    const INTERPOLATION_FACTOR = 0.03; // Lower = smoother but slower transitions
 
-    // Start the panning animation at high framerate
-    panAnimationIntervalRef.current = setInterval(() => {
+    // Start the globe animation at high framerate
+    globeAnimationIntervalRef.current = setInterval(() => {
       // Increment time reference
       timeRef.current += CAMERA_UPDATE_INTERVAL;
 
-      // Update bearing with smooth continuous rotation
-      bearingRef.current = (bearingRef.current + BEARING_CHANGE_SPEED) % 360;
+      // Update bearing for continuous globe rotation (longitude)
+      bearingRef.current = (bearingRef.current + ROTATION_SPEED) % 360;
 
-      // For silky smooth camera movement, interpolate toward target values
-      // This creates gradual acceleration/deceleration between positions
-      currentXOffset = currentXOffset + (targetXOffset - currentXOffset) * INTERPOLATION_FACTOR;
-      currentYOffset = currentYOffset + (targetYOffset - currentYOffset) * INTERPOLATION_FACTOR;
-      currentBearing =
-        currentBearing + (bearingRef.current - currentBearing) * INTERPOLATION_FACTOR;
+      // Adjust zoom level with subtle breathing effect
+      const zoomBreathing = Math.sin(timeRef.current * 0.0001) * 0.1;
+      const newZoom = location.zoom + zoomBreathing;
 
-      // Add subtle sinusoidal movement for organic feel - very small amplitude
-      const subtleX = Math.sin(timeRef.current * 0.0001) * PAN_RADIUS * 0.1;
-      const subtleY = Math.cos(timeRef.current * 0.00008) * PAN_RADIUS * 0.1;
+      // Slightly vary pitch for more dynamic movement
+      const pitchVariation = Math.sin(timeRef.current * 0.0002) * PITCH_VARIATION;
+      pitchRef.current = BASE_PITCH + pitchVariation;
 
-      // Calculate new center position with combined movement patterns
-      const newCenter = [
-        location.center[0] + currentXOffset + subtleX,
-        location.center[1] + currentYOffset + subtleY,
+      // Gently move across latitudes (up and down the globe)
+      const latitudeOffset = Math.sin(timeRef.current * 0.00015) * 15; // Move between -15 and +15 degrees latitude
+
+      // Calculate new center position for the globe
+      const newCenter: [number, number] = [
+        // Adjust longitude as we rotate (smooth continuous movement around the globe)
+        ((location.center[0] + timeRef.current * 0.0001) % 360) - 180,
+        // Adjust latitude with sinusoidal pattern
+        Math.max(-80, Math.min(80, location.center[1] + latitudeOffset)),
       ];
 
       // Apply the camera update with very short animation duration for smoothness
       cameraRef.current?.setCamera({
         centerCoordinate: newCenter,
-        zoomLevel: location.zoom,
-        pitch: PITCH,
+        zoomLevel: newZoom,
+        pitch: pitchRef.current,
         animationDuration: CAMERA_UPDATE_INTERVAL, // Match interval for smooth motion
       });
 
       // Update state (for other components that might need the position)
       setCameraPosition({
         centerCoordinate: newCenter,
-        zoomLevel: location.zoom,
-        pitch: PITCH,
-        bearing: currentBearing,
+        zoomLevel: newZoom,
+        pitch: pitchRef.current,
+        bearing: bearingRef.current,
       });
     }, CAMERA_UPDATE_INTERVAL);
 
     // Cleanup
     return () => {
-      if (panAnimationIntervalRef.current) {
-        clearInterval(panAnimationIntervalRef.current);
-      }
-      if (newTargetIntervalRef) {
-        clearInterval(newTargetIntervalRef);
+      if (globeAnimationIntervalRef.current) {
+        clearInterval(globeAnimationIntervalRef.current);
       }
     };
   }, [location]);
@@ -339,19 +319,19 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
   const generateEmissionPoints = () => {
     const newPoints: { x: number; y: number }[] = [];
 
-    // Generate 15-25 random emission points (more points for better twinkling coverage)
-    const numPoints = 15 + Math.floor(Math.random() * 11);
+    // Generate points that are distributed more globally
+    const numPoints = 20 + Math.floor(Math.random() * 10);
 
     // Divide the screen into a grid to ensure better distribution
-    const gridCols = 5;
-    const gridRows = 4;
+    const gridCols = 6; // More columns for global coverage
+    const gridRows = 5; // More rows for global coverage
     const cellWidth = SCREEN_WIDTH / gridCols;
-    const cellHeight = (SCREEN_HEIGHT - 150) / gridRows;
+    const cellHeight = (SCREEN_HEIGHT - 100) / gridRows;
 
     // Create a grid-based distribution with some randomness
     const cellsToFill = new Set<number>();
 
-    // First, select random cells to fill (ensuring coverage across the screen)
+    // First, select random cells to fill (ensuring global coverage)
     while (cellsToFill.size < Math.min(gridCols * gridRows, numPoints)) {
       const cellIndex = Math.floor(Math.random() * (gridCols * gridRows));
       cellsToFill.add(cellIndex);
@@ -389,7 +369,7 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
 
           // Keep within screen bounds
           x = Math.max(20, Math.min(SCREEN_WIDTH - 20, x));
-          y = Math.max(50, Math.min(SCREEN_HEIGHT - 150, y));
+          y = Math.max(50, Math.min(SCREEN_HEIGHT - 100, y));
 
           newPoints.push({ x, y });
         } else {
@@ -412,7 +392,7 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
     setEmissionPoints(newPoints);
   };
 
-  // Generate emissions that twinkle on the map
+  // Generate emissions that twinkle on the globe
   const generateEmission = () => {
     if (activeEmissions.length >= MAX_ACTIVE_EMOJIS || emissionPoints.length === 0) return;
 
@@ -492,8 +472,8 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
   useEffect(() => {
     return () => {
       // Clear all timeouts and intervals
-      if (panAnimationIntervalRef.current) {
-        clearInterval(panAnimationIntervalRef.current);
+      if (globeAnimationIntervalRef.current) {
+        clearInterval(globeAnimationIntervalRef.current);
       }
       if (emissionIntervalRef.current) {
         clearInterval(emissionIntervalRef.current);
@@ -514,6 +494,10 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
   return (
     <View style={styles.container}>
       <Mapbox.MapView
+        scaleBarEnabled={false}
+        attributionEnabled={false}
+        logoEnabled={false}
+        compassEnabled={false}
         ref={mapRef}
         style={styles.map}
         styleURL={location.styleURL}
@@ -522,6 +506,8 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
         rotateEnabled={false}
         pitchEnabled={false}
         onDidFinishLoadingMap={onMapLoaded}
+        // For globe projection
+        projection="globe"
       >
         <Mapbox.Camera
           ref={cameraRef}
@@ -578,7 +564,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(34, 34, 34, 0.88)", // Slightly darker overlay
+    backgroundColor: "rgba(20, 20, 30, 0.75)", // Slightly darker overlay with blue tint for space feel
   },
   emojiContainer: {
     position: "absolute",
@@ -587,7 +573,7 @@ const styles = StyleSheet.create({
     borderRadius: EMOJI_SIZE / 2,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(26, 26, 26, 0.7)", // Semi-transparent background for better twinkling
+    backgroundColor: "rgba(16, 16, 36, 0.7)", // Semi-transparent background with blue tint
     borderWidth: 1, // Thin border
     borderColor: "#4dabf7", // Tech-blue border
     shadowColor: "#4dabf7",
@@ -612,4 +598,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AnimatedMapBackground;
+export default AnimatedGlobeBackground;
