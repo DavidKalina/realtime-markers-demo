@@ -47,6 +47,16 @@ const EMOJI_MAP: Record<string, string> = {
   saved: "🔖",
   bookmarked: "🔖",
   favorites: "❤️",
+  "found a hotspot": "🔥",
+  "found a group": "📍",
+  "major event hub": "🌟",
+  "several interesting events": "🎭",
+  "interesting events": "📅",
+  "events are happening": "📅",
+  "events are taking place": "📅",
+  "group of": "👥",
+  hotspot: "🔥",
+  "event hub": "🌟",
 };
 
 /**
