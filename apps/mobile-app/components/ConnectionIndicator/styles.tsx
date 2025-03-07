@@ -24,7 +24,7 @@ export const styles = StyleSheet.create({
     marginRight: 8,
   },
   connected: {
-    backgroundColor: "fff",
+    backgroundColor: "#fff",
   },
   disconnected: {
     backgroundColor: "#f44336",

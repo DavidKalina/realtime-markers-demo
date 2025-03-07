@@ -257,7 +257,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
         return <AlertCircle size={16} color="#fff" />;
       default:
         return isConnected ? (
-          <Bolt size={16} color="##4dabf7" />
+          <Bolt size={16} color="#4dabf7" />
         ) : (
           <WifiOff size={16} color="#fff" />
         );
