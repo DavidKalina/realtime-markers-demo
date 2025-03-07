@@ -2,11 +2,6 @@ import React, { useEffect, useRef } from "react";
 import { View, StyleSheet, Dimensions } from "react-native";
 import Mapbox from "@rnmapbox/maps";
 
-// Screen dimensions
-
-const SCREEN_WIDTH = Dimensions.get("window").width;
-const SCREEN_HEIGHT = Dimensions.get("window").height;
-
 // Globe camera configuration
 const CAMERA_UPDATE_INTERVAL = 16; // ms (approximately 60fps for smoother animation)
 const ROTATION_SPEED = 0.05; // Degrees per update for globe rotation
@@ -19,8 +14,6 @@ const DEFAULT_LOCATION = {
   zoom: 1.4, // Zoomed out enough to see full globe
   styleURL: Mapbox.StyleURL.Dark,
 };
-
-// No interfaces needed for emoji animations since we're removing them
 
 interface AnimatedGlobeBackgroundProps {
   location?: {
@@ -51,21 +44,29 @@ const AnimatedGlobeBackground: React.FC<AnimatedGlobeBackgroundProps> = ({
   const bearingRef = useRef(0);
   const pitchRef = useRef(BASE_PITCH);
 
+  // Mounted ref to prevent memory leaks
+  const isMountedRef = useRef(true);
+
   // Set up continuous globe rotation
   useEffect(() => {
     // First update to establish initial position
-    cameraRef.current?.setCamera({
-      centerCoordinate: location.center,
-      zoomLevel: location.zoom,
-      pitch: BASE_PITCH,
-      animationDuration: 0,
-    });
+    if (cameraRef.current) {
+      cameraRef.current.setCamera({
+        centerCoordinate: location.center,
+        zoomLevel: location.zoom,
+        pitch: BASE_PITCH,
+        animationDuration: 0,
+      });
+    }
 
     // For smoother movement, we'll use interpolation
     const INTERPOLATION_FACTOR = 0.03; // Lower = smoother but slower transitions
 
     // Start the globe animation at high framerate
     globeAnimationIntervalRef.current = setInterval(() => {
+      // Skip animation updates if component is unmounting
+      if (!isMountedRef.current || !cameraRef.current) return;
+
       // Increment time reference
       timeRef.current += CAMERA_UPDATE_INTERVAL;
 
@@ -92,7 +93,7 @@ const AnimatedGlobeBackground: React.FC<AnimatedGlobeBackgroundProps> = ({
       ];
 
       // Apply the camera update with very short animation duration for smoothness
-      cameraRef.current?.setCamera({
+      cameraRef.current.setCamera({
         centerCoordinate: newCenter,
         zoomLevel: newZoom,
         pitch: pitchRef.current,
@@ -100,20 +101,36 @@ const AnimatedGlobeBackground: React.FC<AnimatedGlobeBackgroundProps> = ({
       });
     }, CAMERA_UPDATE_INTERVAL);
 
-    // Cleanup
+    // Cleanup for this specific effect
     return () => {
       if (globeAnimationIntervalRef.current) {
         clearInterval(globeAnimationIntervalRef.current);
+        globeAnimationIntervalRef.current = null;
       }
     };
   }, [location]);
 
-  // Final cleanup when component unmounts
+  // Single cleanup effect when component unmounts
   useEffect(() => {
+    // Set mounted flag to true initially
+    isMountedRef.current = true;
+
+    // Return cleanup function
     return () => {
-      // Clear all intervals
+      // Set mounted flag to false to prevent memory leaks
+      isMountedRef.current = false;
+
+      // Handle any Mapbox-specific cleanup if needed
+      // (Research suggests Mapbox components should clean up automatically,
+      // but explicitly setting refs to null can help with garbage collection)
+      if (mapRef.current) {
+        // Any Mapbox-specific cleanup could be done here if needed
+      }
+
+      // This is redundant as the location effect should handle it, but kept as a safeguard
       if (globeAnimationIntervalRef.current) {
         clearInterval(globeAnimationIntervalRef.current);
+        globeAnimationIntervalRef.current = null;
       }
     };
   }, []);
