@@ -1,6 +1,6 @@
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes } from "@/services/EventBroker";
-import { AlertCircle, Minus, Plus, Wifi, WifiOff } from "lucide-react-native";
+import { AlertCircle, Minus, Plus, WifiOff, Bolt } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { View } from "react-native";
 import Animated, {
@@ -256,7 +256,11 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
       case "connecting":
         return <AlertCircle size={16} color="#fff" />;
       default:
-        return isConnected ? <Wifi size={16} color="#fff" /> : <WifiOff size={16} color="#fff" />;
+        return isConnected ? (
+          <Bolt size={16} color="##4dabf7" />
+        ) : (
+          <WifiOff size={16} color="#fff" />
+        );
     }
   };
 
