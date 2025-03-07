@@ -33,6 +33,7 @@ export const registerHandler: AuthHandler = async (c) => {
         message: "User registered successfully",
         user,
         accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken, // Add refresh token here too
       },
       201
     );
@@ -59,6 +60,7 @@ export const loginHandler: AuthHandler = async (c) => {
       message: "Login successful",
       user,
       accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken, // Add the refresh token to the response
     });
   } catch (error: any) {
     console.error("Error during login:", error);

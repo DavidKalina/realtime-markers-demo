@@ -26,38 +26,93 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState(apiClient.isAuthenticated());
   const router = useRouter();
 
-  // Enhanced initialization function with token validation
+  // In AuthContext.tsx - Enhanced initAuth function
+
   const initAuth = useCallback(async () => {
     setIsLoading(true);
+    console.log("Starting auth initialization");
+
     try {
       // Sync tokens from storage
       await apiClient.syncTokensWithStorage();
 
-      // Check if we need to refresh the token
+      // Check if we have tokens to work with
       const accessToken = await AsyncStorage.getItem("accessToken");
       const refreshToken = await AsyncStorage.getItem("refreshToken");
+
+      console.log("Auth tokens from storage:", {
+        hasAccessToken: !!accessToken,
+        hasRefreshToken: !!refreshToken,
+      });
 
       if (accessToken && refreshToken) {
         try {
           // Try to get user profile to validate token
-          await apiClient.getUserProfile();
-        } catch (error) {
-          console.log("Token validation failed, attempting refresh");
-          // If that fails, try to refresh the token
-          const refreshed = await apiClient.refreshTokens();
-          if (!refreshed) {
-            // If refresh fails, clear auth state
+          console.log("Validating token by requesting user profile");
+          const userProfile = await apiClient.getUserProfile();
+          console.log("Token is valid, user profile received");
+
+          // Make sure we have the user object correctly set
+          if (userProfile) {
+            await AsyncStorage.setItem("user", JSON.stringify(userProfile));
+            setUser(userProfile);
+            setIsAuthenticated(true);
+          }
+        } catch (profileError: any) {
+          console.log(`Token validation failed: ${profileError.message || "Unknown error"}`);
+
+          // Only attempt token refresh if we have a refresh token
+          if (refreshToken) {
+            console.log("Attempting token refresh");
+            const refreshed = await apiClient.refreshTokens();
+
+            if (refreshed) {
+              console.log("Token refresh successful, fetching user profile again");
+              try {
+                const userProfile = await apiClient.getUserProfile();
+                console.log("User profile fetch after refresh successful");
+
+                await AsyncStorage.setItem("user", JSON.stringify(userProfile));
+                setUser(userProfile);
+                setIsAuthenticated(true);
+              } catch (secondProfileError) {
+                console.error(
+                  "Failed to get user profile after token refresh:",
+                  secondProfileError
+                );
+                await apiClient.clearAuthState();
+                setUser(null);
+                setIsAuthenticated(false);
+              }
+            } else {
+              console.log("Token refresh failed, clearing auth state");
+              await apiClient.clearAuthState();
+              setUser(null);
+              setIsAuthenticated(false);
+            }
+          } else {
+            console.log("No refresh token available, clearing auth state");
             await apiClient.clearAuthState();
+            setUser(null);
+            setIsAuthenticated(false);
           }
         }
+      } else {
+        console.log("No tokens found in storage, user is not authenticated");
+        setUser(null);
+        setIsAuthenticated(false);
       }
-
-      // Now set the final auth state
-      setUser(apiClient.getCurrentUser());
-      setIsAuthenticated(apiClient.isAuthenticated());
     } catch (error) {
       console.error("Auth initialization error:", error);
+      // On any error during initialization, clear auth state and redirect to login
+      await apiClient.clearAuthState();
+      setUser(null);
+      setIsAuthenticated(false);
     } finally {
+      console.log("Auth initialization complete:", {
+        isAuthenticated: apiClient.isAuthenticated(),
+        hasUser: !!apiClient.getCurrentUser(),
+      });
       setIsLoading(false);
     }
   }, []);
