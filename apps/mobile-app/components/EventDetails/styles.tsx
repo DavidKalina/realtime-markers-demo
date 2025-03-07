@@ -180,4 +180,26 @@ export const styles = StyleSheet.create({
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
   },
+  saveButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#424242",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  saveCountContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    marginTop: -6,
+  },
+  saveCountText: {
+    color: "#adb5bd",
+    fontSize: 13,
+    fontFamily: "SpaceMono",
+  },
 });

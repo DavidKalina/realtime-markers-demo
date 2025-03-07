@@ -28,6 +28,8 @@ export interface EventType {
   creator?: UserType; // Add this field to store the creator information
   creatorId?: string; // Add this if you need just the ID reference
   scanCount?: number;
+  saveCount?: number; // Add count of saves
+  isSaved?: boolean; // Add whether current user has saved this event
   [key: string]: any; // Allow additional properties for flexibility
 }
 

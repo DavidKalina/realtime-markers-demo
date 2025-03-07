@@ -42,9 +42,10 @@ interface ApiEvent {
   createdAt: string;
   updatedAt: string;
   emoji?: string;
-  creator?: UserType; // Add this field to store the creator information
-  creatorId?: string; // Add this if you need just the ID reference
+  creator?: UserType;
+  creatorId?: string;
   scanCount?: number;
+  saveCount?: number; // Add count of saves
 }
 
 // Search response from your API
@@ -637,6 +638,49 @@ class ApiClient {
     const data = await this.handleResponse<ApiEvent[]>(response);
 
     return data.map(this.mapEventToEventType);
+  }
+
+  async toggleSaveEvent(eventId: string): Promise<{ saved: boolean; saveCount: number }> {
+    const url = `${this.baseUrl}/api/events/${eventId}/save`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+    });
+
+    return this.handleResponse<{ saved: boolean; saveCount: number }>(response);
+  }
+
+  async isEventSaved(eventId: string): Promise<{ isSaved: boolean }> {
+    const url = `${this.baseUrl}/api/events/${eventId}/saved`;
+    const response = await this.fetchWithAuth(url);
+
+    return this.handleResponse<{ isSaved: boolean }>(response);
+  }
+
+  async getSavedEvents(options?: EventOptions): Promise<{
+    events: EventType[];
+    total: number;
+    hasMore: boolean;
+  }> {
+    const queryParams = new URLSearchParams();
+
+    if (options?.limit) queryParams.append("limit", options.limit.toString());
+    if (options?.offset) queryParams.append("offset", options.offset.toString());
+
+    const url = `${this.baseUrl}/api/events/saved?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+
+    const data = await this.handleResponse<{
+      events: ApiEvent[];
+      total: number;
+      hasMore: boolean;
+    }>(response);
+
+    // Map API events to frontend event type
+    return {
+      events: data.events.map(this.mapEventToEventType),
+      total: data.total,
+      hasMore: data.hasMore,
+    };
   }
 
   // Get all categories

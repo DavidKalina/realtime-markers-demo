@@ -324,3 +324,115 @@ export const getAllEventsHandler: EventHandler = async (c) => {
     return c.json({ error: "Failed to fetch events" }, 500);
   }
 };
+
+// Add this to src/handlers/eventHandlers.ts
+
+export const toggleSaveEventHandler: EventHandler = async (c) => {
+  try {
+    const eventId = c.req.param("id");
+    const user = c.get("user");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    if (!eventId) {
+      return c.json({ error: "Missing event ID" }, 400);
+    }
+
+    const eventService = c.get("eventService");
+
+    // Check if the event exists first
+    const event = await eventService.getEventById(eventId);
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
+
+    // Toggle save status
+    const result = await eventService.toggleSaveEvent(user.userId, eventId);
+
+    return c.json({
+      eventId,
+      ...result,
+    });
+  } catch (error) {
+    console.error("Error toggling event save status:", error);
+    return c.json(
+      {
+        error: "Failed to toggle event save status",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
+export const getSavedEventsHandler: EventHandler = async (c) => {
+  try {
+    const user = c.get("user");
+    const limit = c.req.query("limit");
+    const offset = c.req.query("offset");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    const eventService = c.get("eventService");
+
+    const savedEvents = await eventService.getSavedEventsByUser(user.userId, {
+      limit: limit ? parseInt(limit) : undefined,
+      offset: offset ? parseInt(offset) : undefined,
+    });
+
+    return c.json(savedEvents);
+  } catch (error) {
+    console.error("Error fetching saved events:", error);
+    return c.json(
+      {
+        error: "Failed to fetch saved events",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
+export const isEventSavedHandler: EventHandler = async (c) => {
+  try {
+    const eventId = c.req.param("id");
+    const user = c.get("user");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    if (!eventId) {
+      return c.json({ error: "Missing event ID" }, 400);
+    }
+
+    const eventService = c.get("eventService");
+
+    // Check if the event exists
+    const event = await eventService.getEventById(eventId);
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
+
+    // Check if the event is saved by the user
+    const isSaved = await eventService.isEventSavedByUser(user.userId, eventId);
+
+    return c.json({
+      eventId,
+      isSaved,
+    });
+  } catch (error) {
+    console.error("Error checking event save status:", error);
+    return c.json(
+      {
+        error: "Failed to check event save status",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};

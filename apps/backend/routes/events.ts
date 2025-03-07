@@ -10,7 +10,8 @@ export const eventsRouter = new Hono<AppContext>();
 // Apply auth middleware to all routes in this router
 eventsRouter.use("*", authMiddleware);
 
-// Now all our routes will be protected by authMiddleware
+// Static/specific paths should come before dynamic ones
+eventsRouter.get("/saved", handlers.getSavedEventsHandler);
 eventsRouter.get("/nearby", handlers.getNearbyEventsHandler);
 eventsRouter.get("/categories", handlers.getCategoriesHandler);
 eventsRouter.get("/by-categories", handlers.getEventsByCategoriesHandler);
@@ -18,6 +19,12 @@ eventsRouter.get("/search", handlers.searchEventsHandler);
 eventsRouter.post("/process", handlers.processEventImageHandler);
 eventsRouter.get("/process/:jobId", handlers.getProcessingStatusHandler);
 eventsRouter.post("/", handlers.createEventHandler);
+
+// Dynamic routes with IDs
 eventsRouter.delete("/:id", handlers.deleteEventHandler);
+eventsRouter.post("/:id/save", handlers.toggleSaveEventHandler);
+eventsRouter.get("/:id/saved", handlers.isEventSavedHandler);
 eventsRouter.get("/:id", handlers.getEventByIdHandler);
+
+// Root path should be last to avoid catching other routes
 eventsRouter.get("/", handlers.getAllEventsHandler);

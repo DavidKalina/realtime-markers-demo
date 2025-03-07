@@ -17,6 +17,7 @@ import { type Point } from "geojson";
 import { Category } from "./Category";
 import { User } from "./User";
 import { UserEventDiscovery } from "./UserEventDiscovery";
+import { UserEventSave } from "./UserEventSave";
 
 export enum EventStatus {
   PENDING = "PENDING",
@@ -58,6 +59,9 @@ export class Event {
   @Column({ name: "scan_count", type: "integer", default: 1 })
   scanCount!: number;
 
+  @Column({ name: "save_count", type: "integer", default: 0 })
+  saveCount!: number;
+
   @Column({ name: "confidence_score", type: "float", nullable: true })
   confidenceScore?: number;
 
@@ -71,7 +75,7 @@ export class Event {
   })
   status!: EventStatus;
 
-  // New: Link to creator user
+  // Link to creator user
   @Column({ name: "creator_id", type: "uuid", nullable: true })
   creatorId?: string;
 
@@ -82,6 +86,10 @@ export class Event {
   // Discovery relationship
   @OneToMany(() => UserEventDiscovery, (discovery) => discovery.event)
   discoveries!: UserEventDiscovery[];
+
+  // Save relationship
+  @OneToMany(() => UserEventSave, (save) => save.event)
+  saves!: UserEventSave[];
 
   @ManyToMany(() => Category, (category) => category.events)
   @JoinTable({

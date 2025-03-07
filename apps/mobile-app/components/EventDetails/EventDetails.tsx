@@ -8,7 +8,15 @@ import {
   SafeAreaView,
   ScrollView,
 } from "react-native";
-import { ArrowLeft, Calendar, MapPin, Info, User } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Info,
+  User,
+  Bookmark,
+  BookmarkCheck,
+} from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import apiClient from "../../services/ApiClient";
@@ -24,6 +32,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const [saveCount, setSaveCount] = useState(0);
+  const [savingState, setSavingState] = useState<"idle" | "loading">("idle");
   const router = useRouter();
 
   // Fetch event details when eventId changes
@@ -38,11 +49,26 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
       try {
         const eventData = await apiClient.getEventById(eventId);
-
         console.log(JSON.stringify(eventData, null, 2));
 
         if (isMounted) {
           setEvent(eventData);
+          // If we have saveCount from the event, initialize it
+          if (eventData.saveCount !== undefined) {
+            setSaveCount(eventData.saveCount);
+          }
+        }
+
+        // Check if event is saved by the user
+        if (apiClient.isAuthenticated()) {
+          try {
+            const { isSaved: savedStatus } = await apiClient.isEventSaved(eventId);
+            if (isMounted) {
+              setIsSaved(savedStatus);
+            }
+          } catch (saveErr) {
+            console.error("Error checking save status:", saveErr);
+          }
         }
       } catch (err) {
         if (isMounted) {
@@ -97,6 +123,42 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
       .finally(() => setLoading(false));
   };
 
+  // Handle save/unsave toggle
+  const handleToggleSave = async () => {
+    if (!apiClient.isAuthenticated()) {
+      // Navigate to login if user is not authenticated
+      router.push("/login");
+      return;
+    }
+
+    // Provide haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Optimistic UI update
+    setIsSaved((prevState) => !prevState);
+    setSaveCount((prevCount) => (prevCount ? prevCount - 1 : prevCount + 1));
+
+    setSavingState("loading");
+
+    try {
+      const result = await apiClient.toggleSaveEvent(eventId);
+
+      // Update with the actual state from the server
+      setIsSaved(result.saved);
+      setSaveCount(result.saveCount);
+    } catch (err) {
+      console.error("Error toggling save status:", err);
+
+      // Revert optimistic update on error
+      setIsSaved((prevState) => !prevState);
+      setSaveCount((prevCount) => (prevCount ? prevCount - 1 : prevCount + 1));
+
+      // Could show an error toast here
+    } finally {
+      setSavingState("idle");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#333" />
@@ -144,7 +206,31 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                     </View>
                   )}
                 </View>
+
+                {/* Save Button */}
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={handleToggleSave}
+                  disabled={savingState === "loading"}
+                >
+                  {savingState === "loading" ? (
+                    <ActivityIndicator size="small" color="#93c5fd" />
+                  ) : isSaved ? (
+                    <BookmarkCheck size={22} color="#93c5fd" />
+                  ) : (
+                    <Bookmark size={22} color="#93c5fd" />
+                  )}
+                </TouchableOpacity>
               </View>
+
+              {/* Save count display */}
+              {saveCount > 0 && (
+                <View style={styles.saveCountContainer}>
+                  <Text style={styles.saveCountText}>
+                    {saveCount} {saveCount === 1 ? "person" : "people"} saved this event
+                  </Text>
+                </View>
+              )}
 
               {/* Event Details */}
               <View style={styles.detailsContainer}>

@@ -25,6 +25,9 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
       bio: "System administrator",
       role: UserRole.ADMIN,
       isVerified: true,
+      discoveryCount: 0,
+      saveCount: 0,
+      scanCount: 0,
     },
     {
       email: "josh@example.com",
@@ -33,6 +36,9 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
       bio: "System administrator",
       role: UserRole.ADMIN,
       isVerified: true,
+      discoveryCount: 0,
+      saveCount: 0,
+      scanCount: 0,
     },
     {
       email: "james@example.com",
@@ -41,6 +47,9 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
       bio: "Content moderator",
       role: UserRole.MODERATOR,
       isVerified: true,
+      discoveryCount: 0,
+      saveCount: 0,
+      scanCount: 0,
     },
     {
       email: "jared@example.com",
@@ -49,6 +58,9 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
       bio: "Regular user account",
       role: UserRole.USER,
       isVerified: true,
+      discoveryCount: 0,
+      saveCount: 0,
+      scanCount: 0,
     },
     {
       email: "garrett@example.com",
@@ -57,6 +69,9 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
       bio: "Another regular user",
       role: UserRole.USER,
       isVerified: true,
+      discoveryCount: 0,
+      saveCount: 0,
+      scanCount: 0,
     },
   ];
 

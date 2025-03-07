@@ -4,7 +4,15 @@ import { useEventBroker } from "@/hooks/useEventBroker";
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { CameraAnimateToLocationEvent, EventTypes } from "@/services/EventBroker";
 import * as Haptics from "expo-haptics";
-import { Camera, Info, Navigation, SearchIcon, Share2, User } from "lucide-react-native";
+import {
+  BookMarkedIcon,
+  Camera,
+  Info,
+  Navigation,
+  SearchIcon,
+  Share2,
+  User,
+} from "lucide-react-native";
 import React, { useRef, useState } from "react";
 import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
@@ -94,7 +102,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     // Dynamically determine which actions to show based on isStandalone
     const effectiveAvailableActions =
       availableActions ||
-      (isStandalone ? ["search", "camera", "locate", "user"] : ["details", "share"]);
+      (isStandalone ? ["search", "camera", "locate", "user", "saved"] : ["details", "share"]);
 
     const [activeAction, setActiveAction] = useState<string | null>(null);
     const insets = useSafeAreaInsets();
@@ -173,6 +181,12 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           label: "Me",
           icon: <User size={20} color="#fff" style={globalStles.icon} />,
           action: () => handlePress("user"),
+        },
+        {
+          key: "saved",
+          label: "Saved",
+          icon: <BookMarkedIcon size={20} color="#fff" style={globalStles.icon} />,
+          action: () => handlePress("saved"),
         },
       ],
       [userLocation]
