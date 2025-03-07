@@ -1,16 +1,17 @@
 // entities/User.ts
 
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
-  OneToMany,
+  Entity,
   Index,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from "typeorm";
-import { UserEventDiscovery } from "./UserEventDiscovery";
 import { Event } from "./Event";
+import { UserEventDiscovery } from "./UserEventDiscovery";
+import { UserEventSave } from "./UserEventSave";
 
 export enum UserRole {
   USER = "USER",
@@ -55,11 +56,18 @@ export class User {
   @Column({ name: "scan_count", type: "integer", default: 0 })
   scanCount!: number;
 
+  @Column({ name: "save_count", type: "integer", default: 0 })
+  saveCount!: number;
+
   @OneToMany(() => UserEventDiscovery, (discovery) => discovery.user)
   discoveries!: UserEventDiscovery[];
 
   @OneToMany(() => Event, (event) => event.creator)
   createdEvents!: Event[];
+
+  // Saves relationship
+  @OneToMany(() => UserEventSave, (save) => save.user)
+  savedEvents!: UserEventSave[];
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

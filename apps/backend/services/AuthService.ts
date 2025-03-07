@@ -66,7 +66,16 @@ export class AuthService {
     // Find user by email with password included
     const user = await this.userRepository.findOne({
       where: { email },
-      select: ["id", "email", "passwordHash", "displayName", "role", "isVerified", "avatarUrl"],
+      select: [
+        "id",
+        "email",
+        "passwordHash",
+        "displayName",
+        "role",
+        "isVerified",
+        "avatarUrl",
+        "saveCount",
+      ],
     });
 
     if (!user) {

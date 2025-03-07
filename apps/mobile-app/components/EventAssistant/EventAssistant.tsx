@@ -393,6 +393,16 @@ const EventAssistant: React.FC = () => {
             { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
           );
           break;
+        case "saved":
+          // Show action message, then navigate to user profile
+          // No marker needed, always show assistant
+          streamForMarker(
+            markerId,
+            actionMessages,
+            () => executeNavigation(() => navigate("saved" as never)),
+            { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
+          );
+          break;
 
         default:
           // Just show the messages for other actions with reading pause

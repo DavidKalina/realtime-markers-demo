@@ -3,6 +3,7 @@ import pgvector from "pgvector";
 import { Brackets, DataSource, Repository, type DeepPartial } from "typeorm";
 import { Category } from "../entities/Category";
 import { Event, EventStatus } from "../entities/Event";
+import { UserEventSave } from "../entities/UserEventSave";
 import { CacheService } from "./CacheService";
 import { OpenAIService } from "./OpenAIService";
 
@@ -26,10 +27,12 @@ interface CreateEventInput {
 export class EventService {
   private eventRepository: Repository<Event>;
   private categoryRepository: Repository<Category>;
+  private userEventSaveRepository: Repository<UserEventSave>;
 
   constructor(private dataSource: DataSource) {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
+    this.userEventSaveRepository = dataSource.getRepository(UserEventSave);
   }
 
   private async generateEmbedding(text: string): Promise<number[]> {
@@ -303,6 +306,7 @@ export class EventService {
 
     return resultObject;
   }
+
   async deleteEvent(id: string): Promise<boolean> {
     const result = await this.eventRepository.delete(id);
     return result.affected ? result.affected > 0 : false;
@@ -359,5 +363,121 @@ export class EventService {
         name: "ASC",
       },
     });
+  }
+
+  /**
+   * Toggle save/unsave of an event for a user
+   * If the event is already saved, it will be unsaved
+   * If the event is not saved, it will be saved
+   *
+   * @param userId The ID of the user saving/unsaving the event
+   * @param eventId The ID of the event to save/unsave
+   * @returns An object containing the save status and the updated save count
+   */
+  async toggleSaveEvent(
+    userId: string,
+    eventId: string
+  ): Promise<{
+    saved: boolean;
+    saveCount: number;
+  }> {
+    // Start a transaction to ensure data consistency
+    return this.dataSource.transaction(async (transactionalEntityManager) => {
+      // Check if the event exists
+      const event = await transactionalEntityManager.findOne(Event, {
+        where: { id: eventId },
+      });
+
+      if (!event) {
+        throw new Error("Event not found");
+      }
+
+      // Check if a save relationship already exists
+      const existingSave = await transactionalEntityManager.findOne(UserEventSave, {
+        where: { userId, eventId },
+      });
+
+      let saved: boolean;
+
+      if (existingSave) {
+        // If it exists, delete it (unsave)
+        await transactionalEntityManager.remove(existingSave);
+
+        // Decrement the save count on the event
+        event.saveCount = Math.max(0, event.saveCount - 1);
+        saved = false;
+      } else {
+        // If it doesn't exist, create it (save)
+        const newSave = transactionalEntityManager.create(UserEventSave, {
+          userId,
+          eventId,
+        });
+
+        await transactionalEntityManager.save(newSave);
+
+        // Increment the save count on the event
+        event.saveCount = (event.saveCount || 0) + 1;
+        saved = true;
+      }
+
+      // Save the updated event
+      await transactionalEntityManager.save(event);
+
+      return {
+        saved,
+        saveCount: event.saveCount,
+      };
+    });
+  }
+
+  /**
+   * Check if an event is saved by a user
+   *
+   * @param userId The ID of the user
+   * @param eventId The ID of the event
+   * @returns Boolean indicating if the event is saved by the user
+   */
+  async isEventSavedByUser(userId: string, eventId: string): Promise<boolean> {
+    const save = await this.userEventSaveRepository.findOne({
+      where: { userId, eventId },
+    });
+
+    return !!save;
+  }
+
+  /**
+   * Get all events saved by a user
+   *
+   * @param userId The ID of the user
+   * @param options Pagination options
+   * @returns An array of saved events with pagination info
+   */
+  async getSavedEventsByUser(
+    userId: string,
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<{ events: Event[]; total: number; hasMore: boolean }> {
+    const { limit = 10, offset = 0 } = options;
+
+    // Instead of using the query builder, use the repository's find methods
+    const saves = await this.userEventSaveRepository.find({
+      where: { userId },
+      relations: ["event", "event.categories", "event.creator"],
+      order: { savedAt: "DESC" },
+      skip: offset,
+      take: limit,
+    });
+
+    const total = await this.userEventSaveRepository.count({
+      where: { userId },
+    });
+
+    // Extract the events from the saves
+    const events = saves.map((save) => save.event);
+
+    return {
+      events,
+      total,
+      hasMore: offset + events.length < total,
+    };
   }
 }
