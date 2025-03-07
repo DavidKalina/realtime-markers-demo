@@ -62,7 +62,7 @@ const EMOJIS = [
 ];
 
 // Emoji animation configuration
-const EMOJI_SIZE = 46; // Increased size
+const EMOJI_SIZE = 32;
 const EMISSION_INTERVAL = 800; // ms between emoji emissions
 const MAX_ACTIVE_EMOJIS = 12;
 const ANIMATION_DURATION = 4000; // ms
@@ -110,25 +110,17 @@ const getRandomLocation = () => {
 
 interface AnimatedEmojiProps {
   emoji: string;
-  startX: number;
-  startY: number;
+  x: number;
+  y: number;
   index: number;
   onComplete: () => void;
 }
 
-export const AnimatedEmoji: React.FC<AnimatedEmojiProps> = ({
-  emoji,
-  startX,
-  startY,
-  index,
-  onComplete,
-}) => {
+export const AnimatedEmoji: React.FC<AnimatedEmojiProps> = ({ emoji, x, y, index, onComplete }) => {
   // Animation values
-  const translateY = useSharedValue(startY);
-  const translateX = useSharedValue(startX);
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
-  const rotation = useSharedValue(Math.random() * 40 - 20); // Random initial rotation
+  const rotation = useSharedValue(Math.random() * 20 - 10); // Subtle initial rotation
 
   // Function to call when animation completes
   const handleAnimationComplete = () => {
@@ -136,49 +128,31 @@ export const AnimatedEmoji: React.FC<AnimatedEmojiProps> = ({
   };
 
   useEffect(() => {
-    // Create random trajectory with more variety
-    const distance = 100 + Math.random() * 300;
-    const angle = Math.random() * Math.PI * 2; // Random angle in radians (full 360°)
-
-    // Calculate target position based on angle and distance
-    const targetX = startX + Math.cos(angle) * distance;
-    const targetY = startY + Math.sin(angle) * distance * 0.6 - 200; // Mostly upward bias
-
-    // Add some random bounce/wobble
-    const springConfig = {
-      damping: 8 + Math.random() * 12, // Varying damping
-      stiffness: 60 + Math.random() * 40, // Varying stiffness
-      mass: 0.8 + Math.random() * 0.4, // Varying mass
-    };
-
     // Start animation sequence with staggered delay based on index
     const staggerDelay = index * (80 + Math.random() * 40);
 
+    // Scale animation: from 0 to slightly larger, then settle to normal size with spring effect
     scale.value = withSequence(
       withTiming(0, { duration: 0 }),
       withDelay(
         staggerDelay,
         withSequence(
-          withTiming(1.2, {
-            // Scale up to slightly larger than final size
-            duration: 300 + Math.random() * 200,
-            easing: Easing.out(Easing.back(2.0 + Math.random())),
+          withTiming(1.3, {
+            duration: 500,
+            easing: Easing.out(Easing.back(2.5)),
           }),
-          withTiming(1, {
-            // Scale back down to normal size
-            duration: 200,
-            easing: Easing.inOut(Easing.sin),
+          withSpring(1, {
+            damping: 12,
+            stiffness: 90,
           })
         )
       )
     );
 
+    // Opacity animation: fade in, hold, then fade out
     opacity.value = withSequence(
       withTiming(0, { duration: 0 }),
-      withDelay(
-        staggerDelay,
-        withTiming(1, { duration: 300 }) // Full opacity instead of 0.9
-      ),
+      withDelay(staggerDelay, withTiming(1, { duration: 400 })),
       withDelay(
         ANIMATION_DURATION - 800,
         withTiming(0, { duration: 800 }, () => {
@@ -187,40 +161,25 @@ export const AnimatedEmoji: React.FC<AnimatedEmojiProps> = ({
       )
     );
 
-    translateY.value = withDelay(
-      staggerDelay,
-      withSequence(withTiming(startY, { duration: 0 }), withSpring(targetY, springConfig))
-    );
-
-    translateX.value = withDelay(
-      staggerDelay,
-      withSequence(withTiming(startX, { duration: 0 }), withSpring(targetX, springConfig))
-    );
-
-    // Add subtle rotation animation
+    // Subtle rotation animation
     rotation.value = withDelay(
       staggerDelay,
       withSequence(
         withTiming(rotation.value, { duration: 0 }),
-        withSpring(rotation.value + (Math.random() * 60 - 30), {
-          damping: 10,
+        withSpring(rotation.value + (Math.random() * 30 - 15), {
+          damping: 8,
           stiffness: 30,
         })
       )
     );
-
-    // No cleanup needed for animations as they complete naturally
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
-      transform: [
-        { translateX: translateX.value },
-        { translateY: translateY.value },
-        { scale: scale.value },
-        { rotate: `${rotation.value}deg` },
-      ],
+      transform: [{ scale: scale.value }, { rotate: `${rotation.value}deg` }],
       opacity: opacity.value,
+      left: x - EMOJI_SIZE / 2, // Center at the exact point
+      top: y - EMOJI_SIZE / 2,
     };
   });
 
@@ -234,8 +193,8 @@ export const AnimatedEmoji: React.FC<AnimatedEmojiProps> = ({
 interface AnimatedEmission {
   id: string;
   emoji: string;
-  startX: number;
-  startY: number;
+  x: number;
+  y: number;
   index: number;
 }
 
@@ -271,8 +230,9 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
         animationDuration: 2000,
       });
 
-      // Clear existing emission points when location changes
+      // Clear existing emission points and active emissions when location changes
       setEmissionPoints([]);
+      setActiveEmissions([]);
 
       // Generate new emission points after a short delay
       if (locationChangeTimeoutRef.current) {
@@ -281,7 +241,7 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
 
       locationChangeTimeoutRef.current = setTimeout(() => {
         generateEmissionPoints();
-      }, 300);
+      }, 500);
     }, locationChangeInterval);
 
     // Cleanup function for the interval
@@ -297,8 +257,8 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
   const generateEmissionPoints = () => {
     const newPoints: { x: number; y: number }[] = [];
 
-    // Generate 8-15 random emission points
-    const numPoints = 8 + Math.floor(Math.random() * 8);
+    // Generate 10-18 random emission points
+    const numPoints = 10 + Math.floor(Math.random() * 9);
 
     for (let i = 0; i < numPoints; i++) {
       // Create points spread across the screen, with some clustering effect
@@ -331,8 +291,6 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
   // Initialize emission points
   useEffect(() => {
     generateEmissionPoints();
-
-    // No cleanup needed as this runs once
   }, []);
 
   // Function to generate a new emoji emission
@@ -345,17 +303,13 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
     // Pick a random emission point
     const emissionPoint = emissionPoints[Math.floor(Math.random() * emissionPoints.length)];
 
-    // Add some randomness to the exact position
-    const startX = emissionPoint.x + (Math.random() * 40 - 20);
-    const startY = emissionPoint.y + (Math.random() * 40 - 20);
-
     setActiveEmissions((prev) => [
       ...prev,
       {
         id,
         emoji: randomEmoji,
-        startX,
-        startY,
+        x: emissionPoint.x,
+        y: emissionPoint.y,
         index: prev.length,
       },
     ]);
@@ -440,12 +394,27 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
 
       <View style={styles.overlay} />
 
+      {/* Render static markers at emission points */}
+      {emissionPoints.map((point, index) => (
+        <View
+          key={`marker-${index}`}
+          style={[
+            styles.mapMarker,
+            {
+              left: point.x - 6, // Center the marker (half of the marker size)
+              top: point.y - 6,
+            },
+          ]}
+        />
+      ))}
+
+      {/* Render active emoji animations */}
       {activeEmissions.map((emission) => (
         <AnimatedEmoji
           key={emission.id}
           emoji={emission.emoji}
-          startX={emission.startX}
-          startY={emission.startY}
+          x={emission.x}
+          y={emission.y}
           index={emission.index}
           onComplete={() => removeEmission(emission.id)}
         />
