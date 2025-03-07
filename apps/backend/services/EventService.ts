@@ -67,11 +67,12 @@ export class EventService {
   }
 
   async getEventById(id: string): Promise<Event | null> {
-    console.log({ eventId: id });
-    return this.eventRepository.findOne({
+    const evt = await this.eventRepository.findOne({
       where: { id },
-      relations: ["categories"],
+      relations: ["categories", "creator"],
     });
+
+    return evt;
   }
 
   async getNearbyEvents(

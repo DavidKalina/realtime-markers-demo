@@ -12,7 +12,6 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 
-// Available emojis for animation (expanded set with tech and travel themes)
 const EMOJIS = [
   "🗺️",
   "📍",
@@ -59,6 +58,98 @@ const EMOJIS = [
   "🎡",
   "🎢",
   "🚦",
+  "🎸",
+  "🎤",
+  "🎶",
+  "🎧",
+  "🥁",
+  "🎹",
+  "🎷",
+  "🎺",
+  "🎯",
+  "🎳",
+  "🎮",
+  "🕹️",
+  "🏀",
+  "⚽",
+  "⚾",
+  "🏐",
+  "🏈",
+  "🎾",
+  "🏉",
+  "🥏",
+  "🏓",
+  "🥊",
+  "🛼",
+  "🎨",
+  "🖌️",
+  "🖍️",
+  "🖼️",
+  "📸",
+  "🎬",
+  "🎥",
+  "🎟️",
+  "🎭",
+  "🎪",
+  "🎞️",
+  "🍻",
+  "🥂",
+  "🍹",
+  "🎂",
+  "🍕",
+  "🍿",
+  "🍦",
+  "🍜",
+  "🍣",
+  "🍛",
+  "🥗",
+  "🛍️",
+  "🛒",
+  "🎁",
+  "📚",
+  "📖",
+  "🎯",
+  "🚴",
+  "🧗",
+  "🏌️",
+  "🏇",
+  "🏄",
+  "🏊",
+  "🤿",
+  "🎽",
+  "🚣",
+  "🏂",
+  "⛷️",
+  "🎿",
+  "🛷",
+  "🧩",
+  "♟️",
+  "🎲",
+  "🃏",
+  "♠️",
+  "♥️",
+  "♦️",
+  "♣️",
+  "🔮",
+  "🕺",
+  "💃",
+  "🩰",
+  "🛏️",
+  "🚶",
+  "🏃",
+  "🚶‍♀️",
+  "🏃‍♀️",
+  "🤹",
+  "🤹‍♀️",
+  "🧑‍🤝‍🧑",
+  "👥",
+  "🎊",
+  "🎉",
+  "🏆",
+  "🥇",
+  "🥈",
+  "🥉",
+  "🏅",
 ];
 
 // Emoji animation configuration
@@ -110,17 +201,29 @@ const getRandomLocation = () => {
 
 interface AnimatedEmojiProps {
   emoji: string;
-  x: number;
-  y: number;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
   index: number;
   onComplete: () => void;
 }
 
-export const AnimatedEmoji: React.FC<AnimatedEmojiProps> = ({ emoji, x, y, index, onComplete }) => {
+export const AnimatedEmoji: React.FC<AnimatedEmojiProps> = ({
+  emoji,
+  startX,
+  startY,
+  endX,
+  endY,
+  index,
+  onComplete,
+}) => {
   // Animation values
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
   const rotation = useSharedValue(Math.random() * 20 - 10); // Subtle initial rotation
+  const positionX = useSharedValue(startX);
+  const positionY = useSharedValue(startY);
 
   // Function to call when animation completes
   const handleAnimationComplete = () => {
@@ -128,45 +231,88 @@ export const AnimatedEmoji: React.FC<AnimatedEmojiProps> = ({ emoji, x, y, index
   };
 
   useEffect(() => {
-    // Start animation sequence with staggered delay based on index
-    const staggerDelay = index * (80 + Math.random() * 40);
+    // Use a more consistent staggered delay with less randomness
+    // This ensures more predictable distribution timing
+    const staggerDelay = index * 50;
 
-    // Scale animation: from 0 to slightly larger, then settle to normal size with spring effect
+    // Scale animation: start at normal size and only scale down at destination
     scale.value = withSequence(
       withTiming(0, { duration: 0 }),
       withDelay(
         staggerDelay,
         withSequence(
-          withTiming(1.3, {
-            duration: 500,
-            easing: Easing.out(Easing.back(2.5)),
+          withTiming(1.0, {
+            // Start at normal size
+            duration: 400,
+            easing: Easing.out(Easing.cubic),
           }),
-          withSpring(1, {
-            damping: 12,
-            stiffness: 90,
+          withTiming(0.9, {
+            // Slight scale down as it travels
+            duration: ANIMATION_DURATION - 950,
+          }),
+          // Wait until fully arrived at destination before decompression
+          withTiming(0.9, { duration: 50 }), // Small pause at destination
+          withTiming(0.7, {
+            // Compress down on arrival (depression)
+            duration: 150,
+            easing: Easing.out(Easing.cubic),
+          }),
+          withTiming(0.85, {
+            // Decompress to final size (but still smaller than original)
+            duration: 250,
+            easing: Easing.inOut(Easing.cubic),
           })
         )
       )
     );
 
-    // Opacity animation: fade in, hold, then fade out
+    // Opacity animation: fade in, hold longer, and fade out after decompression is complete
     opacity.value = withSequence(
       withTiming(0, { duration: 0 }),
-      withDelay(staggerDelay, withTiming(1, { duration: 400 })),
+      withDelay(staggerDelay, withTiming(1, { duration: 300 })),
       withDelay(
-        ANIMATION_DURATION - 800,
-        withTiming(0, { duration: 800 }, () => {
+        ANIMATION_DURATION - 450, // Wait for the decompression animation to complete
+        withTiming(0, { duration: 450 }, () => {
           runOnJS(handleAnimationComplete)();
         })
       )
     );
 
-    // Subtle rotation animation
+    // Generate a slightly curved path using bezier curves to make the movement more organic
+    // Each emoji now follows a unique path to its destination
+    const controlPointOffsetX = (Math.random() * 2 - 1) * 100; // Random horizontal offset between -100 and 100
+
+    // Position animation: improved path with controlled bezier curve
+    // Use longer duration for the movement, but ensure it completes before decompression starts
+    const movementDuration = ANIMATION_DURATION - 550; // End movement before decompression
+
+    positionX.value = withDelay(
+      staggerDelay,
+      withTiming(endX, {
+        duration: movementDuration,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      })
+    );
+
+    // For Y position, create a more natural arc upward
+    positionY.value = withDelay(
+      staggerDelay,
+      withTiming(endY, {
+        duration: movementDuration,
+        // Different easing creates varied movement patterns
+        easing:
+          index % 2 === 0
+            ? Easing.bezier(0.34, 0.17, 0.65, 0.86)
+            : Easing.bezier(0.22, 0.61, 0.36, 1),
+      })
+    );
+
+    // Subtle rotation animation with more variation
     rotation.value = withDelay(
       staggerDelay,
       withSequence(
         withTiming(rotation.value, { duration: 0 }),
-        withSpring(rotation.value + (Math.random() * 30 - 15), {
+        withSpring(rotation.value + (Math.random() * 40 - 20), {
           damping: 8,
           stiffness: 30,
         })
@@ -178,8 +324,8 @@ export const AnimatedEmoji: React.FC<AnimatedEmojiProps> = ({ emoji, x, y, index
     return {
       transform: [{ scale: scale.value }, { rotate: `${rotation.value}deg` }],
       opacity: opacity.value,
-      left: x - EMOJI_SIZE / 2, // Center at the exact point
-      top: y - EMOJI_SIZE / 2,
+      left: positionX.value - EMOJI_SIZE / 2, // Center at the exact point
+      top: positionY.value - EMOJI_SIZE / 2,
     };
   });
 
@@ -193,8 +339,10 @@ export const AnimatedEmoji: React.FC<AnimatedEmojiProps> = ({ emoji, x, y, index
 interface AnimatedEmission {
   id: string;
   emoji: string;
-  x: number;
-  y: number;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
   index: number;
 }
 
@@ -217,31 +365,30 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
   const [emissionPoints, setEmissionPoints] = useState<{ x: number; y: number }[]>([]);
   const locationChangeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Change map location periodically
   useEffect(() => {
     const interval = setInterval(() => {
       const newLocation = getRandomLocation();
       setCurrentLocation(newLocation);
 
-      // Animate to the new location
+      // Animate to the new location with longer duration
       cameraRef.current?.setCamera({
         centerCoordinate: newLocation.centerCoordinate,
         zoomLevel: newLocation.zoomLevel,
-        animationDuration: 2000,
+        animationDuration: 4000, // Increased from 2000 to 4000ms
       });
 
       // Clear existing emission points and active emissions when location changes
       setEmissionPoints([]);
       setActiveEmissions([]);
 
-      // Generate new emission points after a short delay
+      // Generate new emission points after a longer delay
       if (locationChangeTimeoutRef.current) {
         clearTimeout(locationChangeTimeoutRef.current);
       }
 
       locationChangeTimeoutRef.current = setTimeout(() => {
         generateEmissionPoints();
-      }, 500);
+      }, 1500); // Increased from 500 to 1500ms
     }, locationChangeInterval);
 
     // Cleanup function for the interval
@@ -253,67 +400,128 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
     };
   }, [locationChangeInterval]);
 
-  // Generate emission points based on visible map coordinates
   const generateEmissionPoints = () => {
     const newPoints: { x: number; y: number }[] = [];
 
     // Generate 10-18 random emission points
     const numPoints = 10 + Math.floor(Math.random() * 9);
 
-    for (let i = 0; i < numPoints; i++) {
-      // Create points spread across the screen, with some clustering effect
-      let x, y;
+    // Divide the screen into a grid to ensure better distribution
+    const gridCols = 4;
+    const gridRows = 3;
+    const cellWidth = SCREEN_WIDTH / gridCols;
+    const cellHeight = (SCREEN_HEIGHT - 150) / gridRows;
 
-      // 70% chance of clustered points, 30% chance of random points
-      if (Math.random() < 0.7 && newPoints.length > 0) {
-        // Create a point near an existing point (clustering)
-        const referencePoint = newPoints[Math.floor(Math.random() * newPoints.length)];
-        const spread = 80 + Math.random() * 120; // Cluster spread radius
+    // Create a grid-based distribution with some randomness
+    const cellsToFill = new Set<number>();
 
-        x = referencePoint.x + (Math.random() * spread * 2 - spread);
-        y = referencePoint.y + (Math.random() * spread * 2 - spread);
+    // First, select random cells to fill (ensuring coverage across the screen)
+    while (cellsToFill.size < Math.min(gridCols * gridRows, numPoints)) {
+      const cellIndex = Math.floor(Math.random() * (gridCols * gridRows));
+      cellsToFill.add(cellIndex);
+    }
 
-        // Keep within screen bounds
-        x = Math.max(20, Math.min(SCREEN_WIDTH - 20, x));
-        y = Math.max(20, Math.min(SCREEN_HEIGHT - 20, y));
-      } else {
-        // Create a completely random point
-        x = 20 + Math.random() * (SCREEN_WIDTH - 40);
-        y = 100 + Math.random() * (SCREEN_HEIGHT - 200); // Avoid very top and bottom edges
-      }
+    // For each selected cell, create a point with some random offset within the cell
+    Array.from(cellsToFill).forEach((cellIndex: number) => {
+      const col = cellIndex % gridCols;
+      const row = Math.floor(cellIndex / gridCols);
+
+      // Calculate base position for this cell
+      const baseX = col * cellWidth;
+      const baseY = row * cellHeight + 50; // Add 50px offset from the top
+
+      // Add a point with random offset within the cell (keeping away from edges)
+      const padding = 20;
+      const x = baseX + padding + Math.random() * (cellWidth - padding * 2);
+      const y = baseY + padding + Math.random() * (cellHeight - padding * 2);
 
       newPoints.push({ x, y });
+    });
+
+    // If we need more points than grid cells, add additional cluster points
+    if (numPoints > cellsToFill.size) {
+      const additionalPoints = numPoints - cellsToFill.size;
+
+      for (let i = 0; i < additionalPoints; i++) {
+        if (newPoints.length > 0 && Math.random() < 0.7) {
+          // Create a cluster around an existing point
+          const referencePoint = newPoints[Math.floor(Math.random() * newPoints.length)];
+          const spread = 60 + Math.random() * 80; // Smaller cluster spread radius
+
+          let x = referencePoint.x + (Math.random() * spread * 2 - spread);
+          let y = referencePoint.y + (Math.random() * spread * 2 - spread);
+
+          // Keep within screen bounds
+          x = Math.max(20, Math.min(SCREEN_WIDTH - 20, x));
+          y = Math.max(50, Math.min(SCREEN_HEIGHT - 150, y));
+
+          newPoints.push({ x, y });
+        } else {
+          // Create another random point in a random cell
+          const col = Math.floor(Math.random() * gridCols);
+          const row = Math.floor(Math.random() * gridRows);
+
+          const baseX = col * cellWidth;
+          const baseY = row * cellHeight + 50;
+
+          const padding = 20;
+          const x = baseX + padding + Math.random() * (cellWidth - padding * 2);
+          const y = baseY + padding + Math.random() * (cellHeight - padding * 2);
+
+          newPoints.push({ x, y });
+        }
+      }
     }
 
     setEmissionPoints(newPoints);
   };
 
-  // Initialize emission points
-  useEffect(() => {
-    generateEmissionPoints();
-  }, []);
-
-  // Function to generate a new emoji emission
+  // Also update the generateEmission function to better manage emission flow
   const generateEmission = () => {
     if (activeEmissions.length >= MAX_ACTIVE_EMOJIS || emissionPoints.length === 0) return;
 
     const id = `emoji-${emissionCount.current++}`;
     const randomEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
 
-    // Pick a random emission point
-    const emissionPoint = emissionPoints[Math.floor(Math.random() * emissionPoints.length)];
+    // Pick a random emission point that's not already targeted
+    const availablePoints = emissionPoints.filter((point) => {
+      // Check if this point is already a destination for an active emission
+      return !activeEmissions.some(
+        (emission) =>
+          Math.abs(emission.endX - point.x) < 10 && Math.abs(emission.endY - point.y) < 10
+      );
+    });
+
+    // If all points are targeted, fall back to a random point
+    const emissionPoint =
+      availablePoints.length > 0
+        ? availablePoints[Math.floor(Math.random() * availablePoints.length)]
+        : emissionPoints[Math.floor(Math.random() * emissionPoints.length)];
+
+    // Generate a starting point that's more distributed across the bottom
+    // Divide the bottom edge into segments to ensure better horizontal distribution
+    const segments = 8;
+    const segmentWidth = SCREEN_WIDTH / segments;
+    const segmentIndex = Math.floor(Math.random() * segments);
+    const startX = segmentIndex * segmentWidth + Math.random() * segmentWidth;
+    const startY = SCREEN_HEIGHT + 20; // Start below the screen
 
     setActiveEmissions((prev) => [
       ...prev,
       {
         id,
         emoji: randomEmoji,
-        x: emissionPoint.x,
-        y: emissionPoint.y,
+        startX,
+        startY,
+        endX: emissionPoint.x,
+        endY: emissionPoint.y,
         index: prev.length,
       },
     ]);
   };
+  useEffect(() => {
+    generateEmissionPoints();
+  }, []);
 
   // Function to remove an emoji emission when animation completes
   const removeEmission = (id: string) => {
@@ -338,14 +546,13 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
   // Reference to the map initialization timeout
   const mapLoadedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Handle map loaded event
   const onMapLoaded = () => {
     // Generate new emission points once map is ready
     if (mapLoadedTimeoutRef.current) {
       clearTimeout(mapLoadedTimeoutRef.current);
     }
 
-    mapLoadedTimeoutRef.current = setTimeout(generateEmissionPoints, 500);
+    mapLoadedTimeoutRef.current = setTimeout(generateEmissionPoints, 1000); // Increased from 500 to 1000ms
   };
 
   // Final cleanup when component unmounts
@@ -401,6 +608,7 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
           style={[
             styles.mapMarker,
             {
+              opacity: 0,
               left: point.x - 6, // Center the marker (half of the marker size)
               top: point.y - 6,
             },
@@ -413,8 +621,10 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
         <AnimatedEmoji
           key={emission.id}
           emoji={emission.emoji}
-          x={emission.x}
-          y={emission.y}
+          startX={emission.startX}
+          startY={emission.startY}
+          endX={emission.endX}
+          endY={emission.endY}
           index={emission.index}
           onComplete={() => removeEmission(emission.id)}
         />

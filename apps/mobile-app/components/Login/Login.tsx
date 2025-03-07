@@ -207,7 +207,7 @@ const Login: React.FC = () => {
                 ) : (
                   <View style={styles.noProfileContainer}>
                     <View style={styles.placeholderAvatar}>
-                      <User size={24} color="#4dabf7" />
+                      <User size={14} color="#4dabf7" />
                     </View>
                     <Text style={styles.selectProfileText}>Select a profile</Text>
                   </View>
@@ -219,9 +219,9 @@ const Login: React.FC = () => {
                   activeOpacity={0.7}
                 >
                   {isDropdownOpen ? (
-                    <ChevronUp size={24} color="#4dabf7" />
+                    <ChevronUp size={14} color="#4dabf7" />
                   ) : (
-                    <ChevronDown size={24} color="#4dabf7" />
+                    <ChevronDown size={14} color="#4dabf7" />
                   )}
                 </TouchableOpacity>
               </TouchableOpacity>

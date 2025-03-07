@@ -172,8 +172,8 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   placeholderAvatar: {
-    width: 38,
-    height: 38,
+    width: 24,
+    height: 24,
     borderRadius: 23,
     backgroundColor: "rgba(77, 171, 247, 0.15)",
     justifyContent: "center",

@@ -321,7 +321,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
                 entering={FadeIn.duration(400).delay(100)}
                 layout={Layout.springify()}
               >
-                {eventsCount} event{eventsCount !== 1 ? "s" : ""} in area
+                {eventsCount} event{eventsCount !== 1 ? "s" : ""} in view
               </Animated.Text>
             )}
           </>

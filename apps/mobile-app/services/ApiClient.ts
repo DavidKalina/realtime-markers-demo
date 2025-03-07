@@ -1,6 +1,6 @@
 // src/services/ApiClient.ts
 
-import { EventType } from "@/types/types";
+import { EventType, UserType } from "@/types/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Define base API types from your backend
@@ -42,6 +42,9 @@ interface ApiEvent {
   createdAt: string;
   updatedAt: string;
   emoji?: string;
+  creator?: UserType; // Add this field to store the creator information
+  creatorId?: string; // Add this if you need just the ID reference
+  scanCount?: number;
 }
 
 // Search response from your API
@@ -298,6 +301,8 @@ class ApiClient {
       distance: "", // This would be calculated based on user's location
       emoji: apiEvent.emoji || "📍",
       categories: apiEvent.categories?.map((c) => c.name) || [],
+      creator: apiEvent?.creator,
+      scanCount: apiEvent.scanCount ?? 1,
     };
   }
 
@@ -554,6 +559,8 @@ class ApiClient {
     const url = `${this.baseUrl}/api/events/${id}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<ApiEvent>(response);
+
+    console.log("EVENT DATA", data.creator);
 
     return this.mapEventToEventType(data);
   }

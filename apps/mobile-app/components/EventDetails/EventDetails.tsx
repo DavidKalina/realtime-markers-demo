@@ -8,7 +8,7 @@ import {
   SafeAreaView,
   ScrollView,
 } from "react-native";
-import { ArrowLeft, Calendar, MapPin, Info } from "lucide-react-native";
+import { ArrowLeft, Calendar, MapPin, Info, User } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import apiClient from "../../services/ApiClient";
@@ -38,6 +38,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
       try {
         const eventData = await apiClient.getEventById(eventId);
+
+        console.log(JSON.stringify(eventData, null, 2));
+
         if (isMounted) {
           setEvent(eventData);
         }
@@ -162,6 +165,19 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                   {event.distance && <Text style={styles.distanceText}>{event.distance} away</Text>}
                 </View>
 
+                {/* New Scanned By Section */}
+                {event.creator && (
+                  <View style={styles.detailSection}>
+                    <View style={styles.resultDetailsRow}>
+                      <User size={16} color="#93c5fd" style={{ marginRight: 8 }} />
+                      <Text style={styles.detailLabel}>Scanned By</Text>
+                    </View>
+                    <Text style={styles.detailValue}>
+                      {event.creator.displayName || event.creator.email}
+                    </Text>
+                  </View>
+                )}
+
                 <View style={styles.detailSection}>
                   <View style={styles.resultDetailsRow}>
                     <Info size={16} color="#93c5fd" style={{ marginRight: 8 }} />
@@ -174,9 +190,11 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                   <View style={styles.detailSection}>
                     <Text style={styles.detailLabel}>Categories</Text>
                     <View style={styles.categoriesContainer}>
-                      {event.categories.map((category: string, index: number) => (
+                      {event.categories.map((category: any, index: number) => (
                         <View key={index} style={styles.categoryBadge}>
-                          <Text style={styles.categoryText}>{category}</Text>
+                          <Text style={styles.categoryText}>
+                            {typeof category === "string" ? category : category.name}
+                          </Text>
                         </View>
                       ))}
                     </View>

@@ -4,6 +4,15 @@
 export type Coordinates = [number, number]; // [longitude, latitude]
 
 // Base event interface with all common properties
+export interface UserType {
+  id: string;
+  email: string;
+  displayName?: string;
+  avatarUrl?: string;
+  role: string;
+  // Add other user properties you need
+}
+
 export interface EventType {
   id?: string;
   emoji: string;
@@ -16,6 +25,9 @@ export interface EventType {
   color?: string;
   created_at?: string;
   updated_at?: string;
+  creator?: UserType; // Add this field to store the creator information
+  creatorId?: string; // Add this if you need just the ID reference
+  scanCount?: number;
   [key: string]: any; // Allow additional properties for flexibility
 }
 
