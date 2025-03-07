@@ -27,10 +27,13 @@ export default function HomeScreen() {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const { publish } = useEventBroker();
 
-  const { selectMarker } = useLocationStore();
+  // Use the selectMapItem from the updated store
+  const { selectMapItem } = useLocationStore();
+
+  // We can keep references to these for backward compatibility
+  const selectedItem = useLocationStore((state) => state.selectedItem);
 
   const {
-    selectedMarkerId,
     userLocation,
     setUserLocation,
     locationPermissionGranted,
@@ -77,9 +80,10 @@ export default function HomeScreen() {
     };
   }, [userLocation]);
 
+  // Clear selection when map is pressed (not on a marker)
   const handleMarkerPress = useCallback(() => {
-    selectMarker(null);
-  }, [selectMarker]);
+    selectMapItem(null);
+  }, [selectMapItem]);
 
   const getUserLocation = async () => {
     try {
@@ -155,6 +159,7 @@ export default function HomeScreen() {
       setIsLoadingLocation(false);
     }
   };
+
   const handleMapViewportChange = (feature: any) => {
     try {
       if (
@@ -185,6 +190,7 @@ export default function HomeScreen() {
       // Provide fallback behavior or recovery mechanism
     }
   };
+
   return (
     <AuthWrapper>
       <View style={styles.container}>
@@ -243,7 +249,7 @@ export default function HomeScreen() {
             </MapboxGL.PointAnnotation>
           )}
 
-          {/* Custom Map Markers - Using our simplified component */}
+          {/* Custom Map Markers - Using our simplified component with unified selection */}
           {isMapReady && !isLoadingLocation && currentViewport && (
             <ClusteredMapMarkers markers={markers} viewport={currentViewport} />
           )}
@@ -271,7 +277,7 @@ export default function HomeScreen() {
               eventsCount={markers.length}
               initialConnectionState={isConnected}
               position="top-right"
-              showAnimation={!selectedMarkerId}
+              showAnimation={!selectedItem}
             />
             <QueueIndicator position="top-left" />
           </>

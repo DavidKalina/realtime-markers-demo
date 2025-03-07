@@ -93,6 +93,7 @@ const SearchView: React.FC = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Keyboard.dismiss();
     // Add navigation logic here
+    router.push(`details?eventId=${event.id}` as never);
   };
 
   // Handle search submission

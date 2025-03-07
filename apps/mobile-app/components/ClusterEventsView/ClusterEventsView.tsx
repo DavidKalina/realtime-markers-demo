@@ -15,6 +15,26 @@ import { EventType } from "@/types/types";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { styles } from "./styles";
 
+// Import or define the MapItem types (same as in other files)
+interface BaseMapItem {
+  id: string;
+  coordinates: [number, number];
+  type: "marker" | "cluster";
+}
+
+interface MarkerItem extends BaseMapItem {
+  type: "marker";
+  data: any; // Use your marker data type here
+}
+
+interface ClusterItem extends BaseMapItem {
+  type: "cluster";
+  count: number;
+  childrenIds?: string[];
+}
+
+type MapItem = MarkerItem | ClusterItem;
+
 const ClusterEventsView: React.FC = () => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
@@ -22,52 +42,43 @@ const ClusterEventsView: React.FC = () => {
   const [events, setEvents] = useState<EventType[]>([]);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
 
-  // Keep a local copy of the cluster data to handle navigation
-  const [localCluster, setLocalCluster] = useState<any>(null);
-
-  // Get data from location store
-  const selectedCluster = useLocationStore((state) => state.selectedCluster);
+  // Use the unified selection from the store
+  const selectedItem = useLocationStore((state) => state.selectedItem);
   const markers = useLocationStore((state) => state.markers);
-  const selectMarker = useLocationStore((state) => state.selectMarker);
-  const selectCluster = useLocationStore((state) => state.selectCluster);
+  const selectMapItem = useLocationStore((state) => state.selectMapItem);
+
+  // Keep a local copy of the cluster data to handle navigation away and back
+  const [localCluster, setLocalCluster] = useState<ClusterItem | null>(null);
 
   const listRef = useRef<FlatList>(null);
 
-  // Store cluster data locally when it's available
+  // Store cluster data locally when it's available from the unified selection
   useEffect(() => {
-    if (selectedCluster && !localCluster) {
-      setLocalCluster(selectedCluster);
+    if (selectedItem?.type === "cluster" && !localCluster) {
+      setLocalCluster(selectedItem as ClusterItem);
     }
-  }, [selectedCluster, localCluster]);
+  }, [selectedItem, localCluster]);
 
   // Get the effective cluster data (either from store or local state)
-  const effectiveCluster = selectedCluster || localCluster;
+  // This approach ensures we have cluster data even if selection changes
+  const effectiveCluster =
+    selectedItem?.type === "cluster" ? (selectedItem as ClusterItem) : localCluster;
+
   const clusterCount = effectiveCluster?.count;
   const clusterCoordinates = effectiveCluster?.coordinates;
 
   // Restore cluster selection when returning to this screen if needed
   useFocusEffect(
     useCallback(() => {
-      // If we have local cluster data but nothing selected in the store,
-      // restore the cluster selection
-      if (localCluster && !selectedCluster) {
-        selectCluster({
-          // Create minimum data needed for the store's selectCluster function
-          properties: {
-            cluster_id: localCluster.id.replace("cluster-", ""),
-            point_count: localCluster.count,
-          },
-          geometry: {
-            coordinates: localCluster.coordinates,
-          },
-          type: "Feature",
-        } as any);
+      // If we have local cluster data but no cluster is selected, restore the selection
+      if (localCluster && (!selectedItem || selectedItem.type !== "cluster")) {
+        selectMapItem(localCluster);
       }
 
       return () => {
         // No cleanup needed
       };
-    }, [localCluster, selectedCluster, selectCluster])
+    }, [localCluster, selectedItem, selectMapItem])
   );
 
   // Function to fetch cluster events using the effective cluster data
@@ -154,25 +165,40 @@ const ClusterEventsView: React.FC = () => {
     }
   }, [effectiveCluster, fetchClusterEvents]);
 
-  // Handle back button
+  // Handle back button - clear selection using unified approach
   const handleBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    selectMarker(null);
-    selectCluster(null);
+    // Clear selection using unified method
+    selectMapItem(null);
     router.back();
   };
 
-  // Handle select event with special handling to preserve cluster selection
+  // Handle select event with the unified approach
   const handleSelectEvent = (event: EventType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Save current cluster before selecting a marker
-    const currentCluster = selectedCluster || localCluster;
+    // Keep the cluster data to support returning to this view later
+    if (selectedItem?.type === "cluster") {
+      setLocalCluster(selectedItem as ClusterItem);
+    }
 
     // Select the marker in the store if it's a real marker (not a dummy)
     if (event.id && !event.id.startsWith("event-dummy-")) {
-      // The issue: selectMarker is clearing the cluster selection
-      selectMarker(event.id);
+      // Find the marker in the markers array
+      const marker = markers.find((m) => m.id === event.id);
+
+      if (marker) {
+        // Create a marker map item for the unified selection
+        const markerItem: MarkerItem = {
+          id: marker.id,
+          type: "marker",
+          coordinates: marker.coordinates,
+          data: marker.data,
+        };
+
+        // Select using unified method - doesn't clear other selection data
+        selectMapItem(markerItem);
+      }
     }
 
     // Navigate to event details

@@ -5,149 +5,156 @@ import { EventTypes } from "@/services/EventBroker";
 import { useEffect, useRef } from "react";
 import { generateClusterMessages, generateMessageSequence } from "../utils/messageUtils";
 
+// Define the unified MapItem types - these should be imported from a common types file
+interface BaseMapItem {
+  id: string;
+  coordinates: [number, number];
+  type: "marker" | "cluster";
+}
+
+interface MarkerItem extends BaseMapItem {
+  type: "marker";
+  data: Marker["data"];
+}
+
+interface ClusterItem extends BaseMapItem {
+  type: "cluster";
+  count: number;
+  childrenIds?: string[];
+}
+
+type MapItem = MarkerItem | ClusterItem;
+
 interface MarkerEffectsProps {
-  // Selected marker/cluster state
-  selectedMarker: Marker | null;
-  selectedMarkerId: string | null;
-  selectedItemType: "marker" | "cluster" | null;
-  selectedCluster: { id: string; count: number; coordinates: [number, number] } | null;
+  // Unified selection state
+  selectedItem: MapItem | null;
 
   // User location for distance calculations
   userLocation: [number, number] | null;
 
-  // Callback functions
-  onMarkerSelect: (marker: Marker, messages: string[]) => void;
-  onClusterSelect?: (
-    cluster: { id: string; count: number; coordinates: [number, number] },
-    messages: string[]
-  ) => void;
-  onMarkerDeselect: () => void;
+  // Callback functions with unified approach
+  onItemSelect: (item: MapItem, messages: string[]) => void;
+  onItemDeselect: () => void;
 }
 
 /**
- * Custom hook to handle marker and cluster selection and deselection effects
+ * Custom hook to handle map item (marker or cluster) selection and deselection effects
+ * Using the unified MapItem approach
  */
 export const useMarkerEffects = ({
-  selectedMarker,
-  selectedMarkerId,
-  selectedItemType,
-  selectedCluster,
+  selectedItem,
   userLocation,
-  onMarkerSelect,
-  onClusterSelect,
-  onMarkerDeselect,
+  onItemSelect,
+  onItemDeselect,
 }: MarkerEffectsProps) => {
   // Create references to track the current active selection
-  const currentMarkerIdRef = useRef<string | null>(null);
+  const currentItemIdRef = useRef<string | null>(null);
   const currentItemTypeRef = useRef<"marker" | "cluster" | null>(null);
-  const lastMarkerNameRef = useRef<string>("");
+  const lastItemNameRef = useRef<string>("");
   const { subscribe } = useEventBroker();
 
-  // Reference to track already processed markers/clusters to prevent duplicate handling
+  // Reference to track already processed items to prevent duplicate handling
   const processedItemRef = useRef<{ id: string; type: "marker" | "cluster" } | null>(null);
 
   // Handle deselection
   useEffect(() => {
-    const wasItemSelected = Boolean(currentMarkerIdRef.current);
-    const isItemSelected = Boolean(selectedMarkerId) || Boolean(selectedCluster);
+    const wasItemSelected = Boolean(currentItemIdRef.current);
+    const isItemSelected = Boolean(selectedItem);
 
     // If we just deselected an item, trigger cleanup
-    const itemDeselected = wasItemSelected && !isItemSelected;
+    if (wasItemSelected && !isItemSelected) {
+      // Update our references
+      currentItemIdRef.current = null;
+      currentItemTypeRef.current = null;
 
-    // Update our reference
-    currentMarkerIdRef.current = selectedMarkerId;
-    currentItemTypeRef.current = selectedItemType;
-
-    // Reset the processed item ref when deselected
-    if (itemDeselected) {
+      // Reset the processed item ref when deselected
       processedItemRef.current = null;
-      onMarkerDeselect();
-    }
-  }, [selectedMarkerId, selectedCluster, selectedItemType, onMarkerDeselect]);
 
-  // Handle marker selection
+      // Call the deselect callback
+      onItemDeselect();
+    }
+
+    // Update references if selection changed
+    if (isItemSelected && selectedItem) {
+      currentItemIdRef.current = selectedItem.id;
+      currentItemTypeRef.current = selectedItem.type;
+    }
+  }, [selectedItem, onItemDeselect]);
+
+  // Unified handler for both marker and cluster selection
   useEffect(() => {
-    // Skip if no marker is selected or if it's not a marker selection
-    if (!selectedMarker || !selectedMarkerId || selectedItemType !== "marker") {
+    // Skip if no item is selected
+    if (!selectedItem) {
       return;
     }
 
-    // Skip if we've already processed this exact marker
+    // Skip if we've already processed this exact item
     if (
-      processedItemRef.current?.id === selectedMarkerId &&
-      processedItemRef.current?.type === "marker"
+      processedItemRef.current?.id === selectedItem.id &&
+      processedItemRef.current?.type === selectedItem.type
     ) {
       return;
     }
 
     // Update the processed item ref
-    processedItemRef.current = { id: selectedMarkerId, type: "marker" };
+    processedItemRef.current = { id: selectedItem.id, type: selectedItem.type };
 
     try {
-      // Generate message sequence for this marker
-      const messages = generateMessageSequence(selectedMarker, userLocation);
+      let messages: string[] = [];
 
-      // Store the marker name for goodbye message
-      const markerName = selectedMarker.data?.title || "this location";
-      lastMarkerNameRef.current = markerName;
+      // Use type discrimination to handle different item types
+      if (selectedItem.type === "marker") {
+        // It's a marker - create a compatible Marker object
+        const markerObj: Marker = {
+          id: selectedItem.id,
+          coordinates: selectedItem.coordinates,
+          data: selectedItem.data,
+        };
 
-      // Trigger the marker select callback with messages
-      onMarkerSelect(selectedMarker, messages);
+        // Generate message sequence for this marker
+        messages = generateMessageSequence(markerObj, userLocation);
+
+        // Store the marker name for goodbye message
+        const markerName = selectedItem.data?.title || "this location";
+        lastItemNameRef.current = markerName;
+      } else if (selectedItem.type === "cluster") {
+        // It's a cluster
+        messages = generateClusterMessages(selectedItem.count, userLocation);
+        lastItemNameRef.current = "this group";
+      }
+
+      // Trigger the unified item select callback with messages
+      onItemSelect(selectedItem, messages);
     } catch (error) {
-      console.error("Error processing selected marker:", error);
-      onMarkerSelect(selectedMarker, ["Sorry, I couldn't load information about this location."]);
-    }
-  }, [selectedMarker, selectedMarkerId, selectedItemType, userLocation, onMarkerSelect]);
-
-  // Handle cluster selection
-  useEffect(() => {
-    // Skip if no cluster is selected or if it's not a cluster selection
-    if (!selectedCluster || selectedItemType !== "cluster" || !onClusterSelect) {
-      return;
-    }
-
-    // Skip if we've already processed this exact cluster
-    if (
-      processedItemRef.current?.id === selectedCluster.id &&
-      processedItemRef.current?.type === "cluster"
-    ) {
-      return;
-    }
-
-    // Update the processed item ref
-    processedItemRef.current = { id: selectedCluster.id, type: "cluster" };
-
-    try {
-      // Generate message sequence for this cluster
-      const messages = generateClusterMessages(selectedCluster.count, userLocation);
-
-      // Trigger the cluster select callback with messages
-      onClusterSelect(selectedCluster, messages);
-    } catch (error) {
-      console.error("Error processing selected cluster:", error);
-      onClusterSelect(selectedCluster, [
-        "Sorry, I couldn't load information about this group of events.",
+      console.error(`Error processing selected ${selectedItem.type}:`, error);
+      onItemSelect(selectedItem, [
+        `Sorry, I couldn't load information about this ${selectedItem.type}.`,
       ]);
     }
-  }, [selectedCluster, selectedItemType, userLocation, onClusterSelect]);
+  }, [selectedItem, userLocation, onItemSelect]);
 
   // Subscribe to marker/cluster selection events from the EventBroker
   useEffect(() => {
-    const handleClusterSelected = (event: any) => {
+    const handleItemSelected = (event: any) => {
       // Event handling happens via the useEffect hooks above
       // This is mainly to log the event in development
       if (__DEV__) {
-        console.log("Cluster selected event:", event);
+        console.log(`${event.type} event:`, event);
       }
     };
 
-    // Subscribe to the cluster selected event
-    subscribe(EventTypes.CLUSTER_SELECTED, handleClusterSelected);
+    // Subscribe to both types of selection events
+    subscribe(EventTypes.MARKER_SELECTED, handleItemSelected);
+    subscribe(EventTypes.CLUSTER_SELECTED, handleItemSelected);
+
+    return () => {
+      // No explicit unsubscribe needed as the EventBroker handles this
+    };
   }, [subscribe]);
 
   return {
-    currentMarkerId: currentMarkerIdRef.current,
+    currentItemId: currentItemIdRef.current,
     currentItemType: currentItemTypeRef.current,
-    lastMarkerName: lastMarkerNameRef.current,
+    lastItemName: lastItemNameRef.current,
   };
 };
