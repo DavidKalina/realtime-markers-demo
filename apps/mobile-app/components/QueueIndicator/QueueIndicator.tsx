@@ -1,10 +1,11 @@
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { AlertTriangle, CheckCircle, Cog } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import Animated, {
   BounceIn,
   BounceOut,
+  cancelAnimation,
   Easing,
   FadeIn,
   Layout,
@@ -29,6 +30,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
   // Get jobs and clearAllJobs action from our store.
   const jobs = useJobSessionStore((state) => state.jobs);
   const clearAllJobs = useJobSessionStore((state) => state.clearAllJobs);
+  const clearJobsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Derive computed values from the jobs array.
   const activeJobs = jobs.filter((job) => job.status === "pending" || job.status === "processing");
@@ -76,18 +78,23 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
     }
   }, [activeJobs, completedJobs, failedJobs]);
 
-  // Auto-dismiss timer when all active jobs are done
   useEffect(() => {
     if (activeJobs.length === 0 && (completedJobs.length > 0 || failedJobs.length > 0)) {
       const timer = setTimeout(() => {
         setIsVisible(false);
         // Clear the jobs after the exit animation completes
-        setTimeout(() => {
+        clearJobsTimeoutRef.current = setTimeout(() => {
           clearAllJobs();
         }, 300); // Allow time for exit animation
       }, autoDismissDelay);
 
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        if (clearJobsTimeoutRef.current) {
+          clearTimeout(clearJobsTimeoutRef.current);
+          clearJobsTimeoutRef.current = null;
+        }
+      };
     }
   }, [activeJobs, completedJobs, failedJobs, clearAllJobs, autoDismissDelay]);
 
@@ -117,7 +124,28 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
         });
       });
     }
+    return () => {
+      cancelAnimation(rotationValue);
+      cancelAnimation(iconOpacity);
+      cancelAnimation(checkmarkScale);
+    };
   }, [status, rotationValue, iconOpacity, checkmarkScale]);
+
+  // Add a cleanup effect for unmounting
+  useEffect(() => {
+    return () => {
+      // Cancel all animations
+      cancelAnimation(rotationValue);
+      cancelAnimation(iconOpacity);
+      cancelAnimation(checkmarkScale);
+
+      // Clear any timeouts
+      if (clearJobsTimeoutRef.current) {
+        clearTimeout(clearJobsTimeoutRef.current);
+        clearJobsTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   // Create animated styles
   const rotationAnimatedStyle = useAnimatedStyle(() => ({
