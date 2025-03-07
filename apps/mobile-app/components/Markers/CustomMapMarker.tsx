@@ -1,18 +1,17 @@
-import React, { useEffect, useRef, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from "react-native";
 import * as Haptics from "expo-haptics";
+import { MessageCircleQuestion as QuestionMark, Star } from "lucide-react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withSequence,
-  withTiming,
-  withRepeat,
+  cancelAnimation,
   Easing,
   interpolate,
-  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
-import { Star, MessageCircleQuestion as QuestionMark } from "lucide-react-native";
 
 // Define EventType if not already imported
 export interface EventType {
@@ -115,42 +114,37 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = ({
 
   // Handle selection/highlight changes
   useEffect(() => {
-    // Cancel any ongoing animations to prevent conflicts
-    cancelAnimation(scale);
-    cancelAnimation(revealProgress);
+    // KEY FIX: Only cancel ongoing animations if the state actually changes
+    if (isSelected !== isRevealed) {
+      if (isSelected) {
+        // Scale up slightly when selected
+        scale.value = withTiming(1.2, { duration: 300 });
 
-    if (isSelected && !isRevealed) {
-      // Scale up slightly when selected
-      scale.value = withTiming(1.2, { duration: 300 });
+        // Reveal the contents
+        revealProgress.value = withTiming(1, { duration: 400 });
 
-      // Reveal the contents
-      revealProgress.value = withTiming(1, { duration: 400 });
+        setIsRevealed(true);
+      } else {
+        // Scale back down
+        scale.value = withTiming(1, { duration: 300 });
 
-      setIsRevealed(true);
-    } else if (!isSelected && isRevealed) {
-      // Scale back down
-      scale.value = withTiming(1, { duration: 300 });
+        // Hide contents
+        revealProgress.value = withTiming(0, { duration: 300 });
 
-      // Hide contents
-      revealProgress.value = withTiming(0, { duration: 300 });
-
-      setIsRevealed(false);
+        setIsRevealed(false);
+      }
     }
 
-    // Highlight effect
+    // Highlight effect - this should run regardless of revealed state
     if (isHighlighted) {
       scale.value = withSequence(
         withTiming(1.1, { duration: 150 }),
-        withTiming(1, { duration: 150 })
+        withTiming(isSelected ? 1.2 : 1, { duration: 150 })
       );
     }
 
-    // Return cleanup function
-    return () => {
-      // Cancel animations when effect dependencies change or component unmounts
-      cancelAnimation(scale);
-      cancelAnimation(revealProgress);
-    };
+    // No need to cancel animations in the cleanup function for this effect
+    // as we only want to cancel when unmounting or when state actually changes
   }, [isSelected, isHighlighted, isRevealed]);
 
   // Handle press with haptic feedback
@@ -265,7 +259,6 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = ({
 };
 
 const styles = StyleSheet.create({
-  // Styles remain the same as the original component
   touchableArea: {
     width: 44,
     height: 44,
