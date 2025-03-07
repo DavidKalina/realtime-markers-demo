@@ -177,16 +177,16 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           disabled: !userLocation, // Disable if no user location is available
         },
         {
-          key: "user",
-          label: "Me",
-          icon: <User size={20} color="#fff" style={globalStles.icon} />,
-          action: () => handlePress("user"),
-        },
-        {
           key: "saved",
           label: "Saved",
           icon: <BookMarkedIcon size={20} color="#fff" style={globalStles.icon} />,
           action: () => handlePress("saved"),
+        },
+        {
+          key: "user",
+          label: "Me",
+          icon: <User size={20} color="#fff" style={globalStles.icon} />,
+          action: () => handlePress("user"),
         },
       ],
       [userLocation]
