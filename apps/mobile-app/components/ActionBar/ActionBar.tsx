@@ -5,7 +5,7 @@ import { useUserLocation } from "@/hooks/useUserLocation";
 import { CameraAnimateToLocationEvent, EventTypes } from "@/services/EventBroker";
 import * as Haptics from "expo-haptics";
 import { Camera, Info, Navigation, SearchIcon, Share2, User } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   // New imports for layout animations
@@ -40,6 +40,7 @@ interface ActionButtonProps {
 const ActionButton: React.FC<ActionButtonProps> = React.memo(
   ({ actionKey, label, icon, onPress, isActive, disabled }) => {
     // Each button has its own scale animation
+
     const scaleValue = useSharedValue(1);
 
     // Create animated style for the button
@@ -85,6 +86,8 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
 export const ActionBar: React.FC<ActionBarProps> = React.memo(
   ({ onActionPress, isStandalone = false, animatedStyle, availableActions }) => {
+    const activeActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     // Get access to the event broker
     const { publish } = useEventBroker();
 
@@ -97,7 +100,6 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     const insets = useSafeAreaInsets();
     const { userLocation } = useUserLocation();
 
-    // Function to handle button press
     const handlePress = React.useCallback(
       (action: string) => {
         // Trigger haptic feedback
@@ -118,10 +120,13 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           });
         }
 
-        // Reset active action after a short delay
-        setTimeout(() => {
+        // Use a ref to track and clean up the timeout
+        const timeoutId = setTimeout(() => {
           setActiveAction(null);
         }, 500);
+
+        // Store the timeout ID in a ref
+        activeActionTimeoutRef.current = timeoutId;
 
         // Call the callback
         onActionPress(action);
@@ -172,6 +177,15 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
       ],
       [userLocation]
     ); // Re-create only when userLocation changes
+
+    React.useEffect(() => {
+      return () => {
+        if (activeActionTimeoutRef.current) {
+          clearTimeout(activeActionTimeoutRef.current);
+          activeActionTimeoutRef.current = null;
+        }
+      };
+    }, []);
 
     // Filter actions based on the effectiveAvailableActions
     const scrollableActions = React.useMemo(
