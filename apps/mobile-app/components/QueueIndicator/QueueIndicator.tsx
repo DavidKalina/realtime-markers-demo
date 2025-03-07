@@ -65,18 +65,22 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = ({
     }
   }, [totalJobs]);
 
-  // Update status based on job states
   useEffect(() => {
+    let newStatus: "idle" | "processing" | "completed" | "failed" = "idle";
+
     if (failedJobs.length > 0) {
-      setStatus("failed");
+      newStatus = "failed";
     } else if (activeJobs.length > 0) {
-      setStatus("processing");
+      newStatus = "processing";
     } else if (completedJobs.length > 0 && activeJobs.length === 0) {
-      setStatus("completed");
-    } else {
-      setStatus("idle");
+      newStatus = "completed";
     }
-  }, [activeJobs, completedJobs, failedJobs]);
+
+    // Only update status if it has changed
+    if (newStatus !== status) {
+      setStatus(newStatus);
+    }
+  }, [activeJobs, completedJobs, failedJobs, status]);
 
   useEffect(() => {
     if (activeJobs.length === 0 && (completedJobs.length > 0 || failedJobs.length > 0)) {

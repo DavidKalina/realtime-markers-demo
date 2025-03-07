@@ -53,150 +53,28 @@ const EMOJIS = [
   "🗿",
   "🏛️",
   "🏰",
-  "⛺",
-  "🎭",
-  "🎡",
-  "🎢",
-  "🚦",
-  "🎸",
-  "🎤",
-  "🎶",
-  "🎧",
-  "🥁",
-  "🎹",
-  "🎷",
-  "🎺",
-  "🎯",
-  "🎳",
-  "🎮",
-  "🕹️",
-  "🏀",
-  "⚽",
-  "⚾",
-  "🏐",
-  "🏈",
-  "🎾",
-  "🏉",
-  "🥏",
-  "🏓",
-  "🥊",
-  "🛼",
-  "🎨",
-  "🖌️",
-  "🖍️",
-  "🖼️",
-  "📸",
-  "🎬",
-  "🎥",
-  "🎟️",
-  "🎭",
-  "🎪",
-  "🎞️",
-  "🍻",
-  "🥂",
-  "🍹",
-  "🎂",
-  "🍕",
-  "🍿",
-  "🍦",
-  "🍜",
-  "🍣",
-  "🍛",
-  "🥗",
-  "🛍️",
-  "🛒",
-  "🎁",
-  "📚",
-  "📖",
-  "🎯",
-  "🚴",
-  "🧗",
-  "🏌️",
-  "🏇",
-  "🏄",
-  "🏊",
-  "🤿",
-  "🎽",
-  "🚣",
-  "🏂",
-  "⛷️",
-  "🎿",
-  "🛷",
-  "🧩",
-  "♟️",
-  "🎲",
-  "🃏",
-  "♠️",
-  "♥️",
-  "♦️",
-  "♣️",
-  "🔮",
-  "🕺",
-  "💃",
-  "🩰",
-  "🛏️",
-  "🚶",
-  "🏃",
-  "🚶‍♀️",
-  "🏃‍♀️",
-  "🤹",
-  "🤹‍♀️",
-  "🧑‍🤝‍🧑",
-  "👥",
-  "🎊",
-  "🎉",
-  "🏆",
-  "🥇",
-  "🥈",
-  "🥉",
-  "🏅",
 ];
 
 // Emoji animation configuration
-const EMOJI_SIZE = 32;
-const EMISSION_INTERVAL = 800; // ms between emoji emissions
-const MAX_ACTIVE_EMOJIS = 12;
-const ANIMATION_DURATION = 4000; // ms
+const EMOJI_SIZE = 24;
+const EMISSION_INTERVAL = 1000; // ms between emoji emissions (slightly faster for twinkling)
+const MAX_ACTIVE_EMOJIS = 8; // Increased for better twinkling effect across the map
+const ANIMATION_DURATION = 5000; // ms (longer for prettier twinkling)
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
-// Array of interesting map locations to choose from
-const MAP_LOCATIONS = [
-  // San Francisco
-  {
-    centerCoordinate: [-122.4324, 37.78825],
-    zoomLevel: 12,
-    styleURL: Mapbox.StyleURL.Dark,
-  },
-  // New York
-  {
-    centerCoordinate: [-74.006, 40.7128],
-    zoomLevel: 12,
-    styleURL: Mapbox.StyleURL.Dark,
-  },
-  // Tokyo
-  {
-    centerCoordinate: [139.6503, 35.6762],
-    zoomLevel: 12,
-    styleURL: Mapbox.StyleURL.Dark,
-  },
-  // London
-  {
-    centerCoordinate: [-0.1278, 51.5074],
-    zoomLevel: 12,
-    styleURL: Mapbox.StyleURL.Dark,
-  },
-  // Sydney
-  {
-    centerCoordinate: [151.2093, -33.8688],
-    zoomLevel: 12,
-    styleURL: Mapbox.StyleURL.Dark,
-  },
-];
+// Camera configuration
+const CAMERA_UPDATE_INTERVAL = 16; // ms (approximately 60fps for smoother animation)
+const PITCH = 50; // Fixed pitch for 3D effect
+const BEARING_CHANGE_SPEED = 0.03; // Degrees per update - slower rotation for smoother effect
+const PAN_SPEED = 0.00015; // Speed of position change (in degrees)
+const PAN_RADIUS = 0.008; // Maximum distance to pan from center point
 
-// Function to get a random map location
-const getRandomLocation = () => {
-  return MAP_LOCATIONS[Math.floor(Math.random() * MAP_LOCATIONS.length)];
+// Default map settings
+const DEFAULT_LOCATION = {
+  center: [-122.4324, 37.78825], // San Francisco by default
+  zoom: 14,
+  styleURL: Mapbox.StyleURL.Dark,
 };
 
 interface AnimatedEmojiProps {
@@ -231,90 +109,83 @@ export const AnimatedEmoji: React.FC<AnimatedEmojiProps> = ({
   };
 
   useEffect(() => {
-    // Use a more consistent staggered delay with less randomness
-    // This ensures more predictable distribution timing
-    const staggerDelay = index * 50;
+    // Use a consistent staggered delay
+    const staggerDelay = index * 100;
 
-    // Scale animation: start at normal size and only scale down at destination
+    // For the twinkling effect
+    const twinkleDuration = ANIMATION_DURATION * 0.7; // 70% of total animation time
+    const fadeInDuration = 600; // Longer fade-in for prettier twinkling
+    const fadeOutDuration = 800; // Longer fade-out for prettier twinkling
+    const holdDuration = twinkleDuration - fadeInDuration - fadeOutDuration;
+
+    // Scale animation for twinkling
     scale.value = withSequence(
       withTiming(0, { duration: 0 }),
       withDelay(
         staggerDelay,
         withSequence(
+          // Grow from nothing
+          withTiming(1.1, {
+            duration: fadeInDuration * 0.7,
+            easing: Easing.out(Easing.cubic),
+          }),
+          // Settle to normal size
           withTiming(1.0, {
-            // Start at normal size
-            duration: 400,
-            easing: Easing.out(Easing.cubic),
-          }),
-          withTiming(0.9, {
-            // Slight scale down as it travels
-            duration: ANIMATION_DURATION - 950,
-          }),
-          // Wait until fully arrived at destination before decompression
-          withTiming(0.9, { duration: 50 }), // Small pause at destination
-          withTiming(0.7, {
-            // Compress down on arrival (depression)
-            duration: 150,
-            easing: Easing.out(Easing.cubic),
-          }),
-          withTiming(0.85, {
-            // Decompress to final size (but still smaller than original)
-            duration: 250,
+            duration: fadeInDuration * 0.3,
             easing: Easing.inOut(Easing.cubic),
+          }),
+          // Hold
+          withTiming(1.0, { duration: holdDuration }),
+          // Pulse slightly before fading out
+          withTiming(1.15, {
+            duration: fadeOutDuration * 0.3,
+            easing: Easing.out(Easing.cubic),
+          }),
+          // Shrink away
+          withTiming(0, {
+            duration: fadeOutDuration * 0.7,
+            easing: Easing.in(Easing.cubic),
           })
         )
       )
     );
 
-    // Opacity animation: fade in, hold longer, and fade out after decompression is complete
+    // Opacity animation for twinkling
     opacity.value = withSequence(
       withTiming(0, { duration: 0 }),
-      withDelay(staggerDelay, withTiming(1, { duration: 300 })),
       withDelay(
-        ANIMATION_DURATION - 450, // Wait for the decompression animation to complete
-        withTiming(0, { duration: 450 }, () => {
-          runOnJS(handleAnimationComplete)();
-        })
+        staggerDelay,
+        withSequence(
+          // Fade in
+          withTiming(0.9, {
+            duration: fadeInDuration,
+            easing: Easing.out(Easing.cubic),
+          }),
+          // Hold
+          withTiming(0.9, { duration: holdDuration }),
+          // Fade out
+          withTiming(
+            0,
+            {
+              duration: fadeOutDuration,
+              easing: Easing.in(Easing.cubic),
+            },
+            () => {
+              runOnJS(handleAnimationComplete)();
+            }
+          )
+        )
       )
     );
 
-    // Generate a slightly curved path using bezier curves to make the movement more organic
-    // Each emoji now follows a unique path to its destination
-    const controlPointOffsetX = (Math.random() * 2 - 1) * 100; // Random horizontal offset between -100 and 100
-
-    // Position animation: improved path with controlled bezier curve
-    // Use longer duration for the movement, but ensure it completes before decompression starts
-    const movementDuration = ANIMATION_DURATION - 550; // End movement before decompression
-
-    positionX.value = withDelay(
-      staggerDelay,
-      withTiming(endX, {
-        duration: movementDuration,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      })
-    );
-
-    // For Y position, create a more natural arc upward
-    positionY.value = withDelay(
-      staggerDelay,
-      withTiming(endY, {
-        duration: movementDuration,
-        // Different easing creates varied movement patterns
-        easing:
-          index % 2 === 0
-            ? Easing.bezier(0.34, 0.17, 0.65, 0.86)
-            : Easing.bezier(0.22, 0.61, 0.36, 1),
-      })
-    );
-
-    // Subtle rotation animation with more variation
+    // Subtle rotation animation
     rotation.value = withDelay(
       staggerDelay,
       withSequence(
         withTiming(rotation.value, { duration: 0 }),
-        withSpring(rotation.value + (Math.random() * 40 - 20), {
-          damping: 8,
-          stiffness: 30,
+        withTiming(rotation.value + (Math.random() * 10 - 5), {
+          duration: twinkleDuration,
+          easing: Easing.inOut(Easing.cubic),
         })
       )
     );
@@ -347,68 +218,133 @@ interface AnimatedEmission {
 }
 
 interface AnimatedMapBackgroundProps {
-  initialLocation?: (typeof MAP_LOCATIONS)[0];
-  locationChangeInterval?: number; // Time between location changes in ms
+  location?: {
+    center: [number, number]; // [longitude, latitude]
+    zoom: number;
+    styleURL: string;
+  };
 }
 
 const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
-  initialLocation,
-  locationChangeInterval = 15000, // Default to 15 seconds
+  location = DEFAULT_LOCATION,
 }) => {
   const [activeEmissions, setActiveEmissions] = useState<AnimatedEmission[]>([]);
-  const [currentLocation, setCurrentLocation] = useState<(typeof MAP_LOCATIONS)[0]>(
-    initialLocation || getRandomLocation()
-  );
-  const emissionCount = useRef(0);
+  const [emissionPoints, setEmissionPoints] = useState<{ x: number; y: number }[]>([]);
+
+  // Camera state
+  const [cameraPosition, setCameraPosition] = useState({
+    centerCoordinate: location.center,
+    zoomLevel: location.zoom,
+    pitch: PITCH,
+    bearing: 0,
+  });
+
+  // Refs
   const mapRef = useRef<Mapbox.MapView>(null);
   const cameraRef = useRef<Mapbox.Camera>(null);
-  const [emissionPoints, setEmissionPoints] = useState<{ x: number; y: number }[]>([]);
-  const locationChangeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const emissionCount = useRef(0);
 
+  // Animation control refs
+  const panAnimationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeRef = useRef(0);
+  const bearingRef = useRef(0);
+
+  // Create complex panning pattern reference values
+  const xOffsetFactorRef = useRef(Math.random() * Math.PI * 2);
+  const yOffsetFactorRef = useRef(Math.random() * Math.PI * 2);
+  const xFrequencyRef = useRef(0.0001 + Math.random() * 0.0001);
+  const yFrequencyRef = useRef(0.0001 + Math.random() * 0.0001);
+
+  // Set up continuous panning viewport
   useEffect(() => {
-    const interval = setInterval(() => {
-      const newLocation = getRandomLocation();
-      setCurrentLocation(newLocation);
+    // Start with interpolation state
+    let currentXOffset = 0;
+    let currentYOffset = 0;
+    let targetXOffset = 0;
+    let targetYOffset = 0;
+    let currentBearing = 0;
 
-      // Animate to the new location with longer duration
+    // For smoother movement, we'll use interpolation
+    const INTERPOLATION_FACTOR = 0.03; // Lower = smoother but slower transitions
+
+    // First update to establish initial position
+    cameraRef.current?.setCamera({
+      centerCoordinate: location.center,
+      zoomLevel: location.zoom,
+      pitch: PITCH,
+      animationDuration: 0,
+    });
+
+    // Generate new targets periodically
+    const newTargetIntervalRef = setInterval(() => {
+      // Generate new target offsets for complex panning pattern
+      // Creates natural-looking movement that's less predictable
+      targetXOffset = (Math.random() * 2 - 1) * PAN_RADIUS * 0.7;
+      targetYOffset = (Math.random() * 2 - 1) * PAN_RADIUS * 0.7;
+    }, 10000); // Change targets every 10 seconds
+
+    // Start the panning animation at high framerate
+    panAnimationIntervalRef.current = setInterval(() => {
+      // Increment time reference
+      timeRef.current += CAMERA_UPDATE_INTERVAL;
+
+      // Update bearing with smooth continuous rotation
+      bearingRef.current = (bearingRef.current + BEARING_CHANGE_SPEED) % 360;
+
+      // For silky smooth camera movement, interpolate toward target values
+      // This creates gradual acceleration/deceleration between positions
+      currentXOffset = currentXOffset + (targetXOffset - currentXOffset) * INTERPOLATION_FACTOR;
+      currentYOffset = currentYOffset + (targetYOffset - currentYOffset) * INTERPOLATION_FACTOR;
+      currentBearing =
+        currentBearing + (bearingRef.current - currentBearing) * INTERPOLATION_FACTOR;
+
+      // Add subtle sinusoidal movement for organic feel - very small amplitude
+      const subtleX = Math.sin(timeRef.current * 0.0001) * PAN_RADIUS * 0.1;
+      const subtleY = Math.cos(timeRef.current * 0.00008) * PAN_RADIUS * 0.1;
+
+      // Calculate new center position with combined movement patterns
+      const newCenter = [
+        location.center[0] + currentXOffset + subtleX,
+        location.center[1] + currentYOffset + subtleY,
+      ];
+
+      // Apply the camera update with very short animation duration for smoothness
       cameraRef.current?.setCamera({
-        centerCoordinate: newLocation.centerCoordinate,
-        zoomLevel: newLocation.zoomLevel,
-        animationDuration: 4000, // Increased from 2000 to 4000ms
+        centerCoordinate: newCenter,
+        zoomLevel: location.zoom,
+        pitch: PITCH,
+        animationDuration: CAMERA_UPDATE_INTERVAL, // Match interval for smooth motion
       });
 
-      // Clear existing emission points and active emissions when location changes
-      setEmissionPoints([]);
-      setActiveEmissions([]);
+      // Update state (for other components that might need the position)
+      setCameraPosition({
+        centerCoordinate: newCenter,
+        zoomLevel: location.zoom,
+        pitch: PITCH,
+        bearing: currentBearing,
+      });
+    }, CAMERA_UPDATE_INTERVAL);
 
-      // Generate new emission points after a longer delay
-      if (locationChangeTimeoutRef.current) {
-        clearTimeout(locationChangeTimeoutRef.current);
-      }
-
-      locationChangeTimeoutRef.current = setTimeout(() => {
-        generateEmissionPoints();
-      }, 1500); // Increased from 500 to 1500ms
-    }, locationChangeInterval);
-
-    // Cleanup function for the interval
+    // Cleanup
     return () => {
-      clearInterval(interval);
-      if (locationChangeTimeoutRef.current) {
-        clearTimeout(locationChangeTimeoutRef.current);
+      if (panAnimationIntervalRef.current) {
+        clearInterval(panAnimationIntervalRef.current);
+      }
+      if (newTargetIntervalRef) {
+        clearInterval(newTargetIntervalRef);
       }
     };
-  }, [locationChangeInterval]);
+  }, [location]);
 
   const generateEmissionPoints = () => {
     const newPoints: { x: number; y: number }[] = [];
 
-    // Generate 10-18 random emission points
-    const numPoints = 10 + Math.floor(Math.random() * 9);
+    // Generate 15-25 random emission points (more points for better twinkling coverage)
+    const numPoints = 15 + Math.floor(Math.random() * 11);
 
     // Divide the screen into a grid to ensure better distribution
-    const gridCols = 4;
-    const gridRows = 3;
+    const gridCols = 5;
+    const gridRows = 4;
     const cellWidth = SCREEN_WIDTH / gridCols;
     const cellHeight = (SCREEN_HEIGHT - 150) / gridRows;
 
@@ -446,7 +382,7 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
         if (newPoints.length > 0 && Math.random() < 0.7) {
           // Create a cluster around an existing point
           const referencePoint = newPoints[Math.floor(Math.random() * newPoints.length)];
-          const spread = 60 + Math.random() * 80; // Smaller cluster spread radius
+          const spread = 60 + Math.random() * 80; // Cluster spread radius
 
           let x = referencePoint.x + (Math.random() * spread * 2 - spread);
           let y = referencePoint.y + (Math.random() * spread * 2 - spread);
@@ -476,49 +412,46 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
     setEmissionPoints(newPoints);
   };
 
-  // Also update the generateEmission function to better manage emission flow
+  // Generate emissions that twinkle on the map
   const generateEmission = () => {
     if (activeEmissions.length >= MAX_ACTIVE_EMOJIS || emissionPoints.length === 0) return;
 
     const id = `emoji-${emissionCount.current++}`;
     const randomEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
 
-    // Pick a random emission point that's not already targeted
+    // Pick a random emission point that's not already in use
     const availablePoints = emissionPoints.filter((point) => {
-      // Check if this point is already a destination for an active emission
+      // Check if this point is already being used by an active emission
       return !activeEmissions.some(
         (emission) =>
           Math.abs(emission.endX - point.x) < 10 && Math.abs(emission.endY - point.y) < 10
       );
     });
 
-    // If all points are targeted, fall back to a random point
+    // If all points are in use, fall back to a random point
     const emissionPoint =
       availablePoints.length > 0
         ? availablePoints[Math.floor(Math.random() * availablePoints.length)]
         : emissionPoints[Math.floor(Math.random() * emissionPoints.length)];
 
-    // Generate a starting point that's more distributed across the bottom
-    // Divide the bottom edge into segments to ensure better horizontal distribution
-    const segments = 8;
-    const segmentWidth = SCREEN_WIDTH / segments;
-    const segmentIndex = Math.floor(Math.random() * segments);
-    const startX = segmentIndex * segmentWidth + Math.random() * segmentWidth;
-    const startY = SCREEN_HEIGHT + 20; // Start below the screen
+    // For twinkling effect, start and end at the same point on the map
+    const x = emissionPoint.x;
+    const y = emissionPoint.y;
 
     setActiveEmissions((prev) => [
       ...prev,
       {
         id,
         emoji: randomEmoji,
-        startX,
-        startY,
-        endX: emissionPoint.x,
-        endY: emissionPoint.y,
+        startX: x,
+        startY: y,
+        endX: x,
+        endY: y,
         index: prev.length,
       },
     ]);
   };
+
   useEffect(() => {
     generateEmissionPoints();
   }, []);
@@ -535,7 +468,7 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
   useEffect(() => {
     emissionIntervalRef.current = setInterval(generateEmission, EMISSION_INTERVAL);
 
-    // Cleanup function for the interval
+    // Cleanup function
     return () => {
       if (emissionIntervalRef.current) {
         clearInterval(emissionIntervalRef.current);
@@ -543,7 +476,7 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
     };
   }, [activeEmissions.length, emissionPoints]);
 
-  // Reference to the map initialization timeout
+  // Map initialization timeout
   const mapLoadedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onMapLoaded = () => {
@@ -552,15 +485,15 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
       clearTimeout(mapLoadedTimeoutRef.current);
     }
 
-    mapLoadedTimeoutRef.current = setTimeout(generateEmissionPoints, 1000); // Increased from 500 to 1000ms
+    mapLoadedTimeoutRef.current = setTimeout(generateEmissionPoints, 1000);
   };
 
   // Final cleanup when component unmounts
   useEffect(() => {
     return () => {
       // Clear all timeouts and intervals
-      if (locationChangeTimeoutRef.current) {
-        clearTimeout(locationChangeTimeoutRef.current);
+      if (panAnimationIntervalRef.current) {
+        clearInterval(panAnimationIntervalRef.current);
       }
       if (emissionIntervalRef.current) {
         clearInterval(emissionIntervalRef.current);
@@ -569,11 +502,11 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
         clearTimeout(mapLoadedTimeoutRef.current);
       }
 
-      // Clear emission points to prevent memory leaks
+      // Clear state to prevent memory leaks
       setEmissionPoints([]);
       setActiveEmissions([]);
 
-      // Reset other states
+      // Reset counter
       emissionCount.current = 0;
     };
   }, []);
@@ -583,7 +516,7 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
       <Mapbox.MapView
         ref={mapRef}
         style={styles.map}
-        styleURL={currentLocation.styleURL}
+        styleURL={location.styleURL}
         scrollEnabled={false}
         zoomEnabled={false}
         rotateEnabled={false}
@@ -592,10 +525,11 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
       >
         <Mapbox.Camera
           ref={cameraRef}
-          zoomLevel={currentLocation.zoomLevel}
-          centerCoordinate={currentLocation.centerCoordinate}
-          animationMode="flyTo"
-          animationDuration={2000}
+          zoomLevel={cameraPosition.zoomLevel}
+          pitch={cameraPosition.pitch}
+          centerCoordinate={cameraPosition.centerCoordinate}
+          animationMode="easeTo"
+          animationDuration={CAMERA_UPDATE_INTERVAL}
         />
       </Mapbox.MapView>
 
@@ -609,7 +543,7 @@ const AnimatedMapBackground: React.FC<AnimatedMapBackgroundProps> = ({
             styles.mapMarker,
             {
               opacity: 0,
-              left: point.x - 6, // Center the marker (half of the marker size)
+              left: point.x - 6,
               top: point.y - 6,
             },
           ]}
@@ -644,7 +578,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(34, 34, 34, 0.9)", // Even darker overlay to increase contrast
+    backgroundColor: "rgba(34, 34, 34, 0.88)", // Slightly darker overlay
   },
   emojiContainer: {
     position: "absolute",
@@ -653,18 +587,18 @@ const styles = StyleSheet.create({
     borderRadius: EMOJI_SIZE / 2,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#1A1A1A", // Darker charcoal filled
-    borderWidth: 2, // Return to original border thickness
-    borderColor: "#4dabf7", // Tech-blue border matching your accent color
+    backgroundColor: "rgba(26, 26, 26, 0.7)", // Semi-transparent background for better twinkling
+    borderWidth: 1, // Thin border
+    borderColor: "#4dabf7", // Tech-blue border
     shadowColor: "#4dabf7",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4, // Reduced shadow opacity
-    shadowRadius: 5, // Smaller shadow radius
-    elevation: 4, // Reduced elevation for Android
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6, // Higher opacity for glow effect
+    shadowRadius: 6, // Larger radius for glow effect
+    elevation: 3,
     zIndex: 0, // Ensure emojis stay behind login elements
   },
   emoji: {
-    fontSize: 22, // Slightly larger emoji
+    fontSize: 16, // Smaller emoji
     textAlign: "center",
   },
   mapMarker: {
