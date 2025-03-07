@@ -56,7 +56,7 @@ const EMOJIS = [
 ];
 
 // Emoji animation configuration
-const EMOJI_SIZE = 24;
+const EMOJI_SIZE = 18;
 const EMISSION_INTERVAL = 1000; // ms between emoji emissions (slightly faster for twinkling)
 const MAX_ACTIVE_EMOJIS = 8; // Increased for better twinkling effect across the map
 const ANIMATION_DURATION = 5000; // ms (longer for prettier twinkling)
@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
     zIndex: 0, // Ensure emojis stay behind login elements
   },
   emoji: {
-    fontSize: 16, // Smaller emoji
+    fontSize: 6, // Smaller emoji
     textAlign: "center",
   },
   mapMarker: {
