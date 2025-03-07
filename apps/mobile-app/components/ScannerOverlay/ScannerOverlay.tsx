@@ -9,6 +9,7 @@ import Animated, {
   withSequence,
   interpolateColor,
   FadeIn,
+  cancelAnimation,
 } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
 import { ScannerAnimation } from "@/components/ScannerAnimation";
@@ -41,6 +42,11 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
 
   // Update message and icon based on status
   useEffect(() => {
+    // Cancel ongoing animations first to prevent conflicts
+    cancelAnimation(colorAnimation);
+    cancelAnimation(cornerOpacity);
+    cancelAnimation(scaleAnimation);
+
     if (isCapturing) {
       setMessage("Capturing document...");
       setIcon("camera");
@@ -73,7 +79,6 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
         setIcon("check-circle");
         colorAnimation.value = withTiming(1, { duration: 300 });
         cornerOpacity.value = withTiming(0.8, { duration: 300 });
-        scaleAnimation.value = withTiming(1.05, { duration: 300 });
         // Pulse animation when aligned
         scaleAnimation.value = withRepeat(
           withSequence(
@@ -86,10 +91,20 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
         setScanColor("#37D05C");
         break;
     }
-  }, [detectionStatus, guideText, isCapturing]);
+
+    // Return cleanup function for the animations in this effect
+    return () => {
+      cancelAnimation(colorAnimation);
+      cancelAnimation(cornerOpacity);
+      cancelAnimation(scaleAnimation);
+    };
+  }, [detectionStatus, guideText, isCapturing, colorAnimation, cornerOpacity, scaleAnimation]);
 
   // Animate border width
   useEffect(() => {
+    // Cancel any existing animation first
+    cancelAnimation(borderWidth);
+
     borderWidth.value = withRepeat(
       withSequence(
         withTiming(2.5, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
@@ -98,7 +113,12 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
       -1,
       true
     );
-  }, []);
+
+    // Return cleanup function for this specific animation
+    return () => {
+      cancelAnimation(borderWidth);
+    };
+  }, [borderWidth]);
 
   // Handle callback
   useEffect(() => {
@@ -108,6 +128,16 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
       return () => clearTimeout(timer);
     }
   }, [detectionStatus, onFrameReady]);
+
+  // Global cleanup effect to ensure all animations are canceled on unmount
+  useEffect(() => {
+    return () => {
+      cancelAnimation(borderWidth);
+      cancelAnimation(colorAnimation);
+      cancelAnimation(cornerOpacity);
+      cancelAnimation(scaleAnimation);
+    };
+  }, [borderWidth, colorAnimation, cornerOpacity, scaleAnimation]);
 
   // Animated styles
   const frameStyle = useAnimatedStyle(() => {
