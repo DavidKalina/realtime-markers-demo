@@ -17,12 +17,11 @@ import {
   View,
   Modal,
   FlatList,
-  Pressable,
 } from "react-native";
 import { AuthWrapper } from "../AuthWrapper";
-import ProfileFloatingEmoji from "./ProfileEmoji";
 import { styles } from "./styles";
 import MapMojiHeader from "../AnimationHeader";
+import AnimatedMapBackground from "../Background";
 
 // Define types for our data
 interface Profile {
@@ -180,6 +179,9 @@ const Login: React.FC = () => {
   return (
     <AuthWrapper requireAuth={false}>
       <SafeAreaView style={styles.container}>
+        {/* Add the animated map background as the first element */}
+        <AnimatedMapBackground />
+
         <StatusBar barStyle="light-content" backgroundColor="#333" />
         <View style={styles.headerContainer}>
           <MapMojiHeader />

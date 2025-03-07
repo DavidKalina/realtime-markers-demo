@@ -3,28 +3,31 @@ import { StyleSheet, Dimensions } from "react-native";
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#222",
+    backgroundColor: "transparent", // Changed from #222 to transparent to show background
   },
   headerContainer: {
     paddingTop: 10,
     paddingBottom: 20,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 2, // Ensure header is above background
   },
   keyboardAvoidingView: {
     flex: 1,
+    zIndex: 2, // Ensure content is above background
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "flex-start", // Changed from center to flex-start
+    justifyContent: "flex-start",
     paddingHorizontal: 20,
-    paddingVertical: 10, // Reduced padding to give more space for header
+    paddingVertical: 10,
   },
   formContainer: {
     width: "100%",
     maxWidth: 400,
     alignSelf: "center",
-    marginTop: 20, // Add space after the header
+    marginTop: 20,
+    zIndex: 2, // Ensure form is above background
   },
   appTitle: {
     fontSize: 22,
@@ -56,6 +59,7 @@ export const styles = StyleSheet.create({
     height: 55,
     borderWidth: 1,
     borderColor: "#444",
+    zIndex: 3, // Ensure inputs are above background
   },
   inputIcon: {
     marginRight: 10,
@@ -82,6 +86,7 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
+    zIndex: 3, // Ensure button is above background
   },
   loginButtonText: {
     color: "#333",
@@ -93,6 +98,7 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     marginTop: 16,
+    zIndex: 3, // Ensure links are above background
   },
   createAccountText: {
     color: "#ccc",
@@ -109,6 +115,7 @@ export const styles = StyleSheet.create({
     alignSelf: "center",
     paddingVertical: 12,
     paddingHorizontal: 20,
+    zIndex: 3, // Ensure button is above background
   },
   toggleManualText: {
     color: "#aaa",
@@ -130,6 +137,7 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#444",
     height: 55,
+    zIndex: 4, // Higher zIndex for dropdown
   },
   selectedProfileContainer: {
     flexDirection: "row",
@@ -190,6 +198,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
+    zIndex: 10, // Modal should be on top of everything
   },
   dropdownContainer: {
     width: "90%",
@@ -205,6 +214,7 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 10,
     elevation: 10,
+    zIndex: 10, // Ensure dropdown is on top
   },
   profileList: {
     width: "100%",
