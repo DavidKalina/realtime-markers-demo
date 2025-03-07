@@ -10,6 +10,7 @@ import Animated, {
   withRepeat,
   Easing,
   interpolate,
+  cancelAnimation,
 } from "react-native-reanimated";
 import { Star, MessageCircleQuestion as QuestionMark } from "lucide-react-native";
 
@@ -72,6 +73,14 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = ({
       -1, // Infinite repeats
       true // Reverse
     );
+
+    // Return cleanup function
+    return () => {
+      // Cancel all animations when component unmounts
+      cancelAnimation(scale);
+      cancelAnimation(rotation);
+      cancelAnimation(floatY);
+    };
   }, []);
 
   // Start pulse animation for selected state
@@ -95,10 +104,21 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = ({
     } else {
       pulseOpacity.value = withTiming(0, { duration: 300 });
     }
+
+    // Return cleanup function
+    return () => {
+      // Cancel pulse animations when effect dependencies change or component unmounts
+      cancelAnimation(pulseScale);
+      cancelAnimation(pulseOpacity);
+    };
   }, [isSelected]);
 
   // Handle selection/highlight changes
   useEffect(() => {
+    // Cancel any ongoing animations to prevent conflicts
+    cancelAnimation(scale);
+    cancelAnimation(revealProgress);
+
     if (isSelected && !isRevealed) {
       // Scale up slightly when selected
       scale.value = withTiming(1.2, { duration: 300 });
@@ -124,13 +144,23 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = ({
         withTiming(1, { duration: 150 })
       );
     }
-  }, [isSelected, isHighlighted]);
+
+    // Return cleanup function
+    return () => {
+      // Cancel animations when effect dependencies change or component unmounts
+      cancelAnimation(scale);
+      cancelAnimation(revealProgress);
+    };
+  }, [isSelected, isHighlighted, isRevealed]);
 
   // Handle press with haptic feedback
   const handlePress = () => {
     Haptics.impactAsync(
       isRevealed ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
     );
+
+    // Cancel any ongoing scale animations before starting new ones
+    cancelAnimation(scale);
 
     scale.value = withSequence(
       withTiming(0.9, { duration: 100 }),
@@ -170,6 +200,20 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = ({
       transform: [{ scale: pulseScale.value }],
     };
   });
+
+  // Create an effect for global cleanup on unmount
+  useEffect(() => {
+    // Return a cleanup function that will run when the component unmounts
+    return () => {
+      // Cancel all animations to prevent memory leaks
+      cancelAnimation(scale);
+      cancelAnimation(rotation);
+      cancelAnimation(revealProgress);
+      cancelAnimation(pulseScale);
+      cancelAnimation(pulseOpacity);
+      cancelAnimation(floatY);
+    };
+  }, []);
 
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={styles.touchableArea}>
@@ -221,6 +265,7 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = ({
 };
 
 const styles = StyleSheet.create({
+  // Styles remain the same as the original component
   touchableArea: {
     width: 44,
     height: 44,

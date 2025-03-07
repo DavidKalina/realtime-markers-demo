@@ -55,18 +55,31 @@ export default function HomeScreen() {
   });
 
   useEffect(() => {
+    // Setup code for MapboxGL
     if (Platform.OS === "android") {
       MapboxGL.setTelemetryEnabled(false);
     }
 
+    // Get user location if needed
     if (!userLocation) {
       getUserLocation();
     }
-  }, []);
+
+    // Return cleanup function
+    return () => {
+      // Clean up any MapboxGL resources
+      if (mapRef.current) {
+        // MapboxGL cleanup if needed
+      }
+      if (cameraRef.current) {
+        // Camera cleanup if needed
+      }
+    };
+  }, [userLocation]);
 
   const handleMarkerPress = useCallback(() => {
     selectMarker(null);
-  }, []);
+  }, [selectMarker]);
 
   const getUserLocation = async () => {
     try {
@@ -87,9 +100,18 @@ export default function HomeScreen() {
 
       setLocationPermissionGranted(true);
 
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Location request timed out")), 15000);
       });
+
+      // Race the location request against the timeout
+      const location: any = await Promise.race([
+        Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        }),
+        timeoutPromise,
+      ]);
 
       const userCoords: [number, number] = [location.coords.longitude, location.coords.latitude];
       setUserLocation(userCoords);
@@ -112,49 +134,57 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.error("Error getting location:", error);
-      Alert.alert(
-        "Location Error",
-        "Couldn't determine your location. Using default location instead.",
-        [{ text: "OK" }]
-      );
+
+      // Check if it's a timeout error
+      const errorMessage =
+        error instanceof Error && error.message === "Location request timed out"
+          ? "Location request timed out. Using default location instead."
+          : "Couldn't determine your location. Using default location instead.";
+
+      Alert.alert("Location Error", errorMessage, [{ text: "OK" }]);
 
       // Emit error event
       publish<BaseEvent & { error: string }>(EventTypes.ERROR_OCCURRED, {
         timestamp: Date.now(),
         source: "HomeScreen",
-        error: "Failed to get user location",
+        error: `Failed to get user location: ${
+          error instanceof Error ? error.message : "unknown error"
+        }`,
       });
     } finally {
       setIsLoadingLocation(false);
     }
   };
-
   const handleMapViewportChange = (feature: any) => {
-    if (
-      feature?.properties?.visibleBounds &&
-      Array.isArray(feature.properties.visibleBounds) &&
-      feature.properties.visibleBounds.length === 2 &&
-      Array.isArray(feature.properties.visibleBounds[0]) &&
-      Array.isArray(feature.properties.visibleBounds[1])
-    ) {
-      const [[west, north], [east, south]] = feature.properties.visibleBounds;
+    try {
+      if (
+        feature?.properties?.visibleBounds &&
+        Array.isArray(feature.properties.visibleBounds) &&
+        feature.properties.visibleBounds.length === 2 &&
+        Array.isArray(feature.properties.visibleBounds[0]) &&
+        Array.isArray(feature.properties.visibleBounds[1])
+      ) {
+        const [[west, north], [east, south]] = feature.properties.visibleBounds;
 
-      const adjustedWest = Math.min(west, east);
-      const adjustedEast = Math.max(west, east);
+        const adjustedWest = Math.min(west, east);
+        const adjustedEast = Math.max(west, east);
 
-      updateViewport({
-        north,
-        south,
-        east: adjustedEast,
-        west: adjustedWest,
-      });
+        updateViewport({
+          north,
+          south,
+          east: adjustedEast,
+          west: adjustedWest,
+        });
 
-      handleGravitationalViewportChange(feature);
-    } else {
-      console.warn("Invalid viewport bounds received:", feature?.properties?.visibleBounds);
+        handleGravitationalViewportChange(feature);
+      } else {
+        console.warn("Invalid viewport bounds received:", feature?.properties?.visibleBounds);
+      }
+    } catch (error) {
+      console.error("Error processing viewport change:", error);
+      // Provide fallback behavior or recovery mechanism
     }
   };
-
   return (
     <AuthWrapper>
       <View style={styles.container}>
