@@ -9,6 +9,7 @@ import Animated, {
   withTiming,
   Easing,
   runOnJS,
+  cancelAnimation,
 } from "react-native-reanimated";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { styles } from "./emoji";
@@ -53,6 +54,9 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({ message, fallbackE
   // Handle emoji transitions with fade
   useEffect(() => {
     if (emoji !== previousEmojiRef.current) {
+      // Cancel any ongoing opacity animations first
+      cancelAnimation(opacity);
+
       // Fade out current emoji
       opacity.value = withTiming(0, { duration: 150, easing: Easing.out(Easing.quad) }, () => {
         // Once faded out, change the emoji
@@ -64,13 +68,21 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({ message, fallbackE
 
       previousEmojiRef.current = emoji;
     }
-  }, [emoji]);
+
+    // Clean up animation when effect re-runs or component unmounts
+    return () => {
+      cancelAnimation(opacity);
+    };
+  }, [emoji, opacity]);
 
   // Setup random movement
   const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Effect to handle floating animation
   useEffect(() => {
+    // Cancel any ongoing animations first
+    cancelAnimation(bobY);
+
     // Apply simple floating animation
     bobY.value = withRepeat(
       withSequence(
@@ -99,16 +111,53 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({ message, fallbackE
       setOffset({ x: randomX, y: randomY });
     }, 100);
 
+    // Cleanup function
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      // Cancel the floating animation
+      cancelAnimation(bobY);
+
+      // Clear the interval
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, []);
+  }, [bobY]);
 
   // Position animation
   useEffect(() => {
+    // Cancel any ongoing animations first
+    cancelAnimation(animatedX);
+    cancelAnimation(animatedY);
+
+    // Apply new animations
     animatedX.value = withSpring(offset.x * 20, SPRING_CONFIG);
     animatedY.value = withSpring(offset.y * 20, SPRING_CONFIG);
-  }, [offset.x, offset.y]);
+
+    // Cleanup function
+    return () => {
+      cancelAnimation(animatedX);
+      cancelAnimation(animatedY);
+    };
+  }, [offset.x, offset.y, animatedX, animatedY]);
+
+  // Global cleanup effect for safety
+  useEffect(() => {
+    // Return cleanup function that runs on unmount
+    return () => {
+      // Cancel all animations
+      cancelAnimation(animatedX);
+      cancelAnimation(animatedY);
+      cancelAnimation(bobY);
+      cancelAnimation(opacity);
+
+      // Clear interval
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [animatedX, animatedY, bobY, opacity]);
 
   // Create animated style
   const animatedEmojiStyle = useAnimatedStyle(() => {
