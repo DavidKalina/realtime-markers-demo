@@ -7,7 +7,7 @@ import { styles } from "../globalStyles";
 import { useAssistantAnimations } from "@/hooks/useEventAssistantAnimations";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { useMarkerEffects } from "@/hooks/useMarkerEffects";
-import { useEnhancedTextStreaming } from "@/hooks/useTextStreaming"; // Same import
+import { useEnhancedTextStreaming } from "@/hooks/useTextStreaming";
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { useLocationStore } from "@/stores/useLocationStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -27,12 +27,13 @@ const CONFIG = {
   ACTION_PAUSE_MS: 1500, // Shorter pause for action messages (1.5 seconds)
   ERROR_PAUSE_MS: 2500, // Pause after error messages (2.5 seconds)
   STORAGE_KEY: "has_seen_welcome", // Key for storing first-time user state
-  AUTO_DISMISS_DELAY_MS: 3000, // Auto-dismiss delay after streaming completes (8 seconds)
+  AUTO_DISMISS_DELAY_MS: 3000, // Auto-dismiss delay after streaming completes (3 seconds)
 };
 
 /**
  * EventAssistant component with enhanced navigation flow and improved marker transition handling
  * Now with reading pauses after text streaming and first-time user welcome
+ * Allows interruption of welcome flow when action buttons are pressed
  */
 const EventAssistant: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -52,6 +53,19 @@ const EventAssistant: React.FC = () => {
   // Animation hooks
   const { styles: animationStyles, controls: animationControls } = useAssistantAnimations();
 
+  // Check if component is mounted to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+
+  // Track welcome flow state with both state and ref for reliability
+  const [isWelcomeFlowActive, setIsWelcomeFlowActive] = useState(false);
+  const isWelcomeFlowActiveRef = useRef(false);
+
+  // Track if we've already initiated the welcome flow check in this session
+  const hasInitiatedWelcomeCheckRef = useRef(false);
+
+  // Track if we should skip the welcome flow (e.g., after an action button is pressed)
+  const skipWelcomeFlowRef = useRef(false);
+
   // Enhanced text streaming
   const {
     currentText,
@@ -63,6 +77,11 @@ const EventAssistant: React.FC = () => {
     resetStreaming,
     currentMarkerId,
   } = useEnhancedTextStreaming();
+
+  // Keep track of navigation state
+  const previousMarkerRef = useRef<Marker | null>(null);
+  const navigationActionRef = useRef<string | null>(null);
+  const isNavigatingRef = useRef<boolean>(false);
 
   // Function to schedule auto-dismiss
   const scheduleAutoDismiss = useCallback(() => {
@@ -90,22 +109,72 @@ const EventAssistant: React.FC = () => {
     }
   }, [isStreaming, scheduleAutoDismiss]);
 
-  // Check if component is mounted to prevent state updates after unmount
-  const isMountedRef = useRef(true);
+  // Function to mark user as no longer first-time - both AsyncStorage and local state
+  const markWelcomeSeen = useCallback(async () => {
+    try {
+      // Immediately update our refs to prevent race conditions
+      isWelcomeFlowActiveRef.current = false;
+      skipWelcomeFlowRef.current = true;
 
-  // Keep track of navigation state
-  const previousMarkerRef = useRef<Marker | null>(null);
-  const navigationActionRef = useRef<string | null>(null);
-  const isNavigatingRef = useRef<boolean>(false);
+      // Cancel any ongoing welcome streaming
+      cancelStreaming();
+
+      if (isMountedRef.current) {
+        // Update state for React rendering
+        setIsWelcomeFlowActive(false);
+
+        // Persist to AsyncStorage
+        await AsyncStorage.setItem(CONFIG.STORAGE_KEY, "true");
+      }
+    } catch (error) {
+      console.error("Error setting welcome seen status:", error);
+    }
+  }, [cancelStreaming]);
+
+  // Interrupt welcome flow and proceed with other actions
+  const interruptWelcomeFlow = useCallback(() => {
+    if (isWelcomeFlowActiveRef.current || isWelcomeFlowActive) {
+      // Cancel ongoing streaming immediately
+      cancelStreaming();
+
+      // Update both the ref and state immediately
+      isWelcomeFlowActiveRef.current = false;
+      skipWelcomeFlowRef.current = true;
+
+      // Update React state (async, but we've already updated the ref)
+      setIsWelcomeFlowActive(false);
+
+      // Persist to storage (async, but we've already updated the ref)
+      AsyncStorage.setItem(CONFIG.STORAGE_KEY, "true").catch((err) =>
+        console.error("Error saving welcome seen status:", err)
+      );
+    }
+  }, [isWelcomeFlowActive, cancelStreaming]);
 
   // Check for first-time user and show welcome message
   useEffect(() => {
+    // Only run this effect once per component lifecycle
+    if (hasInitiatedWelcomeCheckRef.current) {
+      return;
+    }
+
+    hasInitiatedWelcomeCheckRef.current = true;
+
     const checkFirstTimeUser = async () => {
       try {
+        // If we've already decided to skip the welcome flow, don't proceed
+        if (skipWelcomeFlowRef.current) {
+          return;
+        }
+
         const value = await AsyncStorage.getItem(CONFIG.STORAGE_KEY);
         const isFirstTime = value === null;
 
-        if (isFirstTime && isMountedRef.current) {
+        if (isFirstTime && isMountedRef.current && !skipWelcomeFlowRef.current) {
+          // Update both state and ref for reliability
+          setIsWelcomeFlowActive(true);
+          isWelcomeFlowActiveRef.current = true;
+
           // Show welcome message for first-time users
           const welcomeMessages = generateFirstTimeWelcomeMessages(user?.displayName);
 
@@ -116,9 +185,14 @@ const EventAssistant: React.FC = () => {
           streamMessages(
             welcomeMessages,
             async () => {
-              // Mark as seen after showing welcome
-              if (isMountedRef.current) {
-                await AsyncStorage.setItem(CONFIG.STORAGE_KEY, "true");
+              // Only mark as seen if we completed the entire welcome sequence
+              // and haven't been interrupted
+              if (
+                isMountedRef.current &&
+                isWelcomeFlowActiveRef.current &&
+                !skipWelcomeFlowRef.current
+              ) {
+                await markWelcomeSeen();
               }
             },
             {
@@ -134,7 +208,8 @@ const EventAssistant: React.FC = () => {
     };
 
     checkFirstTimeUser();
-  }, [user?.displayName, animationControls, streamMessages]);
+    // Empty dependency array ensures this runs only once
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -153,48 +228,6 @@ const EventAssistant: React.FC = () => {
     };
   }, [cancelStreaming]);
 
-  // Handle marker selection
-  const handleMarkerSelect = useCallback(
-    (marker: Marker) => {
-      // Skip if not mounted
-      if (!isMountedRef.current) return;
-
-      const markerId = marker.id;
-
-      // Store the previous marker for comparison
-      const prevMarker = previousMarkerRef.current;
-      previousMarkerRef.current = marker;
-
-      // If we're already showing this marker, don't restart the stream
-      if (currentMarkerId === markerId) {
-        return;
-      }
-
-      // If we're switching markers rapidly, use the streamForMarker function
-      // which will properly handle the transition
-      const messages = generateMessageSequence(marker, userLocation);
-
-      // Show assistant with animation (if not already visible)
-      animationControls.showAssistant(200);
-
-      // Clear any existing auto-dismiss timer since we're showing new content
-      if (autoDismissTimerRef.current) {
-        clearTimeout(autoDismissTimerRef.current);
-        autoDismissTimerRef.current = null;
-      }
-
-      // Use the direct marker streaming function to handle rapid transitions
-      // Add pause time for reading
-      streamForMarker(
-        markerId,
-        messages,
-        undefined, // no callback
-        { pauseAfterMs: CONFIG.READING_PAUSE_MS }
-      );
-    },
-    [userLocation, animationControls, streamForMarker, currentMarkerId]
-  );
-
   // Handle marker deselection
   const handleMarkerDeselect = useCallback(() => {
     // Skip if not mounted
@@ -202,6 +235,11 @@ const EventAssistant: React.FC = () => {
 
     // Reset previous marker reference
     previousMarkerRef.current = null;
+
+    // If welcome flow is active, don't proceed with deselection behavior
+    if (isWelcomeFlowActiveRef.current) {
+      return;
+    }
 
     // If we have a selected marker, show a goodbye message
     if (selectedMarker) {
@@ -231,20 +269,16 @@ const EventAssistant: React.FC = () => {
     }
   }, [selectedMarker, animationControls, cancelStreaming, resetStreaming, streamMessages]);
 
-  // Use marker effects hook to handle marker selection/deselection
-  useMarkerEffects({
-    selectedMarker,
-    selectedMarkerId,
-    userLocation,
-    onMarkerSelect: handleMarkerSelect,
-    onMarkerDeselect: handleMarkerDeselect,
-  });
-
   // Execute navigation with proper state setting and assistant cleanup
   const executeNavigation = useCallback(
     (navigateFn: () => void) => {
       // Set that we're navigating (not just unmounting)
       isNavigatingRef.current = true;
+
+      // If welcome flow is active, interrupt it before navigating
+      if (isWelcomeFlowActiveRef.current || isWelcomeFlowActive) {
+        interruptWelcomeFlow();
+      }
 
       // Hide the assistant since we're navigating away
       animationControls.hideAssistant();
@@ -255,13 +289,18 @@ const EventAssistant: React.FC = () => {
         navigateFn();
       }, 100);
     },
-    [animationControls]
+    [animationControls, isWelcomeFlowActive, interruptWelcomeFlow]
   );
 
   const handleActionPress = useCallback(
     (action: string) => {
       // Skip if not mounted
       if (!isMountedRef.current) return;
+
+      // CRITICAL: Interrupt welcome flow FIRST before proceeding with any action
+      if (isWelcomeFlowActiveRef.current || isWelcomeFlowActive) {
+        interruptWelcomeFlow();
+      }
 
       // Show assistant with animation (always show for any action press)
       animationControls.showAssistant(200);
@@ -273,7 +312,6 @@ const EventAssistant: React.FC = () => {
       }
 
       // IMPORTANT: Get the most up-to-date state from the store directly
-      // This is the key fix - always get fresh data at execution time
       const { selectedMarker: currentMarker, selectedMarkerId: currentMarkerId } =
         useLocationStore.getState();
 
@@ -346,7 +384,7 @@ const EventAssistant: React.FC = () => {
           );
           break;
         case "user":
-          // Show action message, then navigate to camera
+          // Show action message, then navigate to user profile
           // No marker needed, always show assistant
           streamForMarker(
             markerId,
@@ -372,10 +410,58 @@ const EventAssistant: React.FC = () => {
       executeNavigation,
       user?.displayName,
       userLocation,
+      isWelcomeFlowActive,
+      interruptWelcomeFlow,
     ]
-    // IMPORTANT: Removed selectedMarker and selectedMarkerId from dependencies
-    // since we're accessing them fresh from the store each time
   );
+
+  // This version directly handles marker interactions in the component
+  useMarkerEffects({
+    selectedMarker,
+    selectedMarkerId,
+    userLocation,
+    onMarkerSelect: (marker: Marker) => {
+      // Skip if not mounted
+      if (!isMountedRef.current) return;
+
+      const markerId = marker.id;
+
+      // Store the previous marker for comparison
+      previousMarkerRef.current = marker;
+
+      // If we're already showing this marker, don't restart the stream
+      if (currentMarkerId === markerId) {
+        return;
+      }
+
+      // If welcome flow is active, interrupt it
+      if (isWelcomeFlowActiveRef.current || isWelcomeFlowActive) {
+        interruptWelcomeFlow();
+      }
+
+      // Generate messages for this marker
+      const messages = generateMessageSequence(marker, userLocation);
+
+      // Show assistant with animation (if not already visible)
+      animationControls.showAssistant(200);
+
+      // Clear any existing auto-dismiss timer since we're showing new content
+      if (autoDismissTimerRef.current) {
+        clearTimeout(autoDismissTimerRef.current);
+        autoDismissTimerRef.current = null;
+      }
+
+      // Use the direct marker streaming function to handle rapid transitions
+      // Add pause time for reading
+      streamForMarker(
+        markerId,
+        messages,
+        undefined, // no callback
+        { pauseAfterMs: CONFIG.READING_PAUSE_MS }
+      );
+    },
+    onMarkerDeselect: handleMarkerDeselect,
+  });
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
