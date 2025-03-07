@@ -52,7 +52,7 @@ export default function HomeScreen() {
   } = useGravitationalCamera(markers, {
     minMarkersForPull: 1,
     animationDuration: 500,
-    cooldownPeriod: 100,
+    cooldownPeriod: 50,
     gravityZoomLevel: 14,
     centeringThreshold: 0.002,
   });
