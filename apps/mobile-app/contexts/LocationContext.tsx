@@ -1,0 +1,268 @@
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  ReactNode,
+  useCallback,
+  useMemo,
+} from "react";
+import { Alert } from "react-native";
+import * as Location from "expo-location";
+import { useEventBroker } from "@/hooks/useEventBroker";
+import { EventTypes, BaseEvent } from "@/services/EventBroker";
+
+// Define the event types
+interface UserLocationEvent extends BaseEvent {
+  coordinates: [number, number];
+}
+
+interface CameraAnimateToLocationEvent extends BaseEvent {
+  coordinates: [number, number];
+  duration: number;
+  zoomLevel: number;
+}
+
+// Define the context type
+type LocationContextType = {
+  // User location state
+  userLocation: [number, number] | null;
+
+  // Location permission state
+  locationPermissionGranted: boolean;
+
+  // Location loading state
+  isLoadingLocation: boolean;
+
+  // Get user location method
+  getUserLocation: () => Promise<void>;
+
+  // Start foreground location tracking
+  startLocationTracking: () => Promise<void>;
+
+  // Stop foreground location tracking
+  stopLocationTracking: () => void;
+
+  // Is actively tracking location
+  isTrackingLocation: boolean;
+};
+
+// Create the context with default values
+const LocationContext = createContext<LocationContextType | null>(null);
+
+// Props for the provider component
+type LocationProviderProps = {
+  children: ReactNode;
+};
+
+// Create the provider component
+export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) => {
+  // State for user location
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+
+  // State for location permissions
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState<boolean>(false);
+
+  // State for loading status
+  const [isLoadingLocation, setIsLoadingLocation] = useState<boolean>(false);
+
+  // State for tracking if we have an active subscription
+  const [locationSubscription, setLocationSubscription] =
+    useState<Location.LocationSubscription | null>(null);
+
+  // Get the event broker
+  const { publish } = useEventBroker();
+
+  // Get user location function - using useCallback to memoize the function
+  const getUserLocation = useCallback(async () => {
+    try {
+      setIsLoadingLocation(true);
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== "granted") {
+        setLocationPermissionGranted(false);
+        Alert.alert(
+          "Permission Denied",
+          "Allow location access to center the map on your position.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
+      setLocationPermissionGranted(true);
+
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Location request timed out")), 15000);
+      });
+
+      // Race the location request against the timeout
+      const location: any = await Promise.race([
+        Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        }),
+        timeoutPromise,
+      ]);
+
+      const userCoords: [number, number] = [location.coords.longitude, location.coords.latitude];
+      setUserLocation(userCoords);
+
+      publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
+        timestamp: Date.now(),
+        source: "LocationContext",
+        coordinates: userCoords,
+      });
+
+      if (userCoords) {
+        // Emit an event to animate to the user's location after obtaining it
+        publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
+          timestamp: Date.now(),
+          source: "LocationContext",
+          coordinates: userCoords,
+          duration: 1000,
+          zoomLevel: 14,
+        });
+      }
+    } catch (error) {
+      console.error("Error getting location:", error);
+
+      // Check if it's a timeout error
+      const errorMessage =
+        error instanceof Error && error.message === "Location request timed out"
+          ? "Location request timed out. Using default location instead."
+          : "Couldn't determine your location. Using default location instead.";
+
+      Alert.alert("Location Error", errorMessage, [{ text: "OK" }]);
+
+      // Emit error event
+      publish<BaseEvent & { error: string }>(EventTypes.ERROR_OCCURRED, {
+        timestamp: Date.now(),
+        source: "LocationContext",
+        error: `Failed to get user location: ${
+          error instanceof Error ? error.message : "unknown error"
+        }`,
+      });
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  }, [publish]); // Only depends on publish which should be stable
+
+  // Function to start foreground location tracking - using useCallback
+  const startLocationTracking = useCallback(async () => {
+    // If we already have a subscription, no need to create another one
+    if (locationSubscription) {
+      return;
+    }
+
+    try {
+      // Make sure we have permission first
+      if (!locationPermissionGranted) {
+        await getUserLocation();
+        if (!locationPermissionGranted) {
+          // If getUserLocation didn't successfully get permission, return
+          return;
+        }
+      }
+
+      // Start the location subscription
+      const subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          distanceInterval: 10, // Update when the user moves at least 10 meters
+          timeInterval: 5000, // Or update every 5 seconds, whichever comes first
+        },
+        (location) => {
+          const userCoords: [number, number] = [
+            location.coords.longitude,
+            location.coords.latitude,
+          ];
+
+          // Update local state
+          setUserLocation(userCoords);
+
+          // Publish event for other components to react to
+          publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
+            timestamp: Date.now(),
+            source: "LocationContext",
+            coordinates: userCoords,
+          });
+        }
+      );
+
+      // Save the subscription so we can remove it later
+      setLocationSubscription(subscription);
+    } catch (error) {
+      console.error("Error starting location tracking:", error);
+
+      // Publish error event
+      publish<BaseEvent & { error: string }>(EventTypes.ERROR_OCCURRED, {
+        timestamp: Date.now(),
+        source: "LocationContext",
+        error: `Failed to start location tracking: ${
+          error instanceof Error ? error.message : "unknown error"
+        }`,
+      });
+    }
+  }, [locationSubscription, locationPermissionGranted, getUserLocation, publish]);
+
+  // Function to stop foreground location tracking - using useCallback
+  const stopLocationTracking = useCallback(() => {
+    if (locationSubscription) {
+      locationSubscription.remove();
+      setLocationSubscription(null);
+    }
+  }, [locationSubscription]);
+
+  // Clean up subscription when the component unmounts
+  useEffect(() => {
+    return () => {
+      if (locationSubscription) {
+        locationSubscription.remove();
+      }
+    };
+  }, [locationSubscription]);
+
+  // Request location permissions when the component mounts
+  useEffect(() => {
+    getUserLocation();
+    // This effect should only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Create the context value object using useMemo to prevent unnecessary re-renders
+  const contextValue = useMemo(
+    () => ({
+      userLocation,
+      locationPermissionGranted,
+      isLoadingLocation,
+      getUserLocation,
+      startLocationTracking,
+      stopLocationTracking,
+      isTrackingLocation: locationSubscription !== null,
+    }),
+    [
+      userLocation,
+      locationPermissionGranted,
+      isLoadingLocation,
+      getUserLocation,
+      startLocationTracking,
+      stopLocationTracking,
+      locationSubscription,
+    ]
+  );
+
+  // Provide the context to child components
+  return <LocationContext.Provider value={contextValue}>{children}</LocationContext.Provider>;
+};
+
+// Custom hook to use the location context
+export const useUserLocation = () => {
+  const context = useContext(LocationContext);
+
+  if (context === null) {
+    throw new Error("useUserLocation must be used within a LocationProvider");
+  }
+
+  return context;
+};

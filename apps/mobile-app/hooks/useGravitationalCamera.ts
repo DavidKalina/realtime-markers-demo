@@ -1,7 +1,6 @@
 // hooks/useGravitationalCamera.ts
 import { useRef, useState, useEffect, useCallback } from "react";
 import { Marker } from "@/hooks/useMapWebsocket";
-import { useUserLocationStore } from "@/stores/useUserLocationStore";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import {
   EventTypes,

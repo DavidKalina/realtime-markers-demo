@@ -1,34 +1,36 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-  StatusBar,
-  SafeAreaView,
-  ScrollView,
-  Platform,
-  Alert,
-} from "react-native";
+import { useUserLocation } from "@/contexts/LocationContext";
+import { formatDate, getUserLocalTime } from "@/utils/dateTimeFormatting";
+import { calculateDistance, formatDistance } from "@/utils/distanceUtils";
+import * as Haptics from "expo-haptics";
+import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
 import {
   ArrowLeft,
-  Calendar,
-  MapPin,
-  Info,
-  User,
   Bookmark,
   BookmarkCheck,
-  Share2,
+  Calendar,
+  Info,
   Map,
+  MapPin,
+  Navigation,
+  Share2,
+  User,
 } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import * as Sharing from "expo-sharing";
-import * as Linking from "expo-linking";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 import apiClient from "../../services/ApiClient";
 import { styles } from "./styles";
-import Animated, { FadeIn } from "react-native-reanimated";
-import { formatDate, getUserLocalTime } from "@/utils/dateTimeFormatting";
 
 interface EventDetailsProps {
   eventId: string;
@@ -43,6 +45,12 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   const [saveCount, setSaveCount] = useState(0);
   const [savingState, setSavingState] = useState<"idle" | "loading">("idle");
   const router = useRouter();
+
+  // Get user location from our context
+  const { userLocation, isLoadingLocation } = useUserLocation();
+
+  // Calculate distance when we have both user location and event data
+  const [distanceInfo, setDistanceInfo] = useState<string | null>(null);
 
   // Fetch event details when eventId changes
   useEffect(() => {
@@ -96,6 +104,27 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
       isMounted = false;
     };
   }, [eventId]);
+
+  // Update distance whenever user location or event coordinates change
+  useEffect(() => {
+    if (!event || !event.coordinates || !userLocation) {
+      setDistanceInfo(null);
+      return;
+    }
+
+    try {
+      // Calculate distance between user and event
+      const distance = calculateDistance(userLocation, event.coordinates);
+      if (distance !== null) {
+        setDistanceInfo(formatDistance(distance));
+      } else {
+        setDistanceInfo(null);
+      }
+    } catch (err) {
+      console.error("Error calculating distance:", err);
+      setDistanceInfo(null);
+    }
+  }, [userLocation, event]);
 
   // Handle back button
   const handleBack = () => {
@@ -227,6 +256,32 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     }
   };
 
+  // Handle get directions (uses turn-by-turn navigation)
+  const handleGetDirections = () => {
+    if (!event?.coordinates || !userLocation) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      const [longitude, latitude] = event.coordinates;
+
+      // Create navigation URL based on platform
+      let url;
+      if (Platform.OS === "ios") {
+        // Apple Maps
+        url = `http://maps.apple.com/?daddr=${latitude},${longitude}&dirflg=d`;
+      } else {
+        // Google Maps
+        url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+      }
+
+      Linking.openURL(url);
+    } catch (err) {
+      console.error("Error opening directions:", err);
+      Alert.alert("Navigation Failed", "Could not open navigation application.");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#333" />
@@ -326,15 +381,35 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                   </View>
                   <View style={styles.locationContainer}>
                     <Text style={styles.detailValue}>{event.location}</Text>
-                    {event.distance && (
-                      <Text style={styles.distanceText}>{event.distance} away</Text>
+
+                    {/* Show calculated distance */}
+                    {distanceInfo && (
+                      <View style={styles.distanceInfoContainer}>
+                        <Text style={styles.distanceInfoText}>
+                          {isLoadingLocation ? "Calculating distance..." : distanceInfo}
+                        </Text>
+                      </View>
                     )}
 
-                    {/* Map Button */}
-                    <TouchableOpacity style={styles.mapButton} onPress={handleOpenMaps}>
-                      <Map size={16} color="#f8f9fa" />
-                      <Text style={styles.mapButtonText}>Open in Maps</Text>
-                    </TouchableOpacity>
+                    {/* Location Action Buttons */}
+                    <View style={styles.locationActionContainer}>
+                      {/* Map Button */}
+                      <TouchableOpacity style={styles.mapButton} onPress={handleOpenMaps}>
+                        <Map size={16} color="#f8f9fa" />
+                        <Text style={styles.mapButtonText}>View on Map</Text>
+                      </TouchableOpacity>
+
+                      {/* Directions Button - Only show if we have user location */}
+                      {userLocation && event.coordinates && (
+                        <TouchableOpacity
+                          style={styles.directionsButton}
+                          onPress={handleGetDirections}
+                        >
+                          <Navigation size={16} color="#f8f9fa" />
+                          <Text style={styles.directionsButtonText}>Directions</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 </View>
 

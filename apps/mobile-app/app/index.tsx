@@ -4,21 +4,15 @@ import EventAssistant from "@/components/EventAssistant/EventAssistant";
 import { styles } from "@/components/homeScreenStyles";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import QueueIndicator from "@/components/QueueIndicator/QueueIndicator";
+import { useUserLocation } from "@/contexts/LocationContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useGravitationalCamera } from "@/hooks/useGravitationalCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
-import {
-  BaseEvent,
-  CameraAnimateToLocationEvent,
-  EventTypes,
-  UserLocationEvent,
-} from "@/services/EventBroker";
+import { BaseEvent, EventTypes } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
-import { useUserLocationStore } from "@/stores/useUserLocationStore";
 import MapboxGL from "@rnmapbox/maps";
-import * as Location from "expo-location";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, Platform, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Platform, Text, View } from "react-native";
 
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
 
@@ -33,14 +27,8 @@ export default function HomeScreen() {
   // We can keep references to these for backward compatibility
   const selectedItem = useLocationStore((state) => state.selectedItem);
 
-  const {
-    userLocation,
-    setUserLocation,
-    locationPermissionGranted,
-    setLocationPermissionGranted,
-    isLoadingLocation,
-    setIsLoadingLocation,
-  } = useUserLocationStore();
+  const { userLocation, locationPermissionGranted, isLoadingLocation, getUserLocation } =
+    useUserLocation();
 
   const mapWebSocketData = useMapWebSocket(process.env.EXPO_PUBLIC_WEB_SOCKET_URL!);
   const { markers, isConnected, updateViewport, currentViewport } = mapWebSocketData;
@@ -86,81 +74,6 @@ export default function HomeScreen() {
   const handleMarkerPress = useCallback(() => {
     selectMapItem(null);
   }, [selectMapItem]);
-
-  const getUserLocation = async () => {
-    try {
-      setIsLoadingLocation(true);
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-
-      if (status !== "granted") {
-        setLocationPermissionGranted(false);
-        Alert.alert(
-          "Permission Denied",
-          "Allow location access to center the map on your position.",
-          [{ text: "OK" }]
-        );
-        setIsLoadingLocation(false);
-        return;
-      }
-
-      setLocationPermissionGranted(true);
-
-      // Create a timeout promise
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Location request timed out")), 15000);
-      });
-
-      // Race the location request against the timeout
-      const location: any = await Promise.race([
-        Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        }),
-        timeoutPromise,
-      ]);
-
-      const userCoords: [number, number] = [location.coords.longitude, location.coords.latitude];
-      setUserLocation(userCoords);
-
-      publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
-        timestamp: Date.now(),
-        source: "HomeScreen",
-        coordinates: userCoords,
-      });
-
-      if (userCoords) {
-        // Emit an event to animate to the user's location after obtaining it
-        publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
-          timestamp: Date.now(),
-          source: "HomeScreen",
-          coordinates: userCoords,
-          duration: 1000,
-          zoomLevel: 14,
-        });
-      }
-    } catch (error) {
-      console.error("Error getting location:", error);
-
-      // Check if it's a timeout error
-      const errorMessage =
-        error instanceof Error && error.message === "Location request timed out"
-          ? "Location request timed out. Using default location instead."
-          : "Couldn't determine your location. Using default location instead.";
-
-      Alert.alert("Location Error", errorMessage, [{ text: "OK" }]);
-
-      // Emit error event
-      publish<BaseEvent & { error: string }>(EventTypes.ERROR_OCCURRED, {
-        timestamp: Date.now(),
-        source: "HomeScreen",
-        error: `Failed to get user location: ${
-          error instanceof Error ? error.message : "unknown error"
-        }`,
-      });
-    } finally {
-      setIsLoadingLocation(false);
-    }
-  };
 
   const handleMapViewportChange = (feature: any) => {
     try {
@@ -232,7 +145,7 @@ export default function HomeScreen() {
             ref={cameraRef}
             defaultSettings={{
               // Default to Orem, UT if no user location
-              centerCoordinate: userLocation || [-111.694, 40.298],
+              centerCoordinate: userLocation!,
               zoomLevel: 14,
             }}
             animationDuration={0}

@@ -299,6 +299,7 @@ class ApiClient {
       description: apiEvent.description || "",
       eventDate: apiEvent.eventDate, // Add this - keep original ISO string
       time: new Date(apiEvent.eventDate).toLocaleString(), // Keep for backward compatibility
+      coordinates: apiEvent.location.coordinates,
       location: apiEvent.address || "Location not specified",
       distance: "",
       emoji: apiEvent.emoji || "📍",
@@ -350,12 +351,6 @@ class ApiClient {
       });
 
       const data = await this.handleResponse<LoginResponse>(response);
-
-      console.log("Login response received:", {
-        hasUser: !!data.user,
-        hasAccessToken: !!data.accessToken,
-        hasRefreshToken: !!data.refreshToken,
-      });
 
       // Make sure we have the expected response format
       if (!data.user) {

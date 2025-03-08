@@ -1,7 +1,6 @@
 // ActionBar.tsx - With simplified animations and updated layout animations
 import { styles as globalStles } from "@/components/globalStyles";
 import { useEventBroker } from "@/hooks/useEventBroker";
-import { useUserLocation } from "@/hooks/useUserLocation";
 import { CameraAnimateToLocationEvent, EventTypes } from "@/services/EventBroker";
 import * as Haptics from "expo-haptics";
 import {
@@ -27,6 +26,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles";
+import { useUserLocation } from "@/contexts/LocationContext";
 
 interface ActionBarProps {
   onActionPress: (action: string) => void;

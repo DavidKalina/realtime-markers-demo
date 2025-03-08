@@ -9,7 +9,6 @@ import { formatTimeInfo } from "./timeUtils";
 export interface MessageFlowOptions {
   userName?: string;
   userLocation?: [number, number] | null;
-  isFirstTimeUser?: boolean;
 }
 
 /**
@@ -76,29 +75,6 @@ const GOODBYE_MESSAGES = [
  * Class for managing message flows in the application
  */
 export class MessageFlowService {
-  /**
-   * Generates first-time welcome message flow
-   * @param options Message flow options
-   * @returns Array of welcome messages
-   */
-  static getFirstTimeWelcomeFlow(options: MessageFlowOptions = {}): string[] {
-    const { userName } = options;
-    const messages: string[] = [];
-
-    if (userName) {
-      messages.push(`Welcome, ${userName}! 👋`);
-    } else {
-      messages.push("Welcome to EventExplorer! 👋");
-    }
-
-    messages.push("I'm your personal event assistant.");
-    messages.push("Tap on any marker to discover events and attractions near you.");
-    messages.push("Use the action buttons below to search for events, scan event flyers");
-    messages.push("or launch your profile.");
-
-    return messages;
-  }
-
   /**
    * Generates a marker discovery message flow
    * @param marker The selected marker
@@ -212,8 +188,6 @@ export class MessageFlowService {
     }
   }
 
-  // utils/MessageFlowService.ts - Add this new method to your MessageFlowService class
-
   /**
    * Generates a cluster discovery message flow
    * @param clusterCount The number of events in the cluster
@@ -221,7 +195,6 @@ export class MessageFlowService {
    * @returns Array of cluster discovery messages
    */
   static getClusterDiscoveryFlow(clusterCount: number, options: MessageFlowOptions = {}): string[] {
-    const { userLocation } = options;
     const messages: string[] = [];
 
     // Cluster discovery message
