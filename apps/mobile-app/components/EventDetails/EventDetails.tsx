@@ -50,7 +50,6 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
       try {
         const eventData = await apiClient.getEventById(eventId);
-        console.log(JSON.stringify(eventData, null, 2));
 
         if (isMounted) {
           setEvent(eventData);
