@@ -36,6 +36,7 @@ const EMOJI_MAP: Record<string, string> = {
   Search: "🔍",
   flyer: "📜",
   Camera: "📷",
+  Scanner: "📷",
   next: "⏭️",
   previous: "⏮️",
   Categories: "🏷️",
@@ -118,31 +119,14 @@ export class MessageFlowService {
 
     // Calculate distance from user
     const distance = calculateDistance(userLocation ?? [0, 1], marker.coordinates);
-    const distanceText = formatDistance(distance);
 
     // Format time information
     const timeInfo = formatTimeInfo(marker.data?.time);
 
     // Get location name
-    const locationName = marker.data?.location || "";
 
     // Create an array of messages to be displayed in sequence
     const messages = [`You discovered ${title}!`];
-
-    // Add location information if available
-    if (locationName) {
-      messages.push(`Located at ${locationName}`);
-    }
-
-    // Add distance information
-    if (distance !== null) {
-      // Include phrases that match emoji map ("meters away" or "km away")
-      if (distance < 1000) {
-        messages.push(`${distanceText} meters away from your current location`);
-      } else {
-        messages.push(`${distanceText} km away from your current location`);
-      }
-    }
 
     // Add time information if available
     if (timeInfo) {
@@ -175,8 +159,6 @@ export class MessageFlowService {
     if (marker.data?.categories && marker.data.categories.length > 1) {
       messages.push(`Categories: ${marker.data.categories.join(", ")}`);
     }
-
-    messages.push("How can I help you explore this place?");
 
     return messages;
   }
