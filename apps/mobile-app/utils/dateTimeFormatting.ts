@@ -38,4 +38,5 @@ const getUserLocalTime = (dateString: string, eventTimezone?: string) => {
   }
 };
 
-export { formatDate, formatInTimeZone };
+// Export the function
+export { formatDate, getUserLocalTime };
