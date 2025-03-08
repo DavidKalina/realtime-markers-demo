@@ -16,10 +16,6 @@ export enum EventTypes {
   VIEWPORT_CHANGED = "viewport:changed",
   VIEWPORT_CHANGING = "viewport:changing",
 
-  // Assistant events
-  ASSISTANT_MESSAGE = "assistant:message",
-  ASSISTANT_ACTION = "assistant:action",
-
   // UI navigation events
   OPEN_DETAILS = "ui:open:details",
   OPEN_SHARE = "ui:open:share",
@@ -101,17 +97,6 @@ export interface ViewportEvent extends BaseEvent {
 
 export interface ExtendedViewportEvent extends ViewportEvent {
   searching: boolean;
-}
-
-// Assistant related events
-export interface AssistantMessageEvent extends BaseEvent {
-  message: string;
-  priority: "low" | "medium" | "high";
-}
-
-export interface AssistantActionEvent extends BaseEvent {
-  action: string;
-  parameters?: Record<string, any>;
 }
 
 // Navigation related events
