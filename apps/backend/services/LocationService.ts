@@ -1,6 +1,7 @@
 // src/services/EnhancedLocationService.ts
 import { createHash } from "crypto";
 import { OpenAIService } from "./OpenAIService";
+import { find } from "geo-tz"; // Import geo-tz for timezone lookup
 
 // 1. Add a location cache to prevent redundant API calls
 interface CachedLocation {
@@ -9,6 +10,7 @@ interface CachedLocation {
   coordinates: [number, number];
   timestamp: number;
   confidence: number;
+  timezone?: string; // Add timezone to cache
 }
 
 export class EnhancedLocationService {
@@ -29,6 +31,18 @@ export class EnhancedLocationService {
     return this.instance;
   }
 
+  // New method to get timezone from coordinates
+  public async getTimezoneFromCoordinates(lat: number, lng: number): Promise<string> {
+    try {
+      // Using geo-tz to find timezone from coordinates
+      const timezones = find(lat, lng);
+      return timezones.length > 0 ? timezones[0] : "UTC";
+    } catch (error) {
+      console.error("Error getting timezone from coordinates:", error);
+      return "UTC"; // Default to UTC if lookup fails
+    }
+  }
+
   // 2. Create a fingerprint of location clues for consistent lookups
   private generateCluesFingerprint(clues: string[], userLocation?: string): string {
     const normalizedClues = clues
@@ -47,7 +61,12 @@ export class EnhancedLocationService {
     clues: string[],
     userCityState: string,
     userCoordinates?: { lat: number; lng: number }
-  ): Promise<{ address: string; coordinates: [number, number]; confidence: number }> {
+  ): Promise<{
+    address: string;
+    coordinates: [number, number];
+    confidence: number;
+    timezone: string;
+  }> {
     // Generate unique fingerprint for these clues
     const cluesFingerprint = this.generateCluesFingerprint(clues, userCityState);
 
@@ -55,10 +74,24 @@ export class EnhancedLocationService {
     const cachedLocation = this.locationCache.get(cluesFingerprint);
     if (cachedLocation && Date.now() - cachedLocation.timestamp < this.CACHE_EXPIRY) {
       console.log("Using cached location for clues fingerprint:", cluesFingerprint);
+
+      // If timezone is missing in cached data, add it now
+      let timezone = cachedLocation.timezone || "UTC";
+      if (!cachedLocation.timezone) {
+        timezone = await this.getTimezoneFromCoordinates(
+          cachedLocation.coordinates[1],
+          cachedLocation.coordinates[0]
+        );
+        // Update cache with timezone
+        cachedLocation.timezone = timezone;
+        this.locationCache.set(cluesFingerprint, cachedLocation);
+      }
+
       return {
         address: cachedLocation.address,
         coordinates: cachedLocation.coordinates,
         confidence: cachedLocation.confidence,
+        timezone: timezone,
       };
     }
 
@@ -70,16 +103,21 @@ export class EnhancedLocationService {
       const coordinates = await this.geocodeAddress(address);
       const confidence = this.calculateAddressConfidence(clues, address);
 
-      // Store in cache
+      // Get timezone for these coordinates
+      const timezone = await this.getTimezoneFromCoordinates(coordinates[1], coordinates[0]);
+      console.log(`Resolved timezone: ${timezone} for coordinates [${coordinates}]`);
+
+      // Store in cache with timezone
       this.locationCache.set(cluesFingerprint, {
         cluesHash: cluesFingerprint,
         address,
         coordinates,
         timestamp: Date.now(),
         confidence,
+        timezone,
       });
 
-      return { address, coordinates, confidence };
+      return { address, coordinates, confidence, timezone };
     }
 
     // Fallback to user coordinates or default
@@ -87,14 +125,23 @@ export class EnhancedLocationService {
       ? ([userCoordinates.lng, userCoordinates.lat] as [number, number])
       : ([-111.6585, 40.2338] as [number, number]); // Default to Provo
 
+    // Get timezone for fallback coordinates
+    const fallbackTimezone = await this.getTimezoneFromCoordinates(
+      fallbackCoords[1],
+      fallbackCoords[0]
+    );
+
     return {
       address: "",
       coordinates: fallbackCoords,
       confidence: 0.1,
+      timezone: fallbackTimezone,
     };
   }
 
-  // 4. Improved address inference with validation
+  // Rest of existing methods...
+  // ... [existing methods remain unchanged] ...
+
   private async inferAddressFromClues(
     clues: string[],
     userCityState: string,

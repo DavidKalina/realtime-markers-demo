@@ -22,6 +22,7 @@ import { useRouter } from "expo-router";
 import apiClient from "../../services/ApiClient";
 import { styles } from "./styles";
 import Animated, { FadeIn } from "react-native-reanimated";
+import { formatDate } from "@/utils/dateTimeFormatting";
 
 interface EventDetailsProps {
   eventId: string;
@@ -90,11 +91,6 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
       isMounted = false;
     };
   }, [eventId]);
-
-  // Format the event time
-  const formatDate = (timeString: string) => {
-    return timeString;
-  };
 
   // Handle back button
   const handleBack = () => {
@@ -239,7 +235,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                     <Calendar size={16} color="#93c5fd" style={{ marginRight: 8 }} />
                     <Text style={styles.detailLabel}>Date & Time</Text>
                   </View>
-                  <Text style={styles.detailValue}>{formatDate(event.time)}</Text>
+                  {formatDate(event.eventDate, event.timezone)}{" "}
                 </View>
 
                 <View style={styles.detailSection}>

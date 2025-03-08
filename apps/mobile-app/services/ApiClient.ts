@@ -46,6 +46,7 @@ interface ApiEvent {
   creatorId?: string;
   scanCount?: number;
   saveCount?: number; // Add count of saves
+  timezone?: string;
 }
 
 // Search response from your API
@@ -305,6 +306,7 @@ class ApiClient {
       creator: apiEvent?.creator,
       scanCount: apiEvent.scanCount ?? 1,
       saveCount: apiEvent.saveCount ?? 0,
+      timezone: apiEvent.timezone ?? "",
     };
   }
 

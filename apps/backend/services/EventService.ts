@@ -6,6 +6,7 @@ import { Event, EventStatus } from "../entities/Event";
 import { UserEventSave } from "../entities/UserEventSave";
 import { CacheService } from "./CacheService";
 import { OpenAIService } from "./OpenAIService";
+import { EnhancedLocationService } from "./LocationService";
 
 interface SearchResult {
   event: Event;
@@ -20,19 +21,22 @@ interface CreateEventInput {
   location: Point;
   categoryIds?: string[];
   confidenceScore?: number;
-  address?: string; // Add this if you want to store the address
+  address?: string;
   creatorId: string;
+  timezone?: string; // Add timezone field
 }
 
 export class EventService {
   private eventRepository: Repository<Event>;
   private categoryRepository: Repository<Category>;
   private userEventSaveRepository: Repository<UserEventSave>;
+  private locationService: EnhancedLocationService;
 
   constructor(private dataSource: DataSource) {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
     this.userEventSaveRepository = dataSource.getRepository(UserEventSave);
+    this.locationService = EnhancedLocationService.getInstance();
   }
 
   private async generateEmbedding(text: string): Promise<number[]> {
@@ -104,6 +108,24 @@ export class EventService {
   }
 
   async createEvent(input: CreateEventInput): Promise<Event> {
+    // If timezone is not provided, try to determine it from coordinates
+    if (!input.timezone && input.location) {
+      try {
+        // Get timezone from coordinates
+        const timezone = await this.locationService.getTimezoneFromCoordinates(
+          input.location.coordinates[1], // latitude
+          input.location.coordinates[0] // longitude
+        );
+        input.timezone = timezone;
+        console.log(
+          `Determined timezone ${timezone} for event at coordinates [${input.location.coordinates}]`
+        );
+      } catch (error) {
+        console.error("Error determining timezone from coordinates:", error);
+        input.timezone = "UTC"; // Default to UTC
+      }
+    }
+
     // Generate embedding from title and description
     const textForEmbedding = `${input.title} ${input.description || ""}`.trim();
     const embedding = await this.generateEmbedding(textForEmbedding);
@@ -119,7 +141,8 @@ export class EventService {
       status: EventStatus.PENDING,
       address: input.address,
       embedding: pgvector.toSql(embedding),
-      creatorId: input.creatorId, // Add creator ID if provided
+      creatorId: input.creatorId,
+      timezone: input.timezone || "UTC", // Save the timezone
     };
 
     // Create event instance
@@ -146,7 +169,27 @@ export class EventService {
     if (eventData.title) event.title = eventData.title;
     if (eventData.description !== undefined) event.description = eventData.description;
     if (eventData.eventDate) event.eventDate = eventData.eventDate;
-    if (eventData.location) event.location = eventData.location;
+    if (eventData.location) {
+      event.location = eventData.location;
+
+      // If location changed but timezone wasn't specified, try to determine new timezone
+      if (!eventData.timezone) {
+        try {
+          const timezone = await this.locationService.getTimezoneFromCoordinates(
+            eventData.location.coordinates[1],
+            eventData.location.coordinates[0]
+          );
+          event.timezone = timezone;
+        } catch (error) {
+          console.error("Error determining timezone from updated coordinates:", error);
+        }
+      }
+    }
+
+    // Update timezone if provided
+    if (eventData.timezone) {
+      event.timezone = eventData.timezone;
+    }
 
     // Handle categories if provided
     if (eventData.categoryIds) {
@@ -158,6 +201,9 @@ export class EventService {
 
     return this.eventRepository.save(event);
   }
+
+  // The rest of the methods remain unchanged
+  // ...
 
   async searchEvents(
     query: string,
