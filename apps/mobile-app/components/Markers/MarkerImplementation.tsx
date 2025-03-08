@@ -7,7 +7,13 @@ import { ClusterMarker } from "./ClusterMarker";
 import { useMarkerClustering, ClusterFeature, PointFeature } from "@/hooks/useMarkerClustering";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { useEventBroker } from "@/hooks/useEventBroker";
-import { EventTypes, CameraAnimateToLocationEvent } from "@/services/EventBroker";
+import {
+  EventTypes,
+  CameraAnimateToLocationEvent,
+  MapItemEvent,
+  MarkerItem as EventMarkerItem,
+  ClusterItem as EventClusterItem,
+} from "@/services/EventBroker";
 import { MapboxViewport } from "@/types/types";
 
 // Define the map item types from the store (ideally these would be imported from a types file)
@@ -67,29 +73,58 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = ({
     // Select the item in the store
     selectMapItem(item);
 
-    // Zoom to the cluster
+    // Zoom to the item's location
     publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
       timestamp: Date.now(),
       source: "ClusteredMapMarkers",
       coordinates: item.coordinates,
       duration: 500,
-      zoomLevel: currentZoom + 2, // Zoom in 2 levels
+      zoomLevel: currentZoom + (item.type === "cluster" ? 2 : 0), // Zoom in 2 levels for clusters
     });
 
-    // Publish appropriate event based on item type
+    // Convert to the EventBroker's expected format
     if (item.type === "marker") {
-      // Handle marker selection
+      // Create the marker event item
+      const markerEventItem: EventMarkerItem = {
+        id: item.id,
+        type: "marker",
+        coordinates: item.coordinates,
+        markerData: item.data,
+      };
+
+      // Publish the unified MAP_ITEM_SELECTED event
+      publish<MapItemEvent>(EventTypes.MAP_ITEM_SELECTED, {
+        timestamp: Date.now(),
+        source: "ClusteredMapMarkers",
+        item: markerEventItem,
+      });
+
+      // For backward compatibility, also publish the legacy event
       publish(EventTypes.MARKER_SELECTED, {
-        type: EventTypes.MARKER_SELECTED,
         timestamp: Date.now(),
         source: "ClusteredMapMarkers",
         markerId: item.id,
-        markerData: item,
+        markerData: item.data,
       });
     } else {
-      // Handle cluster selection
+      // Create the cluster event item
+      const clusterEventItem: EventClusterItem = {
+        id: item.id,
+        type: "cluster",
+        coordinates: item.coordinates,
+        count: item.count,
+        childMarkers: item.childrenIds,
+      };
+
+      // Publish the unified MAP_ITEM_SELECTED event
+      publish<MapItemEvent>(EventTypes.MAP_ITEM_SELECTED, {
+        timestamp: Date.now(),
+        source: "ClusteredMapMarkers",
+        item: clusterEventItem,
+      });
+
+      // For backward compatibility, also publish the legacy event
       publish(EventTypes.CLUSTER_SELECTED, {
-        type: EventTypes.CLUSTER_SELECTED,
         timestamp: Date.now(),
         source: "ClusteredMapMarkers",
         clusterId: item.id,

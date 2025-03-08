@@ -8,7 +8,7 @@ import { useUserLocation } from "@/contexts/LocationContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useGravitationalCamera } from "@/hooks/useGravitationalCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
-import { BaseEvent, EventTypes } from "@/services/EventBroker";
+import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -70,10 +70,49 @@ export default function HomeScreen() {
     };
   }, [userLocation]);
 
-  // Clear selection when map is pressed (not on a marker)
-  const handleMarkerPress = useCallback(() => {
-    selectMapItem(null);
-  }, [selectMapItem]);
+  const handleMapPress = useCallback(() => {
+    // Only proceed if we actually have a selected item
+    if (selectedItem) {
+      // First publish the MAP_ITEM_DESELECTED event before clearing the selection
+      // Import the exact types from EventBroker.tsx to ensure type compatibility
+      // We need to create the properly typed item for the MapItemEvent
+      if (selectedItem.type === "marker") {
+        // Create a MarkerItem compatible with EventBroker's definition
+        const markerItem: import("@/services/EventBroker").MarkerItem = {
+          id: selectedItem.id,
+          type: "marker",
+          coordinates: selectedItem.coordinates,
+          markerData: selectedItem.data,
+        };
+
+        // Publish with correct typing
+        publish<MapItemEvent>(EventTypes.MAP_ITEM_DESELECTED, {
+          timestamp: Date.now(),
+          source: "MapPress",
+          item: markerItem,
+        });
+      } else {
+        // Create a ClusterItem compatible with EventBroker's definition
+        const clusterItem: import("@/services/EventBroker").ClusterItem = {
+          id: selectedItem.id,
+          type: "cluster",
+          coordinates: selectedItem.coordinates,
+          count: selectedItem.count,
+          childMarkers: selectedItem.childrenIds,
+        };
+
+        // Publish with correct typing
+        publish<MapItemEvent>(EventTypes.MAP_ITEM_DESELECTED, {
+          timestamp: Date.now(),
+          source: "MapPress",
+          item: clusterItem,
+        });
+      }
+
+      // Then clear the selection in the store
+      selectMapItem(null);
+    }
+  }, [selectMapItem, selectedItem, publish]);
 
   const handleMapViewportChange = (feature: any) => {
     try {
@@ -106,6 +145,16 @@ export default function HomeScreen() {
     }
   };
 
+  const handleUserPan = useCallback(() => {
+    selectMapItem(null);
+
+    console.log("USER_PANNING");
+    publish<BaseEvent>(EventTypes.USER_PANNING_VIEWPORT, {
+      timestamp: Date.now(),
+      source: "MapPress",
+    });
+  }, []);
+
   return (
     <AuthWrapper>
       <View style={styles.container}>
@@ -117,7 +166,8 @@ export default function HomeScreen() {
         )}
 
         <MapboxGL.MapView
-          onPress={handleMarkerPress}
+          onTouchStart={handleUserPan}
+          onPress={handleMapPress}
           scaleBarEnabled={false}
           rotateEnabled={false}
           pitchEnabled={false}
@@ -142,6 +192,8 @@ export default function HomeScreen() {
         >
           {/* Use our camera ref for more control */}
           <MapboxGL.Camera
+            pitch={55}
+            heading={-15}
             ref={cameraRef}
             defaultSettings={{
               // Default to Orem, UT if no user location

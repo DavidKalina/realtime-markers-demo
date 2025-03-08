@@ -7,14 +7,23 @@ export enum EventTypes {
   WEBSOCKET_CONNECTED = "websocket:connected",
   WEBSOCKET_DISCONNECTED = "websocket:disconnected",
   MARKERS_UPDATED = "markers:updated",
+
+  // New consolidated map item events
+  MAP_ITEM_SELECTED = "map:item:selected",
+  MAP_ITEM_DESELECTED = "map:item:deselected",
+
+  // Keep these for backward compatibility but they'll be deprecated
   MARKER_SELECTED = "marker:selected",
   CLUSTER_SELECTED = "cluster_selected",
   CLUSTER_EXPANDED = "cluster_expanded",
   MARKER_DESELECTED = "marker:deselected",
+
   MARKER_ADDED = "marker:added",
   MARKER_REMOVED = "marker:removed",
   VIEWPORT_CHANGED = "viewport:changed",
   VIEWPORT_CHANGING = "viewport:changing",
+
+  USER_PANNING_VIEWPORT = "user:panning:viewport",
 
   // UI navigation events
   OPEN_DETAILS = "ui:open:details",
@@ -55,7 +64,32 @@ export interface BaseEvent {
   source?: string;
 }
 
-// Marker related events
+// Unified MapItem type for both markers and clusters
+export interface MapItem {
+  id: string;
+  type: "marker" | "cluster";
+  coordinates: [number, number]; // [longitude, latitude]
+}
+
+// Marker specific MapItem
+export interface MarkerItem extends MapItem {
+  type: "marker";
+  markerData: any;
+}
+
+// Cluster specific MapItem
+export interface ClusterItem extends MapItem {
+  type: "cluster";
+  count: number;
+  childMarkers?: string[]; // Array of marker IDs in the cluster
+}
+
+// Unified event for map item selection/deselection
+export interface MapItemEvent extends BaseEvent {
+  item: MarkerItem | ClusterItem;
+}
+
+// Marker related events (kept for backward compatibility)
 export interface MarkerEvent extends BaseEvent {
   markerId: string;
   markerData: any;
