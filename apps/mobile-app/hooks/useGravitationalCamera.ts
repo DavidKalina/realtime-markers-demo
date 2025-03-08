@@ -375,11 +375,6 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       return;
     }
 
-    console.log("Gravitational pull triggered: Transition detected", {
-      previousCount: previousMarkerCount,
-      currentCount: currentMarkerCount,
-    });
-
     // Calculate the nearest marker as our target
     const centroid = calculateMarkersCentroid();
     if (!centroid) return;
