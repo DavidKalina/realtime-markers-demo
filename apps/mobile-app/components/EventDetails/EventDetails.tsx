@@ -22,6 +22,7 @@ import { useRouter } from "expo-router";
 import apiClient from "../../services/ApiClient";
 import { styles } from "./styles";
 import Animated, { FadeIn } from "react-native-reanimated";
+import { formatDate, getUserLocalTime } from "@/utils/dateTimeFormatting";
 
 interface EventDetailsProps {
   eventId: string;
@@ -49,7 +50,6 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
       try {
         const eventData = await apiClient.getEventById(eventId);
-        console.log(JSON.stringify(eventData, null, 2));
 
         if (isMounted) {
           setEvent(eventData);
@@ -90,11 +90,6 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
       isMounted = false;
     };
   }, [eventId]);
-
-  // Format the event time
-  const formatDate = (timeString: string) => {
-    return timeString;
-  };
 
   // Handle back button
   const handleBack = () => {
@@ -239,7 +234,16 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                     <Calendar size={16} color="#93c5fd" style={{ marginRight: 8 }} />
                     <Text style={styles.detailLabel}>Date & Time</Text>
                   </View>
-                  <Text style={styles.detailValue}>{formatDate(event.time)}</Text>
+                  <Text style={styles.detailValue}>
+                    {formatDate(event.eventDate, event.timezone)}
+                  </Text>
+
+                  {/* Add user's local time if different */}
+                  {getUserLocalTime(event.eventDate, event.timezone) && (
+                    <Text style={styles.timezoneText}>
+                      {getUserLocalTime(event.eventDate, event.timezone)}
+                    </Text>
+                  )}
                 </View>
 
                 <View style={styles.detailSection}>

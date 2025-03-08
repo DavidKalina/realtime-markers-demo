@@ -7,6 +7,8 @@ import type { CategoryProcessingService } from "./CategoryProcessingService";
 import type { Category } from "../entities/Category";
 import { OpenAIService } from "./OpenAIService";
 import { EnhancedLocationService } from "./LocationService";
+import { fromZonedTime, format } from "date-fns-tz";
+import { parseISO } from "date-fns";
 
 interface LocationContext {
   userCoordinates?: { lat: number; lng: number };
@@ -21,6 +23,7 @@ interface EventDetails {
   location: Point;
   description: string;
   categories?: Category[];
+  timezone?: string; // IANA timezone identifier (e.g., "America/New_York")
 }
 
 interface ScanResult {
@@ -118,11 +121,11 @@ export class EventProcessingService {
       locationContext
     );
 
-    // Progress update for event details extraction
     if (progressCallback) {
       await progressCallback("Extracting event details and categories...", {
         title: eventDetailsWithCategories.title,
         categories: eventDetailsWithCategories.categories?.map((c) => c.name),
+        timezone: eventDetailsWithCategories.timezone, // Include timezone in progress updates
       });
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
@@ -177,6 +180,7 @@ export class EventProcessingService {
         similarityScore: similarity.score,
         isDuplicate: isDuplicate || false,
         reasonForMatch: isDuplicate ? similarity.matchReason || "High similarity" : undefined,
+        timezone: eventDetailsWithCategories.timezone, // Include timezone in final progress update
       });
     }
 
@@ -200,6 +204,7 @@ export class EventProcessingService {
               text: `Please analyze this event flyer and extract as much detail as possible:
                    - Event Title
                    - Event Date and Time (be specific about year, month, day, time)
+                   - Any timezone information (EST, PST, GMT, etc.)
                    - Full Location Details (venue name, address, city, state)
                    - Complete Description
                    - Any contact information
@@ -285,9 +290,10 @@ export class EventProcessingService {
       messages: [
         {
           role: "system",
-          content: `You are a precise event information extractor with location awareness.
+          content: `You are a precise event information extractor with location and timezone awareness.
             Extract event details from flyers and promotional materials.
             For dates, always return them in ISO-8601 format (YYYY-MM-DDTHH:mm:ss.sssZ).
+            If timezone information is available on the flyer, include it in the date format.
             
             ${userLocationPrompt}
             
@@ -304,6 +310,7 @@ export class EventProcessingService {
            - emoji: The most relevant emoji
            - title: The event title
            - date: The event date and time in ISO-8601 format
+           - timezone: Any timezone information provided (e.g., "EST", "PDT", "UTC")
            - organization: The organization hosting the event
            - venue: The specific venue or room information
            - description: Full description of the event
@@ -343,22 +350,72 @@ export class EventProcessingService {
       coordinates: resolvedLocation.coordinates,
     };
 
-    // Log confidence information
-    console.log(`Address resolved with confidence: ${resolvedLocation.confidence.toFixed(2)}`);
+    // Get timezone from the location service (already included in resolvedLocation)
+    const timezone = resolvedLocation.timezone || "UTC";
 
-    // Process date with fallback
+    // Log resolved information
+    console.log(`Address resolved with confidence: ${resolvedLocation.confidence.toFixed(2)}`);
+    console.log(`Resolved timezone: ${timezone} for coordinates [${resolvedLocation.coordinates}]`);
+
+    // Process date with timezone awareness
     let eventDate;
     try {
-      eventDate = parsedDetails.date
-        ? new Date(parsedDetails.date).toISOString()
-        : new Date().toISOString();
+      // Check if we have a valid date string
+      if (parsedDetails.date) {
+        // First try to parse the date directly
+        let parsedDate = new Date(parsedDetails.date);
 
-      if (isNaN(new Date(eventDate).getTime())) {
+        // If we can't parse it or it's invalid, handle that case
+        if (isNaN(parsedDate.getTime())) {
+          console.log("Could not parse date directly:", parsedDetails.date);
+          eventDate = new Date().toISOString();
+        } else {
+          // Check for specific timezone info in the API response or use our resolved timezone
+          const explicitTimezone = parsedDetails.timezone || timezone;
+
+          // If the date string already contains timezone info (like Z or +00:00)
+          if (/Z|[+-]\d{2}:?\d{2}$/.test(parsedDetails.date)) {
+            try {
+              // Parse the ISO date and then convert to the event's timezone
+              const isoDate = parseISO(parsedDetails.date);
+              // Format with the explicit timezone
+              eventDate = format(
+                fromZonedTime(isoDate, explicitTimezone),
+                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+              );
+            } catch (e) {
+              console.error("Error converting date with timezone:", e);
+              eventDate = parsedDate.toISOString();
+            }
+          } else {
+            // If no timezone in the date string, assume it's in the event's local timezone
+            try {
+              // Treat the parsed date as if it's in the event's timezone
+              eventDate = format(
+                fromZonedTime(parsedDate, explicitTimezone),
+                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+              );
+            } catch (e) {
+              console.error("Error handling local event time:", e);
+              eventDate = parsedDate.toISOString();
+            }
+          }
+        }
+      } else {
         eventDate = new Date().toISOString();
       }
     } catch (error) {
+      console.error("Error processing event date:", error);
       eventDate = new Date().toISOString();
     }
+
+    // Log the date processing information
+    console.log("Date processing:", {
+      original: parsedDetails.date,
+      resolved: eventDate,
+      timezone: timezone,
+      explicitTimezone: parsedDetails.timezone,
+    });
 
     // Process categories
     let categories: Category[] = [];
@@ -377,6 +434,7 @@ export class EventProcessingService {
       location: location,
       description: parsedDetails.description || "",
       categories: categories,
+      timezone: timezone, // Include timezone in the return object
     };
   }
 
@@ -415,6 +473,9 @@ export class EventProcessingService {
         // Date with standardized format for better matching (2x)
         `DATE: ${dateStr.repeat(2)}`,
 
+        // Include timezone if available
+        eventDetails.timezone ? `TIMEZONE: ${eventDetails.timezone}` : "",
+
         // Location and address get the most weight (5-6x)
         `COORDS: ${roundedCoords.join(",")}`.repeat(2),
         `ADDRESS: ${eventDetails.address.repeat(5)}`,
@@ -430,6 +491,7 @@ export class EventProcessingService {
         title: eventDetails.title,
         address: eventDetails.address,
         coordinates: roundedCoords.join(","),
+        timezone: eventDetails.timezone,
         textLength: inputText.length,
       });
     }
@@ -514,14 +576,21 @@ export class EventProcessingService {
         matchAddress.toLowerCase()
       );
 
+      // ---------- TIMEZONE SIMILARITY ----------
+      // Add timezone matching to improve event comparison
+      const eventTimezone = eventDetails.timezone || "UTC";
+      const matchTimezone = bestMatch.timezone || "UTC";
+      const timezoneSimilarity = eventTimezone === matchTimezone ? 1.0 : 0.5;
+
       // ---------- COMPOSITE SCORE ----------
       // Calculate weighted composite score
-      // Prioritize location (35%), then title (25%), then date (20%), then address (15%), then embedding (5%)
+      // Prioritize location (35%), then title (25%), then date (20%), then address (10%), timezone (5%), then embedding (5%)
       const compositeScore =
-        locationSimilarity * 0.4 + // Increase from 0.35 to 0.40
-        titleSimilarity * 0.2 + // Decrease from 0.25 to 0.20
+        locationSimilarity * 0.35 +
+        titleSimilarity * 0.25 +
         dateSimilarity * 0.2 +
-        addressSimilarity * 0.15 +
+        addressSimilarity * 0.1 +
+        timezoneSimilarity * 0.05 +
         embeddingScore * 0.05;
 
       // ---------- MATCH REASON ----------
@@ -554,8 +623,11 @@ export class EventProcessingService {
         dateSimilarity: dateSimilarity.toFixed(2),
         dateDiffDays: dateDiffDays.toFixed(1),
         addressSimilarity: addressSimilarity.toFixed(2),
+        timezoneSimilarity: timezoneSimilarity.toFixed(2),
         embeddingScore: embeddingScore.toFixed(2),
         compositeScore: compositeScore.toFixed(2),
+        timezone: eventDetails.timezone,
+        matchTimezone: bestMatch.timezone,
       };
 
       console.log("Duplicate detection metrics:", {

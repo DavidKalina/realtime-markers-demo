@@ -46,6 +46,7 @@ interface ApiEvent {
   creatorId?: string;
   scanCount?: number;
   saveCount?: number; // Add count of saves
+  timezone?: string;
 }
 
 // Search response from your API
@@ -291,20 +292,21 @@ class ApiClient {
     return response;
   }
 
-  // Convert API event to frontend event type
   private mapEventToEventType(apiEvent: ApiEvent): EventType {
     return {
       id: apiEvent.id,
       title: apiEvent.title,
       description: apiEvent.description || "",
-      time: new Date(apiEvent.eventDate).toLocaleString(),
+      eventDate: apiEvent.eventDate, // Add this - keep original ISO string
+      time: new Date(apiEvent.eventDate).toLocaleString(), // Keep for backward compatibility
       location: apiEvent.address || "Location not specified",
-      distance: "", // This would be calculated based on user's location
+      distance: "",
       emoji: apiEvent.emoji || "📍",
       categories: apiEvent.categories?.map((c) => c.name) || [],
       creator: apiEvent?.creator,
       scanCount: apiEvent.scanCount ?? 1,
       saveCount: apiEvent.saveCount ?? 0,
+      timezone: apiEvent.timezone ?? "",
     };
   }
 
@@ -562,8 +564,6 @@ class ApiClient {
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<ApiEvent>(response);
 
-    console.log("EVENT DATA", data.creator);
-
     return this.mapEventToEventType(data);
   }
 
@@ -714,8 +714,6 @@ class ApiClient {
       method: "POST",
       body: formData,
     });
-
-    console.log({ requestOptions });
 
     const response = await this.fetchWithAuth(url, requestOptions);
     return this.handleResponse<{ jobId: string; status: string }>(response);

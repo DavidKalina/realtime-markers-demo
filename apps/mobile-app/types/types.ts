@@ -30,6 +30,7 @@ export interface EventType {
   scanCount?: number;
   saveCount?: number; // Add count of saves
   isSaved?: boolean; // Add whether current user has saved this event
+  timezone?: string;
   [key: string]: any; // Allow additional properties for flexibility
 }
 

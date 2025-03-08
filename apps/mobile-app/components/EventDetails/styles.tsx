@@ -202,4 +202,9 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "SpaceMono",
   },
+  timezoneText: {
+    color: "#93c5fd",
+    fontSize: 12,
+    fontWeight: "500",
+  },
 });
