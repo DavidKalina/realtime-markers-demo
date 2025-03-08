@@ -52,9 +52,11 @@ export default function HomeScreen() {
   } = useGravitationalCamera(markers, {
     minMarkersForPull: 1,
     animationDuration: 500,
-    cooldownPeriod: 50,
+    cooldownPeriod: 2000, // Higher cooldown period
     gravityZoomLevel: 14,
-    centeringThreshold: 0.002,
+    centeringThreshold: 0.003, // Slightly higher threshold
+    velocitySampleSize: 3, // Reduced sample size
+    velocityMeasurementWindow: 200, // Shorter measurement window
   });
 
   useEffect(() => {
