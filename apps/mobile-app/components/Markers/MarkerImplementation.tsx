@@ -67,6 +67,15 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = ({
     // Select the item in the store
     selectMapItem(item);
 
+    // Zoom to the cluster
+    publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
+      timestamp: Date.now(),
+      source: "ClusteredMapMarkers",
+      coordinates: item.coordinates,
+      duration: 500,
+      zoomLevel: currentZoom + 2, // Zoom in 2 levels
+    });
+
     // Publish appropriate event based on item type
     if (item.type === "marker") {
       // Handle marker selection
@@ -88,15 +97,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = ({
           count: item.count,
           coordinates: item.coordinates,
         },
-      });
-
-      // Zoom to the cluster
-      publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
-        timestamp: Date.now(),
-        source: "ClusteredMapMarkers",
-        coordinates: item.coordinates,
-        duration: 500,
-        zoomLevel: currentZoom + 2, // Zoom in 2 levels
       });
     }
   };

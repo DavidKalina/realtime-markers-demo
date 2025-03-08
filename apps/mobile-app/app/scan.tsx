@@ -377,12 +377,10 @@ export default function ScanScreen() {
               isCapturing={isCapturing || isUploading}
             />
           </CameraView>
-
-          {/* We can remove this separate overlay since we've integrated it into the ScannerOverlay component */}
         </Animated.View>
       </View>
 
-      {/* Bottom button container with fixed height */}
+      {/* Shortened bottom button container */}
       <View style={styles.buttonContainer}>
         <Animated.View
           entering={SlideInDown.duration(500).delay(200)}
@@ -392,6 +390,7 @@ export default function ScanScreen() {
             onPress={handleCapture}
             isCapturing={isCapturing || isUploading}
             isReady={isFrameReady}
+            size="compact" // Use compact size for the button
           />
         </Animated.View>
       </View>
@@ -479,11 +478,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   buttonContainer: {
-    height: 150,
+    // Reduced height from 150 to 100
+    height: 100,
     justifyContent: "center",
     alignItems: "center",
-    // Safeguard for devices with notches or home indicators
-    paddingBottom: Platform.OS === "ios" ? 16 : 0,
+    // Reduced padding for devices with notches or home indicators
+    paddingBottom: Platform.OS === "ios" ? 8 : 0,
   },
   captureButtonWrapper: {
     justifyContent: "center",

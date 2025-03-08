@@ -207,4 +207,60 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
   },
+  locationContainer: {
+    width: "100%",
+  },
+  // Updated styles for the mapButton and shareButton
+  mapButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#424242", // Darker background that matches the save button
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    marginTop: 10,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#93c5fd", // Blue accent border
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  mapButtonText: {
+    color: "#93c5fd", // Blue accent text to match other accents
+    fontSize: 14,
+    fontWeight: "500",
+    marginLeft: 8,
+    fontFamily: "SpaceMono", // Match the font family for consistency
+  },
+  bottomButtonContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#3a3a3a",
+    backgroundColor: "#333",
+  },
+  shareButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#424242", // Match the darker button color
+    paddingVertical: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#93c5fd", // Blue accent border
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  shareButtonText: {
+    color: "#93c5fd", // Blue accent text
+    fontSize: 16,
+    fontWeight: "500",
+    fontFamily: "SpaceMono", // Match the font family
+  },
 });

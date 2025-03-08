@@ -7,6 +7,8 @@ import {
   StatusBar,
   SafeAreaView,
   ScrollView,
+  Platform,
+  Alert,
 } from "react-native";
 import {
   ArrowLeft,
@@ -16,9 +18,13 @@ import {
   User,
   Bookmark,
   BookmarkCheck,
+  Share2,
+  Map,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
+import * as Linking from "expo-linking";
 import apiClient from "../../services/ApiClient";
 import { styles } from "./styles";
 import Animated, { FadeIn } from "react-native-reanimated";
@@ -131,7 +137,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
     // Optimistic UI update
     setIsSaved((prevState) => !prevState);
-    setSaveCount((prevCount) => (prevCount ? prevCount - 1 : prevCount + 1));
+    setSaveCount((prevCount) => (isSaved ? prevCount - 1 : prevCount + 1));
 
     setSavingState("loading");
 
@@ -146,7 +152,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
       // Revert optimistic update on error
       setIsSaved((prevState) => !prevState);
-      setSaveCount((prevCount) => (prevCount ? prevCount - 1 : prevCount + 1));
+      setSaveCount((prevCount) => (isSaved ? prevCount + 1 : prevCount - 1));
 
       // Could show an error toast here
     } finally {
@@ -154,11 +160,78 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     }
   };
 
+  const handleShare = async () => {
+    if (!event) return;
+
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      // Create a shareable message
+      const message = `${event.title}\n\n📅 ${formatDate(event.eventDate, event.timezone)}\n📍 ${
+        event.location
+      }\n\n${event.description || ""}`;
+
+      // Create a deep link (if your app supports it)
+      const deepLink = `eventexplorer://event/${eventId}`;
+
+      // Combine message and deeplink
+      const fullMessage = message + "\n\n" + deepLink;
+
+      // Open SMS with the message pre-filled
+      const url = `sms:&body=${encodeURIComponent(fullMessage)}`;
+
+      // Check if we can open the URL
+      const canOpen = await Linking.canOpenURL(url);
+
+      if (canOpen) {
+        await Linking.openURL(url);
+      }
+    } catch (err) {
+      console.error("Error sharing event:", err);
+      Alert.alert("Sharing Failed", "There was a problem sharing this event.");
+    }
+  };
+
+  // Open the location in the native maps app
+  const handleOpenMaps = () => {
+    if (!event || !event.location) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      let url;
+      const address = encodeURIComponent(event.location);
+
+      // If we have coordinates, use them for more precise location
+      if (event.coordinates && event.coordinates.length === 2) {
+        const [longitude, latitude] = event.coordinates;
+
+        if (Platform.OS === "ios") {
+          url = `maps:0,0?q=${latitude},${longitude}`;
+        } else {
+          url = `geo:${latitude},${longitude}?q=${latitude},${longitude}(${address})`;
+        }
+      } else {
+        // Otherwise use address
+        if (Platform.OS === "ios") {
+          url = `maps:0,0?q=${address}`;
+        } else {
+          url = `geo:0,0?q=${address}`;
+        }
+      }
+
+      Linking.openURL(url);
+    } catch (err) {
+      console.error("Error opening maps:", err);
+      Alert.alert("Navigation Failed", "Could not open maps application.");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#333" />
 
-      {/* Header similar to Search component */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <ArrowLeft size={22} color="#f8f9fa" />
@@ -251,8 +324,18 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                     <MapPin size={16} color="#93c5fd" style={{ marginRight: 8 }} />
                     <Text style={styles.detailLabel}>Location</Text>
                   </View>
-                  <Text style={styles.detailValue}>{event.location}</Text>
-                  {event.distance && <Text style={styles.distanceText}>{event.distance} away</Text>}
+                  <View style={styles.locationContainer}>
+                    <Text style={styles.detailValue}>{event.location}</Text>
+                    {event.distance && (
+                      <Text style={styles.distanceText}>{event.distance} away</Text>
+                    )}
+
+                    {/* Map Button */}
+                    <TouchableOpacity style={styles.mapButton} onPress={handleOpenMaps}>
+                      <Map size={16} color="#f8f9fa" />
+                      <Text style={styles.mapButtonText}>Open in Maps</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 {/* New Scanned By Section */}
@@ -292,6 +375,14 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                 )}
               </View>
             </ScrollView>
+
+            {/* Share Button (Fixed at Bottom) */}
+            <View style={styles.bottomButtonContainer}>
+              <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+                <Share2 size={20} color="#f8f9fa" style={{ marginRight: 8 }} />
+                <Text style={styles.shareButtonText}>Share Event</Text>
+              </TouchableOpacity>
+            </View>
           </Animated.View>
         )}
       </View>

@@ -44,21 +44,21 @@ type MapItem = MarkerItem | ClusterItem;
 
 // Configuration constants
 const CONFIG = {
-  READING_PAUSE_MS: 3000, // Pause after streaming to give users time to read (3 seconds)
-  ACTION_PAUSE_MS: 1500, // Shorter pause for action messages (1.5 seconds)
-  ERROR_PAUSE_MS: 2500, // Pause after error messages (2.5 seconds)
+  READING_PAUSE_MS: 1500, // Reduced from 3000ms to 1500ms for quicker navigation
+  ACTION_PAUSE_MS: 800, // Reduced from 1500ms to 800ms for quicker navigation
+  ERROR_PAUSE_MS: 2000, // Reduced from 2500ms to 2000ms
   STORAGE_KEY: "has_seen_welcome", // Key for storing first-time user state
   AUTO_DISMISS_DELAY_MS: 3000, // Auto-dismiss delay after streaming completes (3 seconds)
+  NAVIGATION_DELAY_MS: 1200, // Delay before navigation after showing marker/cluster info (1.2 seconds)
 };
 
 /**
  * EventAssistant component with unified marker/cluster selection logic
- * Includes reading pauses after text streaming and first-time user welcome
- * Allows interruption of welcome flow when action buttons are pressed
+ * Includes direct navigation to details when a marker is pressed
  */
 const EventAssistant: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const { navigate } = useRouter();
+  const router = useRouter();
 
   // User location
   const { userLocation } = useUserLocation();
@@ -67,6 +67,9 @@ const EventAssistant: React.FC = () => {
 
   // Auto-dismiss timer reference
   const autoDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Navigation timer reference
+  const navigationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Get the unified selection state
   const selectedItem = useLocationStore((state) => state.selectedItem);
@@ -245,14 +248,31 @@ const EventAssistant: React.FC = () => {
         autoDismissTimerRef.current = null;
       }
 
+      // Clear navigation timer on unmount
+      if (navigationTimerRef.current) {
+        clearTimeout(navigationTimerRef.current);
+        navigationTimerRef.current = null;
+      }
+
       cancelStreaming();
     };
   }, [cancelStreaming]);
+
+  // Clear any pending navigation when component unmounts
+  const clearNavigationTimer = useCallback(() => {
+    if (navigationTimerRef.current) {
+      clearTimeout(navigationTimerRef.current);
+      navigationTimerRef.current = null;
+    }
+  }, []);
 
   // Handle item deselection (works for both markers and clusters)
   const handleItemDeselect = useCallback(() => {
     // Skip if not mounted
     if (!isMountedRef.current) return;
+
+    // Clear any pending navigation when deselecting
+    clearNavigationTimer();
 
     // Reset previous item reference
     previousItemRef.current = null;
@@ -296,7 +316,14 @@ const EventAssistant: React.FC = () => {
       animationControls.hideAssistant();
       resetStreaming();
     }
-  }, [selectedItem, animationControls, cancelStreaming, resetStreaming, streamMessages]);
+  }, [
+    selectedItem,
+    animationControls,
+    cancelStreaming,
+    resetStreaming,
+    streamMessages,
+    clearNavigationTimer,
+  ]);
 
   // Execute navigation with proper state setting and assistant cleanup
   const executeNavigation = useCallback(
@@ -309,6 +336,9 @@ const EventAssistant: React.FC = () => {
         interruptWelcomeFlow();
       }
 
+      // Clear any pending navigation timers
+      clearNavigationTimer();
+
       // Hide the assistant since we're navigating away
       animationControls.hideAssistant();
 
@@ -318,7 +348,7 @@ const EventAssistant: React.FC = () => {
         navigateFn();
       }, 100);
     },
-    [animationControls, isWelcomeFlowActive, interruptWelcomeFlow]
+    [animationControls, isWelcomeFlowActive, interruptWelcomeFlow, clearNavigationTimer]
   );
 
   const handleActionPress = useCallback(
@@ -330,6 +360,9 @@ const EventAssistant: React.FC = () => {
       if (isWelcomeFlowActiveRef.current || isWelcomeFlowActive) {
         interruptWelcomeFlow();
       }
+
+      // Clear any pending navigation when pressing an action button
+      clearNavigationTimer();
 
       // Show assistant with animation (always show for any action press)
       animationControls.showAssistant(200);
@@ -370,41 +403,13 @@ const EventAssistant: React.FC = () => {
 
       // Handle navigation based on the selected item type and action
       switch (action) {
-        case "details":
-          if (currentItem) {
-            // The route depends on the type of item
-            const route =
-              currentItem.type === "marker" ? `details?eventId=${currentItem.id}` : "cluster";
-
-            // Show action message, then navigate
-            streamForMarker(
-              itemId,
-              actionMessages,
-              () => executeNavigation(() => navigate(route as never)),
-              { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
-            );
-          }
-          break;
-
-        case "share":
-          if (currentItem && currentItem.type === "marker") {
-            // Show action message, then navigate to share
-            streamForMarker(
-              itemId,
-              actionMessages,
-              () => executeNavigation(() => navigate(`share?eventId=${currentItem.id}` as never)),
-              { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
-            );
-          }
-          break;
-
         case "search":
           // Show action message, then navigate to search
           // No item needed, always show assistant
           streamForMarker(
             itemId,
             actionMessages,
-            () => executeNavigation(() => navigate("search" as never)),
+            () => executeNavigation(() => router.push("search" as never)),
             { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
           );
           break;
@@ -415,7 +420,7 @@ const EventAssistant: React.FC = () => {
           streamForMarker(
             itemId,
             actionMessages,
-            () => executeNavigation(() => navigate("scan" as never)),
+            () => executeNavigation(() => router.push("scan" as never)),
             { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
           );
           break;
@@ -425,7 +430,7 @@ const EventAssistant: React.FC = () => {
           streamForMarker(
             itemId,
             actionMessages,
-            () => executeNavigation(() => navigate("user" as never)),
+            () => executeNavigation(() => router.push("user" as never)),
             { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
           );
           break;
@@ -435,7 +440,7 @@ const EventAssistant: React.FC = () => {
           streamForMarker(
             itemId,
             actionMessages,
-            () => executeNavigation(() => navigate("saved" as never)),
+            () => executeNavigation(() => router.push("saved" as never)),
             { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
           );
           break;
@@ -452,13 +457,37 @@ const EventAssistant: React.FC = () => {
       animationControls,
       streamImmediate,
       streamForMarker,
-      navigate,
+      router,
       executeNavigation,
       user?.displayName,
       userLocation,
       isWelcomeFlowActive,
       interruptWelcomeFlow,
+      clearNavigationTimer,
     ]
+  );
+
+  // Handle direct navigation to details when marker or cluster is selected
+  const navigateToDetails = useCallback(
+    (item: MapItem) => {
+      // Clear any pending navigation
+      clearNavigationTimer();
+
+      // Set up new navigation timer
+      navigationTimerRef.current = setTimeout(() => {
+        if (!isMountedRef.current) return;
+
+        // The route depends on the type of item
+        const route = item.type === "marker" ? `details?eventId=${item.id}` : "cluster";
+
+        // Execute navigation
+        executeNavigation(() => router.push(route as never));
+
+        // Clear the reference after execution
+        navigationTimerRef.current = null;
+      }, CONFIG.NAVIGATION_DELAY_MS);
+    },
+    [executeNavigation, router, clearNavigationTimer]
   );
 
   // Use our updated marker effects hook with the unified selection model
@@ -493,27 +522,16 @@ const EventAssistant: React.FC = () => {
         autoDismissTimerRef.current = null;
       }
 
-      // For clusters, we'll show messages and then navigate to cluster details
-      if (item.type === "cluster") {
-        // Stream cluster messages, then navigate to cluster details
-        streamForMarker(
-          itemId,
-          messages,
-          () => {
-            // After the cluster message is done, navigate to the cluster details screen
-            executeNavigation(() => navigate(`cluster` as never));
-          },
-          { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Shorter pause before navigation
-        );
-      } else {
-        // For markers, just show the messages
-        streamForMarker(
-          itemId,
-          messages,
-          undefined, // no callback
-          { pauseAfterMs: CONFIG.READING_PAUSE_MS }
-        );
-      }
+      // Stream marker/cluster info, then navigate to details
+      streamForMarker(
+        itemId,
+        messages,
+        () => {
+          // Schedule navigation to details after showing marker/cluster info
+          navigateToDetails(item);
+        },
+        { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Shorter pause before navigation
+      );
     },
     onItemDeselect: handleItemDeselect,
   });
