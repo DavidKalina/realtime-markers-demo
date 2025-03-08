@@ -1,4 +1,4 @@
-import { Platform, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
   container: {
@@ -161,6 +161,22 @@ export const styles = StyleSheet.create({
     marginLeft: 24,
     marginTop: 4,
   },
+  // New style for distance info
+  distanceInfoContainer: {
+    marginLeft: 24,
+    marginTop: 4,
+    backgroundColor: "#4a4a4a",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+  },
+  distanceInfoText: {
+    fontSize: 13,
+    color: "#93c5fd",
+    fontFamily: "SpaceMono",
+    fontWeight: "500",
+  },
   categoriesContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -206,5 +222,93 @@ export const styles = StyleSheet.create({
     color: "#93c5fd",
     fontSize: 12,
     fontWeight: "500",
+    marginLeft: 24,
+    marginTop: 4,
+  },
+  locationContainer: {
+    width: "100%",
+  },
+  // Container for location action buttons
+  locationActionContainer: {
+    flexDirection: "row",
+    marginLeft: 24,
+    marginTop: 10,
+    gap: 12,
+  },
+  // Updated styles for the mapButton
+  mapButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#424242",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#93c5fd",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  mapButtonText: {
+    color: "#93c5fd",
+    fontSize: 14,
+    fontWeight: "500",
+    marginLeft: 8,
+    fontFamily: "SpaceMono",
+  },
+  // New directions button
+  directionsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#424242",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#93c5fd",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  directionsButtonText: {
+    color: "#93c5fd",
+    fontSize: 14,
+    fontWeight: "500",
+    marginLeft: 8,
+    fontFamily: "SpaceMono",
+  },
+  bottomButtonContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#3a3a3a",
+    backgroundColor: "#333",
+  },
+  shareButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#424242",
+    paddingVertical: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#93c5fd",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  shareButtonText: {
+    color: "#93c5fd",
+    fontSize: 16,
+    fontWeight: "500",
+    fontFamily: "SpaceMono",
   },
 });

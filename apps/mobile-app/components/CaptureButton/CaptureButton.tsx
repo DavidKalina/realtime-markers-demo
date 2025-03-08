@@ -27,30 +27,30 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
 }) => {
   // Animation values
   const buttonScale = useSharedValue(1);
-  const readyGlow = useSharedValue(0);
   const colorProgress = useSharedValue(0);
   const iconOpacity = useSharedValue(0);
+  const borderProgress = useSharedValue(0);
 
   // Determine sizes based on the size prop
   const buttonSize = size === "compact" ? 48 : 56;
   const innerSize = size === "compact" ? 36 : 42;
-  const glowSize = size === "compact" ? 64 : 72;
 
   // Setup animations based on state
   useEffect(() => {
     // Cancel any running animations first
     cancelAnimation(buttonScale);
-    cancelAnimation(readyGlow);
     cancelAnimation(colorProgress);
     cancelAnimation(iconOpacity);
+    cancelAnimation(borderProgress);
 
     if (isCapturing) {
       // Capturing animation - button scale down
       buttonScale.value = withTiming(0.92, { duration: 200 });
       colorProgress.value = withTiming(0.5, { duration: 200 });
       iconOpacity.value = withTiming(0, { duration: 150 });
+      borderProgress.value = withTiming(0, { duration: 150 });
     } else if (isReady) {
-      // Ready animation - gentle pulse effect
+      // Ready animation - subtle pulse without the oversized glow
       buttonScale.value = withSequence(
         withTiming(1.05, { duration: 300, easing: Easing.out(Easing.ease) }),
         withRepeat(
@@ -63,23 +63,24 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
         )
       );
 
-      // Add glow effect with smoother animation
-      readyGlow.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.ease) });
+      // Animate color and icon without the large glow
       colorProgress.value = withTiming(1, { duration: 400 });
       iconOpacity.value = withTiming(1, { duration: 300 });
+      // Animate border instead of using a separate glow element
+      borderProgress.value = withTiming(1, { duration: 400 });
     } else {
       // Default state
       buttonScale.value = withTiming(1, { duration: 200 });
-      readyGlow.value = withTiming(0, { duration: 300 });
       colorProgress.value = withTiming(0, { duration: 300 });
       iconOpacity.value = withTiming(0, { duration: 200 });
+      borderProgress.value = withTiming(0, { duration: 300 });
     }
 
     return () => {
       cancelAnimation(buttonScale);
-      cancelAnimation(readyGlow);
       cancelAnimation(colorProgress);
       cancelAnimation(iconOpacity);
+      cancelAnimation(borderProgress);
     };
   }, [isCapturing, isReady]);
 
@@ -106,19 +107,24 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
     };
   });
 
-  const glowStyle = useAnimatedStyle(() => {
-    const backgroundColor = interpolateColor(
-      readyGlow.value,
+  const buttonOuterStyle = useAnimatedStyle(() => {
+    // Transition border color for ready state instead of using a separate glow
+    const borderColor = interpolateColor(
+      borderProgress.value,
       [0, 1],
-      ["rgba(77, 171, 247, 0)", "rgba(55, 208, 92, 0.25)"]
+      ["rgba(255, 255, 255, 0.3)", "rgba(55, 208, 92, 0.8)"]
     );
 
+    const shadowOpacity = 0.2 + borderProgress.value * 0.3;
+    const shadowRadius = 2 + borderProgress.value * 3;
+
     return {
-      opacity: readyGlow.value * 0.8,
-      backgroundColor,
-      width: glowSize,
-      height: glowSize,
-      borderRadius: glowSize / 2,
+      borderColor,
+      shadowColor: isReady ? "#37D05C" : "#000",
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity,
+      shadowRadius,
+      elevation: 2 + borderProgress.value * 3,
     };
   });
 
@@ -131,10 +137,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Outer glow effect for "ready" state */}
-      <Animated.View style={[styles.glowEffect, glowStyle]} />
-
-      {/* Capture button */}
+      {/* Capture button with integrated ready indication */}
       <Animated.View style={[buttonAnimatedStyle]}>
         <TouchableOpacity
           style={[
@@ -149,10 +152,22 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
           activeOpacity={0.7}
           disabled={isCapturing}
         >
-          <Animated.View style={[styles.innerCircle, innerCircleStyle]}>
-            {/* Camera icon that appears when ready */}
-            <Animated.View style={[styles.iconContainer, iconStyle]}>
-              <Feather name="camera" size={size === "compact" ? 18 : 20} color="#1a1a1a" />
+          <Animated.View
+            style={[
+              styles.outerBorder,
+              {
+                width: buttonSize,
+                height: buttonSize,
+                borderRadius: buttonSize / 2,
+              },
+              buttonOuterStyle,
+            ]}
+          >
+            <Animated.View style={[styles.innerCircle, innerCircleStyle]}>
+              {/* Camera icon that appears when ready */}
+              <Animated.View style={[styles.iconContainer, iconStyle]}>
+                <Feather name="camera" size={size === "compact" ? 18 : 20} color="#1a1a1a" />
+              </Animated.View>
             </Animated.View>
           </Animated.View>
         </TouchableOpacity>
@@ -163,21 +178,20 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "center",
     paddingVertical: Platform.OS === "ios" ? 20 : 24,
     position: "relative",
   },
-  glowEffect: {
-    position: "absolute",
-    opacity: 0,
-  },
   button: {
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  outerBorder: {
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.3)",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
   },
   innerCircle: {
     justifyContent: "center",

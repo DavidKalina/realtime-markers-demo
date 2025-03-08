@@ -164,12 +164,6 @@ class ApiClient {
   // Check if user is authenticated
   isAuthenticated(): boolean {
     const hasUser = !!this.user;
-    const hasAccessToken = !!this.tokens?.accessToken;
-    console.log("isAuthenticated check:", {
-      hasUser,
-      hasAccessToken,
-      userId: this.user?.id,
-    });
 
     // Only require access token, not refresh token
     return hasUser;
@@ -246,14 +240,10 @@ class ApiClient {
       ...customHeaders,
     };
 
-    console.log(this.tokens);
-
     // Add auth token if available
     if (this.tokens?.accessToken) {
       headers.Authorization = `Bearer ${this.tokens.accessToken}`;
     }
-
-    console.log("MERGED", { ...options, headers });
 
     return {
       ...options,
@@ -299,6 +289,7 @@ class ApiClient {
       description: apiEvent.description || "",
       eventDate: apiEvent.eventDate, // Add this - keep original ISO string
       time: new Date(apiEvent.eventDate).toLocaleString(), // Keep for backward compatibility
+      coordinates: apiEvent.location.coordinates,
       location: apiEvent.address || "Location not specified",
       distance: "",
       emoji: apiEvent.emoji || "📍",
@@ -350,12 +341,6 @@ class ApiClient {
       });
 
       const data = await this.handleResponse<LoginResponse>(response);
-
-      console.log("Login response received:", {
-        hasUser: !!data.user,
-        hasAccessToken: !!data.accessToken,
-        hasRefreshToken: !!data.refreshToken,
-      });
 
       // Make sure we have the expected response format
       if (!data.user) {

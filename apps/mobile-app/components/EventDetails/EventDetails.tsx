@@ -1,28 +1,36 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-  StatusBar,
-  SafeAreaView,
-  ScrollView,
-} from "react-native";
+import { useUserLocation } from "@/contexts/LocationContext";
+import { formatDate, getUserLocalTime } from "@/utils/dateTimeFormatting";
+import { calculateDistance, formatDistance } from "@/utils/distanceUtils";
+import * as Haptics from "expo-haptics";
+import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
 import {
   ArrowLeft,
-  Calendar,
-  MapPin,
-  Info,
-  User,
   Bookmark,
   BookmarkCheck,
+  Calendar,
+  Info,
+  Map,
+  MapPin,
+  Navigation,
+  Share2,
+  User,
 } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 import apiClient from "../../services/ApiClient";
 import { styles } from "./styles";
-import Animated, { FadeIn } from "react-native-reanimated";
-import { formatDate, getUserLocalTime } from "@/utils/dateTimeFormatting";
 
 interface EventDetailsProps {
   eventId: string;
@@ -37,6 +45,12 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   const [saveCount, setSaveCount] = useState(0);
   const [savingState, setSavingState] = useState<"idle" | "loading">("idle");
   const router = useRouter();
+
+  // Get user location from our context
+  const { userLocation, isLoadingLocation } = useUserLocation();
+
+  // Calculate distance when we have both user location and event data
+  const [distanceInfo, setDistanceInfo] = useState<string | null>(null);
 
   // Fetch event details when eventId changes
   useEffect(() => {
@@ -91,6 +105,27 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     };
   }, [eventId]);
 
+  // Update distance whenever user location or event coordinates change
+  useEffect(() => {
+    if (!event || !event.coordinates || !userLocation) {
+      setDistanceInfo(null);
+      return;
+    }
+
+    try {
+      // Calculate distance between user and event
+      const distance = calculateDistance(userLocation, event.coordinates);
+      if (distance !== null) {
+        setDistanceInfo(formatDistance(distance));
+      } else {
+        setDistanceInfo(null);
+      }
+    } catch (err) {
+      console.error("Error calculating distance:", err);
+      setDistanceInfo(null);
+    }
+  }, [userLocation, event]);
+
   // Handle back button
   const handleBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -131,7 +166,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
     // Optimistic UI update
     setIsSaved((prevState) => !prevState);
-    setSaveCount((prevCount) => (prevCount ? prevCount - 1 : prevCount + 1));
+    setSaveCount((prevCount) => (isSaved ? prevCount - 1 : prevCount + 1));
 
     setSavingState("loading");
 
@@ -146,7 +181,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
       // Revert optimistic update on error
       setIsSaved((prevState) => !prevState);
-      setSaveCount((prevCount) => (prevCount ? prevCount - 1 : prevCount + 1));
+      setSaveCount((prevCount) => (isSaved ? prevCount + 1 : prevCount - 1));
 
       // Could show an error toast here
     } finally {
@@ -154,11 +189,104 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     }
   };
 
+  const handleShare = async () => {
+    if (!event) return;
+
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      // Create a shareable message
+      const message = `${event.title}\n\n📅 ${formatDate(event.eventDate, event.timezone)}\n📍 ${
+        event.location
+      }\n\n${event.description || ""}`;
+
+      // Create a deep link (if your app supports it)
+      const deepLink = `eventexplorer://event/${eventId}`;
+
+      // Combine message and deeplink
+      const fullMessage = message + "\n\n" + deepLink;
+
+      // Open SMS with the message pre-filled
+      const url = `sms:&body=${encodeURIComponent(fullMessage)}`;
+
+      // Check if we can open the URL
+      const canOpen = await Linking.canOpenURL(url);
+
+      if (canOpen) {
+        await Linking.openURL(url);
+      }
+    } catch (err) {
+      console.error("Error sharing event:", err);
+      Alert.alert("Sharing Failed", "There was a problem sharing this event.");
+    }
+  };
+
+  // Open the location in the native maps app
+  const handleOpenMaps = () => {
+    if (!event || !event.location) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      let url;
+      const address = encodeURIComponent(event.location);
+
+      // If we have coordinates, use them for more precise location
+      if (event.coordinates && event.coordinates.length === 2) {
+        const [longitude, latitude] = event.coordinates;
+
+        if (Platform.OS === "ios") {
+          url = `maps:0,0?q=${latitude},${longitude}`;
+        } else {
+          url = `geo:${latitude},${longitude}?q=${latitude},${longitude}(${address})`;
+        }
+      } else {
+        // Otherwise use address
+        if (Platform.OS === "ios") {
+          url = `maps:0,0?q=${address}`;
+        } else {
+          url = `geo:0,0?q=${address}`;
+        }
+      }
+
+      Linking.openURL(url);
+    } catch (err) {
+      console.error("Error opening maps:", err);
+      Alert.alert("Navigation Failed", "Could not open maps application.");
+    }
+  };
+
+  // Handle get directions (uses turn-by-turn navigation)
+  const handleGetDirections = () => {
+    if (!event?.coordinates || !userLocation) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      const [longitude, latitude] = event.coordinates;
+
+      // Create navigation URL based on platform
+      let url;
+      if (Platform.OS === "ios") {
+        // Apple Maps
+        url = `http://maps.apple.com/?daddr=${latitude},${longitude}&dirflg=d`;
+      } else {
+        // Google Maps
+        url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+      }
+
+      Linking.openURL(url);
+    } catch (err) {
+      console.error("Error opening directions:", err);
+      Alert.alert("Navigation Failed", "Could not open navigation application.");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#333" />
 
-      {/* Header similar to Search component */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <ArrowLeft size={22} color="#f8f9fa" />
@@ -251,8 +379,38 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                     <MapPin size={16} color="#93c5fd" style={{ marginRight: 8 }} />
                     <Text style={styles.detailLabel}>Location</Text>
                   </View>
-                  <Text style={styles.detailValue}>{event.location}</Text>
-                  {event.distance && <Text style={styles.distanceText}>{event.distance} away</Text>}
+                  <View style={styles.locationContainer}>
+                    <Text style={styles.detailValue}>{event.location}</Text>
+
+                    {/* Show calculated distance */}
+                    {distanceInfo && (
+                      <View style={styles.distanceInfoContainer}>
+                        <Text style={styles.distanceInfoText}>
+                          {isLoadingLocation ? "Calculating distance..." : distanceInfo}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Location Action Buttons */}
+                    <View style={styles.locationActionContainer}>
+                      {/* Map Button */}
+                      <TouchableOpacity style={styles.mapButton} onPress={handleOpenMaps}>
+                        <Map size={16} color="#f8f9fa" />
+                        <Text style={styles.mapButtonText}>View on Map</Text>
+                      </TouchableOpacity>
+
+                      {/* Directions Button - Only show if we have user location */}
+                      {userLocation && event.coordinates && (
+                        <TouchableOpacity
+                          style={styles.directionsButton}
+                          onPress={handleGetDirections}
+                        >
+                          <Navigation size={16} color="#f8f9fa" />
+                          <Text style={styles.directionsButtonText}>Directions</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
                 </View>
 
                 {/* New Scanned By Section */}
@@ -292,6 +450,14 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                 )}
               </View>
             </ScrollView>
+
+            {/* Share Button (Fixed at Bottom) */}
+            <View style={styles.bottomButtonContainer}>
+              <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+                <Share2 size={20} color="#f8f9fa" style={{ marginRight: 8 }} />
+                <Text style={styles.shareButtonText}>Share Event</Text>
+              </TouchableOpacity>
+            </View>
           </Animated.View>
         )}
       </View>

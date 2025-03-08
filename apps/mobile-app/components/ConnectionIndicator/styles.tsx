@@ -50,4 +50,7 @@ export const styles = StyleSheet.create({
     fontSize: 8,
     fontFamily: "SpaceMono",
   },
+  connecting: {
+    backgroundColor: "#ffa94d",
+  },
 });

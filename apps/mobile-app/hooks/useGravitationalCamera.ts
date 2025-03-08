@@ -1,7 +1,6 @@
 // hooks/useGravitationalCamera.ts
 import { useRef, useState, useEffect, useCallback } from "react";
 import { Marker } from "@/hooks/useMapWebsocket";
-import { useUserLocationStore } from "@/stores/useUserLocationStore";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import {
   EventTypes,
@@ -49,6 +48,8 @@ interface ViewportSample {
 }
 
 export function useGravitationalCamera(markers: Marker[], config: Partial<GravitationConfig> = {}) {
+  const didMountRef = useRef(false);
+
   // Create a ref for the camera
   const cameraRef = useRef<MapboxGL.Camera>(null);
 
@@ -342,7 +343,6 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     }, 100);
   }, []);
 
-  // MODIFIED: Apply the gravitational pull with nearest marker and dynamic zoom
   const applyGravitationalPull = useCallback(() => {
     // Skip if gravity is disabled or already pulling or in cooldown period
     const now = Date.now();
@@ -356,22 +356,23 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
 
     // Calculate the visible markers and update ref
     const visibleMarkers = findVisibleMarkers();
+
+    // Get the current marker count
+    const currentMarkerCount = visibleMarkers.length;
+    const previousMarkerCount = visibleMarkersRef.current.length;
+
+    // Update visible markers ref after checking previous count
     visibleMarkersRef.current = visibleMarkers;
 
-    // Check if we've transitioned from zero markers to some markers
-    const hasMarkers = visibleMarkers.length >= gravitationConfig.minMarkersForPull;
-    const shouldApplyPull = hasMarkers && hadZeroMarkersRef.current;
+    // Improved transition detection logic
+    const isTransitionToMarkersArea =
+      currentMarkerCount >= gravitationConfig.minMarkersForPull &&
+      previousMarkerCount < gravitationConfig.minMarkersForPull;
 
-    // Update the zero markers ref for next time
-    hadZeroMarkersRef.current = !hasMarkers;
-
-    // If we haven't transitioned from zero to some markers, don't pull
-    if (!shouldApplyPull) return;
-
-    // Calculate panning velocity for adaptive gravitational strength
-    const velocity = calculatePanningVelocity();
-    const isHighVelocityPan = velocity >= gravitationConfig.highVelocityThreshold;
-    setIsHighVelocity(isHighVelocityPan);
+    // Don't pull if we haven't transitioned to an area with markers
+    if (!isTransitionToMarkersArea) {
+      return;
+    }
 
     // Calculate the nearest marker as our target
     const centroid = calculateMarkersCentroid();
@@ -380,57 +381,60 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     // Check if we need to center (avoid small adjustments if already centered)
     if (!needsCentering(centroid)) return;
 
-    // Use our dynamic zoom calculation, passing the base level
+    // Use our dynamic zoom calculation
     const zoomLevel = determineZoomLevel(centroid);
 
     // We have a valid centering target, apply the pull
-    // Only set isGravitating once to prevent overlay flashing
     if (!isPullingRef.current) {
       isPullingRef.current = true;
       setIsGravitating(true);
+
+      // Calculate velocity for adaptive behavior
+      const velocity = calculatePanningVelocity();
+      const isHighVelocityPan = velocity >= gravitationConfig.highVelocityThreshold;
       setIsHighVelocity(isHighVelocityPan);
-    }
 
-    // Select animation parameters based on velocity
-    const animationDuration = isHighVelocityPan
-      ? gravitationConfig.highVelocityAnimationDuration
-      : gravitationConfig.animationDuration;
+      // Select animation parameters based on velocity
+      const animationDuration = isHighVelocityPan
+        ? gravitationConfig.highVelocityAnimationDuration
+        : gravitationConfig.animationDuration;
 
-    // Publish event about gravitational pull
-    publish<BaseEvent & { target: [number, number]; isHighVelocity: boolean }>(
-      EventTypes.GRAVITATIONAL_PULL_STARTED,
-      {
-        timestamp: Date.now(),
-        source: "GravitationalCamera",
-        target: centroid,
-        isHighVelocity: isHighVelocityPan,
-      }
-    );
-
-    // Use camera ref to animate to the target with smoother transitions
-    if (cameraRef.current) {
-      cameraRef.current.setCamera({
-        centerCoordinate: centroid,
-        zoomLevel: zoomLevel, // Using our dynamically calculated zoom or user's current zoom
-        animationDuration: animationDuration,
-        animationMode: "easeTo",
-      });
-
-      // Reset pull state after animation completes
-      const resetTimeout = setTimeout(() => {
-        isPullingRef.current = false;
-        setIsGravitating(false);
-        setIsHighVelocity(false);
-        lastPullTimeRef.current = Date.now();
-
-        publish<BaseEvent>(EventTypes.GRAVITATIONAL_PULL_COMPLETED, {
+      // Publish event about gravitational pull
+      publish<BaseEvent & { target: [number, number]; isHighVelocity: boolean }>(
+        EventTypes.GRAVITATIONAL_PULL_STARTED,
+        {
           timestamp: Date.now(),
           source: "GravitationalCamera",
-        });
-      }, animationDuration + 50);
+          target: centroid,
+          isHighVelocity: isHighVelocityPan,
+        }
+      );
 
-      // Clean up timeout if component unmounts during animation
-      return () => clearTimeout(resetTimeout);
+      // Use camera ref to animate to the target
+      if (cameraRef.current) {
+        cameraRef.current.setCamera({
+          centerCoordinate: centroid,
+          zoomLevel: zoomLevel,
+          animationDuration: animationDuration,
+          animationMode: "easeTo",
+        });
+
+        // Reset pull state after animation completes
+        const resetTimeout = setTimeout(() => {
+          isPullingRef.current = false;
+          setIsGravitating(false);
+          setIsHighVelocity(false);
+          lastPullTimeRef.current = Date.now();
+
+          publish<BaseEvent>(EventTypes.GRAVITATIONAL_PULL_COMPLETED, {
+            timestamp: Date.now(),
+            source: "GravitationalCamera",
+          });
+        }, animationDuration + 50);
+
+        // Clean up timeout if component unmounts during animation
+        return () => clearTimeout(resetTimeout);
+      }
     }
   }, [
     isGravitatingEnabled,
@@ -534,18 +538,29 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     ]
   );
 
-  // Effect to detect new markers (trigger when markers array changes)
+  // Modified useEffect to handle marker array changes more reliably
   useEffect(() => {
-    // Only run if we have markers and aren't currently animating
-    if (markers.length > 0 && !isPullingRef.current && isGravitatingEnabled) {
-      applyGravitationalPull();
+    // Don't try to apply gravitational pull right when component mounts
+    // This avoids unwanted initial animations
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+
+      // Initialize previous marker state on first mount
+      visibleMarkersRef.current = findVisibleMarkers();
+      return;
     }
 
-    // When there are no markers, make sure we reset the hadZeroMarkers flag
-    if (markers.length === 0) {
-      hadZeroMarkersRef.current = true;
+    // Only attempt gravitational pull after initial mount
+    // and when we're not already animating
+    if (!isPullingRef.current && isGravitatingEnabled) {
+      // Use a small delay to avoid race conditions with viewport updates
+      const timeoutId = setTimeout(() => {
+        applyGravitationalPull();
+      }, 50);
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [markers, applyGravitationalPull, isGravitatingEnabled]);
+  }, [markers, applyGravitationalPull, isGravitatingEnabled, findVisibleMarkers]);
 
   // Toggle gravitational effect on/off
   const toggleGravitation = useCallback(() => {
