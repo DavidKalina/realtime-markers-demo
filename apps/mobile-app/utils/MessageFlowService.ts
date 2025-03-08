@@ -212,9 +212,9 @@ export class MessageFlowService {
       case "share":
         return ["Let's share this place with your friends!"];
       case "search":
-        return ["Looking for something specific?", "Search for events that interest you."];
+        return ["Looking for something specific?"];
       case "camera":
-        return ["Camera activated!", "Scan an event flyer to get information about an event."];
+        return ["Scanner activated!"];
       case "locate":
         return [`Returning to ${userLocation?.join(", ") || "your location"}`];
       case "next":
@@ -222,9 +222,9 @@ export class MessageFlowService {
       case "previous":
         return ["Going back to the previous location."];
       case "user":
-        return [`Hey, ${userName || "there"}!`, "Launching your profile."];
+        return ["Launching your profile."];
       case "saved":
-        return ["Opening your saved events!", "Let's see what you've bookmarked for later."];
+        return ["Let's see what you've bookmarked for later."];
       default:
         return ["How can I help you with this location?"];
     }
