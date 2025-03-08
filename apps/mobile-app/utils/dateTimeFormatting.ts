@@ -1,5 +1,21 @@
 import { format, parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
+import { getCalendars } from "expo-localization";
+
+// Helper to safely get user timezone in React Native
+const getUserTimezone = () => {
+  try {
+    // Get calendar information which contains timezone
+    const deviceCalendars = getCalendars();
+    if (deviceCalendars && deviceCalendars.length > 0 && deviceCalendars[0].timeZone) {
+      return deviceCalendars[0].timeZone;
+    }
+    return "UTC"; // Fallback to UTC
+  } catch (error) {
+    console.warn("Could not determine user timezone:", error);
+    return "UTC";
+  }
+};
 
 const formatDate = (dateString: string, timezone?: string) => {
   if (!dateString) return "Date not available";
@@ -7,12 +23,10 @@ const formatDate = (dateString: string, timezone?: string) => {
   try {
     const dateObj = parseISO(dateString);
 
-    // First line shows date and time in event's local timezone
-    const localTimeStr = timezone
-      ? formatInTimeZone(dateObj, timezone, "EEEE, MMMM d, yyyy 'at' h:mm a (zzz)")
-      : format(dateObj, "EEEE, MMMM d, yyyy 'at' h:mm a");
+    // Use the event timezone if provided, otherwise fall back to user timezone
+    const effectiveTimezone = timezone || getUserTimezone();
 
-    return localTimeStr;
+    return formatInTimeZone(dateObj, effectiveTimezone, "EEEE, MMMM d, yyyy 'at' h:mm a (zzz)");
   } catch (error) {
     console.error("Error formatting date:", error);
     return dateString; // Fallback to the original string
@@ -25,10 +39,10 @@ const getUserLocalTime = (dateString: string, eventTimezone?: string) => {
 
   try {
     const dateObj = parseISO(dateString);
-    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const userTimezone = getUserTimezone();
 
     // Only show user's local time if it differs from event timezone
-    if (userTimezone !== eventTimezone) {
+    if (userTimezone && userTimezone !== eventTimezone) {
       return formatInTimeZone(dateObj, userTimezone, "'Your time:' h:mm a (zzz)");
     }
     return null;
