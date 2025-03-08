@@ -40,11 +40,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const accessToken = await AsyncStorage.getItem("accessToken");
       const refreshToken = await AsyncStorage.getItem("refreshToken");
 
-      console.log("Auth tokens from storage:", {
-        hasAccessToken: !!accessToken,
-        hasRefreshToken: !!refreshToken,
-      });
-
       if (accessToken && refreshToken) {
         try {
           // Try to get user profile to validate token

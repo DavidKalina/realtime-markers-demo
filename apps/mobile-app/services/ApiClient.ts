@@ -164,12 +164,6 @@ class ApiClient {
   // Check if user is authenticated
   isAuthenticated(): boolean {
     const hasUser = !!this.user;
-    const hasAccessToken = !!this.tokens?.accessToken;
-    console.log("isAuthenticated check:", {
-      hasUser,
-      hasAccessToken,
-      userId: this.user?.id,
-    });
 
     // Only require access token, not refresh token
     return hasUser;
@@ -246,14 +240,10 @@ class ApiClient {
       ...customHeaders,
     };
 
-    console.log(this.tokens);
-
     // Add auth token if available
     if (this.tokens?.accessToken) {
       headers.Authorization = `Bearer ${this.tokens.accessToken}`;
     }
-
-    console.log("MERGED", { ...options, headers });
 
     return {
       ...options,
