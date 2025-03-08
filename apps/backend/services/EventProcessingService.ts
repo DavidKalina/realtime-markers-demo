@@ -90,6 +90,9 @@ export class EventProcessingService {
 
     // Call Vision API
     const visionResult = await this.processComprehensiveVisionAPI(base64Image);
+
+    console.log("VISION_RESULT", visionResult.text);
+
     const extractedText = visionResult.text || "";
 
     // Report progress after vision processing
@@ -383,6 +386,8 @@ export class EventProcessingService {
                 fromZonedTime(isoDate, explicitTimezone),
                 "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
               );
+
+              console.log({ isoDate, eventDate });
             } catch (e) {
               console.error("Error converting date with timezone:", e);
               eventDate = parsedDate.toISOString();
