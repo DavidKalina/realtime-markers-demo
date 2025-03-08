@@ -155,6 +155,8 @@ async function initializeWorker() {
           isDuplicate: scanResult.isDuplicate, // Check if this is properly set
           similarityScore: scanResult.similarity.score,
           threshold: 0.72,
+          date: scanResult.eventDetails.date,
+          timezone: scanResult.eventDetails.timezone,
           matchingEventId: scanResult.similarity.matchingEventId,
         });
 

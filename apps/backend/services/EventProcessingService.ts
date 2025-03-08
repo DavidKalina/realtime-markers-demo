@@ -109,9 +109,6 @@ export class EventProcessingService {
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
-    // First pass with the raw text only
-    const initialEmbedding = await this.generateEmbedding(extractedText);
-
     // Report progress: Extracting event details
     if (progressCallback) {
       await progressCallback("Extracting event details and categories...");
