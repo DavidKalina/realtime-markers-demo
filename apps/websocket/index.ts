@@ -3,6 +3,8 @@ import Redis from "ioredis";
 import RBush from "rbush";
 import type { Server, ServerWebSocket } from "bun";
 import { SessionManager } from "./SessionManager";
+import { SubscriptionManager } from "./SubscriptionManager";
+import { FilterEvaluator } from "./FilterEvaluator";
 
 // --- Type Definitions ---
 interface MarkerData {
@@ -63,6 +65,20 @@ const MessageTypes = {
   JOB_ADDED: "job_added",
   CANCEL_JOB: "cancel_job",
   CLEAR_SESSION: "clear_session",
+
+  CREATE_SUBSCRIPTION: "create_subscription",
+  UPDATE_SUBSCRIPTION: "update_subscription",
+  DELETE_SUBSCRIPTION: "delete_subscription",
+  LIST_SUBSCRIPTIONS: "list_subscriptions",
+
+  // Response types
+  SUBSCRIPTION_CREATED: "subscription_created",
+  SUBSCRIPTION_UPDATED: "subscription_updated",
+  SUBSCRIPTION_DELETED: "subscription_deleted",
+  SUBSCRIPTIONS_LIST: "subscriptions_list",
+
+  // Event delivery
+  SUBSCRIPTION_EVENT: "subscription_event",
 };
 
 // --- In-Memory State ---
@@ -86,6 +102,8 @@ const redisSub = new Redis({
 
 // --- Initialize Session Manager ---
 const sessionManager = new SessionManager(redis);
+const subscriptionManager = new SubscriptionManager(redis);
+const filterEvaluator = new FilterEvaluator();
 
 // System health state
 const systemHealth = {
@@ -360,6 +378,29 @@ redisSub.on("message", (channel, message) => {
           console.error(`Failed to send debug event to client ${client.data.clientId}:`, error);
         }
       });
+      if (operation === "CREATE" || operation === "UPDATE" || operation === "INSERT") {
+        console.log(`Processing ${operation} event ${record.id} for subscriptions`);
+
+        // Find matching subscriptions
+        const matchingSubscriptionIds = filterEvaluator.findMatchingSubscriptions(
+          record,
+          subscriptionManager.getAllSubscriptions()
+        );
+
+        if (matchingSubscriptionIds.length > 0) {
+          console.log(
+            `Found ${matchingSubscriptionIds.length} matching subscriptions for event ${record.id}`
+          );
+
+          // Send to each matching subscriber
+          for (const subscriptionId of matchingSubscriptionIds) {
+            const subscription = subscriptionManager.getSubscription(subscriptionId);
+            if (subscription) {
+              subscriptionManager.sendEventToClient(subscription.clientId, subscriptionId, record);
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error("Error processing Redis message:", error);
     }
@@ -490,13 +531,23 @@ const server = {
           instanceId: process.env.HOSTNAME,
         })
       );
+      subscriptionManager.registerClient(ws);
     },
 
-    message(ws: ServerWebSocket<WebSocketData>, message: string | Uint8Array) {
+    async message(ws: ServerWebSocket<WebSocketData>, message: string | Uint8Array) {
       ws.data.lastActivity = Date.now();
 
       try {
         const data = JSON.parse(message.toString());
+
+        const isSubscriptionMessage = await subscriptionManager.handleMessage(
+          ws,
+          message.toString()
+        );
+
+        if (isSubscriptionMessage) {
+          return;
+        }
 
         // --- Session Management Messages ---
         if (
@@ -630,9 +681,10 @@ const server = {
 
     close(ws: ServerWebSocket<WebSocketData>) {
       // Unregister from session manager
-      sessionManager.unregisterClient(ws.data.clientId);
 
-      // Clean up client registration
+      sessionManager.unregisterClient(ws.data.clientId);
+      subscriptionManager.unregisterClient(ws.data.clientId);
+
       clients.delete(ws.data.clientId);
     },
   },
