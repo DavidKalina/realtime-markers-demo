@@ -27,70 +27,12 @@ export class FilterEvaluator {
         eventCategories.includes(category)
       );
 
+      console.log({ eventCategories, filterCategories: filter.categories });
+
+      console.log("HAS_MATCHING", hasMatchingCategory);
+
       if (!hasMatchingCategory) {
         failReason = "categories";
-        return false;
-      }
-    }
-
-    // Status filtering
-    if (filter.status && filter.status.length > 0) {
-      if (!event.status || !filter.status.includes(event.status)) {
-        failReason = "status";
-        return false;
-      }
-    }
-
-    // Date range filtering
-    if (filter.dateRange) {
-      const eventDate = new Date(event.createdAt);
-
-      if (filter.dateRange.start) {
-        const startDate = new Date(filter.dateRange.start);
-        if (eventDate < startDate) {
-          failReason = "date-start";
-          return false;
-        }
-      }
-
-      if (filter.dateRange.end) {
-        const endDate = new Date(filter.dateRange.end);
-        if (eventDate > endDate) {
-          failReason = "date-end";
-          return false;
-        }
-      }
-    }
-
-    // Creator filtering
-    if (filter.creatorId && event.creatorId !== filter.creatorId) {
-      failReason = "creator";
-      return false;
-    }
-
-    // Tag filtering
-    if (filter.tags && filter.tags.length > 0) {
-      const eventTags = event.tags || [];
-      const hasMatchingTag = filter.tags.some((tag) => eventTags.includes(tag));
-
-      if (!hasMatchingTag) {
-        failReason = "tags";
-        return false;
-      }
-    }
-
-    // Keyword filtering in title and description
-    if (filter.keywords && filter.keywords.length > 0) {
-      const titleLower = (event.title || "").toLowerCase();
-      const descriptionLower = (event.description || "").toLowerCase();
-
-      const hasMatchingKeyword = filter.keywords.some((keyword) => {
-        const keywordLower = keyword.toLowerCase();
-        return titleLower.includes(keywordLower) || descriptionLower.includes(keywordLower);
-      });
-
-      if (!hasMatchingKeyword) {
-        failReason = "keywords";
         return false;
       }
     }

@@ -131,6 +131,8 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     markersRef.current = markers;
   }, [markers]);
 
+  console.log(markers.map((m) => m.data.categories));
+
   useEffect(() => {
     // Update the global store whenever the local markers state changes
     setStoreMarkers(markers);
