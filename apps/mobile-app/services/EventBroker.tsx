@@ -60,6 +60,7 @@ export enum EventTypes {
   // New filter subscription events
   FILTER_CREATED = "filter:created",
   FILTER_UPDATED = "filter:updated",
+  FILTERS_UPDATED = "filters:updpated",
   FILTER_DELETED = "filter:deleted",
   FILTERS_LOADED = "filters:loaded",
 }
@@ -75,6 +76,10 @@ export interface MapItem {
   id: string;
   type: "marker" | "cluster";
   coordinates: [number, number]; // [longitude, latitude]
+}
+
+export interface FiltersEvent extends BaseEvent {
+  filterChanged?: boolean;
 }
 
 // Marker specific MapItem

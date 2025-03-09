@@ -9,6 +9,7 @@ import {
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFilterStore } from "@/stores/useFilterStore";
 
 // Mapbox viewport format
 interface MapboxViewport {
@@ -129,6 +130,15 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transitionStartTimeRef = useRef<number>(0);
 
+  const { filter, activeSubscriptionId, setActiveSubscriptionId, setIsApplyingFilter } =
+    useFilterStore();
+
+  console.log(filter);
+
+  // Track if filter has changed and needs applying
+  const filterRef = useRef(filter);
+  const [filterNeedsApplying, setFilterNeedsApplying] = useState(false);
+
   const { user } = useAuth();
 
   const userIdRef = useRef<string | null>(user?.id || null);
@@ -164,6 +174,53 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       setIsFilterTransitioning(false);
       transitionTimerRef.current = null;
     }, remainingTime);
+  }, []);
+
+  // Listen for filter changes
+  useEffect(() => {
+    // Only set filterNeedsApplying to true if the filter has actually changed
+    if (JSON.stringify(filter) !== JSON.stringify(filterRef.current)) {
+      filterRef.current = filter;
+      setFilterNeedsApplying(true);
+    }
+  }, [filter]);
+
+  // Apply filter when needed and we have a connection
+  useEffect(() => {
+    const applyFilter = async () => {
+      if (filterNeedsApplying && isConnected && ws.current?.readyState === WebSocket.OPEN) {
+        try {
+          // Start transition effect
+          startFilterTransition();
+
+          // If we have an active subscription, update it
+          if (activeSubscriptionId) {
+            await updateSubscription(activeSubscriptionId, filter);
+          } else {
+            // Otherwise create a new subscription
+            await createSubscription(filter);
+          }
+
+          // Reset the flag
+          setFilterNeedsApplying(false);
+        } catch (err) {
+          console.error("Error applying filter:", err);
+          setError(err instanceof Error ? err : new Error(String(err)));
+          setFilterNeedsApplying(false); // Reset even on error to prevent loops
+          endFilterTransition(); // Make sure we end the transition
+        }
+      }
+    };
+
+    applyFilter();
+  }, [filterNeedsApplying, isConnected, activeSubscriptionId, filter, startFilterTransition]);
+
+  useEffect(() => {
+    const handleFiltersUpdated = () => {
+      setFilterNeedsApplying(true);
+    };
+
+    eventBroker.on(EventTypes.FILTERS_UPDATED, handleFiltersUpdated);
   }, []);
 
   useEffect(() => {
@@ -381,7 +438,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         const message = {
           type: MessageTypes.CREATE_SUBSCRIPTION,
           filter,
-          name,
+          name: name || "Default Filter",
         };
         ws.current.send(JSON.stringify(message));
       } else {

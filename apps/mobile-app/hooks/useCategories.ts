@@ -10,12 +10,6 @@ export interface Category {
   updatedAt?: string;
 }
 
-interface CategoriesResponse {
-  categories: Category[];
-  total: number;
-  hasMore: boolean;
-}
-
 interface UseCategoriesOptions {
   initialPageSize?: number;
   searchDebounceTime?: number;

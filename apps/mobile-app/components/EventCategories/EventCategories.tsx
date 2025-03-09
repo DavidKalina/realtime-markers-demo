@@ -1,9 +1,10 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   SafeAreaView,
+  ScrollView,
   StatusBar,
   Text,
   TextInput,
@@ -17,6 +18,8 @@ import { ArrowLeft, Filter, Search, X, Tag, Check } from "lucide-react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { styles } from "./styles";
 import { Category, useCategories } from "@/hooks/useCategories";
+import { useFilterStore } from "@/stores/useFilterStore";
+import { eventBroker, EventTypes, BaseEvent } from "@/services/EventBroker";
 
 interface CategoriesScreenProps {
   onBack?: () => void;
@@ -32,11 +35,16 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
   onSelectCategory,
   onSelectCategories,
   selectionMode = false,
-  multiSelect = false,
+  multiSelect = true, // Default to true since we're using it for filters
   maxSelections = 0,
 }) => {
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedCategoryObjects, setSelectedCategoryObjects] = useState<Category[]>([]);
+  // Get filter store state and actions
+  const { selectedCategories: storeSelectedCategories, setCategories } = useFilterStore();
+
+  // Local state for UI management
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
+    storeSelectedCategories.map((cat) => cat.id)
+  );
   const [showSearch, setShowSearch] = useState(false);
   const [searchText, setSearchText] = useState("");
   const router = useRouter();
@@ -55,6 +63,11 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
     clearSearch,
   } = useCategories({ initialPageSize: 15, searchDebounceTime: 300 });
 
+  // Sync with filter store when component mounts
+  useEffect(() => {
+    setSelectedCategoryIds(storeSelectedCategories.map((cat) => cat.id));
+  }, [storeSelectedCategories]);
+
   // Handle back button
   const handleBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -69,15 +82,10 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
   const handleCategoryPress = (category: Category) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    setSelectedCategories((prev) => {
+    setSelectedCategoryIds((prev) => {
       if (prev.includes(category.id)) {
         // Remove from selection
-        const newSelectedIds = prev.filter((id) => id !== category.id);
-
-        // Update selected category objects
-        setSelectedCategoryObjects((current) => current.filter((cat) => cat.id !== category.id));
-
-        return newSelectedIds;
+        return prev.filter((id) => id !== category.id);
       } else {
         // Check if we've hit max selections
         if (maxSelections > 0 && prev.length >= maxSelections) {
@@ -90,12 +98,7 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
         }
 
         // Add to selection
-        const newSelectedIds = [...prev, category.id];
-
-        // Update selected category objects
-        setSelectedCategoryObjects((current) => [...current, category]);
-
-        return newSelectedIds;
+        return [...prev, category.id];
       }
     });
 
@@ -111,26 +114,40 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
     refresh();
   };
 
-  // Handle confirming multiple selections
+  // Handle confirming multiple selections and apply to global filter
   const handleConfirmSelections = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    if (selectedCategories.length === 0) {
+    if (selectedCategoryIds.length === 0) {
       Alert.alert("No Selection", "Please select at least one category");
       return;
     }
 
+    // Get the full category objects for the selected IDs
+    const selectedCategoryObjects = categories.filter((cat) =>
+      selectedCategoryIds.includes(cat.id)
+    );
+
+    // Update the global filter store
+    setCategories(selectedCategoryObjects);
+
+    // Notify system that filters were updated
+    eventBroker.emit<BaseEvent>(EventTypes.FILTERS_UPDATED, {
+      timestamp: Date.now(),
+      source: "EventCategories",
+    });
+
     if (onSelectCategories) {
-      // We already maintain the selected category objects internally
+      // Also call the callback if provided
       onSelectCategories(selectedCategoryObjects);
     } else {
-      // For testing purposes
-      Alert.alert(
-        "Categories Selected",
-        `You selected ${selectedCategories.length} categories:\n${selectedCategoryObjects
-          .map((cat) => cat.name)
-          .join(", ")}`
-      );
+      // Show a confirmation toast or alert
+      Alert.alert("Filters Applied", `Applied ${selectedCategoryObjects.length} category filters`, [
+        {
+          text: "OK",
+          onPress: () => router.back(),
+        },
+      ]);
     }
   };
 
@@ -181,10 +198,15 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
     return "🏷️";
   }, []);
 
+  // Get the selected category names for display
+  const getSelectedCategoryNames = useCallback(() => {
+    return categories.filter((cat) => selectedCategoryIds.includes(cat.id)).map((cat) => cat.name);
+  }, [categories, selectedCategoryIds]);
+
   // Render a category item
   const renderCategoryItem = useCallback(
     ({ item }: { item: Category }) => {
-      const isSelected = selectedCategories.includes(item.id);
+      const isSelected = selectedCategoryIds.includes(item.id);
 
       return (
         <TouchableOpacity
@@ -209,12 +231,12 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
         </TouchableOpacity>
       );
     },
-    [selectedCategories, multiSelect, selectionMode]
+    [selectedCategoryIds, multiSelect, selectionMode]
   );
 
   // Get selected count text
   const getSelectionCountText = () => {
-    const count = selectedCategories.length;
+    const count = selectedCategoryIds.length;
     if (count === 0) return "No categories selected";
     if (count === 1) return "1 category selected";
     return `${count} categories selected`;
@@ -222,8 +244,7 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
 
   // To clear all selections
   const clearSelections = () => {
-    setSelectedCategories([]);
-    setSelectedCategoryObjects([]);
+    setSelectedCategoryIds([]);
   };
 
   // Handle end reached (for infinite scroll)
@@ -263,7 +284,7 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
             )}
           </View>
         ) : (
-          <Text style={styles.headerTitle}>{multiSelect ? "Select Categories" : "Categories"}</Text>
+          <Text style={styles.headerTitle}>Filter Categories</Text>
         )}
 
         {/* Action buttons in header */}
@@ -307,18 +328,25 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
                 <Tag size={22} color="#93c5fd" />
               </View>
               <View style={styles.infoHeaderTextContainer}>
-                <Text style={styles.infoHeaderTitle}>
-                  {multiSelect ? "Select Multiple Categories" : "Event Categories"}
-                </Text>
+                <Text style={styles.infoHeaderTitle}>Filter Events</Text>
                 <Text style={styles.infoHeaderDescription}>
-                  {multiSelect
-                    ? maxSelections > 0
-                      ? `Select up to ${maxSelections} categories`
-                      : "Select multiple categories for your event"
-                    : "Browse or select categories for your events"}
+                  Select categories to filter map events
                 </Text>
               </View>
             </View>
+
+            {/* Selected category chips - show on top for clarity */}
+            {selectedCategoryIds.length > 0 && (
+              <View style={styles.selectedChipsContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {getSelectedCategoryNames().map((name) => (
+                    <View key={name} style={styles.selectedChip}>
+                      <Text style={styles.selectedChipText}>{name}</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
 
             {/* Categories list */}
             <FlatList
@@ -359,7 +387,7 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
         <View style={styles.selectionFooter}>
           <View style={styles.selectionFooterLeft}>
             <Text style={styles.selectionCount}>{getSelectionCountText()}</Text>
-            {selectedCategories.length > 0 && (
+            {selectedCategoryIds.length > 0 && (
               <TouchableOpacity style={styles.clearButton} onPress={clearSelections}>
                 <Text style={styles.clearButtonText}>Clear</Text>
               </TouchableOpacity>
@@ -368,12 +396,12 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
           <TouchableOpacity
             style={[
               styles.confirmButton,
-              selectedCategories.length === 0 && styles.confirmButtonDisabled,
+              selectedCategoryIds.length === 0 && styles.confirmButtonDisabled,
             ]}
             onPress={handleConfirmSelections}
-            disabled={selectedCategories.length === 0}
+            disabled={selectedCategoryIds.length === 0}
           >
-            <Text style={styles.confirmButtonText}>Confirm</Text>
+            <Text style={styles.confirmButtonText}>Apply Filters</Text>
           </TouchableOpacity>
         </View>
       )}

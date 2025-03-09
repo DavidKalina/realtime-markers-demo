@@ -313,4 +313,28 @@ export const styles = StyleSheet.create({
   emptySearchIcon: {
     marginBottom: 16,
   },
+  selectedChipsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#f5f5fa",
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  selectedChip: {
+    backgroundColor: "#4dabf7",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginRight: 8,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  selectedChipText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "500",
+  },
 });
