@@ -6,6 +6,7 @@ import * as Haptics from "expo-haptics";
 import {
   BookMarkedIcon,
   Camera,
+  Filter,
   Info,
   Navigation,
   SearchIcon,
@@ -100,7 +101,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     const { publish } = useEventBroker();
 
     // Dynamically determine which actions to show based on isStandalone
-    const effectiveAvailableActions = ["search", "camera", "locate", "user", "saved"];
+    const effectiveAvailableActions = ["search", "camera", "locate", "user", "saved", "filter"];
     const [activeAction, setActiveAction] = useState<string | null>(null);
     const insets = useSafeAreaInsets();
     const { userLocation } = useUserLocation();
@@ -172,6 +173,12 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           label: "Me",
           icon: <User size={20} color="#fff" style={globalStles.icon} />,
           action: () => handlePress("user"),
+        },
+        {
+          key: "filter",
+          label: "Filter",
+          icon: <Filter size={20} color="#fff" style={globalStles.icon} />,
+          action: () => handlePress("filter"),
         },
       ],
       [userLocation]
