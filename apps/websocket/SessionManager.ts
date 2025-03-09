@@ -464,4 +464,39 @@ export class SessionManager {
       );
     }
   }
+  async updateClientId(oldClientId: string, newClientId: string): Promise<void> {
+    // Update client in clients map
+    const client = this.clients.get(oldClientId);
+    if (client) {
+      this.clients.delete(oldClientId);
+      this.clients.set(newClientId, client);
+      client.data.clientId = newClientId;
+
+      // Update session associations
+      for (const [sessionId, clients] of this.sessionsToClients.entries()) {
+        if (clients.has(oldClientId)) {
+          clients.delete(oldClientId);
+          clients.add(newClientId);
+        }
+      }
+
+      // If client has an active session, update the owner in Redis
+      if (client.data.sessionId) {
+        // Get the session data
+        const sessionData = await this.redis.get(`session:${client.data.sessionId}`);
+        if (sessionData) {
+          const session = JSON.parse(sessionData);
+
+          // If this client is the session creator, update the clientId
+          if (session.clientId === oldClientId) {
+            session.clientId = newClientId;
+            session.updatedAt = new Date().toISOString();
+
+            // Save updated session back to Redis
+            await this.redis.set(`session:${client.data.sessionId}`, JSON.stringify(session));
+          }
+        }
+      }
+    }
+  }
 }

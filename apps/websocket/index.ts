@@ -497,16 +497,16 @@ const server = {
   },
   websocket: {
     open(ws: ServerWebSocket<WebSocketData>) {
-      // Use crypto.randomUUID() if available for a more robust client ID
-      const clientId =
+      const tempClientId =
         typeof crypto !== "undefined" && crypto.randomUUID
           ? crypto.randomUUID()
           : Math.random().toString(36).substr(2, 9);
+
       ws.data = {
-        clientId,
-        lastActivity: Date.now(), // Initialize with current timestamp
+        clientId: tempClientId,
+        lastActivity: Date.now(),
       };
-      clients.set(clientId, ws);
+      clients.set(tempClientId, ws);
 
       // Register client with session manager
       sessionManager.registerClient(ws);
@@ -514,7 +514,7 @@ const server = {
       ws.send(
         JSON.stringify({
           type: MessageTypes.CONNECTION_ESTABLISHED,
-          clientId,
+          clientId: tempClientId,
           instanceId: process.env.HOSTNAME,
         })
       );
@@ -525,6 +525,36 @@ const server = {
 
       try {
         const data = JSON.parse(message.toString());
+
+        if (data.type === "client_identification" && data.userId) {
+          const oldClientId = ws.data.clientId;
+          const newClientId = data.userId;
+
+          // Update client ID in WebSocket data
+          ws.data.clientId = newClientId;
+
+          // Remove old client entry and add new one
+          clients.delete(oldClientId);
+          clients.set(newClientId, ws);
+
+          // Update in session manager and subscription manager
+          sessionManager.updateClientId(oldClientId, newClientId);
+          subscriptionManager.updateClientId(oldClientId, newClientId);
+          viewportManager.updateClientId(oldClientId, newClientId);
+
+          // Send confirmation to client
+          ws.send(
+            JSON.stringify({
+              type: MessageTypes.CONNECTION_ESTABLISHED,
+              clientId: newClientId,
+              instanceId: process.env.HOSTNAME,
+            })
+          );
+
+          console.log(`Client ID updated from ${oldClientId} to ${newClientId}`);
+          return;
+        }
+
         const clientId = ws.data.clientId; // Assuming client ID is stored here
 
         // Handle existing session management messages

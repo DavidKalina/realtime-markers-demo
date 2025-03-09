@@ -8,6 +8,7 @@ import {
   BaseEvent,
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Mapbox viewport format
 interface MapboxViewport {
@@ -122,16 +123,22 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const [clientId, setClientId] = useState<string | null>(null);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
 
+  const { user } = useAuth();
+
+  const userIdRef = useRef<string | null>(user?.id || null);
+
   const setStoreMarkers = useLocationStore.getState().setMarkers;
 
   const markersRef = useRef<Marker[]>(markers);
+
+  useEffect(() => {
+    userIdRef.current = user?.id || null;
+  }, [user?.id]);
 
   // Update the ref whenever markers state changes.
   useEffect(() => {
     markersRef.current = markers;
   }, [markers]);
-
-  console.log(markers.map((m) => m.data.categories));
 
   useEffect(() => {
     // Update the global store whenever the local markers state changes
@@ -400,6 +407,14 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           timestamp: Date.now(),
           source: "useMapWebSocket",
         });
+        if (userIdRef.current) {
+          ws.current?.send(
+            JSON.stringify({
+              type: "client_identification",
+              userId: userIdRef.current,
+            })
+          );
+        }
         if (currentViewportRef.current) {
           sendViewportUpdate();
         }
@@ -485,6 +500,10 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
             // Real-time update for marker creation
             case MessageTypes.MARKER_CREATED: {
+              const newMarker = convertRBushToMapbox(data.data);
+
+              // Add the marker to the map state
+              setMarkers((prev) => [...prev, newMarker]);
               // Emit event for notification
               eventBroker.emit<MarkersEvent>(EventTypes.MARKER_ADDED, {
                 timestamp: Date.now(),

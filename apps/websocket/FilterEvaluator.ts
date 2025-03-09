@@ -71,17 +71,31 @@ export class FilterEvaluator {
   shouldSendToClient(event: Event, clientId: string): boolean {
     // Check viewport first (faster check)
     const viewport = this.viewportManager.getViewport(clientId);
+
+    console.log("VIEWPORT", viewport);
+
     if (!viewport) {
       return false; // No viewport, don't send
     }
 
     // Check if event is in viewport
+
+    console.log("COORDINATES", !event.location?.coordinates);
+
     if (!event.location?.coordinates) {
       return false; // No coordinates, can't determine
     }
 
     const [lng, lat] = event.location.coordinates;
     const { boundingBox } = viewport;
+
+    console.log(
+      "BOUNDS_CHECK",
+      lng < boundingBox.minX ||
+        lng > boundingBox.maxX ||
+        lat < boundingBox.minY ||
+        lat > boundingBox.maxY
+    );
 
     if (
       lng < boundingBox.minX ||
@@ -92,8 +106,23 @@ export class FilterEvaluator {
       return false; // Not in viewport
     }
 
-    // Check if it matches any of the client's filter subscriptions
+    // Get client's subscriptions
     const subscriptions = this.subscriptionManager.getClientSubscriptions(clientId);
+
+    // IMPORTANT: If no subscriptions, return true to match all events in viewport
+
+    console.log("SUBSCRIPTIONS_LENGTH", subscriptions.length);
+
+    if (subscriptions.length === 0) {
+      return true;
+    }
+
+    console.log(
+      "MATCHES",
+      subscriptions.some((subscription) => this.matchesFilter(event, subscription.filter))
+    );
+
+    // Check if it matches any of the client's filter subscriptions
     return subscriptions.some((subscription) => this.matchesFilter(event, subscription.filter));
   }
 
@@ -101,14 +130,10 @@ export class FilterEvaluator {
    * Get all clients that should receive an event
    */
   getMatchingClients(event: Event): string[] {
-    // Get all clients with subscriptions and viewports
-    const subscriptionClientIds = new Set(this.subscriptionManager.getAllClientIds());
-    const viewportClientIds = new Set(this.viewportManager.getAllClientIds());
-
-    // Find intersection of clients with both subscriptions and viewports
-    const clientIds = Array.from(subscriptionClientIds).filter((id) => viewportClientIds.has(id));
+    // CHANGE: Consider ALL clients with viewports, regardless of subscription status
+    const viewportClientIds = this.viewportManager.getAllClientIds();
 
     // Filter to only clients that should receive this event
-    return clientIds.filter((clientId) => this.shouldSendToClient(event, clientId));
+    return viewportClientIds.filter((clientId) => this.shouldSendToClient(event, clientId));
   }
 }

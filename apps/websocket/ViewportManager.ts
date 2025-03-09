@@ -109,4 +109,31 @@ export class ViewportManager {
     this.viewports.delete(clientId);
     this.previousViewports.delete(clientId);
   }
+  updateClientId(oldClientId: string, newClientId: string): void {
+    // Update current viewport if it exists
+    const currentViewport = this.viewports.get(oldClientId);
+    if (currentViewport) {
+      // Update the clientId in the viewport object
+      currentViewport.clientId = newClientId;
+
+      // Store under the new ID
+      this.viewports.set(newClientId, currentViewport);
+
+      // Remove from old ID
+      this.viewports.delete(oldClientId);
+    }
+
+    // Update previous viewport if it exists
+    const previousViewport = this.previousViewports.get(oldClientId);
+    if (previousViewport) {
+      // Update the clientId in the viewport object
+      previousViewport.clientId = newClientId;
+
+      // Store under the new ID
+      this.previousViewports.set(newClientId, previousViewport);
+
+      // Remove from old ID
+      this.previousViewports.delete(oldClientId);
+    }
+  }
 }

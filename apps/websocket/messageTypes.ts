@@ -3,6 +3,7 @@
 export const MessageTypes = {
   // Existing connection messages
   CONNECTION_ESTABLISHED: "connection_established",
+  CLIENT_IDENTIFICATION: "client_identification",
 
   // Existing viewport-related messages
   VIEWPORT_UPDATE: "viewport_update",

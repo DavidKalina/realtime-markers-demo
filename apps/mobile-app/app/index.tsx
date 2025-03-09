@@ -24,7 +24,7 @@ const FILTER_OPTIONS = [
   { name: "Food", categories: ["food", "restaurant", "cafe"], tags: ["food"] },
   {
     name: "Entertainment",
-    categories: ["entertainment", "arts", "social"],
+    categories: ["entertainment", "arts", "social event"],
     tags: ["entertainment", "arts"],
   },
   { name: "Shopping", categories: ["shopping", "retail"], tags: ["shopping"] },

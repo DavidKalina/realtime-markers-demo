@@ -185,4 +185,39 @@ export class SubscriptionManager {
     // Remove client tracking
     this.clientSubscriptions.delete(clientId);
   }
+  // Add this method to your SubscriptionManager class
+
+  /**
+   * Update a client's ID when client is authenticated with user ID
+   */
+  async updateClientId(oldClientId: string, newClientId: string): Promise<void> {
+    // Get all subscriptions for the old client ID
+    const subscriptions = this.getClientSubscriptions(oldClientId);
+
+    // No subscriptions to update
+    if (subscriptions.length === 0) return;
+
+    // Create tracking set for new client if needed
+    if (!this.clientSubscriptions.has(newClientId)) {
+      this.clientSubscriptions.set(newClientId, new Set());
+    }
+
+    // Update each subscription
+    for (const subscription of subscriptions) {
+      // Update the client ID in the subscription
+      subscription.clientId = newClientId;
+      this.subscriptions.set(subscription.id, subscription);
+
+      // Add to new client's tracking set
+      this.clientSubscriptions.get(newClientId)!.add(subscription.id);
+
+      // Update in Redis
+      await this.redis.set(`subscription:${subscription.id}`, JSON.stringify(subscription));
+      await this.redis.sadd(`client:${newClientId}:subscriptions`, subscription.id);
+    }
+
+    // Remove old client tracking
+    this.clientSubscriptions.delete(oldClientId);
+    await this.redis.del(`client:${oldClientId}:subscriptions`);
+  }
 }
