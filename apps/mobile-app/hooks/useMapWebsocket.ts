@@ -37,6 +37,28 @@ export interface Marker {
   };
 }
 
+// New filter interface that matches server's EventFilter
+interface EventFilter {
+  categories?: string[];
+  dateRange?: {
+    start?: string;
+    end?: string;
+  };
+  status?: string[];
+  keywords?: string[];
+  creatorId?: string;
+  tags?: string[];
+}
+
+// New subscription interface
+interface Subscription {
+  id: string;
+  name?: string;
+  filter: EventFilter;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface MapWebSocketResult {
   markers: Marker[];
   isConnected: boolean;
@@ -44,6 +66,13 @@ interface MapWebSocketResult {
   currentViewport: MapboxViewport | null;
   updateViewport: (viewport: MapboxViewport) => void;
   clientId: string | null;
+  // New functions for filter subscriptions
+  createSubscription: (filter: EventFilter, name?: string) => Promise<void>;
+  updateSubscription: (id: string, filter: EventFilter, name?: string) => Promise<void>;
+  deleteSubscription: (id: string) => Promise<void>;
+  listSubscriptions: () => Promise<void>;
+  // Store the current subscriptions
+  subscriptions: Subscription[];
 }
 
 // Define message types to keep code consistent
@@ -64,6 +93,25 @@ const MessageTypes = {
   MARKER_DELETE: "marker_delete",
   MARKER_UPDATES_BATCH: "marker_updates_batch",
   DEBUG_EVENT: "debug_event",
+
+  // New subscription management messages
+  CREATE_SUBSCRIPTION: "create_subscription",
+  UPDATE_SUBSCRIPTION: "update_subscription",
+  DELETE_SUBSCRIPTION: "delete_subscription",
+  LIST_SUBSCRIPTIONS: "list_subscriptions",
+  SUBSCRIPTION_CREATED: "subscription_created",
+  SUBSCRIPTION_UPDATED: "subscription_updated",
+  SUBSCRIPTION_DELETED: "subscription_deleted",
+  SUBSCRIPTIONS_LIST: "subscriptions_list",
+
+  // New viewport update acknowledgment
+  VIEWPORT_UPDATED: "viewport_updated",
+
+  // New filtered events message
+  MAP_EVENTS: "map_events",
+
+  // Error message
+  ERROR: "error",
 };
 
 export const useMapWebSocket = (url: string): MapWebSocketResult => {
@@ -72,6 +120,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const [error, setError] = useState<Error | null>(null);
   const [currentViewport, setCurrentViewport] = useState<MapboxViewport | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
 
   const setStoreMarkers = useLocationStore.getState().setMarkers;
 
@@ -182,6 +231,41 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     };
   }, []);
 
+  // Convert new event format to Mapbox marker format
+  const convertEventToMapbox = useCallback((event: any): Marker => {
+    if (!event.location?.coordinates) {
+      console.warn(`Event missing coordinates:`, event);
+      // Provide fallback coordinates to prevent errors
+      return {
+        id: event.id,
+        coordinates: [0, 0],
+        data: {
+          title: event.title || "Unnamed Event",
+          emoji: event.emoji || "📍",
+          color: event.color || "red",
+          categories: event.categories || [],
+          created_at: event.createdAt,
+          updated_at: event.updatedAt,
+          description: event.description,
+        },
+      };
+    }
+
+    return {
+      id: event.id,
+      coordinates: event.location.coordinates,
+      data: {
+        title: event.title || "Unnamed Event",
+        emoji: event.emoji || "📍",
+        color: event.color || "red",
+        categories: event.categories || [],
+        created_at: event.createdAt,
+        updated_at: event.updatedAt,
+        description: event.description,
+      },
+    };
+  }, []);
+
   // Use a function that reads currentViewportRef so it does not change on every render.
   const sendViewportUpdate = useCallback(() => {
     if (ws.current?.readyState === WebSocket.OPEN && currentViewportRef.current) {
@@ -190,6 +274,14 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         const message = {
           type: MessageTypes.VIEWPORT_UPDATE,
           viewport: currentViewportRef.current,
+          // Convert to bounding box format for the new system
+          boundingBox: {
+            minX: currentViewportRef.current.west,
+            minY: currentViewportRef.current.south,
+            maxX: currentViewportRef.current.east,
+            maxY: currentViewportRef.current.north,
+          },
+          zoom: 14, // Default zoom or get from map if available
         };
         ws.current.send(JSON.stringify(message));
         lastViewportUpdateRef.current = now;
@@ -218,14 +310,78 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       searching: true, // Explicitly indicate search is starting
     });
 
-    // Send the viewport update to the server
+    // Send the viewport update to the server with the new format
     if (ws.current?.readyState === WebSocket.OPEN) {
       const message = {
         type: MessageTypes.VIEWPORT_UPDATE,
-        viewport: viewport,
+        viewport: viewport, // For backward compatibility
+        boundingBox: {
+          minX: viewport.west,
+          minY: viewport.south,
+          maxX: viewport.east,
+          maxY: viewport.north,
+        },
+        zoom: 14, // Default zoom level
       };
       ws.current.send(JSON.stringify(message));
       lastViewportUpdateRef.current = Date.now();
+    }
+  }, []);
+
+  // New subscription management functions
+  const createSubscription = useCallback(
+    async (filter: EventFilter, name?: string): Promise<void> => {
+      if (ws.current?.readyState === WebSocket.OPEN) {
+        const message = {
+          type: MessageTypes.CREATE_SUBSCRIPTION,
+          filter,
+          name,
+        };
+        ws.current.send(JSON.stringify(message));
+      } else {
+        throw new Error("WebSocket not connected");
+      }
+    },
+    []
+  );
+
+  const updateSubscription = useCallback(
+    async (id: string, filter: EventFilter, name?: string): Promise<void> => {
+      if (ws.current?.readyState === WebSocket.OPEN) {
+        const message = {
+          type: MessageTypes.UPDATE_SUBSCRIPTION,
+          subscriptionId: id,
+          filter,
+          name,
+        };
+        ws.current.send(JSON.stringify(message));
+      } else {
+        throw new Error("WebSocket not connected");
+      }
+    },
+    []
+  );
+
+  const deleteSubscription = useCallback(async (id: string): Promise<void> => {
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      const message = {
+        type: MessageTypes.DELETE_SUBSCRIPTION,
+        subscriptionId: id,
+      };
+      ws.current.send(JSON.stringify(message));
+    } else {
+      throw new Error("WebSocket not connected");
+    }
+  }, []);
+
+  const listSubscriptions = useCallback(async (): Promise<void> => {
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      const message = {
+        type: MessageTypes.LIST_SUBSCRIPTIONS,
+      };
+      ws.current.send(JSON.stringify(message));
+    } else {
+      throw new Error("WebSocket not connected");
     }
   }, []);
 
@@ -245,11 +401,25 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         if (currentViewportRef.current) {
           sendViewportUpdate();
         }
+
+        // Get list of existing subscriptions
+        listSubscriptions();
       };
 
       ws.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+
+          console.log("[WebSocket] Received message type:", data.type);
+
+          // For MAP_EVENTS, log more details
+          if (data.type === MessageTypes.MAP_EVENTS) {
+            console.log(`[WebSocket] Received ${data.events?.length || 0} events`);
+          } else if (data.type === MessageTypes.SUBSCRIPTION_CREATED) {
+            console.log("[WebSocket] Subscription created:", data.subscription?.id);
+          } else if (data.type === MessageTypes.SUBSCRIPTION_DELETED) {
+            console.log("[WebSocket] Subscription deleted:", data.subscriptionId);
+          }
 
           switch (data.type) {
             case MessageTypes.CONNECTION_ESTABLISHED:
@@ -265,6 +435,42 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
               // Standard marker update event (for event count display)
               emitMarkersUpdated(initialMapboxMarkers);
+              break;
+            }
+
+            // New filtered events message
+            case MessageTypes.MAP_EVENTS: {
+              // Process events in the new format
+              const mapboxMarkers = data.events.map((event: any) => convertEventToMapbox(event));
+
+              // Replace markers with new filtered events
+              setMarkers(mapboxMarkers);
+
+              // Emit update for UI components
+              emitMarkersUpdated(mapboxMarkers);
+              break;
+            }
+
+            // Handle subscription responses
+            case MessageTypes.SUBSCRIPTION_CREATED: {
+              setSubscriptions((prev) => [...prev, data.subscription]);
+              break;
+            }
+
+            case MessageTypes.SUBSCRIPTION_UPDATED: {
+              setSubscriptions((prev) =>
+                prev.map((sub) => (sub.id === data.subscription.id ? data.subscription : sub))
+              );
+              break;
+            }
+
+            case MessageTypes.SUBSCRIPTION_DELETED: {
+              setSubscriptions((prev) => prev.filter((sub) => sub.id !== data.subscriptionId));
+              break;
+            }
+
+            case MessageTypes.SUBSCRIPTIONS_LIST: {
+              setSubscriptions(data.subscriptions);
               break;
             }
 
@@ -324,6 +530,17 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                 source: "useMapWebSocket",
                 markers: [],
                 count: 1,
+              });
+              break;
+            }
+
+            case MessageTypes.ERROR: {
+              console.error("WebSocket error from server:", data.message, data.details);
+              setError(new Error(data.message));
+              eventBroker.emit<BaseEvent & { error: Error }>(EventTypes.ERROR_OCCURRED, {
+                timestamp: Date.now(),
+                source: "useMapWebSocket",
+                error: new Error(data.message),
               });
               break;
             }
@@ -388,9 +605,11 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     url,
     batchMarkerUpdates,
     convertRBushToMapbox,
+    convertEventToMapbox,
     emitMarkersUpdated,
     selectMarker,
     sendViewportUpdate,
+    listSubscriptions,
   ]);
 
   // Connect on mount and clean up on unmount.
@@ -410,5 +629,11 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     currentViewport,
     updateViewport,
     clientId,
+    // Return the subscription functions
+    createSubscription,
+    updateSubscription,
+    deleteSubscription,
+    listSubscriptions,
+    subscriptions,
   };
 };

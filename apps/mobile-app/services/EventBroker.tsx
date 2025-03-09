@@ -56,6 +56,12 @@ export enum EventTypes {
   // New camera events
   CAMERA_ANIMATE_TO_LOCATION = "camera:animate:to:location",
   CAMERA_ANIMATE_TO_BOUNDS = "camera:animate:to:bounds",
+
+  // New filter subscription events
+  FILTER_CREATED = "filter:created",
+  FILTER_UPDATED = "filter:updated",
+  FILTER_DELETED = "filter:deleted",
+  FILTERS_LOADED = "filters:loaded",
 }
 
 // Base event interface that all event payloads should extend
@@ -213,6 +219,43 @@ export interface ErrorEvent extends BaseEvent {
   context?: string;
 }
 
+// New filter related events
+export interface EventFilter {
+  categories?: string[];
+  dateRange?: {
+    start?: string;
+    end?: string;
+  };
+  status?: string[];
+  keywords?: string[];
+  creatorId?: string;
+  tags?: string[];
+}
+
+export interface Subscription {
+  id: string;
+  name?: string;
+  filter: EventFilter;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FilterCreatedEvent extends BaseEvent {
+  subscription: Subscription;
+}
+
+export interface FilterUpdatedEvent extends BaseEvent {
+  subscription: Subscription;
+}
+
+export interface FilterDeletedEvent extends BaseEvent {
+  subscriptionId: string;
+}
+
+export interface FiltersLoadedEvent extends BaseEvent {
+  subscriptions: Subscription[];
+}
+
 // Main EventBroker class
 class EventBroker {
   private emitter: EventEmitter;
@@ -301,6 +344,4 @@ class EventBroker {
     }
   }
 }
-
-// Export a singleton instance
 export const eventBroker = EventBroker.getInstance();

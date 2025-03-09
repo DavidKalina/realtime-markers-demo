@@ -12,12 +12,26 @@ import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Platform, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Platform, Text, TouchableOpacity, View } from "react-native";
+
+// Import for a simple filter UI (you may want to create a separate component)
+import { FilterIcon } from "lucide-react-native";
 
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
 
+// Simple filter options for testing
+const FILTER_OPTIONS = [
+  { name: "Food", categories: ["food", "restaurant", "cafe"], tags: ["food"] },
+  { name: "Entertainment", categories: ["entertainment", "arts"], tags: ["entertainment", "arts"] },
+  { name: "Shopping", categories: ["shopping", "retail"], tags: ["shopping"] },
+  { name: "Outdoors", categories: ["outdoors", "parks"], tags: ["outdoors", "nature"] },
+];
+
 export default function HomeScreen() {
   const [isMapReady, setIsMapReady] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+
   const mapRef = useRef<MapboxGL.MapView>(null);
   const { publish } = useEventBroker();
 
@@ -31,7 +45,18 @@ export default function HomeScreen() {
     useUserLocation();
 
   const mapWebSocketData = useMapWebSocket(process.env.EXPO_PUBLIC_WEB_SOCKET_URL!);
-  const { markers, isConnected, updateViewport, currentViewport } = mapWebSocketData;
+  const {
+    markers,
+    isConnected,
+    updateViewport,
+    currentViewport,
+    // New filter functions
+    createSubscription,
+    updateSubscription,
+    deleteSubscription,
+    listSubscriptions,
+    subscriptions,
+  } = mapWebSocketData;
 
   const {
     cameraRef,
@@ -71,6 +96,12 @@ export default function HomeScreen() {
   }, [userLocation]);
 
   const handleMapPress = useCallback(() => {
+    // Hide filter panel if visible
+    if (showFilterPanel) {
+      setShowFilterPanel(false);
+      return;
+    }
+
     // Only proceed if we actually have a selected item
     if (selectedItem) {
       // First publish the MAP_ITEM_DESELECTED event before clearing the selection
@@ -112,7 +143,7 @@ export default function HomeScreen() {
       // Then clear the selection in the store
       selectMapItem(null);
     }
-  }, [selectMapItem, selectedItem, publish]);
+  }, [selectMapItem, selectedItem, publish, showFilterPanel]);
 
   const handleMapViewportChange = (feature: any) => {
     try {
@@ -148,12 +179,66 @@ export default function HomeScreen() {
   const handleUserPan = useCallback(() => {
     selectMapItem(null);
 
+    // Hide filter panel if visible
+    if (showFilterPanel) {
+      setShowFilterPanel(false);
+    }
+
     console.log("USER_PANNING");
     publish<BaseEvent>(EventTypes.USER_PANNING_VIEWPORT, {
       timestamp: Date.now(),
       source: "MapPress",
     });
-  }, []);
+  }, [showFilterPanel]);
+
+  // Handler for applying a filter
+  const handleFilterSelect = useCallback(
+    async (filterName: string) => {
+      const filter = FILTER_OPTIONS.find((opt) => opt.name === filterName);
+      if (!filter) return;
+
+      // First remove any existing subscriptions
+      for (const sub of subscriptions) {
+        await deleteSubscription(sub.id);
+      }
+
+      // Then create the new subscription
+      await createSubscription(
+        {
+          categories: filter.categories,
+          tags: filter.tags,
+        },
+        filter.name
+      );
+
+      setActiveFilter(filterName);
+      setShowFilterPanel(false);
+
+      // Publish event
+      publish<BaseEvent>(EventTypes.NOTIFICATION, {
+        timestamp: Date.now(),
+        source: "FilterPanel",
+      });
+    },
+    [subscriptions, deleteSubscription, createSubscription, publish]
+  );
+
+  // Handler for clearing all filters
+  const handleClearFilters = useCallback(async () => {
+    // Delete all subscriptions
+    for (const sub of subscriptions) {
+      await deleteSubscription(sub.id);
+    }
+
+    setActiveFilter(null);
+    setShowFilterPanel(false);
+
+    // Publish event
+    publish<BaseEvent>(EventTypes.NOTIFICATION, {
+      timestamp: Date.now(),
+      source: "FilterPanel",
+    });
+  }, [subscriptions, deleteSubscription, publish]);
 
   return (
     <AuthWrapper>
@@ -247,6 +332,76 @@ export default function HomeScreen() {
               showAnimation={!selectedItem}
             />
             <QueueIndicator position="top-left" />
+
+            {/* Add filter button */}
+            <TouchableOpacity
+              style={{
+                position: "absolute",
+                top: 120,
+                right: 10,
+                backgroundColor: activeFilter ? "#4dabf7" : "white",
+                padding: 10,
+                borderRadius: 30,
+                shadowColor: "#000",
+                shadowOpacity: 0.2,
+                shadowRadius: 4,
+                elevation: 3,
+              }}
+              onPress={() => setShowFilterPanel(!showFilterPanel)}
+            >
+              <FilterIcon size={24} color={activeFilter ? "white" : "#555"} />
+            </TouchableOpacity>
+
+            {/* Filter panel */}
+            {showFilterPanel && (
+              <View
+                style={{
+                  position: "absolute",
+                  top: 200,
+                  right: 10,
+                  backgroundColor: "white",
+                  padding: 15,
+                  borderRadius: 8,
+                  width: 200,
+                  shadowColor: "#000",
+                  shadowOpacity: 0.2,
+                  shadowRadius: 6,
+                  elevation: 5,
+                }}
+              >
+                <Text style={{ fontWeight: "bold", marginBottom: 10, fontSize: 16 }}>
+                  Filter Events
+                </Text>
+
+                {FILTER_OPTIONS.map((filter) => (
+                  <TouchableOpacity
+                    key={filter.name}
+                    style={{
+                      padding: 10,
+                      marginVertical: 4,
+                      backgroundColor: activeFilter === filter.name ? "#e6f3ff" : "transparent",
+                      borderRadius: 4,
+                    }}
+                    onPress={() => handleFilterSelect(filter.name)}
+                  >
+                    <Text>{filter.name}</Text>
+                  </TouchableOpacity>
+                ))}
+
+                <TouchableOpacity
+                  style={{
+                    padding: 10,
+                    marginTop: 8,
+                    backgroundColor: "#f0f0f0",
+                    borderRadius: 4,
+                    alignItems: "center",
+                  }}
+                  onPress={handleClearFilters}
+                >
+                  <Text>Clear Filters</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </>
         )}
 
