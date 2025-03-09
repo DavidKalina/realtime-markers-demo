@@ -1,6 +1,6 @@
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes } from "@/services/EventBroker";
-import { AlertCircle, Minus, Plus, WifiOff, Zap } from "lucide-react-native";
+import { AlertCircle, Minus, Plus, WifiOff, Wifi } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { View } from "react-native";
 import Animated, {
@@ -50,7 +50,6 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
 
   // Reanimated shared values for animations
   const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
 
   // Use the event broker hook
   const { subscribe } = useEventBroker();
@@ -186,30 +185,10 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
         -1, // infinite repetitions
         false // not reverse
       );
-
-      opacity.value = withRepeat(
-        withSequence(
-          withTiming(0.7, {
-            duration: 800,
-            easing: Easing.inOut(Easing.sin),
-          }),
-          withTiming(1, {
-            duration: 800,
-            easing: Easing.inOut(Easing.sin),
-          })
-        ),
-        -1, // infinite repetitions
-        false // not reverse
-      );
     } else {
       // Reset animation with a smooth transition
       cancelAnimation(scale);
-      cancelAnimation(opacity);
       scale.value = withTiming(1, {
-        duration: 300,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      });
-      opacity.value = withTiming(1, {
         duration: 300,
         easing: Easing.bezier(0.25, 0.1, 0.25, 1),
       });
@@ -218,15 +197,13 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
     return () => {
       // Cleanup animations
       cancelAnimation(scale);
-      cancelAnimation(opacity);
     };
-  }, [isConnected, scale, opacity, showAnimation, activeNotification]);
+  }, [isConnected, scale, showAnimation, activeNotification]);
 
   // Create animated styles using Reanimated
   const animatedStyles = useAnimatedStyle(() => {
     return {
       transform: [{ scale: scale.value }],
-      opacity: opacity.value,
     };
   });
 
@@ -256,7 +233,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
       case "connecting":
         return <AlertCircle size={16} color="#fff" />;
       default:
-        return isConnected ? <Zap size={16} color="#4dabf7" /> : <WifiOff size={16} color="#fff" />;
+        return isConnected ? <Wifi size={16} color="#fff" /> : <WifiOff size={16} color="#fff" />;
     }
   };
 
