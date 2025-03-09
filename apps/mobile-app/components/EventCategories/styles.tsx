@@ -258,4 +258,59 @@ export const styles = StyleSheet.create({
     backgroundColor: "#1e3a8a14", // Light blue background for selected items
     borderColor: "#93c5fd",
   },
+  searchInputContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#424242",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 40,
+    marginRight: 8,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+    fontSize: 16,
+    padding: 0,
+  },
+  clearSearchButton: {
+    padding: 6,
+  },
+
+  // Infinite scroll loader
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+  },
+  footerLoaderText: {
+    color: "#93c5fd",
+    marginLeft: 8,
+    fontFamily: "SpaceMono",
+    fontSize: 14,
+  },
+
+  // Empty state for search results
+  emptySearchContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  emptySearchText: {
+    color: "#adb5bd",
+    fontFamily: "SpaceMono",
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 8,
+  },
+  emptySearchIcon: {
+    marginBottom: 16,
+  },
 });

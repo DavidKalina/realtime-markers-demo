@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -6,24 +6,17 @@ import {
   SafeAreaView,
   StatusBar,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
+  RefreshControl,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Filter, Search, Plus, Grid, Tag, Check } from "lucide-react-native";
+import { ArrowLeft, Filter, Search, X, Tag, Check } from "lucide-react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
-import apiClient from "../../services/ApiClient";
 import { styles } from "./styles";
-
-interface Category {
-  id: string;
-  name: string;
-  description: string | null;
-  icon: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import { Category, useCategories } from "@/hooks/useCategories";
 
 interface CategoriesScreenProps {
   onBack?: () => void;
@@ -42,155 +35,25 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
   multiSelect = false,
   maxSelections = 0,
 }) => {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedCategoryObjects, setSelectedCategoryObjects] = useState<Category[]>([]);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchText, setSearchText] = useState("");
   const router = useRouter();
 
-  // Define dummy data outside the effect to prevent recreating it on every render
-  const dummyCategories = [
-    {
-      id: "9fa1ace2-e644-4e77-aa68-d47703eaca1a",
-      name: "2000s",
-      description: null,
-      icon: null,
-      createdAt: "2025-03-09T22:42:56.126Z",
-      updatedAt: "2025-03-09T22:42:56.126Z",
-    },
-    {
-      id: "11c49b2e-65f8-4da3-ad15-8093d4cf4def",
-      name: "career",
-      description: null,
-      icon: null,
-      createdAt: "2025-03-09T22:05:49.951Z",
-      updatedAt: "2025-03-09T22:05:49.951Z",
-    },
-    {
-      id: "df793fb2-5321-4c29-8afb-a6c13892b691",
-      name: "career development",
-      description: null,
-      icon: null,
-      createdAt: "2025-03-09T22:16:35.990Z",
-      updatedAt: "2025-03-09T22:16:35.990Z",
-    },
-    {
-      id: "68ad4682-294b-48b7-888f-a961ee2ac9a5",
-      name: "dance",
-      description: null,
-      icon: null,
-      createdAt: "2025-03-09T22:04:42.599Z",
-      updatedAt: "2025-03-09T22:04:42.599Z",
-    },
-    {
-      id: "90d794a8-e336-407f-aafe-38023fd1c4c6",
-      name: "education",
-      description: null,
-      icon: null,
-      createdAt: "2025-03-09T22:05:49.951Z",
-      updatedAt: "2025-03-09T22:05:49.951Z",
-    },
-    {
-      id: "be863167-f8a4-40ab-b1d4-666c5d24d166",
-      name: "entertainment",
-      description: null,
-      icon: null,
-      createdAt: "2025-03-09T22:42:56.126Z",
-      updatedAt: "2025-03-09T22:42:56.126Z",
-    },
-    {
-      id: "d809815a-1156-4207-8f66-81afcab0b766",
-      name: "food",
-      description: null,
-      icon: null,
-      createdAt: "2025-03-09T22:05:49.951Z",
-      updatedAt: "2025-03-09T22:05:49.951Z",
-    },
-    {
-      id: "ed0d6879-df89-40f6-b9b0-da994361454d",
-      name: "music",
-      description: null,
-      icon: null,
-      createdAt: "2025-03-09T22:04:42.599Z",
-      updatedAt: "2025-03-09T22:04:42.599Z",
-    },
-    {
-      id: "d06fe7d3-c877-41c6-98c1-b8a80c2d287a",
-      name: "networking",
-      description: null,
-      icon: null,
-      createdAt: "2025-03-09T22:05:49.951Z",
-      updatedAt: "2025-03-09T22:05:49.951Z",
-    },
-    {
-      id: "ba711d79-86d0-4211-8254-5a01fa6aa738",
-      name: "party",
-      description: null,
-      icon: null,
-      createdAt: "2025-03-09T22:20:07.540Z",
-      updatedAt: "2025-03-09T22:20:07.540Z",
-    },
-    {
-      id: "06b184db-f334-447c-b1a9-cabc27962539",
-      name: "social",
-      description: null,
-      icon: null,
-      createdAt: "2025-03-09T22:04:42.599Z",
-      updatedAt: "2025-03-09T22:04:42.599Z",
-    },
-    {
-      id: "f4b42817-9d7f-47c4-ab8a-c17a72ee87a9",
-      name: "workshop",
-      description: null,
-      icon: null,
-      createdAt: "2025-03-09T22:05:49.951Z",
-      updatedAt: "2025-03-09T22:05:49.951Z",
-    },
-  ];
-
-  // Fetch categories when component mounts
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchCategories = async () => {
-      if (!isMounted) return;
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        // For now, using dummy data - in a real implementation, you would use:
-        // const categoriesData = await apiClient.getCategories();
-
-        // Using the pre-defined dummy data
-        const categoriesData = [...dummyCategories];
-
-        if (isMounted) {
-          // Sort categories alphabetically by name
-          const sortedCategories = categoriesData.sort((a, b) => a.name.localeCompare(b.name));
-          setCategories(sortedCategories);
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError(
-            `Failed to load categories: ${err instanceof Error ? err.message : "Unknown error"}`
-          );
-          console.error("Error fetching categories:", err);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchCategories();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  // Use our custom hook with a reasonable page size
+  const {
+    categories,
+    loading,
+    error,
+    hasMore,
+    loadMore,
+    search,
+    searchQuery,
+    refreshing,
+    refresh,
+    clearSearch,
+  } = useCategories({ initialPageSize: 15, searchDebounceTime: 300 });
 
   // Handle back button
   const handleBack = () => {
@@ -206,7 +69,6 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
   const handleCategoryPress = (category: Category) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Always toggle selection state in multi-select mode
     setSelectedCategories((prev) => {
       if (prev.includes(category.id)) {
         // Remove from selection
@@ -246,27 +108,7 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
   // Handle retry when error occurs
   const handleRetry = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLoading(true);
-    setError(null);
-
-    // Re-fetch categories
-    // This would use the actual API in a real implementation
-    setTimeout(() => {
-      // Simulate API call with dummy data
-      const sortedCategories = [...dummyCategories].sort((a, b) => a.name.localeCompare(b.name));
-      setCategories(sortedCategories);
-      setLoading(false);
-    }, 1000);
-  };
-
-  // Handle creating a new category
-  const handleCreateCategory = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // Navigate to create category screen (if implemented)
-    // router.push("/create-category");
-
-    // For now, just show an alert
-    Alert.alert("Create Category", "This would open the create category screen");
+    refresh();
   };
 
   // Handle confirming multiple selections
@@ -292,7 +134,29 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
     }
   };
 
-  // Get an icon for a category (placeholder functionality) - memoized
+  // Toggle search bar
+  const handleToggleSearch = () => {
+    setShowSearch((prev) => !prev);
+    if (showSearch) {
+      // Clear search when hiding search bar
+      setSearchText("");
+      clearSearch();
+    }
+  };
+
+  // Handle search input
+  const handleSearchChange = (text: string) => {
+    setSearchText(text);
+    search(text);
+  };
+
+  // Clear search
+  const handleClearSearch = () => {
+    setSearchText("");
+    clearSearch();
+  };
+
+  // Get an icon for a category (placeholder functionality)
   const getCategoryIcon = useCallback((category: Category) => {
     // If the category has an icon, use it
     if (category.icon) {
@@ -317,7 +181,7 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
     return "🏷️";
   }, []);
 
-  // Render a category item - memoized to prevent unnecessary rerenders
+  // Render a category item
   const renderCategoryItem = useCallback(
     ({ item }: { item: Category }) => {
       const isSelected = selectedCategories.includes(item.id);
@@ -362,6 +226,13 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
     setSelectedCategoryObjects([]);
   };
 
+  // Handle end reached (for infinite scroll)
+  const handleEndReached = () => {
+    if (!loading && hasMore) {
+      loadMore();
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#333" />
@@ -371,12 +242,34 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <ArrowLeft size={22} color="#f8f9fa" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{multiSelect ? "Select Categories" : "Categories"}</Text>
+
+        {showSearch ? (
+          <View style={styles.searchInputContainer}>
+            <Search size={18} color="#93c5fd" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search categories..."
+              placeholderTextColor="#adb5bd"
+              value={searchText}
+              onChangeText={handleSearchChange}
+              autoFocus
+              selectTextOnFocus
+              returnKeyType="search"
+            />
+            {searchText.length > 0 && (
+              <TouchableOpacity style={styles.clearSearchButton} onPress={handleClearSearch}>
+                <X size={18} color="#adb5bd" />
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <Text style={styles.headerTitle}>{multiSelect ? "Select Categories" : "Categories"}</Text>
+        )}
 
         {/* Action buttons in header */}
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerActionButton}>
-            <Search size={20} color="#93c5fd" />
+          <TouchableOpacity style={styles.headerActionButton} onPress={handleToggleSearch}>
+            {showSearch ? <X size={20} color="#93c5fd" /> : <Search size={20} color="#93c5fd" />}
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerActionButton}>
             <Filter size={20} color="#93c5fd" />
@@ -386,7 +279,7 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
 
       {/* Content Area */}
       <View style={styles.contentArea}>
-        {loading ? (
+        {loading && categories.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#93c5fd" />
             <Text style={styles.loadingText}>Loading categories...</Text>
@@ -400,7 +293,11 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
           </View>
         ) : categories.length === 0 ? (
           <View style={styles.noResults}>
-            <Text style={styles.noResultsText}>No categories available</Text>
+            <Text style={styles.noResultsText}>
+              {searchText
+                ? `No categories found matching "${searchText}"`
+                : "No categories available"}
+            </Text>
           </View>
         ) : (
           <Animated.View entering={FadeIn.duration(300)} style={styles.categoriesContainer}>
@@ -434,6 +331,24 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
               initialNumToRender={10}
               maxToRenderPerBatch={10}
               windowSize={10}
+              onEndReached={handleEndReached}
+              onEndReachedThreshold={0.3}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={refresh}
+                  colors={["#93c5fd"]}
+                  tintColor="#93c5fd"
+                />
+              }
+              ListFooterComponent={
+                loading && categories.length > 0 ? (
+                  <View style={styles.footerLoader}>
+                    <ActivityIndicator size="small" color="#93c5fd" />
+                    <Text style={styles.footerLoaderText}>Loading more...</Text>
+                  </View>
+                ) : null
+              }
             />
           </Animated.View>
         )}
@@ -465,8 +380,5 @@ const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
     </SafeAreaView>
   );
 };
-
-// Merge extended styles with your existing styles
-// In your actual code, update your styles.ts file with these additions
 
 export default CategoriesScreen;

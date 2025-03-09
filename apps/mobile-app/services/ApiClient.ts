@@ -9,6 +9,12 @@ interface Location {
   coordinates: [number, number]; // [longitude, latitude]
 }
 
+interface GetCategoriesParams {
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
 // Add user and auth types
 export interface User {
   id: string;
@@ -543,6 +549,49 @@ class ApiClient {
     return data.map(this.mapEventToEventType);
   }
 
+  async getCategories(params: GetCategoriesParams = {}): Promise<{
+    categories: { id: string; name: string; description: string | null; icon: string | null }[];
+    total: number;
+    hasMore: boolean;
+  }> {
+    const queryParams = new URLSearchParams();
+
+    if (params.search) queryParams.append("search", params.search);
+    if (params.limit) queryParams.append("limit", params.limit.toString());
+    if (params.offset) queryParams.append("offset", params.offset.toString());
+
+    const url = `${this.baseUrl}/api/events/categories?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+
+    const data = await this.handleResponse<
+      { id: string; name: string; description: string | null; icon: string | null }[]
+    >(response);
+
+    // If the API doesn't support pagination/search, we'll handle it client-side
+    // Filter by search term if provided
+    let filteredCategories = data;
+    if (params.search) {
+      const searchLower = params.search.toLowerCase();
+      filteredCategories = data.filter((category) =>
+        category.name.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Apply pagination if requested
+    const total = filteredCategories.length;
+    let paginatedCategories = filteredCategories;
+
+    if (params.limit) {
+      const offset = params.offset || 0;
+      paginatedCategories = filteredCategories.slice(offset, offset + params.limit);
+    }
+
+    return {
+      categories: paginatedCategories,
+      total,
+      hasMore: params.limit ? (params.offset || 0) + params.limit < total : false,
+    };
+  }
   // Fetch a single event by ID
   async getEventById(id: string): Promise<EventType> {
     const url = `${this.baseUrl}/api/events/${id}`;
