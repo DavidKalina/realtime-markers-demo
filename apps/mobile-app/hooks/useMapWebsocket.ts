@@ -127,6 +127,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isFilterTransitioning, setIsFilterTransitioning] = useState(false);
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transitionStartTimeRef = useRef<number>(0);
 
   const { user } = useAuth();
 
@@ -144,6 +145,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
     // Set transition state immediately
     setIsFilterTransitioning(true);
+    transitionStartTimeRef.current = Date.now();
   }, []);
 
   // Create a function to end the transition with minimum duration
@@ -154,8 +156,8 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     }
 
     // Calculate how long to wait before ending transition
-    const transitionStartTime = Date.now();
-    const remainingTime = Math.max(0, MIN_TRANSITION_DURATION - (Date.now() - transitionStartTime));
+    const elapsed = Date.now() - transitionStartTimeRef.current;
+    const remainingTime = Math.max(0, MIN_TRANSITION_DURATION - elapsed);
 
     // Set a timer to end the transition after minimum duration
     transitionTimerRef.current = setTimeout(() => {
@@ -373,7 +375,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const createSubscription = useCallback(
     async (filter: EventFilter, name?: string): Promise<void> => {
       if (ws.current?.readyState === WebSocket.OPEN) {
-        // Set transitioning flag before sending request
+        // Start transition with minimum duration
         startFilterTransition();
 
         const message = {

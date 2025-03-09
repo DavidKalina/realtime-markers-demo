@@ -21,10 +21,14 @@ MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
 
 // Simple filter options for testing
 const FILTER_OPTIONS = [
-  { name: "Food", categories: ["food", "restaurant", "cafe"], tags: ["food"] },
+  {
+    name: "Food",
+    categories: ["food", "restaurant", "cafe", "networking"],
+    tags: ["food", "networking"],
+  },
   {
     name: "Entertainment",
-    categories: ["entertainment", "arts", "social event"],
+    categories: ["entertainment", "arts", "social event", "social", "music"],
     tags: ["entertainment", "arts"],
   },
   { name: "Shopping", categories: ["shopping", "retail"], tags: ["shopping"] },
