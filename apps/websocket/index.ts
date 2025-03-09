@@ -3,6 +3,12 @@ import Redis from "ioredis";
 import RBush from "rbush";
 import type { Server, ServerWebSocket } from "bun";
 import { SessionManager } from "./SessionManager";
+import { EventProcessor } from "./EventProcessor";
+import { FilterEvaluator } from "./FilterEvaluator";
+import { SpatialIndex } from "./SpatialIndex";
+import { SubscriptionManager } from "./SubscriptionManager";
+import { ViewportManager } from "./ViewportManager";
+import { MessageTypes } from "./messageTypes";
 
 // --- Type Definitions ---
 interface MarkerData {
@@ -17,6 +23,7 @@ interface MarkerData {
     color: string;
     created_at: string;
     updated_at: string;
+    categories: string[];
   };
 }
 
@@ -33,37 +40,6 @@ interface BBox {
   maxX: number;
   maxY: number;
 }
-
-// Define clear message types to keep code consistent
-const MessageTypes = {
-  // Connection messages
-  CONNECTION_ESTABLISHED: "connection_established",
-
-  // Viewport-related (what's visible to the user)
-  VIEWPORT_UPDATE: "viewport_update",
-  INITIAL_MARKERS: "initial_markers",
-
-  // Real-time updates (actual data changes)
-  MARKER_CREATED: "marker_created",
-  MARKER_UPDATED: "marker_updated",
-  MARKER_DELETED: "marker_deleted",
-
-  // Existing message types (for compatibility)
-  MARKER_DELETE: "marker_delete",
-  MARKER_UPDATES_BATCH: "marker_updates_batch",
-  DEBUG_EVENT: "debug_event",
-
-  // New types for job session handling
-  CREATE_SESSION: "create_session",
-  JOIN_SESSION: "join_session",
-  SESSION_CREATED: "session_created",
-  SESSION_JOINED: "session_joined",
-  SESSION_UPDATE: "session_update",
-  ADD_JOB: "add_job",
-  JOB_ADDED: "job_added",
-  CANCEL_JOB: "cancel_job",
-  CLEAR_SESSION: "clear_session",
-};
 
 // --- In-Memory State ---
 const tree = new RBush<MarkerData>();
@@ -86,6 +62,17 @@ const redisSub = new Redis({
 
 // --- Initialize Session Manager ---
 const sessionManager = new SessionManager(redis);
+// --- Initialize Filtering System Services ---
+const spatialIndex = new SpatialIndex();
+const subscriptionManager = new SubscriptionManager(redis);
+const viewportManager = new ViewportManager(spatialIndex);
+const filterEvaluator = new FilterEvaluator(subscriptionManager, viewportManager);
+const eventProcessor = new EventProcessor(
+  subscriptionManager,
+  viewportManager,
+  filterEvaluator,
+  spatialIndex
+);
 
 // System health state
 const systemHealth = {
@@ -157,57 +144,74 @@ async function initializeState() {
       const events = await res.json();
       console.log(`[Init] Received ${events.length} events from API`);
 
-      const markerDataArray = events
-        .map((event: any) => {
-          if (!event.location?.coordinates) {
-            console.warn(`[Init] Event ${event.id} missing coordinates:`, event);
-            return null;
-          }
+      // Prepare data for both systems
+      const markerDataArray = [];
+      const spatialEvents = [];
 
-          const [lng, lat] = event.location.coordinates;
-          return {
-            id: event.id,
-            minX: lng,
-            minY: lat,
-            maxX: lng,
-            maxY: lat,
-            data: {
-              title: event.title,
-              emoji: event.emoji,
-              color: "red",
-              created_at: event.created_at,
-              updated_at: event.updated_at,
-            },
-          } as MarkerData;
-        })
-        .filter(Boolean);
+      // Process events for both systems
+      for (const event of events) {
+        if (!event.location?.coordinates) {
+          console.warn(`[Init] Event ${event.id} missing coordinates:`, event);
+          continue;
+        }
 
-      console.log(`[Init] Loading ${markerDataArray.length} events into RBush tree`);
-      tree.clear(); // Clear any existing data
-      tree.load(markerDataArray);
-      console.log("[Init] RBush tree initialized successfully");
+        const [lng, lat] = event.location.coordinates;
 
-      // Log a sample of coordinates to verify data
-      if (markerDataArray.length > 0) {
-        console.log("[Init] Sample coordinates:", {
-          lng: markerDataArray[0].minX,
-          lat: markerDataArray[0].minY,
+        // For legacy RBush tree
+        markerDataArray.push({
+          id: event.id,
+          minX: lng,
+          minY: lat,
+          maxX: lng,
+          maxY: lat,
+          data: {
+            title: event.title,
+            emoji: event.emoji,
+            color: "red",
+            created_at: event.created_at,
+            updated_at: event.updated_at,
+            categories: event.categories.map((item: any) => item.name),
+          },
+        });
+
+        // For new SpatialIndex
+        spatialEvents.push({
+          id: event.id,
+          title: event.title,
+          location: event.location,
+          categories: event.categories.map((item: any) => item.name),
+          status: event.status,
+          tags: event.tags,
+          createdAt: event.created_at,
+          updatedAt: event.updated_at,
+          creatorId: event.creator_id,
+          description: event.description,
+          emoji: event.emoji,
+          color: event.color,
         });
       }
 
-      // Set backend as connected since we just successfully connected
+      // Initialize both indexing systems
+      console.log(`[Init] Loading ${markerDataArray.length} events into RBush tree`);
+      tree.clear();
+      tree.load(markerDataArray);
+
+      console.log(`[Init] Loading ${spatialEvents.length} events into SpatialIndex`);
+      spatialIndex.clear();
+      spatialIndex.bulkLoad(spatialEvents);
+
+      console.log("[Init] RBush tree and SpatialIndex initialized successfully");
+
+      // Set backend as connected
       systemHealth.backendConnected = true;
       systemHealth.lastBackendCheck = Date.now();
-
-      return; // Success - exit the retry loop
+      return;
     } catch (error) {
       console.error(`[Init] Attempt ${attempt}/${maxRetries} failed:`, error);
-
       if (attempt === maxRetries) {
         console.error("[Init] Max retries reached, giving up");
         throw error;
       }
-
       console.log(`[Init] Waiting ${retryDelay}ms before next attempt...`);
       await new Promise((resolve) => setTimeout(resolve, retryDelay));
     }
@@ -224,62 +228,62 @@ function isMarkerInViewport(marker: MarkerData, viewport: BBox): boolean {
   );
 }
 
-// IMPORTANT: This is where we handle real-time updates from Redis
 redisSub.on("message", (channel, message) => {
-  // Set redis as connected since we just received a message
+  // Set redis as connected
   systemHealth.redisConnected = true;
   systemHealth.lastRedisCheck = Date.now();
 
-  // Handle event_changes for markers
   if (channel === "event_changes") {
     try {
       const { operation, record } = JSON.parse(message);
 
       // --- DELETION HANDLING ---
       if (operation === "DELETE") {
-        // Find and remove the marker from the R-tree
+        // Remove from both systems
+        spatialIndex.removeEvent(record.id);
         const markerToDelete = tree.all().find((marker) => marker.id === record.id);
         if (markerToDelete) {
           tree.remove(markerToDelete, (a, b) => a.id === b.id);
-
-          // Send real-time deletion notification to all clients
-          const deletePayload = JSON.stringify({
-            type: MessageTypes.MARKER_DELETED, // New message type
-            data: {
-              id: record.id,
-              timestamp: new Date().toISOString(),
-            },
-          });
-
-          // Also send legacy message type for backward compatibility
-          const legacyDeletePayload = JSON.stringify({
-            type: MessageTypes.MARKER_DELETE, // Original message type
-            data: {
-              id: record.id,
-              timestamp: new Date().toISOString(),
-            },
-          });
-
-          clients.forEach((client) => {
-            try {
-              // Send both new and legacy message types
-              client.send(deletePayload);
-              client.send(legacyDeletePayload);
-            } catch (error) {
-              console.error(
-                `Failed to send delete event to client ${client.data.clientId}:`,
-                error
-              );
-            }
-          });
         }
+
+        // Send deletion messages (existing code)
+        const deletePayload = JSON.stringify({
+          type: MessageTypes.MARKER_DELETED,
+          data: {
+            id: record.id,
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        const legacyDeletePayload = JSON.stringify({
+          type: MessageTypes.MARKER_DELETE,
+          data: {
+            id: record.id,
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        clients.forEach((client) => {
+          try {
+            client.send(deletePayload);
+            client.send(legacyDeletePayload);
+          } catch (error) {
+            console.error(`Failed to send delete event to client ${client.data.clientId}:`, error);
+          }
+        });
         return;
       }
 
       // --- CREATION/UPDATE HANDLING ---
+      if (!record.location || !record.location.coordinates) {
+        console.warn(`Event ${record.id} missing coordinates, skipping`);
+        return;
+      }
+
       const [lng, lat] = record.location.coordinates;
 
-      const markerData: MarkerData = {
+      // Format for the legacy system
+      const markerData = {
         id: record.id,
         minX: lng,
         minY: lat,
@@ -288,25 +292,55 @@ redisSub.on("message", (channel, message) => {
         data: {
           title: record.title,
           emoji: record.emoji,
-          color: record.color,
+          color: record.color || "red",
           created_at: record.created_at,
           updated_at: record.updated_at,
+          categories: record.categories.map((item: any) => item.name),
         },
       };
 
-      // Determine if this is a new marker or an update
+      // Format for the new system
+      const event = {
+        id: record.id,
+        title: record.title,
+        location: record.location,
+        categories: record.categories.map((item: any) => item.name),
+        status: record.status,
+        tags: record.tags || [],
+        createdAt: record.created_at,
+        updatedAt: record.updated_at,
+        creatorId: record.creator_id,
+        description: record.description,
+        emoji: record.emoji,
+        color: record.color,
+      };
+
       const isUpdate = operation === "UPDATE";
       const isCreate = operation === "CREATE" || operation === "INSERT";
 
-      // If it's an update, remove the old marker first
+      // Update both systems
       if (isUpdate) {
         tree.remove(markerData, (a, b) => a.id === b.id);
       }
-
-      // Insert the new marker position
       tree.insert(markerData);
 
-      // Add to pending updates for batch system (existing functionality)
+      // Process with EventProcessor to find matching clients
+      const clientEvents = eventProcessor.processEvent(event);
+
+      // Send to matching clients with new filtering system
+      for (const [clientId, events] of clientEvents.entries()) {
+        const client = clients.get(clientId);
+        if (!client) continue;
+
+        client.send(
+          JSON.stringify({
+            type: MessageTypes.MAP_EVENTS,
+            events,
+          })
+        );
+      }
+
+      // Legacy system - add to pending updates
       let updates = pendingUpdates.get(record.id);
       if (!updates) {
         updates = new Set();
@@ -314,24 +348,18 @@ redisSub.on("message", (channel, message) => {
       }
       updates.add(markerData);
 
-      // IMPORTANT NEW FEATURE: Send real-time marker created/updated notifications
-      // This is separate from the viewport update system
+      // Send real-time updates (existing code)
       const realTimePayload = JSON.stringify({
         type: isCreate ? MessageTypes.MARKER_CREATED : MessageTypes.MARKER_UPDATED,
         data: markerData,
         timestamp: new Date().toISOString(),
       });
 
-      // Send notifications to clients that have this marker in viewport
+      // Legacy behavior - send to clients with this marker in viewport
       clients.forEach((client) => {
         if (client.data.viewport && isMarkerInViewport(markerData, client.data.viewport)) {
           try {
             client.send(realTimePayload);
-            console.log(
-              `[Real-time] Sent ${isCreate ? "creation" : "update"} for marker ${
-                markerData.id
-              } to client ${client.data.clientId}`
-            );
           } catch (error) {
             console.error(
               `Failed to send real-time update to client ${client.data.clientId}:`,
@@ -341,7 +369,7 @@ redisSub.on("message", (channel, message) => {
         }
       });
 
-      // Send debug event to all connected clients (existing functionality)
+      // Keep the debug event (existing code)
       const debugPayload = JSON.stringify({
         type: MessageTypes.DEBUG_EVENT,
         data: {
@@ -492,13 +520,14 @@ const server = {
       );
     },
 
-    message(ws: ServerWebSocket<WebSocketData>, message: string | Uint8Array) {
+    async message(ws: ServerWebSocket<WebSocketData>, message: string | Uint8Array) {
       ws.data.lastActivity = Date.now();
 
       try {
         const data = JSON.parse(message.toString());
+        const clientId = ws.data.clientId; // Assuming client ID is stored here
 
-        // --- Session Management Messages ---
+        // Handle existing session management messages
         if (
           [
             MessageTypes.CREATE_SESSION,
@@ -508,120 +537,238 @@ const server = {
             MessageTypes.CLEAR_SESSION,
           ].includes(data.type)
         ) {
-          // Forward to session manager
           sessionManager.handleMessage(ws, message.toString());
           return;
         }
 
-        // --- Viewport Updates (Existing Functionality) ---
-        if (data.type === MessageTypes.VIEWPORT_UPDATE) {
-          // First, create the viewport object
-          const viewportBounds = {
-            minX: data.viewport.west,
-            minY: data.viewport.south,
-            maxX: data.viewport.east,
-            maxY: data.viewport.north,
-          };
+        // Handle new subscription management messages
+        switch (data.type) {
+          case MessageTypes.CREATE_SUBSCRIPTION:
+            try {
+              const subscriptionId = await subscriptionManager.createSubscription(
+                clientId,
+                data.filter,
+                data.name
+              );
 
-          // Store it
-          ws.data.viewport = viewportBounds;
+              // Get the created subscription
+              const subscription = subscriptionManager.getSubscription(subscriptionId);
 
-          // Do a single search with the same object
-          const markersInView = tree.search(viewportBounds);
-
-          // Log comprehensive details
-          console.log(`[Viewport Update] Client ${ws.data.clientId}:`, {
-            timestamp: new Date().toISOString(),
-            viewport: data.viewport,
-            currentMarkersInView: markersInView.length,
-          });
-
-          // Send markers only if there are any in the viewport
-          if (markersInView.length > 0) {
-            console.log(
-              `[Send] Sending ${markersInView.length} markers to client ${ws.data.clientId}`
-            );
-            ws.send(
-              JSON.stringify({
-                type: MessageTypes.INITIAL_MARKERS,
-                data: markersInView,
-              })
-            );
-          } else {
-            // Send an empty markers update to clear any existing markers
-            console.log(`[Send] Sending empty markers array to client ${ws.data.clientId}`);
-            ws.send(
-              JSON.stringify({
-                type: MessageTypes.INITIAL_MARKERS,
-                data: [],
-              })
-            );
-          }
-        }
-
-        // Handle test events
-        else if (data.type === "test_event") {
-          console.log(`[TEST] Received test event command: ${data.command}`);
-
-          if (data.command === "add_marker") {
-            // Create a test marker
-            const testMarker = {
-              id: `test-${Date.now()}`,
-              minX: (ws.data.viewport?.minX || 0) + 0.001,
-              minY: (ws.data.viewport?.minY || 0) + 0.001,
-              maxX: (ws.data.viewport?.minX || 0) + 0.001,
-              maxY: (ws.data.viewport?.minY || 0) + 0.001,
-              data: {
-                title: "Test Marker",
-                emoji: "🧪",
-                color: "blue",
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-            };
-
-            // Add to the tree
-            tree.insert(testMarker);
-
-            // Only send if viewport exists
-            if (ws.data.viewport) {
-              console.log(`[TEST] Sending test marker_created message`);
+              // Send confirmation to client
               ws.send(
                 JSON.stringify({
-                  type: MessageTypes.MARKER_CREATED,
-                  data: testMarker,
-                  count: 1,
-                  timestamp: Date.now(),
+                  type: MessageTypes.SUBSCRIPTION_CREATED,
+                  subscription,
+                })
+              );
+
+              // CRITICAL: Always send updated events after subscription changes
+              const viewport = viewportManager.getViewport(clientId);
+              if (viewport) {
+                const events = eventProcessor.processViewportUpdate(
+                  clientId,
+                  viewport.boundingBox,
+                  viewport.zoom
+                );
+
+                console.log(`Sending ${events.length} events after subscription creation`);
+
+                // Always send MAP_EVENTS, even if the array is empty!
+                ws.send(
+                  JSON.stringify({
+                    type: MessageTypes.MAP_EVENTS,
+                    events: events,
+                  })
+                );
+              }
+            } catch (error: any) {
+              ws.send(
+                JSON.stringify({
+                  type: MessageTypes.ERROR,
+                  message: "Failed to create subscription",
+                  details: error.message,
                 })
               );
             }
-          }
+            break;
 
-          if (data.command === "remove_marker" && ws.data.viewport) {
-            // Get markers in viewport
-            const markersInView = tree.search(ws.data.viewport);
+          case MessageTypes.UPDATE_SUBSCRIPTION:
+            try {
+              const updated = await subscriptionManager.updateSubscription(
+                data.subscriptionId,
+                data.filter,
+                data.name
+              );
 
-            if (markersInView.length > 0) {
-              // Take the first marker to remove
-              const markerToRemove = markersInView[0];
+              if (updated) {
+                ws.send(
+                  JSON.stringify({
+                    type: MessageTypes.SUBSCRIPTION_UPDATED,
+                    subscription: subscriptionManager.getSubscription(data.subscriptionId),
+                  })
+                );
 
-              // Remove from the tree
-              tree.remove(markerToRemove, (a, b) => a.id === b.id);
+                // Send updated events
+                const viewport = viewportManager.getViewport(ws.data.clientId);
+                if (viewport) {
+                  const events = eventProcessor.processViewportUpdate(
+                    ws.data.clientId,
+                    viewport.boundingBox,
+                    viewport.zoom
+                  );
 
-              console.log(`[TEST] Sending test marker_deleted message for ${markerToRemove.id}`);
+                  ws.send(
+                    JSON.stringify({
+                      type: MessageTypes.MAP_EVENTS,
+                      events,
+                    })
+                  );
+                }
+              } else {
+                ws.send(
+                  JSON.stringify({
+                    type: MessageTypes.ERROR,
+                    message: "Subscription not found",
+                  })
+                );
+              }
+            } catch (error: any) {
               ws.send(
                 JSON.stringify({
-                  type: MessageTypes.MARKER_DELETED,
-                  data: {
-                    id: markerToRemove.id,
-                    timestamp: new Date().toISOString(),
-                  },
-                  count: 1,
-                  timestamp: Date.now(),
+                  type: MessageTypes.ERROR,
+                  message: "Failed to update subscription",
+                  details: error.message,
                 })
               );
             }
-          }
+            break;
+
+          case MessageTypes.DELETE_SUBSCRIPTION:
+            try {
+              const deleted = await subscriptionManager.deleteSubscription(data.subscriptionId);
+
+              // Send deletion acknowledgment
+              ws.send(
+                JSON.stringify({
+                  type: MessageTypes.SUBSCRIPTION_DELETED,
+                  subscriptionId: data.subscriptionId,
+                  success: deleted,
+                })
+              );
+
+              // CRITICAL: Always send updated events after subscription changes
+              const viewport = viewportManager.getViewport(clientId);
+              if (viewport) {
+                const events = eventProcessor.processViewportUpdate(
+                  clientId,
+                  viewport.boundingBox,
+                  viewport.zoom
+                );
+
+                console.log(`Sending ${events.length} events after subscription deletion`);
+
+                // Always send MAP_EVENTS, even if the array is empty!
+                ws.send(
+                  JSON.stringify({
+                    type: MessageTypes.MAP_EVENTS,
+                    events: events,
+                  })
+                );
+              }
+            } catch (error: any) {
+              ws.send(
+                JSON.stringify({
+                  type: MessageTypes.ERROR,
+                  message: "Failed to delete subscription",
+                  details: error.message,
+                })
+              );
+            }
+            break;
+
+          case MessageTypes.LIST_SUBSCRIPTIONS:
+            try {
+              const subscriptions = subscriptionManager.getClientSubscriptions(ws.data.clientId);
+
+              ws.send(
+                JSON.stringify({
+                  type: MessageTypes.SUBSCRIPTIONS_LIST,
+                  subscriptions,
+                })
+              );
+            } catch (error: any) {
+              ws.send(
+                JSON.stringify({
+                  type: MessageTypes.ERROR,
+                  message: "Failed to list subscriptions",
+                  details: error.message,
+                })
+              );
+            }
+            break;
+
+          // Update the viewport update handler to use both systems
+          case MessageTypes.VIEWPORT_UPDATE:
+            try {
+              console.log(`Processing viewport update for client ${clientId}`);
+              console.log(`Viewport bounds: ${JSON.stringify(data.boundingBox)}`);
+
+              // Check if client has active subscriptions BEFORE processing the viewport
+              const clientSubscriptions = subscriptionManager.getClientSubscriptions(clientId);
+              console.log(`Client has ${clientSubscriptions.length} active subscriptions`);
+
+              // Process viewport update - this should filter by both viewport AND subscriptions
+              const events = eventProcessor.processViewportUpdate(
+                clientId,
+                data.boundingBox,
+                data.zoom || 14
+              );
+
+              console.log(`Found ${events.length} events matching BOTH viewport AND subscriptions`);
+
+              // Debug: Check how many events are in viewport without filtering
+              const allEventsInViewport = spatialIndex.queryBoundingBox(data.boundingBox);
+              console.log(
+                `Total events in viewport (without filtering): ${allEventsInViewport.length}`
+              );
+
+              if (clientSubscriptions.length > 0) {
+                // Debug: Log filter criteria being applied
+                console.log("Active filter criteria:");
+                clientSubscriptions.forEach((sub) => {
+                  console.log(`- Subscription ${sub.id}: ${JSON.stringify(sub.filter)}`);
+                });
+              }
+
+              // Acknowledge viewport update
+              ws.send(
+                JSON.stringify({
+                  type: MessageTypes.VIEWPORT_UPDATED,
+                  status: "success",
+                })
+              );
+
+              // Send matching events - ALWAYS send this message, even if events array is empty
+              ws.send(
+                JSON.stringify({
+                  type: MessageTypes.MAP_EVENTS,
+                  events: events,
+                })
+              );
+            } catch (error: any) {
+              console.error("Failed to update viewport:", error);
+              ws.send(
+                JSON.stringify({
+                  type: MessageTypes.ERROR,
+                  message: "Failed to update viewport",
+                  details: error.message,
+                })
+              );
+            }
+            break;
+
+          // Default handler for other message types
+          // (your existing code)
         }
       } catch (error) {
         console.error(`Error processing message from ${ws.data.clientId}:`, error);
@@ -631,6 +778,10 @@ const server = {
     close(ws: ServerWebSocket<WebSocketData>) {
       // Unregister from session manager
       sessionManager.unregisterClient(ws.data.clientId);
+
+      // Clean up filtering system resources
+      subscriptionManager.handleClientDisconnect(ws.data.clientId);
+      viewportManager.handleClientDisconnect(ws.data.clientId);
 
       // Clean up client registration
       clients.delete(ws.data.clientId);
