@@ -54,11 +54,9 @@ export default function HomeScreen() {
     isConnected,
     updateViewport,
     currentViewport,
-    // New filter functions
+    isFilterTransitioning,
     createSubscription,
-    updateSubscription,
     deleteSubscription,
-    listSubscriptions,
     subscriptions,
   } = mapWebSocketData;
 
@@ -307,7 +305,11 @@ export default function HomeScreen() {
 
           {/* Custom Map Markers - Using our simplified component with unified selection */}
           {isMapReady && !isLoadingLocation && currentViewport && (
-            <ClusteredMapMarkers markers={markers} viewport={currentViewport} />
+            <ClusteredMapMarkers
+              markers={markers}
+              viewport={currentViewport}
+              isTransitioning={isFilterTransitioning}
+            />
           )}
 
           {/* Add user location layer for the blue dot */}

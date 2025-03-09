@@ -40,12 +40,14 @@ interface ClusteredMapMarkersProps {
   markers?: Marker[];
   currentZoom?: number;
   viewport: MapboxViewport;
+  isTransitioning: boolean;
 }
 
 export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = ({
   markers: propMarkers,
   currentZoom = 14,
   viewport,
+  isTransitioning,
 }) => {
   // Get marker data from store
   const storeMarkers = useLocationStore((state) => state.markers);
@@ -139,78 +141,79 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = ({
   return (
     <>
       {/* Render clusters */}
-      {clusters.map((feature) => {
-        // If it's a cluster
-        if (feature.properties.cluster) {
-          const clusterFeature = feature as ClusterFeature;
-          const coordinates = clusterFeature.geometry.coordinates;
-          const count = clusterFeature.properties.point_count;
-          const clusterId = `cluster-${clusterFeature.properties.cluster_id}`;
+      {!isTransitioning &&
+        clusters.map((feature) => {
+          // If it's a cluster
+          if (feature.properties.cluster) {
+            const clusterFeature = feature as ClusterFeature;
+            const coordinates = clusterFeature.geometry.coordinates;
+            const count = clusterFeature.properties.point_count;
+            const clusterId = `cluster-${clusterFeature.properties.cluster_id}`;
 
-          // Create a cluster map item
-          const clusterItem: ClusterItem = {
-            id: clusterId,
-            type: "cluster",
-            coordinates: coordinates as [number, number],
-            count,
-          };
+            // Create a cluster map item
+            const clusterItem: ClusterItem = {
+              id: clusterId,
+              type: "cluster",
+              coordinates: coordinates as [number, number],
+              count,
+            };
 
-          return (
-            <MapboxGL.MarkerView
-              key={clusterId}
-              coordinate={coordinates}
-              anchor={{ x: 0.5, y: 0.5 }}
-            >
-              <ClusterMarker
-                count={count}
-                coordinates={coordinates}
-                onPress={() => handleMapItemPress(clusterItem)}
-                isSelected={isItemSelected(clusterId)}
-              />
-            </MapboxGL.MarkerView>
-          );
-        }
-        // It's a single point
-        else {
-          const pointFeature = feature as PointFeature;
-          const markerId = pointFeature.properties.id;
-          const coordinates = pointFeature.geometry.coordinates;
-          const data = pointFeature.properties.data;
+            return (
+              <MapboxGL.MarkerView
+                key={clusterId}
+                coordinate={coordinates}
+                anchor={{ x: 0.5, y: 0.5 }}
+              >
+                <ClusterMarker
+                  count={count}
+                  coordinates={coordinates}
+                  onPress={() => handleMapItemPress(clusterItem)}
+                  isSelected={isItemSelected(clusterId)}
+                />
+              </MapboxGL.MarkerView>
+            );
+          }
+          // It's a single point
+          else {
+            const pointFeature = feature as PointFeature;
+            const markerId = pointFeature.properties.id;
+            const coordinates = pointFeature.geometry.coordinates;
+            const data = pointFeature.properties.data;
 
-          // Create a marker map item
-          const markerItem: MarkerItem = {
-            id: markerId,
-            type: "marker",
-            coordinates: coordinates as [number, number],
-            data,
-          };
+            // Create a marker map item
+            const markerItem: MarkerItem = {
+              id: markerId,
+              type: "marker",
+              coordinates: coordinates as [number, number],
+              data,
+            };
 
-          return (
-            <MapboxGL.MarkerView
-              key={`marker-${markerId}`}
-              coordinate={coordinates}
-              anchor={{ x: 0.5, y: 1.0 }}
-            >
-              <MysteryEmojiMarker
-                event={{
-                  title: data.title || "Unnamed Event",
-                  emoji: data.emoji || "📍",
-                  location: data.location || "Unknown location",
-                  distance: data.distance || "Unknown distance",
-                  time: data.time || new Date().toLocaleDateString(),
-                  description: data.description || "",
-                  categories: data.categories || [],
-                  isVerified: data.isVerified || false,
-                  color: data.color,
-                }}
-                isSelected={isItemSelected(markerId)}
-                isHighlighted={false}
-                onPress={() => handleMapItemPress(markerItem)}
-              />
-            </MapboxGL.MarkerView>
-          );
-        }
-      })}
+            return (
+              <MapboxGL.MarkerView
+                key={`marker-${markerId}`}
+                coordinate={coordinates}
+                anchor={{ x: 0.5, y: 1.0 }}
+              >
+                <MysteryEmojiMarker
+                  event={{
+                    title: data.title || "Unnamed Event",
+                    emoji: data.emoji || "📍",
+                    location: data.location || "Unknown location",
+                    distance: data.distance || "Unknown distance",
+                    time: data.time || new Date().toLocaleDateString(),
+                    description: data.description || "",
+                    categories: data.categories || [],
+                    isVerified: data.isVerified || false,
+                    color: data.color,
+                  }}
+                  isSelected={isItemSelected(markerId)}
+                  isHighlighted={false}
+                  onPress={() => handleMapItemPress(markerItem)}
+                />
+              </MapboxGL.MarkerView>
+            );
+          }
+        })}
     </>
   );
 };

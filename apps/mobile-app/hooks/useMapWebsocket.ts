@@ -74,6 +74,7 @@ interface MapWebSocketResult {
   listSubscriptions: () => Promise<void>;
   // Store the current subscriptions
   subscriptions: Subscription[];
+  isFilterTransitioning: boolean;
 }
 
 // Define message types to keep code consistent
@@ -115,6 +116,8 @@ const MessageTypes = {
   ERROR: "error",
 };
 
+const MIN_TRANSITION_DURATION = 300;
+
 export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const [markers, setMarkers] = useState<Marker[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
@@ -122,6 +125,8 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const [currentViewport, setCurrentViewport] = useState<MapboxViewport | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [isFilterTransitioning, setIsFilterTransitioning] = useState(false);
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { user } = useAuth();
 
@@ -130,6 +135,34 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const setStoreMarkers = useLocationStore.getState().setMarkers;
 
   const markersRef = useRef<Marker[]>(markers);
+
+  const startFilterTransition = useCallback(() => {
+    // Clear any existing timer
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+    }
+
+    // Set transition state immediately
+    setIsFilterTransitioning(true);
+  }, []);
+
+  // Create a function to end the transition with minimum duration
+  const endFilterTransition = useCallback(() => {
+    // Clear any existing timer
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+    }
+
+    // Calculate how long to wait before ending transition
+    const transitionStartTime = Date.now();
+    const remainingTime = Math.max(0, MIN_TRANSITION_DURATION - (Date.now() - transitionStartTime));
+
+    // Set a timer to end the transition after minimum duration
+    transitionTimerRef.current = setTimeout(() => {
+      setIsFilterTransitioning(false);
+      transitionTimerRef.current = null;
+    }, remainingTime);
+  }, []);
 
   useEffect(() => {
     userIdRef.current = user?.id || null;
@@ -337,10 +370,12 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     }
   }, []);
 
-  // New subscription management functions
   const createSubscription = useCallback(
     async (filter: EventFilter, name?: string): Promise<void> => {
       if (ws.current?.readyState === WebSocket.OPEN) {
+        // Set transitioning flag before sending request
+        startFilterTransition();
+
         const message = {
           type: MessageTypes.CREATE_SUBSCRIPTION,
           filter,
@@ -351,12 +386,14 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         throw new Error("WebSocket not connected");
       }
     },
-    []
+    [startFilterTransition]
   );
 
   const updateSubscription = useCallback(
     async (id: string, filter: EventFilter, name?: string): Promise<void> => {
       if (ws.current?.readyState === WebSocket.OPEN) {
+        startFilterTransition();
+
         const message = {
           type: MessageTypes.UPDATE_SUBSCRIPTION,
           subscriptionId: id,
@@ -368,20 +405,25 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         throw new Error("WebSocket not connected");
       }
     },
-    []
+    [startFilterTransition]
   );
 
-  const deleteSubscription = useCallback(async (id: string): Promise<void> => {
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      const message = {
-        type: MessageTypes.DELETE_SUBSCRIPTION,
-        subscriptionId: id,
-      };
-      ws.current.send(JSON.stringify(message));
-    } else {
-      throw new Error("WebSocket not connected");
-    }
-  }, []);
+  const deleteSubscription = useCallback(
+    async (id: string): Promise<void> => {
+      if (ws.current?.readyState === WebSocket.OPEN) {
+        startFilterTransition();
+
+        const message = {
+          type: MessageTypes.DELETE_SUBSCRIPTION,
+          subscriptionId: id,
+        };
+        ws.current.send(JSON.stringify(message));
+      } else {
+        throw new Error("WebSocket not connected");
+      }
+    },
+    [startFilterTransition]
+  );
 
   const listSubscriptions = useCallback(async (): Promise<void> => {
     if (ws.current?.readyState === WebSocket.OPEN) {
@@ -427,17 +469,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         try {
           const data = JSON.parse(event.data);
 
-          console.log("[WebSocket] Received message type:", data.type);
-
-          // For MAP_EVENTS, log more details
-          if (data.type === MessageTypes.MAP_EVENTS) {
-            console.log(`[WebSocket] Received ${data.events?.length || 0} events`);
-          } else if (data.type === MessageTypes.SUBSCRIPTION_CREATED) {
-            console.log("[WebSocket] Subscription created:", data.subscription?.id);
-          } else if (data.type === MessageTypes.SUBSCRIPTION_DELETED) {
-            console.log("[WebSocket] Subscription deleted:", data.subscriptionId);
-          }
-
           switch (data.type) {
             case MessageTypes.CONNECTION_ESTABLISHED:
               setClientId(data.clientId);
@@ -463,7 +494,8 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               // Replace markers with new filtered events
               setMarkers(mapboxMarkers);
 
-              // Emit update for UI components
+              endFilterTransition();
+
               emitMarkersUpdated(mapboxMarkers);
               break;
             }
@@ -640,6 +672,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       if (ws.current) ws.current.close();
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (markerUpdateTimeoutRef.current) clearTimeout(markerUpdateTimeoutRef.current);
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
     };
   }, [connectWebSocket]);
 
@@ -650,7 +683,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     currentViewport,
     updateViewport,
     clientId,
-    // Return the subscription functions
+    isFilterTransitioning,
     createSubscription,
     updateSubscription,
     deleteSubscription,
