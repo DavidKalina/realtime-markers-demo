@@ -311,6 +311,8 @@ export class FilterProcessor {
     try {
       const { operation, record } = event;
 
+      console.log({ OPERATION: operation });
+
       // Handle deletion
       if (operation === "DELETE") {
         // Remove from spatial index and cache
@@ -343,8 +345,6 @@ export class FilterProcessor {
       this.spatialIndex.insert(spatialItem);
       this.eventCache.set(record.id, record);
 
-      console.log("CHECKING_FILTERS");
-
       // Check if event matches filters for each user
       for (const [userId, filters] of this.userFilters.entries()) {
         // Skip if event doesn't match user's filters
@@ -352,18 +352,13 @@ export class FilterProcessor {
           continue;
         }
 
-        // Check if in user's viewport (if they have one)
-        console.log("CHECKED_EVENT_MATCHES_FILTERS");
+        console.log("MATCHES_FILTERS", this.eventMatchesFilters(record, filters));
 
         const viewport = this.userViewports.get(userId);
-
-        console.log("VIEWPORT", viewport);
 
         if (viewport && !this.isEventInViewport(record, viewport)) {
           continue;
         }
-
-        console.log("INSERTING", record);
 
         // Publish to user channel
         this.redisPub.publish(
@@ -396,6 +391,7 @@ export class FilterProcessor {
    * Check if an event matches any of the filters provided.
    */
   private eventMatchesFilters(event: Event, filters: Filter[]): boolean {
+    console.log("FILTERS_LENGTH", filters.length);
     // If no filters, match everything
     if (filters.length === 0) return true;
 
