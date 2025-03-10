@@ -189,4 +189,43 @@ export class UserPreferencesService {
       console.error(`Error publishing filter change for user ${userId}:`, error);
     }
   }
+
+  async applyFilters(userId: string, filterIds: string[]): Promise<boolean> {
+    try {
+      console.log(`Applying filters for user ${userId}: ${filterIds.join(", ")}`);
+
+      // Get all user filters
+      const userFilters = await this.getUserFilters(userId);
+
+      // Update isActive status based on filterIds
+      const updatedFilters = userFilters.map((filter) => ({
+        ...filter,
+        isActive: filterIds.includes(filter.id),
+      }));
+
+      // Save the updates
+      await this.filterRepository.save(updatedFilters);
+
+      // Get only the active filters after update
+      const activeFilters = updatedFilters.filter((filter) => filter.isActive);
+
+      // Publish filter change event with the active filters
+      await this.redisClient.publish(
+        "filter-changes",
+        JSON.stringify({
+          userId,
+          filters: activeFilters,
+          timestamp: new Date().toISOString(),
+        })
+      );
+
+      console.log(
+        `Published filter change event for user ${userId} with ${activeFilters.length} active filters`
+      );
+      return true;
+    } catch (error) {
+      console.error(`Error applying filters for user ${userId}:`, error);
+      return false;
+    }
+  }
 }

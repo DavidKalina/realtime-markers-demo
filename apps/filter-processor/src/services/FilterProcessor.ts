@@ -13,6 +13,8 @@ export class FilterProcessor {
   private redisPub: Redis;
   private redisSub: Redis;
 
+  // PostgreSQL connection
+
   // In-memory state
   private userFilters = new Map<string, Filter[]>();
   private userViewports = new Map<string, BoundingBox>();
@@ -77,38 +79,61 @@ export class FilterProcessor {
   }
 
   /**
-   * Initialize the spatial index with existing events from database.
-   * In a real implementation, this would fetch events from the database.
+   * Initialize the spatial index with existing events from API or database.
    */
   private async initializeSpatialIndex(): Promise<void> {
     try {
       console.log("🌍 Initializing spatial index...");
 
-      // For now, just fetch events from Redis or another service
-      // In a real implementation, this might fetch from a database
+      // Fetch events from the API or database
       const events = await this.fetchAllEvents();
 
+      // Log some diagnostic info about the events
+      console.log(`🌍 Received ${events.length} events for initialization`);
+
+      // Filter out events without valid coordinates
+      const validEvents = events.filter((event) => {
+        if (
+          !event.location?.coordinates ||
+          !Array.isArray(event.location.coordinates) ||
+          event.location.coordinates.length !== 2
+        ) {
+          console.warn(`⚠️ Event ${event.id} has invalid coordinates:`, event.location);
+          return false;
+        }
+        return true;
+      });
+
+      if (validEvents.length < events.length) {
+        console.warn(
+          `⚠️ Filtered out ${events.length - validEvents.length} events with invalid coordinates`
+        );
+      }
+
       // Format for RBush
-      const items = events.map((event) => this.eventToSpatialItem(event));
+      const items = validEvents.map((event) => this.eventToSpatialItem(event));
 
       // Bulk load for performance
       this.spatialIndex.load(items);
 
       // Also cache the full events
-      events.forEach((event) => {
+      validEvents.forEach((event) => {
         this.eventCache.set(event.id, event);
       });
 
+      // Log info about the initialized index
       console.log(`🌍 Spatial index initialized with ${items.length} events`);
+
+      // Log a sample item for debugging
+      if (items.length > 0) {
+        console.log("🌍 Sample spatial item:", items[0]);
+      }
     } catch (error) {
       console.error("❌ Error initializing spatial index:", error);
       throw error;
     }
   }
 
-  /**
-   * Subscribe to Redis channels needed for operation.
-   */
   private async subscribeToChannels(): Promise<void> {
     try {
       // Subscribe to filter changes
@@ -117,21 +142,20 @@ export class FilterProcessor {
       // Subscribe to viewport updates
       await this.redisSub.subscribe("viewport-updates");
 
-      // Subscribe to raw events feed
+      // Subscribe to initial event requests from WebSocket server
+      await this.redisSub.subscribe("filter-processor:request-initial");
+
       // Subscribe to raw events feed
       await this.redisSub.psubscribe("event_changes");
+
       // Handle incoming Redis messages
       this.redisSub.on("message", this.handleRedisMessage);
 
-      this.redisSub.on("message", this.handleRedisMessage);
-
-      // AND this one for pattern matching
+      // And this one for pattern matching
       this.redisSub.on("pmessage", (pattern, channel, message) => {
         try {
           console.log(`📦 Received pmessage on channel ${channel} from pattern ${pattern}`);
           const data = JSON.parse(message);
-
-          console.log("DATA", data);
 
           if (channel.startsWith("event_changes")) {
             this.processEvent(data);
@@ -142,7 +166,7 @@ export class FilterProcessor {
       });
 
       console.log(
-        "📡 Subscribed to Redis channels: filter-changes, viewport-updates, event_changes"
+        "📡 Subscribed to Redis channels: filter-changes, viewport-updates, filter-processor:request-initial, event_changes"
       );
     } catch (error) {
       console.error("❌ Error subscribing to Redis channels:", error);
@@ -150,9 +174,6 @@ export class FilterProcessor {
     }
   }
 
-  /**
-   * Handle messages from Redis pub/sub channels.
-   */
   private handleRedisMessage = (channel: string, message: string): void => {
     try {
       const data = JSON.parse(message);
@@ -165,6 +186,22 @@ export class FilterProcessor {
         const { userId, viewport } = data;
         this.updateUserViewport(userId, viewport);
         this.stats.viewportUpdatesProcessed++;
+      } else if (channel === "filter-processor:request-initial") {
+        const { userId } = data;
+        console.log(`📥 Received request for initial events for user ${userId}`);
+
+        // Send all filtered events to this user
+        if (userId) {
+          // If we have filters for this user, use them
+          if (this.userFilters.has(userId)) {
+            console.log(`🔍 User ${userId} has existing filters, sending filtered events`);
+            this.sendAllFilteredEvents(userId);
+          } else {
+            // If no filters yet, send empty filter set to get all events
+            console.log(`🔍 User ${userId} has no filters yet, setting empty filter`);
+            this.updateUserFilters(userId, []);
+          }
+        }
       } else if (channel === "event_changes") {
         this.processEvent(data);
         this.stats.eventsProcessed++;
@@ -214,20 +251,28 @@ export class FilterProcessor {
     }
   }
 
-  /**
-   * Send all events that match a user's filters.
-   */
   private sendAllFilteredEvents(userId: string): void {
-    const filters = this.userFilters.get(userId) || [];
+    try {
+      const filters = this.userFilters.get(userId) || [];
+      console.log(`📊 Applying ${filters.length} filters for user ${userId}`);
 
-    // Get all events from cache
-    const allEvents = Array.from(this.eventCache.values());
+      // Get all events from cache
+      const allEvents = Array.from(this.eventCache.values());
+      console.log(`📊 Total events before filtering: ${allEvents.length}`);
 
-    // Apply filters
-    const filteredEvents = allEvents.filter((event) => this.eventMatchesFilters(event, filters));
+      // Apply filters
+      const filteredEvents = allEvents.filter((event) => this.eventMatchesFilters(event, filters));
+      console.log(`📊 Events after filtering: ${filteredEvents.length}`);
 
-    // Send to user's channel
-    this.publishFilteredEvents(userId, "replace-all", filteredEvents);
+      // Send to user's channel
+      this.publishFilteredEvents(userId, "replace-all", filteredEvents);
+
+      console.log(
+        `📊 Filter results: ${filteredEvents.length}/${allEvents.length} events passed filters`
+      );
+    } catch (error) {
+      console.error(`❌ Error sending filtered events to user ${userId}:`, error);
+    }
   }
 
   /**
@@ -308,7 +353,6 @@ export class FilterProcessor {
         }
 
         // Check if in user's viewport (if they have one)
-
         console.log("CHECKED_EVENT_MATCHES_FILTERS");
 
         const viewport = this.userViewports.get(userId);
@@ -359,20 +403,144 @@ export class FilterProcessor {
     return filters.some((filter) => this.matchesFilter(event, filter.criteria));
   }
 
-  /**
-   * Check if an event matches a specific filter criteria.
-   */
   private matchesFilter(event: Event, criteria: FilterCriteria): boolean {
-    // Category filtering
+    console.log(
+      `📊 FILTER DEBUG: Matching event ${event.id} against filter criteria:`,
+      JSON.stringify(criteria, null, 2)
+    );
+
+    // For debugging, log the complete event structure
+    console.log(
+      `📊 FILTER DEBUG: Event structure:`,
+      JSON.stringify(
+        {
+          id: event.id,
+          title: event.title,
+          categories: event.categories,
+          startDate: event.eventDate,
+          createdAt: event.createdAt,
+          status: event.status,
+          tags: event.tags,
+        },
+        null,
+        2
+      )
+    );
+
+    // Category filtering - FIXED to handle multiple category formats
     if (criteria.categories && criteria.categories.length > 0) {
-      const eventCategories = event.categories?.map((c: any) => c.id) || [];
-      const hasMatchingCategory = criteria.categories.some((category: any) =>
-        eventCategories.includes(category)
+      // Extract event categories, handling different possible formats
+      const eventCategories: string[] = [];
+
+      if (event.categories) {
+        if (Array.isArray(event.categories)) {
+          event.categories.forEach((category) => {
+            if (typeof category === "string") {
+              // If category is directly a string ID
+              eventCategories.push(category);
+            } else if (typeof category === "object") {
+              // If category is an object with id property
+              if (category.id) eventCategories.push(category.id);
+              // Also check for category.name for systems that use names as IDs
+              if (category.name) eventCategories.push(category.name);
+            }
+          });
+        }
+      }
+
+      console.log(`📊 FILTER DEBUG: Event ${event.id} categories:`, eventCategories);
+      console.log(`📊 FILTER DEBUG: Filter categories:`, criteria.categories);
+
+      const hasMatchingCategory = criteria.categories.some((categoryId) =>
+        eventCategories.includes(categoryId)
       );
 
-      if (!hasMatchingCategory) return false;
+      if (!hasMatchingCategory) {
+        console.log(`❌ FILTER DEBUG: Event ${event.id} FAILED category filter`);
+        return false;
+      }
+
+      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED category filter`);
     }
 
+    // Date range filtering
+    if (criteria.dateRange) {
+      const { start, end } = criteria.dateRange;
+
+      // Use eventDate, startDate, or createdAt, in that order of preference
+      const eventDate = new Date(event.eventDate || event.eventDate || event.createdAt);
+
+      console.log(`📊 FILTER DEBUG: Event date: ${eventDate.toISOString()}`);
+      if (start) console.log(`📊 FILTER DEBUG: Filter start: ${new Date(start).toISOString()}`);
+      if (end) console.log(`📊 FILTER DEBUG: Filter end: ${new Date(end).toISOString()}`);
+
+      if (start && new Date(start) > eventDate) {
+        console.log(`❌ FILTER DEBUG: Event ${event.id} FAILED start date filter`);
+        return false;
+      }
+
+      if (end && new Date(end) < eventDate) {
+        console.log(`❌ FILTER DEBUG: Event ${event.id} FAILED end date filter`);
+        return false;
+      }
+
+      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED date filter`);
+    }
+
+    // Status filtering
+    if (criteria.status && criteria.status.length > 0) {
+      const eventStatus = event.status || "active"; // Default to 'active' if not specified
+
+      console.log(`📊 FILTER DEBUG: Event status: ${eventStatus}`);
+      console.log(`📊 FILTER DEBUG: Filter status:`, criteria.status);
+
+      if (!criteria.status.includes(eventStatus)) {
+        console.log(`❌ FILTER DEBUG: Event ${event.id} FAILED status filter`);
+        return false;
+      }
+
+      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED status filter`);
+    }
+
+    // Tag filtering
+    if (criteria.tags && criteria.tags.length > 0) {
+      const eventTags = Array.isArray(event.tags) ? event.tags : [];
+
+      console.log(`📊 FILTER DEBUG: Event tags:`, eventTags);
+      console.log(`📊 FILTER DEBUG: Filter tags:`, criteria.tags);
+
+      const hasMatchingTag = criteria.tags.some((tag) => eventTags.includes(tag));
+
+      if (!hasMatchingTag) {
+        console.log(`❌ FILTER DEBUG: Event ${event.id} FAILED tag filter`);
+        return false;
+      }
+
+      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED tag filter`);
+    }
+
+    // Keywords filtering (in title or description)
+    if (criteria.keywords && criteria.keywords.length > 0) {
+      const eventText = `${event.title || ""} ${event.description || ""}`.toLowerCase();
+
+      console.log(`📊 FILTER DEBUG: Event text (first 50 chars): ${eventText.slice(0, 50)}...`);
+      console.log(`📊 FILTER DEBUG: Filter keywords:`, criteria.keywords);
+
+      const hasMatchingKeyword = criteria.keywords.some((keyword) => {
+        const match = eventText.includes(keyword.toLowerCase());
+        return match;
+      });
+
+      if (!hasMatchingKeyword) {
+        console.log(`❌ FILTER DEBUG: Event ${event.id} FAILED keyword filter`);
+        return false;
+      }
+
+      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED keyword filter`);
+    }
+
+    // All criteria passed
+    console.log(`✅✅ FILTER DEBUG: Event ${event.id} MATCHED ALL filter criteria`);
     return true;
   }
 
@@ -403,38 +571,111 @@ export class FilterProcessor {
     };
   }
 
-  /**
-   * Publish filtered events to a user's channel.
-   */
+  // Enhanced publishFilteredEvents with more detailed reporting
   private publishFilteredEvents(userId: string, type: string, events: Event[]): void {
     try {
+      // Publish the filtered events to the user's channel
       this.redisPub.publish(
         `user:${userId}:filtered-events`,
         JSON.stringify({
           type,
           events,
+          count: events.length,
           timestamp: new Date().toISOString(),
         })
       );
 
-      console.log(`📤 Published ${events.length} events to user ${userId}`);
+      console.log(`📤 Published ${events.length} ${type} events to user ${userId}`);
+
+      // Update stats
       this.stats.totalFilteredEventsPublished += events.length;
+
+      // If this was a replace-all operation, log additional details
+      if (type === "replace-all") {
+        console.log(`🔄 Sent complete replacement set to user ${userId}`);
+
+        // Log sample of event IDs for debugging
+        if (events.length > 0) {
+          const sampleIds = events.slice(0, Math.min(5, events.length)).map((e) => e.id);
+          console.log(`🔍 Sample event IDs: ${sampleIds.join(", ")}`);
+        }
+      }
     } catch (error) {
       console.error(`❌ Error publishing events to user ${userId}:`, error);
     }
   }
-
   /**
-   * Fetch all events from the database.
-   * In a real implementation, this would connect to the database.
+   * Fetch all events from the API or database.
    */
   private async fetchAllEvents(): Promise<Event[]> {
     try {
-      // This is a placeholder. In a real implementation, this would fetch
-      // from a database or API. For now, return an empty array.
+      // Try fetching from API endpoint first (like your WebSocket server did)
+      const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
+      const maxRetries = 5;
+      const retryDelay = 2000; // 2 seconds
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(
+            `📊 Attempt ${attempt}/${maxRetries} - Fetching events from API at ${backendUrl}/api/internal/events`
+          );
+
+          const response = await fetch(`${backendUrl}/api/internal/events`, {
+            headers: {
+              Accept: "application/json",
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`API returned status ${response.status}`);
+          }
+
+          const events = await response.json();
+          console.log(`📊 Received ${events.length} events from API`);
+
+          // Transform the API response into Event objects
+          const validEvents = events
+            .filter((event: any) => event.location?.coordinates)
+            .map((event: any) => ({
+              id: event.id,
+              title: event.title,
+              description: event.description,
+              location: event.location,
+              startDate: event.start_date || event.startDate,
+              endDate: event.end_date || event.endDate,
+              createdAt: event.created_at || event.createdAt,
+              updatedAt: event.updated_at || event.updatedAt,
+              categories: event.categories || [],
+            }));
+
+          console.log(`📊 Transformed ${validEvents.length} valid events for spatial index`);
+
+          // Log a sample of coordinates to verify data
+          if (validEvents.length > 0) {
+            console.log("📊 Sample coordinates:", {
+              id: validEvents[0].id,
+              coordinates: validEvents[0].location.coordinates,
+            });
+          }
+
+          return validEvents;
+        } catch (error) {
+          console.error(`❌ Attempt ${attempt}/${maxRetries} failed:`, error);
+
+          if (attempt === maxRetries) {
+            console.error("❌ Max API retries reached, falling back to database query");
+            break;
+          }
+
+          console.log(`⏳ Waiting ${retryDelay}ms before next attempt...`);
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        }
+      }
+
       return [];
     } catch (error) {
       console.error("❌ Error fetching events:", error);
+      // Return empty array in case of error, but log the issue
       return [];
     }
   }

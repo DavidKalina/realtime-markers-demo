@@ -338,6 +338,16 @@ const EventAssistant: React.FC = () => {
 
       // Handle navigation based on the selected item type and action
       switch (action) {
+        case "filter":
+          // Show action message, then navigate to search
+          // No item needed, always show assistant
+          streamForMarker(
+            itemId,
+            actionMessages,
+            () => executeNavigation(() => router.push("filter" as never)),
+            { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
+          );
+          break;
         case "search":
           // Show action message, then navigate to search
           // No item needed, always show assistant

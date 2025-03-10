@@ -54,7 +54,7 @@ const MessageTypes = {
   CLIENT_IDENTIFICATION: "client_identification",
 
   // Viewport-related
-  VIEWPORT_UPDATE: "viewport_update",
+  VIEWPORT_UPDATE: "viewport-update",
 
   // New event types from filter processor
   REPLACE_ALL: "replace-all",
@@ -262,7 +262,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         try {
           const data = JSON.parse(event.data);
 
-          console.log("DATA", data);
+          console.log("TYPE", data.type);
 
           switch (data.type) {
             case MessageTypes.CONNECTION_ESTABLISHED:
@@ -270,10 +270,24 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               break;
 
             // Handle complete replacement of all markers
-            case MessageTypes.REPLACE_ALL: {
+            case MessageTypes.REPLACE_ALL:
+            case MessageTypes.VIEWPORT_UPDATE: {
+              // Add this handler!
               const newMarkers = data.events.map((event: any) => convertEventToMarker(event));
               setMarkers(newMarkers);
               emitMarkersUpdated(newMarkers);
+
+              // Signal that search is complete
+              eventBroker.emit<ViewportEvent & { searching: boolean }>(
+                EventTypes.VIEWPORT_CHANGED,
+                {
+                  timestamp: Date.now(),
+                  source: "useMapWebSocket",
+                  viewport: currentViewportRef.current!,
+                  markers: newMarkers,
+                  searching: false, // Search is complete
+                }
+              );
               break;
             }
 

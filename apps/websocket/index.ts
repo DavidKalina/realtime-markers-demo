@@ -18,7 +18,7 @@ const MessageTypes = {
   CLIENT_IDENTIFICATION: "client_identification",
 
   // Viewport-related
-  VIEWPORT_UPDATE: "viewport_update",
+  VIEWPORT_UPDATE: "viewport-update",
 
   // Filtered events from filter processor
   ADD_EVENT: "add-event",
@@ -67,6 +67,68 @@ const systemHealth = {
   connectedClients: 0,
   connectedUsers: 0,
 };
+
+function publishEmptyFilter(userId: string): void {
+  console.log(`📤 Publishing default empty filter for user ${userId} (will match all events)`);
+
+  redisPub.publish(
+    "filter-changes",
+    JSON.stringify({
+      userId,
+      filters: [], // Empty array means "match all events"
+      timestamp: new Date().toISOString(),
+    })
+  );
+}
+
+async function fetchUserFiltersAndPublish(userId: string): Promise<void> {
+  try {
+    console.log(`🔍 Fetching filters for user ${userId}`);
+
+    const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
+    const response = await fetch(`${backendUrl}/api/filters?userId=${userId}`, {
+      headers: {
+        Accept: "application/json",
+        // Add any required authentication headers here
+      },
+      signal: AbortSignal.timeout(5000), // 5 second timeout
+    });
+
+    if (!response.ok) {
+      console.error(
+        `Failed to fetch filters for user ${userId}: ${response.status} ${response.statusText}`
+      );
+      // Default to empty filter set (match all) on error
+      publishEmptyFilter(userId);
+      return;
+    }
+
+    const filters = await response.json();
+    console.log(`📊 Fetched ${filters.length} filters for user ${userId}`);
+
+    // Get only active filters
+    const activeFilters = filters.filter((filter: any) => filter.isActive);
+    console.log(`📊 User ${userId} has ${activeFilters.length} active filters`);
+
+    // Publish to filter-changes
+    redisPub.publish(
+      "filter-changes",
+      JSON.stringify({
+        userId,
+        filters: activeFilters,
+        timestamp: new Date().toISOString(),
+      })
+    );
+
+    console.log(
+      `📤 Published filter update for user ${userId} with ${activeFilters.length} active filters`
+    );
+  } catch (error) {
+    console.error(`Error fetching filters for user ${userId}:`, error);
+    // Default to empty filter set (match all) on error
+    publishEmptyFilter(userId);
+  }
+}
 
 // Function to get or create a Redis subscriber for a user
 function getRedisSubscriberForUser(userId: string): Redis {
@@ -311,21 +373,8 @@ const server = {
 
           console.log(`Client ${ws.data.clientId} identified as user ${userId}`);
 
-          // NEW CODE: Request user's filters and publish to filter-changes
-          console.log(`Requesting filters for user ${userId}`);
-
-          // If you have access to the backend API, fetch user filters
-          // Otherwise, for testing, just create a default empty filter that matches everything
-          redisPub.publish(
-            "filter-changes",
-            JSON.stringify({
-              userId,
-              filters: [], // Empty array means "match all events"
-              timestamp: new Date().toISOString(),
-            })
-          );
-
-          console.log(`Published default filter for user ${userId}`);
+          // Fetch user's filters from backend and publish to filter-changes
+          fetchUserFiltersAndPublish(userId);
 
           updateHealthStats();
         }

@@ -187,7 +187,7 @@ export const applyFiltersHandler: FilterHandler = async (c) => {
     const userPreferencesService = c.get("userPreferencesService");
 
     // Set the active filters
-    const activeFilters = await userPreferencesService.setActiveFilters(user.userId, filterIds);
+    const activeFilters = await userPreferencesService.applyFilters(user.userId, filterIds);
 
     return c.json({
       message: "Filters applied successfully",

@@ -9,6 +9,25 @@ interface Location {
   coordinates: [number, number]; // [longitude, latitude]
 }
 
+export interface Filter {
+  id: string;
+  userId: string;
+  name: string;
+  isActive: boolean;
+  criteria: {
+    categories?: string[];
+    dateRange?: {
+      start?: string;
+      end?: string;
+    };
+    status?: string[];
+    keywords?: string[];
+    tags?: string[];
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Add user and auth types
 export interface User {
   id: string;
@@ -772,6 +791,60 @@ class ApiClient {
       console.error("Error checking token expiration:", error);
       return true;
     }
+  }
+
+  async getUserFilters(): Promise<Filter[]> {
+    const url = `${this.baseUrl}/api/filters`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<Filter[]>(response);
+  }
+
+  // Create a new filter
+  async createFilter(filterData: Partial<Filter>): Promise<Filter> {
+    const url = `${this.baseUrl}/api/filters`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify(filterData),
+    });
+    return this.handleResponse<Filter>(response);
+  }
+
+  // Update an existing filter
+  async updateFilter(filterId: string, filterData: Partial<Filter>): Promise<Filter> {
+    const url = `${this.baseUrl}/api/filters/${filterId}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "PUT",
+      body: JSON.stringify(filterData),
+    });
+    return this.handleResponse<Filter>(response);
+  }
+
+  // Delete a filter
+  async deleteFilter(filterId: string): Promise<{ success: boolean }> {
+    const url = `${this.baseUrl}/api/filters/${filterId}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    return this.handleResponse<{ success: boolean }>(response);
+  }
+
+  // Apply filters to the current session
+  async applyFilters(filterIds: string[]): Promise<{ message: string; activeFilters: Filter[] }> {
+    const url = `${this.baseUrl}/api/filters/apply`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ filterIds }),
+    });
+    return this.handleResponse<{ message: string; activeFilters: Filter[] }>(response);
+  }
+
+  // Clear all active filters
+  async clearFilters(): Promise<{ message: string; success: boolean }> {
+    const url = `${this.baseUrl}/api/filters/clear`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    return this.handleResponse<{ message: string; success: boolean }>(response);
   }
 }
 
