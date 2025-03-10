@@ -44,12 +44,16 @@ export const createFilterHandler: FilterHandler = async (c) => {
     // Get the user from context
     const user = c.get("user");
 
+    console.log("USER", user);
+
     if (!user || !user.userId) {
       return c.json({ error: "Authentication required" }, 401);
     }
 
     // Get the request body
     const filterData = await c.req.json();
+
+    console.log("FILTER_DATA", filterData);
 
     // Validate the filter data
     if (!filterData.name || !filterData.criteria) {
@@ -61,6 +65,8 @@ export const createFilterHandler: FilterHandler = async (c) => {
 
     // Create the filter
     const filter = await userPreferencesService.createFilter(user.userId, filterData);
+
+    console.log("RETURNED_FILTER", filter);
 
     return c.json(filter, 201);
   } catch (error) {

@@ -373,39 +373,6 @@ export class FilterProcessor {
       if (!hasMatchingCategory) return false;
     }
 
-    // Date range filtering
-    if (criteria.dateRange) {
-      const { start, end } = criteria.dateRange;
-      const eventDate = new Date(event.eventDate || event.createdAt);
-
-      if (start && new Date(start) > eventDate) return false;
-      if (end && new Date(end) < eventDate) return false;
-    }
-
-    // Status filtering
-    if (criteria.status && criteria.status.length > 0) {
-      if (!criteria.status.includes(event.status)) return false;
-    }
-
-    // Tag filtering (extending the model to support tags)
-    if (criteria.tags && criteria.tags.length > 0) {
-      const eventTags = event.tags || [];
-      const hasMatchingTag = criteria.tags.some((tag: string) => eventTags.includes(tag));
-
-      if (!hasMatchingTag) return false;
-    }
-
-    // Keywords filtering (in title or description)
-    if (criteria.keywords && criteria.keywords.length > 0) {
-      const eventText = `${event.title} ${event.description || ""}`.toLowerCase();
-      const hasMatchingKeyword = criteria.keywords.some((keyword: string) =>
-        eventText.includes(keyword.toLowerCase())
-      );
-
-      if (!hasMatchingKeyword) return false;
-    }
-
-    // All criteria passed
     return true;
   }
 
