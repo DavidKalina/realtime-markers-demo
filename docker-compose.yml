@@ -129,6 +129,43 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
+  # New Filter Processor Service
+  filter-processor:
+    build:
+      context: .
+      dockerfile: apps/filter-processor/Dockerfile
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-markersdb}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-markersdb}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - NODE_ENV=production
+      - HEALTH_PORT=8082
+    ports:
+      - "127.0.0.1:8082:8082" # Expose health check port to host for debugging
+    networks:
+      - marker-network
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - filter_processor_node_modules:/app/apps/filter-processor/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
   websocket:
     build:
       context: .
@@ -146,6 +183,8 @@ services:
       redis:
         condition: service_healthy
       backend:
+        condition: service_healthy
+      filter-processor:
         condition: service_healthy
     volumes:
       - websocket_node_modules:/app/apps/websocket/node_modules
@@ -172,3 +211,4 @@ volumes:
   backend_app_node_modules:
   worker_node_modules:
   websocket_node_modules:
+  filter_processor_node_modules:

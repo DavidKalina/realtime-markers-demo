@@ -1,0 +1,20 @@
+{
+  "name": "filter-processor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build src/index.ts --target bun --outfile dist/index.js",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "ioredis": "^5.6.0",
+    "rbush": "^3.0.1"
+  },
+  "devDependencies": {
+    "@types/rbush": "^3.0.0",
+    "bun-types": "latest"
+  }
+}

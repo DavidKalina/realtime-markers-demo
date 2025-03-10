@@ -6,12 +6,13 @@ import { Event } from "./entities/Event";
 import { User } from "./entities/User";
 import { UserEventDiscovery } from "./entities/UserEventDiscovery";
 import { UserEventSave } from "./entities/UserEventSave";
+import { Filter } from "./entities/Filter";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
   type: "postgres",
   url: process.env.DATABASE_URL,
-  entities: [Event, Category, User, UserEventDiscovery, UserEventSave],
+  entities: [Event, Category, User, UserEventDiscovery, UserEventSave, Filter],
   synchronize: true, // This auto-creates the tables
   logging: ["query", "error", "schema"], // More detailed logging
   ssl: false,

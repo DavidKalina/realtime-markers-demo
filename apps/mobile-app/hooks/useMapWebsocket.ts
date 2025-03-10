@@ -8,6 +8,7 @@ import {
   BaseEvent,
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Mapbox viewport format
 interface MapboxViewport {
@@ -46,24 +47,23 @@ interface MapWebSocketResult {
   clientId: string | null;
 }
 
-// Define message types to keep code consistent
+// Updated message types to align with the new architecture
 const MessageTypes = {
   // Connection messages
   CONNECTION_ESTABLISHED: "connection_established",
+  CLIENT_IDENTIFICATION: "client_identification",
 
-  // Viewport-related (what's visible to the user)
+  // Viewport-related
   VIEWPORT_UPDATE: "viewport_update",
-  INITIAL_MARKERS: "initial_markers",
 
-  // Real-time updates (actual data changes)
-  MARKER_CREATED: "marker_created",
-  MARKER_UPDATED: "marker_updated",
-  MARKER_DELETED: "marker_deleted",
+  // New event types from filter processor
+  REPLACE_ALL: "replace-all",
+  ADD_EVENT: "add-event",
+  UPDATE_EVENT: "update-event",
+  DELETE_EVENT: "delete-event",
 
-  // Legacy message types (for compatibility)
-  MARKER_DELETE: "marker_delete",
-  MARKER_UPDATES_BATCH: "marker_updates_batch",
-  DEBUG_EVENT: "debug_event",
+  // For backward compatibility
+  SESSION_UPDATE: "session_update",
 };
 
 export const useMapWebSocket = (url: string): MapWebSocketResult => {
@@ -73,11 +73,14 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const [currentViewport, setCurrentViewport] = useState<MapboxViewport | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
 
+  // Get the authenticated user from AuthContext
+  const { user, isAuthenticated } = useAuth();
+
   const setStoreMarkers = useLocationStore.getState().setMarkers;
 
   const markersRef = useRef<Marker[]>(markers);
 
-  // Update the ref whenever markers state changes.
+  // Update the ref whenever markers state changes
   useEffect(() => {
     markersRef.current = markers;
   }, [markers]);
@@ -87,11 +90,11 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     setStoreMarkers(markers);
   }, [markers, setStoreMarkers]);
 
-  // Store selected marker id from the marker store.
+  // Store selected marker id from the marker store
   const selectedMarkerId = useLocationStore((state) => state.selectedMarkerId);
   const selectMarker = useLocationStore((state) => state.selectMarker);
 
-  // Create refs for values that change frequently so they don't force reconnection.
+  // Create refs for values that change frequently
   const selectedMarkerIdRef = useRef<string | null>(selectedMarkerId);
   const currentViewportRef = useRef<MapboxViewport | null>(currentViewport);
 
@@ -107,7 +110,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const ws = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Refs for throttling and batching marker updates.
+  // Refs for throttling and batching marker updates
   const prevMarkerCount = useRef<number>(0);
   const markerUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastViewportUpdateRef = useRef<number>(0);
@@ -157,32 +160,27 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     [selectMarker]
   );
 
-  const batchMarkerUpdates = useCallback(
-    (updates: Marker[]) => {
-      setMarkers((prev) => [...prev, ...updates]);
-
-      // Only emit events for significant updates
-      if (updates.length > 0 || prevMarkerCount.current > 0) {
-        emitMarkersUpdated(updates);
-      }
-    },
-    [emitMarkersUpdated]
-  );
-
-  const convertRBushToMapbox = useCallback((rbushMarker: any): Marker => {
+  // Convert event object to marker format
+  const convertEventToMarker = useCallback((event: any): Marker => {
     return {
-      id: rbushMarker.id,
-      coordinates: [rbushMarker.minX, rbushMarker.minY],
+      id: event.id,
+      coordinates: event.location.coordinates,
       data: {
-        ...rbushMarker.data,
-        title: rbushMarker.data?.title || "Unnamed Event",
-        emoji: rbushMarker.data?.emoji || "📍",
-        color: rbushMarker.data?.color || "red",
+        title: event.title || "Unnamed Event",
+        emoji: event.emoji || "📍",
+        color: event.color || "red",
+        description: event.description,
+        categories: event.categories?.map((c: any) => c.id || c),
+        isVerified: event.isVerified,
+        created_at: event.createdAt,
+        updated_at: event.updatedAt,
+        status: event.status,
+        ...event.metadata,
       },
     };
   }, []);
 
-  // Use a function that reads currentViewportRef so it does not change on every render.
+  // Use a function that reads currentViewportRef so it does not change on every render
   const sendViewportUpdate = useCallback(() => {
     if (ws.current?.readyState === WebSocket.OPEN && currentViewportRef.current) {
       const now = Date.now();
@@ -202,8 +200,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       }
     }
   }, []);
-
-  // Add a ref to track if initial markers have been received.
 
   const updateViewport = useCallback((viewport: MapboxViewport) => {
     setCurrentViewport(viewport);
@@ -229,7 +225,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     }
   }, []);
 
-  // Create a stable websocket connection.
+  // Create a stable websocket connection
   const connectWebSocket = useCallback(() => {
     try {
       if (ws.current && ws.current.readyState === WebSocket.OPEN) return;
@@ -242,6 +238,21 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           timestamp: Date.now(),
           source: "useMapWebSocket",
         });
+
+        // Send user identification if authenticated
+        if (isAuthenticated && user?.id) {
+          ws.current?.send(
+            JSON.stringify({
+              type: MessageTypes.CLIENT_IDENTIFICATION,
+              userId: user.id,
+            })
+          );
+
+          console.log(`Identified WebSocket connection with user ID: ${user.id}`);
+        } else {
+          console.warn("Unable to identify WebSocket connection: user not authenticated");
+        }
+
         if (currentViewportRef.current) {
           sendViewportUpdate();
         }
@@ -251,60 +262,46 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         try {
           const data = JSON.parse(event.data);
 
+          console.log("DATA", data);
+
           switch (data.type) {
             case MessageTypes.CONNECTION_ESTABLISHED:
               setClientId(data.clientId);
               break;
 
-            // Viewport synchronization (basic map marker display)
-            case MessageTypes.INITIAL_MARKERS: {
-              const initialMapboxMarkers = data.data.map((marker: any) =>
-                convertRBushToMapbox(marker)
-              );
-              setMarkers(initialMapboxMarkers);
-
-              // Standard marker update event (for event count display)
-              emitMarkersUpdated(initialMapboxMarkers);
+            // Handle complete replacement of all markers
+            case MessageTypes.REPLACE_ALL: {
+              const newMarkers = data.events.map((event: any) => convertEventToMarker(event));
+              setMarkers(newMarkers);
+              emitMarkersUpdated(newMarkers);
               break;
             }
 
-            // Legacy batch updates (keep for compatibility)
-            case MessageTypes.MARKER_UPDATES_BATCH: {
-              const mapboxUpdates = data.data.map((marker: any) => convertRBushToMapbox(marker));
-              batchMarkerUpdates(mapboxUpdates);
-              break;
-            }
-
-            // Real-time update for marker creation
-            case MessageTypes.MARKER_CREATED: {
-              // Emit event for notification
+            // Handle adding a new event
+            case MessageTypes.ADD_EVENT: {
+              const newMarker = convertEventToMarker(data.event);
+              setMarkers((prev) => [...prev, newMarker]);
               eventBroker.emit<MarkersEvent>(EventTypes.MARKER_ADDED, {
                 timestamp: Date.now(),
                 source: "useMapWebSocket",
-                markers: [],
+                markers: [newMarker],
                 count: 1,
               });
               break;
             }
 
-            // Real-time update for marker modification
-            case MessageTypes.MARKER_UPDATED: {
-              const updatedMarker = convertRBushToMapbox(data.data);
-
-              // Replace in existing markers
+            // Handle updating an existing event
+            case MessageTypes.UPDATE_EVENT: {
+              const updatedMarker = convertEventToMarker(data.event);
               setMarkers((prev) =>
                 prev.map((marker) => (marker.id === updatedMarker.id ? updatedMarker : marker))
               );
-
-              // Could emit a MARKER_MODIFIED event if needed
               break;
             }
 
-            case MessageTypes.MARKER_DELETED:
-            case MessageTypes.MARKER_DELETE: {
-              // Support both new and legacy types
-              const deletedId = data.data.id;
-
+            // Handle deleting an event
+            case MessageTypes.DELETE_EVENT: {
+              const deletedId = data.id;
               // Handle marker deselection if needed
               if (deletedId === selectedMarkerIdRef.current) {
                 selectMarker(null);
@@ -314,11 +311,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                 });
               }
 
-              // Important: We need to update the markers state directly for deletions
-              // Unlike additions (which can wait for batch updates), deletions need to be immediate
-              setMarkers((prevMarkers) => prevMarkers.filter((marker) => marker.id !== deletedId));
-
-              // Emit the notification event
+              setMarkers((prev) => prev.filter((marker) => marker.id !== deletedId));
               eventBroker.emit<MarkersEvent>(EventTypes.MARKER_REMOVED, {
                 timestamp: Date.now(),
                 source: "useMapWebSocket",
@@ -328,13 +321,9 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               break;
             }
 
+            // Fallback for other message types
             default: {
-              // Fallback if server sends an array of markers
-              if (Array.isArray(data)) {
-                const mapboxMarkers = data.map((marker: any) => convertRBushToMapbox(marker));
-                setMarkers(mapboxMarkers);
-                emitMarkersUpdated(mapboxMarkers);
-              }
+              console.log(`Received unhandled message type: ${data.type}`);
               break;
             }
           }
@@ -350,6 +339,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           });
         }
       };
+
       ws.current.onclose = (event) => {
         setIsConnected(false);
         setClientId(null);
@@ -386,14 +376,15 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     }
   }, [
     url,
-    batchMarkerUpdates,
-    convertRBushToMapbox,
+    isAuthenticated,
+    user,
+    convertEventToMarker,
     emitMarkersUpdated,
     selectMarker,
     sendViewportUpdate,
   ]);
 
-  // Connect on mount and clean up on unmount.
+  // Connect on mount and clean up on unmount
   useEffect(() => {
     connectWebSocket();
     return () => {
