@@ -1,5 +1,5 @@
 // components/Markers/ClusteredMapMarkers.tsx
-import React from "react";
+import React, { useCallback, useMemo } from "react";
 import MapboxGL from "@rnmapbox/maps";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { MysteryEmojiMarker } from "./CustomMapMarker";
@@ -42,104 +42,171 @@ interface ClusteredMapMarkersProps {
   viewport: MapboxViewport;
 }
 
-export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = ({
-  markers: propMarkers,
-  currentZoom = 14,
-  viewport,
-}) => {
-  // Get marker data from store
-  const storeMarkers = useLocationStore((state) => state.markers);
+// Component for rendering an individual marker - memoized
+const SingleMarkerView = React.memo(
+  ({
+    marker,
+    isSelected,
+    onPress,
+  }: {
+    marker: MarkerItem;
+    isSelected: boolean;
+    onPress: () => void;
+  }) => {
+    return (
+      <MapboxGL.MarkerView
+        key={`marker-${marker.id}`}
+        coordinate={marker.coordinates}
+        anchor={{ x: 0.5, y: 1.0 }}
+      >
+        <MysteryEmojiMarker
+          event={{
+            title: marker.data.title || "Unnamed Event",
+            emoji: marker.data.emoji || "📍",
+            location: marker.data.location || "Unknown location",
+            distance: marker.data.distance || "Unknown distance",
+            time: marker.data.time || new Date().toLocaleDateString(),
+            description: marker.data.description || "",
+            categories: marker.data.categories || [],
+            isVerified: marker.data.isVerified || false,
+            color: marker.data.color,
+          }}
+          isSelected={isSelected}
+          isHighlighted={false}
+          onPress={onPress}
+        />
+      </MapboxGL.MarkerView>
+    );
+  }
+);
 
-  // Use the unified selection approach
-  const selectedItem = useLocationStore((state) => state.selectedItem);
-  const selectMapItem = useLocationStore((state) => state.selectMapItem);
-  const isItemSelected = useLocationStore((state) => state.isItemSelected);
+// Component for rendering a cluster - memoized
+const ClusterView = React.memo(
+  ({
+    cluster,
+    isSelected,
+    onPress,
+  }: {
+    cluster: ClusterItem;
+    isSelected: boolean;
+    onPress: () => void;
+  }) => {
+    return (
+      <MapboxGL.MarkerView
+        key={cluster.id}
+        coordinate={cluster.coordinates}
+        anchor={{ x: 0.5, y: 0.5 }}
+      >
+        <ClusterMarker
+          count={cluster.count}
+          coordinates={cluster.coordinates}
+          onPress={onPress}
+          isSelected={isSelected}
+        />
+      </MapboxGL.MarkerView>
+    );
+  }
+);
 
-  const { publish } = useEventBroker();
+export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.memo(
+  ({ markers: propMarkers, currentZoom = 14, viewport }) => {
+    // Get marker data from store
+    const storeMarkers = useLocationStore((state) => state.markers);
 
-  // Use provided markers or fall back to store markers
-  const markers = propMarkers || storeMarkers;
+    // Use the unified selection approach
+    const selectedItem = useLocationStore((state) => state.selectedItem);
+    const selectMapItem = useLocationStore((state) => state.selectMapItem);
+    const isItemSelected = useLocationStore((state) => state.isItemSelected);
 
-  // Get clusters based on current markers, viewport, and zoom level
-  const { clusters } = useMarkerClustering(markers, viewport, currentZoom);
+    const { publish } = useEventBroker();
 
-  // Unified handler for both markers and clusters
-  const handleMapItemPress = (item: MapItem) => {
-    // Skip if already selected
-    if (selectedItem?.id === item.id) {
-      return;
-    }
+    // Use provided markers or fall back to store markers
+    const markers = propMarkers || storeMarkers;
 
-    // Select the item in the store
-    selectMapItem(item);
+    // Get clusters based on current markers, viewport, and zoom level
+    const { clusters } = useMarkerClustering(markers, viewport, currentZoom);
 
-    // Zoom to the item's location
-    publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
-      timestamp: Date.now(),
-      source: "ClusteredMapMarkers",
-      coordinates: item.coordinates,
-      duration: 500,
-      zoomLevel: currentZoom + (item.type === "cluster" ? 2 : 0), // Zoom in 2 levels for clusters
-    });
+    // Memoize the handler creation to avoid recreating functions
+    const createMapItemPressHandler = useCallback(
+      (item: MapItem) => {
+        return () => {
+          // Skip if already selected
+          if (selectedItem?.id === item.id) {
+            return;
+          }
 
-    // Convert to the EventBroker's expected format
-    if (item.type === "marker") {
-      // Create the marker event item
-      const markerEventItem: EventMarkerItem = {
-        id: item.id,
-        type: "marker",
-        coordinates: item.coordinates,
-        markerData: item.data,
-      };
+          // Select the item in the store
+          selectMapItem(item);
 
-      // Publish the unified MAP_ITEM_SELECTED event
-      publish<MapItemEvent>(EventTypes.MAP_ITEM_SELECTED, {
-        timestamp: Date.now(),
-        source: "ClusteredMapMarkers",
-        item: markerEventItem,
-      });
+          // Zoom to the item's location
+          publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
+            timestamp: Date.now(),
+            source: "ClusteredMapMarkers",
+            coordinates: item.coordinates,
+            duration: 500,
+            zoomLevel: currentZoom + (item.type === "cluster" ? 2 : 0), // Zoom in 2 levels for clusters
+          });
 
-      // For backward compatibility, also publish the legacy event
-      publish(EventTypes.MARKER_SELECTED, {
-        timestamp: Date.now(),
-        source: "ClusteredMapMarkers",
-        markerId: item.id,
-        markerData: item.data,
-      });
-    } else {
-      // Create the cluster event item
-      const clusterEventItem: EventClusterItem = {
-        id: item.id,
-        type: "cluster",
-        coordinates: item.coordinates,
-        count: item.count,
-        childMarkers: item.childrenIds,
-      };
+          // Convert to the EventBroker's expected format
+          if (item.type === "marker") {
+            // Create the marker event item
+            const markerEventItem: EventMarkerItem = {
+              id: item.id,
+              type: "marker",
+              coordinates: item.coordinates,
+              markerData: item.data,
+            };
 
-      // Publish the unified MAP_ITEM_SELECTED event
-      publish<MapItemEvent>(EventTypes.MAP_ITEM_SELECTED, {
-        timestamp: Date.now(),
-        source: "ClusteredMapMarkers",
-        item: clusterEventItem,
-      });
+            // Publish the unified MAP_ITEM_SELECTED event
+            publish<MapItemEvent>(EventTypes.MAP_ITEM_SELECTED, {
+              timestamp: Date.now(),
+              source: "ClusteredMapMarkers",
+              item: markerEventItem,
+            });
 
-      // For backward compatibility, also publish the legacy event
-      publish(EventTypes.CLUSTER_SELECTED, {
-        timestamp: Date.now(),
-        source: "ClusteredMapMarkers",
-        clusterId: item.id,
-        clusterInfo: {
-          count: item.count,
-          coordinates: item.coordinates,
-        },
-      });
-    }
-  };
+            // For backward compatibility, also publish the legacy event
+            publish(EventTypes.MARKER_SELECTED, {
+              timestamp: Date.now(),
+              source: "ClusteredMapMarkers",
+              markerId: item.id,
+              markerData: item.data,
+            });
+          } else {
+            // Create the cluster event item
+            const clusterEventItem: EventClusterItem = {
+              id: item.id,
+              type: "cluster",
+              coordinates: item.coordinates,
+              count: item.count,
+              childMarkers: item.childrenIds,
+            };
 
-  return (
-    <>
-      {/* Render clusters */}
-      {clusters.map((feature) => {
+            // Publish the unified MAP_ITEM_SELECTED event
+            publish<MapItemEvent>(EventTypes.MAP_ITEM_SELECTED, {
+              timestamp: Date.now(),
+              source: "ClusteredMapMarkers",
+              item: clusterEventItem,
+            });
+
+            // For backward compatibility, also publish the legacy event
+            publish(EventTypes.CLUSTER_SELECTED, {
+              timestamp: Date.now(),
+              source: "ClusteredMapMarkers",
+              clusterId: item.id,
+              clusterInfo: {
+                count: item.count,
+                coordinates: item.coordinates,
+              },
+            });
+          }
+        };
+      },
+      [currentZoom, publish, selectMapItem, selectedItem?.id]
+    );
+
+    // Process and memoize clusters for rendering
+    const processedClusters = useMemo(() => {
+      return clusters.map((feature) => {
         // If it's a cluster
         if (feature.properties.cluster) {
           const clusterFeature = feature as ClusterFeature;
@@ -155,20 +222,12 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = ({
             count,
           };
 
-          return (
-            <MapboxGL.MarkerView
-              key={clusterId}
-              coordinate={coordinates}
-              anchor={{ x: 0.5, y: 0.5 }}
-            >
-              <ClusterMarker
-                count={count}
-                coordinates={coordinates}
-                onPress={() => handleMapItemPress(clusterItem)}
-                isSelected={isItemSelected(clusterId)}
-              />
-            </MapboxGL.MarkerView>
-          );
+          return {
+            type: "cluster" as const,
+            item: clusterItem,
+            isSelected: isItemSelected(clusterId),
+            onPress: createMapItemPressHandler(clusterItem),
+          };
         }
         // It's a single point
         else {
@@ -185,32 +244,54 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = ({
             data,
           };
 
-          return (
-            <MapboxGL.MarkerView
-              key={`marker-${markerId}`}
-              coordinate={coordinates}
-              anchor={{ x: 0.5, y: 1.0 }}
-            >
-              <MysteryEmojiMarker
-                event={{
-                  title: data.title || "Unnamed Event",
-                  emoji: data.emoji || "📍",
-                  location: data.location || "Unknown location",
-                  distance: data.distance || "Unknown distance",
-                  time: data.time || new Date().toLocaleDateString(),
-                  description: data.description || "",
-                  categories: data.categories || [],
-                  isVerified: data.isVerified || false,
-                  color: data.color,
-                }}
-                isSelected={isItemSelected(markerId)}
-                isHighlighted={false}
-                onPress={() => handleMapItemPress(markerItem)}
-              />
-            </MapboxGL.MarkerView>
-          );
+          return {
+            type: "marker" as const,
+            item: markerItem,
+            isSelected: isItemSelected(markerId),
+            onPress: createMapItemPressHandler(markerItem),
+          };
         }
-      })}
-    </>
-  );
-};
+      });
+    }, [clusters, createMapItemPressHandler, isItemSelected]);
+
+    // Further optimize by adding culling for markers that are outside the viewport
+    // This is a simple implementation - you may want to add a buffer zone
+    const visibleItems = useMemo(() => {
+      return processedClusters.filter((item) => {
+        const [lng, lat] = item.item.coordinates;
+        return (
+          lng >= viewport.west &&
+          lng <= viewport.east &&
+          lat >= viewport.south &&
+          lat <= viewport.north
+        );
+      });
+    }, [processedClusters, viewport]);
+
+    return (
+      <>
+        {visibleItems.map((processed) => {
+          if (processed.type === "cluster") {
+            return (
+              <ClusterView
+                key={processed.item.id}
+                cluster={processed.item as ClusterItem}
+                isSelected={processed.isSelected}
+                onPress={processed.onPress}
+              />
+            );
+          } else {
+            return (
+              <SingleMarkerView
+                key={processed.item.id}
+                marker={processed.item as MarkerItem}
+                isSelected={processed.isSelected}
+                onPress={processed.onPress}
+              />
+            );
+          }
+        })}
+      </>
+    );
+  }
+);

@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { MessageCircleQuestion as QuestionMark, Star } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -33,231 +33,313 @@ interface MysteryEmojiMarkerProps {
   onPress: () => void;
 }
 
-export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = ({
-  event,
-  isSelected,
-  isHighlighted = false,
-  onPress,
-}) => {
-  // Animation values
-  const scale = useSharedValue(1);
-  const rotation = useSharedValue(0);
-  const revealProgress = useSharedValue(0);
-  const pulseScale = useSharedValue(1);
-  const pulseOpacity = useSharedValue(0);
-  const floatY = useSharedValue(0);
+// Pre-defined animation configurations
+const SCALE_PRESS = { duration: 100 };
+const SCALE_RELEASE = { duration: 200 };
+const REVEAL_CONFIG = { duration: 400 };
+const HIDE_CONFIG = { duration: 300 };
+const SCALE_UP_CONFIG = { duration: 300 };
+const HIGHLIGHT_CONFIG = { duration: 150 };
+const FLOAT_CONFIG = { duration: 1500, easing: Easing.inOut(Easing.sin) };
+const PULSE_CONFIG = { duration: 1500, easing: Easing.out(Easing.ease) };
+const FADE_CONFIG = { duration: 300 };
 
-  const isFirstRender = useRef(true);
-  const [isRevealed, setIsRevealed] = useState(false);
+// Styled components to reduce re-renders and improve readability
+const PulseRing = React.memo(({ style }: { style: any }) => <Animated.View style={style} />);
 
-  // Colors for styling
-  const baseColor = "#333333";
-  const accentColor = "rgba(77, 171, 247, 0.6)";
-  const textColor = "#FFFFFF";
+const QuestionMarkView = React.memo(({ style, textColor }: { style: any; textColor: string }) => (
+  <Animated.View style={style}>
+    <QuestionMark size={12} color={textColor} />
+  </Animated.View>
+));
 
-  // Handle initial animations
-  useEffect(() => {
-    if (isFirstRender.current) {
-      scale.value = 0.5;
-      scale.value = withTiming(1, { duration: 400 });
-      isFirstRender.current = false;
-    }
+const EmojiContent = React.memo(
+  ({ style, emoji, emojiTextStyle }: { style: any; emoji: string; emojiTextStyle: any }) => (
+    <Animated.View style={style}>
+      <Text style={emojiTextStyle}>{emoji}</Text>
+    </Animated.View>
+  )
+);
 
-    // Start subtle floating animation
-    floatY.value = withRepeat(
-      withSequence(
-        withTiming(2, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
-        withTiming(-2, { duration: 1500, easing: Easing.inOut(Easing.sin) })
-      ),
-      -1, // Infinite repeats
-      true // Reverse
-    );
+const VerifiedBadge = React.memo(({ textColor }: { textColor: string }) => (
+  <View style={styles.verifiedBadge}>
+    <Star size={7} color={textColor} fill={textColor} />
+  </View>
+));
 
-    // Return cleanup function
-    return () => {
-      // Cancel all animations when component unmounts
-      cancelAnimation(scale);
-      cancelAnimation(rotation);
-      cancelAnimation(floatY);
-    };
-  }, []);
+export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
+  ({ event, isSelected, isHighlighted = false, onPress }, prevProps) => {
+    // Animation values - using refs to store animation objects
+    const scale = useSharedValue(1);
+    const rotation = useSharedValue(0);
+    const revealProgress = useSharedValue(0);
+    const pulseScale = useSharedValue(1);
+    const pulseOpacity = useSharedValue(0);
+    const floatY = useSharedValue(0);
 
-  // Start pulse animation for selected state
-  useEffect(() => {
-    if (isSelected) {
-      // Pulsating ring wave
-      pulseScale.value = 1;
-      pulseOpacity.value = 0.7;
+    const isFirstRender = useRef(true);
+    const [isRevealed, setIsRevealed] = useState(false);
+    const prevSelectedRef = useRef(isSelected);
+    const prevHighlightedRef = useRef(isHighlighted);
 
-      pulseScale.value = withRepeat(
-        withTiming(1.8, { duration: 1500, easing: Easing.out(Easing.ease) }),
-        -1, // Infinite repeats
-        false // Don't reverse
-      );
+    // Colors for styling - memoized
+    const styles = useMarkerStyles();
 
-      pulseOpacity.value = withRepeat(
-        withTiming(0, { duration: 1500, easing: Easing.in(Easing.ease) }),
-        -1, // Infinite repeats
-        false // Don't reverse
-      );
-    } else {
-      pulseOpacity.value = withTiming(0, { duration: 300 });
-    }
-
-    // Return cleanup function
-    return () => {
-      // Cancel pulse animations when effect dependencies change or component unmounts
-      cancelAnimation(pulseScale);
-      cancelAnimation(pulseOpacity);
-    };
-  }, [isSelected]);
-
-  // Handle selection/highlight changes
-  useEffect(() => {
-    // KEY FIX: Only cancel ongoing animations if the state actually changes
-    if (isSelected !== isRevealed) {
-      if (isSelected) {
-        // Scale up slightly when selected
-        scale.value = withTiming(1.2, { duration: 300 });
-
-        // Reveal the contents
-        revealProgress.value = withTiming(1, { duration: 400 });
-
-        setIsRevealed(true);
-      } else {
-        // Scale back down
-        scale.value = withTiming(1, { duration: 300 });
-
-        // Hide contents
-        revealProgress.value = withTiming(0, { duration: 300 });
-
-        setIsRevealed(false);
+    // Handle initial animations - only run once
+    useEffect(() => {
+      if (isFirstRender.current) {
+        scale.value = 0.5;
+        scale.value = withTiming(1, { duration: 400 });
+        isFirstRender.current = false;
       }
-    }
 
-    // Highlight effect - this should run regardless of revealed state
-    if (isHighlighted) {
-      scale.value = withSequence(
-        withTiming(1.1, { duration: 150 }),
-        withTiming(isSelected ? 1.2 : 1, { duration: 150 })
+      // Start subtle floating animation
+      floatY.value = withRepeat(
+        withSequence(withTiming(2, FLOAT_CONFIG), withTiming(-2, FLOAT_CONFIG)),
+        -1, // Infinite repeats
+        true // Reverse
       );
-    }
 
-    // No need to cancel animations in the cleanup function for this effect
-    // as we only want to cancel when unmounting or when state actually changes
-  }, [isSelected, isHighlighted, isRevealed]);
+      // Return cleanup function
+      return () => {
+        // Cancel all animations when component unmounts
+        cancelAnimation(scale);
+        cancelAnimation(rotation);
+        cancelAnimation(floatY);
+      };
+    }, []);
 
-  // Handle press with haptic feedback
-  const handlePress = () => {
-    Haptics.impactAsync(
-      isRevealed ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
-    );
+    // Start pulse animation for selected state - only run when selection state changes
+    useEffect(() => {
+      if (isSelected !== prevSelectedRef.current) {
+        prevSelectedRef.current = isSelected;
 
-    // Cancel any ongoing scale animations before starting new ones
-    cancelAnimation(scale);
+        if (isSelected) {
+          // Pulsating ring wave
+          pulseScale.value = 1;
+          pulseOpacity.value = 0.7;
 
-    scale.value = withSequence(
-      withTiming(0.9, { duration: 100 }),
-      withTiming(isSelected ? 1.2 : 1, { duration: 200 })
-    );
+          pulseScale.value = withRepeat(
+            withTiming(1.8, PULSE_CONFIG),
+            -1, // Infinite repeats
+            false // Don't reverse
+          );
 
-    onPress();
-  };
+          pulseOpacity.value = withRepeat(
+            withTiming(0, PULSE_CONFIG),
+            -1, // Infinite repeats
+            false // Don't reverse
+          );
 
-  // Container animation style
-  const containerStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: scale.value }, { translateY: floatY.value }],
-    };
-  });
+          // FIX: Also ensure the emoji is revealed when selected
+          revealProgress.value = withTiming(1, REVEAL_CONFIG);
+          setIsRevealed(true);
+        } else {
+          pulseOpacity.value = withTiming(0, FADE_CONFIG);
 
-  // Content reveal animation
-  const contentStyle = useAnimatedStyle(() => {
-    return {
-      opacity: revealProgress.value,
-      transform: [{ scale: interpolate(revealProgress.value, [0, 1], [0.7, 1]) }],
-    };
-  });
+          // FIX: Hide emoji when deselected
+          revealProgress.value = withTiming(0, HIDE_CONFIG);
+          setIsRevealed(false);
+        }
+      }
 
-  // Question mark fade out animation
-  const questionMarkStyle = useAnimatedStyle(() => {
-    return {
-      opacity: 1 - revealProgress.value,
-      transform: [{ scale: interpolate(revealProgress.value, [0, 1], [1, 0.7]) }],
-    };
-  });
+      // Return cleanup function
+      return () => {
+        // Cancel pulse animations when effect dependencies change or component unmounts
+        cancelAnimation(pulseScale);
+        cancelAnimation(pulseOpacity);
+      };
+    }, [isSelected]);
 
-  // Pulse effect animation
-  const pulseStyle = useAnimatedStyle(() => {
-    return {
-      opacity: pulseOpacity.value,
-      transform: [{ scale: pulseScale.value }],
-    };
-  });
+    // Handle selection/highlight changes
+    useEffect(() => {
+      // Only run when selection or highlight states change
+      const selectionChanged = isSelected !== prevSelectedRef.current;
+      const highlightChanged = isHighlighted !== prevHighlightedRef.current;
 
-  // Create an effect for global cleanup on unmount
-  useEffect(() => {
-    // Return a cleanup function that will run when the component unmounts
-    return () => {
-      // Cancel all animations to prevent memory leaks
+      if (!selectionChanged && !highlightChanged) return;
+
+      // Update refs
+      prevSelectedRef.current = isSelected;
+      prevHighlightedRef.current = isHighlighted;
+
+      // KEY FIX: Only cancel ongoing animations if the state actually changes
+      if (isSelected !== isRevealed) {
+        if (isSelected) {
+          // Scale up slightly when selected
+          scale.value = withTiming(1.2, SCALE_UP_CONFIG);
+
+          // Reveal the contents
+          revealProgress.value = withTiming(1, REVEAL_CONFIG);
+
+          setIsRevealed(true);
+        } else {
+          // Scale back down
+          scale.value = withTiming(1, SCALE_UP_CONFIG);
+
+          // Hide contents
+          revealProgress.value = withTiming(0, HIDE_CONFIG);
+
+          setIsRevealed(false);
+        }
+      }
+
+      // Highlight effect - this should run regardless of revealed state
+      if (isHighlighted) {
+        scale.value = withSequence(
+          withTiming(1.1, HIGHLIGHT_CONFIG),
+          withTiming(isSelected ? 1.2 : 1, HIGHLIGHT_CONFIG)
+        );
+      }
+    }, [isSelected, isHighlighted]);
+
+    // Handle press with haptic feedback - memoized
+    const handlePress = useCallback(() => {
+      Haptics.impactAsync(
+        isRevealed ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
+      );
+
+      // Cancel any ongoing scale animations before starting new ones
       cancelAnimation(scale);
-      cancelAnimation(rotation);
-      cancelAnimation(revealProgress);
-      cancelAnimation(pulseScale);
-      cancelAnimation(pulseOpacity);
-      cancelAnimation(floatY);
-    };
-  }, []);
 
-  return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={styles.touchableArea}>
-      {/* Pulsating ring */}
-      {isSelected && (
-        <Animated.View
-          style={[
-            styles.pulseRing,
-            pulseStyle,
-            {
-              borderColor: accentColor,
-              backgroundColor: "rgba(77, 171, 247, 0.1)",
-            },
-          ]}
-        />
-      )}
+      // FIX: Directly animate reveal on press for immediate feedback, before isSelected prop changes
+      if (!isRevealed) {
+        revealProgress.value = withTiming(1, REVEAL_CONFIG);
+        setIsRevealed(true);
+      }
 
-      {/* Main container */}
-      <Animated.View style={[styles.container, containerStyle]}>
-        <View
-          style={[
-            styles.mysteryBox,
-            {
-              backgroundColor: baseColor,
-              borderColor: accentColor,
-            },
-          ]}
-        >
-          {/* Question mark (hidden when revealed) */}
-          <Animated.View style={[styles.questionMarkContainer, questionMarkStyle]}>
-            <QuestionMark size={12} color={textColor} />
-          </Animated.View>
+      scale.value = withSequence(
+        withTiming(0.9, SCALE_PRESS),
+        withTiming(isSelected ? 1.2 : 1, SCALE_RELEASE)
+      );
 
-          {/* Event emoji (shown when revealed) */}
-          <Animated.View style={[styles.contentContainer, contentStyle]}>
-            <Text style={styles.emojiText}>{event.emoji}</Text>
-          </Animated.View>
+      // Call the parent's onPress handler
+      onPress();
+    }, [isRevealed, isSelected, onPress, scale, revealProgress]);
 
-          {/* Verified badge if applicable */}
-          {event.isVerified && (
-            <View style={styles.verifiedBadge}>
-              <Star size={7} color={textColor} fill={textColor} />
-            </View>
-          )}
-        </View>
-      </Animated.View>
-    </TouchableOpacity>
-  );
-};
+    // Memoize animation styles
+    const containerStyle = useAnimatedStyle(() => {
+      return {
+        transform: [{ scale: scale.value }, { translateY: floatY.value }],
+      };
+    });
 
+    const contentStyle = useAnimatedStyle(() => {
+      return {
+        opacity: revealProgress.value,
+        transform: [{ scale: interpolate(revealProgress.value, [0, 1], [0.7, 1]) }],
+      };
+    });
+
+    const questionMarkStyle = useAnimatedStyle(() => {
+      return {
+        opacity: 1 - revealProgress.value,
+        transform: [{ scale: interpolate(revealProgress.value, [0, 1], [1, 0.7]) }],
+      };
+    });
+
+    const pulseStyle = useAnimatedStyle(() => {
+      return {
+        opacity: pulseOpacity.value,
+        transform: [{ scale: pulseScale.value }],
+      };
+    });
+
+    // Colors for styling
+    const baseColor = "#333333";
+    const accentColor = "rgba(77, 171, 247, 0.6)";
+    const textColor = "#FFFFFF";
+
+    // Create an effect for global cleanup on unmount
+    useEffect(() => {
+      // Return a cleanup function that will run when the component unmounts
+      return () => {
+        // Cancel all animations to prevent memory leaks
+        cancelAnimation(scale);
+        cancelAnimation(rotation);
+        cancelAnimation(revealProgress);
+        cancelAnimation(pulseScale);
+        cancelAnimation(pulseOpacity);
+        cancelAnimation(floatY);
+      };
+    }, []);
+
+    // Memoize styles to prevent recreations on every render
+    const emojiTextStyle = useMemo(
+      () => ({
+        fontSize: 14,
+        textShadowColor: "rgba(77, 171, 247, 0.6)",
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 4,
+      }),
+      []
+    );
+
+    // Complete pulse ring style with animations and colors
+    const fullPulseRingStyle = useMemo(
+      () => [
+        styles.pulseRing,
+        pulseStyle,
+        {
+          borderColor: accentColor,
+          backgroundColor: "rgba(77, 171, 247, 0.1)",
+        },
+      ],
+      [pulseStyle]
+    );
+
+    // Complete mystery box style
+    const mysteryBoxStyle = useMemo(
+      () => [
+        styles.mysteryBox,
+        {
+          backgroundColor: baseColor,
+          borderColor: accentColor,
+        },
+      ],
+      []
+    );
+
+    return (
+      <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={styles.touchableArea}>
+        {/* Pulsating ring - Only render when selected */}
+        {isSelected && <PulseRing style={fullPulseRingStyle} />}
+
+        {/* Main container */}
+        <Animated.View style={[styles.container, containerStyle]}>
+          <View style={mysteryBoxStyle}>
+            {/* Question mark (hidden when revealed) */}
+            <QuestionMarkView
+              style={[styles.questionMarkContainer, questionMarkStyle]}
+              textColor={textColor}
+            />
+
+            {/* Event emoji (shown when revealed) */}
+            <EmojiContent
+              style={[styles.contentContainer, contentStyle]}
+              emoji={event.emoji}
+              emojiTextStyle={emojiTextStyle}
+            />
+
+            {/* Verified badge if applicable */}
+            {event.isVerified && <VerifiedBadge textColor={textColor} />}
+          </View>
+        </Animated.View>
+      </TouchableOpacity>
+    );
+  },
+  (prevProps, nextProps) => {
+    // Custom comparison function to prevent unnecessary re-renders
+    return (
+      prevProps.isSelected === nextProps.isSelected &&
+      prevProps.isHighlighted === nextProps.isHighlighted &&
+      prevProps.event.emoji === nextProps.event.emoji &&
+      prevProps.event.isVerified === nextProps.event.isVerified
+    );
+  }
+);
+
+// Create styles once and reuse them
 const styles = StyleSheet.create({
   touchableArea: {
     width: 44,
@@ -306,12 +388,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  emojiText: {
-    fontSize: 14,
-    textShadowColor: "rgba(77, 171, 247, 0.6)",
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 4,
-  },
   verifiedBadge: {
     position: "absolute",
     top: -3,
@@ -333,3 +409,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
 });
+
+// Extract styles to a hook for better organization and performance
+const useMarkerStyles = () => {
+  return styles;
+};

@@ -11,10 +11,37 @@ import { useMapWebSocket } from "@/hooks/useMapWebsocket";
 import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import MapboxGL from "@rnmapbox/maps";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { ActivityIndicator, Animated, Platform, Text, View } from "react-native";
 
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
+
+// Memoized UI components
+const LoadingOverlay = React.memo(() => (
+  <View style={styles.loadingOverlay}>
+    <ActivityIndicator size="large" color="#4dabf7" />
+    <Text style={styles.loadingText}>Getting your location...</Text>
+  </View>
+));
+
+const UserLocationPoint = React.memo(({ userLocation }: { userLocation: [number, number] }) => (
+  <MapboxGL.PointAnnotation id="userLocation" coordinate={userLocation} title="Your Location">
+    <View style={styles.userLocationMarker}>
+      <View style={styles.userLocationDot} />
+    </View>
+  </MapboxGL.PointAnnotation>
+));
+
+const GravitatingOverlay = React.memo(() => (
+  <Animated.View
+    style={[
+      styles.pulseOverlay,
+      {
+        opacity: 0.15,
+      },
+    ]}
+  />
+));
 
 export default function HomeScreen() {
   const [isMapReady, setIsMapReady] = useState(false);
@@ -47,6 +74,7 @@ export default function HomeScreen() {
     velocityMeasurementWindow: 200, // Shorter measurement window
   });
 
+  // Only run setup effect when needed
   useEffect(() => {
     // Setup code for MapboxGL
     if (Platform.OS === "android") {
@@ -68,8 +96,9 @@ export default function HomeScreen() {
         // Camera cleanup if needed
       }
     };
-  }, [userLocation]);
+  }, [userLocation, getUserLocation]);
 
+  // Memoize map press handler to prevent recreation on each render
   const handleMapPress = useCallback(() => {
     // Only proceed if we actually have a selected item
     if (selectedItem) {
@@ -114,37 +143,42 @@ export default function HomeScreen() {
     }
   }, [selectMapItem, selectedItem, publish]);
 
-  const handleMapViewportChange = (feature: any) => {
-    try {
-      if (
-        feature?.properties?.visibleBounds &&
-        Array.isArray(feature.properties.visibleBounds) &&
-        feature.properties.visibleBounds.length === 2 &&
-        Array.isArray(feature.properties.visibleBounds[0]) &&
-        Array.isArray(feature.properties.visibleBounds[1])
-      ) {
-        const [[west, north], [east, south]] = feature.properties.visibleBounds;
+  // Memoize viewport change handler
+  const handleMapViewportChange = useCallback(
+    (feature: any) => {
+      try {
+        if (
+          feature?.properties?.visibleBounds &&
+          Array.isArray(feature.properties.visibleBounds) &&
+          feature.properties.visibleBounds.length === 2 &&
+          Array.isArray(feature.properties.visibleBounds[0]) &&
+          Array.isArray(feature.properties.visibleBounds[1])
+        ) {
+          const [[west, north], [east, south]] = feature.properties.visibleBounds;
 
-        const adjustedWest = Math.min(west, east);
-        const adjustedEast = Math.max(west, east);
+          const adjustedWest = Math.min(west, east);
+          const adjustedEast = Math.max(west, east);
 
-        updateViewport({
-          north,
-          south,
-          east: adjustedEast,
-          west: adjustedWest,
-        });
+          updateViewport({
+            north,
+            south,
+            east: adjustedEast,
+            west: adjustedWest,
+          });
 
-        handleGravitationalViewportChange(feature);
-      } else {
-        console.warn("Invalid viewport bounds received:", feature?.properties?.visibleBounds);
+          handleGravitationalViewportChange(feature);
+        } else {
+          console.warn("Invalid viewport bounds received:", feature?.properties?.visibleBounds);
+        }
+      } catch (error) {
+        console.error("Error processing viewport change:", error);
+        // Provide fallback behavior or recovery mechanism
       }
-    } catch (error) {
-      console.error("Error processing viewport change:", error);
-      // Provide fallback behavior or recovery mechanism
-    }
-  };
+    },
+    [updateViewport, handleGravitationalViewportChange]
+  );
 
+  // Memoize user pan handler
   const handleUserPan = useCallback(() => {
     selectMapItem(null);
 
@@ -152,17 +186,54 @@ export default function HomeScreen() {
       timestamp: Date.now(),
       source: "MapPress",
     });
-  }, []);
+  }, [selectMapItem, publish]);
+
+  // Memoize map ready handler
+  const handleMapReady = useCallback(() => {
+    setIsMapReady(true);
+
+    // Emit map ready event
+    publish<BaseEvent>(EventTypes.MAP_READY, {
+      timestamp: Date.now(),
+      source: "HomeScreen",
+    });
+  }, [publish]);
+
+  // Memoize region changing handler
+  const handleRegionChanging = useCallback(
+    (feature: any) => {
+      handleMapViewportChange(feature);
+      publish<BaseEvent>(EventTypes.VIEWPORT_CHANGING, { timestamp: Date.now() });
+    },
+    [handleMapViewportChange, publish]
+  );
+
+  // Memoize default camera settings
+  const defaultCameraSettings = useMemo(
+    () => ({
+      // Default to Orem, UT if no user location
+      centerCoordinate: userLocation!,
+      zoomLevel: 14,
+    }),
+    [userLocation]
+  );
+
+  // Determine if we should render markers
+  const shouldRenderMarkers = useMemo(
+    () => isMapReady && !isLoadingLocation && currentViewport !== null,
+    [isMapReady, isLoadingLocation, currentViewport]
+  );
+
+  // Determine if we should render UI elements
+  const shouldRenderUI = useMemo(
+    () => isMapReady && !isLoadingLocation,
+    [isMapReady, isLoadingLocation]
+  );
 
   return (
     <AuthWrapper>
       <View style={styles.container}>
-        {isLoadingLocation && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#4dabf7" />
-            <Text style={styles.loadingText}>Getting your location...</Text>
-          </View>
-        )}
+        {isLoadingLocation && <LoadingOverlay />}
 
         <MapboxGL.MapView
           onTouchStart={handleUserPan}
@@ -175,47 +246,24 @@ export default function HomeScreen() {
           styleURL={MapboxGL.StyleURL.Light}
           logoEnabled={false}
           attributionEnabled={false}
-          onDidFinishLoadingMap={() => {
-            setIsMapReady(true);
-
-            // Emit map ready event
-            publish<BaseEvent>(EventTypes.MAP_READY, {
-              timestamp: Date.now(),
-              source: "HomeScreen",
-            });
-          }}
-          onRegionIsChanging={(feature) => {
-            handleMapViewportChange(feature);
-            publish<BaseEvent>(EventTypes.VIEWPORT_CHANGING, { timestamp: Date.now() });
-          }}
+          onDidFinishLoadingMap={handleMapReady}
+          onRegionIsChanging={handleRegionChanging}
         >
           {/* Use our camera ref for more control */}
           <MapboxGL.Camera
             ref={cameraRef}
-            defaultSettings={{
-              // Default to Orem, UT if no user location
-              centerCoordinate: userLocation!,
-              zoomLevel: 14,
-            }}
+            defaultSettings={defaultCameraSettings}
             animationDuration={0}
           />
 
           {/* User location marker */}
           {userLocation && locationPermissionGranted && (
-            <MapboxGL.PointAnnotation
-              id="userLocation"
-              coordinate={userLocation}
-              title="Your Location"
-            >
-              <View style={styles.userLocationMarker}>
-                <View style={styles.userLocationDot} />
-              </View>
-            </MapboxGL.PointAnnotation>
+            <UserLocationPoint userLocation={userLocation} />
           )}
 
-          {/* Custom Map Markers - Using our simplified component with unified selection */}
-          {isMapReady && !isLoadingLocation && currentViewport && (
-            <ClusteredMapMarkers markers={markers} viewport={currentViewport} />
+          {/* Custom Map Markers - Using our optimized component with unified selection */}
+          {shouldRenderMarkers && (
+            <ClusteredMapMarkers markers={markers} viewport={currentViewport!} />
           )}
 
           {/* Add user location layer for the blue dot */}
@@ -224,18 +272,9 @@ export default function HomeScreen() {
           )}
         </MapboxGL.MapView>
 
-        {isGravitating && (
-          <Animated.View
-            style={[
-              styles.pulseOverlay,
-              {
-                opacity: 0.15,
-              },
-            ]}
-          />
-        )}
+        {isGravitating && <GravitatingOverlay />}
 
-        {isMapReady && !isLoadingLocation && (
+        {shouldRenderUI && (
           <>
             <ConnectionIndicator
               eventsCount={markers.length}
@@ -247,7 +286,7 @@ export default function HomeScreen() {
           </>
         )}
 
-        {isMapReady && !isLoadingLocation && (
+        {shouldRenderUI && (
           <View style={styles.assistantOverlay}>
             <EventAssistant />
           </View>
