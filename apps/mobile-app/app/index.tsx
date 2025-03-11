@@ -148,7 +148,6 @@ export default function HomeScreen() {
   const handleUserPan = useCallback(() => {
     selectMapItem(null);
 
-    console.log("USER_PANNING");
     publish<BaseEvent>(EventTypes.USER_PANNING_VIEWPORT, {
       timestamp: Date.now(),
       source: "MapPress",

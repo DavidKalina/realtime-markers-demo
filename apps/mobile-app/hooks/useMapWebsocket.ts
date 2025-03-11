@@ -262,8 +262,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         try {
           const data = JSON.parse(event.data);
 
-          console.log("TYPE", data.type);
-
           switch (data.type) {
             case MessageTypes.CONNECTION_ESTABLISHED:
               setClientId(data.clientId);
