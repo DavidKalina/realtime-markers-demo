@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { StyleSheet, TouchableOpacity, View, Platform } from "react-native";
 import Animated, {
   useSharedValue,
@@ -31,17 +31,37 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
   const iconOpacity = useSharedValue(0);
   const borderProgress = useSharedValue(0);
 
+  // Track if component is mounted
+  const isMounted = useRef(true);
+
   // Determine sizes based on the size prop
   const buttonSize = size === "compact" ? 48 : 56;
   const innerSize = size === "compact" ? 36 : 42;
 
-  // Setup animations based on state
+  // Set isMounted to false when component unmounts
   useEffect(() => {
-    // Cancel any running animations first
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Cleanup function to cancel all animations
+  const cleanupAnimations = () => {
     cancelAnimation(buttonScale);
     cancelAnimation(colorProgress);
     cancelAnimation(iconOpacity);
     cancelAnimation(borderProgress);
+  };
+
+  // Setup animations based on state
+  useEffect(() => {
+    if (!isMounted.current) return;
+
+    // Cancel any running animations first
+    cleanupAnimations();
+
+    // Store any created animations for cleanup
+    const animations = [];
 
     if (isCapturing) {
       // Capturing animation - button scale down
@@ -51,17 +71,22 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
       borderProgress.value = withTiming(0, { duration: 150 });
     } else if (isReady) {
       // Ready animation - subtle pulse without the oversized glow
-      buttonScale.value = withSequence(
-        withTiming(1.05, { duration: 300, easing: Easing.out(Easing.ease) }),
-        withRepeat(
-          withSequence(
-            withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-            withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.ease) })
-          ),
-          -1,
-          true
-        )
+      const initialScale = withTiming(1.05, {
+        duration: 300,
+        easing: Easing.out(Easing.ease),
+      });
+
+      const pulseAnimation = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
       );
+
+      // Apply sequence animation with safeguards
+      buttonScale.value = withSequence(initialScale, pulseAnimation);
 
       // Animate color and icon without the large glow
       colorProgress.value = withTiming(1, { duration: 400 });
@@ -76,12 +101,8 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
       borderProgress.value = withTiming(0, { duration: 300 });
     }
 
-    return () => {
-      cancelAnimation(buttonScale);
-      cancelAnimation(colorProgress);
-      cancelAnimation(iconOpacity);
-      cancelAnimation(borderProgress);
-    };
+    // Clean up on unmount or when props change
+    return cleanupAnimations;
   }, [isCapturing, isReady]);
 
   // Animated styles

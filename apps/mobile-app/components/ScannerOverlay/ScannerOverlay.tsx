@@ -80,9 +80,10 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
     onFrameReady,
   } = props;
 
-  // Refs to store timeouts
+  // Refs to store timeouts and track component mounted state
   const frameReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animationsSet = useRef(false);
+  const isMounted = useRef(true); // Track if component is mounted
 
   // Shared values for animations - created once
   const borderWidth = useSharedValue(2);
@@ -95,17 +96,34 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
   const [icon, setIcon] = useState<string | null>(null);
   const [scanColor, setScanColor] = useState("#4dabf7");
 
+  // Set isMounted to false when component unmounts
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   // Create unified cleanup function to cancel all animations
   const cleanupAnimations = useCallback(() => {
+    if (!isMounted.current) return;
+
     cancelAnimation(borderWidth);
     cancelAnimation(colorAnimation);
     cancelAnimation(cornerOpacity);
     cancelAnimation(scaleAnimation);
+
+    // Clear any pending timeouts
+    if (frameReadyTimeoutRef.current) {
+      clearTimeout(frameReadyTimeoutRef.current);
+      frameReadyTimeoutRef.current = null;
+    }
   }, [borderWidth, colorAnimation, cornerOpacity, scaleAnimation]);
 
   // Unified status update function
   const updateStatusVisuals = useCallback(
     (status: "none" | "detecting" | "aligned" | "capturing") => {
+      if (!isMounted.current) return;
+
       if (animationsSet.current) {
         cleanupAnimations();
       }
@@ -113,52 +131,63 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
       const config =
         status === "capturing" ? STATUS_CONFIG.capturing : STATUS_CONFIG[detectionStatus];
 
-      // Update message
-      setMessage(config.message || guideText);
-      setIcon(config.icon);
-      setScanColor(config.scanColor);
-
-      // Apply animations with proper timing
-      colorAnimation.value = withTiming(config.colorValue, {
-        duration: ANIMATIONS.STATUS_CHANGE.DURATION,
-      });
-
-      cornerOpacity.value = withTiming(config.opacityValue, {
-        duration: ANIMATIONS.STATUS_CHANGE.DURATION,
-      });
-
-      // Special pulse animation for aligned state
-      if (status === "aligned") {
-        scaleAnimation.value = withRepeat(
-          withSequence(
-            withTiming(1.05, ANIMATIONS.ALIGNED_PULSE),
-            withTiming(config.scaleValue, ANIMATIONS.ALIGNED_PULSE)
-          ),
-          3,
-          true
-        );
-      } else {
-        scaleAnimation.value = withTiming(config.scaleValue, {
-          duration: ANIMATIONS.STATUS_CHANGE.DURATION,
-        });
+      // Update message if component is still mounted
+      if (isMounted.current) {
+        setMessage(config.message || guideText);
+        setIcon(config.icon);
+        setScanColor(config.scanColor);
       }
 
-      animationsSet.current = true;
+      // Apply animations with proper timing - ensure component is mounted
+      if (isMounted.current) {
+        colorAnimation.value = withTiming(config.colorValue, {
+          duration: ANIMATIONS.STATUS_CHANGE.DURATION,
+        });
+
+        cornerOpacity.value = withTiming(config.opacityValue, {
+          duration: ANIMATIONS.STATUS_CHANGE.DURATION,
+        });
+
+        // Special pulse animation for aligned state
+        if (status === "aligned") {
+          scaleAnimation.value = withRepeat(
+            withSequence(
+              withTiming(1.05, ANIMATIONS.ALIGNED_PULSE),
+              withTiming(config.scaleValue, ANIMATIONS.ALIGNED_PULSE)
+            ),
+            3,
+            true
+          );
+        } else {
+          scaleAnimation.value = withTiming(config.scaleValue, {
+            duration: ANIMATIONS.STATUS_CHANGE.DURATION,
+          });
+        }
+
+        animationsSet.current = true;
+      }
     },
     [cleanupAnimations, detectionStatus, guideText, colorAnimation, cornerOpacity, scaleAnimation]
   );
 
   // Update based on the component's props
   useEffect(() => {
+    if (!isMounted.current) return;
+
     if (isCapturing) {
       updateStatusVisuals("capturing");
     } else {
       updateStatusVisuals(detectionStatus);
     }
-  }, [detectionStatus, isCapturing, updateStatusVisuals]);
+
+    // Cleanup on unmount or props change
+    return cleanupAnimations;
+  }, [detectionStatus, isCapturing, updateStatusVisuals, cleanupAnimations]);
 
   // Separate effect for the constant border pulse animation
   useEffect(() => {
+    if (!isMounted.current) return;
+
     borderWidth.value = withRepeat(
       withSequence(
         withTiming(2.5, ANIMATIONS.BORDER_PULSE),
@@ -175,13 +204,19 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
 
   // Handle the frame ready callback
   useEffect(() => {
+    if (!isMounted.current) return;
+
     if (frameReadyTimeoutRef.current) {
       clearTimeout(frameReadyTimeoutRef.current);
       frameReadyTimeoutRef.current = null;
     }
 
     if (detectionStatus === "aligned" && onFrameReady) {
-      frameReadyTimeoutRef.current = setTimeout(onFrameReady, 300);
+      frameReadyTimeoutRef.current = setTimeout(() => {
+        if (isMounted.current && onFrameReady) {
+          onFrameReady();
+        }
+      }, 300);
     }
 
     return () => {
@@ -194,7 +229,13 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
 
   // Master cleanup effect
   useEffect(() => {
-    return cleanupAnimations;
+    return () => {
+      // Set mounted flag to false first
+      isMounted.current = false;
+
+      // Then run cleanup
+      cleanupAnimations();
+    };
   }, [cleanupAnimations]);
 
   // Memoized animated styles

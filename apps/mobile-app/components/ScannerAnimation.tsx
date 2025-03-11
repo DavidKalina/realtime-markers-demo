@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
@@ -28,31 +28,48 @@ export const ScannerAnimation: React.FC<ScannerAnimationProps> = React.memo(
   ({ isActive, color = "#4dabf7", speed = 1500 }) => {
     // Animation value for the scanner bar position (0 to 100%)
     const scanPosition = useSharedValue(0);
+    const isMounted = useRef(true);
+
+    // Set isMounted to false on unmount
+    useEffect(() => {
+      return () => {
+        isMounted.current = false;
+      };
+    }, []);
 
     // Start or stop the animation based on isActive prop
     useEffect(() => {
       // Always cancel any existing animation first to prevent conflicts
+      if (!isMounted.current) return;
+
       cancelAnimation(scanPosition);
 
-      if (isActive) {
-        // Start the scanning animation
-        scanPosition.value = 0; // Reset to start
+      let animation: any = null;
 
-        // Use withSequence to create a smoother animation loop
-        scanPosition.value = withRepeat(
-          withSequence(
-            withTiming(100, {
-              duration: speed,
-              easing: SCANNER_ANIMATIONS.SCAN_LINE.EASING,
-            }),
-            withTiming(0, {
-              duration: speed,
-              easing: SCANNER_ANIMATIONS.SCAN_LINE.EASING,
-            })
-          ),
+      if (isActive) {
+        // Reset position on activation
+        scanPosition.value = 0;
+
+        // Create the animation in a more controlled way
+        const upAnimation = withTiming(100, {
+          duration: speed,
+          easing: SCANNER_ANIMATIONS.SCAN_LINE.EASING,
+        });
+
+        const downAnimation = withTiming(0, {
+          duration: speed,
+          easing: SCANNER_ANIMATIONS.SCAN_LINE.EASING,
+        });
+
+        // Create the sequence and repetition explicitly
+        animation = withRepeat(
+          withSequence(upAnimation, downAnimation),
           -1, // Infinite repetitions
           false // Don't reverse
         );
+
+        // Assign the animation to the shared value
+        scanPosition.value = animation;
       } else {
         // Smoothly reset to zero when not active
         scanPosition.value = withTiming(0, {
@@ -62,11 +79,13 @@ export const ScannerAnimation: React.FC<ScannerAnimationProps> = React.memo(
 
       // Clean up on unmount or when props change
       return () => {
-        cancelAnimation(scanPosition);
+        if (animation) {
+          cancelAnimation(scanPosition);
+        }
       };
     }, [isActive, speed, scanPosition]);
 
-    // Animated style using top percentage
+    // Animated style using top percentage - memoized with color dependency
     const scanLineStyle = useAnimatedStyle(
       () => ({
         top: `${scanPosition.value}%`,
@@ -74,7 +93,7 @@ export const ScannerAnimation: React.FC<ScannerAnimationProps> = React.memo(
         shadowColor: color,
       }),
       [color]
-    ); // Add color as a dependency to rebuild style when color changes
+    );
 
     return (
       <Animated.View style={styles.container}>
@@ -82,7 +101,7 @@ export const ScannerAnimation: React.FC<ScannerAnimationProps> = React.memo(
       </Animated.View>
     );
   },
-  // Custom equality function for React.memo
+  // Custom equality function for React.memo to prevent unnecessary re-renders
   (prevProps, nextProps) => {
     return (
       prevProps.isActive === nextProps.isActive &&
@@ -102,7 +121,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     overflow: "hidden",
     zIndex: 5,
-    // Adding a backgroundColor with 0 opacity can help with GPU compositing
     backgroundColor: "transparent",
   },
   scanLine: {
@@ -110,7 +128,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 3,
-    // Base styles moved to animated style for fewer style calculations
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 10,
