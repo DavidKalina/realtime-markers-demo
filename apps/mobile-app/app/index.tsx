@@ -192,8 +192,6 @@ export default function HomeScreen() {
         >
           {/* Use our camera ref for more control */}
           <MapboxGL.Camera
-            pitch={55}
-            heading={-15}
             ref={cameraRef}
             defaultSettings={{
               // Default to Orem, UT if no user location

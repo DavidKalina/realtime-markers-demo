@@ -26,8 +26,13 @@ const MessageTypes = {
   DELETE_EVENT: "delete-event",
   REPLACE_ALL: "replace-all",
 
+  ADD_JOB: "add_job",
+  JOB_ADDED: "job_added",
+  CANCEL_JOB: "cancel_job",
+
   // Session management
   CREATE_SESSION: "create_session",
+  CLEAR_SESSION: "clear_session",
   JOIN_SESSION: "join_session",
   SESSION_CREATED: "session_created",
   SESSION_JOINED: "session_joined",
@@ -420,6 +425,9 @@ const server = {
           [
             MessageTypes.CREATE_SESSION,
             MessageTypes.JOIN_SESSION,
+            MessageTypes.ADD_JOB,
+            MessageTypes.CANCEL_JOB,
+            MessageTypes.CLEAR_SESSION,
             // Other session-related message types
           ].includes(data.type)
         ) {
