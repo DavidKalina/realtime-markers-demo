@@ -1,14 +1,18 @@
 // services/EventProcessingService.ts
-import { parseISO } from "date-fns";
-import { format, fromZonedTime } from "date-fns-tz";
+import { Repository } from "typeorm";
+import { Event } from "../entities/Event";
 import type { Point } from "geojson";
-import type { Category } from "../entities/Category";
 import type { CategoryProcessingService } from "./CategoryProcessingService";
-import type { SimilarityResult } from "./event-processing/dto/SimilarityResult";
+import type { Category } from "../entities/Category";
+import { fromZonedTime, format } from "date-fns-tz";
+import { parseISO } from "date-fns";
 import { ImageProcessingService } from "./event-processing/ImageProcessingService";
-import type { IEventSimilarityService } from "./event-processing/interfaces/IEventSimilarityService";
-import { EnhancedLocationService } from "./shared/LocationService";
 import { OpenAIService } from "./shared/OpenAIService";
+import type { SimilarityResult } from "./event-processing/dto/SimilarityResult";
+import type { IEventSimilarityService } from "./event-processing/interfaces/IEventSimilarityService";
+import type { ILocationResolutionService } from "./event-processing/interfaces/ILocationResolutionService";
+import { LocationResolutionService } from "./event-processing/LocationResolutionService";
+import { ConfigService } from "./shared/ConfigService";
 
 interface LocationContext {
   userCoordinates?: { lat: number; lng: number };
@@ -38,18 +42,22 @@ interface ProgressCallback {
 }
 
 export class EventProcessingService {
-  // Private reference to the location service
-  private locationService: EnhancedLocationService;
   private imageProcessingService: ImageProcessingService;
+  private locationResolutionService: ILocationResolutionService;
 
   constructor(
+    private eventRepository: Repository<Event>,
     private categoryProcessingService: CategoryProcessingService,
-    private eventSimilarityService: IEventSimilarityService
+    private eventSimilarityService: IEventSimilarityService,
+    locationResolutionService?: ILocationResolutionService,
+    configService?: ConfigService
   ) {
-    // Get the location service instance
-    this.locationService = EnhancedLocationService.getInstance();
     // Initialize the image processing service
     this.imageProcessingService = new ImageProcessingService();
+
+    // Use provided location service or create a new one
+    this.locationResolutionService =
+      locationResolutionService || new LocationResolutionService(configService);
   }
 
   async processFlyerFromImage(
@@ -186,23 +194,14 @@ export class EventProcessingService {
     let userCityState = "";
     if (locationContext?.userCoordinates) {
       try {
-        // Reverse geocode the user's coordinates to get city/state
-        const response = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${locationContext.userCoordinates.lng},${locationContext.userCoordinates.lat}.json?access_token=${process.env.MAPBOX_GEOCODING_TOKEN}&types=place,region`
+        // Use the LocationResolutionService for reverse geocoding
+        userCityState = await this.locationResolutionService.reverseGeocodeCityState(
+          locationContext.userCoordinates.lat,
+          locationContext.userCoordinates.lng
         );
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.features && data.features.length > 0) {
-            // Extract city and state when available
-            const place = data.features.find((f: any) => f.place_type.includes("place"));
-            const region = data.features.find((f: any) => f.place_type.includes("region"));
-
-            if (place && region) {
-              userCityState = `${place.text}, ${region.text}`;
-              console.log("User location context:", userCityState);
-            }
-          }
+        if (userCityState) {
+          console.log("User location context:", userCityState);
         }
       } catch (error) {
         console.error("Error reverse geocoding user coordinates:", error);
@@ -269,25 +268,21 @@ export class EventProcessingService {
 
     console.log("Location clues found:", locationClues);
 
-    // Use the enhanced location service to resolve the address and coordinates
-    const resolvedLocation = await this.locationService.resolveLocation(
-      locationClues,
-      userCityState,
-      locationContext?.userCoordinates
-    );
+    // Use the location resolution service to resolve the address and coordinates
+    const resolvedLocation = await this.locationResolutionService.resolveLocation(locationClues, {
+      cityState: userCityState,
+      coordinates: locationContext?.userCoordinates,
+    });
 
     // Create Point from resolved coordinates
-    const location: Point = {
-      type: "Point",
-      coordinates: resolvedLocation.coordinates,
-    };
+    const location = resolvedLocation.coordinates;
 
-    // Get timezone from the location service (already included in resolvedLocation)
-    const timezone = resolvedLocation.timezone || "UTC";
+    // Get timezone from the location service
+    const timezone = resolvedLocation.timezone;
 
     // Log resolved information
     console.log(`Address resolved with confidence: ${resolvedLocation.confidence.toFixed(2)}`);
-    console.log(`Resolved timezone: ${timezone} for coordinates [${resolvedLocation.coordinates}]`);
+    console.log(`Resolved timezone: ${timezone} for coordinates [${location.coordinates}]`);
 
     // Process date with timezone awareness
     let eventDate;

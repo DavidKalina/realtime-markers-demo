@@ -26,6 +26,7 @@ import { UserPreferencesService } from "./services/UserPreferences";
 import { filterRouter } from "./routes/filters";
 import { ConfigService } from "./services/shared/ConfigService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
+import { LocationResolutionService } from "./services/event-processing/LocationResolutionService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -136,11 +137,16 @@ async function initializeServices() {
   // Create the event similarity service
   const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
 
+  // Create the location resolution service
+  const locationResolutionService = new LocationResolutionService(configService);
+
   // Create event processing service with updated constructor signature
   const eventProcessingService = new EventProcessingService(
     eventRepository,
     categoryProcessingService,
-    eventSimilarityService
+    eventSimilarityService,
+    locationResolutionService,
+    configService
   );
 
   // Initialize the UserPreferencesService

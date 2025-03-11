@@ -5,12 +5,13 @@ import { EventService } from "./services/EventService";
 import AppDataSource from "./data-source";
 import { OpenAIService } from "./services/shared/OpenAIService";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
-import { EnhancedLocationService } from "./services/LocationService";
 import { Event } from "./entities/Event";
 import { Category } from "./entities/Category";
 import { JobQueue } from "./services/JobQueue";
 import { ConfigService } from "./services/shared/ConfigService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
+import { LocationResolutionService } from "./services/event-processing/LocationResolutionService";
+import { EnhancedLocationService } from "./services/shared/LocationService";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -55,11 +56,14 @@ async function initializeWorker() {
   // Create the event similarity service
   const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
 
+  const locationResolutionService = new LocationResolutionService(configService);
+
   // Create event processing service with the updated constructor signature
   const eventProcessingService = new EventProcessingService(
     eventRepository,
     categoryProcessingService,
-    eventSimilarityService
+    eventSimilarityService,
+    locationResolutionService
   );
 
   const eventService = new EventService(AppDataSource);
