@@ -1,4 +1,4 @@
-// ActionBar.tsx - Optimized for performance
+// ActionBar.tsx - Further optimized for performance
 import { styles as globalStyles } from "@/components/globalStyles";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { CameraAnimateToLocationEvent, EventTypes } from "@/services/EventBroker";
@@ -64,7 +64,11 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
     // Handle button press with animation
     const handlePress = useCallback(() => {
       // Provide haptic feedback on button press
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+          // Silently handle haptic errors
+        });
+      }
 
       // Animate button
       scaleValue.value = withSequence(
@@ -94,6 +98,9 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
           disabled={disabled}
           onPress={handlePress}
           activeOpacity={0.7} // More responsive feel
+          accessibilityRole="button"
+          accessibilityLabel={`${label} button`}
+          accessibilityState={{ disabled: !!disabled, selected: isActive }}
         >
           {icon}
           <Text style={styles.actionButtonLabel}>{label}</Text>
@@ -114,6 +121,26 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
 // Default set of actions if none provided
 const DEFAULT_AVAILABLE_ACTIONS = ["search", "camera", "locate", "user", "saved", "filter"];
+
+// Icons memo - created once outside the component to avoid recreation
+const ICON_MAP = {
+  search: <SearchIcon size={20} color="#fff" style={globalStyles.icon} />,
+  camera: <Camera size={20} color="#fff" style={globalStyles.icon} />,
+  locate: <Navigation size={20} color="#fff" style={globalStyles.icon} />,
+  saved: <BookMarkedIcon size={20} color="#fff" style={globalStyles.icon} />,
+  filter: <Filter size={20} color="#fff" style={globalStyles.icon} />,
+  user: <User size={20} color="#fff" style={globalStyles.icon} />,
+};
+
+// Label map - created once outside the component
+const LABEL_MAP = {
+  search: "Search",
+  camera: "Scan",
+  locate: "Locate",
+  saved: "Saved",
+  filter: "Filter",
+  user: "Me",
+};
 
 export const ActionBar: React.FC<ActionBarProps> = React.memo(
   ({
@@ -137,8 +164,12 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           activeActionTimeoutRef.current = null;
         }
 
-        // Trigger haptic feedback
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        // Trigger haptic feedback - with error handling
+        if (Platform.OS !== "web") {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {
+            // Silently handle haptic errors
+          });
+        }
 
         // Update UI state
         setActiveAction(action);
@@ -167,48 +198,60 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
       [publish, userLocation, onActionPress]
     );
 
+    // Create individual action handlers with proper memoization to avoid recreating functions
+    const actionHandlers = useMemo(() => {
+      const handlers: Record<string, () => void> = {};
+
+      // This creates a stable function reference for each action key
+      DEFAULT_AVAILABLE_ACTIONS.forEach((key) => {
+        handlers[key] = () => handlePress(key);
+      });
+
+      return handlers;
+    }, [handlePress]);
+
     // Define all possible actions - only recreate when userLocation changes
     const allPossibleActions = useMemo(
       () => [
         {
           key: "search",
-          label: "Search",
-          icon: <SearchIcon size={20} color="#fff" style={globalStyles.icon} />,
-          action: () => handlePress("search"),
+          label: LABEL_MAP.search,
+          icon: ICON_MAP.search,
+          action: actionHandlers.search,
         },
         {
           key: "camera",
-          label: "Scan",
-          icon: <Camera size={20} color="#fff" style={globalStyles.icon} />,
-          action: () => handlePress("camera"),
+          label: LABEL_MAP.camera,
+          icon: ICON_MAP.camera,
+          action: actionHandlers.camera,
         },
         {
           key: "locate",
-          label: "Locate",
-          icon: <Navigation size={20} color="#fff" style={globalStyles.icon} />,
-          action: () => handlePress("locate"),
+          label: LABEL_MAP.locate,
+          icon: ICON_MAP.locate,
+          action: actionHandlers.locate,
           disabled: !userLocation, // Disable if no user location is available
         },
         {
           key: "saved",
-          label: "Saved",
-          icon: <BookMarkedIcon size={20} color="#fff" style={globalStyles.icon} />,
-          action: () => handlePress("saved"),
+          label: LABEL_MAP.saved,
+          icon: ICON_MAP.saved,
+          action: actionHandlers.saved,
         },
         {
           key: "filter",
-          label: "Filter",
-          icon: <Filter size={20} color="#fff" style={globalStyles.icon} />,
-          action: () => handlePress("filter"),
+          label: LABEL_MAP.filter,
+          icon: ICON_MAP.filter,
+          action: actionHandlers.filter,
         },
         {
           key: "user",
-          label: "Me",
-          icon: <User size={20} color="#fff" style={globalStyles.icon} />,
-          action: () => handlePress("user"),
+          label: LABEL_MAP.user,
+          icon: ICON_MAP.user,
+          action: actionHandlers.user,
         },
       ],
-      [userLocation, handlePress] // Re-create only when userLocation or handlePress changes
+      [userLocation, actionHandlers] // Re-create only when userLocation or actionHandlers changes
     );
 
     // Clean up timeouts when component unmounts
@@ -222,10 +265,11 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     }, []);
 
     // Filter actions based on the availableActions prop - only recalculate when dependencies change
-    const scrollableActions = useMemo(
-      () => allPossibleActions.filter((action) => availableActions.includes(action.key)),
-      [allPossibleActions, availableActions]
-    );
+    const scrollableActions = useMemo(() => {
+      // Use a Map for O(1) lookup of available actions
+      const availableActionsSet = new Set(availableActions);
+      return allPossibleActions.filter((action) => availableActionsSet.has(action.key));
+    }, [allPossibleActions, availableActions]);
 
     // Calculate styles based on platform and insets - only recalculate when dependencies change
     const containerStyle = useMemo(
@@ -261,6 +305,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           contentContainerStyle={contentContainerStyle as any}
           removeClippedSubviews={true} // Optimize offscreen rendering
           keyboardShouldPersistTaps="handled" // Better keyboard handling
+          accessibilityRole="menubar"
         >
           {scrollableActions.map((action) => (
             <ActionButton
@@ -280,13 +325,13 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
   // Custom equality function to prevent unnecessary re-renders
   (prevProps, nextProps) => {
     // Only re-render if these specific props change
-    return (
+    const propsEqual =
       prevProps.isStandalone === nextProps.isStandalone &&
       prevProps.animatedStyle === nextProps.animatedStyle &&
       // For arrays, we need to check if they're equal in content
       ((!prevProps.availableActions && !nextProps.availableActions) ||
-        prevProps.availableActions?.join(",") === nextProps.availableActions?.join(","))
-      // We don't compare onActionPress as it should be a stable reference
-    );
+        prevProps.availableActions?.join(",") === nextProps.availableActions?.join(","));
+
+    return propsEqual;
   }
 );
