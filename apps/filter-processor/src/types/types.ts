@@ -47,6 +47,7 @@ export interface Event {
   title: string;
   description?: string;
   eventDate: Date | string;
+  endDate?: Date | string;
   timezone?: string;
   address?: string;
   location: Point;
