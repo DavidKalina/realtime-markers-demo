@@ -91,7 +91,7 @@ async function fetchUserFiltersAndPublish(userId: string): Promise<void> {
     console.log(`🔍 Fetching filters for user ${userId}`);
 
     const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
-    const response = await fetch(`${backendUrl}/api/filters?userId=${userId}`, {
+    const response = await fetch(`${backendUrl}/api/internal/filters?userId=${userId}`, {
       headers: {
         Accept: "application/json",
         // Add any required authentication headers here
@@ -109,6 +109,9 @@ async function fetchUserFiltersAndPublish(userId: string): Promise<void> {
     }
 
     const filters = await response.json();
+
+    console.log("FILTERS", filters);
+
     console.log(`📊 Fetched ${filters.length} filters for user ${userId}`);
 
     // Get only active filters

@@ -180,6 +180,9 @@ export class FilterProcessor {
 
       if (channel === "filter-changes") {
         const { userId, filters } = data;
+
+        console.log("FILTERS", filters);
+
         this.updateUserFilters(userId, filters);
         this.stats.filterChangesProcessed++;
       } else if (channel === "viewport-updates") {
@@ -311,8 +314,6 @@ export class FilterProcessor {
     try {
       const { operation, record } = event;
 
-      console.log({ OPERATION: operation });
-
       // Handle deletion
       if (operation === "DELETE") {
         // Remove from spatial index and cache
@@ -347,6 +348,7 @@ export class FilterProcessor {
 
       // Check if event matches filters for each user
       for (const [userId, filters] of this.userFilters.entries()) {
+        console.log(userId, filters);
         // Skip if event doesn't match user's filters
         if (!this.eventMatchesFilters(record, filters)) {
           continue;
@@ -391,8 +393,10 @@ export class FilterProcessor {
    * Check if an event matches any of the filters provided.
    */
   private eventMatchesFilters(event: Event, filters: Filter[]): boolean {
-    console.log("FILTERS_LENGTH", filters.length);
     // If no filters, match everything
+
+    console.log("FILTERS_LENGTH", filters.length);
+
     if (filters.length === 0) return true;
 
     // Event matches if it satisfies ANY filter
@@ -581,7 +585,7 @@ export class FilterProcessor {
         })
       );
 
-      console.log(`📤 Published ${events.length} ${type} events to user ${userId}`);
+      // console.log(`📤 Published ${events.length} ${type} events to user ${userId}`);
 
       // Update stats
       this.stats.totalFilteredEventsPublished += events.length;

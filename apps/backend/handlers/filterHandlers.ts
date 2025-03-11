@@ -36,6 +36,37 @@ export const getFiltersHandler: FilterHandler = async (c) => {
   }
 };
 
+export const getInternalFiltersHandler: FilterHandler = async (c) => {
+  try {
+    // Get the userId from query parameters instead of auth context
+    const userId = c.req.query("userId");
+
+    if (!userId) {
+      return c.json({ error: "Missing userId parameter" }, 400);
+    }
+
+    // Get the user preferences service
+    const userPreferencesService = c.get("userPreferencesService");
+
+    // Get filters for the user - reusing the same service method
+    const filters = await userPreferencesService.getUserFilters(userId);
+
+    return c.json(filters);
+  } catch (error) {
+    console.error(
+      `Error fetching internal user filters for userId=${c.req.query("userId")}:`,
+      error
+    );
+    return c.json(
+      {
+        error: "Failed to fetch filters",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
 /**
  * Create a new filter for the current user
  */
