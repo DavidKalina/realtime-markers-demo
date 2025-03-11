@@ -12,6 +12,9 @@ import { ConfigService } from "./services/shared/ConfigService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
 import { LocationResolutionService } from "./services/event-processing/LocationResolutionService";
 import { EnhancedLocationService } from "./services/shared/LocationService";
+import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
+import type { IEventProcessingServiceDependencies } from "./services/event-processing/interfaces/IEventProcessingServiceDependencies";
+import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -56,14 +59,28 @@ async function initializeWorker() {
   // Create the event similarity service
   const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
 
+  // Create the location resolution service
   const locationResolutionService = new LocationResolutionService(configService);
 
-  // Create event processing service with the updated constructor signature
-  const eventProcessingService = new EventProcessingService(
+  // Create the image processing service
+  const imageProcessingService = new ImageProcessingService();
+
+  const eventExtractionService = new EventExtractionService(
     categoryProcessingService,
-    eventSimilarityService,
     locationResolutionService
   );
+
+  // Create event processing service using the dependencies interface
+  const eventProcessingDependencies: IEventProcessingServiceDependencies = {
+    categoryProcessingService,
+    eventSimilarityService,
+    locationResolutionService,
+    imageProcessingService,
+    configService,
+    eventExtractionService,
+  };
+
+  const eventProcessingService = new EventProcessingService(eventProcessingDependencies);
 
   const eventService = new EventService(AppDataSource);
 
