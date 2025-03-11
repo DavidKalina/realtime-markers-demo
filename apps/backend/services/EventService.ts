@@ -18,12 +18,13 @@ interface CreateEventInput {
   title: string;
   description?: string;
   eventDate: Date;
+  endDate?: Date;
   location: Point;
   categoryIds?: string[];
   confidenceScore?: number;
   address?: string;
   creatorId: string;
-  timezone?: string; // Add timezone field
+  timezone?: string;
 }
 
 export class EventService {
@@ -137,6 +138,7 @@ export class EventService {
       description: input.description,
       confidenceScore: input.confidenceScore,
       eventDate: input.eventDate,
+      endDate: input.endDate,
       location: input.location,
       status: EventStatus.PENDING,
       address: input.address,
@@ -169,6 +171,7 @@ export class EventService {
     if (eventData.title) event.title = eventData.title;
     if (eventData.description !== undefined) event.description = eventData.description;
     if (eventData.eventDate) event.eventDate = eventData.eventDate;
+    if (eventData.endDate !== undefined) event.endDate = eventData.endDate;
     if (eventData.location) {
       event.location = eventData.location;
 

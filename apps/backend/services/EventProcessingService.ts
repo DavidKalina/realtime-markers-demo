@@ -25,6 +25,7 @@ interface EventDetails {
   emoji: string;
   title: string;
   date: string;
+  endDate?: string;
   address: string;
   location: Point;
   description: string;
@@ -172,6 +173,7 @@ export class EventProcessingService {
       {
         title: eventDetailsWithCategories.title,
         date: eventDetailsWithCategories.date,
+        endDate: eventDetailsWithCategories.endDate,
         coordinates: eventDetailsWithCategories.location.coordinates as [number, number],
         address: eventDetailsWithCategories.address,
         description: eventDetailsWithCategories.description,
@@ -223,6 +225,7 @@ export class EventProcessingService {
         text: eventDetails.description || "",
         title: eventDetails.title,
         date: eventDetails.date,
+        endDate: eventDetails.endDate,
         coordinates: eventDetails.location.coordinates as [number, number],
         address: eventDetails.address,
         timezone: eventDetails.timezone,

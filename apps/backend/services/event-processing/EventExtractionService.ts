@@ -88,14 +88,21 @@ export class EventExtractionService implements IEventExtractionService {
             - Identify organization names, institution logos, venue details
             - Notice building codes and room numbers as location clues
             - Use the user's current location to help resolve ambiguous locations
-            - For university events (with codes like "LC 301"), connect them to the appropriate campus`,
+            - For university events (with codes like "LC 301"), connect them to the appropriate campus
+            
+            When extracting dates:
+            - Look for explicit start and end dates/times
+            - If an event spans multiple days, capture both start and end dates
+            - Use common formats like "Jan 1-3, 2025" or "From 7PM to 9PM"
+            - Identify date ranges and recurring patterns`,
         },
         {
           role: "user",
           content: `Extract the following details from this text in a JSON format:
            - emoji: The most relevant emoji
            - title: The event title
-           - date: The event date and time in ISO-8601 format
+           - date: The event start date and time in ISO-8601 format
+           - endDate: The event end date and time in ISO-8601 format (if available)
            - timezone: Any timezone information provided (e.g., "EST", "PDT", "UTC")
            - organization: The organization hosting the event
            - venue: The specific venue or room information
@@ -140,8 +147,11 @@ export class EventExtractionService implements IEventExtractionService {
     console.log(`Address resolved with confidence: ${resolvedLocation.confidence.toFixed(2)}`);
     console.log(`Resolved timezone: ${timezone} for coordinates [${location.coordinates}]`);
 
-    // Process date with timezone awareness
+    // Process dates with timezone awareness
     const eventDate = this.processEventDate(parsedDetails.date, parsedDetails.timezone, timezone);
+    const eventEndDate = parsedDetails.endDate
+      ? this.processEventDate(parsedDetails.endDate, parsedDetails.timezone, timezone)
+      : undefined;
 
     // Process categories
     let categories: Category[] = [];
@@ -158,6 +168,7 @@ export class EventExtractionService implements IEventExtractionService {
         emoji: parsedDetails.emoji || this.defaultEmoji,
         title: parsedDetails.title || "",
         date: eventDate,
+        endDate: eventEndDate,
         address: resolvedLocation.address,
         location: location,
         description: parsedDetails.description || "",

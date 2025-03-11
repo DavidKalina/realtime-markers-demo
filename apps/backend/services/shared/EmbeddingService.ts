@@ -25,6 +25,8 @@ export interface EmbeddingInput {
    */
   date?: string | Date;
 
+  endDate?: string | Date;
+
   /**
    * Optional coordinates to include in the embedding [longitude, latitude]
    */

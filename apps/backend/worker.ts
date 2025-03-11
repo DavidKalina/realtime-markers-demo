@@ -241,6 +241,7 @@ async function initializeWorker() {
             emoji: eventDetails.emoji,
             title: eventDetails.title,
             eventDate: new Date(eventDetails.date),
+            endDate: eventDetails.endDate ? new Date(eventDetails.endDate) : undefined,
             location: eventDetails.location,
             description: eventDetails.description,
             confidenceScore: scanResult.confidence,

@@ -17,6 +17,7 @@ export interface IEventSimilarityService {
     eventData: {
       title: string;
       date: string;
+      endDate?: string;
       coordinates: [number, number];
       address?: string;
       description?: string;

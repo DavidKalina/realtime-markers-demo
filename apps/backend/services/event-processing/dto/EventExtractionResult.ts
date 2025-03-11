@@ -29,9 +29,14 @@ export interface EventExtractionResult {
     title: string;
 
     /**
-     * ISO formatted event date and time
+     * ISO formatted event start date and time
      */
     date: string;
+
+    /**
+     * ISO formatted event end date and time (optional)
+     */
+    endDate?: string;
 
     /**
      * Formatted address of the event
