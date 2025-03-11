@@ -1,249 +1,244 @@
 // services/event-processing/ProgressReportingService.ts
 
-/**
- * Interface for progress callback functions
- * Defines the shape of callbacks used to report progress
- */
-export interface ProgressCallback {
-  (message: string, metadata?: Record<string, any>): Promise<void>;
-}
+import type {
+  IProgressReportingService,
+  ProgressCallback,
+} from "./interfaces/IProgressReportingService";
+import type { JobQueue } from "../JobQueue";
+import type { ConfigService } from "../shared/ConfigService";
 
 /**
- * Progress update with standard format and metadata
+ * Progress update with metadata
  */
-export interface ProgressUpdate {
-  /** Status message describing the current step */
+interface ProgressUpdate {
   message: string;
-
-  /** Optional metadata providing additional context */
-  metadata?: Record<string, any>;
-
-  /** Timestamp when the update was created */
   timestamp: string;
-
-  /** Progress percentage (0-100) if applicable */
-  percentage?: number;
-
-  /** Step number in a multi-step process if applicable */
+  metadata?: Record<string, any>;
   step?: number;
-
-  /** Total number of steps if applicable */
   totalSteps?: number;
+  sessionName?: string;
+  percentComplete?: number;
 }
 
 /**
- * Service for centralized progress tracking and reporting
- * Provides standardized progress messaging and throttling
+ * Service for standardized progress reporting across the application
+ * Provides throttling, job queue integration, and progress tracking
  */
-export class ProgressReportingService {
-  /** Minimum time between progress updates in milliseconds */
-  private readonly throttleMs: number;
-
-  /** Callback function to report progress */
-  private callback: ProgressCallback | null;
-
-  /** Timestamp of the last sent update */
+export class ProgressReportingService implements IProgressReportingService {
+  private jobId?: string;
+  private throttleTime: number;
   private lastUpdateTime: number = 0;
-
-  /** Queue of pending updates during throttling */
   private pendingUpdate: ProgressUpdate | null = null;
-
-  /** Whether an update is scheduled to be sent */
-  private updateScheduled: boolean = false;
-
-  /** Total number of steps in the current process */
-  private totalSteps: number = 0;
-
-  /** Current step in the process */
+  private updateTimer: ReturnType<typeof setTimeout> | null = null;
+  private sessionActive: boolean = false;
   private currentStep: number = 0;
+  private totalSteps: number = 0;
+  private currentSessionName?: string;
 
   /**
-   * Creates a new ProgressReportingService
-   * @param callback Optional initial callback function
-   * @param throttleMs Minimum time between updates in milliseconds
+   * Create a new ProgressReportingService
+   * @param callback Optional callback for progress updates
+   * @param jobQueue Optional JobQueue for job status updates
+   * @param configService Optional ConfigService for configuration
    */
-  constructor(callback?: ProgressCallback, throttleMs: number = 300) {
-    this.callback = callback || null;
-    this.throttleMs = throttleMs;
+  constructor(
+    private callback?: ProgressCallback,
+    private jobQueue?: JobQueue,
+    private configService?: ConfigService
+  ) {
+    // Get throttle time from config or use default (300ms)
+    this.throttleTime = configService?.get("progressReporting.throttleTime") || 300;
   }
 
   /**
-   * Set or update the callback function
-   * @param callback New callback function
+   * Configure progress throttling to avoid too frequent updates
+   * @param intervalMs Minimum interval between progress updates in milliseconds
    */
-  setCallback(callback: ProgressCallback): void {
-    this.callback = callback;
+  public throttleUpdates(intervalMs: number): void {
+    this.throttleTime = intervalMs;
   }
 
   /**
-   * Clear the callback function
+   * Connect the progress reporter to a specific job for tracking
+   * @param jobId ID of the job to associate progress with
    */
-  clearCallback(): void {
-    this.callback = null;
+  public connectToJobQueue(jobId: string): void {
+    this.jobId = jobId;
+    console.log(`Progress reporting connected to job ${jobId}`);
   }
 
   /**
-   * Initialize a multi-step process
-   * @param totalSteps The total number of steps in the process
-   */
-  initializeSteps(totalSteps: number): void {
-    this.totalSteps = totalSteps;
-    this.currentStep = 0;
-  }
-
-  /**
-   * Report progress for the current operation
-   * Throttles updates to prevent overwhelming the UI
-   *
-   * @param message Progress message
+   * Report progress with a message and optional metadata
+   * @param message Human-readable progress message
    * @param metadata Optional metadata about the progress
-   * @param forceUpdate Force immediate update even with throttling
+   * @returns Promise that resolves when progress is reported
    */
-  async reportProgress(
-    message: string,
-    metadata?: Record<string, any>,
-    forceUpdate: boolean = false
-  ): Promise<void> {
-    // If no callback is set, do nothing
-    if (!this.callback) {
-      return;
-    }
-
-    const now = Date.now();
-
-    // Create standard progress update
+  public async reportProgress(message: string, metadata?: Record<string, any>): Promise<void> {
     const update: ProgressUpdate = {
       message,
-      metadata,
       timestamp: new Date().toISOString(),
+      metadata,
     };
 
-    // Add step information if total steps is set
-    if (this.totalSteps > 0) {
-      update.step = this.currentStep;
-      update.totalSteps = this.totalSteps;
-      update.percentage = Math.round((this.currentStep / this.totalSteps) * 100);
+    return this.sendProgressUpdate(update);
+  }
+
+  /**
+   * Start a new progress reporting session with a total number of steps
+   * @param totalSteps Total number of steps in the operation
+   * @param sessionName Optional session name for reporting context
+   */
+  public startSession(totalSteps: number, sessionName?: string): void {
+    this.sessionActive = true;
+    this.currentStep = 0;
+    this.totalSteps = totalSteps;
+    this.currentSessionName = sessionName;
+
+    // Report session started
+    this.sendProgressUpdate({
+      message: sessionName ? `Starting ${sessionName}...` : "Starting operation...",
+      timestamp: new Date().toISOString(),
+      step: 0,
+      totalSteps,
+      sessionName,
+      percentComplete: 0,
+      metadata: {
+        sessionStarted: true,
+        totalSteps,
+        sessionName,
+      },
+    });
+  }
+
+  /**
+   * Update progress to a specific step
+   * @param step Current step number
+   * @param message Human-readable progress message for this step
+   * @param metadata Optional metadata about the progress
+   */
+  public async updateProgress(
+    step: number,
+    message: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    if (!this.sessionActive) {
+      console.warn("Trying to update progress but no session is active. Call startSession first.");
+      return this.reportProgress(message, metadata);
     }
 
-    // If throttling is active and not forcing an update
-    if (!forceUpdate && now - this.lastUpdateTime < this.throttleMs) {
-      // Store this update to send later
-      this.pendingUpdate = update;
+    this.currentStep = Math.min(step, this.totalSteps);
+    const percentComplete = this.totalSteps > 0 ? (this.currentStep / this.totalSteps) * 100 : 0;
 
-      // Schedule an update if not already scheduled
-      if (!this.updateScheduled) {
-        this.updateScheduled = true;
+    const update: ProgressUpdate = {
+      message,
+      timestamp: new Date().toISOString(),
+      metadata,
+      step: this.currentStep,
+      totalSteps: this.totalSteps,
+      sessionName: this.currentSessionName,
+      percentComplete: Math.min(99, Math.round(percentComplete)), // Cap at 99% until complete
+    };
 
-        // Calculate time until next update
-        const timeToNextUpdate = this.throttleMs - (now - this.lastUpdateTime);
+    return this.sendProgressUpdate(update);
+  }
 
-        setTimeout(() => this.sendPendingUpdate(), timeToNextUpdate);
+  /**
+   * Complete the current progress reporting session
+   * @param message Final message for the completed operation
+   * @param metadata Optional metadata about the completed operation
+   */
+  public async completeSession(message: string, metadata?: Record<string, any>): Promise<void> {
+    if (!this.sessionActive) {
+      console.warn("No active session to complete. Reporting final progress anyway.");
+      return this.reportProgress(message, metadata);
+    }
+
+    this.currentStep = this.totalSteps;
+    const update: ProgressUpdate = {
+      message,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        ...metadata,
+        sessionCompleted: true,
+      },
+      step: this.totalSteps,
+      totalSteps: this.totalSteps,
+      sessionName: this.currentSessionName,
+      percentComplete: 100,
+    };
+
+    // Clear any session data
+    this.sessionActive = false;
+    this.currentSessionName = undefined;
+
+    return this.sendProgressUpdate(update);
+  }
+
+  /**
+   * Send a progress update, respecting throttling settings
+   * @param update Progress update to send
+   * @returns Promise that resolves when update is processed
+   */
+  private async sendProgressUpdate(update: ProgressUpdate): Promise<void> {
+    const now = Date.now();
+    this.pendingUpdate = update;
+
+    // If throttling is active and an update was sent recently, schedule update
+    if (this.throttleTime > 0 && now - this.lastUpdateTime < this.throttleTime) {
+      if (this.updateTimer === null) {
+        // Schedule an update for later
+        this.updateTimer = setTimeout(() => {
+          this.processPendingUpdate();
+        }, this.throttleTime - (now - this.lastUpdateTime));
       }
-
       return;
     }
 
-    // Send the update immediately
-    await this.sendUpdate(update);
+    // Otherwise process immediately
+    return this.processPendingUpdate();
   }
 
   /**
-   * Report progress for a step in a multi-step process
-   * Automatically increments the current step
-   *
-   * @param message Progress message
-   * @param metadata Optional metadata about the progress
-   * @param forceUpdate Force immediate update even with throttling
+   * Process the pending update
    */
-  async reportStep(
-    message: string,
-    metadata?: Record<string, any>,
-    forceUpdate: boolean = false
-  ): Promise<void> {
-    this.currentStep++;
-    await this.reportProgress(message, metadata, forceUpdate);
-  }
+  private async processPendingUpdate(): Promise<void> {
+    if (!this.pendingUpdate) return;
 
-  /**
-   * Report final completion of the process
-   * Always forces an immediate update
-   *
-   * @param message Completion message
-   * @param metadata Optional metadata about the completion
-   */
-  async reportCompletion(message: string, metadata?: Record<string, any>): Promise<void> {
-    // Set current step to total steps if tracking steps
-    if (this.totalSteps > 0) {
-      this.currentStep = this.totalSteps;
-    }
-
-    // Force the update regardless of throttling
-    await this.reportProgress(
-      message,
-      {
-        ...metadata,
-        completed: true,
-      },
-      true
-    );
-
-    // Reset the step tracking
-    this.totalSteps = 0;
-    this.currentStep = 0;
-  }
-
-  /**
-   * Report an error in the process
-   * Always forces an immediate update
-   *
-   * @param error Error message or object
-   * @param metadata Optional metadata about the error
-   */
-  async reportError(error: string | Error, metadata?: Record<string, any>): Promise<void> {
-    const errorMessage = error instanceof Error ? error.message : error;
-
-    await this.reportProgress(
-      `Error: ${errorMessage}`,
-      {
-        ...metadata,
-        error: true,
-        errorDetails:
-          error instanceof Error
-            ? {
-                name: error.name,
-                stack: error.stack,
-              }
-            : undefined,
-      },
-      true
-    );
-  }
-
-  /**
-   * Send a progress update via the callback
-   * @param update Progress update to send
-   */
-  private async sendUpdate(update: ProgressUpdate): Promise<void> {
-    if (!this.callback) return;
+    const update = this.pendingUpdate;
+    this.pendingUpdate = null;
+    this.updateTimer = null;
+    this.lastUpdateTime = Date.now();
 
     try {
-      this.lastUpdateTime = Date.now();
-      await this.callback(update.message, update.metadata);
+      // Send to callback if provided
+      if (this.callback) {
+        await this.callback(update.message, {
+          ...update.metadata,
+          timestamp: update.timestamp,
+          step: update.step,
+          totalSteps: update.totalSteps,
+          percentComplete: update.percentComplete,
+          sessionName: update.sessionName,
+        });
+      }
+
+      // Update job queue if connected
+      if (this.jobQueue && this.jobId) {
+        await this.jobQueue.updateJobStatus(this.jobId, {
+          status: update.metadata?.sessionCompleted ? "completed" : "processing",
+          progress: update.percentComplete !== undefined ? update.percentComplete / 100 : undefined,
+          progressMessage: update.message,
+          updated: update.timestamp,
+        });
+      }
+
+      // Log the update
+      const logPrefix = update.sessionName ? `[${update.sessionName}]` : "";
+      const progressIndicator =
+        update.percentComplete !== undefined ? `(${Math.round(update.percentComplete)}%)` : "";
+      console.log(`${logPrefix} Progress ${progressIndicator}: ${update.message}`);
     } catch (error) {
-      console.error("Error in progress callback:", error);
-    }
-  }
-
-  /**
-   * Send any pending updates that were delayed due to throttling
-   */
-  private async sendPendingUpdate(): Promise<void> {
-    this.updateScheduled = false;
-
-    if (this.pendingUpdate) {
-      const update = this.pendingUpdate;
-      this.pendingUpdate = null;
-      await this.sendUpdate(update);
+      console.error("Error reporting progress:", error);
     }
   }
 }

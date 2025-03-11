@@ -6,7 +6,7 @@ import { Event, EventStatus } from "../entities/Event";
 import { UserEventSave } from "../entities/UserEventSave";
 import { CacheService } from "./shared/CacheService";
 import { OpenAIService } from "./shared/OpenAIService";
-import { EnhancedLocationService } from "./LocationService";
+import { EnhancedLocationService } from "./shared/LocationService";
 
 interface SearchResult {
   event: Event;

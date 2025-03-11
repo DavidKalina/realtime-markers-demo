@@ -9,6 +9,11 @@ import type { IEventExtractionService } from "./event-processing/interfaces/IEve
 import type { IEventProcessingServiceDependencies } from "./event-processing/interfaces/IEventProcessingServiceDependencies";
 import type { IImageProcessingService } from "./event-processing/interfaces/IImageProcesssingService";
 import type { ILocationResolutionService } from "./event-processing/interfaces/ILocationResolutionService";
+import type {
+  IProgressReportingService,
+  ProgressCallback,
+} from "./event-processing/interfaces/IProgressReportingService";
+import { ProgressReportingService } from "./event-processing/ProgressReportingService";
 import { EmbeddingService, type EmbeddingInput } from "./shared/EmbeddingService";
 
 interface LocationContext {
@@ -34,15 +39,12 @@ interface ScanResult {
   isDuplicate?: boolean;
 }
 
-interface ProgressCallback {
-  (message: string, metadata?: Record<string, any>): Promise<void>;
-}
-
 export class EventProcessingService {
   private imageProcessingService: IImageProcessingService;
   private locationResolutionService: ILocationResolutionService;
   private eventExtractionService: IEventExtractionService;
   private embeddingService: IEmbeddingService;
+  private progressReportingService: IProgressReportingService;
 
   constructor(private dependencies: IEventProcessingServiceDependencies) {
     // Initialize the image processing service (use provided or create new one)
@@ -66,6 +68,42 @@ export class EventProcessingService {
     // Use provided embedding service or get singleton instance
     this.embeddingService =
       dependencies.embeddingService || EmbeddingService.getInstance(dependencies.configService);
+
+    // Use provided progress reporting service or create a basic one
+    this.progressReportingService =
+      dependencies.progressReportingService || new ProgressReportingService();
+  }
+
+  /**
+   * Creates a workflow for a specific job that uses the progress reporting service
+   * @param jobId Optional job ID for progress tracking
+   * @param externalCallback Optional external callback for progress updates
+   * @returns A configured progress reporting service for this job
+   */
+  public createWorkflow(
+    jobId?: string,
+    externalCallback?: ProgressCallback
+  ): IProgressReportingService {
+    // Clone the progress reporting service to avoid cross-workflow interference
+    const progressService = this.progressReportingService;
+
+    // Connect to job queue if a job ID is provided
+    if (jobId) {
+      progressService.connectToJobQueue(jobId);
+    }
+
+    // Link external callback if provided
+    if (externalCallback) {
+      // We'll need to chain callbacks
+      const originalCallback = async (message: string, metadata?: Record<string, any>) => {
+        await externalCallback(message, metadata);
+      };
+
+      // Override the progress reporting with our custom callback
+      progressService.reportProgress = originalCallback;
+    }
+
+    return progressService;
   }
 
   async processFlyerFromImage(
@@ -73,39 +111,39 @@ export class EventProcessingService {
     progressCallback?: ProgressCallback,
     locationContext?: LocationContext
   ): Promise<ScanResult> {
-    // Report progress: Starting image processing
+    // Create a workflow with the standard processing steps
+    const workflow = this.progressReportingService;
+
+    // Connect external callback if provided
     if (progressCallback) {
-      await progressCallback("Analyzing image...");
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      // Create a new session for this workflow
+      const externalReporter = async (message: string, metadata?: Record<string, any>) => {
+        await progressCallback(message, metadata);
+      };
+
+      // Override the default reporting method
+      workflow.reportProgress = externalReporter;
     }
 
-    // Report progress: Vision API processing
-    if (progressCallback) {
-      await progressCallback("Analyzing image with Vision API...");
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
+    // Start a session with 6 steps (image processing, vision API, extraction, embedding, similarity, completion)
+    workflow.startSession(6, "Flyer Processing");
+
+    // Step 1: Analyze image
+    await workflow.updateProgress(1, "Analyzing image...");
+
+    // Step 2: Process with Vision API
+    await workflow.updateProgress(2, "Analyzing image with Vision API...");
 
     // Use the ImageProcessingService to process the image
     const visionResult = await this.imageProcessingService.processImage(imageData);
-
-    console.log("VISION_RESULT", visionResult.rawText);
-
     const extractedText = visionResult.rawText || "";
 
     // Report progress after vision processing
-    if (progressCallback) {
-      await progressCallback("Image analyzed successfully", {
-        confidence: visionResult.confidence,
-      });
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
+    await workflow.updateProgress(3, "Image analyzed successfully", {
+      confidence: visionResult.confidence,
+    });
 
-    // Report progress: Extracting event details
-    if (progressCallback) {
-      await progressCallback("Extracting event details and categories...");
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
-
+    // Step 3: Extract event details
     // Use the EventExtractionService to extract details from the text
     const extractionResult = await this.eventExtractionService.extractEventDetails(extractedText, {
       userCoordinates: locationContext?.userCoordinates,
@@ -114,31 +152,20 @@ export class EventProcessingService {
 
     const eventDetailsWithCategories = extractionResult.event;
 
-    if (progressCallback) {
-      await progressCallback("Extracting event details and categories...", {
-        title: eventDetailsWithCategories.title,
-        categories: eventDetailsWithCategories.categories?.map((c) => c.name),
-        timezone: eventDetailsWithCategories.timezone,
-      });
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
+    await workflow.updateProgress(4, "Event details extracted", {
+      title: eventDetailsWithCategories.title,
+      categories: eventDetailsWithCategories.categories?.map((c) => c.name),
+      timezone: eventDetailsWithCategories.timezone,
+    });
 
-    // Report progress: Generating embeddings
-    if (progressCallback) {
-      await progressCallback("Generating text embeddings...");
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
+    // Step 4: Generate embeddings
+    await workflow.updateProgress(5, "Generating text embeddings...");
 
     // Generate embeddings with the structured event details
     // This will properly weight location, title, date, etc.
     const finalEmbedding = await this.generateEmbedding(eventDetailsWithCategories);
 
-    // Report progress: Finding similar events
-    if (progressCallback) {
-      await progressCallback("Finding similar events...");
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
-
+    // Step 5: Find similar events
     // Check for similar events using the event similarity service
     const similarity = await this.dependencies.eventSimilarityService.findSimilarEvents(
       finalEmbedding,
@@ -154,41 +181,29 @@ export class EventProcessingService {
 
     const isDuplicate = similarity.isDuplicate;
 
-    console.log("DUPLICATE CHECK:", {
-      score: similarity.score,
-      matchingEventId: similarity.matchingEventId,
-      matchReason: similarity.matchReason,
-      isDuplicate,
-    });
-
+    // Handle duplicate if found
     if (isDuplicate && similarity.matchingEventId) {
       await this.dependencies.eventSimilarityService.handleDuplicateScan(
         similarity.matchingEventId
       );
 
-      if (progressCallback) {
-        await progressCallback("Duplicate event detected!", {
-          isDuplicate: true,
-          matchingEventId: similarity.matchingEventId,
-          similarityScore: similarity.score.toFixed(2),
-          matchReason: similarity.matchReason || "High similarity score",
-          // Include any additional metadata about the match
-          matchDetails: similarity.matchDetails || {},
-        });
-        await new Promise((resolve) => setTimeout(resolve, 300));
-      }
-    }
-
-    // Report progress: Processing complete
-    if (progressCallback) {
-      await progressCallback("Processing complete!", {
-        confidence: visionResult.confidence,
-        similarityScore: similarity.score,
-        isDuplicate: isDuplicate || false,
-        reasonForMatch: isDuplicate ? similarity.matchReason || "High similarity" : undefined,
-        timezone: eventDetailsWithCategories.timezone,
+      await workflow.updateProgress(5, "Duplicate event detected!", {
+        isDuplicate: true,
+        matchingEventId: similarity.matchingEventId,
+        similarityScore: similarity.score.toFixed(2),
+        matchReason: similarity.matchReason || "High similarity score",
+        matchDetails: similarity.matchDetails || {},
       });
     }
+
+    // Step 6: Complete processing
+    await workflow.completeSession("Processing complete!", {
+      confidence: visionResult.confidence,
+      similarityScore: similarity.score,
+      isDuplicate: isDuplicate || false,
+      reasonForMatch: isDuplicate ? similarity.matchReason || "High similarity" : undefined,
+      timezone: eventDetailsWithCategories.timezone,
+    });
 
     return {
       confidence: visionResult.confidence || 0,
