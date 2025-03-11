@@ -9,6 +9,8 @@ import { EnhancedLocationService } from "./services/LocationService";
 import { Event } from "./entities/Event";
 import { Category } from "./entities/Category";
 import { JobQueue } from "./services/JobQueue";
+import { ConfigService } from "./services/shared/ConfigService";
+import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -40,6 +42,8 @@ async function initializeWorker() {
   // Initialize LocationService singleton (this is just to warm up the cache)
   EnhancedLocationService.getInstance();
 
+  const configService = ConfigService.getInstance();
+
   // Initialize repositories and services
   const eventRepository = AppDataSource.getRepository(Event);
   const categoryRepository = AppDataSource.getRepository(Category);
@@ -48,10 +52,14 @@ async function initializeWorker() {
     categoryRepository
   );
 
+  // Create the event similarity service
+  const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
+
   // Create event processing service with the updated constructor signature
   const eventProcessingService = new EventProcessingService(
     eventRepository,
-    categoryProcessingService
+    categoryProcessingService,
+    eventSimilarityService
   );
 
   const eventService = new EventService(AppDataSource);

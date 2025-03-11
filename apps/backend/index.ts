@@ -24,6 +24,8 @@ import type { AppContext } from "./types/context";
 import { Filter } from "./entities/Filter";
 import { UserPreferencesService } from "./services/UserPreferences";
 import { filterRouter } from "./routes/filters";
+import { ConfigService } from "./services/shared/ConfigService";
+import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -120,6 +122,9 @@ async function initializeServices() {
 
   await seedDatabase(dataSource);
 
+  // Initialize config service
+  const configService = ConfigService.getInstance();
+
   const categoryRepository = dataSource.getRepository(Category);
   const eventRepository = dataSource.getRepository(Event);
   const filterRepository = dataSource.getRepository(Filter);
@@ -128,9 +133,14 @@ async function initializeServices() {
 
   const eventService = new EventService(dataSource);
 
+  // Create the event similarity service
+  const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
+
+  // Create event processing service with updated constructor signature
   const eventProcessingService = new EventProcessingService(
     eventRepository,
-    categoryProcessingService
+    categoryProcessingService,
+    eventSimilarityService
   );
 
   // Initialize the UserPreferencesService
