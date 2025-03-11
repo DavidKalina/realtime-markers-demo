@@ -196,16 +196,16 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           action: () => handlePress("saved"),
         },
         {
-          key: "user",
-          label: "Me",
-          icon: <User size={20} color="#fff" style={globalStyles.icon} />,
-          action: () => handlePress("user"),
-        },
-        {
           key: "filter",
           label: "Filter",
           icon: <Filter size={20} color="#fff" style={globalStyles.icon} />,
           action: () => handlePress("filter"),
+        },
+        {
+          key: "user",
+          label: "Me",
+          icon: <User size={20} color="#fff" style={globalStyles.icon} />,
+          action: () => handlePress("user"),
         },
       ],
       [userLocation, handlePress] // Re-create only when userLocation or handlePress changes

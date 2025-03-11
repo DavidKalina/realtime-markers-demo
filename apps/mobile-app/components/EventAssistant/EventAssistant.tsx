@@ -1,6 +1,6 @@
-// Updated EventAssistant with onUserPanning handler
+// Optimized EventAssistant with improved performance
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "../globalStyles";
@@ -36,13 +36,13 @@ interface AppClusterItem extends BaseMapItem {
 
 type MapItem = AppMarkerItem | AppClusterItem;
 
-// Configuration constants
+// Configuration constants - moved outside component to prevent recreation
 const CONFIG = {
-  READING_PAUSE_MS: 1500, // Reduced from 3000ms to 1500ms for quicker navigation
-  ACTION_PAUSE_MS: 800, // Reduced from 1500ms to 800ms for quicker navigation
-  ERROR_PAUSE_MS: 2000, // Reduced from 2500ms to 2000ms
-  AUTO_DISMISS_DELAY_MS: 3000, // Auto-dismiss delay after streaming completes (3 seconds)
-  NAVIGATION_DELAY_MS: 1200, // Delay before navigation after showing marker/cluster info (1.2 seconds),
+  READING_PAUSE_MS: 1500,
+  ACTION_PAUSE_MS: 800,
+  ERROR_PAUSE_MS: 2000,
+  AUTO_DISMISS_DELAY_MS: 3000,
+  NAVIGATION_DELAY_MS: 1200,
 };
 
 /**
@@ -62,7 +62,7 @@ const EventAssistant: React.FC = () => {
   // Navigation timer reference
   const navigationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Get the unified selection state from the store
+  // Get the unified selection state from the store - using selector
   const selectedItem = useLocationStore((state) => state.selectedItem);
 
   // Animation hooks
@@ -86,6 +86,10 @@ const EventAssistant: React.FC = () => {
   // Navigation state
   const navigationActionRef = useRef<string | null>(null);
   const isNavigatingRef = useRef<boolean>(false);
+
+  // Memoize configuration getters to prevent unnecessary rerenders
+  const getUserName = useCallback(() => user?.displayName, [user?.displayName]);
+  const getUserLocation = useCallback(() => userLocation, [userLocation]);
 
   // Function to schedule auto-dismiss
   const scheduleAutoDismiss = useCallback(() => {
@@ -259,8 +263,6 @@ const EventAssistant: React.FC = () => {
 
     // Only respond if we're currently streaming or visible
     if (isStreaming || autoDismissTimerRef.current) {
-      console.log("User is actively panning the map - dismissing assistant");
-
       // Cancel any current streaming
       cancelStreaming();
 
@@ -290,6 +292,38 @@ const EventAssistant: React.FC = () => {
     isMountedRef,
   });
 
+  // Pre-define navigation handlers for common routes
+  const navigateToFilter = useCallback(() => router.push("filter" as never), [router]);
+  const navigateToSearch = useCallback(() => router.push("search" as never), [router]);
+  const navigateToScan = useCallback(() => router.push("scan" as never), [router]);
+  const navigateToUser = useCallback(() => router.push("user" as never), [router]);
+  const navigateToSaved = useCallback(() => router.push("saved" as never), [router]);
+
+  // Memoize the getStoreSelectedItem function to avoid recreating on each render
+  const getStoreSelectedItem = useCallback(() => {
+    return useLocationStore.getState().selectedItem;
+  }, []);
+
+  // Memoize the showError function to avoid recreating on each render
+  const showError = useCallback(
+    (errorMessage: string) => {
+      // Show error message with no debounce and a pause to read
+      streamImmediate(
+        errorMessage,
+        () => {
+          // Auto-hide after showing error
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              animationControls.hideAssistant();
+            }
+          }, 1000); // Additional delay after the pause
+        },
+        CONFIG.ERROR_PAUSE_MS // Allow time to read error message
+      );
+    },
+    [streamImmediate, animationControls]
+  );
+
   // Handle button actions
   const handleActionPress = useCallback(
     (action: string) => {
@@ -309,26 +343,16 @@ const EventAssistant: React.FC = () => {
       }
 
       // IMPORTANT: Get the most up-to-date state from the store directly
-      const currentItem = useLocationStore.getState().selectedItem;
+      const currentItem = getStoreSelectedItem();
 
       // Validate item selection only for item-dependent actions
       if (!currentItem && ["details", "share"].includes(action)) {
-        // Show error message with no debounce and a pause to read
-        streamImmediate(
-          "Please select a location first.",
-          () => {
-            // Auto-hide after showing error
-            setTimeout(() => {
-              animationControls.hideAssistant();
-            }, 1000); // Additional delay after the pause
-          },
-          CONFIG.ERROR_PAUSE_MS // Allow time to read error message
-        );
+        showError("Please select a location first.");
         return;
       }
 
       // Generate action-specific messages
-      const actionMessages = generateActionMessages(action, user?.displayName, userLocation);
+      const actionMessages = generateActionMessages(action, getUserName(), getUserLocation());
 
       // Store the current action for when we return
       navigationActionRef.current = action;
@@ -339,57 +363,35 @@ const EventAssistant: React.FC = () => {
       // Handle navigation based on the selected item type and action
       switch (action) {
         case "filter":
-          // Show action message, then navigate to search
-          // No item needed, always show assistant
-          streamForMarker(
-            itemId,
-            actionMessages,
-            () => executeNavigation(() => router.push("filter" as never)),
-            { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
-          );
+          // Show action message, then navigate to filter
+          streamForMarker(itemId, actionMessages, () => executeNavigation(navigateToFilter), {
+            pauseAfterMs: CONFIG.ACTION_PAUSE_MS,
+          });
           break;
         case "search":
           // Show action message, then navigate to search
-          // No item needed, always show assistant
-          streamForMarker(
-            itemId,
-            actionMessages,
-            () => executeNavigation(() => router.push("search" as never)),
-            { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
-          );
+          streamForMarker(itemId, actionMessages, () => executeNavigation(navigateToSearch), {
+            pauseAfterMs: CONFIG.ACTION_PAUSE_MS,
+          });
           break;
-
         case "camera":
           // Show action message, then navigate to camera
-          // No item needed, always show assistant
-          streamForMarker(
-            itemId,
-            actionMessages,
-            () => executeNavigation(() => router.push("scan" as never)),
-            { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
-          );
+          streamForMarker(itemId, actionMessages, () => executeNavigation(navigateToScan), {
+            pauseAfterMs: CONFIG.ACTION_PAUSE_MS,
+          });
           break;
         case "user":
           // Show action message, then navigate to user profile
-          // No item needed, always show assistant
-          streamForMarker(
-            itemId,
-            actionMessages,
-            () => executeNavigation(() => router.push("user" as never)),
-            { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
-          );
+          streamForMarker(itemId, actionMessages, () => executeNavigation(navigateToUser), {
+            pauseAfterMs: CONFIG.ACTION_PAUSE_MS,
+          });
           break;
         case "saved":
-          // Show action message, then navigate to user profile
-          // No item needed, always show assistant
-          streamForMarker(
-            itemId,
-            actionMessages,
-            () => executeNavigation(() => router.push("saved" as never)),
-            { pauseAfterMs: CONFIG.ACTION_PAUSE_MS } // Add pause before navigation
-          );
+          // Show action message, then navigate to saved
+          streamForMarker(itemId, actionMessages, () => executeNavigation(navigateToSaved), {
+            pauseAfterMs: CONFIG.ACTION_PAUSE_MS,
+          });
           break;
-
         default:
           // Just show the messages for other actions with reading pause
           streamForMarker(itemId, actionMessages, undefined, {
@@ -400,34 +402,53 @@ const EventAssistant: React.FC = () => {
     },
     [
       animationControls,
-      streamImmediate,
       streamForMarker,
-      router,
       executeNavigation,
-      user?.displayName,
-      userLocation,
+      navigateToFilter,
+      navigateToSearch,
+      navigateToScan,
+      navigateToUser,
+      navigateToSaved,
+      getUserName,
+      getUserLocation,
       clearNavigationTimer,
+      getStoreSelectedItem,
+      showError,
     ]
+  );
+
+  // Memoize UI components to prevent unnecessary renders
+  const assistantCard = useMemo(
+    () => (
+      <AssistantCard
+        message={currentText}
+        isTyping={isStreaming}
+        containerStyle={animationStyles.cardContainer}
+        contentStyle={animationStyles.cardContent}
+      />
+    ),
+    [currentText, isStreaming, animationStyles.cardContainer, animationStyles.cardContent]
+  );
+
+  const assistantActions = useMemo(
+    () => (
+      <AssistantActions
+        onActionPress={handleActionPress}
+        isStandalone={!selectedItem}
+        animatedStyle={animationStyles.actionBar}
+      />
+    ),
+    [handleActionPress, selectedItem, animationStyles.actionBar]
   );
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <View style={styles.innerContainer}>
-        <AssistantCard
-          message={currentText}
-          isTyping={isStreaming}
-          containerStyle={animationStyles.cardContainer}
-          contentStyle={animationStyles.cardContent}
-        />
-
-        <AssistantActions
-          onActionPress={handleActionPress}
-          isStandalone={!selectedItem}
-          animatedStyle={animationStyles.actionBar}
-        />
+        {assistantCard}
+        {assistantActions}
       </View>
     </View>
   );
 };
 
-export default EventAssistant;
+export default React.memo(EventAssistant);

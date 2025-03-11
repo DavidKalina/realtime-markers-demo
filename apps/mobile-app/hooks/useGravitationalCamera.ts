@@ -1,5 +1,5 @@
 // hooks/useGravitationalCamera.ts
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import {
@@ -47,29 +47,43 @@ interface ViewportSample {
   timestamp: number;
 }
 
+const DEFAULT_CONFIG: GravitationConfig = {
+  minMarkersForPull: 1,
+  animationDuration: 650,
+  highVelocityAnimationDuration: 450,
+  cooldownPeriod: 2000,
+  gravityZoomLevel: 14,
+  highVelocityZoomLevel: 14.5,
+  centeringThreshold: 0.002,
+  highVelocityThreshold: 0.001,
+  velocityMeasurementWindow: 300,
+  velocitySampleSize: 5,
+  maxZoomOutAdjustment: 2,
+  maxZoomInAdjustment: 1,
+  preserveUserZoomLevel: true,
+};
+
 export function useGravitationalCamera(markers: Marker[], config: Partial<GravitationConfig> = {}) {
   const didMountRef = useRef(false);
 
   // Create a ref for the camera
   const cameraRef = useRef<MapboxGL.Camera>(null);
 
-  // Merge defaults with user config
-  const gravitationConfig: GravitationConfig = {
-    minMarkersForPull: 1, // Even one marker can trigger a pull
-    animationDuration: 650, // Slightly longer for smoother regular transitions
-    highVelocityAnimationDuration: 450, // Slightly longer for smoother high-velocity transitions
-    cooldownPeriod: 2000, // Don't pull again for 2 seconds
-    gravityZoomLevel: 14, // Regular zoom level when gravitating
-    highVelocityZoomLevel: 14.5, // Slightly higher zoom for high velocity (show more detail)
-    centeringThreshold: 0.002, // About 200m at the equator
-    highVelocityThreshold: 0.001, // Degrees/ms (approx 100m/s at the equator)
-    velocityMeasurementWindow: 300, // Look at pan movements in the last 300ms
-    velocitySampleSize: 5, // Keep 5 recent viewport positions for velocity calculation
-    maxZoomOutAdjustment: 2, // Maximum amount to zoom out for spread out markers
-    maxZoomInAdjustment: 1, // Maximum amount to zoom in for clustered markers
-    preserveUserZoomLevel: true, // NEW: Preserve user's current zoom level during gravitational pull
-    ...config,
-  };
+  const gravitationConfig = useMemo(
+    () => ({
+      ...DEFAULT_CONFIG,
+      ...config,
+    }),
+    [config]
+  );
+
+  // Memoize the config reference to use in callbacks
+  const configRef = useRef(gravitationConfig);
+
+  // Update the ref when config changes
+  useEffect(() => {
+    configRef.current = gravitationConfig;
+  }, [gravitationConfig]);
 
   const [isGravitatingEnabled, setIsGravitatingEnabled] = useState(true);
   const [isGravitating, setIsGravitating] = useState(false);
@@ -659,19 +673,31 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     };
   }, []);
 
-  // The returned API
-  return {
-    cameraRef,
-    isGravitatingEnabled,
-    isGravitating,
-    isHighVelocity,
-    toggleGravitation,
-    handleViewportChange,
-    animateToLocation,
-    animateToBounds,
-    visibleMarkers: visibleMarkersRef.current,
-    updateConfig: (newConfig: Partial<GravitationConfig>) => {
-      Object.assign(gravitationConfig, newConfig);
-    },
-  };
+  const api = useMemo(
+    () => ({
+      cameraRef,
+      isGravitatingEnabled,
+      isGravitating,
+      isHighVelocity,
+      toggleGravitation,
+      handleViewportChange,
+      animateToLocation,
+      animateToBounds,
+      visibleMarkers: visibleMarkersRef.current,
+      updateConfig: (newConfig: Partial<GravitationConfig>) => {
+        Object.assign(configRef.current, newConfig);
+      },
+    }),
+    [
+      isGravitatingEnabled,
+      isGravitating,
+      isHighVelocity,
+      toggleGravitation,
+      handleViewportChange,
+      animateToLocation,
+      animateToBounds,
+    ]
+  );
+
+  return api;
 }

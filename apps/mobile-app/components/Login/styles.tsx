@@ -3,7 +3,7 @@ import { StyleSheet, Dimensions } from "react-native";
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "transparent", // Changed from #222 to transparent to show background
+    backgroundColor: "transparent", // Remains transparent to show the background
   },
   headerContainer: {
     paddingTop: 10,
@@ -32,13 +32,13 @@ export const styles = StyleSheet.create({
   appTitle: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#fff",
+    color: "#333", // Changed from white to dark
     marginBottom: 12,
     textAlign: "center",
     fontFamily: "SpaceMono-Regular",
   },
   errorContainer: {
-    backgroundColor: "rgba(255, 70, 70, 0.2)",
+    backgroundColor: "rgba(255, 70, 70, 0.1)", // Lighter red background
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
@@ -46,20 +46,25 @@ export const styles = StyleSheet.create({
     borderColor: "rgba(255, 70, 70, 0.3)",
   },
   errorText: {
-    color: "#ff4646",
+    color: "#e53935", // Slightly darker red for better contrast
     fontSize: 14,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#333",
+    backgroundColor: "#fff", // Changed from dark to white
     borderRadius: 12,
     marginBottom: 16,
     paddingHorizontal: 12,
     height: 55,
     borderWidth: 1,
-    borderColor: "#444",
+    borderColor: "#ddd", // Lighter border
     zIndex: 3, // Ensure inputs are above background
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   inputIcon: {
     marginRight: 10,
@@ -67,7 +72,7 @@ export const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: "100%",
-    color: "#fff",
+    color: "#333", // Changed from white to dark
     fontSize: 16,
     fontFamily: "SpaceMono-Regular",
   },
@@ -75,7 +80,7 @@ export const styles = StyleSheet.create({
     padding: 8,
   },
   loginButton: {
-    backgroundColor: "#4dabf7",
+    backgroundColor: "#4dabf7", // Keeping the blue accent color
     borderRadius: 12,
     height: 55,
     justifyContent: "center",
@@ -89,7 +94,7 @@ export const styles = StyleSheet.create({
     zIndex: 3, // Ensure button is above background
   },
   loginButtonText: {
-    color: "#333",
+    color: "#fff", // Changed to white for better contrast on blue
     fontSize: 18,
     fontWeight: "600",
     fontFamily: "SpaceMono",
@@ -101,12 +106,12 @@ export const styles = StyleSheet.create({
     zIndex: 3, // Ensure links are above background
   },
   createAccountText: {
-    color: "#ccc",
+    color: "#666", // Changed from light gray to darker gray
     fontSize: 14,
     fontFamily: "SpaceMono-Regular",
   },
   createAccountLink: {
-    color: "#4dabf7",
+    color: "#4dabf7", // Keeping the blue accent color
     fontSize: 14,
     fontWeight: "600",
     fontFamily: "SpaceMono",
@@ -118,7 +123,7 @@ export const styles = StyleSheet.create({
     zIndex: 3, // Ensure button is above background
   },
   toggleManualText: {
-    color: "#aaa",
+    color: "#666", // Changed from light gray to darker gray
     fontSize: 14,
     textDecorationLine: "underline",
     fontFamily: "SpaceMono-Regular",
@@ -129,15 +134,20 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#333",
+    backgroundColor: "#fff", // Changed from dark to white
     borderRadius: 12,
     marginBottom: 16,
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: "#444",
+    borderColor: "#ddd", // Lighter border
     height: 55,
     zIndex: 4, // Higher zIndex for dropdown
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   selectedProfileContainer: {
     flexDirection: "row",
@@ -155,7 +165,7 @@ export const styles = StyleSheet.create({
     marginRight: 2,
   },
   selectedProfileName: {
-    color: "#fff",
+    color: "#333", // Changed from white to dark
     fontSize: 15,
     fontFamily: "SpaceMono-Regular",
     fontWeight: "500",
@@ -183,7 +193,7 @@ export const styles = StyleSheet.create({
     borderColor: "rgba(77, 171, 247, 0.3)",
   },
   selectProfileText: {
-    color: "#bbb",
+    color: "#666", // Changed from light gray to darker gray
     fontSize: 16,
     fontFamily: "SpaceMono-Regular",
   },
@@ -194,7 +204,7 @@ export const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0, 0, 0, 0.5)", // Slightly lighter overlay
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -204,14 +214,14 @@ export const styles = StyleSheet.create({
     width: "90%",
     maxWidth: 400,
     maxHeight: 300,
-    backgroundColor: "#333",
+    backgroundColor: "#fff", // Changed from dark to white
     borderRadius: 12,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#444",
+    borderColor: "#ddd", // Lighter border
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.3,
     shadowRadius: 10,
     elevation: 10,
     zIndex: 10, // Ensure dropdown is on top
@@ -226,14 +236,14 @@ export const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
-    borderBottomColor: "#444",
+    borderBottomColor: "#eee", // Lighter border
   },
   profileEmojiSmall: {
     fontSize: 24,
     marginRight: 12,
   },
   profileDropdownName: {
-    color: "#fff",
+    color: "#333", // Changed from white to dark
     fontSize: 16,
     fontFamily: "SpaceMono-Regular",
     flex: 1,

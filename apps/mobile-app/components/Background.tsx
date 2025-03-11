@@ -12,7 +12,7 @@ const BASE_PITCH = 45; // Increased base pitch for better globe view
 const DEFAULT_LOCATION = {
   center: [0, 10], // Start more centered on the globe
   zoom: 1.4, // Zoomed out enough to see full globe
-  styleURL: Mapbox.StyleURL.Dark,
+  styleURL: Mapbox.StyleURL.Light, // Changed from Dark to Light
 };
 
 interface AnimatedGlobeBackgroundProps {
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(20, 20, 30, 0.75)", // Slightly darker overlay with blue tint for space feel
+    backgroundColor: "rgba(245, 245, 250, 0.6)", // Light overlay with slight blue tint
   },
 });
 
