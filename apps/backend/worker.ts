@@ -60,7 +60,6 @@ async function initializeWorker() {
 
   // Create event processing service with the updated constructor signature
   const eventProcessingService = new EventProcessingService(
-    eventRepository,
     categoryProcessingService,
     eventSimilarityService,
     locationResolutionService

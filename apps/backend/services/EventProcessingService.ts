@@ -1,18 +1,18 @@
 // services/EventProcessingService.ts
-import { Repository } from "typeorm";
-import { Event } from "../entities/Event";
-import type { Point } from "geojson";
-import type { CategoryProcessingService } from "./CategoryProcessingService";
-import type { Category } from "../entities/Category";
-import { fromZonedTime, format } from "date-fns-tz";
 import { parseISO } from "date-fns";
-import { ImageProcessingService } from "./event-processing/ImageProcessingService";
-import { OpenAIService } from "./shared/OpenAIService";
+import { format, fromZonedTime } from "date-fns-tz";
+import type { Point } from "geojson";
+import type { Category } from "../entities/Category";
+import type { CategoryProcessingService } from "./CategoryProcessingService";
 import type { SimilarityResult } from "./event-processing/dto/SimilarityResult";
+import { ImageProcessingService } from "./event-processing/ImageProcessingService";
+import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
 import type { IEventSimilarityService } from "./event-processing/interfaces/IEventSimilarityService";
 import type { ILocationResolutionService } from "./event-processing/interfaces/ILocationResolutionService";
 import { LocationResolutionService } from "./event-processing/LocationResolutionService";
 import { ConfigService } from "./shared/ConfigService";
+import { EmbeddingService, type EmbeddingInput } from "./shared/EmbeddingService";
+import { OpenAIService } from "./shared/OpenAIService";
 
 interface LocationContext {
   userCoordinates?: { lat: number; lng: number };
@@ -44,9 +44,9 @@ interface ProgressCallback {
 export class EventProcessingService {
   private imageProcessingService: ImageProcessingService;
   private locationResolutionService: ILocationResolutionService;
+  private embeddingService: IEmbeddingService;
 
   constructor(
-    private eventRepository: Repository<Event>,
     private categoryProcessingService: CategoryProcessingService,
     private eventSimilarityService: IEventSimilarityService,
     locationResolutionService?: ILocationResolutionService,
@@ -58,6 +58,8 @@ export class EventProcessingService {
     // Use provided location service or create a new one
     this.locationResolutionService =
       locationResolutionService || new LocationResolutionService(configService);
+
+    this.embeddingService = EmbeddingService.getInstance(configService);
   }
 
   async processFlyerFromImage(
@@ -368,64 +370,23 @@ export class EventProcessingService {
   }
 
   private async generateEmbedding(eventDetails: EventDetails | string): Promise<number[]> {
-    let inputText: string;
-
     if (typeof eventDetails === "string") {
-      // Handle the case where raw text is passed - just use it directly
-      inputText = eventDetails;
+      // For raw text, use the embedding service directly
+      return await this.embeddingService.getEmbedding(eventDetails);
     } else {
-      // Extract location data for special weighting
-      const coordinates = eventDetails.location.coordinates;
-      const roundedCoords = [
-        Math.round(coordinates[0] * 1000) / 1000, // Round to 3 decimal places (~110m precision)
-        Math.round(coordinates[1] * 1000) / 1000,
-      ];
-
-      // Format the date in a standardized way
-      let dateStr = "";
-      try {
-        const date = new Date(eventDetails.date);
-        if (!isNaN(date.getTime())) {
-          // Format as YYYY-MM-DD
-          dateStr = date.toISOString().split("T")[0];
-        }
-      } catch (e) {
-        // If date parsing fails, use the original string
-        dateStr = eventDetails.date;
-      }
-
-      // Create a weighted text representation with stronger location emphasis
-      const weightedItems = [
-        // Title gets strong weight (4x)
-        `TITLE: ${eventDetails.title.repeat(4)}`,
-
-        // Date with standardized format for better matching (2x)
-        `DATE: ${dateStr.repeat(2)}`,
-
-        // Include timezone if available
-        eventDetails.timezone ? `TIMEZONE: ${eventDetails.timezone}` : "",
-
-        // Location and address get the most weight (5-6x)
-        `COORDS: ${roundedCoords.join(",")}`.repeat(2),
-        `ADDRESS: ${eventDetails.address.repeat(5)}`,
-
-        // Description gets normal weight
-        `DESCRIPTION: ${eventDetails.description}`,
-      ];
-
-      // Join with double newlines for clear section separation
-      inputText = weightedItems.filter(Boolean).join("\n\n");
-
-      console.log("Generating embedding with weighted format:", {
+      // For structured event details, create an appropriate embedding input
+      const input: EmbeddingInput = {
+        text: eventDetails.description || "",
         title: eventDetails.title,
+        date: eventDetails.date,
+        coordinates: eventDetails.location.coordinates as [number, number],
         address: eventDetails.address,
-        coordinates: roundedCoords.join(","),
         timezone: eventDetails.timezone,
-        textLength: inputText.length,
-      });
-    }
+        // Use default weights from EmbeddingService
+      };
 
-    // Use the OpenAIService helper method for embeddings
-    return await OpenAIService.generateEmbedding(inputText);
+      // Generate a structured embedding
+      return await this.embeddingService.getStructuredEmbedding(input);
+    }
   }
 }

@@ -142,7 +142,6 @@ async function initializeServices() {
 
   // Create event processing service with updated constructor signature
   const eventProcessingService = new EventProcessingService(
-    eventRepository,
     categoryProcessingService,
     eventSimilarityService,
     locationResolutionService,
