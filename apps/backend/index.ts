@@ -26,6 +26,8 @@ import { ConfigService } from "./services/shared/ConfigService";
 import { OpenAIService } from "./services/shared/OpenAIService";
 import { UserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
+import { EventExtractionService } from "./services/event-processing/EventExtractionService";
+import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -138,12 +140,23 @@ async function initializeServices() {
   // Create the location resolution service
   const locationResolutionService = new LocationResolutionService(configService);
 
-  // Create event processing service with updated constructor signature
+  // Create the image processing service
+  const imageProcessingService = new ImageProcessingService();
+
+  // Create the event extraction service
+  const eventExtractionService = new EventExtractionService(
+    categoryProcessingService,
+    locationResolutionService
+  );
+
+  // Create event processing service with all dependencies
   const eventProcessingService = new EventProcessingService({
     categoryProcessingService,
     eventSimilarityService,
     locationResolutionService,
+    imageProcessingService,
     configService,
+    eventExtractionService,
   });
 
   // Initialize the UserPreferencesService
