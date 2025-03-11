@@ -55,6 +55,7 @@ interface ApiEvent {
   title: string;
   description?: string;
   eventDate: string;
+  endDate?: string;
   location: Location;
   address?: string;
   categories?: { id: string; name: string }[];
@@ -307,6 +308,7 @@ class ApiClient {
       title: apiEvent.title,
       description: apiEvent.description || "",
       eventDate: apiEvent.eventDate, // Add this - keep original ISO string
+      endDate: apiEvent.endDate ?? undefined,
       time: new Date(apiEvent.eventDate).toLocaleString(), // Keep for backward compatibility
       coordinates: apiEvent.location.coordinates,
       location: apiEvent.address || "Location not specified",

@@ -364,12 +364,24 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                   </View>
                   <Text style={styles.detailValue}>
                     {formatDate(event.eventDate, event.timezone)}
+                    {event.endDate && (
+                      <>
+                        {" - "}
+                        {formatDate(event.endDate, event.timezone)}
+                      </>
+                    )}
                   </Text>
 
                   {/* Add user's local time if different */}
                   {getUserLocalTime(event.eventDate, event.timezone) && (
                     <Text style={styles.timezoneText}>
                       {getUserLocalTime(event.eventDate, event.timezone)}
+                      {event.endDate && (
+                        <>
+                          {" - "}
+                          {getUserLocalTime(event.endDate, event.timezone)}
+                        </>
+                      )}
                     </Text>
                   )}
                 </View>
