@@ -1,6 +1,6 @@
 // src/services/EnhancedLocationService.ts
 import { createHash } from "crypto";
-import { OpenAIService } from "./OpenAIService";
+import { OpenAIService } from "./shared/OpenAIService";
 import { find } from "geo-tz"; // Import geo-tz for timezone lookup
 
 // 1. Add a location cache to prevent redundant API calls

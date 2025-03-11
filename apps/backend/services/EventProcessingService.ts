@@ -5,10 +5,11 @@ import { Event } from "../entities/Event";
 import type { Point } from "geojson";
 import type { CategoryProcessingService } from "./CategoryProcessingService";
 import type { Category } from "../entities/Category";
-import { OpenAIService } from "./OpenAIService";
 import { EnhancedLocationService } from "./LocationService";
 import { fromZonedTime, format } from "date-fns-tz";
 import { parseISO } from "date-fns";
+import { ImageProcessingService } from "./event-processing/ImageProcessingService";
+import { OpenAIService } from "./shared/OpenAIService";
 
 interface LocationContext {
   userCoordinates?: { lat: number; lng: number };
@@ -32,18 +33,18 @@ interface ScanResult {
   similarity: {
     score: number;
     matchingEventId?: string;
+    matchReason?: string;
+    matchDetails?: Record<string, any>;
   };
   isDuplicate?: boolean;
 }
-
-// Add this interface for progress reporting
 interface ProgressCallback {
   (message: string, metadata?: Record<string, any>): Promise<void>;
 }
-
 export class EventProcessingService {
   // Private reference to the location service
   private locationService: EnhancedLocationService;
+  private imageProcessingService: ImageProcessingService;
   private readonly DUPLICATE_SIMILARITY_THRESHOLD = 0.72;
   private readonly SAME_LOCATION_THRESHOLD = 0.65;
 
@@ -53,6 +54,8 @@ export class EventProcessingService {
   ) {
     // Get the location service instance
     this.locationService = EnhancedLocationService.getInstance();
+    // Initialize the image processing service
+    this.imageProcessingService = new ImageProcessingService();
   }
 
   private async handleDuplicateScan(eventId: string): Promise<void> {
@@ -71,29 +74,18 @@ export class EventProcessingService {
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
-    // Convert the image data to a base64 string if necessary
-    let base64Image: string;
-    if (typeof imageData === "string" && imageData.startsWith("data:image")) {
-      base64Image = imageData;
-    } else if (typeof imageData === "string") {
-      const buffer = await import("fs/promises").then((fs) => fs.readFile(imageData));
-      base64Image = `data:image/jpeg;base64,${buffer.toString("base64")}`;
-    } else {
-      base64Image = `data:image/jpeg;base64,${imageData.toString("base64")}`;
-    }
-
     // Report progress: Vision API processing
     if (progressCallback) {
       await progressCallback("Analyzing image with Vision API...");
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
-    // Call Vision API
-    const visionResult = await this.processComprehensiveVisionAPI(base64Image);
+    // Use the new ImageProcessingService to process the image
+    const visionResult = await this.imageProcessingService.processImage(imageData);
 
-    console.log("VISION_RESULT", visionResult.text);
+    console.log("VISION_RESULT", visionResult.rawText);
 
-    const extractedText = visionResult.text || "";
+    const extractedText = visionResult.rawText || "";
 
     // Report progress after vision processing
     if (progressCallback) {
@@ -189,57 +181,6 @@ export class EventProcessingService {
       eventDetails: eventDetailsWithCategories,
       similarity,
       isDuplicate: isDuplicate || false,
-    };
-  }
-
-  private async processComprehensiveVisionAPI(base64Image: string) {
-    const response = await OpenAIService.executeChatCompletion({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `Please analyze this event flyer and extract as much detail as possible:
-                   - Event Title
-                   - Event Date and Time (be specific about year, month, day, time)
-                   - Any timezone information (EST, PST, GMT, etc.)
-                   - Full Location Details (venue name, address, city, state)
-                   - Complete Description
-                   - Any contact information
-                   - Any social media handles
-                   - Any other important details
-
-                   Also, provide a confidence score between 0 and 1, indicating how confident you are that the extraction is an event.
-                   Consider whether there's a date, a time, and a location.`,
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: base64Image,
-              },
-            },
-          ],
-        },
-      ],
-      max_tokens: 1000,
-    });
-
-    const content = response.choices[0].message.content;
-
-    // Extract confidence score from the response
-    const extractConfidenceScore = (text: string): number => {
-      const match = text.match(/Confidence Score[^\d]*(\d*\.?\d+)/i);
-      return match ? parseFloat(match[1]) : 0.5; // Default to 0.5 if not found
-    };
-
-    const confidence = extractConfidenceScore(content || "");
-
-    return {
-      success: true,
-      text: content,
-      confidence: confidence,
     };
   }
 

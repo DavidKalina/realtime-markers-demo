@@ -4,8 +4,8 @@ import { Brackets, DataSource, Repository, type DeepPartial } from "typeorm";
 import { Category } from "../entities/Category";
 import { Event, EventStatus } from "../entities/Event";
 import { UserEventSave } from "../entities/UserEventSave";
-import { CacheService } from "./CacheService";
-import { OpenAIService } from "./OpenAIService";
+import { CacheService } from "./shared/CacheService";
+import { OpenAIService } from "./shared/OpenAIService";
 import { EnhancedLocationService } from "./LocationService";
 
 interface SearchResult {

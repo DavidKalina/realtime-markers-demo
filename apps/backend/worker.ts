@@ -3,7 +3,7 @@ import Redis from "ioredis";
 import { EventProcessingService } from "./services/EventProcessingService";
 import { EventService } from "./services/EventService";
 import AppDataSource from "./data-source";
-import { OpenAIService } from "./services/OpenAIService";
+import { OpenAIService } from "./services/shared/OpenAIService";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
 import { EnhancedLocationService } from "./services/LocationService";
 import { Event } from "./entities/Event";
