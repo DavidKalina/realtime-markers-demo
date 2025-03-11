@@ -11,11 +11,12 @@ export const filterRouter = new Hono<AppContext>();
 filterRouter.use("*", authMiddleware);
 
 // Filter CRUD endpoints
-filterRouter.get("/", handlers.getFiltersHandler);
-filterRouter.post("/", handlers.createFilterHandler);
-filterRouter.put("/:id", handlers.updateFilterHandler);
-filterRouter.delete("/:id", handlers.deleteFilterHandler);
 
 // Filter application endpoints
 filterRouter.post("/apply", handlers.applyFiltersHandler);
 filterRouter.delete("/clear", handlers.clearFiltersHandler);
+
+filterRouter.put("/:id", handlers.updateFilterHandler);
+filterRouter.delete("/:id", handlers.deleteFilterHandler);
+filterRouter.post("/", handlers.createFilterHandler);
+filterRouter.get("/", handlers.getFiltersHandler);
