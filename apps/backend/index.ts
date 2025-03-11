@@ -21,6 +21,9 @@ import { EventService } from "./services/EventService";
 import { JobQueue } from "./services/JobQueue";
 import { OpenAIService } from "./services/OpenAIService";
 import type { AppContext } from "./types/context";
+import { Filter } from "./entities/Filter";
+import { UserPreferencesService } from "./services/UserPreferences";
+import { filterRouter } from "./routes/filters";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -119,6 +122,7 @@ async function initializeServices() {
 
   const categoryRepository = dataSource.getRepository(Category);
   const eventRepository = dataSource.getRepository(Event);
+  const filterRepository = dataSource.getRepository(Filter);
 
   const categoryProcessingService = new CategoryProcessingService(openai, categoryRepository);
 
@@ -129,29 +133,34 @@ async function initializeServices() {
     categoryProcessingService
   );
 
+  // Initialize the UserPreferencesService
+  const userPreferencesService = new UserPreferencesService(dataSource, redisPub);
+
   console.log("Services initialized successfully");
   return {
     eventService,
     eventProcessingService,
     categoryProcessingService,
+    userPreferencesService,
   };
 }
 
 // Initialize all services async
 const services = await initializeServices();
 
-// Add services to context - properly typed
 app.use("*", async (c, next) => {
   c.set("eventService", services.eventService);
   c.set("eventProcessingService", services.eventProcessingService);
   c.set("jobQueue", jobQueue);
   c.set("redisClient", redisPub);
+  c.set("userPreferencesService", services.userPreferencesService);
   await next();
 });
 
 // Register event routes using the router from routes/events.ts
 app.route("/api/events", eventsRouter);
 app.route("/api/auth", authRouter);
+app.route("/api/filters", filterRouter);
 app.route("/api/internal", internalRouter);
 
 // =============================================================================

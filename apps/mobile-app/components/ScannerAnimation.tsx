@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { StyleSheet, View, Dimensions } from "react-native";
+import { StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,60 +10,89 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 
+// Animation configurations - defined outside component
+const SCANNER_ANIMATIONS = {
+  SCAN_LINE: {
+    EASING: Easing.inOut(Easing.ease),
+    RESET_DURATION: 300,
+  },
+};
+
 interface ScannerAnimationProps {
   isActive: boolean;
   color?: string;
   speed?: number;
 }
 
-export const ScannerAnimation: React.FC<ScannerAnimationProps> = ({
-  isActive,
-  color = "#4dabf7",
-  speed = 1500,
-}) => {
-  // Animation value for the scanner bar position (0 to 1)
-  const scanPosition = useSharedValue(0);
+export const ScannerAnimation: React.FC<ScannerAnimationProps> = React.memo(
+  ({ isActive, color = "#4dabf7", speed = 1500 }) => {
+    // Animation value for the scanner bar position (0 to 100%)
+    const scanPosition = useSharedValue(0);
 
-  // Start or stop the animation based on isActive prop
-  useEffect(() => {
-    if (isActive) {
-      // Start the scanning animation - move from top to bottom and back
-      scanPosition.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: speed, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: speed, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1, // Infinite repetitions
-        false // Don't reverse
-      );
-    } else {
-      // Stop the animation
+    // Start or stop the animation based on isActive prop
+    useEffect(() => {
+      // Always cancel any existing animation first to prevent conflicts
       cancelAnimation(scanPosition);
-      scanPosition.value = withTiming(0, { duration: 300 });
-    }
 
-    // Clean up on unmount
-    return () => {
-      cancelAnimation(scanPosition);
-    };
-  }, [isActive, speed]);
+      if (isActive) {
+        // Start the scanning animation
+        scanPosition.value = 0; // Reset to start
 
-  // Animated style for the scanner bar - using a numeric transform value
-  const scanLineStyle = useAnimatedStyle(() => {
-    // Get the container height to calculate the actual translation amount
-    // This ensures the scan line moves from top to bottom
-    return {
-      transform: [{ translateY: scanPosition.value * 1000 - 2 }],
-    };
-  });
+        // Use withSequence to create a smoother animation loop
+        scanPosition.value = withRepeat(
+          withSequence(
+            withTiming(100, {
+              duration: speed,
+              easing: SCANNER_ANIMATIONS.SCAN_LINE.EASING,
+            }),
+            withTiming(0, {
+              duration: speed,
+              easing: SCANNER_ANIMATIONS.SCAN_LINE.EASING,
+            })
+          ),
+          -1, // Infinite repetitions
+          false // Don't reverse
+        );
+      } else {
+        // Smoothly reset to zero when not active
+        scanPosition.value = withTiming(0, {
+          duration: SCANNER_ANIMATIONS.SCAN_LINE.RESET_DURATION,
+        });
+      }
 
-  return (
-    <View style={styles.container}>
-      <Animated.View style={[styles.scanLine, scanLineStyle, { backgroundColor: color }]} />
-    </View>
-  );
-};
+      // Clean up on unmount or when props change
+      return () => {
+        cancelAnimation(scanPosition);
+      };
+    }, [isActive, speed, scanPosition]);
 
+    // Animated style using top percentage
+    const scanLineStyle = useAnimatedStyle(
+      () => ({
+        top: `${scanPosition.value}%`,
+        backgroundColor: color,
+        shadowColor: color,
+      }),
+      [color]
+    ); // Add color as a dependency to rebuild style when color changes
+
+    return (
+      <Animated.View style={styles.container}>
+        <Animated.View style={[styles.scanLine, scanLineStyle]} />
+      </Animated.View>
+    );
+  },
+  // Custom equality function for React.memo
+  (prevProps, nextProps) => {
+    return (
+      prevProps.isActive === nextProps.isActive &&
+      prevProps.color === nextProps.color &&
+      prevProps.speed === nextProps.speed
+    );
+  }
+);
+
+// Styles defined once outside the component
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
@@ -73,14 +102,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     overflow: "hidden",
     zIndex: 5,
+    // Adding a backgroundColor with 0 opacity can help with GPU compositing
+    backgroundColor: "transparent",
   },
   scanLine: {
     position: "absolute",
     left: 0,
     right: 0,
     height: 3,
-    backgroundColor: "#4dabf7",
-    shadowColor: "#4dabf7",
+    // Base styles moved to animated style for fewer style calculations
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 10,

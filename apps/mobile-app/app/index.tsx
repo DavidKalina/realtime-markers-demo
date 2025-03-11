@@ -8,162 +8,277 @@ import { useUserLocation } from "@/contexts/LocationContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useGravitationalCamera } from "@/hooks/useGravitationalCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
-import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
+import {
+  BaseEvent,
+  EventTypes,
+  MapItemEvent,
+  MarkerItem,
+  ClusterItem,
+} from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import MapboxGL from "@rnmapbox/maps";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { ActivityIndicator, Animated, Platform, Text, View } from "react-native";
 
+// Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
+if (Platform.OS === "android") {
+  MapboxGL.setTelemetryEnabled(false);
+}
 
-export default function HomeScreen() {
+// Memoized UI components
+const LoadingOverlay = React.memo(() => (
+  <View style={styles.loadingOverlay}>
+    <ActivityIndicator size="large" color="#4dabf7" />
+    <Text style={styles.loadingText}>Getting your location...</Text>
+  </View>
+));
+
+const UserLocationPoint = React.memo(({ userLocation }: { userLocation: [number, number] }) => (
+  <MapboxGL.PointAnnotation id="userLocation" coordinate={userLocation} title="Your Location">
+    <View style={styles.userLocationMarker}>
+      <View style={styles.userLocationDot} />
+    </View>
+  </MapboxGL.PointAnnotation>
+));
+
+const GravitatingOverlay = React.memo(() => (
+  <Animated.View
+    style={[
+      styles.pulseOverlay,
+      {
+        opacity: 0.15,
+      },
+    ]}
+  />
+));
+
+// Configuration constants
+const GRAVITATIONAL_CAMERA_CONFIG = {
+  minMarkersForPull: 1,
+  animationDuration: 500,
+  cooldownPeriod: 2000,
+  gravityZoomLevel: 14,
+  centeringThreshold: 0.003,
+  velocitySampleSize: 3,
+  velocityMeasurementWindow: 200,
+};
+
+function HomeScreen() {
   const [isMapReady, setIsMapReady] = useState(false);
   const mapRef = useRef<MapboxGL.MapView>(null);
   const { publish } = useEventBroker();
 
-  // Use the selectMapItem from the updated store
+  // Store references
   const { selectMapItem } = useLocationStore();
-
-  // We can keep references to these for backward compatibility
   const selectedItem = useLocationStore((state) => state.selectedItem);
 
+  // User location hooks
   const { userLocation, locationPermissionGranted, isLoadingLocation, getUserLocation } =
     useUserLocation();
 
-  const mapWebSocketData = useMapWebSocket(process.env.EXPO_PUBLIC_WEB_SOCKET_URL!);
-  const { markers, isConnected, updateViewport, currentViewport } = mapWebSocketData;
+  // WebSocket and map data
+  const { markers, isConnected, updateViewport, currentViewport } = useMapWebSocket(
+    process.env.EXPO_PUBLIC_WEB_SOCKET_URL!
+  );
 
+  // Gravitational camera hook with memoized config
   const {
     cameraRef,
     isGravitating,
     handleViewportChange: handleGravitationalViewportChange,
-  } = useGravitationalCamera(markers, {
-    minMarkersForPull: 1,
-    animationDuration: 500,
-    cooldownPeriod: 2000, // Higher cooldown period
-    gravityZoomLevel: 14,
-    centeringThreshold: 0.003, // Slightly higher threshold
-    velocitySampleSize: 3, // Reduced sample size
-    velocityMeasurementWindow: 200, // Shorter measurement window
-  });
+  } = useGravitationalCamera(markers, GRAVITATIONAL_CAMERA_CONFIG);
 
+  // Get user location only when needed
   useEffect(() => {
-    // Setup code for MapboxGL
-    if (Platform.OS === "android") {
-      MapboxGL.setTelemetryEnabled(false);
-    }
-
-    // Get user location if needed
     if (!userLocation) {
       getUserLocation();
     }
 
-    // Return cleanup function
-    return () => {
-      // Clean up any MapboxGL resources
-      if (mapRef.current) {
-        // MapboxGL cleanup if needed
-      }
-      if (cameraRef.current) {
-        // Camera cleanup if needed
-      }
-    };
-  }, [userLocation]);
+    // Return cleanup function - empty since we moved MapboxGL setup outside component
+    return () => {};
+  }, [userLocation, getUserLocation]);
 
+  // Memoize map press handler to avoid recreation on each render
   const handleMapPress = useCallback(() => {
-    // Only proceed if we actually have a selected item
-    if (selectedItem) {
-      // First publish the MAP_ITEM_DESELECTED event before clearing the selection
-      // Import the exact types from EventBroker.tsx to ensure type compatibility
-      // We need to create the properly typed item for the MapItemEvent
-      if (selectedItem.type === "marker") {
-        // Create a MarkerItem compatible with EventBroker's definition
-        const markerItem: import("@/services/EventBroker").MarkerItem = {
-          id: selectedItem.id,
-          type: "marker",
-          coordinates: selectedItem.coordinates,
-          markerData: selectedItem.data,
-        };
+    if (!selectedItem) return;
 
-        // Publish with correct typing
-        publish<MapItemEvent>(EventTypes.MAP_ITEM_DESELECTED, {
-          timestamp: Date.now(),
-          source: "MapPress",
-          item: markerItem,
-        });
-      } else {
-        // Create a ClusterItem compatible with EventBroker's definition
-        const clusterItem: import("@/services/EventBroker").ClusterItem = {
-          id: selectedItem.id,
-          type: "cluster",
-          coordinates: selectedItem.coordinates,
-          count: selectedItem.count,
-          childMarkers: selectedItem.childrenIds,
-        };
+    // Create appropriate item type based on selection
+    if (selectedItem.type === "marker") {
+      const markerItem: MarkerItem = {
+        id: selectedItem.id,
+        type: "marker",
+        coordinates: selectedItem.coordinates,
+        markerData: selectedItem.data,
+      };
 
-        // Publish with correct typing
-        publish<MapItemEvent>(EventTypes.MAP_ITEM_DESELECTED, {
-          timestamp: Date.now(),
-          source: "MapPress",
-          item: clusterItem,
-        });
-      }
+      publish<MapItemEvent>(EventTypes.MAP_ITEM_DESELECTED, {
+        timestamp: Date.now(),
+        source: "MapPress",
+        item: markerItem,
+      });
+    } else {
+      const clusterItem: ClusterItem = {
+        id: selectedItem.id,
+        type: "cluster",
+        coordinates: selectedItem.coordinates,
+        count: selectedItem.count,
+        childMarkers: selectedItem.childrenIds,
+      };
 
-      // Then clear the selection in the store
-      selectMapItem(null);
+      publish<MapItemEvent>(EventTypes.MAP_ITEM_DESELECTED, {
+        timestamp: Date.now(),
+        source: "MapPress",
+        item: clusterItem,
+      });
     }
+
+    // Clear selection in store
+    selectMapItem(null);
   }, [selectMapItem, selectedItem, publish]);
 
-  const handleMapViewportChange = (feature: any) => {
-    try {
-      if (
-        feature?.properties?.visibleBounds &&
-        Array.isArray(feature.properties.visibleBounds) &&
-        feature.properties.visibleBounds.length === 2 &&
-        Array.isArray(feature.properties.visibleBounds[0]) &&
-        Array.isArray(feature.properties.visibleBounds[1])
-      ) {
-        const [[west, north], [east, south]] = feature.properties.visibleBounds;
-
-        const adjustedWest = Math.min(west, east);
-        const adjustedEast = Math.max(west, east);
-
-        updateViewport({
-          north,
-          south,
-          east: adjustedEast,
-          west: adjustedWest,
-        });
-
-        handleGravitationalViewportChange(feature);
-      } else {
-        console.warn("Invalid viewport bounds received:", feature?.properties?.visibleBounds);
-      }
-    } catch (error) {
-      console.error("Error processing viewport change:", error);
-      // Provide fallback behavior or recovery mechanism
+  // Extracted viewport processing to a separate function for clarity
+  const processViewportBounds = useCallback((bounds: any) => {
+    if (
+      !bounds ||
+      !Array.isArray(bounds) ||
+      bounds.length !== 2 ||
+      !Array.isArray(bounds[0]) ||
+      !Array.isArray(bounds[1])
+    ) {
+      return null;
     }
-  };
 
+    const [[west, north], [east, south]] = bounds;
+    return {
+      north,
+      south,
+      east: Math.max(west, east),
+      west: Math.min(west, east),
+    };
+  }, []);
+
+  // Memoize viewport change handler with error handling
+  const handleMapViewportChange = useCallback(
+    (feature: any) => {
+      try {
+        const viewport = processViewportBounds(feature?.properties?.visibleBounds);
+        if (viewport) {
+          updateViewport(viewport);
+          handleGravitationalViewportChange(feature);
+        }
+      } catch (error) {
+        console.error("Error processing viewport change:", error);
+      }
+    },
+    [updateViewport, handleGravitationalViewportChange, processViewportBounds]
+  );
+
+  // Memoize user pan handler
   const handleUserPan = useCallback(() => {
-    selectMapItem(null);
+    if (selectedItem) {
+      selectMapItem(null);
+    }
 
-    console.log("USER_PANNING");
     publish<BaseEvent>(EventTypes.USER_PANNING_VIEWPORT, {
       timestamp: Date.now(),
       source: "MapPress",
     });
-  }, []);
+  }, [selectMapItem, publish, selectedItem]);
+
+  // Memoize map ready handler
+  const handleMapReady = useCallback(() => {
+    setIsMapReady(true);
+    publish<BaseEvent>(EventTypes.MAP_READY, {
+      timestamp: Date.now(),
+      source: "HomeScreen",
+    });
+  }, [publish]);
+
+  // Memoize region changing handler
+  const handleRegionChanging = useCallback(
+    (feature: any) => {
+      handleMapViewportChange(feature);
+      publish<BaseEvent>(EventTypes.VIEWPORT_CHANGING, {
+        timestamp: Date.now(),
+        source: "HomeScreen",
+      });
+    },
+    [handleMapViewportChange, publish]
+  );
+
+  // Memoize default camera settings
+  const defaultCameraSettings = useMemo(
+    () => ({
+      centerCoordinate: userLocation!,
+      zoomLevel: 14,
+    }),
+    [userLocation]
+  );
+
+  // Memoize rendering conditions
+  const shouldRenderMarkers = useMemo(
+    () => isMapReady && !isLoadingLocation && currentViewport !== null,
+    [isMapReady, isLoadingLocation, currentViewport]
+  );
+
+  const shouldRenderUI = useMemo(
+    () => isMapReady && !isLoadingLocation,
+    [isMapReady, isLoadingLocation]
+  );
+
+  // Memoize UI elements to prevent unnecessary rerenders
+  const mapOverlays = useMemo(() => {
+    if (!shouldRenderUI) return null;
+
+    return (
+      <>
+        <ConnectionIndicator
+          eventsCount={markers.length}
+          initialConnectionState={isConnected}
+          position="top-right"
+          showAnimation={!selectedItem}
+        />
+        <QueueIndicator position="top-left" />
+      </>
+    );
+  }, [shouldRenderUI, markers.length, isConnected, selectedItem]);
+
+  const assistantOverlay = useMemo(() => {
+    if (!shouldRenderUI) return null;
+
+    return (
+      <View style={styles.assistantOverlay}>
+        <EventAssistant />
+      </View>
+    );
+  }, [shouldRenderUI]);
+
+  // Memoize the user location element
+  const userLocationElement = useMemo(() => {
+    if (!userLocation || !locationPermissionGranted) return null;
+
+    return <UserLocationPoint userLocation={userLocation} />;
+  }, [userLocation, locationPermissionGranted]);
+
+  // Memoize markers component for better performance
+  const markersComponent = useMemo(() => {
+    if (!shouldRenderMarkers) return null;
+
+    return <ClusteredMapMarkers markers={markers} viewport={currentViewport!} />;
+  }, [shouldRenderMarkers, markers, currentViewport]);
+
+  // Memoize user location layer
+  const userLocationLayer = useMemo(() => {
+    if (!locationPermissionGranted) return null;
+
+    return <MapboxGL.UserLocation visible={true} showsUserHeadingIndicator={true} />;
+  }, [locationPermissionGranted]);
 
   return (
     <AuthWrapper>
       <View style={styles.container}>
-        {isLoadingLocation && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#4dabf7" />
-            <Text style={styles.loadingText}>Getting your location...</Text>
-          </View>
-        )}
+        {isLoadingLocation && <LoadingOverlay />}
 
         <MapboxGL.MapView
           onTouchStart={handleUserPan}
@@ -176,86 +291,33 @@ export default function HomeScreen() {
           styleURL={MapboxGL.StyleURL.Light}
           logoEnabled={false}
           attributionEnabled={false}
-          onDidFinishLoadingMap={() => {
-            setIsMapReady(true);
-
-            // Emit map ready event
-            publish<BaseEvent>(EventTypes.MAP_READY, {
-              timestamp: Date.now(),
-              source: "HomeScreen",
-            });
-          }}
-          onRegionIsChanging={(feature) => {
-            handleMapViewportChange(feature);
-            publish<BaseEvent>(EventTypes.VIEWPORT_CHANGING, { timestamp: Date.now() });
-          }}
+          onDidFinishLoadingMap={handleMapReady}
+          onRegionIsChanging={handleRegionChanging}
         >
-          {/* Use our camera ref for more control */}
+          {/* Camera with ref for control */}
           <MapboxGL.Camera
-            pitch={55}
-            heading={-15}
             ref={cameraRef}
-            defaultSettings={{
-              // Default to Orem, UT if no user location
-              centerCoordinate: userLocation!,
-              zoomLevel: 14,
-            }}
+            defaultSettings={defaultCameraSettings}
             animationDuration={0}
           />
 
           {/* User location marker */}
-          {userLocation && locationPermissionGranted && (
-            <MapboxGL.PointAnnotation
-              id="userLocation"
-              coordinate={userLocation}
-              title="Your Location"
-            >
-              <View style={styles.userLocationMarker}>
-                <View style={styles.userLocationDot} />
-              </View>
-            </MapboxGL.PointAnnotation>
-          )}
+          {userLocationElement}
 
-          {/* Custom Map Markers - Using our simplified component with unified selection */}
-          {isMapReady && !isLoadingLocation && currentViewport && (
-            <ClusteredMapMarkers markers={markers} viewport={currentViewport} />
-          )}
+          {/* Map Markers */}
+          {markersComponent}
 
-          {/* Add user location layer for the blue dot */}
-          {locationPermissionGranted && (
-            <MapboxGL.UserLocation visible={true} showsUserHeadingIndicator={true} />
-          )}
+          {/* User location layer */}
+          {userLocationLayer}
         </MapboxGL.MapView>
 
-        {isGravitating && (
-          <Animated.View
-            style={[
-              styles.pulseOverlay,
-              {
-                opacity: 0.15,
-              },
-            ]}
-          />
-        )}
+        {isGravitating && <GravitatingOverlay />}
 
-        {isMapReady && !isLoadingLocation && (
-          <>
-            <ConnectionIndicator
-              eventsCount={markers.length}
-              initialConnectionState={isConnected}
-              position="top-right"
-              showAnimation={!selectedItem}
-            />
-            <QueueIndicator position="top-left" />
-          </>
-        )}
-
-        {isMapReady && !isLoadingLocation && (
-          <View style={styles.assistantOverlay}>
-            <EventAssistant />
-          </View>
-        )}
+        {mapOverlays}
+        {assistantOverlay}
       </View>
     </AuthWrapper>
   );
 }
+
+export default React.memo(HomeScreen);

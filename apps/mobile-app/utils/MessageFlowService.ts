@@ -56,6 +56,7 @@ const EMOJI_MAP: Record<string, string> = {
   "events are taking place": "📅",
   "group of": "👥",
   hotspot: "🔥",
+  Customize: "🎨",
   "event hub": "🌟",
 };
 
@@ -104,38 +105,6 @@ export class MessageFlowService {
     // Create an array of messages to be displayed in sequence
     const messages = [`You discovered ${title}!`];
 
-    // Add time information if available
-    if (timeInfo) {
-      // Format time message to match emoji map keys
-      if (timeInfo.includes("starting")) {
-        messages.push(timeInfo.replace("starting", "Starts in"));
-      } else if (timeInfo.includes("ongoing")) {
-        messages.push(timeInfo.replace("ongoing", "Happening now"));
-      } else {
-        messages.push(`time: ${timeInfo}`);
-      }
-    }
-
-    // Add verification status if available
-    if (marker.data?.isVerified) {
-      messages.push("This is a verified location ✓");
-    }
-
-    // Add rating if available
-    if (marker.data?.rating) {
-      messages.push(`It has a rating of ${marker.data.rating}/5 stars based on visitor reviews.`);
-    }
-
-    // Add description if available
-    if (marker.data?.description) {
-      messages.push(marker.data.description);
-    }
-
-    // Show all categories if multiple are available
-    if (marker.data?.categories && marker.data.categories.length > 1) {
-      messages.push(`Categories: ${marker.data.categories.join(", ")}`);
-    }
-
     return messages;
   }
 
@@ -183,6 +152,8 @@ export class MessageFlowService {
         return ["Launching your profile."];
       case "saved":
         return ["Let's see what you've bookmarked for later."];
+      case "filter":
+        return ["Customize your map experience."];
       default:
         return ["How can I help you with this location?"];
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
@@ -14,6 +14,57 @@ import Animated, {
 import { Feather } from "@expo/vector-icons";
 import { ScannerAnimation } from "@/components/ScannerAnimation";
 
+// Animation configurations - defined outside component to prevent recreation
+const ANIMATIONS: any = {
+  BORDER_PULSE: {
+    DURATION: 1500,
+    EASING: Easing.inOut(Easing.ease),
+  },
+  STATUS_CHANGE: {
+    DURATION: 300,
+  },
+  ALIGNED_PULSE: {
+    DURATION: 400,
+    EASING: Easing.inOut(Easing.ease),
+  },
+};
+
+// Status configurations for cleaner code
+const STATUS_CONFIG = {
+  none: {
+    message: null, // Use default message
+    icon: "move",
+    colorValue: 0,
+    opacityValue: 0.4,
+    scaleValue: 1,
+    scanColor: "#4dabf7",
+  },
+  detecting: {
+    message: "Almost there...",
+    icon: "search",
+    colorValue: 0.5,
+    opacityValue: 0.6,
+    scaleValue: 1.02,
+    scanColor: "#4dabf7",
+  },
+  aligned: {
+    message: "Ready to capture!",
+    icon: "check-circle",
+    colorValue: 1,
+    opacityValue: 0.8,
+    scaleValue: 1.02, // Base scale before pulse
+    scanColor: "#37D05C",
+  },
+  capturing: {
+    message: "Capturing document...",
+    icon: "camera",
+    colorValue: 1,
+    opacityValue: 0.9,
+    scaleValue: 1.05,
+    scanColor: "#37D05C",
+  },
+};
+
 interface ScannerOverlayProps {
   guideText?: string;
   detectionStatus?: "none" | "detecting" | "aligned";
@@ -21,7 +72,7 @@ interface ScannerOverlayProps {
   onFrameReady?: () => void;
 }
 
-export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
+export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) => {
   const {
     guideText = "Position your document",
     detectionStatus = "none",
@@ -29,117 +80,124 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
     onFrameReady,
   } = props;
 
-  // Animated values
+  // Refs to store timeouts
+  const frameReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const animationsSet = useRef(false);
+
+  // Shared values for animations - created once
   const borderWidth = useSharedValue(2);
   const colorAnimation = useSharedValue(0);
   const cornerOpacity = useSharedValue(0.4);
   const scaleAnimation = useSharedValue(1);
 
-  // Simple state
+  // Status-dependent state
   const [message, setMessage] = useState(guideText);
   const [icon, setIcon] = useState<string | null>(null);
   const [scanColor, setScanColor] = useState("#4dabf7");
 
-  // Update message and icon based on status
-  useEffect(() => {
-    // Cancel ongoing animations first to prevent conflicts
+  // Create unified cleanup function to cancel all animations
+  const cleanupAnimations = useCallback(() => {
+    cancelAnimation(borderWidth);
     cancelAnimation(colorAnimation);
     cancelAnimation(cornerOpacity);
     cancelAnimation(scaleAnimation);
+  }, [borderWidth, colorAnimation, cornerOpacity, scaleAnimation]);
 
-    if (isCapturing) {
-      setMessage("Capturing document...");
-      setIcon("camera");
-      colorAnimation.value = withTiming(1, { duration: 300 });
-      cornerOpacity.value = withTiming(0.9, { duration: 300 });
-      scaleAnimation.value = withTiming(1.05, { duration: 300 });
-      setScanColor("#37D05C");
-      return;
-    }
+  // Unified status update function
+  const updateStatusVisuals = useCallback(
+    (status: "none" | "detecting" | "aligned" | "capturing") => {
+      if (animationsSet.current) {
+        cleanupAnimations();
+      }
 
-    switch (detectionStatus) {
-      case "none":
-        setMessage(guideText);
-        setIcon("move");
-        colorAnimation.value = withTiming(0, { duration: 300 });
-        cornerOpacity.value = withTiming(0.4, { duration: 300 });
-        scaleAnimation.value = withTiming(1, { duration: 300 });
-        setScanColor("#4dabf7");
-        break;
-      case "detecting":
-        setMessage("Almost there...");
-        setIcon("search");
-        colorAnimation.value = withTiming(0.5, { duration: 300 });
-        cornerOpacity.value = withTiming(0.6, { duration: 300 });
-        scaleAnimation.value = withTiming(1.02, { duration: 300 });
-        setScanColor("#4dabf7");
-        break;
-      case "aligned":
-        setMessage("Ready to capture!");
-        setIcon("check-circle");
-        colorAnimation.value = withTiming(1, { duration: 300 });
-        cornerOpacity.value = withTiming(0.8, { duration: 300 });
-        // Pulse animation when aligned
+      const config =
+        status === "capturing" ? STATUS_CONFIG.capturing : STATUS_CONFIG[detectionStatus];
+
+      // Update message
+      setMessage(config.message || guideText);
+      setIcon(config.icon);
+      setScanColor(config.scanColor);
+
+      // Apply animations with proper timing
+      colorAnimation.value = withTiming(config.colorValue, {
+        duration: ANIMATIONS.STATUS_CHANGE.DURATION,
+      });
+
+      cornerOpacity.value = withTiming(config.opacityValue, {
+        duration: ANIMATIONS.STATUS_CHANGE.DURATION,
+      });
+
+      // Special pulse animation for aligned state
+      if (status === "aligned") {
         scaleAnimation.value = withRepeat(
           withSequence(
-            withTiming(1.05, { duration: 400, easing: Easing.inOut(Easing.ease) }),
-            withTiming(1.02, { duration: 400, easing: Easing.inOut(Easing.ease) })
+            withTiming(1.05, ANIMATIONS.ALIGNED_PULSE),
+            withTiming(config.scaleValue, ANIMATIONS.ALIGNED_PULSE)
           ),
           3,
           true
         );
-        setScanColor("#37D05C");
-        break;
-    }
+      } else {
+        scaleAnimation.value = withTiming(config.scaleValue, {
+          duration: ANIMATIONS.STATUS_CHANGE.DURATION,
+        });
+      }
 
-    // Return cleanup function for the animations in this effect
-    return () => {
-      cancelAnimation(colorAnimation);
-      cancelAnimation(cornerOpacity);
-      cancelAnimation(scaleAnimation);
-    };
-  }, [detectionStatus, guideText, isCapturing, colorAnimation, cornerOpacity, scaleAnimation]);
+      animationsSet.current = true;
+    },
+    [cleanupAnimations, detectionStatus, guideText, colorAnimation, cornerOpacity, scaleAnimation]
+  );
 
-  // Animate border width
+  // Update based on the component's props
   useEffect(() => {
-    // Cancel any existing animation first
-    cancelAnimation(borderWidth);
+    if (isCapturing) {
+      updateStatusVisuals("capturing");
+    } else {
+      updateStatusVisuals(detectionStatus);
+    }
+  }, [detectionStatus, isCapturing, updateStatusVisuals]);
 
+  // Separate effect for the constant border pulse animation
+  useEffect(() => {
     borderWidth.value = withRepeat(
       withSequence(
-        withTiming(2.5, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-        withTiming(2, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+        withTiming(2.5, ANIMATIONS.BORDER_PULSE),
+        withTiming(2, ANIMATIONS.BORDER_PULSE)
       ),
       -1,
       true
     );
 
-    // Return cleanup function for this specific animation
     return () => {
       cancelAnimation(borderWidth);
     };
   }, [borderWidth]);
 
-  // Handle callback
+  // Handle the frame ready callback
   useEffect(() => {
-    if (detectionStatus === "aligned" && onFrameReady) {
-      // Reduced the delay from 500ms to 300ms
-      const timer = setTimeout(onFrameReady, 300);
-      return () => clearTimeout(timer);
+    if (frameReadyTimeoutRef.current) {
+      clearTimeout(frameReadyTimeoutRef.current);
+      frameReadyTimeoutRef.current = null;
     }
+
+    if (detectionStatus === "aligned" && onFrameReady) {
+      frameReadyTimeoutRef.current = setTimeout(onFrameReady, 300);
+    }
+
+    return () => {
+      if (frameReadyTimeoutRef.current) {
+        clearTimeout(frameReadyTimeoutRef.current);
+        frameReadyTimeoutRef.current = null;
+      }
+    };
   }, [detectionStatus, onFrameReady]);
 
-  // Global cleanup effect to ensure all animations are canceled on unmount
+  // Master cleanup effect
   useEffect(() => {
-    return () => {
-      cancelAnimation(borderWidth);
-      cancelAnimation(colorAnimation);
-      cancelAnimation(cornerOpacity);
-      cancelAnimation(scaleAnimation);
-    };
-  }, [borderWidth, colorAnimation, cornerOpacity, scaleAnimation]);
+    return cleanupAnimations;
+  }, [cleanupAnimations]);
 
-  // Animated styles
+  // Memoized animated styles
   const frameStyle = useAnimatedStyle(() => {
     const borderColor = interpolateColor(
       colorAnimation.value,
@@ -154,14 +212,22 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
     };
   });
 
-  const cornerStyle = useAnimatedStyle(() => {
-    return {
-      opacity: cornerOpacity.value,
-    };
-  });
+  const cornerStyle = useAnimatedStyle(() => ({
+    opacity: cornerOpacity.value,
+  }));
 
-  // Show scanning animation when in detecting, aligned, or capturing modes
-  const showScanning = detectionStatus !== "none" || isCapturing;
+  // Determine if scanning animation should be shown - memoized
+  const showScanning = useMemo(
+    () => detectionStatus !== "none" || isCapturing,
+    [detectionStatus, isCapturing]
+  );
+
+  // Compute icon color - memoized
+  const iconColor = useMemo(() => {
+    if (detectionStatus === "aligned" || isCapturing) return "#37D05C";
+    if (detectionStatus === "detecting") return "#4dabf7";
+    return "#f8f9fa";
+  }, [detectionStatus, isCapturing]);
 
   return (
     <View style={overlayStyles.overlay}>
@@ -187,24 +253,13 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = (props) => {
       {/* Message container with icon */}
       <Animated.View style={overlayStyles.messageContainer} entering={FadeIn.duration(400)}>
         {icon && (
-          <Feather
-            name={icon as any}
-            size={18}
-            color={
-              detectionStatus === "aligned" || isCapturing
-                ? "#37D05C"
-                : detectionStatus === "detecting"
-                ? "#4dabf7"
-                : "#f8f9fa"
-            }
-            style={{ marginRight: 8 }}
-          />
+          <Feather name={icon as any} size={18} color={iconColor} style={overlayStyles.icon} />
         )}
         <Text style={overlayStyles.message}>{message}</Text>
       </Animated.View>
     </View>
   );
-};
+});
 
 const overlayStyles = StyleSheet.create({
   overlay: {

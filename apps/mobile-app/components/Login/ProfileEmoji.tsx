@@ -26,7 +26,7 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
   // Simple animation shared values
   const floatY = useSharedValue(0);
   const scale = useSharedValue(isActive ? 1.1 : 1);
-  const opacity = useSharedValue(isActive ? 1 : 0.7);
+  const opacity = useSharedValue(isActive ? 1 : 0.8); // Slightly higher base opacity
 
   // Setup simple floating animation
   useEffect(() => {
@@ -41,7 +41,7 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
   // Update scale and opacity when active state changes
   useEffect(() => {
     scale.value = withTiming(isActive ? 1.1 : 1, { duration: 300 });
-    opacity.value = withTiming(isActive ? 1 : 0.7, { duration: 300 });
+    opacity.value = withTiming(isActive ? 1 : 0.8, { duration: 300 });
   }, [isActive]);
 
   // Create animated style for emoji and container
@@ -58,11 +58,11 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
   const getBgColor = () => {
     switch (role?.toUpperCase()) {
       case "ADMIN":
-        return "rgba(255, 215, 0, 0.25)"; // Gold for admin
+        return "rgba(255, 215, 0, 0.2)"; // Slightly more transparent gold
       case "MODERATOR":
-        return "rgba(77, 171, 247, 0.25)"; // Blue for moderator
+        return "rgba(77, 171, 247, 0.2)"; // Slightly more transparent blue
       default:
-        return "rgba(255, 255, 255, 0.2)"; // Default for users
+        return "rgba(255, 255, 255, 0.6)"; // Lighter default bg
     }
   };
 
@@ -70,11 +70,11 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
   const getRoleColor = () => {
     switch (role?.toUpperCase()) {
       case "ADMIN":
-        return "#FFD700"; // Gold for admin
+        return "#e6bc00"; // Darker gold for better contrast
       case "MODERATOR":
-        return "#4dabf7"; // Blue for moderator
+        return "#1a8fe3"; // Darker blue for better contrast
       default:
-        return "#aaa"; // Default for users
+        return "#666"; // Darker gray for better contrast
     }
   };
 
@@ -88,7 +88,7 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
             height: size,
             borderRadius: size / 2,
             backgroundColor: getBgColor(),
-            borderColor: isActive ? getRoleColor() : "rgba(255, 255, 255, 0.2)",
+            borderColor: isActive ? getRoleColor() : "rgba(0, 0, 0, 0.1)", // Darker border for light theme
             borderWidth: isActive ? 2 : 1,
             shadowColor: getRoleColor(),
           },
@@ -110,7 +110,7 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
         style={[
           styles.nameText,
           {
-            opacity: isActive ? 1 : 0.7,
+            opacity: isActive ? 1 : 0.8,
             fontSize: isActive ? 14 : 12,
           },
         ]}
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   nameText: {
-    color: "#fff",
+    color: "#333", // Changed from white to dark
     marginTop: 8,
     textAlign: "center",
     fontWeight: "500",
@@ -156,9 +156,9 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     marginTop: 4,
-    shadowColor: "#fff",
+    shadowColor: "#000", // Changed from white to black
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
+    shadowOpacity: 0.2, // Less intense shadow
     shadowRadius: 3,
   },
 });

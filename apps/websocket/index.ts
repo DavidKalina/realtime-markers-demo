@@ -1,109 +1,209 @@
-// Enhanced WebSocket server with session management and health check
+// apps/websocket/src/index.ts
 import Redis from "ioredis";
-import RBush from "rbush";
 import type { Server, ServerWebSocket } from "bun";
 import { SessionManager } from "./SessionManager";
 
 // --- Type Definitions ---
-interface MarkerData {
-  id: string;
-  minX: number; // longitude
-  minY: number; // latitude
-  maxX: number; // longitude
-  maxY: number; // latitude
-  data: {
-    title: string;
-    emoji: string;
-    color: string;
-    created_at: string;
-    updated_at: string;
-  };
-}
-
 interface WebSocketData {
   clientId: string;
-  viewport?: BBox;
-  lastActivity?: number;
-  sessionId?: string; // Added for session management
+  userId?: string;
+  lastActivity: number;
+  sessionId?: string;
 }
 
-interface BBox {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-}
-
-// Define clear message types to keep code consistent
+// Define message types
 const MessageTypes = {
   // Connection messages
   CONNECTION_ESTABLISHED: "connection_established",
+  CLIENT_IDENTIFICATION: "client_identification",
 
-  // Viewport-related (what's visible to the user)
-  VIEWPORT_UPDATE: "viewport_update",
-  INITIAL_MARKERS: "initial_markers",
+  // Viewport-related
+  VIEWPORT_UPDATE: "viewport-update",
 
-  // Real-time updates (actual data changes)
-  MARKER_CREATED: "marker_created",
-  MARKER_UPDATED: "marker_updated",
-  MARKER_DELETED: "marker_deleted",
+  // Filtered events from filter processor
+  ADD_EVENT: "add-event",
+  UPDATE_EVENT: "update-event",
+  DELETE_EVENT: "delete-event",
+  REPLACE_ALL: "replace-all",
 
-  // Existing message types (for compatibility)
-  MARKER_DELETE: "marker_delete",
-  MARKER_UPDATES_BATCH: "marker_updates_batch",
-  DEBUG_EVENT: "debug_event",
+  ADD_JOB: "add_job",
+  JOB_ADDED: "job_added",
+  CANCEL_JOB: "cancel_job",
 
-  // New types for job session handling
+  // Session management
   CREATE_SESSION: "create_session",
+  CLEAR_SESSION: "clear_session",
   JOIN_SESSION: "join_session",
   SESSION_CREATED: "session_created",
   SESSION_JOINED: "session_joined",
   SESSION_UPDATE: "session_update",
-  ADD_JOB: "add_job",
-  JOB_ADDED: "job_added",
-  CANCEL_JOB: "cancel_job",
-  CLEAR_SESSION: "clear_session",
 };
 
 // --- In-Memory State ---
-const tree = new RBush<MarkerData>();
-const pendingUpdates = new Map<string, Set<MarkerData>>();
 const clients = new Map<string, ServerWebSocket<WebSocketData>>();
+const userToClients = new Map<string, Set<string>>();
+const userSubscribers = new Map<string, Redis>();
 
-// --- Create Redis Client ---
-const redis = new Redis({
+// --- Redis Client Configuration ---
+const redisConfig = {
   host: process.env.REDIS_HOST || "localhost",
   port: parseInt(process.env.REDIS_PORT || "6379"),
   password: process.env.REDIS_PASSWORD,
-});
+  retryStrategy: (times: number) => {
+    // Exponential backoff with max 10s
+    return Math.min(times * 100, 10000);
+  },
+};
 
-// --- Create Redis Subscriber ---
-const redisSub = new Redis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD,
-});
+// Main Redis client for publishing
+const redisPub = new Redis(redisConfig);
 
-// --- Initialize Session Manager ---
-const sessionManager = new SessionManager(redis);
+// Initialize session manager
+const sessionManager = new SessionManager(redisPub);
 
 // System health state
 const systemHealth = {
   backendConnected: false,
   redisConnected: false,
+  filterProcessorConnected: false,
   lastBackendCheck: 0,
   lastRedisCheck: 0,
+  lastFilterProcessorCheck: 0,
+  connectedClients: 0,
+  connectedUsers: 0,
 };
 
-// Subscribe to the "event_changes" channel immediately
-redisSub.subscribe("event_changes").catch((err) => {
-  console.error("Failed to subscribe to event_changes channel:", err);
-});
+function publishEmptyFilter(userId: string): void {
+  console.log(`📤 Publishing default empty filter for user ${userId} (will match all events)`);
+
+  redisPub.publish(
+    "filter-changes",
+    JSON.stringify({
+      userId,
+      filters: [], // Empty array means "match all events"
+      timestamp: new Date().toISOString(),
+    })
+  );
+}
+
+async function fetchUserFiltersAndPublish(userId: string): Promise<void> {
+  try {
+    console.log(`🔍 Fetching filters for user ${userId}`);
+
+    const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
+    const response = await fetch(`${backendUrl}/api/internal/filters?userId=${userId}`, {
+      headers: {
+        Accept: "application/json",
+        // Add any required authentication headers here
+      },
+      signal: AbortSignal.timeout(5000), // 5 second timeout
+    });
+
+    if (!response.ok) {
+      console.error(
+        `Failed to fetch filters for user ${userId}: ${response.status} ${response.statusText}`
+      );
+      // Default to empty filter set (match all) on error
+      publishEmptyFilter(userId);
+      return;
+    }
+
+    const filters = await response.json();
+
+    console.log("FILTERS", filters);
+
+    console.log(`📊 Fetched ${filters.length} filters for user ${userId}`);
+
+    // Get only active filters
+    const activeFilters = filters.filter((filter: any) => filter.isActive);
+    console.log(`📊 User ${userId} has ${activeFilters.length} active filters`);
+
+    // Publish to filter-changes
+    redisPub.publish(
+      "filter-changes",
+      JSON.stringify({
+        userId,
+        filters: activeFilters,
+        timestamp: new Date().toISOString(),
+      })
+    );
+
+    console.log(
+      `📤 Published filter update for user ${userId} with ${activeFilters.length} active filters`
+    );
+  } catch (error) {
+    console.error(`Error fetching filters for user ${userId}:`, error);
+    // Default to empty filter set (match all) on error
+    publishEmptyFilter(userId);
+  }
+}
+
+// Function to get or create a Redis subscriber for a user
+function getRedisSubscriberForUser(userId: string): Redis {
+  if (!userSubscribers.has(userId)) {
+    console.log(`Creating new Redis subscriber for user ${userId}`);
+
+    const subscriber = new Redis(redisConfig);
+    userSubscribers.set(userId, subscriber);
+
+    // Subscribe to user's filtered events channel
+    subscriber.subscribe(`user:${userId}:filtered-events`);
+
+    // Handle messages for this user
+    subscriber.on("message", (channel, message) => {
+      if (channel === `user:${userId}:filtered-events`) {
+        // Forward the filtered events to all clients for this user
+        forwardMessageToUserClients(userId, message);
+      }
+    });
+  }
+
+  return userSubscribers.get(userId)!;
+}
+
+// Forward a message to all clients for a user
+function forwardMessageToUserClients(userId: string, message: string): void {
+  const clientIds = userToClients.get(userId);
+  if (!clientIds) return;
+
+  let parsedMessage;
+  try {
+    parsedMessage = JSON.parse(message);
+    console.log(
+      `Forwarding message type ${parsedMessage.type} to ${clientIds.size} clients of user ${userId}`
+    );
+  } catch (error) {
+    console.error(`Error parsing message for user ${userId}:`, error);
+    return;
+  }
+
+  for (const clientId of clientIds) {
+    const client = clients.get(clientId);
+    if (client) {
+      try {
+        client.send(message);
+      } catch (error) {
+        console.error(`Error sending message to client ${clientId}:`, error);
+      }
+    }
+  }
+}
+
+// Release Redis subscriber for a user
+function releaseRedisSubscriber(userId: string): void {
+  const subscriber = userSubscribers.get(userId);
+  if (subscriber) {
+    subscriber.unsubscribe();
+    subscriber.quit();
+    userSubscribers.delete(userId);
+    console.log(`Released Redis subscriber for user ${userId}`);
+  }
+}
 
 // Function to check Redis connection
 async function checkRedisConnection(): Promise<boolean> {
   try {
-    const pong = await redis.ping();
+    const pong = await redisPub.ping();
     systemHealth.redisConnected = pong === "PONG";
     systemHealth.lastRedisCheck = Date.now();
     return systemHealth.redisConnected;
@@ -119,14 +219,10 @@ async function checkRedisConnection(): Promise<boolean> {
 async function checkBackendConnection(): Promise<boolean> {
   try {
     const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
-
     const response = await fetch(`${backendUrl}/api/health`, {
-      signal: controller.signal,
+      signal: AbortSignal.timeout(3000),
     });
 
-    clearTimeout(timeoutId);
     systemHealth.backendConnected = response.status === 200;
     systemHealth.lastBackendCheck = Date.now();
     return systemHealth.backendConnected;
@@ -138,303 +234,56 @@ async function checkBackendConnection(): Promise<boolean> {
   }
 }
 
-async function initializeState() {
-  const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
-  const maxRetries = 5;
-  const retryDelay = 2000; // 2 seconds
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(
-        `[Init] Attempt ${attempt}/${maxRetries} - Fetching events from API at ${backendUrl}/api/events`
-      );
-      const res = await fetch(`${backendUrl}/api/internal/events`);
-
-      if (!res.ok) {
-        throw new Error(`API returned status ${res.status}`);
-      }
-
-      const events = await res.json();
-      console.log(`[Init] Received ${events.length} events from API`);
-
-      const markerDataArray = events
-        .map((event: any) => {
-          if (!event.location?.coordinates) {
-            console.warn(`[Init] Event ${event.id} missing coordinates:`, event);
-            return null;
-          }
-
-          const [lng, lat] = event.location.coordinates;
-          return {
-            id: event.id,
-            minX: lng,
-            minY: lat,
-            maxX: lng,
-            maxY: lat,
-            data: {
-              title: event.title,
-              emoji: event.emoji,
-              color: "red",
-              created_at: event.created_at,
-              updated_at: event.updated_at,
-            },
-          } as MarkerData;
-        })
-        .filter(Boolean);
-
-      console.log(`[Init] Loading ${markerDataArray.length} events into RBush tree`);
-      tree.clear(); // Clear any existing data
-      tree.load(markerDataArray);
-      console.log("[Init] RBush tree initialized successfully");
-
-      // Log a sample of coordinates to verify data
-      if (markerDataArray.length > 0) {
-        console.log("[Init] Sample coordinates:", {
-          lng: markerDataArray[0].minX,
-          lat: markerDataArray[0].minY,
-        });
-      }
-
-      // Set backend as connected since we just successfully connected
-      systemHealth.backendConnected = true;
-      systemHealth.lastBackendCheck = Date.now();
-
-      return; // Success - exit the retry loop
-    } catch (error) {
-      console.error(`[Init] Attempt ${attempt}/${maxRetries} failed:`, error);
-
-      if (attempt === maxRetries) {
-        console.error("[Init] Max retries reached, giving up");
-        throw error;
-      }
-
-      console.log(`[Init] Waiting ${retryDelay}ms before next attempt...`);
-      await new Promise((resolve) => setTimeout(resolve, retryDelay));
-    }
-  }
-}
-
-// Helper function to check if a marker is in viewport
-function isMarkerInViewport(marker: MarkerData, viewport: BBox): boolean {
-  return (
-    marker.minX >= viewport.minX &&
-    marker.minX <= viewport.maxX &&
-    marker.minY >= viewport.minY &&
-    marker.minY <= viewport.maxY
-  );
-}
-
-// IMPORTANT: This is where we handle real-time updates from Redis
-redisSub.on("message", (channel, message) => {
-  // Set redis as connected since we just received a message
-  systemHealth.redisConnected = true;
-  systemHealth.lastRedisCheck = Date.now();
-
-  // Handle event_changes for markers
-  if (channel === "event_changes") {
-    try {
-      const { operation, record } = JSON.parse(message);
-
-      // --- DELETION HANDLING ---
-      if (operation === "DELETE") {
-        // Find and remove the marker from the R-tree
-        const markerToDelete = tree.all().find((marker) => marker.id === record.id);
-        if (markerToDelete) {
-          tree.remove(markerToDelete, (a, b) => a.id === b.id);
-
-          // Send real-time deletion notification to all clients
-          const deletePayload = JSON.stringify({
-            type: MessageTypes.MARKER_DELETED, // New message type
-            data: {
-              id: record.id,
-              timestamp: new Date().toISOString(),
-            },
-          });
-
-          // Also send legacy message type for backward compatibility
-          const legacyDeletePayload = JSON.stringify({
-            type: MessageTypes.MARKER_DELETE, // Original message type
-            data: {
-              id: record.id,
-              timestamp: new Date().toISOString(),
-            },
-          });
-
-          clients.forEach((client) => {
-            try {
-              // Send both new and legacy message types
-              client.send(deletePayload);
-              client.send(legacyDeletePayload);
-            } catch (error) {
-              console.error(
-                `Failed to send delete event to client ${client.data.clientId}:`,
-                error
-              );
-            }
-          });
-        }
-        return;
-      }
-
-      // --- CREATION/UPDATE HANDLING ---
-      const [lng, lat] = record.location.coordinates;
-
-      const markerData: MarkerData = {
-        id: record.id,
-        minX: lng,
-        minY: lat,
-        maxX: lng,
-        maxY: lat,
-        data: {
-          title: record.title,
-          emoji: record.emoji,
-          color: record.color,
-          created_at: record.created_at,
-          updated_at: record.updated_at,
-        },
-      };
-
-      // Determine if this is a new marker or an update
-      const isUpdate = operation === "UPDATE";
-      const isCreate = operation === "CREATE" || operation === "INSERT";
-
-      // If it's an update, remove the old marker first
-      if (isUpdate) {
-        tree.remove(markerData, (a, b) => a.id === b.id);
-      }
-
-      // Insert the new marker position
-      tree.insert(markerData);
-
-      // Add to pending updates for batch system (existing functionality)
-      let updates = pendingUpdates.get(record.id);
-      if (!updates) {
-        updates = new Set();
-        pendingUpdates.set(record.id, updates);
-      }
-      updates.add(markerData);
-
-      // IMPORTANT NEW FEATURE: Send real-time marker created/updated notifications
-      // This is separate from the viewport update system
-      const realTimePayload = JSON.stringify({
-        type: isCreate ? MessageTypes.MARKER_CREATED : MessageTypes.MARKER_UPDATED,
-        data: markerData,
-        timestamp: new Date().toISOString(),
-      });
-
-      // Send notifications to clients that have this marker in viewport
-      clients.forEach((client) => {
-        if (client.data.viewport && isMarkerInViewport(markerData, client.data.viewport)) {
-          try {
-            client.send(realTimePayload);
-            console.log(
-              `[Real-time] Sent ${isCreate ? "creation" : "update"} for marker ${
-                markerData.id
-              } to client ${client.data.clientId}`
-            );
-          } catch (error) {
-            console.error(
-              `Failed to send real-time update to client ${client.data.clientId}:`,
-              error
-            );
-          }
-        }
-      });
-
-      // Send debug event to all connected clients (existing functionality)
-      const debugPayload = JSON.stringify({
-        type: MessageTypes.DEBUG_EVENT,
-        data: {
-          operation,
-          eventId: record.id,
-          timestamp: new Date().toISOString(),
-          coordinates: [lng, lat],
-          details: record,
-        },
-      });
-
-      clients.forEach((client) => {
-        try {
-          client.send(debugPayload);
-        } catch (error) {
-          console.error(`Failed to send debug event to client ${client.data.clientId}:`, error);
-        }
-      });
-    } catch (error) {
-      console.error("Error processing Redis message:", error);
-    }
-  }
-});
-
-// --- Batch Update Routine ---
-// This is kept for compatibility with existing system
-setInterval(() => {
-  clients.forEach((client, clientId) => {
-    if (!client.data.viewport) return;
-
-    // Get all markers in client's viewport
-    const markersInView = tree.search(client.data.viewport);
-    const relevantUpdates = new Set<MarkerData>();
-
-    markersInView.forEach((marker) => {
-      const updates = pendingUpdates.get(marker.id);
-      if (updates) {
-        updates.forEach((update) => relevantUpdates.add(update));
-      }
+// Function to check filter processor connection
+async function checkFilterProcessorConnection(): Promise<boolean> {
+  try {
+    const filterProcessorUrl = process.env.FILTER_PROCESSOR_URL || "http://filter-processor:8082";
+    const response = await fetch(`${filterProcessorUrl}/health`, {
+      signal: AbortSignal.timeout(3000),
     });
 
-    if (relevantUpdates.size > 0) {
-      const payload = JSON.stringify({
-        type: MessageTypes.MARKER_UPDATES_BATCH,
-        data: Array.from(relevantUpdates),
-        timestamp: Date.now(),
-      });
+    systemHealth.filterProcessorConnected = response.status === 200;
+    systemHealth.lastFilterProcessorCheck = Date.now();
+    return systemHealth.filterProcessorConnected;
+  } catch (error) {
+    systemHealth.filterProcessorConnected = false;
+    systemHealth.lastFilterProcessorCheck = Date.now();
+    console.error("Filter Processor connection check failed:", error);
+    return false;
+  }
+}
 
-      try {
-        client.send(payload);
-      } catch (error) {
-        console.error(`Failed to send to client ${clientId}:`, error);
-      }
-    }
-  });
+// Update system health stats
+function updateHealthStats(): void {
+  systemHealth.connectedClients = clients.size;
+  systemHealth.connectedUsers = userToClients.size;
+}
 
-  pendingUpdates.clear();
-}, 50);
-
-// --- Health Check Routine ---
-// Periodically check external services
+// Run regular health checks
 setInterval(async () => {
-  // Only check if last check was more than 30 seconds ago
-  const now = Date.now();
-  if (now - systemHealth.lastBackendCheck > 30000) {
-    await checkBackendConnection();
-  }
-  if (now - systemHealth.lastRedisCheck > 30000) {
-    await checkRedisConnection();
-  }
-}, 60000); // Run every minute
+  await Promise.all([
+    checkRedisConnection(),
+    checkBackendConnection(),
+    checkFilterProcessorConnection(),
+  ]);
+  updateHealthStats();
+}, 30000);
 
-// --- WebSocket Server Definition ---
+// WebSocket server definition
 const server = {
   port: 8081,
   fetch(req: Request, server: Server): Response | Promise<Response> {
     // Handle HTTP requests for health check
     if (req.url.endsWith("/health")) {
-      // Perform fresh checks if it's been over 10 seconds
-      const now = Date.now();
-      const promises = [];
+      updateHealthStats();
 
-      if (now - systemHealth.lastBackendCheck > 10000) {
-        promises.push(checkBackendConnection());
-      }
+      return Promise.all([
+        checkRedisConnection(),
+        checkBackendConnection(),
+        checkFilterProcessorConnection(),
+      ]).then(() => {
+        const isHealthy = systemHealth.redisConnected && systemHealth.backendConnected;
 
-      if (now - systemHealth.lastRedisCheck > 10000) {
-        promises.push(checkRedisConnection());
-      }
-
-      // Return health status
-      return Promise.all(promises).then(() => {
-        const isHealthy = systemHealth.backendConnected && systemHealth.redisConnected;
         const status = isHealthy ? 200 : 503;
 
         return new Response(
@@ -450,9 +299,15 @@ const server = {
                 connected: systemHealth.backendConnected,
                 lastChecked: new Date(systemHealth.lastBackendCheck).toISOString(),
               },
+              filterProcessor: {
+                connected: systemHealth.filterProcessorConnected,
+                lastChecked: new Date(systemHealth.lastFilterProcessorCheck).toISOString(),
+              },
             },
-            clients: clients.size,
-            markers: tree.all().length,
+            stats: {
+              connectedClients: systemHealth.connectedClients,
+              connectedUsers: systemHealth.connectedUsers,
+            },
           }),
           {
             status,
@@ -469,159 +324,123 @@ const server = {
   },
   websocket: {
     open(ws: ServerWebSocket<WebSocketData>) {
-      // Use crypto.randomUUID() if available for a more robust client ID
-      const clientId =
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : Math.random().toString(36).substr(2, 9);
+      // Generate client ID
+      const clientId = crypto.randomUUID();
+
+      // Initialize WebSocket data
       ws.data = {
         clientId,
-        lastActivity: Date.now(), // Initialize with current timestamp
+        lastActivity: Date.now(),
       };
+
+      // Store client in map
       clients.set(clientId, ws);
 
       // Register client with session manager
       sessionManager.registerClient(ws);
 
+      // Send connection established message
       ws.send(
         JSON.stringify({
           type: MessageTypes.CONNECTION_ESTABLISHED,
           clientId,
-          instanceId: process.env.HOSTNAME,
+          timestamp: new Date().toISOString(),
         })
       );
+
+      console.log(`Client ${clientId} connected`);
+      updateHealthStats();
     },
 
     message(ws: ServerWebSocket<WebSocketData>, message: string | Uint8Array) {
+      // Update last activity timestamp
       ws.data.lastActivity = Date.now();
 
       try {
         const data = JSON.parse(message.toString());
 
-        // --- Session Management Messages ---
-        if (
-          [
-            MessageTypes.CREATE_SESSION,
-            MessageTypes.JOIN_SESSION,
-            MessageTypes.ADD_JOB,
-            MessageTypes.CANCEL_JOB,
-            MessageTypes.CLEAR_SESSION,
-          ].includes(data.type)
-        ) {
-          // Forward to session manager
-          sessionManager.handleMessage(ws, message.toString());
-          return;
+        if (data.type === MessageTypes.CLIENT_IDENTIFICATION) {
+          if (!data.userId) {
+            console.error(`Missing userId in client identification from ${ws.data.clientId}`);
+            return;
+          }
+
+          const userId = data.userId;
+
+          // Associate client with user
+          ws.data.userId = userId;
+
+          // Add to user-client mapping
+          if (!userToClients.has(userId)) {
+            userToClients.set(userId, new Set());
+          }
+          userToClients.get(userId)!.add(ws.data.clientId);
+
+          // Ensure we have a Redis subscriber for this user
+          getRedisSubscriberForUser(userId);
+
+          console.log(`Client ${ws.data.clientId} identified as user ${userId}`);
+
+          // Fetch user's filters from backend and publish to filter-changes
+          fetchUserFiltersAndPublish(userId);
+
+          updateHealthStats();
         }
 
-        // --- Viewport Updates (Existing Functionality) ---
-        if (data.type === MessageTypes.VIEWPORT_UPDATE) {
-          // First, create the viewport object
-          const viewportBounds = {
+        // Handle viewport updates
+        else if (data.type === MessageTypes.VIEWPORT_UPDATE) {
+          const userId = ws.data.userId;
+
+          if (!userId) {
+            console.warn(`Viewport update received from unidentified client ${ws.data.clientId}`);
+            return;
+          }
+
+          // Validate viewport data
+          if (!data.viewport || typeof data.viewport !== "object") {
+            console.error(`Invalid viewport data from client ${ws.data.clientId}`);
+            return;
+          }
+
+          // Format viewport for Filter Processor
+          const viewport = {
             minX: data.viewport.west,
             minY: data.viewport.south,
             maxX: data.viewport.east,
             maxY: data.viewport.north,
           };
 
-          // Store it
-          ws.data.viewport = viewportBounds;
+          // Publish viewport update to Filter Processor
+          redisPub.publish(
+            "viewport-updates",
+            JSON.stringify({
+              userId,
+              viewport,
+              timestamp: new Date().toISOString(),
+            })
+          );
 
-          // Do a single search with the same object
-          const markersInView = tree.search(viewportBounds);
-
-          // Log comprehensive details
-          console.log(`[Viewport Update] Client ${ws.data.clientId}:`, {
-            timestamp: new Date().toISOString(),
-            viewport: data.viewport,
-            currentMarkersInView: markersInView.length,
-          });
-
-          // Send markers only if there are any in the viewport
-          if (markersInView.length > 0) {
-            console.log(
-              `[Send] Sending ${markersInView.length} markers to client ${ws.data.clientId}`
-            );
-            ws.send(
-              JSON.stringify({
-                type: MessageTypes.INITIAL_MARKERS,
-                data: markersInView,
-              })
-            );
-          } else {
-            // Send an empty markers update to clear any existing markers
-            console.log(`[Send] Sending empty markers array to client ${ws.data.clientId}`);
-            ws.send(
-              JSON.stringify({
-                type: MessageTypes.INITIAL_MARKERS,
-                data: [],
-              })
-            );
-          }
+          console.log(`Published viewport update for user ${userId}`);
         }
 
-        // Handle test events
-        else if (data.type === "test_event") {
-          console.log(`[TEST] Received test event command: ${data.command}`);
+        // Handle session management messages
+        else if (
+          [
+            MessageTypes.CREATE_SESSION,
+            MessageTypes.JOIN_SESSION,
+            MessageTypes.ADD_JOB,
+            MessageTypes.CANCEL_JOB,
+            MessageTypes.CLEAR_SESSION,
+            // Other session-related message types
+          ].includes(data.type)
+        ) {
+          // Forward to session manager
+          sessionManager.handleMessage(ws, message.toString());
+        }
 
-          if (data.command === "add_marker") {
-            // Create a test marker
-            const testMarker = {
-              id: `test-${Date.now()}`,
-              minX: (ws.data.viewport?.minX || 0) + 0.001,
-              minY: (ws.data.viewport?.minY || 0) + 0.001,
-              maxX: (ws.data.viewport?.minX || 0) + 0.001,
-              maxY: (ws.data.viewport?.minY || 0) + 0.001,
-              data: {
-                title: "Test Marker",
-                emoji: "🧪",
-                color: "blue",
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-            };
-
-            // Add to the tree
-            tree.insert(testMarker);
-
-            // Only send if viewport exists
-            if (ws.data.viewport) {
-              console.log(`[TEST] Sending test marker_created message`);
-              ws.send(
-                JSON.stringify({
-                  type: MessageTypes.MARKER_CREATED,
-                  data: testMarker,
-                  count: 1,
-                  timestamp: Date.now(),
-                })
-              );
-            }
-          }
-
-          if (data.command === "remove_marker" && ws.data.viewport) {
-            // Get markers in viewport
-            const markersInView = tree.search(ws.data.viewport);
-
-            if (markersInView.length > 0) {
-              // Take the first marker to remove
-              const markerToRemove = markersInView[0];
-
-              // Remove from the tree
-              tree.remove(markerToRemove, (a, b) => a.id === b.id);
-
-              console.log(`[TEST] Sending test marker_deleted message for ${markerToRemove.id}`);
-              ws.send(
-                JSON.stringify({
-                  type: MessageTypes.MARKER_DELETED,
-                  data: {
-                    id: markerToRemove.id,
-                    timestamp: new Date().toISOString(),
-                  },
-                  count: 1,
-                  timestamp: Date.now(),
-                })
-              );
-            }
-          }
+        // Log unknown message types
+        else {
+          console.warn(`Unknown message type ${data.type} from client ${ws.data.clientId}`);
         }
       } catch (error) {
         console.error(`Error processing message from ${ws.data.clientId}:`, error);
@@ -629,35 +448,55 @@ const server = {
     },
 
     close(ws: ServerWebSocket<WebSocketData>) {
-      // Unregister from session manager
-      sessionManager.unregisterClient(ws.data.clientId);
+      try {
+        const { clientId, userId } = ws.data;
 
-      // Clean up client registration
-      clients.delete(ws.data.clientId);
+        console.log(`Client ${clientId} disconnected`);
+
+        // Clean up session management
+        sessionManager.unregisterClient(clientId);
+
+        // Remove from client map
+        clients.delete(clientId);
+
+        // Remove from user-client mapping if associated with a user
+        if (userId) {
+          const userClients = userToClients.get(userId);
+
+          if (userClients) {
+            userClients.delete(clientId);
+
+            // If no more clients for this user, clean up
+            if (userClients.size === 0) {
+              userToClients.delete(userId);
+              releaseRedisSubscriber(userId);
+            }
+          }
+        }
+
+        updateHealthStats();
+      } catch (error) {
+        console.error(`Error handling client disconnect:`, error);
+      }
     },
   },
 };
 
-// Start the server with proper typing
+// Start the server
 async function startServer() {
   try {
-    // Initialize connection checks
-    await Promise.all([checkRedisConnection(), checkBackendConnection()]);
+    // Check connections
+    await Promise.all([
+      checkRedisConnection(),
+      checkBackendConnection(),
+      checkFilterProcessorConnection(),
+    ]);
 
-    // Initialize state
-    await initializeState();
-
-    // Log the tree state after initialization
-    console.log(`[Startup] RBush tree contains ${tree.all().length} items`);
-    if (tree.all().length > 0) {
-      console.log("[Startup] Sample item:", tree.all()[0]);
-    }
-
-    // Start the server after initialization is complete
+    // Start WebSocket server
     Bun.serve(server);
     console.log(`WebSocket server started on port ${server.port}`);
   } catch (error) {
-    console.error("[Startup] Failed to start server:", error);
+    console.error("Failed to start WebSocket server:", error);
     process.exit(1);
   }
 }
