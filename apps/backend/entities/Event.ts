@@ -44,6 +44,10 @@ export class Event {
   @Column({ name: "event_date", type: "timestamptz" })
   eventDate!: Date;
 
+  @Index()
+  @Column({ name: "end_date", type: "timestamptz", nullable: true })
+  endDate?: Date;
+
   @Column({ type: "varchar", nullable: true, default: "UTC" })
   timezone?: string;
 

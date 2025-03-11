@@ -3,10 +3,6 @@ import Redis from "ioredis";
 import { FilterProcessor } from "./services/FilterProcessor";
 import { initializeHealthCheck } from "./utils/healthCheck";
 
-// Load environment variables
-const REDIS_HOST = process.env.REDIS_HOST || "localhost";
-const REDIS_PORT = parseInt(process.env.REDIS_PORT || "6379");
-const REDIS_PASSWORD = process.env.REDIS_PASSWORD;
 const POSTGRES_HOST = process.env.POSTGRES_HOST || "localhost";
 const POSTGRES_USER = process.env.POSTGRES_USER || "postgres";
 const POSTGRES_PASSWORD = process.env.POSTGRES_PASSWORD;

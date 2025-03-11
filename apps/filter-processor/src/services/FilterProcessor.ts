@@ -463,24 +463,30 @@ export class FilterProcessor {
       console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED category filter`);
     }
 
-    // Date range filtering
     if (criteria.dateRange) {
       const { start, end } = criteria.dateRange;
 
-      // Use eventDate, startDate, or createdAt, in that order of preference
-      const eventDate = new Date(event.eventDate || event.eventDate || event.createdAt);
+      // Get event start and end dates
+      const eventStartDate = new Date(event.eventDate);
+      const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
 
-      console.log(`📊 FILTER DEBUG: Event date: ${eventDate.toISOString()}`);
+      console.log(`📊 FILTER DEBUG: Event start date: ${eventStartDate.toISOString()}`);
+      console.log(`📊 FILTER DEBUG: Event end date: ${eventEndDate.toISOString()}`);
       if (start) console.log(`📊 FILTER DEBUG: Filter start: ${new Date(start).toISOString()}`);
       if (end) console.log(`📊 FILTER DEBUG: Filter end: ${new Date(end).toISOString()}`);
 
-      if (start && new Date(start) > eventDate) {
-        console.log(`❌ FILTER DEBUG: Event ${event.id} FAILED start date filter`);
+      // Event fails filter if it ends before filter start or starts after filter end
+      if (start && eventEndDate < new Date(start)) {
+        console.log(
+          `❌ FILTER DEBUG: Event ${event.id} FAILED start date filter (event ends before filter start)`
+        );
         return false;
       }
 
-      if (end && new Date(end) < eventDate) {
-        console.log(`❌ FILTER DEBUG: Event ${event.id} FAILED end date filter`);
+      if (end && eventStartDate > new Date(end)) {
+        console.log(
+          `❌ FILTER DEBUG: Event ${event.id} FAILED end date filter (event starts after filter end)`
+        );
         return false;
       }
 

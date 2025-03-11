@@ -11,19 +11,23 @@ import { Category } from "./entities/Category";
 import { Event } from "./entities/Event";
 import { authRouter } from "./routes/auth";
 import { eventsRouter } from "./routes/events";
+import { filterRouter } from "./routes/filters";
 import { internalRouter } from "./routes/internalRoutes";
 import { seedDatabase } from "./seeds";
 import { seedUsers } from "./seeds/seedUsers";
-import { CacheService } from "./services/CacheService";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
+import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
+import { LocationResolutionService } from "./services/event-processing/LocationResolutionService";
 import { EventProcessingService } from "./services/EventProcessingService";
 import { EventService } from "./services/EventService";
 import { JobQueue } from "./services/JobQueue";
-import { OpenAIService } from "./services/OpenAIService";
-import type { AppContext } from "./types/context";
-import { Filter } from "./entities/Filter";
+import { CacheService } from "./services/shared/CacheService";
+import { ConfigService } from "./services/shared/ConfigService";
+import { OpenAIService } from "./services/shared/OpenAIService";
 import { UserPreferencesService } from "./services/UserPreferences";
-import { filterRouter } from "./routes/filters";
+import type { AppContext } from "./types/context";
+import { EventExtractionService } from "./services/event-processing/EventExtractionService";
+import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -120,18 +124,40 @@ async function initializeServices() {
 
   await seedDatabase(dataSource);
 
+  // Initialize config service
+  const configService = ConfigService.getInstance();
+
   const categoryRepository = dataSource.getRepository(Category);
   const eventRepository = dataSource.getRepository(Event);
-  const filterRepository = dataSource.getRepository(Filter);
 
   const categoryProcessingService = new CategoryProcessingService(openai, categoryRepository);
 
   const eventService = new EventService(dataSource);
 
-  const eventProcessingService = new EventProcessingService(
-    eventRepository,
-    categoryProcessingService
+  // Create the event similarity service
+  const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
+
+  // Create the location resolution service
+  const locationResolutionService = new LocationResolutionService(configService);
+
+  // Create the image processing service
+  const imageProcessingService = new ImageProcessingService();
+
+  // Create the event extraction service
+  const eventExtractionService = new EventExtractionService(
+    categoryProcessingService,
+    locationResolutionService
   );
+
+  // Create event processing service with all dependencies
+  const eventProcessingService = new EventProcessingService({
+    categoryProcessingService,
+    eventSimilarityService,
+    locationResolutionService,
+    imageProcessingService,
+    configService,
+    eventExtractionService,
+  });
 
   // Initialize the UserPreferencesService
   const userPreferencesService = new UserPreferencesService(dataSource, redisPub);

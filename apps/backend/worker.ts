@@ -3,12 +3,18 @@ import Redis from "ioredis";
 import { EventProcessingService } from "./services/EventProcessingService";
 import { EventService } from "./services/EventService";
 import AppDataSource from "./data-source";
-import { OpenAIService } from "./services/OpenAIService";
+import { OpenAIService } from "./services/shared/OpenAIService";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
-import { EnhancedLocationService } from "./services/LocationService";
 import { Event } from "./entities/Event";
 import { Category } from "./entities/Category";
 import { JobQueue } from "./services/JobQueue";
+import { ConfigService } from "./services/shared/ConfigService";
+import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
+import { LocationResolutionService } from "./services/event-processing/LocationResolutionService";
+import { EnhancedLocationService } from "./services/shared/LocationService";
+import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
+import type { IEventProcessingServiceDependencies } from "./services/event-processing/interfaces/IEventProcessingServiceDependencies";
+import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -40,6 +46,8 @@ async function initializeWorker() {
   // Initialize LocationService singleton (this is just to warm up the cache)
   EnhancedLocationService.getInstance();
 
+  const configService = ConfigService.getInstance();
+
   // Initialize repositories and services
   const eventRepository = AppDataSource.getRepository(Event);
   const categoryRepository = AppDataSource.getRepository(Category);
@@ -48,11 +56,31 @@ async function initializeWorker() {
     categoryRepository
   );
 
-  // Create event processing service with the updated constructor signature
-  const eventProcessingService = new EventProcessingService(
-    eventRepository,
-    categoryProcessingService
+  // Create the event similarity service
+  const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
+
+  // Create the location resolution service
+  const locationResolutionService = new LocationResolutionService(configService);
+
+  // Create the image processing service
+  const imageProcessingService = new ImageProcessingService();
+
+  const eventExtractionService = new EventExtractionService(
+    categoryProcessingService,
+    locationResolutionService
   );
+
+  // Create event processing service using the dependencies interface
+  const eventProcessingDependencies: IEventProcessingServiceDependencies = {
+    categoryProcessingService,
+    eventSimilarityService,
+    locationResolutionService,
+    imageProcessingService,
+    configService,
+    eventExtractionService,
+  };
+
+  const eventProcessingService = new EventProcessingService(eventProcessingDependencies);
 
   const eventService = new EventService(AppDataSource);
 
@@ -213,6 +241,7 @@ async function initializeWorker() {
             emoji: eventDetails.emoji,
             title: eventDetails.title,
             eventDate: new Date(eventDetails.date),
+            endDate: eventDetails.endDate ? new Date(eventDetails.endDate) : undefined,
             location: eventDetails.location,
             description: eventDetails.description,
             confidenceScore: scanResult.confidence,
