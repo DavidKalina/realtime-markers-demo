@@ -248,7 +248,33 @@ async function initializeWorker() {
             address: eventDetails.address,
             categoryIds: eventDetails.categories?.map((cat) => cat.id),
             creatorId: job.data.creatorId,
+            qrDetectedInImage: scanResult.qrCodeDetected || false,
+            detectedQrData: scanResult.qrCodeData,
           });
+
+          // Check if QR code was detected in the image
+          if (scanResult.qrCodeDetected && scanResult.qrCodeData) {
+            await jobQueue.updateJobStatus(jobId, {
+              progress: "Storing detected QR code...",
+            });
+
+            try {
+              // Use the detected QR code instead of generating a new one
+              await eventService.storeDetectedQRCode(newEvent.id, scanResult.qrCodeData);
+              console.log(`[Worker] Stored detected QR code for event ${newEvent.id}`);
+            } catch (error) {
+              console.error(
+                `[Worker] Error storing detected QR code for event ${newEvent.id}:`,
+                error
+              );
+              // Fall back to generating a QR code if storing fails
+            }
+          } else {
+            // No QR code detected, generate one as usual
+            await jobQueue.updateJobStatus(jobId, {
+              progress: "Generating QR code...",
+            });
+          }
 
           // Publish event creation notification
           await redisClient.publish(

@@ -82,6 +82,28 @@ export class Event {
   })
   status!: EventStatus;
 
+  @Column({ name: "qr_url", type: "text", nullable: true })
+  qrUrl?: string;
+
+  @Column({ name: "qr_code_data", type: "text", nullable: true })
+  qrCodeData?: string;
+
+  @Column({ name: "qr_image_path", type: "text", nullable: true })
+  qrImagePath?: string;
+
+  @Column({ name: "has_qr_code", type: "boolean", default: false })
+  hasQrCode!: boolean;
+
+  @Column({ name: "qr_generated_at", type: "timestamptz", nullable: true })
+  qrGeneratedAt?: Date;
+
+  // New fields for QR code detection
+  @Column({ name: "qr_detected_in_image", type: "boolean", default: false })
+  qrDetectedInImage!: boolean;
+
+  @Column({ name: "detected_qr_data", type: "text", nullable: true })
+  detectedQrData?: string;
+
   // Link to creator user
   @Column({ name: "creator_id", type: "uuid", nullable: true })
   creatorId?: string;
