@@ -122,7 +122,6 @@ const RegisterScreen: React.FC = () => {
             <View style={loginStyles.formContainer}>
               {/* App Title or Logo */}
               <Text style={loginStyles.appTitle}>EventFinder</Text>
-              <Text style={loginStyles.welcomeText}>Join our community</Text>
 
               {/* Error Message */}
               {error && (

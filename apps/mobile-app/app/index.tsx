@@ -279,7 +279,6 @@ function HomeScreen() {
     <AuthWrapper>
       <View style={styles.container}>
         {isLoadingLocation && <LoadingOverlay />}
-
         <MapboxGL.MapView
           onTouchStart={handleUserPan}
           onPress={handleMapPress}

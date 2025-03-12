@@ -22,6 +22,7 @@ import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes } from "@/services/EventBroker";
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { useUserLocation } from "@/contexts/LocationContext";
+import { AuthWrapper } from "@/components/AuthWrapper";
 
 type DetectionStatus = "none" | "detecting" | "aligned";
 
@@ -408,44 +409,46 @@ export default function ScanScreen() {
 
   // Main camera view
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <Animated.View style={styles.header} entering={FadeIn.duration(500)}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
-          <View style={styles.backButtonContainer}>
-            <Feather name="arrow-left" size={20} color="#f8f9fa" />
-          </View>
-        </TouchableOpacity>
-        <Text style={styles.headerText}>Scan Document</Text>
-      </Animated.View>
+    <AuthWrapper>
+      <SafeAreaView style={styles.container}>
+        {/* Header */}
+        <Animated.View style={styles.header} entering={FadeIn.duration(500)}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
+            <View style={styles.backButtonContainer}>
+              <Feather name="arrow-left" size={20} color="#f8f9fa" />
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.headerText}>Scan Document</Text>
+        </Animated.View>
 
-      {/* Flexible camera container */}
-      <View style={styles.flexContainer}>
-        <Animated.View style={styles.cameraContainer} entering={FadeIn.duration(800)}>
-          <CameraView ref={cameraRef} style={styles.camera} onCameraReady={onCameraReady}>
-            <ScannerOverlay
-              detectionStatus={detectionStatus}
+        {/* Flexible camera container */}
+        <View style={styles.flexContainer}>
+          <Animated.View style={styles.cameraContainer} entering={FadeIn.duration(800)}>
+            <CameraView ref={cameraRef} style={styles.camera} onCameraReady={onCameraReady}>
+              <ScannerOverlay
+                detectionStatus={detectionStatus}
+                isCapturing={isCapturing || isUploading}
+              />
+            </CameraView>
+          </Animated.View>
+        </View>
+
+        {/* Shortened bottom button container */}
+        <View style={styles.buttonContainer}>
+          <Animated.View
+            entering={SlideInDown.duration(500).delay(200)}
+            style={styles.captureButtonWrapper}
+          >
+            <CaptureButton
+              onPress={handleCapture}
               isCapturing={isCapturing || isUploading}
+              isReady={isFrameReady}
+              size="compact" // Use compact size for the button
             />
-          </CameraView>
-        </Animated.View>
-      </View>
-
-      {/* Shortened bottom button container */}
-      <View style={styles.buttonContainer}>
-        <Animated.View
-          entering={SlideInDown.duration(500).delay(200)}
-          style={styles.captureButtonWrapper}
-        >
-          <CaptureButton
-            onPress={handleCapture}
-            isCapturing={isCapturing || isUploading}
-            isReady={isFrameReady}
-            size="compact" // Use compact size for the button
-          />
-        </Animated.View>
-      </View>
-    </SafeAreaView>
+          </Animated.View>
+        </View>
+      </SafeAreaView>
+    </AuthWrapper>
   );
 }
 const styles = StyleSheet.create({
