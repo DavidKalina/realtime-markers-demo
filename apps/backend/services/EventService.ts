@@ -7,6 +7,7 @@ import { UserEventSave } from "../entities/UserEventSave";
 import { CacheService } from "./shared/CacheService";
 import { OpenAIService } from "./shared/OpenAIService";
 import { EnhancedLocationService } from "./shared/LocationService";
+import { NotificationService } from "./NotificationService";
 
 interface SearchResult {
   event: Event;
@@ -32,12 +33,14 @@ export class EventService {
   private categoryRepository: Repository<Category>;
   private userEventSaveRepository: Repository<UserEventSave>;
   private locationService: EnhancedLocationService;
+  private notificationService: NotificationService;
 
-  constructor(private dataSource: DataSource) {
+  constructor(private dataSource: DataSource, notificationService: NotificationService) {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
     this.userEventSaveRepository = dataSource.getRepository(UserEventSave);
     this.locationService = EnhancedLocationService.getInstance();
+    this.notificationService = notificationService;
   }
 
   private async generateEmbedding(text: string): Promise<number[]> {
@@ -455,6 +458,10 @@ export class EventService {
         // Decrement the save count on the event
         event.saveCount = Math.max(0, event.saveCount - 1);
         saved = false;
+
+        // No need to track event for notifications anymore
+        // Note: We don't need to worry about this - the notification system
+        // will check if the event is saved before sending notifications
       } else {
         // If it doesn't exist, create it (save)
         const newSave = transactionalEntityManager.create(UserEventSave, {
@@ -467,6 +474,9 @@ export class EventService {
         // Increment the save count on the event
         event.saveCount = (event.saveCount || 0) + 1;
         saved = true;
+
+        // Track the saved event for notifications
+        await this.notificationService.trackSavedEvent(eventId, userId);
       }
 
       // Save the updated event
@@ -529,4 +539,114 @@ export class EventService {
       hasMore: offset + events.length < total,
     };
   }
+  async saveEvent(
+    eventId: string,
+    userId: string
+  ): Promise<{
+    saved: boolean;
+    saveCount: number;
+  }> {
+    return this.dataSource.transaction(async (transactionalEntityManager) => {
+      // Check if the event exists
+      const event = await transactionalEntityManager.findOne(Event, {
+        where: { id: eventId },
+      });
+
+      if (!event) {
+        throw new Error("Event not found");
+      }
+
+      // Check if already saved
+      const existingSave = await transactionalEntityManager.findOne(UserEventSave, {
+        where: { userId, eventId },
+      });
+
+      // If already saved, just return the current state
+      if (existingSave) {
+        return {
+          saved: true,
+          saveCount: event.saveCount,
+        };
+      }
+
+      // Create new save
+      const newSave = transactionalEntityManager.create(UserEventSave, {
+        userId,
+        eventId,
+      });
+
+      await transactionalEntityManager.save(newSave);
+
+      // Increment save count
+      event.saveCount = (event.saveCount || 0) + 1;
+      await transactionalEntityManager.save(event);
+
+      // Track the saved event for notifications
+      await this.notificationService.trackSavedEvent(eventId, userId);
+
+      return {
+        saved: true,
+        saveCount: event.saveCount,
+      };
+    });
+  }
+
+  /**
+   * Explicitly unsave an event for a user
+   *
+   * @param eventId The ID of the event to unsave
+   * @param userId The ID of the user unsaving the event
+   * @returns Object containing save status and updated count
+   */
+  async unsaveEvent(
+    eventId: string,
+    userId: string
+  ): Promise<{
+    saved: boolean;
+    saveCount: number;
+  }> {
+    return this.dataSource.transaction(async (transactionalEntityManager) => {
+      // Check if the event exists
+      const event = await transactionalEntityManager.findOne(Event, {
+        where: { id: eventId },
+      });
+
+      if (!event) {
+        throw new Error("Event not found");
+      }
+
+      // Check if already saved
+      const existingSave = await transactionalEntityManager.findOne(UserEventSave, {
+        where: { userId, eventId },
+      });
+
+      // If not saved, nothing to do
+      if (!existingSave) {
+        return {
+          saved: false,
+          saveCount: event.saveCount,
+        };
+      }
+
+      // Remove the save
+      await transactionalEntityManager.remove(existingSave);
+
+      // Decrement the save count
+      event.saveCount = Math.max(0, event.saveCount - 1);
+      await transactionalEntityManager.save(event);
+
+      return {
+        saved: false,
+        saveCount: event.saveCount,
+      };
+    });
+  }
+
+  /**
+   * Check if an event is saved by a user
+   *
+   * @param userId The ID of the user
+   * @param eventId The ID of the event
+   * @returns Boolean indicating if the event is saved by the user
+   */
 }

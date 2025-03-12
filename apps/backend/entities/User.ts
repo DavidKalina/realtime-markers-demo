@@ -78,4 +78,13 @@ export class User {
   // Optional: Add refresh token for auth if needed
   @Column({ name: "refresh_token", type: "varchar", nullable: true, select: false })
   refreshToken?: string;
+
+  @Column({ name: "notifications_enabled", type: "boolean", default: true })
+  notificationsEnabled!: boolean;
+
+  @Column({ name: "event_notifications_enabled", type: "boolean", default: true })
+  eventNotificationsEnabled!: boolean;
+
+  @Column({ name: "notification_lead_time_minutes", type: "integer", default: 60 })
+  notificationLeadTimeMinutes!: number;
 }

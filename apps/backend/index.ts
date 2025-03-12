@@ -28,6 +28,7 @@ import { UserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
+import { NotificationService } from "./services/NotificationService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -132,7 +133,13 @@ async function initializeServices() {
 
   const categoryProcessingService = new CategoryProcessingService(openai, categoryRepository);
 
-  const eventService = new EventService(dataSource);
+  const notificationService = new NotificationService(
+    dataSource,
+    redisPub,
+    process.env.EXPO_ACCESS_TOKEN
+  );
+
+  const eventService = new EventService(dataSource, notificationService);
 
   // Create the event similarity service
   const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
@@ -168,6 +175,7 @@ async function initializeServices() {
     eventProcessingService,
     categoryProcessingService,
     userPreferencesService,
+    notificationService,
   };
 }
 
@@ -180,6 +188,7 @@ app.use("*", async (c, next) => {
   c.set("jobQueue", jobQueue);
   c.set("redisClient", redisPub);
   c.set("userPreferencesService", services.userPreferencesService);
+  c.set("notificationService", services.notificationService);
   await next();
 });
 
