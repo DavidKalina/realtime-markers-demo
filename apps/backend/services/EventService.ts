@@ -25,6 +25,8 @@ interface CreateEventInput {
   address?: string;
   creatorId: string;
   timezone?: string;
+  qrDetectedInImage?: boolean; // New field
+  detectedQrData?: string;
 }
 
 export class EventService {
@@ -108,6 +110,30 @@ export class EventService {
     return query.getMany();
   }
 
+  async storeDetectedQRCode(eventId: string, qrCodeData: string): Promise<Event | null> {
+    // Get the event
+    const event = await this.getEventById(eventId);
+    if (!event) {
+      return null;
+    }
+
+    try {
+      // Store the detected QR code data
+      event.qrCodeData = qrCodeData;
+      event.hasQrCode = true;
+      event.qrDetectedInImage = true;
+      event.detectedQrData = qrCodeData;
+      event.qrGeneratedAt = new Date();
+
+      // Save the updated event
+      const updatedEvent = await this.eventRepository.save(event);
+      return updatedEvent;
+    } catch (error) {
+      console.error(`Error storing detected QR code for event ${eventId}:`, error);
+      return null;
+    }
+  }
+
   async createEvent(input: CreateEventInput): Promise<Event> {
     // If timezone is not provided, try to determine it from coordinates
     if (!input.timezone && input.location) {
@@ -145,6 +171,8 @@ export class EventService {
       embedding: pgvector.toSql(embedding),
       creatorId: input.creatorId,
       timezone: input.timezone || "UTC", // Save the timezone
+      qrDetectedInImage: input.qrDetectedInImage || false,
+      detectedQrData: input.detectedQrData,
     };
 
     // Create event instance

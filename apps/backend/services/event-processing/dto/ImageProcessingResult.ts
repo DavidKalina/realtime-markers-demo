@@ -29,4 +29,8 @@ export interface ImageProcessingResult {
    * Error message if processing failed
    */
   error?: string;
+
+  qrCodeDetected?: boolean;
+
+  qrCodeData?: string;
 }

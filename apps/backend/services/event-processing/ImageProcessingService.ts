@@ -5,6 +5,8 @@ import { CacheService } from "../shared/CacheService";
 import type { IImageProcessingService } from "./interfaces/IImageProcesssingService";
 import type { ImageProcessingResult } from "./dto/ImageProcessingResult";
 import { OpenAIService } from "../shared/OpenAIService";
+import jsQR from "jsqr";
+import { Jimp } from "jimp";
 
 export class ImageProcessingService implements IImageProcessingService {
   private readonly VISION_MODEL = "gpt-4o";
@@ -29,13 +31,50 @@ export class ImageProcessingService implements IImageProcessingService {
       return cachedResult;
     }
 
-    // Process with Vision API if not in cache
+    // Scan for QR code if input is a buffer
+    let qrResult: any = { detected: false, data: undefined };
+    if (Buffer.isBuffer(imageData)) {
+      qrResult = await this.detectQRCode(imageData);
+    }
+
+    // Process with Vision API
     const visionResult = await this.callVisionAPI(base64Image);
 
-    // Cache the result for future use
-    await this.cacheResult(cacheKey, visionResult);
+    // Combine QR detection with vision results
+    const result = {
+      ...visionResult,
+      qrCodeDetected: qrResult.detected || visionResult.qrCodeDetected || false,
+      qrCodeData: qrResult.data || visionResult.qrCodeData,
+    };
 
-    return visionResult;
+    // Cache the result for future use
+    await this.cacheResult(cacheKey, result);
+
+    return result;
+  }
+
+  private async detectQRCode(imageData: Buffer): Promise<{ detected: boolean; data?: string }> {
+    try {
+      // Convert buffer to format jsQR can process
+      const image = await Jimp.read(imageData);
+      const { width, height, data } = image.bitmap;
+
+      // Scan for QR code
+      const qrCode = jsQR(new Uint8ClampedArray(data.buffer), width, height);
+
+      if (qrCode && qrCode.data) {
+        console.log("QR code detected with data:", qrCode.data);
+        return {
+          detected: true,
+          data: qrCode.data,
+        };
+      }
+
+      return { detected: false };
+    } catch (error) {
+      console.error("Error detecting QR code:", error);
+      return { detected: false };
+    }
   }
 
   /**
@@ -112,6 +151,7 @@ export class ImageProcessingService implements IImageProcessingService {
               {
                 type: "text",
                 text: `Please analyze this event flyer and extract as much detail as possible:
+                     - Check if there's a QR code present in the image (yes/no)
                      - Event Title
                      - Event Date and Time (be specific about year, month, day, time)
                      - Any timezone information (EST, PST, GMT, etc.)
@@ -141,11 +181,15 @@ export class ImageProcessingService implements IImageProcessingService {
       // Extract confidence score from the response
       const confidence = this.extractConfidenceScore(content);
 
+      // Check if Vision API detected a QR code
+      const qrDetected = /QR code.*?:\s*yes/i.test(content);
+
       return {
         success: true,
         rawText: content,
         confidence: confidence,
         extractedAt: new Date().toISOString(),
+        qrCodeDetected: qrDetected,
       };
     } catch (error) {
       console.error("Error calling Vision API:", error);

@@ -38,6 +38,8 @@ interface ScanResult {
   eventDetails: EventDetails;
   similarity: SimilarityResult;
   isDuplicate?: boolean;
+  qrCodeDetected?: boolean; // New field
+  qrCodeData?: string; // New field
 }
 
 export class EventProcessingService {
@@ -139,6 +141,18 @@ export class EventProcessingService {
     const visionResult = await this.imageProcessingService.processImage(imageData);
     const extractedText = visionResult.rawText || "";
 
+    if (visionResult.qrCodeDetected) {
+      await workflow.updateProgress(3, "QR code detected in image", {
+        qrCodeDetected: true,
+        qrCodeData: visionResult.qrCodeData || "[Content not readable]",
+      });
+    } else {
+      // Regular progress update if no QR detected
+      await workflow.updateProgress(3, "Image analyzed successfully", {
+        confidence: visionResult.confidence,
+      });
+    }
+
     // Report progress after vision processing
     await workflow.updateProgress(3, "Image analyzed successfully", {
       confidence: visionResult.confidence,
@@ -212,6 +226,8 @@ export class EventProcessingService {
       eventDetails: eventDetailsWithCategories,
       similarity,
       isDuplicate: isDuplicate || false,
+      qrCodeDetected: visionResult.qrCodeDetected,
+      qrCodeData: visionResult.qrCodeData,
     };
   }
 

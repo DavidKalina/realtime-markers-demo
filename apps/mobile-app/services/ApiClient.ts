@@ -67,6 +67,13 @@ interface ApiEvent {
   scanCount?: number;
   saveCount?: number; // Add count of saves
   timezone?: string;
+  qrUrl?: string | null;
+  qrCodeData?: string;
+  qrImagePath?: string | null;
+  hasQrCode?: boolean;
+  qrGeneratedAt?: string | null;
+  qrDetectedInImage?: boolean;
+  detectedQrData?: string | null;
 }
 
 // Search response from your API
@@ -319,6 +326,13 @@ class ApiClient {
       scanCount: apiEvent.scanCount ?? 1,
       saveCount: apiEvent.saveCount ?? 0,
       timezone: apiEvent.timezone ?? "",
+      qrUrl: apiEvent.qrUrl,
+      qrCodeData: apiEvent.qrCodeData,
+      qrImagePath: apiEvent.qrImagePath,
+      hasQrCode: apiEvent?.hasQrCode,
+      qrGeneratedAt: apiEvent?.qrGeneratedAt,
+      qrDetectedInImage: apiEvent?.qrDetectedInImage,
+      detectedQrData: apiEvent?.detectedQrData,
     };
   }
 
