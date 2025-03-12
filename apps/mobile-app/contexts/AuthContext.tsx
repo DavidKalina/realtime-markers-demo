@@ -1,19 +1,24 @@
-// src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import apiClient, { User } from "../services/ApiClient";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// Add the onboarding keys
+const HAS_COMPLETED_ONBOARDING = "hasCompletedOnboarding";
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  hasCompletedOnboarding: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName?: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
-  refreshAuth: () => Promise<boolean>; // New method to manually trigger auth refresh
+  refreshAuth: () => Promise<boolean>;
+  completeOnboarding: () => Promise<void>; // New method to mark onboarding as complete
+  resetOnboarding: () => Promise<void>; // Method to reset onboarding (for testing)
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -24,15 +29,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(apiClient.getCurrentUser());
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(apiClient.isAuthenticated());
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const router = useRouter();
 
-  // In AuthContext.tsx - Enhanced initAuth function
+  // Function to check if onboarding is completed
+  const checkOnboardingStatus = useCallback(async () => {
+    try {
+      const onboardingStatus = await AsyncStorage.getItem(HAS_COMPLETED_ONBOARDING);
+      setHasCompletedOnboarding(onboardingStatus === "true");
+      console.log(
+        "Onboarding status:",
+        onboardingStatus === "true" ? "Completed" : "Not completed"
+      );
+      return onboardingStatus === "true";
+    } catch (error) {
+      console.error("Error checking onboarding status:", error);
+      return false;
+    }
+  }, []);
+
+  // Mark onboarding as complete
+  const completeOnboarding = async () => {
+    try {
+      await AsyncStorage.setItem(HAS_COMPLETED_ONBOARDING, "true");
+      setHasCompletedOnboarding(true);
+      console.log("Onboarding marked as complete");
+    } catch (error) {
+      console.error("Error marking onboarding as complete:", error);
+    }
+  };
+
+  // Reset onboarding status (useful for testing)
+  const resetOnboarding = async () => {
+    try {
+      await AsyncStorage.removeItem(HAS_COMPLETED_ONBOARDING);
+      setHasCompletedOnboarding(false);
+      console.log("Onboarding status reset");
+    } catch (error) {
+      console.error("Error resetting onboarding status:", error);
+    }
+  };
 
   const initAuth = useCallback(async () => {
     setIsLoading(true);
     console.log("Starting auth initialization");
 
     try {
+      // Check onboarding status first
+      const onboardingCompleted = await checkOnboardingStatus();
+
       // Sync tokens from storage
       await apiClient.syncTokensWithStorage();
 
@@ -107,10 +152,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("Auth initialization complete:", {
         isAuthenticated: apiClient.isAuthenticated(),
         hasUser: !!apiClient.getCurrentUser(),
+        hasCompletedOnboarding,
       });
       setIsLoading(false);
     }
-  }, []);
+  }, [checkOnboardingStatus, hasCompletedOnboarding]);
 
   useEffect(() => {
     initAuth();
@@ -121,8 +167,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user: user?.id ? `User ID: ${user.id}` : "No user",
       isAuthenticated,
       apiClientAuth: apiClient.isAuthenticated(),
+      hasCompletedOnboarding,
     });
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, hasCompletedOnboarding]);
 
   useEffect(() => {
     // Listen for auth state changes from the API client
@@ -138,17 +185,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  // Updated navigation logic to check both authentication and onboarding status
   useEffect(() => {
-    console.log("Checking navigation:", { user: user?.id, isAuthenticated, isLoading });
+    console.log("Checking navigation:", {
+      user: user?.id,
+      isAuthenticated,
+      isLoading,
+      hasCompletedOnboarding,
+    });
 
     if (!isLoading) {
       if (user?.id && isAuthenticated) {
-        router.replace("/");
+        // User is authenticated
+        if (hasCompletedOnboarding) {
+          // If onboarding is complete, go to main app
+          router.replace("/");
+        } else {
+          // If authenticated but needs onboarding, go to onboarding
+          router.replace("/onboarding");
+        }
       } else {
-        router.replace("/login");
+        // Not authenticated - check onboarding status
+        if (hasCompletedOnboarding) {
+          // Onboarding is done, go to login
+          router.replace("/login");
+        } else {
+          // Onboarding not done, go to onboarding
+          router.replace("/onboarding");
+        }
       }
     }
-  }, [user?.id, isAuthenticated, isLoading, router]);
+  }, [user?.id, isAuthenticated, isLoading, hasCompletedOnboarding, router]);
 
   // New method to manually refresh authentication
   const refreshAuth = async (): Promise<boolean> => {
@@ -215,6 +282,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await apiClient.logout();
       setUser(null);
       setIsAuthenticated(false);
+      // Note: We don't reset onboarding status on logout
+      // as we want returning users to skip onboarding
     } finally {
       setIsLoading(false);
     }
@@ -245,12 +314,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isLoading,
         isAuthenticated,
+        hasCompletedOnboarding,
         login,
         register,
         logout,
         updateProfile,
         changePassword,
-        refreshAuth, // New method exposed to consumers
+        refreshAuth,
+        completeOnboarding,
+        resetOnboarding,
       }}
     >
       {children}
