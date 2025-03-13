@@ -1,7 +1,8 @@
 // apps/filter-processor/src/services/FilterProcessor.ts
 import Redis from "ioredis";
 import RBush from "rbush";
-import { Filter, BoundingBox, SpatialItem, FilterCriteria, Event } from "../types/types";
+import { Filter, BoundingBox, SpatialItem, Event } from "../types/types";
+import { VectorService } from "./VectorService";
 
 /**
  * FilterProcessor is responsible for maintaining active filter sets for connected users,
@@ -20,6 +21,7 @@ export class FilterProcessor {
   private userViewports = new Map<string, BoundingBox>();
   private spatialIndex = new RBush<SpatialItem>();
   private eventCache = new Map<string, Event>();
+  private vectorService: VectorService;
 
   // Stats for monitoring
   private stats = {
@@ -32,6 +34,7 @@ export class FilterProcessor {
   constructor(redisPub: Redis, redisSub: Redis) {
     this.redisPub = redisPub;
     this.redisSub = redisSub;
+    this.vectorService = VectorService.getInstance();
   }
 
   /**
@@ -389,26 +392,15 @@ export class FilterProcessor {
     }
   }
 
-  /**
-   * Check if an event matches any of the filters provided.
-   */
   private eventMatchesFilters(event: Event, filters: Filter[]): boolean {
     // If no filters, match everything
-
-    console.log("FILTERS_LENGTH", filters.length);
-
     if (filters.length === 0) return true;
 
     // Event matches if it satisfies ANY filter
-    return filters.some((filter) => this.matchesFilter(event, filter.criteria));
+    return filters.some((filter) => this.matchesFilter(event, filter));
   }
 
-  private matchesFilter(event: Event, criteria: FilterCriteria): boolean {
-    console.log(
-      `📊 FILTER DEBUG: Matching event ${event.id} against filter criteria:`,
-      JSON.stringify(criteria, null, 2)
-    );
-
+  private matchesFilter(event: Event, filter: Filter): boolean {
     // For debugging, log the complete event structure
     console.log(
       `📊 FILTER DEBUG: Event structure:`,
@@ -427,127 +419,173 @@ export class FilterProcessor {
       )
     );
 
-    // Category filtering - FIXED to handle multiple category formats
-    if (criteria.categories && criteria.categories.length > 0) {
-      // Extract event categories, handling different possible formats
-      const eventCategories: string[] = [];
-
-      if (event.categories) {
-        if (Array.isArray(event.categories)) {
-          event.categories.forEach((category) => {
-            if (typeof category === "string") {
-              // If category is directly a string ID
-              eventCategories.push(category);
-            } else if (typeof category === "object") {
-              // If category is an object with id property
-              if (category.id) eventCategories.push(category.id);
-              // Also check for category.name for systems that use names as IDs
-              if (category.name) eventCategories.push(category.name);
-            }
-          });
-        }
-      }
-
-      console.log(`📊 FILTER DEBUG: Event ${event.id} categories:`, eventCategories);
-      console.log(`📊 FILTER DEBUG: Filter categories:`, criteria.categories);
-
-      const hasMatchingCategory = criteria.categories.some((categoryId) =>
-        eventCategories.includes(categoryId)
-      );
-
-      if (!hasMatchingCategory) {
-        console.log(`❌ FILTER DEBUG: Event ${event.id} FAILED category filter`);
-        return false;
-      }
-
-      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED category filter`);
-    }
+    const criteria = filter.criteria;
 
     if (criteria.dateRange) {
       const { start, end } = criteria.dateRange;
 
-      // Get event start and end dates
+      // Get event start and end dates with validation
       const eventStartDate = new Date(event.eventDate);
       const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
 
-      console.log(`📊 FILTER DEBUG: Event start date: ${eventStartDate.toISOString()}`);
-      console.log(`📊 FILTER DEBUG: Event end date: ${eventEndDate.toISOString()}`);
-      if (start) console.log(`📊 FILTER DEBUG: Filter start: ${new Date(start).toISOString()}`);
-      if (end) console.log(`📊 FILTER DEBUG: Filter end: ${new Date(end).toISOString()}`);
+      // Check if dates are valid before using them
+      const isStartDateValid = !isNaN(eventStartDate.getTime());
+      const isEndDateValid = !isNaN(eventEndDate.getTime());
 
-      // Event fails filter if it ends before filter start or starts after filter end
-      if (start && eventEndDate < new Date(start)) {
-        console.log(
-          `❌ FILTER DEBUG: Event ${event.id} FAILED start date filter (event ends before filter start)`
-        );
-        return false;
+      // Log safely
+      console.log(`📊 FILTER DEBUG: Event ${event.id} date validation:`, {
+        hasStartDate: !!event.eventDate,
+        startDateValid: isStartDateValid,
+        hasEndDate: !!event.endDate,
+        endDateValid: isEndDateValid,
+        startDateValue: event.eventDate,
+        endDateValue: event.endDate,
+      });
+
+      // Only use toISOString on valid dates
+      if (isStartDateValid) {
+        console.log(`📊 FILTER DEBUG: Event start date: ${eventStartDate.toISOString()}`);
       }
 
-      if (end && eventStartDate > new Date(end)) {
-        console.log(
-          `❌ FILTER DEBUG: Event ${event.id} FAILED end date filter (event starts after filter end)`
-        );
-        return false;
+      if (isEndDateValid) {
+        console.log(`📊 FILTER DEBUG: Event end date: ${eventEndDate.toISOString()}`);
+      }
+
+      // Only log filter dates if they exist and are valid
+      if (start) {
+        const filterStartDate = new Date(start);
+        if (!isNaN(filterStartDate.getTime())) {
+          console.log(`📊 FILTER DEBUG: Filter start: ${filterStartDate.toISOString()}`);
+        }
+      }
+
+      if (end) {
+        const filterEndDate = new Date(end);
+        if (!isNaN(filterEndDate.getTime())) {
+          console.log(`📊 FILTER DEBUG: Filter end: ${filterEndDate.toISOString()}`);
+        }
+      }
+
+      // Filter logic with validation
+      if (start && isEndDateValid) {
+        const filterStartDate = new Date(start);
+        if (!isNaN(filterStartDate.getTime()) && eventEndDate < filterStartDate) {
+          console.log(
+            `❌ FILTER DEBUG: Event ${event.id} FAILED start date filter (event ends before filter start)`
+          );
+          return false;
+        }
+      }
+
+      if (end && isStartDateValid) {
+        const filterEndDate = new Date(end);
+        if (!isNaN(filterEndDate.getTime()) && eventStartDate > filterEndDate) {
+          console.log(
+            `❌ FILTER DEBUG: Event ${event.id} FAILED end date filter (event starts after filter end)`
+          );
+          return false;
+        }
       }
 
       console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED date filter`);
     }
 
-    // Status filtering
-    if (criteria.status && criteria.status.length > 0) {
-      const eventStatus = event.status || "active"; // Default to 'active' if not specified
+    if (criteria.location?.latitude && criteria.location?.longitude && criteria.location?.radius) {
+      const [eventLng, eventLat] = event.location.coordinates;
+      const distance = this.calculateDistance(
+        eventLat,
+        eventLng,
+        criteria.location.latitude,
+        criteria.location.longitude
+      );
 
-      console.log(`📊 FILTER DEBUG: Event status: ${eventStatus}`);
-      console.log(`📊 FILTER DEBUG: Filter status:`, criteria.status);
-
-      if (!criteria.status.includes(eventStatus)) {
-        console.log(`❌ FILTER DEBUG: Event ${event.id} FAILED status filter`);
+      if (distance > criteria.location.radius) {
+        console.log(
+          `❌ FILTER DEBUG: Event ${event.id} FAILED location filter (${distance}m > ${criteria.location.radius}m radius)`
+        );
         return false;
       }
 
-      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED status filter`);
+      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED location filter`);
     }
 
-    // Tag filtering
-    if (criteria.tags && criteria.tags.length > 0) {
-      const eventTags = Array.isArray(event.tags) ? event.tags : [];
+    if (filter.embedding && event.embedding) {
+      try {
+        const filterEmbedding = this.vectorService.parseSqlEmbedding(filter.embedding);
+        const eventEmbedding = this.vectorService.parseSqlEmbedding(event.embedding);
 
-      console.log(`📊 FILTER DEBUG: Event tags:`, eventTags);
-      console.log(`📊 FILTER DEBUG: Filter tags:`, criteria.tags);
+        const similarityScore = this.vectorService.calculateSimilarity(
+          filterEmbedding,
+          eventEmbedding
+        );
 
-      const hasMatchingTag = criteria.tags.some((tag) => eventTags.includes(tag));
+        // Tiered thresholds
+        let threshold = 0.7; // Default high threshold
 
-      if (!hasMatchingTag) {
-        console.log(`❌ FILTER DEBUG: Event ${event.id} FAILED tag filter`);
-        return false;
+        // Lower threshold if event title contains query words
+        if (
+          filter.semanticQuery &&
+          filter.semanticQuery
+            .split(" ")
+            .some((word) => event.title.toLowerCase().includes(word.toLowerCase()))
+        ) {
+          threshold = 0.45;
+        }
+
+        // Lower threshold for category matches
+        if (
+          event.categories &&
+          event.categories.some((category) =>
+            filter.semanticQuery?.toLowerCase().includes(category.name.toLowerCase())
+          )
+        ) {
+          threshold = 0.45;
+        }
+
+        if (similarityScore < threshold) {
+          console.log(
+            `❌ FILTER DEBUG: Event ${
+              event.id
+            } FAILED semantic filter (similarity: ${similarityScore.toFixed(
+              2
+            )}, threshold: ${threshold})`
+          );
+          return false;
+        }
+
+        console.log(
+          `✅ FILTER DEBUG: Event ${
+            event.id
+          } PASSED semantic filter (similarity: ${similarityScore.toFixed(2)})`
+        );
+      } catch (error) {
+        console.error(`❌ Error calculating semantic similarity:`, error);
       }
-
-      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED tag filter`);
-    }
-
-    // Keywords filtering (in title or description)
-    if (criteria.keywords && criteria.keywords.length > 0) {
-      const eventText = `${event.title || ""} ${event.description || ""}`.toLowerCase();
-
-      console.log(`📊 FILTER DEBUG: Event text (first 50 chars): ${eventText.slice(0, 50)}...`);
-      console.log(`📊 FILTER DEBUG: Filter keywords:`, criteria.keywords);
-
-      const hasMatchingKeyword = criteria.keywords.some((keyword) => {
-        const match = eventText.includes(keyword.toLowerCase());
-        return match;
-      });
-
-      if (!hasMatchingKeyword) {
-        console.log(`❌ FILTER DEBUG: Event ${event.id} FAILED keyword filter`);
-        return false;
-      }
-
-      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED keyword filter`);
     }
 
     // All criteria passed
     console.log(`✅✅ FILTER DEBUG: Event ${event.id} MATCHED ALL filter criteria`);
     return true;
+  }
+
+  private calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371000; // Earth radius in meters
+    const dLat = this.toRadians(lat2 - lat1);
+    const dLng = this.toRadians(lng2 - lng1);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.toRadians(lat1)) *
+        Math.cos(this.toRadians(lat2)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in meters
+  }
+
+  private toRadians(degrees: number): number {
+    return (degrees * Math.PI) / 180;
   }
 
   /**
@@ -639,7 +677,6 @@ export class FilterProcessor {
           const events = await response.json();
           console.log(`📊 Received ${events.length} events from API`);
 
-          // Transform the API response into Event objects
           const validEvents = events
             .filter((event: any) => event.location?.coordinates)
             .map((event: any) => ({
@@ -652,6 +689,8 @@ export class FilterProcessor {
               createdAt: event.created_at || event.createdAt,
               updatedAt: event.updated_at || event.updatedAt,
               categories: event.categories || [],
+              embedding: event.embedding, // Add this line
+              status: event.status,
             }));
 
           console.log(`📊 Transformed ${validEvents.length} valid events for spatial index`);

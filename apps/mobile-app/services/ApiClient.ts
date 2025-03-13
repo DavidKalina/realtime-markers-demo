@@ -9,25 +9,30 @@ interface Location {
   coordinates: [number, number]; // [longitude, latitude]
 }
 
+// In ApiClient.ts or a types file
 export interface Filter {
   id: string;
   userId: string;
   name: string;
   isActive: boolean;
+  semanticQuery?: string; // New field for natural language query
+  // embedding field exists on server but not needed in client
   criteria: {
-    categories?: string[];
+    // Remove categories, keywords, tags
     dateRange?: {
       start?: string;
       end?: string;
     };
     status?: string[];
-    keywords?: string[];
-    tags?: string[];
+    location?: {
+      latitude?: number;
+      longitude?: number;
+      radius?: number; // in meters
+    };
   };
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
-
 // Add user and auth types
 export interface User {
   id: string;

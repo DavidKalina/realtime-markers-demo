@@ -63,31 +63,32 @@ export interface Event {
   tags?: string[]; // Added for tag filtering support
 }
 
-/**
- * Filter criteria for event filtering
- */
+// Update the FilterCriteria interface
 export interface FilterCriteria {
-  categories?: string[];
+  // Remove categories, tags, keywords
   dateRange?: {
     start?: string;
     end?: string;
   };
   status?: string[];
-  keywords?: string[];
-  tags?: string[];
+  location?: {
+    latitude: number;
+    longitude: number;
+    radius: number; // in meters
+  };
 }
 
-/**
- * Filter entity for user preferences
- */
+// Update the Filter interface
 export interface Filter {
   id: string;
   userId: string;
   name: string;
   isActive: boolean;
+  semanticQuery?: string; // Add this
+  embedding?: string; // Add this
   criteria: FilterCriteria;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 /**

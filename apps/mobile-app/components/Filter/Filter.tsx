@@ -23,11 +23,9 @@ import {
   Edit2,
   Trash2,
   Calendar,
-  Tag,
-  Search,
-  CheckCircle,
   X,
   Save,
+  SearchIcon,
 } from "lucide-react-native";
 import apiClient, { Filter as FilterType } from "../../services/ApiClient";
 import { filterStyles } from "./styles";
@@ -39,23 +37,16 @@ const FiltersView: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingFilter, setEditingFilter] = useState<FilterType | null>(null);
   const [filterName, setFilterName] = useState("");
+  const [semanticQuery, setSemanticQuery] = useState("");
   const [isActive, setIsActive] = useState(true);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [allCategories, setAllCategories] = useState<{ id: string; name: string }[]>([]);
-  const [keywords, setKeywords] = useState<string[]>([]);
-  const [keyword, setKeyword] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [statuses, setStatuses] = useState<string[]>([]);
-  const [tags, setTags] = useState<string[]>([]);
-  const [tag, setTag] = useState("");
 
   const router = useRouter();
 
   // Fetch all filters when component mounts
   useEffect(() => {
     fetchFilters();
-    fetchCategories();
   }, []);
 
   // Fetch all filters from API
@@ -74,16 +65,6 @@ const FiltersView: React.FC = () => {
     }
   };
 
-  // Fetch all categories
-  const fetchCategories = async () => {
-    try {
-      const categories = await apiClient.getAllCategories();
-      setAllCategories(categories);
-    } catch (err) {
-      console.error("Error fetching categories:", err);
-    }
-  };
-
   // Handle back button
   const handleBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -96,15 +77,10 @@ const FiltersView: React.FC = () => {
     // Reset form fields
     setEditingFilter(null);
     setFilterName("");
+    setSemanticQuery("");
     setIsActive(true);
-    setCategories([]);
-    setKeywords([]);
-    setKeyword("");
     setStartDate("");
     setEndDate("");
-    setStatuses([]);
-    setTags([]);
-    setTag("");
     setModalVisible(true);
   };
 
@@ -113,15 +89,10 @@ const FiltersView: React.FC = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setEditingFilter(filter);
     setFilterName(filter.name);
+    setSemanticQuery(filter.semanticQuery || "");
     setIsActive(filter.isActive);
-    setCategories(filter.criteria.categories || []);
-    setKeywords(filter.criteria.keywords || []);
-    setKeyword("");
     setStartDate(filter.criteria.dateRange?.start || "");
     setEndDate(filter.criteria.dateRange?.end || "");
-    setStatuses(filter.criteria.status || []);
-    setTags(filter.criteria.tags || []);
-    setTag("");
     setModalVisible(true);
   };
 
@@ -155,10 +126,7 @@ const FiltersView: React.FC = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await apiClient.applyFilters([filter.id]);
-      // Navigate back to the previous screen or to a search results screen
       router.back();
-      // You might want to add some state management here to notify the previous screen
-      // that a filter has been applied
     } catch (err) {
       console.error("Error applying filter:", err);
       Alert.alert("Error", "Failed to apply filter");
@@ -170,7 +138,6 @@ const FiltersView: React.FC = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await apiClient.clearFilters();
-      // Navigate back to the previous screen
       router.back();
     } catch (err) {
       console.error("Error clearing filters:", err);
@@ -185,26 +152,28 @@ const FiltersView: React.FC = () => {
       return;
     }
 
+    if (!semanticQuery.trim()) {
+      Alert.alert("Error", "Search query is required");
+      return;
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     // Prepare the filter data
     const filterData: Partial<FilterType> = {
       name: filterName.trim(),
       isActive,
+      semanticQuery: semanticQuery.trim(),
       criteria: {
-        categories: categories.length > 0 ? categories : undefined,
         dateRange: {
           start: startDate || undefined,
           end: endDate || undefined,
         },
-        status: statuses.length > 0 ? statuses : undefined,
-        keywords: keywords.length > 0 ? keywords : undefined,
-        tags: tags.length > 0 ? tags : undefined,
       },
     };
 
     try {
-      let updatedFilter: any;
+      let updatedFilter: FilterType;
 
       if (editingFilter) {
         // Update existing filter
@@ -224,50 +193,6 @@ const FiltersView: React.FC = () => {
     }
   };
 
-  // Add a keyword to the list
-  const handleAddKeyword = () => {
-    if (keyword.trim() && !keywords.includes(keyword.trim())) {
-      setKeywords([...keywords, keyword.trim()]);
-      setKeyword("");
-    }
-  };
-
-  // Remove a keyword from the list
-  const handleRemoveKeyword = (keywordToRemove: string) => {
-    setKeywords(keywords.filter((k) => k !== keywordToRemove));
-  };
-
-  // Add a tag to the list
-  const handleAddTag = () => {
-    if (tag.trim() && !tags.includes(tag.trim())) {
-      setTags([...tags, tag.trim()]);
-      setTag("");
-    }
-  };
-
-  // Remove a tag from the list
-  const handleRemoveTag = (tagToRemove: string) => {
-    setTags(tags.filter((t) => t !== tagToRemove));
-  };
-
-  // Toggle a category selection
-  const handleToggleCategory = (categoryId: string) => {
-    if (categories.includes(categoryId)) {
-      setCategories(categories.filter((c) => c !== categoryId));
-    } else {
-      setCategories([...categories, categoryId]);
-    }
-  };
-
-  // Toggle a status selection
-  const handleToggleStatus = (status: string) => {
-    if (statuses.includes(status)) {
-      setStatuses(statuses.filter((s) => s !== status));
-    } else {
-      setStatuses([...statuses, status]);
-    }
-  };
-
   // Render a single filter item
   const renderFilterItem = ({ item }: { item: FilterType }) => (
     <Animated.View entering={FadeIn.duration(300).delay(100)} style={filterStyles.filterCard}>
@@ -284,17 +209,11 @@ const FiltersView: React.FC = () => {
       </View>
 
       <View style={filterStyles.filterDetails}>
-        {/* Categories */}
-        {item.criteria.categories && item.criteria.categories.length > 0 && (
+        {/* Semantic Query */}
+        {item.semanticQuery && (
           <View style={filterStyles.criteriaSection}>
-            <Text style={filterStyles.criteriaLabel}>Categories:</Text>
-            <View style={filterStyles.tagsContainer}>
-              {item.criteria.categories.map((category, index) => (
-                <View key={index} style={filterStyles.tagBadge}>
-                  <Text style={filterStyles.tagText}>{category}</Text>
-                </View>
-              ))}
-            </View>
+            <Text style={filterStyles.criteriaLabel}>Search Query:</Text>
+            <Text style={filterStyles.criteriaValue}>{item.semanticQuery}</Text>
           </View>
         )}
 
@@ -313,39 +232,11 @@ const FiltersView: React.FC = () => {
             </Text>
           </View>
         )}
-
-        {/* Keywords */}
-        {item.criteria.keywords && item.criteria.keywords.length > 0 && (
-          <View style={filterStyles.criteriaSection}>
-            <Text style={filterStyles.criteriaLabel}>Keywords:</Text>
-            <View style={filterStyles.tagsContainer}>
-              {item.criteria.keywords.map((keyword, index) => (
-                <View key={index} style={filterStyles.tagBadge}>
-                  <Text style={filterStyles.tagText}>{keyword}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Tags */}
-        {item.criteria.tags && item.criteria.tags.length > 0 && (
-          <View style={filterStyles.criteriaSection}>
-            <Text style={filterStyles.criteriaLabel}>Tags:</Text>
-            <View style={filterStyles.tagsContainer}>
-              {item.criteria.tags.map((tag, index) => (
-                <View key={index} style={filterStyles.tagBadge}>
-                  <Text style={filterStyles.tagText}>{tag}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
       </View>
 
       <View style={filterStyles.filterActions}>
         <TouchableOpacity style={filterStyles.actionButton} onPress={() => handleApplyFilter(item)}>
-          <CheckCircle size={16} color="#93c5fd" />
+          <SearchIcon size={16} color="#93c5fd" />
           <Text style={filterStyles.actionText}>Apply</Text>
         </TouchableOpacity>
 
@@ -374,7 +265,7 @@ const FiltersView: React.FC = () => {
         <TouchableOpacity style={filterStyles.backButton} onPress={handleBack}>
           <ArrowLeft size={22} color="#f8f9fa" />
         </TouchableOpacity>
-        <Text style={filterStyles.headerTitle}>Event Filters</Text>
+        <Text style={filterStyles.headerTitle}>Smart Filters</Text>
         <TouchableOpacity style={filterStyles.addButton} onPress={handleCreateFilter}>
           <Plus size={22} color="#f8f9fa" />
         </TouchableOpacity>
@@ -398,7 +289,7 @@ const FiltersView: React.FC = () => {
           <View style={filterStyles.noResults}>
             <Text style={filterStyles.noResultsText}>No filters found</Text>
             <Text style={filterStyles.noResultsSubtext}>
-              Create filters to quickly search for events based on your preferences.
+              Create smart filters to find events using natural language search.
             </Text>
             <TouchableOpacity style={filterStyles.createFilterButton} onPress={handleCreateFilter}>
               <Plus size={18} color="#333" />
@@ -437,7 +328,7 @@ const FiltersView: React.FC = () => {
           <View style={filterStyles.modalContent}>
             <View style={filterStyles.modalHeader}>
               <Text style={filterStyles.modalTitle}>
-                {editingFilter ? "Edit Filter" : "Create Filter"}
+                {editingFilter ? "Edit Smart Filter" : "Create Smart Filter"}
               </Text>
               <TouchableOpacity
                 style={filterStyles.closeButton}
@@ -476,35 +367,27 @@ const FiltersView: React.FC = () => {
                 </View>
               </View>
 
-              {/* Categories */}
+              {/* Semantic Query */}
               <View style={filterStyles.formGroup}>
-                <Text style={filterStyles.formLabel}>Categories</Text>
-                <View style={filterStyles.categoriesGrid}>
-                  {allCategories.map((category) => (
-                    <TouchableOpacity
-                      key={category.id}
-                      style={[
-                        filterStyles.categoryOption,
-                        categories.includes(category.id) && filterStyles.categorySelected,
-                      ]}
-                      onPress={() => handleToggleCategory(category.id)}
-                    >
-                      <Text
-                        style={[
-                          filterStyles.categoryOptionText,
-                          categories.includes(category.id) && filterStyles.categorySelectedText,
-                        ]}
-                      >
-                        {category.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                <Text style={filterStyles.formLabel}>Search Query</Text>
+                <TextInput
+                  style={[filterStyles.input, { height: 80, textAlignVertical: "top" }]}
+                  value={semanticQuery}
+                  onChangeText={setSemanticQuery}
+                  placeholder="Describe what you're looking for..."
+                  placeholderTextColor="#adb5bd"
+                  multiline={true}
+                  numberOfLines={3}
+                />
+                <Text style={filterStyles.helperText}>
+                  Examples: "Tech events in downtown", "Family activities this weekend", "Music
+                  festivals in July"
+                </Text>
               </View>
 
               {/* Date Range */}
               <View style={filterStyles.formGroup}>
-                <Text style={filterStyles.formLabel}>Date Range</Text>
+                <Text style={filterStyles.formLabel}>Date Range (Optional)</Text>
                 <View style={filterStyles.dateInputContainer}>
                   <View style={filterStyles.dateInput}>
                     <Text style={filterStyles.dateLabel}>Start</Text>
@@ -526,91 +409,6 @@ const FiltersView: React.FC = () => {
                       placeholderTextColor="#adb5bd"
                     />
                   </View>
-                </View>
-              </View>
-
-              {/* Status */}
-              <View style={filterStyles.formGroup}>
-                <Text style={filterStyles.formLabel}>Status</Text>
-                <View style={filterStyles.statusOptions}>
-                  {["active", "upcoming", "past", "cancelled"].map((status) => (
-                    <TouchableOpacity
-                      key={status}
-                      style={[
-                        filterStyles.statusOption,
-                        statuses.includes(status) && filterStyles.statusSelected,
-                      ]}
-                      onPress={() => handleToggleStatus(status)}
-                    >
-                      <Text
-                        style={[
-                          filterStyles.statusOptionText,
-                          statuses.includes(status) && filterStyles.statusSelectedText,
-                        ]}
-                      >
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              {/* Keywords */}
-              <View style={filterStyles.formGroup}>
-                <Text style={filterStyles.formLabel}>Keywords</Text>
-                <View style={filterStyles.keywordInputContainer}>
-                  <TextInput
-                    style={filterStyles.keywordInput}
-                    value={keyword}
-                    onChangeText={setKeyword}
-                    placeholder="Add keyword"
-                    placeholderTextColor="#adb5bd"
-                    onSubmitEditing={handleAddKeyword}
-                  />
-                  <TouchableOpacity
-                    style={filterStyles.addKeywordButton}
-                    onPress={handleAddKeyword}
-                  >
-                    <Plus size={18} color="#333" />
-                  </TouchableOpacity>
-                </View>
-                <View style={filterStyles.tagsContainer}>
-                  {keywords.map((kw, index) => (
-                    <View key={index} style={filterStyles.tagBadge}>
-                      <Text style={filterStyles.tagText}>{kw}</Text>
-                      <TouchableOpacity onPress={() => handleRemoveKeyword(kw)}>
-                        <X size={14} color="#f8f9fa" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              </View>
-
-              {/* Tags */}
-              <View style={filterStyles.formGroup}>
-                <Text style={filterStyles.formLabel}>Tags</Text>
-                <View style={filterStyles.keywordInputContainer}>
-                  <TextInput
-                    style={filterStyles.keywordInput}
-                    value={tag}
-                    onChangeText={setTag}
-                    placeholder="Add tag"
-                    placeholderTextColor="#adb5bd"
-                    onSubmitEditing={handleAddTag}
-                  />
-                  <TouchableOpacity style={filterStyles.addKeywordButton} onPress={handleAddTag}>
-                    <Plus size={18} color="#333" />
-                  </TouchableOpacity>
-                </View>
-                <View style={filterStyles.tagsContainer}>
-                  {tags.map((t, index) => (
-                    <View key={index} style={filterStyles.tagBadge}>
-                      <Text style={filterStyles.tagText}>{t}</Text>
-                      <TouchableOpacity onPress={() => handleRemoveTag(t)}>
-                        <X size={14} color="#f8f9fa" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
                 </View>
               </View>
             </ScrollView>
