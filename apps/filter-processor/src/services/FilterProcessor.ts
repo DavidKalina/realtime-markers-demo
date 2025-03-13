@@ -539,7 +539,7 @@ export class FilterProcessor {
             filter.semanticQuery?.toLowerCase().includes(category.name.toLowerCase())
           )
         ) {
-          threshold = 0.45;
+          threshold = 0.3;
         }
 
         if (similarityScore < threshold) {
