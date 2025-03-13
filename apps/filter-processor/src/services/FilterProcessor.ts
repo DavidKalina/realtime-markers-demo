@@ -529,7 +529,7 @@ export class FilterProcessor {
             .split(" ")
             .some((word) => event.title.toLowerCase().includes(word.toLowerCase()))
         ) {
-          threshold = 0.45;
+          threshold = 0.42;
         }
 
         // Lower threshold for category matches
