@@ -154,8 +154,19 @@ export class EventService {
       }
     }
 
+    let categories: any = [];
+    let categoryNames: string[] = [];
+    if (input.categoryIds?.length) {
+      categories = await this.categoryRepository.findByIds(input.categoryIds);
+      categoryNames = categories.map((cat: any) => cat.name);
+    }
+
     // Generate embedding from title and description
-    const textForEmbedding = `${input.title} ${input.description || ""}`.trim();
+    const textForEmbedding = `
+    TITLE: ${input.title} ${input.title}
+    CATEGORIES: ${categoryNames.join(", ")} ${categoryNames.join(", ")}
+    DESCRIPTION: ${input.description || ""}
+  `.trim();
     const embedding = await this.generateEmbedding(textForEmbedding);
 
     // Create base event data without relations
@@ -179,9 +190,7 @@ export class EventService {
     // Create event instance
     let event = this.eventRepository.create(eventData);
 
-    // Handle categories if provided
-    if (input.categoryIds?.length) {
-      const categories = await this.categoryRepository.findByIds(input.categoryIds);
+    if (categories.length) {
       event.categories = categories;
     }
 

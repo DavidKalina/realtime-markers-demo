@@ -421,6 +421,94 @@ export class FilterProcessor {
 
     const criteria = filter.criteria;
 
+    if (criteria.dateRange) {
+      const { start, end } = criteria.dateRange;
+
+      // Get event start and end dates with validation
+      const eventStartDate = new Date(event.eventDate);
+      const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
+
+      // Check if dates are valid before using them
+      const isStartDateValid = !isNaN(eventStartDate.getTime());
+      const isEndDateValid = !isNaN(eventEndDate.getTime());
+
+      // Log safely
+      console.log(`📊 FILTER DEBUG: Event ${event.id} date validation:`, {
+        hasStartDate: !!event.eventDate,
+        startDateValid: isStartDateValid,
+        hasEndDate: !!event.endDate,
+        endDateValid: isEndDateValid,
+        startDateValue: event.eventDate,
+        endDateValue: event.endDate,
+      });
+
+      // Only use toISOString on valid dates
+      if (isStartDateValid) {
+        console.log(`📊 FILTER DEBUG: Event start date: ${eventStartDate.toISOString()}`);
+      }
+
+      if (isEndDateValid) {
+        console.log(`📊 FILTER DEBUG: Event end date: ${eventEndDate.toISOString()}`);
+      }
+
+      // Only log filter dates if they exist and are valid
+      if (start) {
+        const filterStartDate = new Date(start);
+        if (!isNaN(filterStartDate.getTime())) {
+          console.log(`📊 FILTER DEBUG: Filter start: ${filterStartDate.toISOString()}`);
+        }
+      }
+
+      if (end) {
+        const filterEndDate = new Date(end);
+        if (!isNaN(filterEndDate.getTime())) {
+          console.log(`📊 FILTER DEBUG: Filter end: ${filterEndDate.toISOString()}`);
+        }
+      }
+
+      // Filter logic with validation
+      if (start && isEndDateValid) {
+        const filterStartDate = new Date(start);
+        if (!isNaN(filterStartDate.getTime()) && eventEndDate < filterStartDate) {
+          console.log(
+            `❌ FILTER DEBUG: Event ${event.id} FAILED start date filter (event ends before filter start)`
+          );
+          return false;
+        }
+      }
+
+      if (end && isStartDateValid) {
+        const filterEndDate = new Date(end);
+        if (!isNaN(filterEndDate.getTime()) && eventStartDate > filterEndDate) {
+          console.log(
+            `❌ FILTER DEBUG: Event ${event.id} FAILED end date filter (event starts after filter end)`
+          );
+          return false;
+        }
+      }
+
+      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED date filter`);
+    }
+
+    if (criteria.location?.latitude && criteria.location?.longitude && criteria.location?.radius) {
+      const [eventLng, eventLat] = event.location.coordinates;
+      const distance = this.calculateDistance(
+        eventLat,
+        eventLng,
+        criteria.location.latitude,
+        criteria.location.longitude
+      );
+
+      if (distance > criteria.location.radius) {
+        console.log(
+          `❌ FILTER DEBUG: Event ${event.id} FAILED location filter (${distance}m > ${criteria.location.radius}m radius)`
+        );
+        return false;
+      }
+
+      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED location filter`);
+    }
+
     if (filter.embedding && event.embedding) {
       try {
         const filterEmbedding = this.vectorService.parseSqlEmbedding(filter.embedding);
@@ -473,55 +561,6 @@ export class FilterProcessor {
       } catch (error) {
         console.error(`❌ Error calculating semantic similarity:`, error);
       }
-    }
-
-    if (criteria.dateRange) {
-      const { start, end } = criteria.dateRange;
-
-      // Get event start and end dates
-      const eventStartDate = new Date(event.eventDate);
-      const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
-
-      console.log(`📊 FILTER DEBUG: Event start date: ${eventStartDate.toISOString()}`);
-      console.log(`📊 FILTER DEBUG: Event end date: ${eventEndDate.toISOString()}`);
-      if (start) console.log(`📊 FILTER DEBUG: Filter start: ${new Date(start).toISOString()}`);
-      if (end) console.log(`📊 FILTER DEBUG: Filter end: ${new Date(end).toISOString()}`);
-
-      // Event fails filter if it ends before filter start or starts after filter end
-      if (start && eventEndDate < new Date(start)) {
-        console.log(
-          `❌ FILTER DEBUG: Event ${event.id} FAILED start date filter (event ends before filter start)`
-        );
-        return false;
-      }
-
-      if (end && eventStartDate > new Date(end)) {
-        console.log(
-          `❌ FILTER DEBUG: Event ${event.id} FAILED end date filter (event starts after filter end)`
-        );
-        return false;
-      }
-
-      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED date filter`);
-    }
-
-    if (criteria.location?.latitude && criteria.location?.longitude && criteria.location?.radius) {
-      const [eventLng, eventLat] = event.location.coordinates;
-      const distance = this.calculateDistance(
-        eventLat,
-        eventLng,
-        criteria.location.latitude,
-        criteria.location.longitude
-      );
-
-      if (distance > criteria.location.radius) {
-        console.log(
-          `❌ FILTER DEBUG: Event ${event.id} FAILED location filter (${distance}m > ${criteria.location.radius}m radius)`
-        );
-        return false;
-      }
-
-      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED location filter`);
     }
 
     // All criteria passed
