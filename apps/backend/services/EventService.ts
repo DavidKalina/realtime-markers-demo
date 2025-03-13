@@ -7,6 +7,7 @@ import { UserEventSave } from "../entities/UserEventSave";
 import { CacheService } from "./shared/CacheService";
 import { OpenAIService } from "./shared/OpenAIService";
 import { EnhancedLocationService } from "./shared/LocationService";
+import type { Filter } from "../entities/Filter";
 
 interface SearchResult {
   event: Event;
@@ -550,6 +551,98 @@ export class EventService {
 
     // Extract the events from the saves
     const events = saves.map((save) => save.event);
+
+    return {
+      events,
+      total,
+      hasMore: offset + events.length < total,
+    };
+  }
+
+  /**
+   * Search events using a semantic filter
+   * @param filter The filter to apply
+   * @param options Additional search options
+   */
+  async searchEventsByFilter(
+    filter: Filter,
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<{ events: Event[]; total: number; hasMore: boolean }> {
+    const { limit = 10, offset = 0 } = options;
+
+    // Parse the embedding from string
+    const embedding = filter.embedding;
+    if (!embedding && !filter.criteria) {
+      return { events: [], total: 0, hasMore: false };
+    }
+
+    // Start building the query
+    let queryBuilder = this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category");
+
+    // If we have a semantic embedding, use it
+    if (embedding) {
+      queryBuilder = queryBuilder
+        .where("event.embedding IS NOT NULL")
+        .addSelect(`(1 - (event.embedding <-> :embedding)::float)`, "similarity_score")
+        .setParameter("embedding", embedding)
+        .orderBy("similarity_score", "DESC");
+    }
+
+    // Apply additional filters from criteria
+    if (filter.criteria) {
+      // Date range filtering
+      if (filter.criteria.dateRange?.start) {
+        queryBuilder = queryBuilder.andWhere("event.eventDate >= :startDate", {
+          startDate: new Date(filter.criteria.dateRange.start),
+        });
+      }
+
+      if (filter.criteria.dateRange?.end) {
+        queryBuilder = queryBuilder.andWhere("event.eventDate <= :endDate", {
+          endDate: new Date(filter.criteria.dateRange.end),
+        });
+      }
+
+      // Status filtering
+      if (filter.criteria.status && filter.criteria.status.length > 0) {
+        queryBuilder = queryBuilder.andWhere("event.status IN (:...statuses)", {
+          statuses: filter.criteria.status,
+        });
+      }
+
+      // Location-based filtering
+      if (
+        filter.criteria.location?.latitude &&
+        filter.criteria.location?.longitude &&
+        filter.criteria.location?.radius
+      ) {
+        queryBuilder = queryBuilder.andWhere(
+          `ST_DWithin(
+          event.location::geography, 
+          ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, 
+          :radius
+        )`,
+          {
+            latitude: filter.criteria.location.latitude,
+            longitude: filter.criteria.location.longitude,
+            radius: filter.criteria.location.radius,
+          }
+        );
+      }
+    }
+
+    // Apply pagination
+    queryBuilder = queryBuilder.skip(offset).take(limit);
+
+    // If no semantic search, order by date
+    if (!embedding) {
+      queryBuilder = queryBuilder.orderBy("event.eventDate", "DESC");
+    }
+
+    // Execute the query
+    const [events, total] = await queryBuilder.getManyAndCount();
 
     return {
       events,

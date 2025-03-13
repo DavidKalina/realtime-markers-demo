@@ -1,4 +1,3 @@
-// This would be added to the backend service as src/entities/Filter.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -20,7 +19,7 @@ export class Filter {
 
   @ManyToOne(() => User, { onDelete: "CASCADE" })
   @JoinColumn({ name: "userId" })
-  user!: User;
+  user?: User;
 
   @Column({ type: "varchar" })
   name!: string;
@@ -28,16 +27,24 @@ export class Filter {
   @Column({ type: "boolean", default: true })
   isActive!: boolean;
 
+  @Column({ type: "text", nullable: true })
+  semanticQuery?: string; // Natural language query from user
+
+  @Column({ type: "text", nullable: true })
+  embedding?: string; // Vector embedding stored in pgvector format
+
   @Column({ type: "jsonb" })
   criteria!: {
-    categories?: string[];
     dateRange?: {
       start?: string;
       end?: string;
     };
     status?: string[];
-    keywords?: string[];
-    tags?: string[];
+    location?: {
+      latitude?: number;
+      longitude?: number;
+      radius?: number; // in meters
+    };
   };
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })

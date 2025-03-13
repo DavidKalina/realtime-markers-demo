@@ -2,22 +2,26 @@
 import { DataSource, Repository } from "typeorm";
 import Redis from "ioredis";
 import { Filter as FilterEntity } from "../entities/Filter";
+import { EmbeddingService } from "./shared/EmbeddingService";
 
-// This would need to be created in the backend's entities folder
 interface Filter {
   id: string;
   userId: string;
   name: string;
   isActive: boolean;
+  semanticQuery?: string;
+  embedding?: string;
   criteria: {
-    categories?: string[];
     dateRange?: {
       start?: string;
       end?: string;
     };
     status?: string[];
-    keywords?: string[];
-    tags?: string[];
+    location?: {
+      latitude?: number;
+      longitude?: number;
+      radius?: number;
+    };
   };
   createdAt: Date;
   updatedAt: Date;
@@ -30,10 +34,12 @@ interface Filter {
 export class UserPreferencesService {
   private filterRepository: Repository<Filter>;
   private redisClient: Redis;
+  private embeddingService: EmbeddingService;
 
   constructor(dataSource: DataSource, redisClient: Redis) {
     this.filterRepository = dataSource.getRepository(FilterEntity);
     this.redisClient = redisClient;
+    this.embeddingService = EmbeddingService.getInstance();
   }
 
   /**
@@ -53,13 +59,30 @@ export class UserPreferencesService {
     return this.filterRepository.find({
       where: { userId, isActive: true },
       order: { updatedAt: "DESC" },
+      cache: 60000,
     });
   }
 
-  /**
-   * Create a new filter for a user
-   */
-  async createFilter(userId: string, filterData: Partial<Filter>): Promise<Filter> {
+  async createFilter(userId: string, filterData: Partial<FilterEntity>): Promise<FilterEntity> {
+    // Generate embedding if semanticQuery is provided
+    if (filterData.semanticQuery) {
+      try {
+        // Use structured embedding to give more weight to the semantic query
+        const embeddingSql = await this.embeddingService.getStructuredEmbeddingSql({
+          text: filterData.semanticQuery,
+          // Optional: You could use title, date, etc. if available in filterData.criteria
+          weights: {
+            text: 5, // Give higher weight to search text
+          },
+        });
+
+        filterData.embedding = embeddingSql;
+      } catch (error) {
+        console.error("Error generating embedding for filter:", error);
+      }
+    }
+
+    // Create the filter with embedding
     const filter = this.filterRepository.create({
       ...filterData,
       userId,
@@ -74,9 +97,6 @@ export class UserPreferencesService {
     return savedFilter;
   }
 
-  /**
-   * Update an existing filter
-   */
   async updateFilter(
     filterId: string,
     userId: string,
@@ -89,6 +109,22 @@ export class UserPreferencesService {
 
     if (!filter) {
       throw new Error("Filter not found or does not belong to user");
+    }
+
+    // Generate new embedding if semanticQuery is updated
+    if (filterData.semanticQuery && filterData.semanticQuery !== filter.semanticQuery) {
+      try {
+        const embeddingSql = await this.embeddingService.getStructuredEmbeddingSql({
+          text: filterData.semanticQuery,
+          weights: {
+            text: 5,
+          },
+        });
+
+        filterData.embedding = embeddingSql;
+      } catch (error) {
+        console.error("Error generating embedding for filter update:", error);
+      }
     }
 
     // Update the filter
@@ -127,22 +163,27 @@ export class UserPreferencesService {
    * Set filters as active/inactive
    */
   async setActiveFilters(userId: string, filterIds: string[]): Promise<Filter[]> {
-    // Get all user filters
-    const userFilters = await this.getUserFilters(userId);
+    return this.filterRepository.manager.transaction(async (transactionalEntityManager) => {
+      // Get all user filters - using transactionalEntityManager
+      const userFilters = await transactionalEntityManager.find(FilterEntity, {
+        where: { userId },
+        order: { updatedAt: "DESC" },
+      });
 
-    // Update the active state based on the provided IDs
-    const updatedFilters = userFilters.map((filter) => ({
-      ...filter,
-      isActive: filterIds.includes(filter.id),
-    }));
+      // Update the active state based on the provided IDs
+      const updatedFilters = userFilters.map((filter) => ({
+        ...filter,
+        isActive: filterIds.includes(filter.id),
+      }));
 
-    // Save all updates
-    const savedFilters = await this.filterRepository.save(updatedFilters);
+      // Save all updates - using transactionalEntityManager
+      const savedFilters = await transactionalEntityManager.save(FilterEntity, updatedFilters);
 
-    // Publish filter change event to Redis
-    await this.publishFilterChange(userId);
+      // Publish filter change event to Redis (this happens outside the transaction)
+      await this.publishFilterChange(userId);
 
-    return savedFilters;
+      return savedFilters;
+    });
   }
 
   /**
@@ -227,5 +268,14 @@ export class UserPreferencesService {
       console.error(`Error applying filters for user ${userId}:`, error);
       return false;
     }
+  }
+
+  async getFilterById(filterId: string, userId: string): Promise<FilterEntity | null> {
+    return this.filterRepository.findOne({
+      where: {
+        id: filterId,
+        userId,
+      },
+    });
   }
 }

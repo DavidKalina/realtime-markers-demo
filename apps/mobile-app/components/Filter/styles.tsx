@@ -433,4 +433,10 @@ export const filterStyles = StyleSheet.create({
     fontFamily: "SpaceMono",
     marginLeft: 8,
   },
+  helperText: {
+    fontSize: 12,
+    color: "#adb5bd",
+    marginTop: 4,
+    fontStyle: "italic",
+  },
 });

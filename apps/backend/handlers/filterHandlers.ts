@@ -67,15 +67,10 @@ export const getInternalFiltersHandler: FilterHandler = async (c) => {
   }
 };
 
-/**
- * Create a new filter for the current user
- */
 export const createFilterHandler: FilterHandler = async (c) => {
   try {
     // Get the user from context
     const user = c.get("user");
-
-    console.log("USER", user);
 
     if (!user || !user.userId) {
       return c.json({ error: "Authentication required" }, 401);
@@ -84,11 +79,22 @@ export const createFilterHandler: FilterHandler = async (c) => {
     // Get the request body
     const filterData = await c.req.json();
 
-    console.log("FILTER_DATA", filterData);
-
     // Validate the filter data
-    if (!filterData.name || !filterData.criteria) {
-      return c.json({ error: "Filter name and criteria are required" }, 400);
+    if (!filterData.name) {
+      return c.json({ error: "Filter name is required" }, 400);
+    }
+
+    // Ensure we have either semanticQuery or criteria
+    if (
+      !filterData.semanticQuery &&
+      (!filterData.criteria || Object.keys(filterData.criteria).length === 0)
+    ) {
+      return c.json({ error: "Either semanticQuery or criteria must be provided" }, 400);
+    }
+
+    // Initialize criteria object if it doesn't exist
+    if (!filterData.criteria) {
+      filterData.criteria = {};
     }
 
     // Get the user preferences service
@@ -96,8 +102,6 @@ export const createFilterHandler: FilterHandler = async (c) => {
 
     // Create the filter
     const filter = await userPreferencesService.createFilter(user.userId, filterData);
-
-    console.log("RETURNED_FILTER", filter);
 
     return c.json(filter, 201);
   } catch (error) {
@@ -263,6 +267,51 @@ export const clearFiltersHandler: FilterHandler = async (c) => {
     return c.json(
       {
         error: "Failed to clear filters",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
+// Add this to your handlers
+
+export const searchWithFilterHandler: FilterHandler = async (c) => {
+  try {
+    // Get the user from context
+    const user = c.get("user");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    // Get filter ID from request
+    const filterId = c.req.param("id");
+
+    // Get pagination params
+    const limit = parseInt(c.req.query("limit") || "10");
+    const offset = parseInt(c.req.query("offset") || "0");
+
+    // Get services
+    const userPreferencesService = c.get("userPreferencesService");
+    const eventService = c.get("eventService");
+
+    // Get the filter
+    const filter = await userPreferencesService.getFilterById(filterId, user.userId);
+
+    if (!filter) {
+      return c.json({ error: "Filter not found" }, 404);
+    }
+
+    // Search events using the filter
+    const results = await eventService.searchEventsByFilter(filter, { limit, offset });
+
+    return c.json(results);
+  } catch (error) {
+    console.error("Error searching with filter:", error);
+    return c.json(
+      {
+        error: "Failed to search with filter",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       500
