@@ -15,6 +15,8 @@ import { EnhancedLocationService } from "./services/shared/LocationService";
 import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
 import type { IEventProcessingServiceDependencies } from "./services/event-processing/interfaces/IEventProcessingServiceDependencies";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
+import { differenceInDays } from "date-fns";
+import { isEventTemporalyRelevant } from "./utils/isEventTemporalyRelevant";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -235,8 +237,32 @@ async function initializeWorker() {
             progress: "Creating event...",
           });
 
-          // Continue with event creation as before...
           const eventDetails = scanResult.eventDetails;
+
+          const eventDate = new Date(eventDetails.date);
+
+          // Validate the event date
+          const dateValidation = isEventTemporalyRelevant(eventDate);
+
+          if (!dateValidation.valid) {
+            console.log(
+              `[Worker] Event date validation failed: ${dateValidation.reason} (${dateValidation.daysFromNow} days from now)`
+            );
+
+            // Mark as completed with info about invalid date
+            await jobQueue.updateJobStatus(jobId, {
+              status: "completed",
+              result: {
+                message: dateValidation.reason,
+                daysFromNow: dateValidation.daysFromNow,
+                date: eventDate.toISOString(),
+                confidence: scanResult.confidence,
+              },
+              completed: new Date().toISOString(),
+            });
+            return;
+          }
+
           const newEvent = await eventService.createEvent({
             emoji: eventDetails.emoji,
             title: eventDetails.title,

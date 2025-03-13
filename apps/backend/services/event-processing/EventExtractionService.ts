@@ -129,8 +129,6 @@ export class EventExtractionService implements IEventExtractionService {
       ...(options?.organizationHints || []),
     ].filter(Boolean);
 
-    console.log("Location clues found:", locationClues);
-
     // Use the location resolution service to resolve the address and coordinates
     const resolvedLocation = await this.locationResolutionService.resolveLocation(locationClues, {
       cityState: userCityState,
