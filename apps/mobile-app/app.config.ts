@@ -5,7 +5,7 @@ export default {
   expo: {
     name: "MapMoji",
     slug: "mobile-app",
-    version: "1.3.2",
+    version: "1.3.3",
     orientation: "portrait",
     icon: "./assets/images/logo.png",
     scheme: "myapp",
@@ -31,7 +31,7 @@ export default {
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "33",
+      buildNumber: "34",
     },
     android: {
       adaptiveIcon: {
