@@ -1,5 +1,5 @@
 import * as Haptics from "expo-haptics";
-import { MessageCircleQuestion as QuestionMark, Star } from "lucide-react-native";
+import { Star } from "lucide-react-native";
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
@@ -41,7 +41,6 @@ const ANIMATIONS = {
   HIDE_CONFIG: { duration: 300 },
   SCALE_UP_CONFIG: { duration: 300 },
   HIGHLIGHT_CONFIG: { duration: 150 },
-  FLOAT_CONFIG: { duration: 1500, easing: Easing.inOut(Easing.sin) },
   PULSE_CONFIG: { duration: 1500, easing: Easing.out(Easing.ease) },
   FADE_CONFIG: { duration: 300 },
   INITIAL_MOUNT: { duration: 400 },
@@ -64,18 +63,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   container: {
-    width: 28,
-    height: 28,
+    width: 22,
+    height: 22,
     alignItems: "center",
     justifyContent: "center",
   },
   mysteryBox: {
-    width: 28,
-    height: 28,
+    width: 22,
+    height: 22,
     backgroundColor: COLORS.BASE,
     borderWidth: 1,
     borderColor: COLORS.ACCENT,
-    borderRadius: 14,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
     ...Platform.select({
@@ -119,15 +118,15 @@ const styles = StyleSheet.create({
   },
   pulseRing: {
     position: "absolute",
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 1.5,
     borderColor: COLORS.ACCENT,
     backgroundColor: COLORS.ACCENT_BG,
   },
   emojiText: {
-    fontSize: 14,
+    fontSize: 12,
     textShadowColor: COLORS.ACCENT,
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 4,
@@ -137,7 +136,7 @@ const styles = StyleSheet.create({
 // Styled components to reduce re-renders and improve readability
 const PulseRing = React.memo(({ style }: { style: any }) => <Animated.View style={style} />);
 
-const QuestionMarkView = React.memo(() => <QuestionMark size={12} color={COLORS.TEXT} />);
+// Question mark component removed
 
 const EmojiContent = React.memo(({ emoji }: { emoji: string }) => (
   <Text style={styles.emojiText}>{emoji}</Text>
@@ -160,46 +159,28 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
   ({ event, isSelected, isHighlighted = false, onPress }) => {
     // Animation values
     const scale = useSharedValue(1);
-    const revealProgress = useSharedValue(0);
     const pulseScale = useSharedValue(1);
     const pulseOpacity = useSharedValue(0);
-    const floatY = useSharedValue(0);
 
     // Collected animations for cleanup
-    const animations = useMemo(() => [scale, revealProgress, pulseScale, pulseOpacity, floatY], []);
+    const animations = useMemo(() => [scale, pulseScale, pulseOpacity], []);
 
     // Component state
     const isFirstRender = useRef(true);
-    const [isRevealed, setIsRevealed] = useState(false);
     const prevSelectedRef = useRef(isSelected);
     const prevHighlightedRef = useRef(isHighlighted);
 
-    // Initial mount animations
+    // Initial mount animations - simplified
     useEffect(() => {
       if (isFirstRender.current) {
         scale.value = 0.5;
         scale.value = withTiming(1, ANIMATIONS.INITIAL_MOUNT);
         isFirstRender.current = false;
-
-        // If initially selected, reveal immediately
-        if (isSelected) {
-          revealProgress.value = 1;
-          setIsRevealed(true);
-        }
       }
 
-      // Start subtle floating animation
-      floatY.value = withRepeat(
-        withSequence(
-          withTiming(2, ANIMATIONS.FLOAT_CONFIG),
-          withTiming(-2, ANIMATIONS.FLOAT_CONFIG)
-        ),
-        -1, // Infinite repeats
-        true // Reverse
-      );
+      // No floating animation for non-selected markers
 
-      // Return cleanup function for unmount
-      return createAnimationCleanup([floatY, scale]);
+      return createAnimationCleanup([scale]);
     }, []); // Empty deps array - only run on mount
 
     // Handle selection state changes
@@ -224,19 +205,11 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
             false // Don't reverse
           );
 
-          // Reveal the emoji
-          revealProgress.value = withTiming(1, ANIMATIONS.REVEAL_CONFIG);
-          setIsRevealed(true);
-
           // Scale up
           scale.value = withTiming(1.2, ANIMATIONS.SCALE_UP_CONFIG);
         } else {
           // Stop pulse animation
           pulseOpacity.value = withTiming(0, ANIMATIONS.FADE_CONFIG);
-
-          // Hide emoji
-          revealProgress.value = withTiming(0, ANIMATIONS.HIDE_CONFIG);
-          setIsRevealed(false);
 
           // Scale down
           scale.value = withTiming(1, ANIMATIONS.SCALE_UP_CONFIG);
@@ -247,16 +220,16 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
       return createAnimationCleanup([pulseScale, pulseOpacity]);
     }, [isSelected]); // Only depend on isSelected
 
-    // Handle highlight state changes
+    // Handle highlight state changes - but only when selected
     useEffect(() => {
-      if (isHighlighted !== prevHighlightedRef.current) {
+      if (isSelected && isHighlighted !== prevHighlightedRef.current) {
         prevHighlightedRef.current = isHighlighted;
 
-        // Highlight effect - only when the state changes
+        // Highlight effect - only when selected and state changes
         if (isHighlighted) {
           scale.value = withSequence(
             withTiming(1.1, ANIMATIONS.HIGHLIGHT_CONFIG),
-            withTiming(isSelected ? 1.2 : 1, ANIMATIONS.HIGHLIGHT_CONFIG)
+            withTiming(1.2, ANIMATIONS.HIGHLIGHT_CONFIG)
           );
         }
       }
@@ -268,9 +241,7 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
     const handlePress = useCallback(() => {
       // Only trigger haptics on real devices
       if (Platform.OS !== "web") {
-        Haptics.impactAsync(
-          isRevealed ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
-        ).catch(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
           // Silently handle haptic errors
         });
       }
@@ -278,13 +249,7 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
       // Cancel any ongoing scale animations before starting new ones
       cancelAnimation(scale);
 
-      // Directly animate reveal on press for immediate feedback
-      if (!isRevealed) {
-        revealProgress.value = withTiming(1, ANIMATIONS.REVEAL_CONFIG);
-        setIsRevealed(true);
-      }
-
-      // Scale animation for press feedback
+      // Scale animation for press feedback (simpler feedback for non-selected)
       scale.value = withSequence(
         withTiming(0.9, ANIMATIONS.SCALE_PRESS),
         withTiming(isSelected ? 1.2 : 1, ANIMATIONS.SCALE_RELEASE)
@@ -292,7 +257,7 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
 
       // Call the parent's onPress handler
       onPress();
-    }, [isRevealed, isSelected, onPress, scale, revealProgress]);
+    }, [isSelected, onPress, scale]);
 
     // Global cleanup on unmount
     useEffect(() => {
@@ -301,17 +266,8 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
 
     // Animation styles - memoized with useAnimatedStyle
     const containerStyle = useAnimatedStyle(() => ({
-      transform: [{ scale: scale.value }, { translateY: floatY.value }],
-    }));
-
-    const contentStyle = useAnimatedStyle(() => ({
-      opacity: revealProgress.value,
-      transform: [{ scale: interpolate(revealProgress.value, [0, 1], [0.7, 1]) }],
-    }));
-
-    const questionMarkStyle = useAnimatedStyle(() => ({
-      opacity: 1 - revealProgress.value,
-      transform: [{ scale: interpolate(revealProgress.value, [0, 1], [1, 0.7]) }],
+      transform: [{ scale: scale.value }],
+      // No translateY animation for non-selected markers
     }));
 
     const pulseStyle = useAnimatedStyle(() => ({
@@ -334,15 +290,10 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
         {/* Main container */}
         <Animated.View style={[styles.container, containerStyle]}>
           <View style={styles.mysteryBox}>
-            {/* Question mark (hidden when revealed) */}
-            <Animated.View style={[styles.questionMarkContainer, questionMarkStyle]}>
-              <QuestionMarkView />
-            </Animated.View>
-
-            {/* Event emoji (shown when revealed) */}
-            <Animated.View style={[styles.contentContainer, contentStyle]}>
+            {/* Event emoji always visible now */}
+            <View style={styles.contentContainer}>
               <EmojiContent emoji={event.emoji} />
-            </Animated.View>
+            </View>
 
             {/* Verified badge if applicable */}
             {event.isVerified && <VerifiedBadge />}

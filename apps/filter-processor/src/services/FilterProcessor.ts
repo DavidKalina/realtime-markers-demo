@@ -681,6 +681,7 @@ export class FilterProcessor {
             .filter((event: any) => event.location?.coordinates)
             .map((event: any) => ({
               id: event.id,
+              emoji: event.emoji,
               title: event.title,
               description: event.description,
               location: event.location,
