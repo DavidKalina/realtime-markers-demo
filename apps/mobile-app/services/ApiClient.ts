@@ -81,6 +81,44 @@ interface ApiEvent {
   detectedQrData?: string | null;
 }
 
+interface ClusterFeature {
+  id?: string;
+  title?: string;
+  address?: string;
+  location?: [number, number]; // [longitude, latitude]
+  pointCount?: number;
+  eventIds?: string[];
+}
+
+interface ClusterNamingRequest {
+  clusters: ClusterFeature[];
+  zoom: number;
+  bounds?: {
+    north: number;
+    east: number;
+    south: number;
+    west: number;
+  };
+}
+
+// Geocoding information returned from the service
+interface GeocodingInfo {
+  placeName: string;
+  neighborhood?: string;
+  locality?: string;
+  place?: string;
+  district?: string;
+  region?: string;
+  country?: string;
+  poi?: string;
+}
+
+// Updated result to include optional geocoding information
+interface ClusterNamingResult {
+  clusterId: string;
+  generatedName: string;
+  geocodingInfo?: GeocodingInfo;
+}
 // Search response from your API
 interface SearchResponse {
   results: ApiEvent[];
@@ -566,6 +604,22 @@ class ApiClient {
     const data = await this.handleResponse<ApiEvent[]>(response);
 
     return data.map(this.mapEventToEventType);
+  }
+
+  async generateClusterNames(request: ClusterNamingRequest): Promise<ClusterNamingResult[]> {
+    const url = `${this.baseUrl}/api/events/clusters/names`;
+
+    try {
+      const response = await this.fetchWithAuth(url, {
+        method: "POST",
+        body: JSON.stringify(request),
+      });
+
+      return this.handleResponse<ClusterNamingResult[]>(response);
+    } catch (error) {
+      console.error("Error generating cluster names:", error);
+      throw error;
+    }
   }
 
   // Fetch all events

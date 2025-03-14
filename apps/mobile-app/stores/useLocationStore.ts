@@ -35,6 +35,10 @@ interface LocationStoreState {
   // Marker data
   markers: Marker[];
 
+  zoomLevel: number;
+
+  setZoomLevel: (z: number) => void;
+
   // Unified selection state
   selectedItem: MapItem | null;
 
@@ -100,6 +104,8 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
   // Initial marker state
   markers: [],
 
+  zoomLevel: 14,
+
   // Unified selection state
   selectedItem: null,
 
@@ -121,6 +127,8 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
   searchViewVisible: false,
   scanViewVisible: false,
   mapViewVisible: false,
+
+  setZoomLevel: (zoom) => set({ zoomLevel: zoom }),
 
   // Marker operations
   setMarkers: (markers) =>

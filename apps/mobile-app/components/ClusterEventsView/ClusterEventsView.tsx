@@ -8,14 +8,15 @@ import {
   SafeAreaView,
   ActivityIndicator,
 } from "react-native";
-import { ArrowLeft, Calendar, MapPin } from "lucide-react-native";
+import { ArrowLeft, Calendar, MapPin, Info } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter, useFocusEffect } from "expo-router";
 import { EventType } from "@/types/types";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { styles } from "./styles";
+import apiClient from "@/services/ApiClient";
 
-// Import or define the MapItem types (same as in other files)
+// Import or define the MapItem types
 interface BaseMapItem {
   id: string;
   coordinates: [number, number];
@@ -35,17 +36,34 @@ interface ClusterItem extends BaseMapItem {
 
 type MapItem = MarkerItem | ClusterItem;
 
+// Define geocoding info type
+interface GeocodingInfo {
+  placeName: string;
+  neighborhood?: string;
+  locality?: string;
+  place?: string;
+  region?: string;
+}
+
+// Cache for cluster names to prevent duplicate API calls
+const clusterNameCache: Record<string, { name: string; geocodingInfo?: GeocodingInfo }> = {};
+
 const ClusterEventsView: React.FC = () => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<EventType[]>([]);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [clusterName, setClusterName] = useState<string | null>(null);
+  const [geocodingInfo, setGeocodingInfo] = useState<GeocodingInfo | null>(null);
+  const [isLoadingName, setIsLoadingName] = useState(false);
+  const [showGeocodingDetails, setShowGeocodingDetails] = useState(false);
 
   // Use the unified selection from the store
   const selectedItem = useLocationStore((state) => state.selectedItem);
   const markers = useLocationStore((state) => state.markers);
   const selectMapItem = useLocationStore((state) => state.selectMapItem);
+  const zoomLevel = useLocationStore((state) => state.zoomLevel || 12);
 
   // Keep a local copy of the cluster data to handle navigation away and back
   const [localCluster, setLocalCluster] = useState<ClusterItem | null>(null);
@@ -60,12 +78,76 @@ const ClusterEventsView: React.FC = () => {
   }, [selectedItem, localCluster]);
 
   // Get the effective cluster data (either from store or local state)
-  // This approach ensures we have cluster data even if selection changes
   const effectiveCluster =
     selectedItem?.type === "cluster" ? (selectedItem as ClusterItem) : localCluster;
 
   const clusterCount = effectiveCluster?.count;
   const clusterCoordinates = effectiveCluster?.coordinates;
+
+  // Generate a stable ID for the cluster
+  const getClusterId = useCallback(() => {
+    if (!effectiveCluster) return null;
+    return `cluster-${effectiveCluster.coordinates.join(",")}-${effectiveCluster.count}`;
+  }, [effectiveCluster]);
+
+  // Toggle geocoding info visibility
+  const toggleGeocodingDetails = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowGeocodingDetails(!showGeocodingDetails);
+  }, [showGeocodingDetails]);
+
+  // Fetch AI-generated cluster name with geocoding
+  const fetchClusterName = useCallback(async () => {
+    if (!effectiveCluster || !clusterCoordinates) return;
+
+    const clusterId = getClusterId();
+    if (!clusterId) return;
+
+    // Check if we already have this cluster name in cache
+    if (clusterNameCache[clusterId]) {
+      setClusterName(clusterNameCache[clusterId].name);
+      setGeocodingInfo(clusterNameCache[clusterId].geocodingInfo || null);
+      return;
+    }
+
+    setIsLoadingName(true);
+
+    try {
+      // Call the API to generate the cluster name
+      const results = await apiClient.generateClusterNames({
+        clusters: [
+          {
+            id: clusterId,
+            location: clusterCoordinates,
+            pointCount: clusterCount || 0,
+          },
+        ],
+        zoom: zoomLevel,
+      });
+
+      if (results && results.length > 0) {
+        const result = results[0];
+        setClusterName(result.generatedName);
+
+        // Save geocoding info if available
+        if (result.geocodingInfo) {
+          setGeocodingInfo(result.geocodingInfo);
+        }
+
+        // Store in local cache to prevent duplicate API calls
+        clusterNameCache[clusterId] = {
+          name: result.generatedName,
+          geocodingInfo: result.geocodingInfo,
+        };
+      }
+    } catch (error) {
+      console.error("Error fetching cluster name:", error);
+      // Fallback to a basic name on error
+      setClusterName("Events Cluster");
+    } finally {
+      setIsLoadingName(false);
+    }
+  }, [effectiveCluster, clusterCoordinates, clusterCount, getClusterId, zoomLevel]);
 
   // Restore cluster selection when returning to this screen if needed
   useFocusEffect(
@@ -162,8 +244,9 @@ const ClusterEventsView: React.FC = () => {
   useEffect(() => {
     if (effectiveCluster) {
       fetchClusterEvents();
+      fetchClusterName();
     }
-  }, [effectiveCluster, fetchClusterEvents]);
+  }, [effectiveCluster, fetchClusterEvents, fetchClusterName]);
 
   // Handle back button - clear selection using unified approach
   const handleBack = () => {
@@ -240,6 +323,12 @@ const ClusterEventsView: React.FC = () => {
     );
   };
 
+  // Get the header title to display
+  const getHeaderTitle = () => {
+    if (isLoadingName) return "Loading...";
+    return clusterName || "Cluster Events";
+  };
+
   // If we have no cluster data at all, show an error
   if (!effectiveCluster) {
     return (
@@ -270,7 +359,9 @@ const ClusterEventsView: React.FC = () => {
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <ArrowLeft size={22} color="#f8f9fa" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Cluster Events</Text>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
+        </View>
         {clusterCount && <Text style={styles.clusterCount}>{clusterCount} events</Text>}
       </View>
 

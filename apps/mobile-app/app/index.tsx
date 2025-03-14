@@ -70,7 +70,7 @@ function HomeScreen() {
   const { publish } = useEventBroker();
 
   // Store references
-  const { selectMapItem } = useLocationStore();
+  const { selectMapItem, setZoomLevel } = useLocationStore();
   const selectedItem = useLocationStore((state) => state.selectedItem);
 
   // User location hooks
@@ -198,6 +198,12 @@ function HomeScreen() {
   // Memoize region changing handler
   const handleRegionChanging = useCallback(
     (feature: any) => {
+      const zoomLevel = feature?.properties?.zoomLevel;
+
+      // If zoom level is available, update it in the store
+      if (typeof zoomLevel === "number") {
+        setZoomLevel(zoomLevel);
+      }
       handleMapViewportChange(feature);
       publish<BaseEvent>(EventTypes.VIEWPORT_CHANGING, {
         timestamp: Date.now(),

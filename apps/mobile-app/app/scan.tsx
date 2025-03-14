@@ -331,16 +331,13 @@ export default function ScanScreen() {
           <Animated.View style={styles.previewContainer} entering={FadeIn.duration(300)}>
             <Image source={{ uri: capturedImage }} style={styles.previewImage} />
 
-            {/* Scanner animation overlay */}
-            <View style={styles.scannerAnimationContainer}>
-              <ScannerAnimation isActive={true} color="#37D05C" speed={1000} />
-            </View>
-
-            {/* Processing overlay */}
-            <View style={styles.processingOverlay}>
-              <ActivityIndicator size="large" color="#4dabf7" />
-              <Text style={styles.processingText}>Processing document...</Text>
-            </View>
+            {/* Scanner overlay when processing (replacing the processing overlay) */}
+            <ScannerOverlay
+              detectionStatus="aligned"
+              isCapturing={true}
+              guideText="Processing document..."
+              showScannerAnimation={true}
+            />
           </Animated.View>
         </View>
       </SafeAreaView>
@@ -367,6 +364,7 @@ export default function ScanScreen() {
             <ScannerOverlay
               detectionStatus={detectionStatus}
               isCapturing={isCapturing || isUploading}
+              showScannerAnimation={false} // Don't show scanner animation in camera view
             />
           </CameraView>
         </Animated.View>
@@ -459,31 +457,5 @@ const styles = StyleSheet.create({
   previewImage: {
     flex: 1,
     resizeMode: "contain",
-  },
-  scannerAnimationContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "transparent",
-  },
-  processingOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10,
-  },
-  processingText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "500",
-    marginTop: 16,
-    textAlign: "center",
   },
 });

@@ -1,9 +1,36 @@
 import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
+  geocodingPanel: {
+    backgroundColor: "#e9ecef",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#dee2e6",
+  },
+  geocodingTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#343a40",
+    marginBottom: 8,
+  },
+  geocodingItem: {
+    fontSize: 13,
+    color: "#495057",
+    marginBottom: 4,
+  },
   container: {
     flex: 1,
     backgroundColor: "#333",
+  },
+  headerTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  infoButton: {
+    marginLeft: 8,
+    padding: 4,
   },
   header: {
     flexDirection: "row",
