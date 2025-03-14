@@ -8,6 +8,7 @@ import type { ConfigService } from "../../shared/ConfigService";
 import type { IEventExtractionService } from "./IEventExtractionService";
 import type { IImageProcessingService } from "./IImageProcesssingService";
 import type { IProgressReportingService } from "./IProgressReportingService";
+import type { JobQueue } from "../../JobQueue";
 
 /**
  * Interface for EventProcessingService dependencies
@@ -55,4 +56,6 @@ export interface IEventProcessingServiceDependencies {
    * Configuration service
    */
   configService?: ConfigService;
+
+  jobQueue?: JobQueue;
 }
