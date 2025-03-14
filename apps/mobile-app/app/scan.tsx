@@ -1,4 +1,4 @@
-// scan.tsx - Quick preview and non-blocking implementation
+// scan.tsx - Modified version
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import { CaptureButton } from "@/components/CaptureButton/CaptureButton";
 import { ScannerOverlay } from "@/components/ScannerOverlay/ScannerOverlay";
@@ -25,6 +25,7 @@ import {
 import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
 import { useFocusEffect } from "@react-navigation/native";
 import { useUserLocation } from "@/contexts/LocationContext";
+import { ScannerAnimation } from "@/components/ScannerAnimation";
 
 type DetectionStatus = "none" | "detecting" | "aligned";
 
@@ -330,6 +331,11 @@ export default function ScanScreen() {
           <Animated.View style={styles.previewContainer} entering={FadeIn.duration(300)}>
             <Image source={{ uri: capturedImage }} style={styles.previewImage} />
 
+            {/* Scanner animation overlay */}
+            <View style={styles.scannerAnimationContainer}>
+              <ScannerAnimation isActive={true} color="#37D05C" speed={1000} />
+            </View>
+
             {/* Processing overlay */}
             <View style={styles.processingOverlay}>
               <ActivityIndicator size="large" color="#4dabf7" />
@@ -448,10 +454,19 @@ const styles = StyleSheet.create({
   previewContainer: {
     flex: 1,
     backgroundColor: "#000",
+    position: "relative",
   },
   previewImage: {
     flex: 1,
     resizeMode: "contain",
+  },
+  scannerAnimationContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "transparent",
   },
   processingOverlay: {
     position: "absolute",
