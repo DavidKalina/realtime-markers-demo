@@ -1,6 +1,7 @@
-// scan.tsx - Improved version with better error handling and camera flow
+// scan.tsx - Updated version with file upload feature
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import { CaptureButton } from "@/components/CaptureButton/CaptureButton";
+import { ImageSelector } from "@/components/ImageSelector";
 import { ScannerOverlay } from "@/components/ScannerOverlay/ScannerOverlay";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
@@ -23,9 +24,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
+import Animated, { FadeIn, SlideInDown, SlideInRight } from "react-native-reanimated";
 
 type DetectionStatus = "none" | "detecting" | "aligned";
+type ImageSource = "camera" | "gallery" | null;
 
 export default function ScanScreen() {
   const {
@@ -50,6 +52,7 @@ export default function ScanScreen() {
   const [isFrameReady, setIsFrameReady] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [imageSource, setImageSource] = useState<ImageSource>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const isMounted = useRef(true);
 
@@ -176,7 +179,7 @@ export default function ScanScreen() {
     [addJob, publish, clearDetectionInterval, router]
   );
 
-  // For scan.tsx - Updated uploadImageAndQueue function
+  // Updated uploadImageAndQueue function to handle both camera and gallery sources
   const uploadImageAndQueue = async (uri: string) => {
     if (!isMounted.current) return null;
 
@@ -200,6 +203,9 @@ export default function ScanScreen() {
         imageFile.userLat = userLocation[1].toString();
         imageFile.userLng = userLocation[0].toString();
       }
+
+      // Add source information to track analytics
+      imageFile.source = imageSource || "unknown";
 
       setUploadProgress(70);
 
@@ -289,6 +295,7 @@ export default function ScanScreen() {
 
       // Show the captured image
       setCapturedImage(photoUri);
+      setImageSource("camera");
 
       // Start upload process
       setIsUploading(true);
@@ -311,8 +318,55 @@ export default function ScanScreen() {
         ]);
 
         setCapturedImage(null);
+        setImageSource(null);
         setIsUploading(false);
         startDocumentDetection();
+      }
+    }
+  };
+
+  // Handle image selection from gallery
+  const handleImageSelected = async (uri: string) => {
+    if (!isMounted.current) return;
+
+    try {
+      console.log("Gallery image selected:", uri);
+
+      // Stop detection
+      clearDetectionInterval();
+
+      // Show the selected image
+      setCapturedImage(uri);
+      setImageSource("gallery");
+
+      // Start upload process
+      setIsUploading(true);
+
+      // Show a notification
+      publish(EventTypes.NOTIFICATION, {
+        timestamp: Date.now(),
+        source: "ScanScreen",
+        message: "Processing document from gallery...",
+      });
+
+      // Upload the image and process
+      await uploadImageAndQueue(uri);
+    } catch (error) {
+      console.error("Gallery image processing failed:", error);
+
+      if (isMounted.current) {
+        Alert.alert("Operation Failed", "Failed to process the selected image. Please try again.", [
+          { text: "OK" },
+        ]);
+
+        setCapturedImage(null);
+        setImageSource(null);
+        setIsUploading(false);
+
+        // Restart camera if available
+        if (isCameraActive && isCameraReady) {
+          startDocumentDetection();
+        }
       }
     }
   };
@@ -322,6 +376,7 @@ export default function ScanScreen() {
     if (!isMounted.current) return;
 
     setCapturedImage(null);
+    setImageSource(null);
     setIsUploading(false);
 
     if (navigationTimerRef.current) {
@@ -358,16 +413,6 @@ export default function ScanScreen() {
     return await checkPermission();
   }, [checkPermission]);
 
-  // Then in your JSX
-  {
-    !hasPermission && (
-      <CameraPermission
-        onPermissionGranted={handlePermissionGranted}
-        onRetryPermission={handleRetryPermission}
-      />
-    );
-  }
-
   // Handle camera permission request if needed
   if (hasPermission === false) {
     return (
@@ -390,7 +435,7 @@ export default function ScanScreen() {
     );
   }
 
-  // Image preview mode
+  // Image preview mode (for both camera captured and gallery selected images)
   if (capturedImage) {
     return (
       <SafeAreaView style={styles.container}>
@@ -406,7 +451,9 @@ export default function ScanScreen() {
               <Feather name="x" size={20} color="#f8f9fa" />
             </View>
           </TouchableOpacity>
-          <Text style={styles.headerText}>Processing Document</Text>
+          <Text style={styles.headerText}>
+            Processing {imageSource === "gallery" ? "Gallery Image" : "Document"}
+          </Text>
         </Animated.View>
 
         {/* Image preview */}
@@ -418,9 +465,9 @@ export default function ScanScreen() {
             <ScannerOverlay
               detectionStatus="aligned"
               isCapturing={true}
-              guideText={`Processing document... ${
-                uploadProgress > 0 ? `(${uploadProgress}%)` : ""
-              }`}
+              guideText={`Processing ${
+                imageSource === "gallery" ? "gallery image" : "document"
+              }... ${uploadProgress > 0 ? `(${uploadProgress}%)` : ""}`}
               showScannerAnimation={true}
             />
           </Animated.View>
@@ -481,6 +528,18 @@ export default function ScanScreen() {
       </View>
 
       <View style={styles.buttonContainer}>
+        {/* Gallery selection button */}
+        <Animated.View
+          entering={SlideInRight.duration(300).delay(100)}
+          style={styles.gallerySelectorWrapper}
+        >
+          <ImageSelector
+            onImageSelected={handleImageSelected}
+            disabled={isCapturing || isUploading}
+          />
+        </Animated.View>
+
+        {/* Capture button */}
         <Animated.View
           entering={SlideInDown.duration(300).delay(200)}
           style={styles.captureButtonWrapper}
@@ -575,13 +634,20 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     height: 100,
+    flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     paddingBottom: Platform.OS === "ios" ? 8 : 0,
   },
   captureButtonWrapper: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  gallerySelectorWrapper: {
+    position: "absolute",
+    right: 40,
+    bottom: Platform.OS === "ios" ? 30 : 20,
   },
   // Preview mode styles
   previewContainer: {
