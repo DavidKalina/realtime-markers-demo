@@ -28,6 +28,7 @@ import { UserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
+import { StorageService } from "./services/shared/StorageService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -53,6 +54,9 @@ app.get("/api/health", (c) => {
         message: "Database connection in progress",
         timestamp: new Date().toISOString(),
         db_connection: isDbConnected ? "connected" : "connecting",
+        storage: {
+          configured: !!process.env.DO_SPACE_ACCESS_KEY && !!process.env.DO_SPACE_SECRET_KEY,
+        },
       },
       200
     );
@@ -142,6 +146,8 @@ async function initializeServices() {
 
   // Create the image processing service
   const imageProcessingService = new ImageProcessingService();
+
+  StorageService.getInstance();
 
   // Create the event extraction service
   const eventExtractionService = new EventExtractionService(

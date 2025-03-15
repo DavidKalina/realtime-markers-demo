@@ -33,4 +33,7 @@ export interface ImageProcessingResult {
   qrCodeDetected?: boolean;
 
   qrCodeData?: string;
+
+  originalImageUrl?: string | null;
+  preprocessedImageUrl?: string | null;
 }
