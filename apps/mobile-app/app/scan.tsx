@@ -1,7 +1,8 @@
-// scan.tsx - Modified version
+// scan.tsx - Improved version with better error handling and camera flow
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import { CaptureButton } from "@/components/CaptureButton/CaptureButton";
 import { ScannerOverlay } from "@/components/ScannerOverlay/ScannerOverlay";
+import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import apiClient from "@/services/ApiClient";
@@ -23,9 +24,6 @@ import {
   View,
 } from "react-native";
 import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
-import { useFocusEffect } from "@react-navigation/native";
-import { useUserLocation } from "@/contexts/LocationContext";
-import { ScannerAnimation } from "@/components/ScannerAnimation";
 
 type DetectionStatus = "none" | "detecting" | "aligned";
 
@@ -34,11 +32,16 @@ export default function ScanScreen() {
     hasPermission,
     cameraRef,
     takePicture,
+    processImage,
     isCapturing,
     isCameraActive,
     isCameraReady,
     onCameraReady,
     releaseCamera,
+    flashMode,
+    toggleFlash,
+    permissionRequested,
+    checkPermission,
   } = useCamera();
 
   const router = useRouter();
@@ -47,6 +50,7 @@ export default function ScanScreen() {
   const [isFrameReady, setIsFrameReady] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const isMounted = useRef(true);
 
   const { userLocation } = useUserLocation();
@@ -116,6 +120,7 @@ export default function ScanScreen() {
     if (!isMounted.current) return;
 
     if (isCameraActive && isCameraReady && !isCapturing && !isUploading && !capturedImage) {
+      console.log("Starting document detection");
       startDocumentDetection();
     } else {
       clearDetectionInterval();
@@ -171,23 +176,37 @@ export default function ScanScreen() {
     [addJob, publish, clearDetectionInterval, router]
   );
 
-  // Get job ID and queue for processing
+  // For scan.tsx - Updated uploadImageAndQueue function
   const uploadImageAndQueue = async (uri: string) => {
     if (!isMounted.current) return null;
 
     try {
+      setUploadProgress(10);
+
+      // Process/compress the image before uploading
+      const processedUri = await processImage(uri);
+
+      setUploadProgress(30);
+
+      // Create imageFile object for apiClient
       const imageFile = {
-        uri,
+        uri: processedUri || uri, // Fallback to original if processing failed
         name: "image.jpg",
         type: "image/jpeg",
       } as any;
 
+      // Add location data if available
       if (userLocation) {
-        imageFile.userLng = userLocation[0].toString();
         imageFile.userLat = userLocation[1].toString();
+        imageFile.userLng = userLocation[0].toString();
       }
 
+      setUploadProgress(70);
+
+      // Upload using API client - this handles FormData internally
       const result = await apiClient.processEventImage(imageFile);
+
+      setUploadProgress(100);
 
       if (result.jobId && isMounted.current) {
         queueJobAndNavigateDelayed(result.jobId);
@@ -204,40 +223,72 @@ export default function ScanScreen() {
           source: "ScanScreen",
           error: `Failed to upload image: ${error}`,
         });
+
+        // Show error to user
+        Alert.alert(
+          "Upload Failed",
+          "There was a problem uploading your document. Please try again.",
+          [{ text: "OK" }]
+        );
       }
 
       throw error;
+    } finally {
+      if (isMounted.current) {
+        setUploadProgress(0);
+      }
     }
   };
 
-  // Handle camera permission
+  // Handle camera permission granted
   const handlePermissionGranted = useCallback(() => {
-    // Nothing special needed
-  }, []);
+    console.log("Permission granted callback");
 
-  // Handle image capture
+    // Small delay to ensure camera is properly initialized
+    setTimeout(() => {
+      if (isMounted.current) {
+        startDocumentDetection();
+      }
+    }, 500);
+  }, [startDocumentDetection]);
+
+  // Handle image capture - improved with better error handling
   const handleCapture = async () => {
-    if (!isMounted.current || !cameraRef.current || !isCameraReady) return;
+    if (!isMounted.current) return;
+
+    if (!cameraRef.current) {
+      console.log("No camera ref available");
+      return;
+    }
+
+    if (!isCameraReady) {
+      console.log("Camera not ready, cannot capture");
+
+      // Show notification to the user
+      publish(EventTypes.NOTIFICATION, {
+        timestamp: Date.now(),
+        source: "ScanScreen",
+        message: "Camera is initializing, please try again in a moment.",
+      });
+
+      return;
+    }
 
     try {
       // Stop detection while capturing
       clearDetectionInterval();
 
       console.log("Taking picture...");
-      // Use the camera reference directly to take the picture with proper type assertion
-      const photo = await (cameraRef.current as any).takePictureAsync({
-        quality: 0.8,
-        exif: true,
-      });
 
-      console.log("Picture taken:", photo?.uri);
+      // Take picture
+      const photoUri = await takePicture();
 
-      if (!photo?.uri || !isMounted.current) {
+      if (!photoUri || !isMounted.current) {
         throw new Error("Failed to capture image");
       }
 
       // Show the captured image
-      setCapturedImage(photo.uri);
+      setCapturedImage(photoUri);
 
       // Start upload process
       setIsUploading(true);
@@ -249,8 +300,8 @@ export default function ScanScreen() {
         message: "Processing document...",
       });
 
-      // Process the image to get job ID
-      await uploadImageAndQueue(photo.uri);
+      // Upload the image and process
+      await uploadImageAndQueue(photoUri);
     } catch (error) {
       console.error("Capture failed:", error);
 
@@ -302,9 +353,41 @@ export default function ScanScreen() {
     }, 50);
   };
 
+  // In your ScanScreen component
+  const handleRetryPermission = useCallback(async (): Promise<boolean> => {
+    return await checkPermission();
+  }, [checkPermission]);
+
+  // Then in your JSX
+  {
+    !hasPermission && (
+      <CameraPermission
+        onPermissionGranted={handlePermissionGranted}
+        onRetryPermission={handleRetryPermission}
+      />
+    );
+  }
+
   // Handle camera permission request if needed
-  if (!hasPermission) {
-    return <CameraPermission onPermissionGranted={handlePermissionGranted} />;
+  if (hasPermission === false) {
+    return (
+      <CameraPermission
+        onPermissionGranted={handlePermissionGranted}
+        onRetryPermission={handleRetryPermission}
+      />
+    );
+  }
+
+  // Loading state while checking permissions
+  if (hasPermission === null) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#f8f9fa" />
+          <Text style={styles.loaderText}>Checking camera permissions...</Text>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   // Image preview mode
@@ -331,11 +414,13 @@ export default function ScanScreen() {
           <Animated.View style={styles.previewContainer} entering={FadeIn.duration(300)}>
             <Image source={{ uri: capturedImage }} style={styles.previewImage} />
 
-            {/* Scanner overlay when processing (replacing the processing overlay) */}
+            {/* Scanner overlay when processing */}
             <ScannerOverlay
               detectionStatus="aligned"
               isCapturing={true}
-              guideText="Processing document..."
+              guideText={`Processing document... ${
+                uploadProgress > 0 ? `(${uploadProgress}%)` : ""
+              }`}
               showScannerAnimation={true}
             />
           </Animated.View>
@@ -360,13 +445,38 @@ export default function ScanScreen() {
       {/* Camera container */}
       <View style={styles.flexContainer}>
         <Animated.View style={styles.cameraContainer} entering={FadeIn.duration(300)}>
-          <CameraView ref={cameraRef} style={styles.camera} onCameraReady={onCameraReady}>
-            <ScannerOverlay
-              detectionStatus={detectionStatus}
-              isCapturing={isCapturing || isUploading}
-              showScannerAnimation={false} // Don't show scanner animation in camera view
-            />
-          </CameraView>
+          {isCameraActive ? (
+            <CameraView
+              ref={cameraRef}
+              style={styles.camera}
+              onCameraReady={onCameraReady}
+              flash={flashMode}
+            >
+              <ScannerOverlay
+                detectionStatus={detectionStatus}
+                isCapturing={isCapturing || isUploading}
+                showScannerAnimation={false}
+                guideText={
+                  isCameraReady
+                    ? "Position your document within the frame"
+                    : "Initializing camera..."
+                }
+              />
+
+              {/* Camera not ready indicator */}
+              {!isCameraReady && (
+                <View style={styles.cameraNotReadyOverlay}>
+                  <ActivityIndicator size="large" color="#ffffff" />
+                  <Text style={styles.cameraNotReadyText}>Initializing camera...</Text>
+                </View>
+              )}
+            </CameraView>
+          ) : (
+            <View style={styles.cameraPlaceholder}>
+              <ActivityIndicator size="large" color="#f8f9fa" />
+              <Text style={styles.cameraPlaceholderText}>Initializing camera...</Text>
+            </View>
+          )}
         </Animated.View>
       </View>
 
@@ -378,8 +488,11 @@ export default function ScanScreen() {
           <CaptureButton
             onPress={handleCapture}
             isCapturing={isCapturing}
-            isReady={true}
+            isReady={isCameraReady && detectionStatus === "aligned"}
             size="compact"
+            flashMode={flashMode}
+            onFlashToggle={toggleFlash}
+            flashButtonPosition="left"
           />
         </Animated.View>
       </View>
@@ -438,6 +551,28 @@ const styles = StyleSheet.create({
   camera: {
     flex: 1,
   },
+  cameraNotReadyOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cameraNotReadyText: {
+    color: "#ffffff",
+    marginTop: 16,
+    fontFamily: "SpaceMono",
+  },
+  cameraPlaceholder: {
+    flex: 1,
+    backgroundColor: "#1a1a1a",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cameraPlaceholderText: {
+    color: "#f8f9fa",
+    marginTop: 16,
+    fontFamily: "SpaceMono",
+  },
   buttonContainer: {
     height: 100,
     justifyContent: "center",
@@ -457,5 +592,16 @@ const styles = StyleSheet.create({
   previewImage: {
     flex: 1,
     resizeMode: "contain",
+  },
+  // Loading state styles
+  loaderContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loaderText: {
+    color: "#f8f9fa",
+    marginTop: 16,
+    fontFamily: "SpaceMono",
   },
 });

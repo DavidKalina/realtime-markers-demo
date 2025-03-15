@@ -1,14 +1,16 @@
-// useCamera.ts - Updated for non-blocking processing
+// useCamera.ts - Improved version with better error handling and lifecycle management
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useCameraPermissions, FlashMode } from "expo-camera";
-import { Alert, AppState } from "react-native";
+import { Alert, AppState, Platform } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
-import { manipulateImage } from "@/utils/imageUtils";
+import * as ImageManipulator from "expo-image-manipulator";
+import * as FileSystem from "expo-file-system";
 
 export const useCamera = () => {
   // Permissions
   const [permission, requestPermission] = useCameraPermissions();
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [permissionRequested, setPermissionRequested] = useState(false);
 
   // Camera state
   const [isCapturing, setIsCapturing] = useState(false);
@@ -25,17 +27,32 @@ export const useCamera = () => {
   // Explicitly managed camera active state
   const [isCameraActive, setIsCameraActive] = useState(false);
 
-  // Permission handling
+  // Track camera initialization
+  const cameraInitialized = useRef(false);
+
+  // Permission handling - improved with better state tracking
   useEffect(() => {
     const updatePermission = async () => {
       try {
         if (permission === null) return;
 
+        // Update permission state
         setHasPermission(permission.granted);
 
-        if (!permission.granted && permission.canAskAgain) {
+        // If we don't have permission yet and haven't requested it, request it
+        if (!permission.granted && permission.canAskAgain && !permissionRequested) {
+          setPermissionRequested(true);
           const result = await requestPermission();
           setHasPermission(result.granted);
+
+          // If we still don't have permission, show a more helpful message
+          if (!result.granted) {
+            Alert.alert(
+              "Camera Access Required",
+              "This feature requires camera access. Please enable camera permissions in your device settings.",
+              [{ text: "OK" }]
+            );
+          }
         }
       } catch (error: any) {
         console.error("Error checking camera permission:", error);
@@ -43,7 +60,7 @@ export const useCamera = () => {
     };
 
     updatePermission();
-  }, [permission, requestPermission]);
+  }, [permission, requestPermission, permissionRequested]);
 
   // Monitor app state for background/foreground transitions
   useEffect(() => {
@@ -52,7 +69,15 @@ export const useCamera = () => {
       setAppActive(isActive);
 
       if (isActive && appState.current !== "active" && isFocused) {
+        console.log("App became active - resetting camera state");
         setIsCameraReady(false);
+
+        // Small delay before re-initializing camera
+        setTimeout(() => {
+          if (cameraRef.current) {
+            setIsCameraActive(true);
+          }
+        }, 300);
       }
 
       appState.current = nextAppState;
@@ -63,15 +88,21 @@ export const useCamera = () => {
     };
   }, [isFocused]);
 
-  // Handle camera readiness - simpler version with logging
+  // Handle camera readiness with better logging
   const onCameraReady = useCallback(() => {
     console.log("Camera is now ready");
     setIsCameraReady(true);
+    cameraInitialized.current = true;
   }, []);
 
   // Update camera active state based on all required conditions
   useEffect(() => {
     const shouldBeActive = isFocused && appActive && hasPermission === true;
+
+    console.log(
+      `Camera state check: focused=${isFocused}, active=${appActive}, hasPermission=${hasPermission}`
+    );
+
     if (shouldBeActive !== isCameraActive) {
       console.log(`Camera active state changing to: ${shouldBeActive}`);
       setIsCameraActive(shouldBeActive);
@@ -79,6 +110,7 @@ export const useCamera = () => {
       // Reset camera ready state when becoming active
       if (shouldBeActive) {
         setIsCameraReady(false);
+        cameraInitialized.current = false;
       }
     }
   }, [isFocused, appActive, hasPermission, isCameraActive]);
@@ -94,34 +126,56 @@ export const useCamera = () => {
 
   // Release camera resources
   const releaseCamera = useCallback(() => {
+    console.log("Releasing camera resources");
     setIsCameraReady(false);
     setIsCapturing(false);
     setCapturedImage(null);
+    cameraInitialized.current = false;
   }, []);
 
   // Clean up when component unmounts
   useEffect(() => {
     return () => {
+      console.log("Camera hook unmounting - cleaning up resources");
       releaseCamera();
     };
   }, [releaseCamera]);
 
-  // Take picture - simplified version with flash support
-  // Modified to only return URI without storing in state to support background processing
+  // Take picture - robust version with better error handling and flash support
   const takePicture = async () => {
-    if (!cameraRef.current || isCapturing || !isCameraReady || !isCameraActive) {
+    if (!cameraRef.current) {
+      console.log("No camera ref available");
+      return null;
+    }
+
+    if (isCapturing) {
+      console.log("Already capturing, ignoring request");
+      return null;
+    }
+
+    if (!isCameraReady) {
+      console.log("Camera not ready yet");
+      return null;
+    }
+
+    if (!isCameraActive) {
+      console.log("Camera not active");
       return null;
     }
 
     try {
+      console.log("Starting image capture");
       setIsCapturing(true);
 
       const photo = await (cameraRef.current as any).takePictureAsync({
         quality: 0.8,
+        exif: true,
+        flashMode: flashMode,
       });
 
-      // Return the URI directly without setting to state
-      // This allows for non-blocking processing
+      console.log("Image captured successfully:", photo?.uri);
+
+      // Return the URI directly
       return photo.uri;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Failed to capture image";
@@ -140,26 +194,46 @@ export const useCamera = () => {
   // Toggle flash mode function
   const toggleFlash = useCallback(() => {
     setFlashMode((prevMode) => {
-      switch (prevMode) {
-        case "off":
-          return "on";
-        case "on":
-          return "auto";
-        case "auto":
-        default:
-          return "off";
-      }
+      const newMode = prevMode === "off" ? "on" : "off";
+      console.log(`Flash mode changed from ${prevMode} to ${newMode}`);
+      return newMode;
     });
   }, []);
 
-  // Process the captured image - separate from taking the picture
+  // For useCamera.ts - Updated processImage function with proper type checking
   const processImage = async (uri: string) => {
     try {
-      const processedImage = await manipulateImage(uri);
-      return processedImage.uri;
+      console.log("Processing image:", uri);
+
+      // Get file info with proper type checking
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+
+      // Only log size if fileInfo.exists is true
+      if (fileInfo.exists) {
+        console.log("Original image size:", fileInfo.size || "unknown", "bytes");
+      }
+
+      // Use Image Manipulator for consistent processing
+      const processed = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1200 } }], // Resize to max width of 1200px
+        { compress: 0.3, format: ImageManipulator.SaveFormat.JPEG } // 30% quality JPEG
+      );
+
+      // Log processed size with proper type checking
+      const processedInfo = await FileSystem.getInfoAsync(processed.uri);
+
+      if (fileInfo.exists && processedInfo.exists && fileInfo.size && processedInfo.size) {
+        console.log("Processed image size:", processedInfo.size, "bytes");
+        console.log("Compression ratio:", (processedInfo.size / fileInfo.size).toFixed(2));
+      } else {
+        console.log("Processed image URI:", processed.uri);
+      }
+
+      return processed.uri;
     } catch (error) {
       console.error("Error processing image:", error);
-      return null;
+      return uri; // Fall back to original if processing fails
     }
   };
 
@@ -168,11 +242,22 @@ export const useCamera = () => {
     setCapturedImage(null);
   }, []);
 
-  // Check permission function
+  // Explicitly request camera permission - useful for manual retry
   const checkPermission = useCallback(async () => {
     try {
+      console.log("Manually checking camera permission");
       const result = await requestPermission();
       setHasPermission(result.granted);
+
+      if (result.granted) {
+        console.log("Camera permission granted manually");
+
+        // Small delay to let the system register the permission
+        setTimeout(() => {
+          setIsCameraActive(true);
+        }, 500);
+      }
+
       return result.granted;
     } catch (error) {
       console.error("Error in manual permission check:", error);
@@ -197,5 +282,7 @@ export const useCamera = () => {
     discardImage,
     flashMode,
     toggleFlash,
+    // Additional state that can be helpful for debugging
+    permissionRequested,
   };
 };

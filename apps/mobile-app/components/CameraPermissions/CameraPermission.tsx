@@ -1,18 +1,24 @@
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { useCameraPermissions } from "expo-camera";
 import Animated, { FadeIn, ZoomIn } from "react-native-reanimated";
 import * as Linking from "expo-linking";
 import { AppState } from "react-native";
+import { Feather } from "@expo/vector-icons";
 
 interface CameraPermissionProps {
   onPermissionGranted: () => void;
+  onRetryPermission?: () => Promise<boolean>;
 }
 
-export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermissionGranted }) => {
+export const CameraPermission: React.FC<CameraPermissionProps> = ({
+  onPermissionGranted,
+  onRetryPermission,
+}) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasSettingsOpened, setHasSettingsOpened] = useState(false);
+  const [checkCount, setCheckCount] = useState(0);
 
   // Check permission state immediately when component mounts
   useEffect(() => {
@@ -84,10 +90,41 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
     }
   };
 
+  // Custom retry using the provided retry function
+  const handleRetryPermission = async () => {
+    if (onRetryPermission) {
+      setIsProcessing(true);
+
+      try {
+        const granted = await onRetryPermission();
+        if (granted) {
+          // If successful, call the granted callback
+          onPermissionGranted();
+        } else {
+          setIsProcessing(false);
+          setCheckCount((prev) => prev + 1);
+        }
+      } catch (error) {
+        console.error("Error during permission retry:", error);
+        setIsProcessing(false);
+      }
+    } else {
+      // Fall back to regular permission check
+      setIsProcessing(true);
+      requestPermission().finally(() => {
+        setTimeout(() => {
+          setIsProcessing(false);
+          setCheckCount((prev) => prev + 1);
+        }, 500);
+      });
+    }
+  };
+
   // If we're waiting for the permission check
   if (permission === undefined) {
     return (
       <Animated.View style={styles.processingContainer} entering={ZoomIn.duration(500)}>
+        <ActivityIndicator size="large" color="#69db7c" />
         <Text style={styles.processingText}>Checking camera permissions...</Text>
       </Animated.View>
     );
@@ -97,6 +134,7 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
   if (isProcessing) {
     return (
       <Animated.View style={styles.processingContainer} entering={FadeIn.duration(500)}>
+        <ActivityIndicator size="large" color="#69db7c" />
         <Text style={styles.processingText}>
           {permission?.granted ? "Camera ready!" : "Processing permission request..."}
         </Text>
@@ -108,9 +146,13 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
   if (!permission?.granted) {
     return (
       <Animated.View style={styles.permissionContainer} entering={ZoomIn.duration(500)}>
+        <View style={styles.iconContainer}>
+          <Feather name="camera-off" size={64} color="#f8f9fa" />
+        </View>
+
         <Text style={styles.permissionMessage}>Camera access required</Text>
         <Text style={styles.permissionSubtext}>
-          We need camera access to continue. Your privacy is important to us.
+          We need camera access to scan documents. Your privacy is important to us.
         </Text>
 
         {permission?.canAskAgain ? (
@@ -134,19 +176,7 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
               <Text style={styles.settingsButtonText}>Open Settings</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => {
-                // Try requesting again (in case the user enabled it manually)
-                setIsProcessing(true);
-                requestPermission().finally(() => {
-                  // Small delay to prevent flickering UI
-                  setTimeout(() => {
-                    setIsProcessing(false);
-                  }, 500);
-                });
-              }}
-            >
+            <TouchableOpacity style={styles.retryButton} onPress={handleRetryPermission}>
               <Text style={styles.retryButtonText}>Check Again</Text>
             </TouchableOpacity>
           </View>
@@ -157,6 +187,12 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
             If you've enabled camera access, please tap "Check Again"
           </Animated.Text>
         )}
+
+        {checkCount > 2 && !hasSettingsOpened && (
+          <Animated.Text style={styles.returnHint} entering={FadeIn.duration(300)}>
+            Having trouble? Try restarting the app or your device.
+          </Animated.Text>
+        )}
       </Animated.View>
     );
   }
@@ -164,6 +200,7 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({ onPermission
   // If permission is granted, we show a transition screen
   return (
     <Animated.View style={styles.processingContainer} entering={FadeIn.duration(500)}>
+      <Feather name="check-circle" size={64} color="#69db7c" />
       <Text style={styles.processingText}>Camera permission granted!</Text>
     </Animated.View>
   );
@@ -176,6 +213,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
+  },
+  iconContainer: {
+    marginBottom: 24,
+    padding: 16,
+    borderRadius: 50,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   permissionMessage: {
     fontSize: 18,
