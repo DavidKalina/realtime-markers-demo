@@ -1,21 +1,20 @@
 // worker.ts
 import Redis from "ioredis";
-import { EventProcessingService } from "./services/EventProcessingService";
-import { EventService } from "./services/EventService";
 import AppDataSource from "./data-source";
-import { OpenAIService } from "./services/shared/OpenAIService";
-import { CategoryProcessingService } from "./services/CategoryProcessingService";
-import { Event } from "./entities/Event";
 import { Category } from "./entities/Category";
-import { JobQueue } from "./services/JobQueue";
-import { ConfigService } from "./services/shared/ConfigService";
+import { Event } from "./entities/Event";
+import { CategoryProcessingService } from "./services/CategoryProcessingService";
+import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
-import { LocationResolutionService } from "./services/event-processing/LocationResolutionService";
-import { EnhancedLocationService } from "./services/shared/LocationService";
 import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
 import type { IEventProcessingServiceDependencies } from "./services/event-processing/interfaces/IEventProcessingServiceDependencies";
-import { EventExtractionService } from "./services/event-processing/EventExtractionService";
-import { differenceInDays } from "date-fns";
+import { LocationResolutionService } from "./services/event-processing/LocationResolutionService";
+import { EventProcessingService } from "./services/EventProcessingService";
+import { EventService } from "./services/EventService";
+import { JobQueue } from "./services/JobQueue";
+import { ConfigService } from "./services/shared/ConfigService";
+import { EnhancedLocationService } from "./services/shared/LocationService";
+import { OpenAIService } from "./services/shared/OpenAIService";
 import { isEventTemporalyRelevant } from "./utils/isEventTemporalyRelevant";
 
 // Configuration
@@ -72,6 +71,8 @@ async function initializeWorker() {
     locationResolutionService
   );
 
+  const jobQueue = new JobQueue(redisClient);
+
   // Create event processing service using the dependencies interface
   const eventProcessingDependencies: IEventProcessingServiceDependencies = {
     categoryProcessingService,
@@ -80,6 +81,7 @@ async function initializeWorker() {
     imageProcessingService,
     configService,
     eventExtractionService,
+    jobQueue,
   };
 
   const eventProcessingService = new EventProcessingService(eventProcessingDependencies);
@@ -87,7 +89,6 @@ async function initializeWorker() {
   const eventService = new EventService(AppDataSource);
 
   // Initialize JobQueue
-  const jobQueue = new JobQueue(redisClient);
 
   // Active jobs counter
   let activeJobs = 0;
@@ -175,7 +176,8 @@ async function initializeWorker() {
           progressCallback,
           {
             userCoordinates: job.data.userCoordinates,
-          }
+          },
+          jobId
         );
 
         // Add detailed debugging to see what's happening

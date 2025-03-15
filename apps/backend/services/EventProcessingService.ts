@@ -15,6 +15,7 @@ import type {
 } from "./event-processing/interfaces/IProgressReportingService";
 import { ProgressReportingService } from "./event-processing/ProgressReportingService";
 import { EmbeddingService, type EmbeddingInput } from "./shared/EmbeddingService";
+import type { JobQueue } from "./JobQueue";
 
 interface LocationContext {
   userCoordinates?: { lat: number; lng: number };
@@ -48,6 +49,7 @@ export class EventProcessingService {
   private eventExtractionService: IEventExtractionService;
   private embeddingService: IEmbeddingService;
   private progressReportingService: IProgressReportingService;
+  private jobQueue?: JobQueue; // Store JobQueue instance
 
   constructor(private dependencies: IEventProcessingServiceDependencies) {
     // Initialize the image processing service (use provided or create new one)
@@ -75,35 +77,24 @@ export class EventProcessingService {
     // Use provided progress reporting service or create a basic one
     this.progressReportingService =
       dependencies.progressReportingService || new ProgressReportingService();
+
+    this.jobQueue = dependencies.jobQueue;
   }
 
-  /**
-   * Creates a workflow for a specific job that uses the progress reporting service
-   * @param jobId Optional job ID for progress tracking
-   * @param externalCallback Optional external callback for progress updates
-   * @returns A configured progress reporting service for this job
-   */
   public createWorkflow(
     jobId?: string,
     externalCallback?: ProgressCallback
   ): IProgressReportingService {
-    // Clone the progress reporting service to avoid cross-workflow interference
-    const progressService = this.progressReportingService;
+    // Create a NEW progress reporting service to avoid cross-workflow interference
+    const progressService = new ProgressReportingService(
+      externalCallback,
+      this.jobQueue, // Pass JobQueue to the new instance
+      this.dependencies.configService
+    );
 
     // Connect to job queue if a job ID is provided
     if (jobId) {
       progressService.connectToJobQueue(jobId);
-    }
-
-    // Link external callback if provided
-    if (externalCallback) {
-      // We'll need to chain callbacks
-      const originalCallback = async (message: string, metadata?: Record<string, any>) => {
-        await externalCallback(message, metadata);
-      };
-
-      // Override the progress reporting with our custom callback
-      progressService.reportProgress = originalCallback;
     }
 
     return progressService;
@@ -112,21 +103,11 @@ export class EventProcessingService {
   async processFlyerFromImage(
     imageData: Buffer | string,
     progressCallback?: ProgressCallback,
-    locationContext?: LocationContext
+    locationContext?: LocationContext,
+    jobId?: string // Add jobId parameter
   ): Promise<ScanResult> {
     // Create a workflow with the standard processing steps
-    const workflow = this.progressReportingService;
-
-    // Connect external callback if provided
-    if (progressCallback) {
-      // Create a new session for this workflow
-      const externalReporter = async (message: string, metadata?: Record<string, any>) => {
-        await progressCallback(message, metadata);
-      };
-
-      // Override the default reporting method
-      workflow.reportProgress = externalReporter;
-    }
+    const workflow = this.createWorkflow(jobId, progressCallback);
 
     // Start a session with 6 steps (image processing, vision API, extraction, embedding, similarity, completion)
     workflow.startSession(6, "Flyer Processing");

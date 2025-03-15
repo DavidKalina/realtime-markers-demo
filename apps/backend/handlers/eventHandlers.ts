@@ -3,6 +3,7 @@
 import type { Context } from "hono";
 import type { AppContext } from "../types/context";
 import { Buffer } from "buffer";
+import { ClusterNamingService } from "../services/ClusterNamingService";
 
 // Define a type for our handler functions
 export type EventHandler = (c: Context<AppContext>) => Promise<Response> | Response;
@@ -431,6 +432,44 @@ export const isEventSavedHandler: EventHandler = async (c) => {
       {
         error: "Failed to check event save status",
         details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
+export const generateClusterNamesHandler: EventHandler = async (c) => {
+  try {
+    const data = await c.req.json();
+
+    // Validate request data
+    if (!data.clusters || !Array.isArray(data.clusters) || !data.zoom) {
+      return c.json(
+        {
+          error: "Invalid request format",
+          message: "Request must include clusters array and zoom level",
+        },
+        400
+      );
+    }
+
+    // Initialize the ClusterNamingService
+    const clusterNamingService = ClusterNamingService.getInstance();
+
+    // Process the clusters to generate names
+    const results = await clusterNamingService.generateClusterNames({
+      clusters: data.clusters,
+      zoom: data.zoom,
+      bounds: data.bounds,
+    });
+
+    return c.json(results);
+  } catch (error) {
+    console.error("Error generating cluster names:", error);
+    return c.json(
+      {
+        error: "Failed to generate cluster names",
+        message: error instanceof Error ? error.message : "Unknown error",
       },
       500
     );

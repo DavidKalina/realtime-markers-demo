@@ -70,6 +70,7 @@ interface ScannerOverlayProps {
   detectionStatus?: "none" | "detecting" | "aligned";
   isCapturing?: boolean;
   onFrameReady?: () => void;
+  showScannerAnimation?: boolean; // New prop to control the visibility of scanner animation
 }
 
 export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) => {
@@ -78,6 +79,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
     detectionStatus = "none",
     isCapturing = false,
     onFrameReady,
+    showScannerAnimation = true, // Default to true for backward compatibility
   } = props;
 
   // Refs to store timeouts and track component mounted state
@@ -258,9 +260,10 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
   }));
 
   // Determine if scanning animation should be shown - memoized
+  // Now respects the showScannerAnimation prop
   const showScanning = useMemo(
-    () => detectionStatus !== "none" || isCapturing,
-    [detectionStatus, isCapturing]
+    () => showScannerAnimation && (detectionStatus !== "none" || isCapturing),
+    [detectionStatus, isCapturing, showScannerAnimation]
   );
 
   // Compute icon color - memoized
@@ -276,12 +279,14 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
       <View style={overlayStyles.frameContainer}>
         {/* Animated frame */}
         <Animated.View style={[overlayStyles.frame, frameStyle]}>
-          {/* Scanner animation component */}
-          <ScannerAnimation
-            isActive={showScanning}
-            color={scanColor}
-            speed={isCapturing ? 1000 : 1500}
-          />
+          {/* Scanner animation component - conditionally rendered based on showScannerAnimation */}
+          {showScannerAnimation && (
+            <ScannerAnimation
+              isActive={showScanning}
+              color={scanColor}
+              speed={isCapturing ? 1000 : 1500}
+            />
+          )}
 
           {/* Corners for additional visual guidance */}
           <Animated.View style={[overlayStyles.corner, overlayStyles.topLeft, cornerStyle]} />
