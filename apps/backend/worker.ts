@@ -16,6 +16,7 @@ import { ConfigService } from "./services/shared/ConfigService";
 import { EnhancedLocationService } from "./services/shared/LocationService";
 import { OpenAIService } from "./services/shared/OpenAIService";
 import { isEventTemporalyRelevant } from "./utils/isEventTemporalyRelevant";
+import { StorageService } from "./services/shared/StorageService";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -43,6 +44,8 @@ async function initializeWorker() {
 
   // Get OpenAI instance - this initializes the singleton
   OpenAIService.getInstance();
+
+  StorageService.getInstance();
 
   // Initialize LocationService singleton (this is just to warm up the cache)
   EnhancedLocationService.getInstance();

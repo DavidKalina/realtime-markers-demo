@@ -76,6 +76,15 @@ services:
       - NODE_ENV=production
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - MAPBOX_GEOCODING_TOKEN=${MAPBOX_GEOCODING_TOKEN}
+      # Image storage configuration
+      - ENABLE_IMAGE_STORAGE=${ENABLE_IMAGE_STORAGE:-false}
+      - DO_SPACE_ENDPOINT=${DO_SPACE_ENDPOINT:-https://nyc3.digitaloceanspaces.com}
+      - DO_SPACE_REGION=${DO_SPACE_REGION:-nyc3}
+      - DO_SPACE_BUCKET=${DO_SPACE_BUCKET:-event-images}
+      - DO_SPACE_ACCESS_KEY=${DO_SPACE_ACCESS_KEY}
+      - DO_SPACE_SECRET_KEY=${DO_SPACE_SECRET_KEY}
+      - DO_SPACE_PUBLIC_URL=${DO_SPACE_PUBLIC_URL:-https://nyc3.digitaloceanspaces.com}
+
     ports:
       - "127.0.0.1:3000:3000" # Only expose to the host for Nginx
     networks:
@@ -114,6 +123,13 @@ services:
       - NODE_ENV=production
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - MAPBOX_GEOCODING_TOKEN=${MAPBOX_GEOCODING_TOKEN}
+      - ENABLE_IMAGE_STORAGE=${ENABLE_IMAGE_STORAGE:-false}
+      - DO_SPACE_ENDPOINT=${DO_SPACE_ENDPOINT:-https://nyc3.digitaloceanspaces.com}
+      - DO_SPACE_REGION=${DO_SPACE_REGION:-nyc3}
+      - DO_SPACE_BUCKET=${DO_SPACE_BUCKET:-event-images}
+      - DO_SPACE_ACCESS_KEY=${DO_SPACE_ACCESS_KEY}
+      - DO_SPACE_SECRET_KEY=${DO_SPACE_SECRET_KEY}
+      - DO_SPACE_PUBLIC_URL=${DO_SPACE_PUBLIC_URL:-https://nyc3.digitaloceanspaces.com}
     networks:
       - marker-network
     depends_on:

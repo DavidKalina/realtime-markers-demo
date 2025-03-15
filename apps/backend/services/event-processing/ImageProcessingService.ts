@@ -7,6 +7,7 @@ import type { ImageProcessingResult } from "./dto/ImageProcessingResult";
 import { OpenAIService } from "../shared/OpenAIService";
 import jsQR from "jsqr";
 import { Jimp } from "jimp";
+import { StorageService } from "../shared/StorageService";
 
 export class ImageProcessingService implements IImageProcessingService {
   private readonly VISION_MODEL = "gpt-4o";
@@ -46,6 +47,23 @@ export class ImageProcessingService implements IImageProcessingService {
       qrCodeDetected: qrResult.detected || visionResult.qrCodeDetected || false,
       qrCodeData: qrResult.data || visionResult.qrCodeData,
     };
+
+    // Only upload if imageData is a Buffer
+    if (Buffer.isBuffer(imageData)) {
+      const storageService = StorageService.getInstance();
+
+      // Queue the upload but don't wait for it (non-blocking)
+      storageService
+        .uploadImage(imageData, `image-verification`, {
+          confidenceScore: `${result.confidence.toFixed(2)}`,
+          processedAt: result.extractedAt,
+          qrDetected: `${result.qrCodeDetected}`,
+        })
+        .catch((error) => {
+          // Log error but don't fail the overall process
+          console.error("Error queueing image upload:", error);
+        });
+    }
 
     // Cache the result for future use
     await this.cacheResult(cacheKey, result);
