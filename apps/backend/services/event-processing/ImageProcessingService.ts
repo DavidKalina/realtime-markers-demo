@@ -13,35 +13,11 @@ export class ImageProcessingService implements IImageProcessingService {
   private readonly VISION_MODEL = "gpt-4o";
   private readonly CACHE_TTL = 24 * 60 * 60; // 24 hours in seconds
 
-  private async preprocessImage(imageBuffer: Buffer, forQR: boolean = false): Promise<Buffer> {
-    const sharp = require("sharp");
-    let processor = sharp(imageBuffer);
-
-    if (forQR) {
-      // Optimize for QR detection
-      processor = processor
-        .grayscale()
-        .sharpen(1, 2, 0.5) // Moderate sharpening
-        .normalize() // Normalize contrast
-        .threshold(128); // Binary threshold for clearer edges
-    } else {
-      // Optimize for text extraction
-      processor = processor
-        .resize(1600, 1600, { fit: "inside", withoutEnlargement: false })
-        .modulate({ brightness: 1.05, saturation: 0.8 })
-        .sharpen(1, 1, 0.7)
-        .normalize();
-    }
-
-    return processor.toBuffer();
-  }
-
   /**
    * Process an image and extract text content using Vision API
    * @param imageData Buffer or string containing image data
    * @returns Image processing result with extracted text and confidence score
    */
-  // Update processImage method to handle both QR detection and Vision API processing with preprocessed images
   public async processImage(imageData: Buffer | string): Promise<ImageProcessingResult> {
     // Convert the image data to a base64 string if necessary
     const base64Image = await this.convertToBase64(imageData);
@@ -72,78 +48,47 @@ export class ImageProcessingService implements IImageProcessingService {
       qrCodeData: qrResult.data || visionResult.qrCodeData,
     };
 
+    // Only upload if imageData is a Buffer
+    if (Buffer.isBuffer(imageData)) {
+      const storageService = StorageService.getInstance();
+
+      // Queue the upload but don't wait for it (non-blocking)
+      storageService
+        .uploadImage(imageData, `image-verification`, {
+          confidenceScore: `${result.confidence.toFixed(2)}`,
+          processedAt: result.extractedAt,
+          qrDetected: `${result.qrCodeDetected}`,
+        })
+        .catch((error) => {
+          // Log error but don't fail the overall process
+          console.error("Error queueing image upload:", error);
+        });
+    }
+
     // Cache the result for future use
     await this.cacheResult(cacheKey, result);
 
     return result;
   }
 
-  private async detectQRCode(imageData: Buffer): Promise<{
-    detected: boolean;
-    data?: string;
-    imageUrls?: { original: string | null; preprocessed: string | null };
-  }> {
+  private async detectQRCode(imageData: Buffer): Promise<{ detected: boolean; data?: string }> {
     try {
-      // Get storage service instance
-      const storageService = StorageService.getInstance();
-
-      // First preprocess the image optimized for QR detection
-      const preprocessedBuffer = await this.preprocessImage(imageData, true);
-
-      // Store both images non-blockingly
-      const imageUrls = storageService.storeProcessedImages(
-        imageData,
-        preprocessedBuffer,
-        "qr-detection",
-        {
-          purpose: "QR code detection",
-          timestamp: new Date().toISOString(),
-        }
-      );
-
-      // Try with preprocessed image first
-      try {
-        const image = await Jimp.read(preprocessedBuffer);
-        const { width, height, data } = image.bitmap;
-
-        // Scan for QR code with preprocessed image
-        const qrCode = jsQR(new Uint8ClampedArray(data.buffer), width, height);
-
-        if (qrCode && qrCode.data) {
-          console.log("QR code detected with preprocessed image:", qrCode.data);
-          return {
-            detected: true,
-            data: qrCode.data,
-            imageUrls: await imageUrls, // await the URL promise here
-          };
-        }
-      } catch (preprocessError) {
-        console.error(
-          "Error processing QR from preprocessed image, falling back to original:",
-          preprocessError
-        );
-      }
-
-      // Fall back to original image if preprocessing failed or no QR detected
+      // Convert buffer to format jsQR can process
       const image = await Jimp.read(imageData);
       const { width, height, data } = image.bitmap;
 
-      // Scan for QR code with original image
+      // Scan for QR code
       const qrCode = jsQR(new Uint8ClampedArray(data.buffer), width, height);
 
       if (qrCode && qrCode.data) {
-        console.log("QR code detected with original image:", qrCode.data);
+        console.log("QR code detected with data:", qrCode.data);
         return {
           detected: true,
           data: qrCode.data,
-          imageUrls: await imageUrls, // await the URL promise here
         };
       }
 
-      return {
-        detected: false,
-        imageUrls: await imageUrls, // await the URL promise here even for failures
-      };
+      return { detected: false };
     } catch (error) {
       console.error("Error detecting QR code:", error);
       return { detected: false };
@@ -213,41 +158,8 @@ export class ImageProcessingService implements IImageProcessingService {
    * @param base64Image Base64 encoded image
    * @returns Processing result with extracted text and confidence
    */
-  // And update the callVisionAPI method:
   private async callVisionAPI(base64Image: string): Promise<ImageProcessingResult> {
     try {
-      // If the base64Image is a data URL, extract the data part
-      let imageBuffer: Buffer;
-      if (base64Image.startsWith("data:image")) {
-        const base64Data = base64Image.split(",")[1];
-        imageBuffer = Buffer.from(base64Data, "base64");
-      } else {
-        // Handle case where it's already just base64 data
-        imageBuffer = Buffer.from(base64Image, "base64");
-      }
-
-      // Get storage service instance
-      const storageService = StorageService.getInstance();
-
-      // Preprocess the image for text extraction
-      const preprocessedBuffer = await this.preprocessImage(imageBuffer, false);
-
-      // Store both images non-blockingly
-      const imageUrls = storageService.storeProcessedImages(
-        imageBuffer,
-        preprocessedBuffer,
-        "vision-api",
-        {
-          purpose: "Vision API processing",
-          timestamp: new Date().toISOString(),
-        }
-      );
-
-      process.stdout.write(`Debug: ${JSON.stringify(imageUrls)}\n`);
-
-      // Convert back to base64 for the API call
-      const preprocessedBase64 = `data:image/jpeg;base64,${preprocessedBuffer.toString("base64")}`;
-
       const response = await OpenAIService.executeChatCompletion({
         model: this.VISION_MODEL,
         messages: [
@@ -257,23 +169,23 @@ export class ImageProcessingService implements IImageProcessingService {
               {
                 type: "text",
                 text: `Please analyze this event flyer and extract as much detail as possible:
-                   - Check if there's a QR code present in the image (yes/no)
-                   - Event Title
-                   - Event Date and Time (be specific about year, month, day, time)
-                   - Any timezone information (EST, PST, GMT, etc.)
-                   - Full Location Details (venue name, address, city, state)
-                   - Complete Description
-                   - Any contact information
-                   - Any social media handles
-                   - Any other important details
+                     - Check if there's a QR code present in the image (yes/no)
+                     - Event Title
+                     - Event Date and Time (be specific about year, month, day, time)
+                     - Any timezone information (EST, PST, GMT, etc.)
+                     - Full Location Details (venue name, address, city, state)
+                     - Complete Description
+                     - Any contact information
+                     - Any social media handles
+                     - Any other important details
 
-                   Also, provide a confidence score between 0 and 1, indicating how confident you are that the extraction is an event.
-                   Consider whether there's a date, a time, and a location.`,
+                     Also, provide a confidence score between 0 and 1, indicating how confident you are that the extraction is an event.
+                     Consider whether there's a date, a time, and a location.`,
               },
               {
                 type: "image_url",
                 image_url: {
-                  url: preprocessedBase64,
+                  url: base64Image,
                 },
               },
             ],
@@ -290,18 +202,12 @@ export class ImageProcessingService implements IImageProcessingService {
       // Check if Vision API detected a QR code
       const qrDetected = /QR code.*?:\s*yes/i.test(content);
 
-      // Get the image URLs (non-blocking resolution)
-      const urls = await imageUrls;
-
       return {
         success: true,
         rawText: content,
         confidence: confidence,
         extractedAt: new Date().toISOString(),
         qrCodeDetected: qrDetected,
-        // Add URLs to the result
-        originalImageUrl: urls.original,
-        preprocessedImageUrl: urls.preprocessed,
       };
     } catch (error) {
       console.error("Error calling Vision API:", error);

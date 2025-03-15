@@ -1,19 +1,27 @@
-// services/shared/StorageService.ts (updated version)
+// services/shared/StorageService.ts (non-blocking version)
 
 import { S3 } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
+import { EventEmitter } from "events";
 
-export class StorageService {
+export class StorageService extends EventEmitter {
   private static instance: StorageService;
   private s3Client: S3 | null = null;
   private bucketName: string = "event-images";
-  public isEnabled: boolean = true; // Make public for debugging
+  public isEnabled: boolean = true;
+  private uploadQueue: Array<{
+    imageBuffer: Buffer;
+    prefix: string;
+    metadata: Record<string, string>;
+    resolveUrl: (url: string | null) => void;
+  }> = [];
+  private isProcessing: boolean = false;
 
   private constructor() {
+    super(); // Initialize EventEmitter
     console.log("StorageService constructor called");
 
     // Check if storage is enabled via environment variable
-    console.log(process.env.ENABLE_IMAGE_STORAGE);
     this.isEnabled = process.env.ENABLE_IMAGE_STORAGE === "true";
     console.log(`StorageService initialized with isEnabled=${this.isEnabled}`);
 
@@ -52,9 +60,10 @@ export class StorageService {
   }
 
   /**
-   * Upload an image buffer to Digital Ocean Space
+   * Queue an image upload and return immediately
+   * Returns a promise that resolves when the upload is complete
    */
-  public async uploadImage(
+  public uploadImage(
     imageBuffer: Buffer,
     prefix: string = "events",
     metadata: Record<string, string> = {}
@@ -66,25 +75,90 @@ export class StorageService {
     // Skip if storage is disabled
     if (!this.isEnabled) {
       console.log("Storage is disabled, not uploading");
-      return null;
+      return Promise.resolve(null);
     }
 
+    // Return a promise that will resolve when the upload completes
+    return new Promise((resolve) => {
+      // Add to queue
+      this.uploadQueue.push({
+        imageBuffer,
+        prefix,
+        metadata,
+        resolveUrl: resolve,
+      });
+
+      // Process queue if not already processing
+      if (!this.isProcessing) {
+        this.processQueue();
+      }
+    });
+  }
+
+  /**
+   * Process the upload queue in the background
+   */
+  private async processQueue(): Promise<void> {
+    if (this.isProcessing || this.uploadQueue.length === 0) {
+      return;
+    }
+
+    this.isProcessing = true;
+
+    try {
+      // Get the next item from the queue
+      const item = this.uploadQueue.shift();
+
+      if (!item) {
+        this.isProcessing = false;
+        return;
+      }
+
+      const { imageBuffer, prefix, metadata, resolveUrl } = item;
+
+      // Perform the actual upload
+      const url = await this.performUpload(imageBuffer, prefix, metadata);
+
+      // Resolve the promise with the URL
+      resolveUrl(url);
+
+      // Emit event for logging/monitoring
+      this.emit("uploadComplete", { success: !!url, prefix, size: imageBuffer.length });
+    } catch (error) {
+      console.error("Error in queue processing:", error);
+    } finally {
+      this.isProcessing = false;
+
+      // Continue processing if there are more items
+      if (this.uploadQueue.length > 0) {
+        // Use setImmediate to prevent blocking
+        setImmediate(() => this.processQueue());
+      }
+    }
+  }
+
+  /**
+   * Perform the actual upload to S3/DO Spaces
+   * @private
+   */
+  private async performUpload(
+    imageBuffer: Buffer,
+    prefix: string,
+    metadata: Record<string, string>
+  ): Promise<string | null> {
     try {
       // Generate a unique ID for the image
       const imageId = uuidv4();
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const key = `${prefix}/${timestamp}-${imageId}.jpg`;
 
-      console.log("Preparing to upload to storage:", {
+      console.log("Uploading to storage:", {
         bucket: this.bucketName,
         key,
-        endpoint: process.env.DO_SPACE_ENDPOINT,
       });
 
       // Upload to DO Space if client is initialized
       if (this.s3Client) {
-        console.log("S3 client exists, calling putObject...");
-
         const startTime = Date.now();
         await this.s3Client.putObject({
           Bucket: this.bucketName,
@@ -121,56 +195,28 @@ export class StorageService {
   }
 
   /**
-   * Store both original and preprocessed versions of an image
+   * Get the current queue size (useful for monitoring)
    */
-  public async storeProcessedImages(
-    originalImage: Buffer,
-    preprocessedImage: Buffer,
-    processingType: string,
-    metadata: Record<string, string> = {}
-  ): Promise<{ original: string | null; preprocessed: string | null }> {
-    console.log(`storeProcessedImages called for ${processingType}, isEnabled=${this.isEnabled}`);
+  public getQueueSize(): number {
+    return this.uploadQueue.length;
+  }
 
-    // Skip if storage is disabled
-    if (!this.isEnabled) {
-      console.log("Storage is disabled, not uploading processed images");
-      return { original: null, preprocessed: null };
+  /**
+   * Handle any remaining uploads before the app shuts down
+   */
+  public async drainQueue(): Promise<void> {
+    console.log(`Draining upload queue: ${this.uploadQueue.length} items remaining`);
+
+    // Process remaining items one by one
+    while (this.uploadQueue.length > 0) {
+      await new Promise((resolve) => {
+        this.once("uploadComplete", resolve);
+        if (!this.isProcessing) {
+          this.processQueue();
+        }
+      });
     }
 
-    try {
-      const imageId = uuidv4();
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-
-      // Add basic metadata
-      const enhancedMetadata = {
-        ...metadata,
-        timestamp,
-        processingType,
-        imageId,
-      };
-
-      console.log("Starting parallel uploads for processed images");
-
-      // Upload both images in parallel but with proper awaiting
-      const [originalUrl, preprocessedUrl] = await Promise.all([
-        this.uploadImage(originalImage, `events/original/${processingType}`, enhancedMetadata),
-        this.uploadImage(
-          preprocessedImage,
-          `events/preprocessed/${processingType}`,
-          enhancedMetadata
-        ),
-      ]);
-
-      const result = {
-        original: originalUrl,
-        preprocessed: preprocessedUrl,
-      };
-
-      console.log("Both uploads complete:", result);
-      return result;
-    } catch (error) {
-      console.error("Error in storeProcessedImages:", error);
-      return { original: null, preprocessed: null };
-    }
+    console.log("Upload queue drained");
   }
 }
