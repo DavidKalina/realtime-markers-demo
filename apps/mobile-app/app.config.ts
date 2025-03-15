@@ -5,7 +5,7 @@ export default {
   expo: {
     name: "MapMoji",
     slug: "mobile-app",
-    version: "1.3.6",
+    version: "1.3.7",
     orientation: "portrait",
     icon: "./assets/images/logo.png",
     scheme: "myapp",
@@ -31,7 +31,7 @@ export default {
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "37",
+      buildNumber: "38",
     },
     android: {
       adaptiveIcon: {
@@ -47,6 +47,12 @@ export default {
     plugins: [
       "expo-router",
       "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          photosPermission: "The app accesses your photos to let you upload them to save events.",
+        },
+      ],
       [
         "expo-splash-screen",
         {
