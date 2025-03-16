@@ -26,6 +26,8 @@ export class JobQueue {
       status: "pending",
       created: new Date().toISOString(),
       data: { ...data, hasBuffer: !!options.bufferData },
+      progress: 0,
+      progressPercentage: 0,
     };
 
     // Store job metadata in Redis
@@ -54,19 +56,52 @@ export class JobQueue {
     return JSON.parse(jobData);
   }
 
-  // Add to JobQueue.ts
+  /**
+   * Enqueue a cleanup job for outdated events
+   */
   async enqueueCleanupJob(batchSize = 100): Promise<string> {
     return this.enqueue("cleanup_outdated_events", { batchSize });
   }
 
   /**
    * Update job status
+   * @param jobId The ID of the job to update
+   * @param updates Object with fields to update
    */
   async updateJobStatus(jobId: string, updates: Record<string, any>): Promise<void> {
     const jobData = await this.redis.get(`job:${jobId}`);
     if (!jobData) throw new Error(`Job ${jobId} not found`);
 
     const job = JSON.parse(jobData);
+
+    // Process special fields
+    if (updates.progress !== undefined) {
+      // Convert progress from string message to normalized percentage if needed
+      if (typeof updates.progress === "string" && updates.progressPercentage === undefined) {
+        // The progress percentage will be calculated by ProgressReportingService
+        // and provided as progressPercentage field
+        updates.progressMessage = updates.progress;
+      }
+      // If progress is a number between 0-1, convert to percentage (0-100)
+      else if (
+        typeof updates.progress === "number" &&
+        updates.progress <= 1 &&
+        updates.progressPercentage === undefined
+      ) {
+        updates.progressPercentage = Math.round(updates.progress * 100);
+      }
+    }
+
+    // Ensure completed jobs have 100% progress
+    if (updates.status === "completed" && updates.progressPercentage === undefined) {
+      updates.progressPercentage = 100;
+    }
+
+    // Ensure failed jobs have 100% progress (process is complete)
+    if (updates.status === "failed" && updates.progressPercentage === undefined) {
+      updates.progressPercentage = 100;
+    }
+
     const updatedJob = { ...job, ...updates, updated: new Date().toISOString() };
 
     await this.redis.set(`job:${jobId}`, JSON.stringify(updatedJob));

@@ -2,6 +2,7 @@
 import type { ServerWebSocket } from "bun";
 import { Redis } from "ioredis";
 import { v4 as uuidv4 } from "uuid";
+import { RichUIMetadata } from "./types";
 
 // Types
 interface SessionData {
@@ -17,6 +18,7 @@ interface JobSessionData {
   status: "pending" | "processing" | "completed" | "failed";
   progress: number; // 0-100
   progressStep: string;
+  richUI?: RichUIMetadata; // Rich UI metadata
   result?: any;
   error?: string;
   createdAt: string;
@@ -65,7 +67,6 @@ export class SessionManager {
     });
 
     // Subscribe to job updates
-    // In your SessionManager constructor:
     this.redisSub.psubscribe("job:*:updates", (err, count) => {
       if (err) {
         console.error("Failed to psubscribe:", err);
@@ -308,12 +309,20 @@ export class SessionManager {
         const jobIndex = session.jobs.findIndex((job) => job.id === jobId);
 
         if (jobIndex !== -1) {
-          // Update job in session
+          // Update job in session - use the progress percentage directly from the ProgressReportingService
           session.jobs[jobIndex] = {
             ...session.jobs[jobIndex],
             status: jobUpdate.status || session.jobs[jobIndex].status,
-            progress: this.calculateProgressPercentage(jobUpdate),
-            progressStep: jobUpdate.progress || session.jobs[jobIndex].progressStep,
+            // Use the provided progress percentage or keep current value
+            progress: jobUpdate.progressPercentage ?? session.jobs[jobIndex].progress,
+            // Use either the progressMessage field or the progress field if it's a string
+            progressStep:
+              jobUpdate.progressMessage ||
+              (typeof jobUpdate.progress === "string"
+                ? jobUpdate.progress
+                : session.jobs[jobIndex].progressStep),
+            // Include the rich UI metadata
+            richUI: jobUpdate.richUI || session.jobs[jobIndex].richUI,
             result: jobUpdate.result || session.jobs[jobIndex].result,
             error: jobUpdate.error || session.jobs[jobIndex].error,
             updatedAt: new Date().toISOString(),
@@ -332,35 +341,6 @@ export class SessionManager {
     } catch (error) {
       console.error("Error handling Redis message:", error);
     }
-  }
-
-  /**
-   * Calculate progress percentage from job update
-   */
-  private calculateProgressPercentage(jobUpdate: any): number {
-    // Map job progress messages to percentage values
-    const progressMap: Record<string, number> = {
-      "Initializing job...": 0,
-      "Analyzing image...": 15,
-      "Analyzing image with Vision API...": 30,
-      "Image analyzed successfully": 45,
-      "Generating text embeddings...": 60,
-      "Extracting event details and categories...": 75,
-      "Finding similar events...": 85,
-      "Processing complete!": 95,
-      "Creating event...": 98,
-    };
-
-    if (jobUpdate.status === "completed") {
-      return 100;
-    }
-
-    if (jobUpdate.progress && progressMap[jobUpdate.progress]) {
-      return progressMap[jobUpdate.progress];
-    }
-
-    // Default progress handling
-    return jobUpdate.progress ? 50 : 0;
   }
 
   /**

@@ -245,7 +245,12 @@ function HomeScreen() {
           position="top-right"
           showAnimation={!selectedItem}
         />
-        <QueueIndicator position="top-left" />
+        <QueueIndicator
+          position="top-left"
+          onNavigate={() => {
+            console.log("NAVIGATE");
+          }}
+        />
       </>
     );
   }, [shouldRenderUI, markers.length, isConnected, selectedItem]);

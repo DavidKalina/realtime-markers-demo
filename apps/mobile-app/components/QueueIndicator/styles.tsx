@@ -1,9 +1,10 @@
 import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
+  // Base container - even more compact without progress bar
   container: {
-    position: "absolute",
     flexDirection: "row",
+    position: "absolute",
     alignItems: "center",
     backgroundColor: "#333",
     borderRadius: 20,
@@ -14,42 +15,43 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    maxWidth: 140, // More compact width
+    width: 160, // More compact width
+    maxWidth: 160, // Ensure it doesn't grow beyond this
   },
+
+  // Icon indicator
   indicator: {
     width: 28,
     height: 28,
     borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 8,
+    marginRight: 10,
   },
+
+  // Content area
   contentContainer: {
     flexDirection: "column",
     flex: 1,
+    overflow: "hidden", // Ensure content doesn't overflow
   },
+
+  // Status text
   statusText: {
     color: "#fff",
     fontSize: 11,
     fontFamily: "SpaceMono",
     fontWeight: "600",
+    overflow: "hidden", // Ensure text truncation works
   },
+
+  // Job count text
   countText: {
     color: "#e0e0e0",
     fontSize: 9,
     fontFamily: "SpaceMono",
     marginTop: 2,
   },
-  progressBarContainer: {
-    height: 3,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 1.5,
-    marginVertical: 4,
-    width: "100%",
-    overflow: "hidden",
-  },
-  progressBar: {
-    height: "100%",
-    borderRadius: 1.5,
-  },
+
+  // Removed progress bar styles
 });

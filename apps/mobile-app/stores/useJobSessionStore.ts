@@ -2,12 +2,63 @@
 import { create } from "zustand";
 import * as Crypto from "expo-crypto";
 
+// Types for Rich UI
+export type IconType =
+  | "processing"
+  | "success"
+  | "error"
+  | "warning"
+  | "info"
+  | "image"
+  | "calendar"
+  | "location"
+  | "category"
+  | "duplicate"
+  | "qrcode";
+
+export interface RichUIMetadata {
+  // Visual elements
+  icon?: IconType;
+  color?: string;
+  animationType?: string;
+
+  // Content elements
+  title?: string;
+  description?: string;
+  summary?: Record<string, any>;
+  detailsExpanded?: boolean;
+
+  // Preview elements
+  previewImageUrl?: string;
+  previewText?: string;
+
+  // Interactive elements
+  actions?: Array<{
+    id: string;
+    label: string;
+    type: "primary" | "secondary" | "danger";
+    disabled?: boolean;
+  }>;
+
+  // Navigation
+  linkedEntityId?: string;
+  linkedEntityType?: string;
+
+  // Temporal information
+  estimatedTimeRemaining?: number;
+  startTime?: string;
+
+  // Additional context
+  contextData?: Record<string, any>;
+}
+
 // Types
 export interface Job {
   id: string;
   status: "pending" | "processing" | "completed" | "failed";
   progress: number; // 0-100
   progressStep: string;
+  richUI?: RichUIMetadata; // Add richUI metadata
   result?: any;
   error?: string;
   createdAt: string;

@@ -1,56 +1,105 @@
 // services/event-processing/interfaces/IProgressReportingService.ts
 
+import type { JobStatusUpdate } from "../ProgressReportingService";
+import type { RichUIMetadata, richUITemplates } from "../types/RichMetadata";
+
 /**
- * Standard progress reporting callback type
- * @param message Human-readable progress message
- * @param metadata Optional metadata about the progress
+ * Callback function for progress updates
  */
 export type ProgressCallback = (message: string, metadata?: Record<string, any>) => Promise<void>;
 
 /**
- * Interface for progress reporting services
- * Provides a standardized way to report progress during long-running operations
+ * Interface for services that report progress during operations
  */
 export interface IProgressReportingService {
   /**
-   * Report progress with a message and optional metadata
-   * @param message Human-readable progress message
-   * @param metadata Optional metadata about the progress
-   * @returns Promise that resolves when progress is reported
+   * Pre-defined rich UI templates
    */
-  reportProgress(message: string, metadata?: Record<string, any>): Promise<void>;
+  templates: typeof richUITemplates;
 
   /**
-   * Configure progress throttling to avoid too frequent updates
-   * @param intervalMs Minimum interval between progress updates in milliseconds
+   * Configure throttling interval for progress updates
    */
   throttleUpdates(intervalMs: number): void;
 
   /**
-   * Connect the progress reporter to a specific job for tracking
-   * @param jobId ID of the job to associate progress with
+   * Add or update entries in the progress step mapping
+   */
+  updateProgressMappings(mappings: Record<string, number>): void;
+
+  /**
+   * Calculate normalized progress percentage based on message
+   */
+  calculateProgressPercentage(message: string, step?: number, totalSteps?: number): number;
+
+  /**
+   * Connect to job queue for a specific job ID
    */
   connectToJobQueue(jobId: string): void;
 
   /**
-   * Start a new progress reporting session with a total number of steps
-   * @param totalSteps Total number of steps in the operation
-   * @param sessionName Optional session name for reporting context
+   * Report progress with a message and optional metadata
    */
-  startSession(totalSteps: number, sessionName?: string): void;
+  reportProgress(
+    message: string,
+    metadata?: Record<string, any>,
+    richUI?: RichUIMetadata
+  ): Promise<void>;
+
+  /**
+   * Start a progress session with steps
+   */
+  startSession(totalSteps: number, sessionName?: string, richUI?: RichUIMetadata): void;
 
   /**
    * Update progress to a specific step
-   * @param step Current step number
-   * @param message Human-readable progress message for this step
-   * @param metadata Optional metadata about the progress
    */
-  updateProgress(step: number, message: string, metadata?: Record<string, any>): Promise<void>;
+  updateProgress(
+    step: number,
+    message: string,
+    metadata?: Record<string, any>,
+    richUI?: RichUIMetadata
+  ): Promise<void>;
 
   /**
-   * Complete the current progress reporting session
-   * @param message Final message for the completed operation
-   * @param metadata Optional metadata about the completed operation
+   * Complete the progress session
    */
-  completeSession(message: string, metadata?: Record<string, any>): Promise<void>;
+  completeSession(
+    message: string,
+    metadata?: Record<string, any>,
+    richUI?: RichUIMetadata
+  ): Promise<void>;
+
+  /**
+   * Update job status directly
+   */
+  updateJobStatus(update: JobStatusUpdate): Promise<void>;
+
+  /**
+   * Mark job as started
+   */
+  markJobStarted(
+    message: string,
+    metadata?: Record<string, any>,
+    richUI?: RichUIMetadata
+  ): Promise<void>;
+
+  /**
+   * Mark job as completed with results
+   */
+  markJobCompleted(
+    message: string,
+    result?: Record<string, any>,
+    eventId?: string,
+    richUI?: RichUIMetadata
+  ): Promise<void>;
+
+  /**
+   * Mark job as failed with error information
+   */
+  markJobFailed(
+    errorMessage: string,
+    details?: Record<string, any>,
+    richUI?: RichUIMetadata
+  ): Promise<void>;
 }
