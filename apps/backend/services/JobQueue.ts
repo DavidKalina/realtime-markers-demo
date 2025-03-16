@@ -54,6 +54,11 @@ export class JobQueue {
     return JSON.parse(jobData);
   }
 
+  // Add to JobQueue.ts
+  async enqueueCleanupJob(batchSize = 100): Promise<string> {
+    return this.enqueue("cleanup_outdated_events", { batchSize });
+  }
+
   /**
    * Update job status
    */
