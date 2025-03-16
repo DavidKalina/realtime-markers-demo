@@ -44,6 +44,40 @@ export class EventService {
     this.locationService = EnhancedLocationService.getInstance();
   }
 
+  async cleanupOutdatedEvents(
+    batchSize = 100
+  ): Promise<{ deletedEvents: Event[]; deletedCount: number; hasMore: boolean }> {
+    const now = new Date();
+
+    // Find events that are outdated:
+    // 1. Events with an end date that has passed
+    // 2. Events with only a start date that's more than 24 hours old
+    const eventsToDelete = await this.eventRepository
+      .createQueryBuilder("event")
+      .where("(event.end_date IS NOT NULL AND event.end_date < :now)", { now })
+      .orWhere("(event.end_date IS NULL AND event.event_date < :dayAgo)", {
+        dayAgo: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+      })
+      .take(batchSize + 1) // Get one extra to check if there are more
+      .getMany();
+
+    const hasMore = eventsToDelete.length > batchSize;
+    const toDelete = hasMore ? eventsToDelete.slice(0, batchSize) : eventsToDelete;
+
+    if (toDelete.length === 0) {
+      return { deletedEvents: [], deletedCount: 0, hasMore: false };
+    }
+
+    const ids = toDelete.map((e) => e.id);
+    await this.eventRepository.delete(ids);
+
+    return {
+      deletedEvents: toDelete,
+      deletedCount: toDelete.length,
+      hasMore,
+    };
+  }
+
   private async generateEmbedding(text: string): Promise<number[]> {
     const cachedEmbedding = CacheService.getCachedEmbedding(text);
     if (cachedEmbedding) {

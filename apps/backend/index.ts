@@ -171,7 +171,33 @@ async function initializeServices() {
 
   const storageService = StorageService.getInstance();
 
+  function setupCleanupSchedule() {
+    const CLEANUP_HOUR = 3;
+    const BATCH_SIZE = 100;
+    let lastRunDate = ""; // Track the date of the last run
+
+    setInterval(() => {
+      const now = new Date();
+      const today = now.toISOString().split("T")[0]; // YYYY-MM-DD
+
+      // Run if it's between 3:00-3:15 AM and we haven't run today
+      if (
+        now.getHours() === CLEANUP_HOUR &&
+        now.getMinutes() >= 0 &&
+        now.getMinutes() <= 15 &&
+        lastRunDate !== today
+      ) {
+        console.log("Scheduling daily event cleanup");
+        jobQueue.enqueueCleanupJob(BATCH_SIZE);
+        lastRunDate = today;
+      }
+    }, 60 * 1000);
+  }
+
   console.log("Services initialized successfully");
+
+  setupCleanupSchedule();
+
   return {
     eventService,
     eventProcessingService,

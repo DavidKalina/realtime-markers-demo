@@ -148,8 +148,43 @@ async function initializeWorker() {
 
       const job = JSON.parse(jobData);
 
-      // Process based on job type
-      if (job.type === "process_flyer") {
+      // In worker.ts processJobs function, add a new job type handler
+      if (job.type === "cleanup_outdated_events") {
+        const batchSize = job.data.batchSize || 100;
+        await jobQueue.updateJobStatus(jobId, {
+          progress: `Cleaning up outdated events (batch size: ${batchSize})`,
+        });
+
+        const result = await eventService.cleanupOutdatedEvents(batchSize);
+
+        // Publish deletion notifications for each deleted event
+        for (const deletedEvent of result.deletedEvents) {
+          await redisClient.publish(
+            "event_changes",
+            JSON.stringify({
+              operation: "DELETE",
+              record: {
+                id: deletedEvent.id,
+                location: deletedEvent.location,
+              },
+            })
+          );
+        }
+
+        await jobQueue.updateJobStatus(jobId, {
+          status: "completed",
+          result: {
+            deletedCount: result.deletedCount,
+            hasMore: result.hasMore,
+          },
+          completed: new Date().toISOString(),
+        });
+
+        // If there are more events to clean up, queue another job
+        if (result.hasMore) {
+          await jobQueue.enqueueCleanupJob(batchSize);
+        }
+      } else if (job.type === "process_flyer") {
         // Get the image buffer from Redis
         const bufferData = await redisClient.getBuffer(`job:${jobId}:buffer`);
         if (!bufferData) {
