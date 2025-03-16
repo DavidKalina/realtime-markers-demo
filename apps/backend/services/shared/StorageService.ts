@@ -1,6 +1,7 @@
 // services/shared/StorageService.ts (non-blocking version)
 
-import { S3 } from "@aws-sdk/client-s3";
+import { S3, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 import { EventEmitter } from "events";
 
@@ -218,5 +219,85 @@ export class StorageService extends EventEmitter {
     }
 
     console.log("Upload queue drained");
+  }
+
+  public getS3Client(): S3 | null {
+    return this.s3Client;
+  }
+
+  public getBucketName(): string {
+    return this.bucketName;
+  }
+
+  // Add this method to the StorageService class
+  public async streamImage(
+    imageUrl: string
+  ): Promise<{ stream: ReadableStream; contentType: string }> {
+    if (!this.isEnabled || !this.s3Client) {
+      throw new Error("Storage service is not available");
+    }
+
+    try {
+      // Parse the URL to get the key
+      const url = new URL(imageUrl);
+      const key = url.pathname.substring(1); // Remove leading slash
+
+      const response = await this.s3Client.getObject({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+
+      if (!response.Body) {
+        throw new Error("No data received from storage");
+      }
+
+      return {
+        stream: response.Body as ReadableStream,
+        contentType: response.ContentType || "image/jpeg",
+      };
+    } catch (error) {
+      console.error("Error retrieving image from storage:", error);
+      throw new Error("Failed to stream image from storage");
+    }
+  }
+
+  public async getSignedUrl(imageUrl: string, expiresIn: number = 3600): Promise<string> {
+    if (!this.isEnabled || !this.s3Client) {
+      throw new Error("Storage service is not available");
+    }
+
+    try {
+      // Parse the URL to get the key
+      const url = new URL(imageUrl);
+      const path = url.pathname;
+      // Remove leading slash and potentially the bucket name prefix
+      let key = path.startsWith("/") ? path.substring(1) : path;
+
+      // If the path includes the bucket name, remove it
+      if (key.startsWith(`${this.bucketName}/`)) {
+        key = key.substring(this.bucketName.length + 1);
+      }
+
+      console.log(`Getting signed URL for key: ${key}`);
+
+      // Import the getSignedUrl function dynamically
+
+      // Create the command
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+
+      // Generate signed URL
+      const signedUrl = await getSignedUrl(this.s3Client, command, {
+        expiresIn, // Seconds
+      });
+
+      console.log(`Generated signed URL (expires in ${expiresIn}s)`);
+      return signedUrl;
+    } catch (error) {
+      console.error("Error generating signed URL:", error);
+      throw new Error("Failed to generate signed URL");
+    }
   }
 }

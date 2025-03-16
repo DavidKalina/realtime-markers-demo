@@ -157,7 +157,13 @@ async function initializeWorker() {
         }
 
         // Update status to analyzing (this initial update remains)
-        console.log(`[Worker] Analyzing image for job ${jobId}`);
+        const storageService = StorageService.getInstance();
+        const originalImageUrl = await storageService.uploadImage(bufferData, "original-flyers", {
+          jobId: jobId,
+          contentType: job.data.contentType || "image/jpeg",
+          filename: job.data.filename || "event-flyer.jpg",
+        });
+
         await jobQueue.updateJobStatus(jobId, {
           progress: "Analyzing image...",
         });
@@ -281,6 +287,7 @@ async function initializeWorker() {
             creatorId: job.data.creatorId,
             qrDetectedInImage: scanResult.qrCodeDetected || false,
             detectedQrData: scanResult.qrCodeData,
+            originalImageUrl: originalImageUrl, // Add this line to include the image URL
           });
 
           // Check if QR code was detected in the image

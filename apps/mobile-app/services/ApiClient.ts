@@ -2,6 +2,7 @@
 
 import { EventType, UserType } from "@/types/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system";
 
 // Define base API types from your backend
 interface Location {
@@ -920,6 +921,81 @@ class ApiClient {
       method: "DELETE",
     });
     return this.handleResponse<{ message: string; success: boolean }>(response);
+  }
+
+  async streamEventImage(eventId: string): Promise<string> {
+    await this.ensureInitialized();
+
+    // Make sure we have a valid token
+    const accessToken = await this.getAccessToken();
+    if (!accessToken) {
+      throw new Error("Authentication required to access event images");
+    }
+
+    const url = `${this.baseUrl}/api/admin/images/${eventId}/image`;
+
+    try {
+      // Get the signed URL from our server
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server returned error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.originalImageUrl) {
+        throw new Error("No image URL returned from server");
+      }
+
+      // Use the signed URL to download the image to local storage
+      const fileName = `event-${eventId}-original.jpg`;
+      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+
+      // Check if we already have a recent cached version
+      const fileInfo = await FileSystem.getInfoAsync(fileUri);
+      const now = new Date().getTime();
+      const oneHourAgo = now - 60 * 60 * 1000;
+
+      // Use cache if it exists and is less than 1 hour old
+      if (
+        fileInfo.exists &&
+        fileInfo.modificationTime &&
+        fileInfo.modificationTime > oneHourAgo &&
+        fileInfo.size > 1000
+      ) {
+        console.log("Using cached image file");
+        return fileUri;
+      }
+
+      // Delete old file if it exists
+      if (fileInfo.exists) {
+        await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      }
+
+      // Download the image from the signed URL
+      console.log("Downloading image from signed URL");
+      const downloadResult = await FileSystem.downloadAsync(data.originalImageUrl, fileUri);
+
+      if (downloadResult.status !== 200) {
+        throw new Error(`Failed to download image: ${downloadResult.status}`);
+      }
+
+      // Verify the downloaded file
+      const downloadedFileInfo = await FileSystem.getInfoAsync(fileUri);
+      if (!downloadedFileInfo.exists || downloadedFileInfo.size < 1000) {
+        throw new Error("Downloaded file is too small to be a valid image");
+      }
+
+      return fileUri;
+    } catch (error) {
+      console.error("Error fetching event image:", error);
+      throw error;
+    }
   }
 }
 

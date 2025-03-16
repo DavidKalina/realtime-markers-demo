@@ -104,6 +104,10 @@ export class Event {
   @Column({ name: "detected_qr_data", type: "text", nullable: true })
   detectedQrData?: string;
 
+  // In Event.ts
+  @Column({ name: "original_image_url", type: "text", nullable: true })
+  originalImageUrl?: string;
+
   // Link to creator user
   @Column({ name: "creator_id", type: "uuid", nullable: true })
   creatorId?: string;

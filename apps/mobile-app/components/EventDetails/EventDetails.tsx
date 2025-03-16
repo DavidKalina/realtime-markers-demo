@@ -33,6 +33,8 @@ import {
 import Animated, { FadeIn } from "react-native-reanimated";
 import apiClient from "../../services/ApiClient";
 import { styles } from "./styles";
+import AdminOriginalImageViewer from "../AdminOriginalImageViewer/AdminOriginalImageViewer";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface EventDetailsProps {
   eventId: string;
@@ -47,6 +49,10 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   const [saveCount, setSaveCount] = useState(0);
   const [savingState, setSavingState] = useState<"idle" | "loading">("idle");
   const router = useRouter();
+
+  const { user } = useAuth();
+
+  const isAdmin = user?.role === "ADMIN";
 
   // Get user location from our context
   const { userLocation, isLoadingLocation } = useUserLocation();
@@ -501,6 +507,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                     </TouchableOpacity>
                   </View>
                 )}
+                {isAdmin && <AdminOriginalImageViewer eventId={eventId} isAdmin={isAdmin} />}
               </View>
             </ScrollView>
 

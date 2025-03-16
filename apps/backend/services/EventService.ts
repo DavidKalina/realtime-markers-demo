@@ -28,6 +28,7 @@ interface CreateEventInput {
   timezone?: string;
   qrDetectedInImage?: boolean; // New field
   detectedQrData?: string;
+  originalImageUrl?: string | null;
 }
 
 export class EventService {
@@ -185,6 +186,7 @@ export class EventService {
       timezone: input.timezone || "UTC", // Save the timezone
       qrDetectedInImage: input.qrDetectedInImage || false,
       detectedQrData: input.detectedQrData,
+      originalImageUrl: input.originalImageUrl || undefined,
     };
 
     // Create event instance

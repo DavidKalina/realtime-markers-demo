@@ -4,10 +4,12 @@ import { EventProcessingService } from "../services/EventProcessingService";
 import { JobQueue } from "../services/JobQueue";
 import Redis from "ioredis";
 import type { UserPreferencesService } from "../services/UserPreferences";
+import type { StorageService } from "../services/shared/StorageService";
 
 export interface AppVariables {
   eventService: EventService;
   eventProcessingService: EventProcessingService;
+  storageService: StorageService;
   jobQueue: JobQueue;
   redisClient: Redis;
   userPreferencesService: UserPreferencesService;

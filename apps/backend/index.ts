@@ -29,6 +29,7 @@ import type { AppContext } from "./types/context";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
 import { StorageService } from "./services/shared/StorageService";
+import { adminRouter } from "./routes/admin";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -168,12 +169,15 @@ async function initializeServices() {
   // Initialize the UserPreferencesService
   const userPreferencesService = new UserPreferencesService(dataSource, redisPub);
 
+  const storageService = StorageService.getInstance();
+
   console.log("Services initialized successfully");
   return {
     eventService,
     eventProcessingService,
     categoryProcessingService,
     userPreferencesService,
+    storageService,
   };
 }
 
@@ -186,12 +190,14 @@ app.use("*", async (c, next) => {
   c.set("jobQueue", jobQueue);
   c.set("redisClient", redisPub);
   c.set("userPreferencesService", services.userPreferencesService);
+  c.set("storageService", services.storageService);
   await next();
 });
 
 // Register event routes using the router from routes/events.ts
 app.route("/api/events", eventsRouter);
 app.route("/api/auth", authRouter);
+app.route("/api/admin", adminRouter);
 app.route("/api/filters", filterRouter);
 app.route("/api/internal", internalRouter);
 
