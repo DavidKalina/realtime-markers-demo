@@ -51,7 +51,6 @@ export const ImageSelector: React.FC<ImageSelectorProps> = ({
       <View style={[styles.button, disabled && styles.buttonDisabled]}>
         <Feather name="image" size={20} color="#f8f9fa" />
       </View>
-      <Text style={styles.text}>Gallery</Text>
     </TouchableOpacity>
   );
 };

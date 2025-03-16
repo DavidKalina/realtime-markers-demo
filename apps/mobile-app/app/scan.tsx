@@ -1,4 +1,5 @@
-// scan.tsx - Updated version with file upload feature
+// scan.tsx - Fixed version with improved button positioning
+import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import { CaptureButton } from "@/components/CaptureButton/CaptureButton";
 import { ImageSelector } from "@/components/ImageSelector";
@@ -526,35 +527,15 @@ export default function ScanScreen() {
           )}
         </Animated.View>
       </View>
-
-      <View style={styles.buttonContainer}>
-        {/* Gallery selection button */}
-        <Animated.View
-          entering={SlideInRight.duration(300).delay(100)}
-          style={styles.gallerySelectorWrapper}
-        >
-          <ImageSelector
-            onImageSelected={handleImageSelected}
-            disabled={isCapturing || isUploading}
-          />
-        </Animated.View>
-
-        {/* Capture button */}
-        <Animated.View
-          entering={SlideInDown.duration(300).delay(200)}
-          style={styles.captureButtonWrapper}
-        >
-          <CaptureButton
-            onPress={handleCapture}
-            isCapturing={isCapturing}
-            isReady={isCameraReady && detectionStatus === "aligned"}
-            size="compact"
-            flashMode={flashMode}
-            onFlashToggle={toggleFlash}
-            flashButtonPosition="left"
-          />
-        </Animated.View>
-      </View>
+      <CameraControls
+        onCapture={handleCapture}
+        onImageSelected={handleImageSelected}
+        isCapturing={isCapturing || isUploading}
+        isReady={isCameraReady && detectionStatus === "aligned"}
+        flashMode={flashMode}
+        onFlashToggle={toggleFlash}
+        disabled={!isCameraReady || isUploading}
+      />
     </SafeAreaView>
   );
 }
@@ -633,10 +614,9 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
   },
   buttonContainer: {
-    height: 100,
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "space-between", // Changed from center to space-between
     paddingBottom: Platform.OS === "ios" ? 8 : 0,
   },
   captureButtonWrapper: {
@@ -645,9 +625,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   gallerySelectorWrapper: {
-    position: "absolute",
-    right: 40,
-    bottom: Platform.OS === "ios" ? 30 : 20,
+    // Position changed from absolute to relative
+    alignItems: "center",
+    justifyContent: "center",
+    paddingRight: 20, // Added padding for better spacing
   },
   // Preview mode styles
   previewContainer: {
