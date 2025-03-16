@@ -124,7 +124,6 @@ export default function ScanScreen() {
     if (!isMounted.current) return;
 
     if (isCameraActive && isCameraReady && !isCapturing && !isUploading && !capturedImage) {
-      console.log("Starting document detection");
       startDocumentDetection();
     } else {
       clearDetectionInterval();
@@ -249,8 +248,6 @@ export default function ScanScreen() {
 
   // Handle camera permission granted
   const handlePermissionGranted = useCallback(() => {
-    console.log("Permission granted callback");
-
     // Small delay to ensure camera is properly initialized
     setTimeout(() => {
       if (isMounted.current) {
@@ -264,13 +261,10 @@ export default function ScanScreen() {
     if (!isMounted.current) return;
 
     if (!cameraRef.current) {
-      console.log("No camera ref available");
       return;
     }
 
     if (!isCameraReady) {
-      console.log("Camera not ready, cannot capture");
-
       // Show notification to the user
       publish(EventTypes.NOTIFICATION, {
         timestamp: Date.now(),
@@ -284,8 +278,6 @@ export default function ScanScreen() {
     try {
       // Stop detection while capturing
       clearDetectionInterval();
-
-      console.log("Taking picture...");
 
       // Take picture
       const photoUri = await takePicture();
@@ -331,8 +323,6 @@ export default function ScanScreen() {
     if (!isMounted.current) return;
 
     try {
-      console.log("Gallery image selected:", uri);
-
       // Stop detection
       clearDetectionInterval();
 

@@ -44,7 +44,6 @@ const AdminOriginalImageViewer: React.FC<AdminOriginalImageViewerProps> = ({
       try {
         // Get the local file URI
         const localUri = await apiClient.streamEventImage(eventId);
-        console.log("Image URI received:", localUri);
 
         if (isMounted) {
           setImageUrl(localUri);

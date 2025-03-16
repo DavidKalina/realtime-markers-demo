@@ -30,7 +30,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const initAuth = useCallback(async () => {
     setIsLoading(true);
-    console.log("Starting auth initialization");
 
     try {
       // Sync tokens from storage
@@ -43,9 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (accessToken && refreshToken) {
         try {
           // Try to get user profile to validate token
-          console.log("Validating token by requesting user profile");
           const userProfile = await apiClient.getUserProfile();
-          console.log("Token is valid, user profile received");
 
           // Make sure we have the user object correctly set
           if (userProfile) {
@@ -54,18 +51,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsAuthenticated(true);
           }
         } catch (profileError: any) {
-          console.log(`Token validation failed: ${profileError.message || "Unknown error"}`);
-
           // Only attempt token refresh if we have a refresh token
           if (refreshToken) {
-            console.log("Attempting token refresh");
             const refreshed = await apiClient.refreshTokens();
 
             if (refreshed) {
-              console.log("Token refresh successful, fetching user profile again");
               try {
                 const userProfile = await apiClient.getUserProfile();
-                console.log("User profile fetch after refresh successful");
 
                 await AsyncStorage.setItem("user", JSON.stringify(userProfile));
                 setUser(userProfile);

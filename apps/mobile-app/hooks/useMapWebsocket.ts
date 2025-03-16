@@ -346,7 +346,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
           // Fallback for other message types
           default: {
-            console.log(`Received unhandled message type: ${data.type}`);
             break;
           }
         }

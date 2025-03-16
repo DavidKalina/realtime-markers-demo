@@ -224,8 +224,6 @@ class ApiClient {
 
       // Notify any listeners that auth state has changed
       this.notifyAuthListeners(false);
-
-      console.log("Auth state cleared successfully");
     } catch (error) {
       console.error("Error clearing auth state:", error);
       throw error;
@@ -968,7 +966,6 @@ class ApiClient {
         fileInfo.modificationTime > oneHourAgo &&
         fileInfo.size > 1000
       ) {
-        console.log("Using cached image file");
         return fileUri;
       }
 
@@ -978,7 +975,6 @@ class ApiClient {
       }
 
       // Download the image from the signed URL
-      console.log("Downloading image from signed URL");
       const downloadResult = await FileSystem.downloadAsync(data.originalImageUrl, fileUri);
 
       if (downloadResult.status !== 200) {

@@ -288,7 +288,6 @@ export const useEnhancedTextStreaming = () => {
               });
             } catch (error) {
               // If aborted during pause, break out of the function early
-              console.log("Streaming cancelled during pause:", error);
               if (streamId === streamIdRef.current) {
                 setIsStreaming(false);
                 abortControllerRef.current = null;
@@ -309,7 +308,6 @@ export const useEnhancedTextStreaming = () => {
         }
       } catch (error) {
         // Streaming was cancelled or failed
-        console.log("Streaming cancelled:", error);
 
         if (streamId === streamIdRef.current) {
           setIsStreaming(false);
