@@ -36,107 +36,35 @@ interface MysteryEmojiMarkerProps {
 // Pre-defined animation configurations - outside component to avoid recreation
 const ANIMATIONS = {
   SCALE_PRESS: { duration: 100 },
-  SCALE_RELEASE: { duration: 200 },
-  REVEAL_CONFIG: { duration: 400 },
-  HIDE_CONFIG: { duration: 300 },
-  SCALE_UP_CONFIG: { duration: 300 },
+  SCALE_RELEASE: { duration: 200, easing: Easing.out(Easing.back(1.2)) },
+  SCALE_UP_CONFIG: { duration: 300, easing: Easing.out(Easing.back(1.2)) },
   HIGHLIGHT_CONFIG: { duration: 150 },
   PULSE_CONFIG: { duration: 1500, easing: Easing.out(Easing.ease) },
   FADE_CONFIG: { duration: 300 },
-  INITIAL_MOUNT: { duration: 400 },
+  INITIAL_MOUNT: { duration: 400, easing: Easing.out(Easing.back(1.5)) },
+  FLOAT_CONFIG: { duration: 1500, easing: Easing.inOut(Easing.sin) },
 };
 
-// Constant colors
+// Constant colors updated to match our design language
 const COLORS = {
-  BASE: "#333333",
-  ACCENT: "rgba(77, 171, 247, 0.6)",
-  ACCENT_BG: "rgba(77, 171, 247, 0.1)",
+  BASE: "#3a3a3a",
+  INNER: "#333333",
+  BORDER: "rgba(147, 197, 253, 0.7)",
+  ACCENT: "rgba(147, 197, 253, 0.8)",
+  ACCENT_BG: "rgba(147, 197, 253, 0.15)",
   TEXT: "#FFFFFF",
+  VERIFIED: "#FFD700",
 };
 
-// Create styles once and reuse them
-const styles = StyleSheet.create({
-  touchableArea: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  container: {
-    width: 22,
-    height: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mysteryBox: {
-    width: 22,
-    height: 22,
-    backgroundColor: COLORS.BASE,
-    borderWidth: 1,
-    borderColor: COLORS.ACCENT,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.ACCENT,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  questionMarkContainer: {
-    position: "absolute",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    height: "100%",
-  },
-  contentContainer: {
-    position: "absolute",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    height: "100%",
-  },
-  verifiedBadge: {
-    position: "absolute",
-    top: -3,
-    right: -3,
-    backgroundColor: COLORS.BASE,
-    borderRadius: 5,
-    width: 10,
-    height: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: COLORS.ACCENT,
-  },
-  pulseRing: {
-    position: "absolute",
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: COLORS.ACCENT,
-    backgroundColor: COLORS.ACCENT_BG,
-  },
-  emojiText: {
-    fontSize: 12,
-    textShadowColor: COLORS.ACCENT,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 4,
-  },
-});
+// Create animation cleanup factory function
+const createAnimationCleanup = (animations: Animated.SharedValue<number>[]) => {
+  return () => {
+    animations.forEach((anim) => cancelAnimation(anim));
+  };
+};
 
 // Styled components to reduce re-renders and improve readability
 const PulseRing = React.memo(({ style }: { style: any }) => <Animated.View style={style} />);
-
-// Question mark component removed
 
 const EmojiContent = React.memo(({ emoji }: { emoji: string }) => (
   <Text style={styles.emojiText}>{emoji}</Text>
@@ -144,33 +72,28 @@ const EmojiContent = React.memo(({ emoji }: { emoji: string }) => (
 
 const VerifiedBadge = React.memo(() => (
   <View style={styles.verifiedBadge}>
-    <Star size={7} color={COLORS.TEXT} fill={COLORS.TEXT} />
+    <Star size={7} color={COLORS.VERIFIED} fill={COLORS.VERIFIED} />
   </View>
 ));
-
-// Create a factory for animation cleanup
-const createAnimationCleanup = (animations: Animated.SharedValue<number>[]) => {
-  return () => {
-    animations.forEach((anim) => cancelAnimation(anim));
-  };
-};
 
 export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
   ({ event, isSelected, isHighlighted = false, onPress }) => {
     // Animation values
     const scale = useSharedValue(1);
+    const floatY = useSharedValue(0);
+    const rotation = useSharedValue(0);
     const pulseScale = useSharedValue(1);
     const pulseOpacity = useSharedValue(0);
 
     // Collected animations for cleanup
-    const animations = useMemo(() => [scale, pulseScale, pulseOpacity], []);
+    const animations = useMemo(() => [scale, floatY, rotation, pulseScale, pulseOpacity], []);
 
     // Component state
     const isFirstRender = useRef(true);
     const prevSelectedRef = useRef(isSelected);
     const prevHighlightedRef = useRef(isHighlighted);
 
-    // Initial mount animations - simplified
+    // Initial mount animations
     useEffect(() => {
       if (isFirstRender.current) {
         scale.value = 0.5;
@@ -178,9 +101,27 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
         isFirstRender.current = false;
       }
 
-      // No floating animation for non-selected markers
+      // Add subtle float animation even for non-selected markers
+      floatY.value = withRepeat(
+        withSequence(
+          withTiming(1, ANIMATIONS.FLOAT_CONFIG),
+          withTiming(-1, ANIMATIONS.FLOAT_CONFIG)
+        ),
+        -1, // Infinite repeats
+        true // Reverse
+      );
 
-      return createAnimationCleanup([scale]);
+      // Add subtle rotation
+      rotation.value = withRepeat(
+        withSequence(
+          withTiming(0.02, { ...ANIMATIONS.FLOAT_CONFIG, duration: 2000 }),
+          withTiming(-0.02, { ...ANIMATIONS.FLOAT_CONFIG, duration: 2000 })
+        ),
+        -1, // Infinite repeats
+        true // Reverse
+      );
+
+      return createAnimationCleanup([floatY, rotation]);
     }, []); // Empty deps array - only run on mount
 
     // Handle selection state changes
@@ -249,7 +190,7 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
       // Cancel any ongoing scale animations before starting new ones
       cancelAnimation(scale);
 
-      // Scale animation for press feedback (simpler feedback for non-selected)
+      // Scale animation for press feedback
       scale.value = withSequence(
         withTiming(0.9, ANIMATIONS.SCALE_PRESS),
         withTiming(isSelected ? 1.2 : 1, ANIMATIONS.SCALE_RELEASE)
@@ -266,8 +207,11 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
 
     // Animation styles - memoized with useAnimatedStyle
     const containerStyle = useAnimatedStyle(() => ({
-      transform: [{ scale: scale.value }],
-      // No translateY animation for non-selected markers
+      transform: [
+        { scale: scale.value },
+        { translateY: floatY.value },
+        { rotate: `${rotation.value}rad` },
+      ],
     }));
 
     const pulseStyle = useAnimatedStyle(() => ({
@@ -289,11 +233,8 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
 
         {/* Main container */}
         <Animated.View style={[styles.container, containerStyle]}>
-          <View style={styles.mysteryBox}>
-            {/* Event emoji always visible now */}
-            <View style={styles.contentContainer}>
-              <EmojiContent emoji={event.emoji} />
-            </View>
+          <View style={styles.outerCircle}>
+            <EmojiContent emoji={event.emoji} />
 
             {/* Verified badge if applicable */}
             {event.isVerified && <VerifiedBadge />}
@@ -315,3 +256,91 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
     );
   }
 );
+
+// Create styles once and reuse them
+const styles = StyleSheet.create({
+  touchableArea: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  container: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  outerCircle: {
+    width: 28,
+    height: 28,
+    backgroundColor: COLORS.BASE,
+    borderWidth: 1.5,
+    borderColor: COLORS.BORDER,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.ACCENT,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  innerCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  verifiedBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    backgroundColor: COLORS.BASE,
+    borderRadius: 6,
+    width: 12,
+    height: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: COLORS.VERIFIED,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.VERIFIED,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.6,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  pulseRing: {
+    position: "absolute",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: COLORS.ACCENT,
+    backgroundColor: COLORS.ACCENT_BG,
+  },
+  emojiText: {
+    fontSize: 13,
+    color: COLORS.TEXT,
+    ...Platform.select({
+      ios: {
+        shadowColor: "rgba(0, 0, 0, 0.5)",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.7,
+        shadowRadius: 1,
+      },
+    }),
+  },
+});

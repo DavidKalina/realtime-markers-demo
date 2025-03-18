@@ -1,101 +1,169 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, memo } from "react";
 import { View, StyleSheet, Dimensions } from "react-native";
 import Mapbox from "@rnmapbox/maps";
 
-// Globe camera configuration
+// 3D map camera configuration
 const CAMERA_UPDATE_INTERVAL = 16; // ms (approximately 60fps for smoother animation)
-const ROTATION_SPEED = 0.05; // Degrees per update for globe rotation
-const PITCH_VARIATION = 10; // How much the pitch can vary from center
-const BASE_PITCH = 45; // Increased base pitch for better globe view
+const BASE_PITCH = 60; // High pitch angle for 3D effect
+const BASE_ZOOM = 15; // Closer zoom for urban detail
+const BASE_BEARING = 45; // Angled view for better 3D perspective
 
-// Default globe settings
-const DEFAULT_LOCATION = {
-  center: [0, 10], // Start more centered on the globe
-  zoom: 1.4, // Zoomed out enough to see full globe
-  styleURL: Mapbox.StyleURL.Light, // Changed from Dark to Light
+// Default locations for camera to move between
+const LOCATIONS = [
+  { center: [-122.4194, 37.7749], name: "San Francisco" }, // San Francisco
+  { center: [-74.006, 40.7128], name: "New York" }, // New York
+  { center: [-0.1278, 51.5074], name: "London" }, // London
+  { center: [139.6917, 35.6895], name: "Tokyo" }, // Tokyo
+  { center: [2.3522, 48.8566], name: "Paris" }, // Paris
+  { center: [28.9784, 41.0082], name: "Istanbul" }, // Istanbul
+  { center: [121.4737, 31.2304], name: "Shanghai" }, // Shanghai
+  { center: [77.1025, 28.7041], name: "Delhi" }, // Delhi
+];
+
+// Default style settings
+const DEFAULT_SETTINGS = {
+  styleURL: Mapbox.StyleURL.Dark,
 };
 
-interface AnimatedGlobeBackgroundProps {
-  location?: {
-    center: [number, number]; // [longitude, latitude]
-    zoom: number;
+interface AnimatedMapBackgroundProps {
+  settings?: {
     styleURL: string;
   };
 }
 
-const AnimatedGlobeBackground: React.FC<AnimatedGlobeBackgroundProps> = ({
-  location = DEFAULT_LOCATION,
+// The actual component implementation
+const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
+  settings = DEFAULT_SETTINGS,
 }) => {
-  // Camera state
-  const cameraPosition = {
-    centerCoordinate: location.center,
-    zoomLevel: location.zoom,
-    pitch: BASE_PITCH,
-    bearing: 0,
-  };
-
   // Refs
   const mapRef = useRef<Mapbox.MapView>(null);
   const cameraRef = useRef<Mapbox.Camera>(null);
 
   // Animation control refs
-  const globeAnimationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const animationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeRef = useRef(0);
-  const bearingRef = useRef(0);
+  const currentLocationIndexRef = useRef(0);
+  const transitioningRef = useRef(false);
+
+  // Camera state refs
+  const zoomRef = useRef(BASE_ZOOM);
   const pitchRef = useRef(BASE_PITCH);
+  const bearingRef = useRef(BASE_BEARING);
+  const centerRef = useRef(LOCATIONS[0].center);
 
   // Mounted ref to prevent memory leaks
   const isMountedRef = useRef(true);
 
-  // Set up continuous globe rotation
+  // Store initial settings in a ref to avoid dependency changes
+  const initialSettingsRef = useRef(settings);
+
+  // Set up 3D map animation once and only once
   useEffect(() => {
+    // Use the initial settings captured on first render
+    const currentSettings = initialSettingsRef.current;
+
     // First update to establish initial position
     if (cameraRef.current) {
       cameraRef.current.setCamera({
-        centerCoordinate: location.center,
-        zoomLevel: location.zoom,
+        centerCoordinate: LOCATIONS[0].center,
+        zoomLevel: BASE_ZOOM,
         pitch: BASE_PITCH,
         animationDuration: 0,
       });
     }
 
-    // For smoother movement, we'll use interpolation
-    const INTERPOLATION_FACTOR = 0.03; // Lower = smoother but slower transitions
+    // Animation timing
+    const LOCATION_DURATION = 30000; // Stay at each location for 30 seconds
+    const TRANSITION_DURATION = 10000; // Transition between locations over 10 seconds
+    let lastLocationChange = 0;
 
-    // Start the globe animation at high framerate
-    globeAnimationIntervalRef.current = setInterval(() => {
+    // Start the animation at high framerate
+    animationIntervalRef.current = setInterval(() => {
       // Skip animation updates if component is unmounting
       if (!isMountedRef.current || !cameraRef.current) return;
 
       // Increment time reference
       timeRef.current += CAMERA_UPDATE_INTERVAL;
 
-      // Update bearing for continuous globe rotation (longitude)
-      bearingRef.current = (bearingRef.current + ROTATION_SPEED) % 360;
+      // Calculate elapsed time since last location change
+      const elapsedSinceLocationChange = timeRef.current - lastLocationChange;
 
-      // Adjust zoom level with subtle breathing effect
-      const zoomBreathing = Math.sin(timeRef.current * 0.0001) * 0.1;
-      const newZoom = location.zoom + zoomBreathing;
+      // Check if it's time to move to a new location
+      if (elapsedSinceLocationChange >= LOCATION_DURATION && !transitioningRef.current) {
+        // Start transition to next location
+        transitioningRef.current = true;
 
-      // Slightly vary pitch for more dynamic movement
-      const pitchVariation = Math.sin(timeRef.current * 0.0002) * PITCH_VARIATION;
+        // Update to next location
+        const nextLocationIndex = (currentLocationIndexRef.current + 1) % LOCATIONS.length;
+        const nextLocation = LOCATIONS[nextLocationIndex];
+
+        // Log transition (remove in production)
+        console.log(`Transitioning to ${nextLocation.name}`);
+
+        // Update reference
+        currentLocationIndexRef.current = nextLocationIndex;
+
+        // Reset transition timer
+        lastLocationChange = timeRef.current;
+      }
+
+      // Handle active transition
+      if (transitioningRef.current) {
+        const transitionProgress = elapsedSinceLocationChange / TRANSITION_DURATION;
+
+        // End transition when complete
+        if (transitionProgress >= 1) {
+          transitioningRef.current = false;
+        } else {
+          // Calculate transition parameters
+          const currentLocation = LOCATIONS[currentLocationIndexRef.current];
+          const prevIndex =
+            (currentLocationIndexRef.current - 1 + LOCATIONS.length) % LOCATIONS.length;
+          const prevLocation = LOCATIONS[prevIndex];
+
+          // Interpolate between locations
+          const newCenter: [number, number] = [
+            prevLocation.center[0] +
+              (currentLocation.center[0] - prevLocation.center[0]) * transitionProgress,
+            prevLocation.center[1] +
+              (currentLocation.center[1] - prevLocation.center[1]) * transitionProgress,
+          ];
+
+          // Update center reference
+          centerRef.current = newCenter;
+        }
+      }
+
+      // Add subtle camera movements even when not transitioning
+
+      // Subtle zoom breathing
+      const zoomVariation = Math.sin(timeRef.current * 0.0003) * 0.2;
+      zoomRef.current = BASE_ZOOM + zoomVariation;
+
+      // Subtle pitch variation
+      const pitchVariation = Math.sin(timeRef.current * 0.0002) * 3;
       pitchRef.current = BASE_PITCH + pitchVariation;
 
-      // Gently move across latitudes (up and down the globe)
-      const latitudeOffset = Math.sin(timeRef.current * 0.00015) * 15; // Move between -15 and +15 degrees latitude
+      // Subtle bearing rotation
+      const bearingVariation = Math.sin(timeRef.current * 0.0001) * 5;
+      bearingRef.current = BASE_BEARING + bearingVariation;
 
-      // Calculate new center position for the globe
-      const newCenter: [number, number] = [
-        // Adjust longitude as we rotate (smooth continuous movement around the globe)
-        ((location.center[0] + timeRef.current * 0.0001) % 360) - 180,
-        // Adjust latitude with sinusoidal pattern
-        Math.max(-80, Math.min(80, location.center[1] + latitudeOffset)),
-      ];
+      // Apply micro movements to make the static locations feel alive
+      if (!transitioningRef.current) {
+        // Subtle coordinate variations around the center point
+        const longitudeOffset = Math.sin(timeRef.current * 0.0002) * 0.002;
+        const latitudeOffset = Math.cos(timeRef.current * 0.0003) * 0.002;
 
-      // Apply the camera update with very short animation duration for smoothness
+        centerRef.current = [
+          LOCATIONS[currentLocationIndexRef.current].center[0] + longitudeOffset,
+          LOCATIONS[currentLocationIndexRef.current].center[1] + latitudeOffset,
+        ];
+      }
+
+      // Apply the camera update
       cameraRef.current.setCamera({
-        centerCoordinate: newCenter,
-        zoomLevel: newZoom,
+        centerCoordinate: centerRef.current,
+        zoomLevel: zoomRef.current,
         pitch: pitchRef.current,
         animationDuration: CAMERA_UPDATE_INTERVAL, // Match interval for smooth motion
       });
@@ -103,12 +171,12 @@ const AnimatedGlobeBackground: React.FC<AnimatedGlobeBackgroundProps> = ({
 
     // Cleanup for this specific effect
     return () => {
-      if (globeAnimationIntervalRef.current) {
-        clearInterval(globeAnimationIntervalRef.current);
-        globeAnimationIntervalRef.current = null;
+      if (animationIntervalRef.current) {
+        clearInterval(animationIntervalRef.current);
+        animationIntervalRef.current = null;
       }
     };
-  }, [location]);
+  }, []); // Empty dependency array ensures this runs only once
 
   // Single cleanup effect when component unmounts
   useEffect(() => {
@@ -121,19 +189,20 @@ const AnimatedGlobeBackground: React.FC<AnimatedGlobeBackgroundProps> = ({
       isMountedRef.current = false;
 
       // Handle any Mapbox-specific cleanup if needed
-      // (Research suggests Mapbox components should clean up automatically,
-      // but explicitly setting refs to null can help with garbage collection)
       if (mapRef.current) {
         // Any Mapbox-specific cleanup could be done here if needed
       }
 
-      // This is redundant as the location effect should handle it, but kept as a safeguard
-      if (globeAnimationIntervalRef.current) {
-        clearInterval(globeAnimationIntervalRef.current);
-        globeAnimationIntervalRef.current = null;
+      // Ensure interval is cleared
+      if (animationIntervalRef.current) {
+        clearInterval(animationIntervalRef.current);
+        animationIntervalRef.current = null;
       }
     };
   }, []);
+
+  // Use the initial settings captured on first render
+  const currentSettings = initialSettingsRef.current;
 
   return (
     <View style={styles.container}>
@@ -144,19 +213,17 @@ const AnimatedGlobeBackground: React.FC<AnimatedGlobeBackgroundProps> = ({
         attributionEnabled={false}
         ref={mapRef}
         style={styles.map}
-        styleURL={location.styleURL}
+        styleURL={currentSettings.styleURL}
         scrollEnabled={false}
         zoomEnabled={false}
         rotateEnabled={false}
         pitchEnabled={false}
-        // For globe projection
-        projection="globe"
       >
         <Mapbox.Camera
           ref={cameraRef}
-          zoomLevel={cameraPosition.zoomLevel}
-          pitch={cameraPosition.pitch}
-          centerCoordinate={cameraPosition.centerCoordinate}
+          zoomLevel={BASE_ZOOM}
+          pitch={BASE_PITCH}
+          centerCoordinate={LOCATIONS[0].center}
           animationMode="easeTo"
           animationDuration={CAMERA_UPDATE_INTERVAL}
         />
@@ -178,8 +245,16 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(245, 245, 250, 0.6)", // Light overlay with slight blue tint
+    backgroundColor: "rgba(51, 51, 51, 0.7)", // Dark overlay that lets map details show through
   },
 });
 
-export default AnimatedGlobeBackground;
+// Use React.memo to prevent re-renders when props haven't changed
+// Combined with a custom comparison function to always return true,
+// this effectively makes the component render only once
+const AnimatedMapBackground = memo(
+  AnimatedMapBackgroundComponent,
+  () => true // This always returns true, meaning props are always considered equal
+);
+
+export default AnimatedMapBackground;
