@@ -1,4 +1,3 @@
-// components/Markers/ClusterMarker.tsx
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -33,12 +32,13 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     const animationsRef = useRef({
       scale: useSharedValue(1),
       floatY: useSharedValue(0),
+      rotation: useSharedValue(0),
       pulseScale: useSharedValue(1),
       pulseOpacity: useSharedValue(0),
     });
 
     // Destructure for cleaner code
-    const { scale, floatY, pulseScale, pulseOpacity } = animationsRef.current;
+    const { scale, floatY, rotation, pulseScale, pulseOpacity } = animationsRef.current;
 
     const isFirstRender = useRef(true);
     const [wasSelected, setWasSelected] = useState(false);
@@ -49,30 +49,44 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     const formattedCount = useMemo(() => (count > 99 ? "99+" : count.toString()), [count]);
 
     // Determine size based on count for visual hierarchy - memoized
-    const baseSize = useMemo(() => (count < 10 ? 32 : count < 50 ? 36 : 40), [count]);
+    const baseSize = useMemo(() => (count < 10 ? 40 : count < 50 ? 45 : 50), [count]);
+
+    // Inner circle size
+    const innerSize = useMemo(() => baseSize * 0.7, [baseSize]);
 
     // Generate colors based on count for visual differentiation - memoized
-    const { backgroundColor, accentColor } = useMemo(() => {
-      // Small, medium, and large clusters
-      let bg = "#333333"; // All use dark background for consistency
-
+    const { gradientColors, accentColor, pulseColor } = useMemo(() => {
+      // Color scheme based on count
+      let gradient;
       let accent;
+      let pulse;
+
       if (count < 10) {
-        accent = "rgba(77, 171, 247, 0.6)"; // Small clusters: blue
+        // Small clusters: blue theme
+        gradient = ["#4dabf7", "#3793dd"];
+        accent = "rgba(77, 171, 247, 0.8)";
+        pulse = "rgba(77, 171, 247, 0.3)";
       } else if (count < 30) {
-        accent = "rgba(230, 119, 0, 0.6)"; // Medium clusters: orange
+        // Medium clusters: orange theme
+        gradient = ["#ff9f43", "#ee8130"];
+        accent = "rgba(255, 159, 67, 0.8)";
+        pulse = "rgba(255, 159, 67, 0.3)";
       } else {
-        accent = "rgba(214, 51, 132, 0.6)"; // Large clusters: pink
+        // Large clusters: pink theme
+        gradient = ["#fd79a8", "#e84393"];
+        accent = "rgba(253, 121, 168, 0.8)";
+        pulse = "rgba(253, 121, 168, 0.3)";
       }
 
-      return { backgroundColor: bg, accentColor: accent };
+      return { gradientColors: gradient, accentColor: accent, pulseColor: pulse };
     }, [count]);
 
     // Initialize animations - only run once
     useEffect(() => {
       if (isFirstRender.current) {
+        // Initial pop-in animation
         scale.value = 0.5;
-        scale.value = withTiming(1, { duration: 400 });
+        scale.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.back(1.5)) });
         isFirstRender.current = false;
       }
 
@@ -86,10 +100,21 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
         true // Reverse
       );
 
+      // Add subtle rotation animation
+      rotation.value = withRepeat(
+        withSequence(
+          withTiming(0.03, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
+          withTiming(-0.03, { duration: 2000, easing: Easing.inOut(Easing.sin) })
+        ),
+        -1, // Infinite repeats
+        true // Reverse
+      );
+
       // Return cleanup function
       return () => {
         cancelAnimation(scale);
         cancelAnimation(floatY);
+        cancelAnimation(rotation);
       };
     }, []);
 
@@ -104,14 +129,14 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
 
       if (isSelected) {
         // Scale up slightly when selected
-        scale.value = withTiming(1.2, { duration: 300 });
+        scale.value = withTiming(1.2, { duration: 300, easing: Easing.out(Easing.back(1.2)) });
 
         // Pulsating ring animation
         pulseScale.value = 1;
         pulseOpacity.value = 0.7;
 
         pulseScale.value = withRepeat(
-          withTiming(1.8, { duration: 1500, easing: Easing.out(Easing.ease) }),
+          withTiming(1.6, { duration: 1500, easing: Easing.out(Easing.ease) }),
           -1, // Infinite repeats
           false // Don't reverse
         );
@@ -167,7 +192,7 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
 
       scale.value = withSequence(
         withTiming(0.9, { duration: 100 }),
-        withTiming(isSelected ? 1 : 1.2, { duration: 200 })
+        withTiming(isSelected ? 1 : 1.2, { duration: 200, easing: Easing.out(Easing.back(1.2)) })
       );
 
       onPress();
@@ -176,7 +201,11 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     // Container animation style
     const containerStyle = useAnimatedStyle(() => {
       return {
-        transform: [{ scale: scale.value }, { translateY: floatY.value }],
+        transform: [
+          { scale: scale.value },
+          { translateY: floatY.value },
+          { rotate: `${rotation.value}rad` },
+        ],
       };
     });
 
@@ -191,9 +220,10 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     // Create an effect for global cleanup on unmount
     useEffect(() => {
       return () => {
-        const { scale, floatY, pulseScale, pulseOpacity } = animationsRef.current;
+        const { scale, floatY, rotation, pulseScale, pulseOpacity } = animationsRef.current;
         cancelAnimation(scale);
         cancelAnimation(floatY);
+        cancelAnimation(rotation);
         cancelAnimation(pulseScale);
         cancelAnimation(pulseOpacity);
       };
@@ -202,28 +232,34 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     // Use memo to avoid recreating style objects on each render
     const styles = useClusterStyles();
 
-    const clusterBoxStyle = useMemo(
+    const outerCircleStyle = useMemo(
       () => [
-        styles.clusterBox,
+        styles.outerCircle,
         {
           width: baseSize,
           height: baseSize,
           borderRadius: baseSize / 2,
-          backgroundColor,
           borderColor: accentColor,
         },
       ],
-      [baseSize, backgroundColor, accentColor, styles.clusterBox]
+      [baseSize, accentColor, styles.outerCircle]
+    );
+
+    const innerCircleStyle = useMemo(
+      () => [
+        styles.innerCircle,
+        {
+          width: innerSize,
+          height: innerSize,
+          borderRadius: innerSize / 2,
+        },
+      ],
+      [innerSize, styles.innerCircle]
     );
 
     const textStyle = useMemo(
-      () => [
-        styles.text,
-        {
-          textShadowColor: accentColor,
-        },
-      ],
-      [accentColor, styles.text]
+      () => [styles.text, isSelected && styles.selectedText],
+      [isSelected, styles.text, styles.selectedText]
     );
 
     const pulseRingStyle = useMemo(
@@ -235,10 +271,10 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
           height: baseSize,
           borderRadius: baseSize / 2,
           borderColor: accentColor,
-          backgroundColor: accentColor.replace("0.6", "0.1"),
+          backgroundColor: pulseColor,
         },
       ],
-      [baseSize, accentColor, pulseStyle, styles.pulseRing]
+      [baseSize, accentColor, pulseColor, pulseStyle, styles.pulseRing]
     );
 
     return (
@@ -248,7 +284,7 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
 
         {/* Main container */}
         <Animated.View style={[styles.container, containerStyle]}>
-          <View style={clusterBoxStyle}>
+          <View style={outerCircleStyle}>
             <ClusterText text={formattedCount} style={textStyle} />
           </View>
         </Animated.View>
@@ -272,8 +308,8 @@ const useClusterStyles = () => {
   // Styles don't need to be recreated on each render
   return StyleSheet.create({
     touchableArea: {
-      width: 44,
-      height: 44,
+      width: 60,
+      height: 60,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -281,17 +317,32 @@ const useClusterStyles = () => {
       alignItems: "center",
       justifyContent: "center",
     },
-    clusterBox: {
-      backgroundColor: "#333333",
-      borderWidth: 1,
+    outerCircle: {
+      backgroundColor: "rgba(58, 58, 58, 0.85)",
+      borderWidth: 1.5,
       alignItems: "center",
       justifyContent: "center",
       ...Platform.select({
         ios: {
-          shadowColor: "rgba(77, 171, 247, 0.6)",
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.5,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.3,
           shadowRadius: 4,
+        },
+        android: {
+          elevation: 5,
+        },
+      }),
+    },
+    innerCircle: {
+      alignItems: "center",
+      justifyContent: "center",
+      ...Platform.select({
+        ios: {
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.2,
+          shadowRadius: 2,
         },
         android: {
           elevation: 3,
@@ -302,14 +353,23 @@ const useClusterStyles = () => {
       color: "#FFFFFF",
       fontWeight: "bold",
       fontFamily: "SpaceMono",
-      fontSize: 14,
+      fontSize: 16,
       textAlign: "center",
-      textShadowOffset: { width: 0, height: 0 },
-      textShadowRadius: 4,
+      ...Platform.select({
+        ios: {
+          shadowColor: "rgba(0, 0, 0, 0.5)",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.5,
+          shadowRadius: 1,
+        },
+      }),
+    },
+    selectedText: {
+      fontSize: 18,
     },
     pulseRing: {
       position: "absolute",
-      borderWidth: 1.5,
+      borderWidth: 2,
     },
   });
 };

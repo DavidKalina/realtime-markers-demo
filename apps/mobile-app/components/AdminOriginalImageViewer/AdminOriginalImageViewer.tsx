@@ -1,4 +1,3 @@
-// components/AdminOriginalImageViewer.tsx
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -12,7 +11,7 @@ import {
   Alert,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { Image as LucideImage, X, ZoomIn, Share2 } from "lucide-react-native";
+import { Image as LucideImage, X, ZoomIn, Share2, Shield } from "lucide-react-native";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
 import apiClient from "@/services/ApiClient";
@@ -117,73 +116,93 @@ const AdminOriginalImageViewer: React.FC<AdminOriginalImageViewerProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <View style={styles.titleContainer}>
-          <LucideImage size={16} color="#93c5fd" style={{ marginRight: 8 }} />
-          <Text style={styles.title}>Original Event Flyer</Text>
+      {/* Gradient header background */}
+
+      {/* Header section */}
+      <View style={styles.cardHeader}>
+        <View style={styles.cardIconContainer}>
+          <LucideImage size={20} color="#ff9800" />
         </View>
-        <Text style={styles.adminText}>Admin Only</Text>
+        <Text style={styles.cardTitle}>Original Event Flyer</Text>
+        <View style={styles.adminBadge}>
+          <Shield size={12} color="#ff9800" />
+          <Text style={styles.adminText}>ADMIN</Text>
+        </View>
       </View>
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color="#93c5fd" />
-          <Text style={styles.loadingText}>Loading original image...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : imageUrl ? (
-        <View style={styles.imageContainer}>
-          <TouchableOpacity onPress={handleImagePress}>
-            <Image
-              source={{ uri: imageUrl }}
-              style={styles.thumbnail}
-              resizeMode="contain"
-              onError={(e) => {
-                console.error("Image load error:", e.nativeEvent.error);
-                setError("Failed to display image");
-              }}
-            />
-            <View style={styles.viewOverlay}>
-              <ZoomIn size={24} color="#ffffff" />
-              <Text style={styles.viewText}>View Original</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={styles.noImageContainer}>
-          <Text style={styles.noImageText}>No original image available</Text>
-        </View>
-      )}
+      {/* Content section */}
+      <View style={styles.cardContent}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#ff9800" />
+            <Text style={styles.loadingText}>Loading original image...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : imageUrl ? (
+          <View style={styles.imageContainer}>
+            <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
+              <Image
+                source={{ uri: imageUrl }}
+                style={styles.thumbnail}
+                resizeMode="cover"
+                onError={(e) => {
+                  console.error("Image load error:", e.nativeEvent.error);
+                  setError("Failed to display image");
+                }}
+              />
+              <View style={styles.viewOverlay}>
+                <ZoomIn size={20} color="#ffffff" />
+                <Text style={styles.viewText}>View Full Image</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.noImageContainer}>
+            <Text style={styles.noImageText}>No original image available</Text>
+          </View>
+        )}
+      </View>
 
+      {/* Fullscreen modal */}
       <Modal
         visible={modalVisible}
         transparent={true}
         animationType="fade"
+        statusBarTranslucent={true}
         onRequestClose={handleCloseModal}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={handleCloseModal} style={styles.closeButton}>
-              <X size={24} color="#f8f9fa" />
+            <TouchableOpacity
+              onPress={handleCloseModal}
+              style={styles.closeButton}
+              activeOpacity={0.7}
+            >
+              <X size={22} color="#f8f9fa" />
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={handleShareImage}
               style={styles.shareButton}
               disabled={downloading}
+              activeOpacity={0.7}
             >
               {downloading ? (
                 <ActivityIndicator size="small" color="#f8f9fa" />
               ) : (
-                <Share2 size={24} color="#f8f9fa" />
+                <Share2 size={22} color="#f8f9fa" />
               )}
             </TouchableOpacity>
           </View>
 
-          <View style={styles.modalContent}>
+          <TouchableOpacity
+            style={styles.modalContent}
+            activeOpacity={1}
+            onPress={handleCloseModal}
+          >
             {imageUrl && (
               <Image
                 source={{ uri: imageUrl }}
@@ -196,7 +215,7 @@ const AdminOriginalImageViewer: React.FC<AdminOriginalImageViewerProps> = ({
                 }}
               />
             )}
-          </View>
+          </TouchableOpacity>
         </View>
       </Modal>
     </View>
@@ -209,142 +228,213 @@ const windowHeight = Dimensions.get("window").height;
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "#3a3a3a",
-    borderRadius: 10,
-    padding: 16,
-    marginTop: 20,
-    marginBottom: 20,
+    borderRadius: 16,
+    padding: 0,
+    marginVertical: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+    overflow: "hidden",
   },
-  headerRow: {
+
+  // Header gradient
+  headerGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 50,
+  },
+
+  // Card header
+  cardHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
   },
-  titleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  title: {
-    fontSize: 14,
-    color: "#93c5fd",
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
-  },
-  adminText: {
-    fontSize: 12,
-    color: "#ff9800",
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
-    backgroundColor: "#3f3f3f",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  loadingContainer: {
-    height: 150,
+
+  cardIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#424242",
-    borderRadius: 8,
+    marginRight: 14,
+    backgroundColor: "rgba(255, 152, 0, 0.2)",
   },
+
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+    flex: 1,
+  },
+
+  // Admin badge
+  adminBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 152, 0, 0.15)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 152, 0, 0.3)",
+  },
+
+  adminText: {
+    fontSize: 10,
+    color: "#ff9800",
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
+    marginLeft: 4,
+  },
+
+  // Card content
+  cardContent: {
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+  },
+
+  // Loading state
+  loadingContainer: {
+    height: 180,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(66, 66, 66, 0.5)",
+    borderRadius: 12,
+  },
+
   loadingText: {
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
     fontSize: 12,
-    marginTop: 8,
+    marginTop: 10,
   },
+
+  // Error state
   errorContainer: {
-    height: 60,
+    height: 100,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#424242",
-    borderRadius: 8,
+    backgroundColor: "rgba(66, 66, 66, 0.5)",
+    borderRadius: 12,
   },
+
   errorText: {
     color: "#f97583",
     fontFamily: "SpaceMono",
     fontSize: 12,
+    textAlign: "center",
+    paddingHorizontal: 20,
   },
+
+  // Image container
   imageContainer: {
     position: "relative",
     backgroundColor: "#424242",
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
+
   thumbnail: {
     width: "100%",
-    height: 180,
-    borderRadius: 8,
+    height: 220,
+    borderRadius: 12,
   },
+
   viewOverlay: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    padding: 8,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
+
   viewText: {
     color: "#ffffff",
     fontFamily: "SpaceMono",
     fontSize: 14,
+    fontWeight: "500",
     marginLeft: 8,
   },
+
+  // No image state
   noImageContainer: {
-    height: 80,
+    height: 100,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#424242",
-    borderRadius: 8,
+    backgroundColor: "rgba(66, 66, 66, 0.5)",
+    borderRadius: 12,
   },
+
   noImageText: {
     color: "#adb5bd",
     fontFamily: "SpaceMono",
     fontSize: 14,
   },
+
+  // Modal styles
   modalContainer: {
-    paddingVertical: 50,
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.9)",
+    backgroundColor: "rgba(0, 0, 0, 0.95)",
   },
+
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     padding: 16,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    paddingTop: 50, // Provide space for status bar
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    zIndex: 10,
   },
+
   closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(58, 58, 58, 0.8)",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
+
   shareButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(58, 58, 58, 0.8)",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
+
   modalContent: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
+
   fullImage: {
     width: windowWidth,
-    height: windowHeight * 0.8,
+    height: windowHeight * 0.7,
   },
 });
 

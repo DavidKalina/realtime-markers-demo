@@ -17,11 +17,12 @@ import {
   View,
   Modal,
   FlatList,
+  Animated,
+  StyleSheet,
 } from "react-native";
 import { AuthWrapper } from "../AuthWrapper";
-import { styles } from "./styles"; // Import the updated light styles
 import MapMojiHeader from "../AnimationHeader";
-import AnimatedGlobeBackground from "../Background"; // Using the light-themed globe background
+import AnimatedMapBackground from "../Background"; // Using renamed component
 
 // Define types for our data
 interface Profile {
@@ -89,6 +90,17 @@ const Login: React.FC = () => {
 
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Fade in animation for form
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+      delay: 300,
+    }).start();
+  }, []);
 
   const handleSelectProfile = (profile: Profile) => {
     Haptics.selectionAsync();
@@ -148,15 +160,15 @@ const Login: React.FC = () => {
     router.push("/register");
   };
 
-  // Helper function to get role color - adjusted for light theme
+  // Helper function to get role color - adjusted for dark theme
   const getRoleColor = (role: string) => {
     switch (role.toUpperCase()) {
       case "ADMIN":
-        return "#e6bc00"; // Darker gold for better contrast
+        return "#ffcc00"; // Bright gold for dark theme
       case "MODERATOR":
-        return "#1a8fe3"; // Darker blue for better contrast
+        return "#4dabf7"; // Blue for dark theme
       default:
-        return "#666"; // Darker gray for better contrast
+        return "#adb5bd"; // Light gray for dark theme
     }
   };
 
@@ -167,7 +179,9 @@ const Login: React.FC = () => {
         style={styles.profileDropdownItem}
         activeOpacity={0.7}
       >
-        <Text style={styles.profileEmojiSmall}>{item.emoji}</Text>
+        <View style={styles.profileEmojiContainer}>
+          <Text style={styles.profileEmojiSmall}>{item.emoji}</Text>
+        </View>
         <Text style={styles.profileDropdownName}>{item.name}</Text>
         <Text style={[styles.profileDropdownRole, { color: getRoleColor(item.role) }]}>
           {item.role}
@@ -179,11 +193,13 @@ const Login: React.FC = () => {
   return (
     <AuthWrapper requireAuth={false}>
       <SafeAreaView style={styles.container}>
-        <AnimatedGlobeBackground />
-        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <AnimatedMapBackground settings={{ styleURL: "mapbox://styles/mapbox/dark-v11" }} />
+        <StatusBar barStyle="light-content" backgroundColor="#333" />
+
         <View style={styles.headerContainer}>
           <MapMojiHeader />
         </View>
+
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingView}
@@ -192,146 +208,459 @@ const Login: React.FC = () => {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={styles.formContainer}>
-              <TouchableOpacity style={styles.profileSelectorContainer} onPress={toggleDropdown}>
-                {selectedProfile ? (
-                  <View style={styles.selectedProfileContainer}>
-                    <Text>{selectedProfile.emoji}</Text>
-                    <Text style={{ color: "#333", fontFamily: "SpaceMono" }}>
-                      {selectedProfile.name}
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={styles.noProfileContainer}>
-                    <View style={styles.placeholderAvatar}>
-                      <User size={14} color="#4dabf7" />
+            <Animated.View style={[styles.formContainer, { opacity: fadeAnim }]}>
+              <View style={styles.formCard}>
+                <TouchableOpacity style={styles.profileSelectorContainer} onPress={toggleDropdown}>
+                  {selectedProfile ? (
+                    <View style={styles.selectedProfileContainer}>
+                      <View style={styles.selectedProfileEmojiContainer}>
+                        <Text style={styles.profileEmojiLarge}>{selectedProfile.emoji}</Text>
+                      </View>
+                      <Text style={styles.selectedProfileName}>{selectedProfile.name}</Text>
                     </View>
-                    <Text style={styles.selectProfileText}>Select a profile</Text>
+                  ) : (
+                    <View style={styles.noProfileContainer}>
+                      <View style={styles.placeholderAvatar}>
+                        <User size={14} color="#93c5fd" />
+                      </View>
+                      <Text style={styles.selectProfileText}>Select a profile</Text>
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    style={styles.dropdownTrigger}
+                    onPress={toggleDropdown}
+                    activeOpacity={0.7}
+                  >
+                    {isDropdownOpen ? (
+                      <ChevronUp size={14} color="#93c5fd" />
+                    ) : (
+                      <ChevronDown size={14} color="#93c5fd" />
+                    )}
+                  </TouchableOpacity>
+                </TouchableOpacity>
+                {error && (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{error}</Text>
                   </View>
                 )}
-
-                <TouchableOpacity
-                  style={styles.dropdownTrigger}
-                  onPress={toggleDropdown}
-                  activeOpacity={0.7}
-                >
-                  {isDropdownOpen ? (
-                    <ChevronUp size={14} color="#4dabf7" />
-                  ) : (
-                    <ChevronDown size={14} color="#4dabf7" />
-                  )}
-                </TouchableOpacity>
-              </TouchableOpacity>
-
-              <Modal
-                visible={isDropdownOpen}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={() => setIsDropdownOpen(false)}
-              >
-                <TouchableOpacity
-                  style={styles.modalOverlay}
-                  activeOpacity={1}
-                  onPress={() => setIsDropdownOpen(false)}
-                >
-                  <View style={styles.dropdownContainer}>
-                    <FlatList
-                      data={TEST_PROFILES}
-                      renderItem={renderProfileItem}
-                      keyExtractor={(item) => item.id}
-                      showsVerticalScrollIndicator={false}
-                      style={styles.profileList}
-                    />
-                  </View>
-                </TouchableOpacity>
-              </Modal>
-
-              {error && (
-                <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{error}</Text>
+                <View style={styles.inputContainer}>
+                  <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
+                  <TextInput
+                    ref={emailInputRef}
+                    style={styles.input}
+                    placeholder="Email address"
+                    placeholderTextColor="#808080"
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordInputRef.current?.focus()}
+                    editable={!selectedProfile}
+                  />
                 </View>
-              )}
-
-              <View style={styles.inputContainer}>
-                <Mail size={18} color="#4dabf7" style={styles.inputIcon} />
-                <TextInput
-                  ref={emailInputRef}
-                  style={styles.input}
-                  placeholder="Email address"
-                  placeholderTextColor="#999"
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                  returnKeyType="next"
-                  onSubmitEditing={() => passwordInputRef.current?.focus()}
-                  editable={!selectedProfile}
-                />
-              </View>
-
-              {/* Password Input */}
-              <View style={styles.inputContainer}>
-                <Lock size={18} color="#4dabf7" style={styles.inputIcon} />
-                <TextInput
-                  ref={passwordInputRef}
-                  style={styles.input}
-                  placeholder="Password"
-                  placeholderTextColor="#999"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  returnKeyType="done"
-                  onSubmitEditing={handleLogin}
-                  editable={!selectedProfile}
-                />
-                <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
-                  {showPassword ? (
-                    <EyeOff size={18} color="#4dabf7" />
+                {/* Password Input */}
+                <View style={styles.inputContainer}>
+                  <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
+                  <TextInput
+                    ref={passwordInputRef}
+                    style={styles.input}
+                    placeholder="Password"
+                    placeholderTextColor="#808080"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    returnKeyType="done"
+                    onSubmitEditing={handleLogin}
+                    editable={!selectedProfile}
+                  />
+                  <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
+                    {showPassword ? (
+                      <EyeOff size={18} color="#93c5fd" />
+                    ) : (
+                      <Eye size={18} color="#93c5fd" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+                // Update the loginButton TouchableOpacity component to include loading state
+                <TouchableOpacity
+                  style={styles.loginButton}
+                  onPress={() => {
+                    Keyboard.dismiss(); // Dismiss keyboard when button is pressed
+                    handleLogin();
+                  }}
+                  disabled={isLoading}
+                  activeOpacity={0.8}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#000" />
                   ) : (
-                    <Eye size={18} color="#4dabf7" />
+                    <Text style={styles.loginButtonText}>Login</Text>
                   )}
                 </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity
-                style={styles.loginButton}
-                onPress={handleLogin}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.loginButtonText}>Login</Text>
+                {selectedProfile && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedProfile(null);
+                      setEmail("");
+                      setPassword("");
+                    }}
+                    style={styles.toggleManualButton}
+                  >
+                    <Text style={styles.toggleManualText}>Use different credentials</Text>
+                  </TouchableOpacity>
                 )}
-              </TouchableOpacity>
-
-              {selectedProfile && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setSelectedProfile(null);
-                    setEmail("");
-                    setPassword("");
-                  }}
-                  style={styles.toggleManualButton}
-                >
-                  <Text style={styles.toggleManualText}>Use different credentials</Text>
-                </TouchableOpacity>
-              )}
-
-              <View style={styles.createAccountContainer}>
-                <Text style={styles.createAccountText}>Don't have an account? </Text>
-                <TouchableOpacity onPress={handleCreateAccount}>
-                  <Text style={styles.createAccountLink}>Create one</Text>
-                </TouchableOpacity>
+                <View style={styles.createAccountContainer}>
+                  <Text style={styles.createAccountText}>Don't have an account? </Text>
+                  <TouchableOpacity onPress={handleCreateAccount}>
+                    <Text style={styles.createAccountLink}>Create one</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
+
+        <Modal
+          visible={isDropdownOpen}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setIsDropdownOpen(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setIsDropdownOpen(false)}
+          >
+            <View style={styles.dropdownContainer}>
+              <FlatList
+                data={TEST_PROFILES}
+                renderItem={renderProfileItem}
+                keyExtractor={(item) => item.id}
+                showsVerticalScrollIndicator={false}
+                style={styles.profileList}
+              />
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </SafeAreaView>
     </AuthWrapper>
   );
 };
+
+// Inline styles
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "transparent", // Remains transparent to show the background
+  },
+
+  headerContainer: {
+    paddingTop: 10,
+    paddingBottom: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2, // Ensure header is above background
+  },
+
+  keyboardAvoidingView: {
+    flex: 1,
+    zIndex: 2, // Ensure content is above background
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "flex-start",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+
+  formContainer: {
+    width: "100%",
+    maxWidth: 400,
+    alignSelf: "center",
+    marginTop: 20,
+    zIndex: 2, // Ensure form is above background
+  },
+
+  formCard: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 20,
+    backgroundColor: "rgba(58, 58, 58, 0.75)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
+    position: "relative",
+    overflow: "hidden",
+  },
+
+  formGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+
+  errorContainer: {
+    backgroundColor: "rgba(255, 70, 70, 0.2)",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 70, 70, 0.3)",
+  },
+
+  errorText: {
+    color: "#ff7675",
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+  },
+
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(45, 45, 45, 0.8)",
+    borderRadius: 12,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+    height: 55,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+
+  inputIcon: {
+    marginRight: 10,
+  },
+
+  input: {
+    flex: 1,
+    height: "100%",
+    color: "#f8f9fa",
+    fontSize: 16,
+    fontFamily: "SpaceMono",
+  },
+
+  eyeIcon: {
+    padding: 8,
+  },
+
+  loginButton: {
+    borderRadius: 12,
+    height: 55,
+    justifyContent: "center",
+    alignItems: "center",
+    marginVertical: 20,
+    shadowColor: "#4dabf7",
+    backgroundColor: "#4dabf7", // Add this techy blue background color
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+    overflow: "hidden",
+  },
+
+  loginButtonText: {
+    color: "black",
+    fontSize: 18,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
+  },
+
+  toggleManualButton: {
+    alignSelf: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+
+  toggleManualText: {
+    color: "#adb5bd",
+    fontSize: 14,
+    textDecorationLine: "underline",
+    fontFamily: "SpaceMono",
+  },
+
+  createAccountContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 16,
+  },
+
+  createAccountText: {
+    color: "#adb5bd",
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+  },
+
+  createAccountLink: {
+    color: "#93c5fd",
+    fontSize: 14,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
+  },
+
+  // Profile selector styling
+  profileSelectorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(45, 45, 45, 0.8)",
+    borderRadius: 12,
+    marginBottom: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    height: 55,
+    zIndex: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+
+  selectedProfileContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+
+  selectedProfileEmojiContainer: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
+  },
+
+  profileEmojiLarge: {
+    fontSize: 18,
+  },
+
+  selectedProfileName: {
+    color: "#f8f9fa",
+    fontSize: 15,
+    fontWeight: "500",
+    fontFamily: "SpaceMono",
+  },
+
+  noProfileContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+
+  placeholderAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 23,
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
+  },
+
+  selectProfileText: {
+    color: "#adb5bd",
+    fontSize: 15,
+    fontFamily: "SpaceMono",
+  },
+
+  dropdownTrigger: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+  },
+
+  // Modal dropdown styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    zIndex: 10,
+  },
+
+  dropdownContainer: {
+    width: "90%",
+    maxWidth: 400,
+    maxHeight: 300,
+    backgroundColor: "#3a3a3a",
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+
+  profileList: {
+    width: "100%",
+    paddingVertical: 4,
+  },
+
+  profileDropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+  },
+
+  profileEmojiContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
+  },
+
+  profileEmojiSmall: {
+    fontSize: 18,
+  },
+
+  profileDropdownName: {
+    color: "#f8f9fa",
+    fontSize: 15,
+    fontFamily: "SpaceMono",
+    flex: 1,
+  },
+
+  profileDropdownRole: {
+    fontSize: 12,
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+});
 
 export default Login;
