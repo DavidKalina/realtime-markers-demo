@@ -1,18 +1,16 @@
 import { useAuth } from "@/contexts/AuthContext";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ArrowLeft, LogOut, Mail, User, Shield, Calendar, MapPin } from "lucide-react-native";
-import React, { useState, useRef } from "react";
+import { ArrowLeft, Calendar, LogOut, Mail, MapPin, Shield, User } from "lucide-react-native";
+import React, { useRef } from "react";
 import {
-  ActivityIndicator,
+  Animated,
   SafeAreaView,
-  ScrollView,
   StatusBar,
+  StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Animated,
-  StyleSheet,
 } from "react-native";
 
 interface UserProfileProps {
