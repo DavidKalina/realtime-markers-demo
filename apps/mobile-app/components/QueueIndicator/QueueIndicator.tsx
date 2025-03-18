@@ -1,7 +1,7 @@
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { AlertTriangle, CheckCircle, Cog } from "lucide-react-native";
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import Animated, {
   BounceIn,
   BounceOut,
@@ -14,7 +14,6 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { styles } from "./styles";
 
 interface QueueIndicatorProps {
   position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
@@ -24,8 +23,8 @@ interface QueueIndicatorProps {
 
 // Pre-defined animations for reuse
 const SPRING_LAYOUT = Layout.springify();
-const BOUNCE_IN = BounceIn.duration(300).springify();
-const BOUNCE_OUT = BounceOut.duration(300);
+const BOUNCE_IN = BounceIn.duration(500).springify().damping(12);
+const BOUNCE_OUT = BounceOut.duration(400);
 const FADE_IN = FadeIn.duration(400).delay(100);
 
 // Animation configurations
@@ -35,7 +34,7 @@ const ANIMATION_CONFIG = {
   fadeIn: { duration: 300 },
   checkmarkScale: {
     duration: 400,
-    easing: Easing.elastic(1),
+    easing: Easing.elastic(1.2),
   },
 };
 
@@ -278,13 +277,13 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
     const statusColor = useMemo(() => {
       switch (status) {
         case "processing":
-          return "#1098ad"; // Cyan
+          return "#60a5fa"; // Blue that matches our UI language
         case "completed":
-          return "#4caf50"; // Green
+          return "#10b981"; // Green that matches our UI language
         case "failed":
-          return "#f44336"; // Red
+          return "#ef4444"; // Red that matches our UI language
         default:
-          return "#868e96"; // Gray
+          return "#6b7280"; // Gray
       }
     }, [status]);
 
@@ -329,5 +328,63 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
     );
   }
 );
+
+// Refined styles to match our card-like design language
+const styles = StyleSheet.create({
+  container: {
+    position: "absolute",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(51, 51, 51, 0.92)",
+    borderRadius: 18,
+    padding: 6,
+    paddingRight: 12,
+    zIndex: 1000,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+    maxWidth: 140,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  indicator: {
+    width: 28,
+    height: 28,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  contentContainer: {
+    flexDirection: "column",
+    flex: 1,
+  },
+  countText: {
+    color: "#f8f9fa",
+    fontSize: 8,
+    fontFamily: "SpaceMono",
+    marginTop: 2,
+    fontWeight: "500",
+  },
+  progressBarContainer: {
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 2,
+    marginVertical: 4,
+    width: "100%",
+    overflow: "hidden",
+  },
+  progressBar: {
+    height: "100%",
+    borderRadius: 2,
+  },
+});
 
 export default QueueIndicator;

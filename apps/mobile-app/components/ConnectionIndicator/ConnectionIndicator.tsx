@@ -2,7 +2,7 @@ import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes } from "@/services/EventBroker";
 import { AlertCircle, Minus, Plus, WifiOff, Wifi } from "lucide-react-native";
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
-import { View } from "react-native";
+import { View, StyleSheet } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -14,28 +14,40 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  BounceIn,
+  BounceOut,
 } from "react-native-reanimated";
-import { styles } from "./styles";
 
 interface ConnectionIndicatorProps {
   eventsCount?: number;
   initialConnectionState?: boolean;
-  position?: "top-right" | "top-left" | "bottom-right" | "bottom-left";
+  position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
   showAnimation?: boolean;
 }
 
 // Define notification types
 type NotificationType = "none" | "added" | "removed" | "reconnecting" | "connecting";
 
-// Pre-define animations to avoid recreation
-const FADE_IN = FadeIn.duration(300);
-const FADE_OUT = FadeOut.duration(300);
-const FADE_IN_DELAYED = FadeIn.duration(400).delay(100);
+// Pre-define animations to avoid recreation - matching QueueIndicator
 const SPRING_LAYOUT = Layout.springify();
+const BOUNCE_IN = BounceIn.duration(500).springify().damping(12);
+const BOUNCE_OUT = BounceOut.duration(400);
+const FADE_IN = FadeIn.duration(400).delay(100);
+
+// Animation configurations
+const ANIMATION_CONFIG = {
+  pulseDuration: 2000,
+  fadeOut: { duration: 200 },
+  fadeIn: { duration: 300 },
+  iconScale: {
+    duration: 400,
+    easing: Easing.elastic(1.2),
+  },
+};
 
 // Create a memoized notification icon component
 const NotificationIcon = React.memo(
-  ({ type, isConnected }: { type: NotificationType; isConnected: boolean }) => {
+  ({ type, isConnected, style }: { type: NotificationType; isConnected: boolean; style?: any }) => {
     const icon = useMemo(() => {
       switch (type) {
         case "added":
@@ -50,7 +62,7 @@ const NotificationIcon = React.memo(
       }
     }, [type, isConnected]);
 
-    return icon;
+    return <Animated.View style={style}>{icon}</Animated.View>;
   }
 );
 
@@ -74,7 +86,7 @@ const NotificationText = React.memo(
         <Animated.Text
           style={styles.statusText}
           entering={FADE_IN}
-          exiting={FADE_OUT}
+          exiting={FadeOut.duration(300)}
           layout={SPRING_LAYOUT}
         >
           {notificationData.text}
@@ -87,7 +99,7 @@ const NotificationText = React.memo(
         <Animated.Text
           style={styles.statusText}
           entering={FADE_IN}
-          exiting={FADE_OUT}
+          exiting={FadeOut.duration(300)}
           layout={SPRING_LAYOUT}
         >
           {isConnected
@@ -98,7 +110,7 @@ const NotificationText = React.memo(
         </Animated.Text>
 
         {isConnected && eventsCount > 0 && (
-          <Animated.Text style={styles.countText} entering={FADE_IN_DELAYED} layout={SPRING_LAYOUT}>
+          <Animated.Text style={styles.countText} entering={FADE_IN} layout={SPRING_LAYOUT}>
             {eventsCount} event{eventsCount !== 1 ? "s" : ""} in view
           </Animated.Text>
         )}
@@ -118,6 +130,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
     const [isConnected, setIsConnected] = useState(initialConnectionState);
     const [hasConnectionEverBeenEstablished, setHasConnectionEverBeenEstablished] =
       useState(initialConnectionState);
+    const [isVisible, setIsVisible] = useState(true);
 
     // Add state for the transient notifications
     const [activeNotification, setActiveNotification] = useState<NotificationType>("none");
@@ -135,6 +148,8 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
 
     // Reanimated shared values for animations
     const scale = useSharedValue(1);
+    const iconOpacity = useSharedValue(1);
+    const notificationScale = useSharedValue(0);
 
     // Use the event broker hook
     const { subscribe } = useEventBroker();
@@ -179,8 +194,20 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
       setActiveNotification(type);
       setNotificationData({ count, text });
 
+      // Apply animation
+      iconOpacity.value = withTiming(0, ANIMATION_CONFIG.fadeOut, () => {
+        "worklet";
+        notificationScale.value = withTiming(1, ANIMATION_CONFIG.iconScale);
+      });
+
       // Set timeout to clear this notification - ALWAYS set a timeout
       notificationTimerRef.current = setTimeout(() => {
+        // Reset the animation
+        notificationScale.value = withTiming(0, ANIMATION_CONFIG.fadeOut, () => {
+          "worklet";
+          iconOpacity.value = withTiming(1, ANIMATION_CONFIG.fadeIn);
+        });
+
         // Clear the notification state
         setActiveNotification("none");
 
@@ -198,7 +225,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
           }
         }, 300);
       }, duration);
-    }, []);
+    }, [iconOpacity, notificationScale]);
 
     // Show a notification for a limited time - simplified and fixed
     const showNotification = useCallback(
@@ -250,6 +277,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
     const handleConnected = useCallback(() => {
       setIsConnected(true);
       setHasConnectionEverBeenEstablished(true);
+      setIsVisible(true);
 
       // Clear reconnecting notification if active
       if (activeNotification === "reconnecting" || activeNotification === "connecting") {
@@ -269,6 +297,8 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
 
     const handleDisconnected = useCallback(() => {
       setIsConnected(false);
+      setIsVisible(true);
+
       if (hasConnectionEverBeenEstablished) {
         showNotification("reconnecting", 0, 10000); // Longer timeout for reconnection
       } else {
@@ -384,22 +414,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
       handleMarkerRemoved,
     ]);
 
-    // Animation configuration - memoized to avoid recreating on each render
-    const animationConfig = useMemo(
-      () => ({
-        pulse: {
-          duration: 800,
-          easing: Easing.inOut(Easing.sin),
-        },
-        reset: {
-          duration: 300,
-          easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-        },
-      }),
-      []
-    );
-
-    // Handle animation based on connection status and notifications - optimize deps
+    // Handle animation based on connection status and notifications
     useEffect(() => {
       // Animation cleanup function reference
       let cleanupNeeded = false;
@@ -411,8 +426,14 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
         // Create smoother pulsing animation
         scale.value = withRepeat(
           withSequence(
-            withTiming(1.2, animationConfig.pulse),
-            withTiming(1, animationConfig.pulse)
+            withTiming(1.1, {
+              duration: ANIMATION_CONFIG.pulseDuration / 2,
+              easing: Easing.inOut(Easing.sin),
+            }),
+            withTiming(1, {
+              duration: ANIMATION_CONFIG.pulseDuration / 2,
+              easing: Easing.inOut(Easing.sin),
+            })
           ),
           -1, // infinite repetitions
           false // not reverse
@@ -420,25 +441,41 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
       } else {
         // Reset animation with a smooth transition
         cancelAnimation(scale);
-        scale.value = withTiming(1, animationConfig.reset);
+        scale.value = withTiming(1, { duration: 300, easing: Easing.bezier(0.25, 0.1, 0.25, 1) });
       }
 
       return () => {
         // Cleanup animations
         if (cleanupNeeded) {
           cancelAnimation(scale);
+          cancelAnimation(iconOpacity);
+          cancelAnimation(notificationScale);
         }
       };
-    }, [isConnected, activeNotification, showAnimation, scale, animationConfig]);
+    }, [isConnected, activeNotification, showAnimation, scale, iconOpacity, notificationScale]);
 
-    // Create animated styles using Reanimated - will only update when scale.value changes
-    const animatedStyles = useAnimatedStyle(() => {
+    // Create animated styles using Reanimated
+    const scaleAnimatedStyle = useAnimatedStyle(() => {
       return {
         transform: [{ scale: scale.value }],
       };
     });
 
-    // Get position styles based on position prop - memoized
+    const statusIconStyle = useAnimatedStyle(() => {
+      return {
+        opacity: iconOpacity.value,
+      };
+    });
+
+    const notificationIconStyle = useAnimatedStyle(() => {
+      return {
+        transform: [{ scale: notificationScale.value }],
+        opacity: notificationScale.value,
+        position: "absolute",
+      };
+    });
+
+    // Get position styles based on position prop
     const positionStyle = useMemo(() => {
       switch (position) {
         case "top-left":
@@ -447,45 +484,67 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
           return { bottom: 50, right: 16 };
         case "bottom-left":
           return { bottom: 50, left: 16 };
+        case "custom":
+          return {};
         case "top-right":
         default:
           return { top: 50, right: 16 };
       }
     }, [position]);
 
-    // Get notification styles based on type - memoized
-    const notificationStyle = useMemo(() => {
+    // Get status color based on notification type or connection status
+    const statusColor = useMemo(() => {
       switch (activeNotification) {
         case "added":
-          return styles.notificationAdded;
+          return "#2196f3"; // Blue for additions
         case "removed":
-          return styles.notificationRemoved;
+          return "#ff9800"; // Orange for removals
         case "reconnecting":
         case "connecting":
-          return styles.disconnected;
+          return "#f44336"; // Red for connection issues
         default:
-          return isConnected ? styles.connected : styles.disconnected;
+          return isConnected ? "#4caf50" : "#f44336"; // Green when connected, red when disconnected
       }
     }, [activeNotification, isConnected]);
 
-    // Combine indicator styles - memoized
+    // Combine indicator styles
     const indicatorStyle = useMemo(() => {
-      const baseStyles = [styles.indicator, notificationStyle];
+      const baseStyles = [styles.indicator, { backgroundColor: statusColor }];
 
       if ((!isConnected || activeNotification !== "none") && showAnimation) {
-        baseStyles.push(animatedStyles as any);
+        baseStyles.push(scaleAnimatedStyle as any);
       }
 
       return baseStyles;
-    }, [notificationStyle, isConnected, activeNotification, showAnimation, animatedStyles]);
+    }, [statusColor, isConnected, activeNotification, showAnimation, scaleAnimatedStyle]);
+
+    // If component should not be visible, return null
+    if (!isVisible) {
+      return null;
+    }
 
     return (
-      <Animated.View style={[styles.container, positionStyle]} layout={SPRING_LAYOUT}>
+      <Animated.View
+        style={[styles.container, positionStyle]}
+        entering={BOUNCE_IN}
+        exiting={BOUNCE_OUT}
+        layout={SPRING_LAYOUT}
+      >
         <Animated.View style={indicatorStyle} layout={SPRING_LAYOUT}>
-          <NotificationIcon type={activeNotification} isConnected={isConnected} />
+          {/* Status icon (wifi connected/disconnected) */}
+          <NotificationIcon type="none" isConnected={isConnected} style={statusIconStyle} />
+
+          {/* Notification icon (plus, minus, alert) */}
+          {activeNotification !== "none" && (
+            <NotificationIcon
+              type={activeNotification}
+              isConnected={isConnected}
+              style={notificationIconStyle}
+            />
+          )}
         </Animated.View>
 
-        <View style={styles.textContainer}>
+        <View style={styles.contentContainer}>
           <NotificationText
             activeNotification={activeNotification}
             notificationData={notificationData}
@@ -498,3 +557,57 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
     );
   }
 );
+
+// Refined styles to match QueueIndicator
+const styles = StyleSheet.create({
+  container: {
+    position: "absolute",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(51, 51, 51, 0.92)",
+    borderRadius: 18,
+    padding: 6,
+    paddingRight: 12,
+    zIndex: 1000,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+    maxWidth: 140,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  indicator: {
+    width: 28,
+    height: 28,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  contentContainer: {
+    flexDirection: "column",
+    flex: 1,
+  },
+  statusText: {
+    color: "#f8f9fa",
+    fontSize: 10,
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
+  },
+  countText: {
+    color: "#f8f9fa",
+    fontSize: 8,
+    fontFamily: "SpaceMono",
+    marginTop: 2,
+    fontWeight: "500",
+  },
+});
+
+export default ConnectionIndicator;

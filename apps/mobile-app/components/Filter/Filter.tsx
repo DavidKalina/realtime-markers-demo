@@ -18,6 +18,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Keyboard,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -27,6 +28,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import apiClient, { Filter as FilterType } from "../../services/ApiClient";
@@ -104,6 +106,17 @@ const FiltersView: React.FC = () => {
     setStartDate(filter.criteria.dateRange?.start || "");
     setEndDate(filter.criteria.dateRange?.end || "");
     setModalVisible(true);
+  };
+
+  // Dismiss the keyboard
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
+  };
+
+  // Close modal
+  const handleCloseModal = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setModalVisible(false);
   };
 
   // Delete a filter
@@ -381,120 +394,140 @@ const FiltersView: React.FC = () => {
         animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={handleCloseModal}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {editingFilter ? "Edit Smart Filter" : "Create Smart Filter"}
-              </Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setModalVisible(false)}
-                activeOpacity={0.7}
-              >
-                <X size={20} color="#f8f9fa" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.modalScrollContent}
-            >
-              {/* Filter Name */}
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Filter Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={filterName}
-                  onChangeText={setFilterName}
-                  placeholder="Enter filter name"
-                  placeholderTextColor="#adb5bd"
-                />
+        <TouchableWithoutFeedback onPress={dismissKeyboard}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {editingFilter ? "Edit Smart Filter" : "Create Smart Filter"}
+                </Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={handleCloseModal}
+                  activeOpacity={0.7}
+                >
+                  <X size={20} color="#f8f9fa" />
+                </TouchableOpacity>
               </View>
 
-              {/* Active Toggle */}
-              <View style={styles.formGroup}>
-                <View style={styles.switchContainer}>
-                  <Text style={styles.formLabel}>Active</Text>
-                  <Switch
-                    value={isActive}
-                    onValueChange={setIsActive}
-                    trackColor={{ false: "#3a3a3a", true: "#93c5fd" }}
-                    thumbColor={isActive ? "#f8f9fa" : "#f8f9fa"}
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+              >
+                {/* Filter Name */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Filter Name</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={filterName}
+                    onChangeText={setFilterName}
+                    placeholder="Enter filter name"
+                    placeholderTextColor="#adb5bd"
+                    returnKeyType="next"
                   />
                 </View>
-              </View>
 
-              {/* Semantic Query */}
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Search Query</Text>
-                <TextInput
-                  style={[styles.input, { height: 80, textAlignVertical: "top" }]}
-                  value={semanticQuery}
-                  onChangeText={setSemanticQuery}
-                  placeholder="Describe what you're looking for..."
-                  placeholderTextColor="#adb5bd"
-                  multiline={true}
-                  numberOfLines={3}
-                />
-                <Text style={styles.helperText}>
-                  Examples: "Tech events in downtown", "Family activities this weekend", "Music
-                  festivals in July"
-                </Text>
-              </View>
-
-              {/* Date Range */}
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Date Range (Optional)</Text>
-                <View style={styles.dateInputContainer}>
-                  <View style={styles.dateInput}>
-                    <Text style={styles.dateLabel}>Start</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={startDate}
-                      onChangeText={setStartDate}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor="#adb5bd"
-                    />
-                  </View>
-                  <View style={styles.dateInput}>
-                    <Text style={styles.dateLabel}>End</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={endDate}
-                      onChangeText={setEndDate}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor="#adb5bd"
+                {/* Active Toggle */}
+                <View style={styles.formGroup}>
+                  <View style={styles.switchContainer}>
+                    <Text style={styles.formLabel}>Active</Text>
+                    <Switch
+                      value={isActive}
+                      onValueChange={setIsActive}
+                      trackColor={{ false: "#3a3a3a", true: "#93c5fd" }}
+                      thumbColor={isActive ? "#f8f9fa" : "#f8f9fa"}
                     />
                   </View>
                 </View>
-              </View>
-            </ScrollView>
 
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setModalVisible(false)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSaveFilter}
-                activeOpacity={0.7}
-              >
-                <View style={styles.saveButtonContent}>
-                  <Save size={18} color="#333" />
-                  <Text style={styles.saveButtonText}>Save Filter</Text>
+                {/* Semantic Query */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Search Query</Text>
+                  <TextInput
+                    style={[styles.input, { height: 80, textAlignVertical: "top" }]}
+                    value={semanticQuery}
+                    onChangeText={setSemanticQuery}
+                    placeholder="Describe what you're looking for..."
+                    placeholderTextColor="#adb5bd"
+                    multiline={true}
+                    numberOfLines={3}
+                    returnKeyType="next"
+                  />
+                  <Text style={styles.helperText}>
+                    Examples: "Tech events in downtown", "Family activities this weekend", "Music
+                    festivals in July"
+                  </Text>
                 </View>
+
+                {/* Date Range */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Date Range (Optional)</Text>
+                  <View style={styles.dateInputContainer}>
+                    <View style={styles.dateInput}>
+                      <Text style={styles.dateLabel}>Start</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={startDate}
+                        onChangeText={setStartDate}
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor="#adb5bd"
+                        returnKeyType="next"
+                      />
+                    </View>
+                    <View style={styles.dateInput}>
+                      <Text style={styles.dateLabel}>End</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={endDate}
+                        onChangeText={setEndDate}
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor="#adb5bd"
+                        returnKeyType="done"
+                        onSubmitEditing={dismissKeyboard}
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                {/* Added extra padding at the bottom */}
+                <View style={{ height: 30 }} />
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={handleCloseModal}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={handleSaveFilter}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.saveButtonContent}>
+                    <Save size={18} color="#fff" />
+                    <Text style={styles.saveButtonText}>Save Filter</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Keyboard dismiss button at the bottom of modal */}
+              <TouchableOpacity
+                style={styles.keyboardDismissButton}
+                onPress={dismissKeyboard}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.keyboardDismissText}>Tap to dismiss keyboard</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </SafeAreaView>
   );
@@ -850,7 +883,7 @@ const styles = StyleSheet.create({
   // Bottom button
   bottomButtonContainer: {
     position: "absolute",
-    bottom: 0,
+    bottom: 10,
     left: 0,
     right: 0,
     padding: 16,
@@ -891,7 +924,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#3a3a3a",
     borderRadius: 16,
     width: "100%",
-    maxHeight: "90%",
+    maxHeight: "85%", // Slightly smaller to make room for keyboard dismiss button
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -936,6 +969,21 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.1)",
+  },
+
+  // Added keyboard dismiss button
+  keyboardDismissButton: {
+    paddingVertical: 12,
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    alignItems: "center",
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+
+  keyboardDismissText: {
+    color: "#adb5bd",
+    fontSize: 13,
+    fontFamily: "SpaceMono",
   },
 
   // Form styles
@@ -993,16 +1041,18 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
+  // Redesigned buttons with better contrast
   cancelButton: {
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
+    backgroundColor: "rgba(249, 117, 131, 0.15)", // Subtle red background
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
+    borderColor: "rgba(249, 117, 131, 0.3)", // Red border
   },
 
   cancelButtonText: {
-    color: "#adb5bd",
+    color: "#f97583", // Red text
     fontSize: 14,
     fontFamily: "SpaceMono",
     fontWeight: "500",
@@ -1032,7 +1082,7 @@ const styles = StyleSheet.create({
   },
 
   saveButtonText: {
-    color: "#333",
+    color: "#f8f9fa", // White text for better contrast on blue
     fontSize: 14,
     fontWeight: "600",
     fontFamily: "SpaceMono",
