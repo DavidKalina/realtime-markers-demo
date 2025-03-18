@@ -1,4 +1,4 @@
-// ActionBar.tsx - Further optimized for performance
+// ActionBar.tsx - Refined with better icon styling and selection states
 import { styles as globalStyles } from "@/components/globalStyles";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { CameraAnimateToLocationEvent, EventTypes } from "@/services/EventBroker";
@@ -58,7 +58,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
     // Create animated style for the button - this won't change between renders
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [{ scale: scaleValue.value }],
-      opacity: scaleValue.value === 0.9 ? 0.8 : 1,
+      opacity: scaleValue.value === 0.9 ? 0.9 : 1, // Less dramatic opacity change
     }));
 
     // Handle button press with animation
@@ -70,9 +70,9 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
         });
       }
 
-      // Animate button
+      // Animate button - more subtle scale
       scaleValue.value = withSequence(
-        withTiming(0.9, BUTTON_PRESS_ANIMATION),
+        withTiming(0.95, BUTTON_PRESS_ANIMATION), // Less dramatic scaling
         withTiming(1, BUTTON_RELEASE_ANIMATION)
       );
 
@@ -82,14 +82,26 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
     // Compute button style only when active state changes
     const buttonStyle = useMemo(
-      () => [
-        styles.actionButton,
-        styles.labeledActionButton,
-        isActive && styles.activeActionButton,
-        disabled && { opacity: 0.5 },
-      ],
+      () => [styles.actionButton, styles.labeledActionButton, disabled && { opacity: 0.5 }],
       [isActive, disabled]
     );
+
+    // Compute label style based on active state
+    const labelStyle = useMemo(
+      () => [styles.actionButtonLabel, isActive && styles.activeActionButtonLabel],
+      [isActive]
+    );
+
+    // Create a wrapper for the icon to ensure consistent sizing
+    const iconWithWrapper = useMemo(() => {
+      // Clone the icon element to add color prop if active
+      const iconElement = React.cloneElement(icon as React.ReactElement, {
+        color: isActive ? "#93c5fd" : "#fff", // Change color based on active state
+        size: 20, // Consistent size
+      });
+
+      return <View style={styles.actionButtonIcon}>{iconElement}</View>;
+    }, [icon, isActive]);
 
     return (
       <Animated.View style={animatedStyle} entering={ENTER_ANIMATION} exiting={EXIT_ANIMATION}>
@@ -102,8 +114,8 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
           accessibilityLabel={`${label} button`}
           accessibilityState={{ disabled: !!disabled, selected: isActive }}
         >
-          {icon}
-          <Text style={styles.actionButtonLabel}>{label}</Text>
+          {iconWithWrapper}
+          <Text style={labelStyle}>{label}</Text>
         </TouchableOpacity>
       </Animated.View>
     );
@@ -124,12 +136,12 @@ const DEFAULT_AVAILABLE_ACTIONS = ["search", "camera", "locate", "user", "saved"
 
 // Icons memo - created once outside the component to avoid recreation
 const ICON_MAP = {
-  search: <SearchIcon size={20} color="#fff" style={globalStyles.icon} />,
-  camera: <Camera size={20} color="#fff" style={globalStyles.icon} />,
-  locate: <Navigation size={20} color="#fff" style={globalStyles.icon} />,
-  saved: <BookMarkedIcon size={20} color="#fff" style={globalStyles.icon} />,
-  filter: <Filter size={20} color="#fff" style={globalStyles.icon} />,
-  user: <User size={20} color="#fff" style={globalStyles.icon} />,
+  search: <SearchIcon size={20} color="#fff" />,
+  camera: <Camera size={20} color="#fff" />,
+  locate: <Navigation size={20} color="#fff" />,
+  saved: <BookMarkedIcon size={20} color="#fff" />,
+  filter: <Filter size={20} color="#fff" />,
+  user: <User size={20} color="#fff" />,
 };
 
 // Label map - created once outside the component
@@ -266,7 +278,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
 
     // Filter actions based on the availableActions prop - only recalculate when dependencies change
     const scrollableActions = useMemo(() => {
-      // Use a Map for O(1) lookup of available actions
+      // Use a Set for O(1) lookup of available actions
       const availableActionsSet = new Set(availableActions);
       return allPossibleActions.filter((action) => availableActionsSet.has(action.key));
     }, [allPossibleActions, availableActions]);

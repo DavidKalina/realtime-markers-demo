@@ -1,4 +1,4 @@
-// styles/action.ts
+// styles/action.ts - Updated with more refined button selection styles
 import { Platform, StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
@@ -33,19 +33,19 @@ export const styles = StyleSheet.create({
   },
   actionButton: {
     padding: 8,
-    borderRadius: 12, // More rounded corners like our cards
+    borderRadius: 10, // Slightly more refined corners
     marginHorizontal: 6,
-    width: 62,
-    height: 58,
+    width: 60,
+    height: 56,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
-        shadowRadius: 3,
+        shadowRadius: 2,
       },
       android: {
         elevation: 1,
@@ -62,13 +62,18 @@ export const styles = StyleSheet.create({
     color: "#adb5bd", // Subtle gray for inactive
     fontSize: 10,
     fontFamily: "SpaceMono",
-    marginTop: 6,
+    marginTop: 5,
     textAlign: "center",
   },
-  activeActionButton: {
-    backgroundColor: "rgba(147, 197, 253, 0.15)", // Subtle blue background matching our active states
-    borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.3)",
+
+  activeActionButtonLabel: {
+    color: "#93c5fd", // Match the icon color when active
+  },
+  actionButtonIcon: {
+    width: 22,
+    height: 22,
+    justifyContent: "center",
+    alignItems: "center",
   },
   actionButtonPressed: {
     opacity: 0.7,
@@ -94,7 +99,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 12, // More rounded corners for consistency
+    borderRadius: 10, // Slightly more refined corners
     backgroundColor: "#3a3a3a", // Lighter than the base background
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",

@@ -1,7 +1,6 @@
-// scan.tsx - Fixed version with improved button positioning
+// scan.tsx - Updated version with card-like UI styling
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
-import { CaptureButton } from "@/components/CaptureButton/CaptureButton";
 import { ImageSelector } from "@/components/ImageSelector";
 import { ScannerOverlay } from "@/components/ScannerOverlay/ScannerOverlay";
 import { useUserLocation } from "@/contexts/LocationContext";
@@ -419,7 +418,7 @@ export default function ScanScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#f8f9fa" />
+          <ActivityIndicator size="large" color="#93c5fd" />
           <Text style={styles.loaderText}>Checking camera permissions...</Text>
         </View>
       </SafeAreaView>
@@ -442,27 +441,39 @@ export default function ScanScreen() {
               <Feather name="x" size={20} color="#f8f9fa" />
             </View>
           </TouchableOpacity>
-          <Text style={styles.headerText}>
+          <Text style={styles.headerTitle}>
             Processing {imageSource === "gallery" ? "Gallery Image" : "Document"}
           </Text>
+
+          <View style={styles.headerIconContainer}>
+            <Feather name="file" size={20} color="#93c5fd" />
+          </View>
         </Animated.View>
 
-        {/* Image preview */}
-        <View style={styles.flexContainer}>
-          <Animated.View style={styles.previewContainer} entering={FadeIn.duration(300)}>
+        {/* Content area - same structure as camera view for consistency */}
+        <View style={styles.contentArea}>
+          <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
             <Image source={{ uri: capturedImage }} style={styles.previewImage} />
 
-            {/* Scanner overlay when processing */}
+            {/* Scanner overlay with progress indicator */}
             <ScannerOverlay
               detectionStatus="aligned"
               isCapturing={true}
-              guideText={`Processing ${
-                imageSource === "gallery" ? "gallery image" : "document"
-              }... ${uploadProgress > 0 ? `(${uploadProgress}%)` : ""}`}
               showScannerAnimation={true}
+              guideText={`Processing... ${uploadProgress}%`}
             />
+
+            {/* Progress bar */}
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBarContainer}>
+                <View style={[styles.progressBar, getProgressBarWidth(uploadProgress)] as any} />
+              </View>
+            </View>
           </Animated.View>
         </View>
+
+        {/* Empty view to maintain same layout structure */}
+        <View style={styles.controlsPlaceholder} />
       </SafeAreaView>
     );
   }
@@ -477,12 +488,16 @@ export default function ScanScreen() {
             <Feather name="arrow-left" size={20} color="#f8f9fa" />
           </View>
         </TouchableOpacity>
-        <Text style={styles.headerText}>Scan Document</Text>
+        <Text style={styles.headerTitle}>Scan Document</Text>
+
+        <View style={styles.headerIconContainer}>
+          <Feather name="camera" size={20} color="#93c5fd" />
+        </View>
       </Animated.View>
 
       {/* Camera container */}
-      <View style={styles.flexContainer}>
-        <Animated.View style={styles.cameraContainer} entering={FadeIn.duration(300)}>
+      <View style={styles.contentArea}>
+        <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
           {isCameraActive ? (
             <CameraView
               ref={cameraRef}
@@ -496,7 +511,9 @@ export default function ScanScreen() {
                 showScannerAnimation={false}
                 guideText={
                   isCameraReady
-                    ? "Position your document within the frame"
+                    ? detectionStatus === "aligned"
+                      ? "Document aligned - ready to capture"
+                      : "Position document in frame"
                     : "Initializing camera..."
                 }
               />
@@ -511,12 +528,13 @@ export default function ScanScreen() {
             </CameraView>
           ) : (
             <View style={styles.cameraPlaceholder}>
-              <ActivityIndicator size="large" color="#f8f9fa" />
+              <ActivityIndicator size="large" color="#93c5fd" />
               <Text style={styles.cameraPlaceholderText}>Initializing camera...</Text>
             </View>
           )}
         </Animated.View>
       </View>
+
       <CameraControls
         onCapture={handleCapture}
         onImageSelected={handleImageSelected}
@@ -530,6 +548,13 @@ export default function ScanScreen() {
   );
 }
 
+// Fix React Native warning about string percentages in styles
+const getProgressBarWidth = (progress: number) => {
+  return {
+    width: `${progress}%`,
+  };
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -540,12 +565,17 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
     paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: "#3a3a3a",
     backgroundColor: "#333",
-    height: 60,
+    zIndex: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   backButton: {
     marginRight: 12,
@@ -563,20 +593,43 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  headerText: {
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "600",
     color: "#f8f9fa",
-    fontSize: 18,
-    fontWeight: "500",
     fontFamily: "SpaceMono",
+    flex: 1,
+  },
+  headerIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  contentArea: {
+    flex: 1,
+    padding: 16,
+    paddingBottom: 8, // Reduced bottom padding since we removed the instructions card
   },
   flexContainer: {
     flex: 1,
-    position: "relative",
+    padding: 16,
   },
-  cameraContainer: {
+  cameraCard: {
     flex: 1,
-    position: "relative",
+    borderRadius: 16,
     overflow: "hidden",
+    backgroundColor: "#1a1a1a",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    marginBottom: 16, // Add margin at bottom to provide spacing for the camera controls
   },
   camera: {
     flex: 1,
@@ -597,40 +650,40 @@ const styles = StyleSheet.create({
     backgroundColor: "#1a1a1a",
     justifyContent: "center",
     alignItems: "center",
+    borderRadius: 16,
   },
   cameraPlaceholderText: {
     color: "#f8f9fa",
     marginTop: 16,
     fontFamily: "SpaceMono",
   },
-  buttonContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between", // Changed from center to space-between
-    paddingBottom: Platform.OS === "ios" ? 8 : 0,
-  },
-  captureButtonWrapper: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  gallerySelectorWrapper: {
-    // Position changed from absolute to relative
-    alignItems: "center",
-    justifyContent: "center",
-    paddingRight: 20, // Added padding for better spacing
-  },
-  // Preview mode styles
-  previewContainer: {
-    flex: 1,
-    backgroundColor: "#000",
-    position: "relative",
-  },
+
   previewImage: {
     flex: 1,
     resizeMode: "contain",
   },
-  // Loading state styles
+  progressContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 8,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  controlsPlaceholder: {
+    height: 100, // Match the height that would be taken by CameraControls
+  },
+  progressBarContainer: {
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressBar: {
+    height: "100%",
+    backgroundColor: "#93c5fd",
+    borderRadius: 2,
+  },
   loaderContainer: {
     flex: 1,
     justifyContent: "center",
