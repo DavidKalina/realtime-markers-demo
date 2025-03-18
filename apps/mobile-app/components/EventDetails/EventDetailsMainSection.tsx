@@ -1,13 +1,171 @@
+import { EventType } from "@/types/types";
 import { formatDate, getUserLocalTime } from "@/utils/dateTimeFormatting";
 import { Calendar, Info, Map, MapPin, Navigation, User } from "lucide-react-native";
 import React from "react";
-import { Text, TouchableOpacity, View } from "react-native";
-import AdminOriginalImageViewer from "../AdminOriginalImageViewer/AdminOriginalImageViewer";
-import EventQRCodeSection from "./EventQRCodeSection";
-import { styles } from "./styles";
+import { Text, TouchableOpacity, View, Animated, StyleSheet } from "react-native";
+
+const styles = StyleSheet.create({
+  // Main container
+  detailsContainer: {
+    gap: 16,
+    marginBottom: 20,
+  },
+
+  // Card styling for each section
+  card: {
+    backgroundColor: "#3a3a3a",
+    borderRadius: 16,
+    padding: 0,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+    overflow: "hidden",
+  },
+
+  // Card header with icon and gradient
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+  },
+
+  headerGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 50,
+  },
+
+  cardIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+    backgroundColor: "rgba(147, 197, 253, 0.2)",
+  },
+
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+  },
+
+  // Card content
+  cardContent: {
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+    paddingTop: 6,
+  },
+
+  // Specific content styles
+  detailValue: {
+    fontSize: 15,
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+    marginTop: 2,
+  },
+
+  // Time zone info styling
+  timezoneText: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    borderRadius: 8,
+    marginTop: 10,
+    alignSelf: "flex-start",
+  },
+
+  timezoneTextContent: {
+    color: "#93c5fd",
+    fontSize: 12,
+    fontFamily: "SpaceMono",
+  },
+
+  // Distance info styling
+  distanceInfoContainer: {
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: "flex-start",
+    marginTop: 10,
+    marginBottom: 12,
+  },
+
+  distanceInfoText: {
+    fontSize: 13,
+    color: "#93c5fd",
+    fontFamily: "SpaceMono",
+    fontWeight: "500",
+  },
+
+  // Location actions container
+  locationActionContainer: {
+    flexDirection: "row",
+    marginTop: 14,
+    gap: 12,
+  },
+
+  // Map and Directions buttons
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(147, 197, 253, 0.12)",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+
+  actionButtonText: {
+    color: "#93c5fd",
+    fontSize: 14,
+    fontWeight: "600",
+    marginLeft: 8,
+    fontFamily: "SpaceMono",
+  },
+
+  // Categories styling
+  categoriesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 10,
+  },
+
+  categoryBadge: {
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.2)",
+  },
+
+  categoryText: {
+    fontSize: 12,
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+    fontWeight: "500",
+  },
+});
 
 interface EventDetailsMainSectionProps {
-  event: any;
+  event: EventType;
   distanceInfo: string | null;
   isLoadingLocation: boolean;
   isAdmin: boolean;
@@ -20,18 +178,35 @@ const EventDetailsMainSection: React.FC<EventDetailsMainSectionProps> = ({
   event,
   distanceInfo,
   isLoadingLocation,
-  isAdmin,
   userLocation,
   handleGetDirections,
   handleOpenMaps,
 }) => {
+  // Card component for consistent styling
+  const DetailCard = ({
+    icon,
+    title,
+    color = "#93c5fd",
+    children,
+  }: {
+    icon: React.ReactNode;
+    title: string;
+    color?: string;
+    children: React.ReactNode;
+  }) => (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={[styles.cardIconContainer, { backgroundColor: `${color}20` }]}>{icon}</View>
+        <Text style={styles.cardTitle}>{title}</Text>
+      </View>
+      <View style={styles.cardContent}>{children}</View>
+    </View>
+  );
+
   return (
     <View style={styles.detailsContainer}>
-      <View style={styles.detailSection}>
-        <View style={styles.resultDetailsRow}>
-          <Calendar size={16} color="#93c5fd" style={{ marginRight: 8 }} />
-          <Text style={styles.detailLabel}>Date & Time</Text>
-        </View>
+      {/* Date & Time Card */}
+      <DetailCard icon={<Calendar size={20} color="#93c5fd" />} title="Date & Time">
         <Text style={styles.detailValue}>
           {formatDate(event.eventDate, event.timezone)}
           {event.endDate && (
@@ -44,76 +219,66 @@ const EventDetailsMainSection: React.FC<EventDetailsMainSectionProps> = ({
 
         {/* Add user's local time if different */}
         {getUserLocalTime(event.eventDate, event.timezone) && (
-          <Text style={styles.timezoneText}>
-            {getUserLocalTime(event.eventDate, event.timezone)}
-            {event.endDate && (
-              <>
-                {" - "}
-                {getUserLocalTime(event.endDate, event.timezone)}
-              </>
-            )}
-          </Text>
+          <View style={styles.timezoneText}>
+            <Text style={styles.timezoneTextContent}>
+              {getUserLocalTime(event.eventDate, event.timezone)}
+              {event.endDate && (
+                <>
+                  {" - "}
+                  {getUserLocalTime(event.endDate, event.timezone)}
+                </>
+              )}
+            </Text>
+          </View>
         )}
-      </View>
+      </DetailCard>
 
-      <View style={styles.detailSection}>
-        <View style={styles.resultDetailsRow}>
-          <MapPin size={16} color="#93c5fd" style={{ marginRight: 8 }} />
-          <Text style={styles.detailLabel}>Location</Text>
-        </View>
-        <View style={styles.locationContainer}>
-          <Text style={styles.detailValue}>{event.location}</Text>
+      {/* Location Card */}
+      <DetailCard icon={<MapPin size={20} color="#93c5fd" />} title="Location">
+        <Text style={styles.detailValue}>{event.location}</Text>
 
-          {/* Show calculated distance */}
-          {distanceInfo && (
-            <View style={styles.distanceInfoContainer}>
-              <Text style={styles.distanceInfoText}>
-                {isLoadingLocation ? "Calculating distance..." : distanceInfo}
-              </Text>
-            </View>
-          )}
+        {/* Show calculated distance */}
+        {distanceInfo && (
+          <View style={styles.distanceInfoContainer}>
+            <Text style={styles.distanceInfoText}>
+              {isLoadingLocation ? "Calculating distance..." : distanceInfo}
+            </Text>
+          </View>
+        )}
 
-          {/* Location Action Buttons */}
-          <View style={styles.locationActionContainer}>
-            {/* Map Button */}
-            <TouchableOpacity style={styles.mapButton} onPress={handleOpenMaps}>
-              <Map size={16} color="#f8f9fa" />
-              <Text style={styles.mapButtonText}>View on Map</Text>
+        {/* Location Action Buttons */}
+        <View style={styles.locationActionContainer}>
+          {/* Map Button */}
+          <TouchableOpacity style={styles.actionButton} onPress={handleOpenMaps}>
+            <Map size={18} color="#93c5fd" />
+            <Text style={styles.actionButtonText}>View on Map</Text>
+          </TouchableOpacity>
+
+          {/* Directions Button - Only show if we have user location */}
+          {userLocation && event.coordinates && (
+            <TouchableOpacity style={styles.actionButton} onPress={handleGetDirections}>
+              <Navigation size={18} color="#93c5fd" />
+              <Text style={styles.actionButtonText}>Directions</Text>
             </TouchableOpacity>
-
-            {/* Directions Button - Only show if we have user location */}
-            {userLocation && event.coordinates && (
-              <TouchableOpacity style={styles.directionsButton} onPress={handleGetDirections}>
-                <Navigation size={16} color="#f8f9fa" />
-                <Text style={styles.directionsButtonText}>Directions</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          )}
         </View>
-      </View>
+      </DetailCard>
 
-      {/* New Scanned By Section */}
+      {/* Scanned By Card */}
       {event.creator && (
-        <View style={styles.detailSection}>
-          <View style={styles.resultDetailsRow}>
-            <User size={16} color="#93c5fd" style={{ marginRight: 8 }} />
-            <Text style={styles.detailLabel}>Scanned By</Text>
-          </View>
+        <DetailCard icon={<User size={20} color="#93c5fd" />} title="Scanned By">
           <Text style={styles.detailValue}>{event.creator.displayName || event.creator.email}</Text>
-        </View>
+        </DetailCard>
       )}
 
-      <View style={styles.detailSection}>
-        <View style={styles.resultDetailsRow}>
-          <Info size={16} color="#93c5fd" style={{ marginRight: 8 }} />
-          <Text style={styles.detailLabel}>Description</Text>
-        </View>
+      {/* Description Card */}
+      <DetailCard icon={<Info size={20} color="#93c5fd" />} title="Description">
         <Text style={styles.detailValue}>{event.description}</Text>
-      </View>
+      </DetailCard>
 
+      {/* Categories Card */}
       {event.categories && event.categories.length > 0 && (
-        <View style={styles.detailSection}>
-          <Text style={styles.detailLabel}>Categories</Text>
+        <DetailCard icon={<Info size={20} color="#93c5fd" />} title="Categories">
           <View style={styles.categoriesContainer}>
             {event.categories.map((category: any, index: number) => (
               <View key={index} style={styles.categoryBadge}>
@@ -123,10 +288,8 @@ const EventDetailsMainSection: React.FC<EventDetailsMainSectionProps> = ({
               </View>
             ))}
           </View>
-        </View>
+        </DetailCard>
       )}
-      {(event.qrCodeData || event.detectedQrData) && <EventQRCodeSection event={event} />}
-      {isAdmin && <AdminOriginalImageViewer eventId={event.id} isAdmin={isAdmin} />}
     </View>
   );
 };

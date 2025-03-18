@@ -7,9 +7,10 @@ import { Linking, Alert, Platform } from "react-native";
 import { calculateDistance, formatDistance } from "@/utils/distanceUtils";
 import * as Haptics from "expo-haptics";
 import { formatDate } from "@/utils/dateTimeFormatting";
+import { EventType } from "@/types/types";
 
 export const useEventDetails = (eventId: string, onBack?: () => void) => {
-  const [event, setEvent] = useState<any>(null);
+  const [event, setEvent] = useState<EventType | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);

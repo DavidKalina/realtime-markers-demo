@@ -4,9 +4,10 @@ import { View, TouchableOpacity, Linking, Text } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { styles } from "./styles";
 import * as Haptics from "expo-haptics";
+import { EventType } from "@/types/types";
 
 interface EventQRCodeSection {
-  event: any;
+  event: EventType;
 }
 
 const EventQRCodeSection: React.FC<EventQRCodeSection> = ({ event }) => {

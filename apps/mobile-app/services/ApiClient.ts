@@ -56,7 +56,7 @@ export interface LoginResponse {
   refreshToken?: string;
 }
 
-interface ApiEvent {
+export interface ApiEvent {
   id: string;
   title: string;
   description?: string;

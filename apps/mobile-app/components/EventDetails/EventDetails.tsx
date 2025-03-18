@@ -11,6 +11,8 @@ import SaveCount from "./SaveCount";
 import ShareEvent from "./ShareEvent";
 import { styles } from "./styles";
 import { useEventDetails } from "./useEventDetails";
+import EventQRCodeSection from "./EventQRCodeSection";
+import AdminOriginalImageViewer from "../AdminOriginalImageViewer/AdminOriginalImageViewer";
 
 interface EventDetailsProps {
   eventId: string;
@@ -78,6 +80,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                 handleOpenMaps={handleOpenMaps}
                 handleGetDirections={handleGetDirections}
               />
+              {(event.qrCodeData || event.detectedQrData) && <EventQRCodeSection event={event} />}
+              {isAdmin && <AdminOriginalImageViewer eventId={event.id!} isAdmin={isAdmin} />}
             </ScrollView>
 
             <ShareEvent handleShare={handleShare} />
