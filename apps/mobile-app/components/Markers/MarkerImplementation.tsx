@@ -204,55 +204,59 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
       [currentZoom, publish, selectMapItem, selectedItem?.id]
     );
 
-    // Process and memoize clusters for rendering
-    const processedClusters = useMemo(() => {
-      return clusters.map((feature) => {
-        // If it's a cluster
-        if (feature.properties.cluster) {
-          const clusterFeature = feature as ClusterFeature;
-          const coordinates = clusterFeature.geometry.coordinates;
-          const count = clusterFeature.properties.point_count;
-          const clusterId = `cluster-${clusterFeature.properties.cluster_id}`;
+    // Memoize the cluster processing function to avoid recreation
+    const processCluster = useCallback((feature: ClusterFeature | PointFeature) => {
+      if (feature.properties.cluster) {
+        const clusterFeature = feature as ClusterFeature;
+        const coordinates = clusterFeature.geometry.coordinates;
+        const count = clusterFeature.properties.point_count;
+        const clusterId = `cluster-${clusterFeature.properties.cluster_id}`;
 
-          // Create a cluster map item
-          const clusterItem: ClusterItem = {
+        return {
+          type: "cluster" as const,
+          item: {
             id: clusterId,
-            type: "cluster",
+            type: "cluster" as const,
             coordinates: coordinates as [number, number],
             count,
-          };
-
-          return {
+          },
+          isSelected: isItemSelected(clusterId),
+          onPress: createMapItemPressHandler({
+            id: clusterId,
             type: "cluster" as const,
-            item: clusterItem,
-            isSelected: isItemSelected(clusterId),
-            onPress: createMapItemPressHandler(clusterItem),
-          };
-        }
-        // It's a single point
-        else {
-          const pointFeature = feature as PointFeature;
-          const markerId = pointFeature.properties.id;
-          const coordinates = pointFeature.geometry.coordinates;
-          const data = pointFeature.properties.data;
+            coordinates: coordinates as [number, number],
+            count,
+          }),
+        };
+      } else {
+        const pointFeature = feature as PointFeature;
+        const markerId = pointFeature.properties.id;
+        const coordinates = pointFeature.geometry.coordinates;
+        const data = pointFeature.properties.data;
 
-          // Create a marker map item
-          const markerItem: MarkerItem = {
+        return {
+          type: "marker" as const,
+          item: {
             id: markerId,
-            type: "marker",
+            type: "marker" as const,
             coordinates: coordinates as [number, number],
             data,
-          };
-
-          return {
+          },
+          isSelected: isItemSelected(markerId),
+          onPress: createMapItemPressHandler({
+            id: markerId,
             type: "marker" as const,
-            item: markerItem,
-            isSelected: isItemSelected(markerId),
-            onPress: createMapItemPressHandler(markerItem),
-          };
-        }
-      });
-    }, [clusters, createMapItemPressHandler, isItemSelected]);
+            coordinates: coordinates as [number, number],
+            data,
+          }),
+        };
+      }
+    }, [createMapItemPressHandler, isItemSelected]);
+
+    // Process and memoize clusters for rendering
+    const processedClusters = useMemo(() => {
+      return clusters.map(processCluster);
+    }, [clusters, processCluster]);
 
     // Further optimize by adding culling for markers that are outside the viewport
     // This is a simple implementation - you may want to add a buffer zone
@@ -268,27 +272,38 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
       });
     }, [processedClusters, viewport]);
 
+    // Memoize the render functions to prevent recreation
+    const renderCluster = useCallback(
+      (processed: { type: "cluster"; item: ClusterItem; isSelected: boolean; onPress: () => void }) => (
+        <ClusterView
+          key={processed.item.id}
+          cluster={processed.item}
+          isSelected={processed.isSelected}
+          onPress={processed.onPress}
+        />
+      ),
+      []
+    );
+
+    const renderMarker = useCallback(
+      (processed: { type: "marker"; item: MarkerItem; isSelected: boolean; onPress: () => void }) => (
+        <SingleMarkerView
+          key={processed.item.id}
+          marker={processed.item}
+          isSelected={processed.isSelected}
+          onPress={processed.onPress}
+        />
+      ),
+      []
+    );
+
     return (
       <>
         {visibleItems.map((processed) => {
           if (processed.type === "cluster") {
-            return (
-              <ClusterView
-                key={processed.item.id}
-                cluster={processed.item as ClusterItem}
-                isSelected={processed.isSelected}
-                onPress={processed.onPress}
-              />
-            );
+            return renderCluster(processed);
           } else {
-            return (
-              <SingleMarkerView
-                key={processed.item.id}
-                marker={processed.item as MarkerItem}
-                isSelected={processed.isSelected}
-                onPress={processed.onPress}
-              />
-            );
+            return renderMarker(processed);
           }
         })}
       </>
