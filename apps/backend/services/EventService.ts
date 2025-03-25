@@ -8,6 +8,7 @@ import { CacheService } from "./shared/CacheService";
 import { OpenAIService } from "./shared/OpenAIService";
 import { EnhancedLocationService } from "./shared/LocationService";
 import type { Filter } from "../entities/Filter";
+import { User } from "../entities/User";
 
 interface SearchResult {
   event: Event;
@@ -515,6 +516,15 @@ export class EventService {
         throw new Error("Event not found");
       }
 
+      // Get the user to update their save count
+      const user = await transactionalEntityManager.findOne(User, {
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new Error("User not found");
+      }
+
       // Check if a save relationship already exists
       const existingSave = await transactionalEntityManager.findOne(UserEventSave, {
         where: { userId, eventId },
@@ -528,6 +538,8 @@ export class EventService {
 
         // Decrement the save count on the event
         event.saveCount = Math.max(0, event.saveCount - 1);
+        // Decrement the user's save count
+        user.saveCount = Math.max(0, user.saveCount - 1);
         saved = false;
       } else {
         // If it doesn't exist, create it (save)
@@ -540,11 +552,14 @@ export class EventService {
 
         // Increment the save count on the event
         event.saveCount = (event.saveCount || 0) + 1;
+        // Increment the user's save count
+        user.saveCount = (user.saveCount || 0) + 1;
         saved = true;
       }
 
-      // Save the updated event
+      // Save both the updated event and user
       await transactionalEntityManager.save(event);
+      await transactionalEntityManager.save(user);
 
       return {
         saved,
