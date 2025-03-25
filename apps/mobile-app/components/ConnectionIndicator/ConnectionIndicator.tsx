@@ -73,13 +73,11 @@ const NotificationText = React.memo(
     notificationData,
     isConnected,
     hasConnectionEverBeenEstablished,
-    eventsCount,
   }: {
     activeNotification: NotificationType;
     notificationData: { count: number; text: string };
     isConnected: boolean;
     hasConnectionEverBeenEstablished: boolean;
-    eventsCount: number;
   }) => {
     if (activeNotification !== "none") {
       return (
@@ -95,26 +93,18 @@ const NotificationText = React.memo(
     }
 
     return (
-      <>
-        <Animated.Text
-          style={styles.statusText}
-          entering={FADE_IN}
-          exiting={FadeOut.duration(300)}
-          layout={SPRING_LAYOUT}
-        >
-          {isConnected
-            ? "Connected"
-            : hasConnectionEverBeenEstablished
-            ? "Reconnecting..."
-            : "Connecting..."}
-        </Animated.Text>
-
-        {isConnected && eventsCount > 0 && (
-          <Animated.Text style={styles.countText} entering={FADE_IN} layout={SPRING_LAYOUT}>
-            {eventsCount} event{eventsCount !== 1 ? "s" : ""} in view
-          </Animated.Text>
-        )}
-      </>
+      <Animated.Text
+        style={styles.statusText}
+        entering={FADE_IN}
+        exiting={FadeOut.duration(300)}
+        layout={SPRING_LAYOUT}
+      >
+        {isConnected
+          ? "Connected"
+          : hasConnectionEverBeenEstablished
+          ? "Reconnecting"
+          : "Connecting"}
+      </Animated.Text>
     );
   }
 );
@@ -550,7 +540,6 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
             notificationData={notificationData}
             isConnected={isConnected}
             hasConnectionEverBeenEstablished={hasConnectionEverBeenEstablished}
-            eventsCount={eventsCount}
           />
         </View>
       </Animated.View>
@@ -565,26 +554,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(51, 51, 51, 0.92)",
-    borderRadius: 18,
-    padding: 6,
-    paddingRight: 12,
+    borderRadius: 16,
+    padding: 4,
+    paddingRight: 10,
     zIndex: 1000,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 8,
-    maxWidth: 140,
+    maxWidth: 120,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
   },
   indicator: {
-    width: 28,
-    height: 28,
-    borderRadius: 16,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
+    marginRight: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -600,13 +589,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: "SpaceMono",
     fontWeight: "600",
-  },
-  countText: {
-    color: "#f8f9fa",
-    fontSize: 8,
-    fontFamily: "SpaceMono",
-    marginTop: 2,
-    fontWeight: "500",
   },
 });
 
