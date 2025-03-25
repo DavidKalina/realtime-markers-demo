@@ -68,6 +68,8 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
 
   // Create a ref for the camera
   const cameraRef = useRef<MapboxGL.Camera>(null);
+  // NEW: Add ref to track camera animation state
+  const isAnimatingRef = useRef<boolean>(false);
 
   const gravitationConfig = useMemo(
     () => ({
@@ -359,11 +361,13 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
 
   const applyGravitationalPull = useCallback(() => {
     // Skip if gravity is disabled or already pulling or in cooldown period
+    // or if camera is currently animating
     const now = Date.now();
     if (
       !isGravitatingEnabled ||
       isPullingRef.current ||
-      now - lastPullTimeRef.current < gravitationConfig.cooldownPeriod
+      now - lastPullTimeRef.current < gravitationConfig.cooldownPeriod ||
+      isAnimatingRef.current // NEW: Check if camera is animating
     ) {
       return;
     }
@@ -426,6 +430,9 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
 
       // Use camera ref to animate to the target
       if (cameraRef.current) {
+        // Set animating state
+        isAnimatingRef.current = true;
+        
         cameraRef.current.setCamera({
           centerCoordinate: centroid,
           zoomLevel: zoomLevel,
@@ -434,7 +441,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
         });
 
         // Reset pull state after animation completes
-        const resetTimeout = setTimeout(() => {
+        setTimeout(() => {
           isPullingRef.current = false;
           setIsGravitating(false);
           setIsHighVelocity(false);
@@ -444,10 +451,13 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
             timestamp: Date.now(),
             source: "GravitationalCamera",
           });
+
+          // Reset animating state after animation completes
+          isAnimatingRef.current = false;
         }, animationDuration + 50);
 
         // Clean up timeout if component unmounts during animation
-        return () => clearTimeout(resetTimeout);
+        return () => clearTimeout(animationDuration + 50);
       }
     }
   }, [
@@ -459,6 +469,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     determineZoomLevel,
     gravitationConfig,
     publish,
+    isAnimatingRef,
   ]);
 
   // MODIFIED: Handle viewport change to detect zoom changes
@@ -591,12 +602,20 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
   const animateToLocation = useCallback(
     (coordinates: [number, number], duration = 1000, zoom?: number) => {
       if (cameraRef.current) {
+        // Set animating state
+        isAnimatingRef.current = true;
+        
         cameraRef.current.setCamera({
           centerCoordinate: coordinates,
           zoomLevel: zoom || gravitationConfig.gravityZoomLevel,
           animationDuration: duration,
           animationMode: "easeTo",
         });
+
+        // Reset animating state after animation completes
+        setTimeout(() => {
+          isAnimatingRef.current = false;
+        }, duration + 50);
       }
     },
     [gravitationConfig.gravityZoomLevel]
@@ -615,12 +634,20 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       duration = 1000
     ) => {
       if (cameraRef.current) {
+        // Set animating state
+        isAnimatingRef.current = true;
+
         cameraRef.current.fitBounds(
           [bounds.west, bounds.south],
           [bounds.east, bounds.north],
           padding,
           duration
         );
+
+        // Reset animating state after animation completes
+        setTimeout(() => {
+          isAnimatingRef.current = false;
+        }, duration + 50);
       }
     },
     []
