@@ -1,16 +1,22 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Calendar, LogOut, Mail, MapPin, Shield, User } from "lucide-react-native";
-import React, { useRef } from "react";
+import { ArrowLeft, Calendar, LogOut, Mail, MapPin, Shield, Trash2, User } from "lucide-react-native";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 
 interface UserProfileProps {
@@ -19,10 +25,38 @@ interface UserProfileProps {
 
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const router = useRouter();
-  const { user } = useAuth();
-  const { logout } = useAuth();
-
+  const { user, logout } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [profileData, setProfileData] = useState<any>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [password, setPassword] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Fetch user profile data
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        const data = await apiClient.getUserProfile();
+        setProfileData(data);
+      } catch (error) {
+        console.error('Error fetching profile data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, []);
+
+  // Format date for member since
+  const formatMemberSince = (date: string) => {
+    return new Date(date).toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric'
+    });
+  };
 
   // Animation for header shadow
   const headerShadowOpacity = scrollY.interpolate({
@@ -57,6 +91,29 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       return user.displayName.charAt(0).toUpperCase();
     }
     return user?.email.charAt(0).toUpperCase() || "?";
+  };
+
+  // Handle delete account
+  const handleDeleteAccount = async () => {
+    if (!password) {
+      setDeleteError("Password is required");
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError("");
+
+    try {
+      await apiClient.deleteAccount(password);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      logout(); // Logout after successful deletion
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+      setDeleteError(error.message || "Failed to delete account");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -113,24 +170,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             </View>
 
             {/* Quick Stats */}
-            <View style={styles.statsContainer}>
+            <View style={[styles.statsContainer, { justifyContent: 'center', gap: 32 }]}>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>12</Text>
-                <Text style={styles.statLabel}>Events</Text>
+                <Text style={styles.statValue}>{profileData?.scanCount || 0}</Text>
+                <Text style={styles.statLabel}>Scans</Text>
               </View>
 
               <View style={styles.statDivider} />
 
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>5</Text>
+                <Text style={styles.statValue}>{profileData?.saveCount || 0}</Text>
                 <Text style={styles.statLabel}>Saved</Text>
-              </View>
-
-              <View style={styles.statDivider} />
-
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>3</Text>
-                <Text style={styles.statLabel}>Filters</Text>
               </View>
             </View>
           </View>
@@ -139,53 +189,63 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           <View style={styles.detailsCard}>
             <Text style={styles.sectionTitle}>Account Information</Text>
 
-            {/* Email Detail */}
-            <View style={styles.detailItem}>
-              <View style={styles.detailIconContainer}>
-                <Mail size={18} color="#93c5fd" />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Email</Text>
-                <Text style={styles.detailValue}>{user?.email}</Text>
-              </View>
-            </View>
+            {loading ? (
+              <ActivityIndicator size="large" color="#93c5fd" style={{ marginVertical: 20 }} />
+            ) : (
+              <>
+                {/* Email Detail */}
+                <View style={styles.detailItem}>
+                  <View style={styles.detailIconContainer}>
+                    <Mail size={18} color="#93c5fd" />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Email</Text>
+                    <Text style={styles.detailValue}>{profileData?.email || user?.email}</Text>
+                  </View>
+                </View>
 
-            {/* Role Detail */}
-            <View style={styles.detailItem}>
-              <View style={styles.detailIconContainer}>
-                <User size={18} color="#93c5fd" />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Role</Text>
-                <Text style={styles.detailValue}>{user?.role || "User"}</Text>
-              </View>
-            </View>
+                {/* Role Detail */}
+                <View style={styles.detailItem}>
+                  <View style={styles.detailIconContainer}>
+                    <User size={18} color="#93c5fd" />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Role</Text>
+                    <Text style={styles.detailValue}>{profileData?.role || user?.role || 'User'}</Text>
+                  </View>
+                </View>
 
-            {/* Member Since - Mock data */}
-            <View style={styles.detailItem}>
-              <View style={styles.detailIconContainer}>
-                <Calendar size={18} color="#93c5fd" />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Member Since</Text>
-                <Text style={styles.detailValue}>January 2023</Text>
-              </View>
-            </View>
+                {/* Member Since */}
+                <View style={styles.detailItem}>
+                  <View style={styles.detailIconContainer}>
+                    <Calendar size={18} color="#93c5fd" />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Member Since</Text>
+                    <Text style={styles.detailValue}>
+                      {profileData?.createdAt ? formatMemberSince(profileData.createdAt) : 'Loading...'}
+                    </Text>
+                  </View>
+                </View>
 
-            {/* Location - Mock data */}
-            <View style={styles.detailItem}>
-              <View style={styles.detailIconContainer}>
-                <MapPin size={18} color="#93c5fd" />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Location</Text>
-                <Text style={styles.detailValue}>San Francisco, CA</Text>
-              </View>
-            </View>
+                {/* Bio - if available */}
+                {profileData?.bio && (
+                  <View style={styles.detailItem}>
+                    <View style={styles.detailIconContainer}>
+                      <User size={18} color="#93c5fd" />
+                    </View>
+                    <View style={styles.detailContent}>
+                      <Text style={styles.detailLabel}>Bio</Text>
+                      <Text style={styles.detailValue}>{profileData.bio}</Text>
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
           </View>
 
-          {/* Logout Section */}
-          <View style={styles.logoutSection}>
+          {/* Logout and Delete Section */}
+          <View style={styles.actionsSection}>
             <TouchableOpacity
               style={styles.logoutButton}
               onPress={handleLogout}
@@ -193,6 +253,18 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             >
               <LogOut size={18} color="#f97583" style={{ marginRight: 8 }} />
               <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                setShowDeleteDialog(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <Trash2 size={18} color="#dc2626" style={{ marginRight: 8 }} />
+              <Text style={styles.deleteText}>Delete Account</Text>
             </TouchableOpacity>
           </View>
 
@@ -202,6 +274,71 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           </View>
         </Animated.ScrollView>
       </View>
+
+      {/* Delete Account Modal */}
+      <Modal
+        visible={showDeleteDialog}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowDeleteDialog(false);
+          setPassword("");
+          setDeleteError("");
+        }}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalContainer}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Delete Account</Text>
+            <Text style={styles.dialogText}>
+              Are you sure you want to delete your account? This action cannot be undone.
+            </Text>
+            <Text style={styles.dialogSubText}>
+              Please enter your password to confirm deletion:
+            </Text>
+            <TextInput
+              style={styles.passwordInput}
+              secureTextEntry
+              placeholder="Enter your password"
+              placeholderTextColor="#666"
+              value={password}
+              onChangeText={setPassword}
+            />
+            {deleteError ? <Text style={styles.errorText}>{deleteError}</Text> : null}
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowDeleteDialog(false);
+                  setPassword("");
+                  setDeleteError("");
+                }}
+                disabled={isDeleting}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.deleteModalButton,
+                  isDeleting && styles.deleteModalButtonDisabled
+                ]}
+                onPress={handleDeleteAccount}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.deleteModalButtonText}>Delete Account</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -432,8 +569,8 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
   },
 
-  // Logout section
-  logoutSection: {
+  // Logout and Delete Section
+  actionsSection: {
     backgroundColor: "#3a3a3a",
     borderRadius: 16,
     padding: 8,
@@ -445,6 +582,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.05)",
+    gap: 8,
   },
 
   logoutButton: {
@@ -465,6 +603,24 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
   },
 
+  deleteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: "rgba(220, 38, 38, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(220, 38, 38, 0.3)",
+  },
+
+  deleteText: {
+    color: "#dc2626",
+    fontSize: 16,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
+  },
+
   // Version info
   versionContainer: {
     alignItems: "center",
@@ -475,6 +631,100 @@ const styles = StyleSheet.create({
     color: "#6c757d",
     fontSize: 12,
     fontFamily: "SpaceMono",
+  },
+
+  dialogText: {
+    color: "#f8f9fa",
+    fontSize: 16,
+    marginBottom: 16,
+    fontFamily: "SpaceMono",
+  },
+
+  dialogSubText: {
+    color: "#adb5bd",
+    fontSize: 14,
+    marginBottom: 12,
+    fontFamily: "SpaceMono",
+  },
+
+  passwordInput: {
+    backgroundColor: "#333",
+    borderRadius: 8,
+    padding: 12,
+    color: "#f8f9fa",
+    fontFamily: "SpaceMono",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+
+  errorText: {
+    color: "#dc2626",
+    fontSize: 14,
+    marginTop: 8,
+    fontFamily: "SpaceMono",
+  },
+
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+
+  modalContent: {
+    backgroundColor: '#3a3a3a',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#f8f9fa',
+    marginBottom: 16,
+    fontFamily: 'SpaceMono',
+  },
+
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 24,
+  },
+
+  cancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+
+  cancelButtonText: {
+    color: '#f8f9fa',
+    fontSize: 16,
+    fontFamily: 'SpaceMono',
+  },
+
+  deleteModalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#dc2626',
+  },
+
+  deleteModalButtonDisabled: {
+    opacity: 0.5,
+  },
+
+  deleteModalButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontFamily: 'SpaceMono',
   },
 });
 

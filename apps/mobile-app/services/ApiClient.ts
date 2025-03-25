@@ -993,6 +993,17 @@ class ApiClient {
       throw error;
     }
   }
+
+  async deleteAccount(password: string): Promise<boolean> {
+    const url = `${this.baseUrl}/api/auth/account`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+      body: JSON.stringify({ password }),
+    });
+
+    await this.handleResponse<{ message: string }>(response);
+    return true;
+  }
 }
 
 // Export as singleton

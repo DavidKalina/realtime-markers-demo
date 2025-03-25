@@ -17,3 +17,4 @@ authRouter.post("/refresh-token", handlers.refreshTokenHandler);
 authRouter.post("/logout", authMiddleware, handlers.logoutHandler);
 authRouter.post("/reset-password", authMiddleware, handlers.changePasswordHandler);
 authRouter.post("/me", authMiddleware, handlers.getCurrentUserHandler);
+authRouter.delete("/account", authMiddleware, handlers.deleteAccountHandler);

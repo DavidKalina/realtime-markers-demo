@@ -189,6 +189,29 @@ export const changePasswordHandler: AuthHandler = async (c) => {
 };
 
 /**
+ * Delete user account
+ */
+export const deleteAccountHandler: AuthHandler = async (c) => {
+  try {
+    const userId = getUserIdFromToken(c);
+    if (!userId) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const { password } = await c.req.json();
+    if (!password) {
+      return c.json({ error: "Password is required" }, 400);
+    }
+
+    await authService.deleteAccount(userId, password);
+    return c.json({ message: "Account deleted successfully" });
+  } catch (error: any) {
+    console.error("Error deleting account:", error);
+    return c.json({ error: error.message || "Failed to delete account" }, 500);
+  }
+};
+
+/**
  * Helper function to extract user ID from token.
  * This is just an example; adjust the implementation based on your authentication scheme.
  */

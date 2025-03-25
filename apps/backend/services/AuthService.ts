@@ -194,7 +194,21 @@ export class AuthService {
    * Get user profile by ID
    */
   async getUserProfile(userId: string): Promise<User | null> {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: [
+        "id",
+        "email",
+        "displayName",
+        "role",
+        "isVerified",
+        "avatarUrl",
+        "bio",
+        "createdAt",
+        "scanCount",
+        "saveCount"
+      ]
+    });
 
     if (user) {
       // Don't return sensitive information
@@ -251,6 +265,30 @@ export class AuthService {
     user.passwordHash = passwordHash;
     await this.userRepository.save(user);
 
+    return true;
+  }
+
+  /**
+   * Delete user account
+   */
+  async deleteAccount(userId: string, password: string): Promise<boolean> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ["id", "passwordHash"],
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Verify password before deletion
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isPasswordValid) {
+      throw new Error("Invalid password");
+    }
+
+    // Delete the user
+    await this.userRepository.delete(userId);
     return true;
   }
 }
