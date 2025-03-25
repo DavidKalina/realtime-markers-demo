@@ -1,8 +1,9 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useMapStyle } from "@/contexts/MapStyleContext";
 import { apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Calendar, LogOut, Mail, MapPin, Shield, Trash2, User } from "lucide-react-native";
+import { ArrowLeft, Calendar, LogOut, Mail, MapPin, Moon, Shield, Trash2, User } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -26,6 +27,7 @@ interface UserProfileProps {
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { isDarkMode, toggleMapStyle } = useMapStyle();
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState<any>(null);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -114,6 +116,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  // Handle dark mode toggle
+  const handleDarkModeToggle = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await toggleMapStyle();
   };
 
   return (
@@ -240,6 +248,28 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                     </View>
                   </View>
                 )}
+
+                {/* Dark Map Toggle */}
+                <TouchableOpacity style={styles.detailItem} onPress={handleDarkModeToggle}>
+                  <View style={styles.detailIconContainer}>
+                    <Moon size={18} color="#93c5fd" />
+                  </View>
+                  <View style={[styles.detailContent, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+                    <View>
+                      <Text style={styles.detailLabel}>Dark Map</Text>
+                      <Text style={styles.detailValue}>{isDarkMode ? 'Enabled' : 'Disabled'}</Text>
+                    </View>
+                    <View style={[
+                      styles.toggleSwitch,
+                      { backgroundColor: isDarkMode ? '#93c5fd' : 'rgba(147, 197, 253, 0.2)' }
+                    ]}>
+                      <View style={[
+                        styles.toggleKnob,
+                        { transform: [{ translateX: isDarkMode ? 20 : 0 }] }
+                      ]} />
+                    </View>
+                  </View>
+                </TouchableOpacity>
               </>
             )}
           </View>
@@ -573,7 +603,7 @@ const styles = StyleSheet.create({
   actionsSection: {
     backgroundColor: "#3a3a3a",
     borderRadius: 16,
-    padding: 8,
+    padding: 12,
     marginBottom: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -582,10 +612,12 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.05)",
-    gap: 8,
+    flexDirection: "row",
+    gap: 12,
   },
 
   logoutButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -604,10 +636,12 @@ const styles = StyleSheet.create({
   },
 
   deleteButton: {
+    width: 'auto',
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 14,
+    paddingHorizontal: 20,
     borderRadius: 10,
     backgroundColor: "rgba(220, 38, 38, 0.1)",
     borderWidth: 1,
@@ -725,6 +759,19 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontFamily: 'SpaceMono',
+  },
+
+  toggleSwitch: {
+    width: 44,
+    height: 24,
+    borderRadius: 12,
+    padding: 2,
+  },
+  toggleKnob: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#fff',
   },
 });
 

@@ -8,6 +8,7 @@ import { useUserLocation } from "@/contexts/LocationContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useGravitationalCamera } from "@/hooks/useGravitationalCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
+import { useMapStyle } from "@/contexts/MapStyleContext";
 import {
   BaseEvent,
   EventTypes,
@@ -68,6 +69,7 @@ function HomeScreen() {
   const [isMapReady, setIsMapReady] = useState(false);
   const mapRef = useRef<MapboxGL.MapView>(null);
   const { publish } = useEventBroker();
+  const { mapStyle } = useMapStyle();
 
   // Store references
   const { selectMapItem, setZoomLevel } = useLocationStore();
@@ -294,7 +296,7 @@ function HomeScreen() {
           pitchEnabled={false}
           ref={mapRef}
           style={styles.map}
-          styleURL={MapboxGL.StyleURL.Light}
+          styleURL={mapStyle}
           logoEnabled={false}
           attributionEnabled={false}
           onDidFinishLoadingMap={handleMapReady}

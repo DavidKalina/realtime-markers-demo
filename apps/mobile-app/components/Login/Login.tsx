@@ -22,7 +22,9 @@ import {
 } from "react-native";
 import { AuthWrapper } from "../AuthWrapper";
 import MapMojiHeader from "../AnimationHeader";
-import AnimatedMapBackground from "../Background"; // Using renamed component
+import { useAuth } from "@/contexts/AuthContext";
+import { useMapStyle } from "@/contexts/MapStyleContext";
+import AnimatedMapBackground from "@/components/Background";
 
 // Define types for our data
 interface Profile {
@@ -80,6 +82,7 @@ const TEST_PROFILES: Profile[] = [
 
 const Login: React.FC = () => {
   const router = useRouter();
+  const { mapStyle } = useMapStyle();
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -193,7 +196,7 @@ const Login: React.FC = () => {
   return (
     <AuthWrapper requireAuth={false}>
       <SafeAreaView style={styles.container}>
-        <AnimatedMapBackground settings={{ styleURL: "mapbox://styles/mapbox/dark-v11" }} />
+        <AnimatedMapBackground settings={{ styleURL: mapStyle }} />
         <StatusBar barStyle="light-content" backgroundColor="#333" />
 
         <View style={styles.headerContainer}>
