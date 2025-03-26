@@ -33,6 +33,9 @@ import {
 } from "react-native";
 import { Filter as FilterType } from "../../services/ApiClient";
 import { useFilterStore } from "@/stores/useFilterStore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const ACTIVE_FILTERS_KEY = "@active_filters";
 
 const FiltersView: React.FC = () => {
   // Get state and actions from the store
@@ -46,6 +49,8 @@ const FiltersView: React.FC = () => {
     deleteFilter,
     applyFilters,
     clearFilters,
+    activeFilterIds,
+    setActiveFilterIds,
   } = useFilterStore();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -66,6 +71,40 @@ const FiltersView: React.FC = () => {
   });
 
   const router = useRouter();
+
+  // Load active filters from storage on mount
+  useEffect(() => {
+    const loadActiveFilters = async () => {
+      try {
+        const storedFilters = await AsyncStorage.getItem(ACTIVE_FILTERS_KEY);
+        if (storedFilters) {
+          const activeIds = JSON.parse(storedFilters);
+          setActiveFilterIds(activeIds);
+        }
+      } catch (err) {
+        console.error("Error loading active filters:", err);
+      }
+    };
+
+    loadActiveFilters();
+  }, []);
+
+  // Save active filters to storage whenever they change
+  useEffect(() => {
+    const saveActiveFilters = async () => {
+      try {
+        if (activeFilterIds.length > 0) {
+          await AsyncStorage.setItem(ACTIVE_FILTERS_KEY, JSON.stringify(activeFilterIds));
+        } else {
+          await AsyncStorage.removeItem(ACTIVE_FILTERS_KEY);
+        }
+      } catch (err) {
+        console.error("Error saving active filters:", err);
+      }
+    };
+
+    saveActiveFilters();
+  }, [activeFilterIds]);
 
   // Fetch all filters when component mounts
   useEffect(() => {
@@ -97,7 +136,7 @@ const FiltersView: React.FC = () => {
     setEditingFilter(filter);
     setFilterName(filter.name);
     setSemanticQuery(filter.semanticQuery || "");
-    setIsActive(filter.isActive);
+    setIsActive(activeFilterIds.includes(filter.id));
     setStartDate(filter.criteria.dateRange?.start || "");
     setEndDate(filter.criteria.dateRange?.end || "");
     setModalVisible(true);
@@ -179,7 +218,6 @@ const FiltersView: React.FC = () => {
     // Prepare the filter data
     const filterData: Partial<FilterType> = {
       name: filterName.trim(),
-      isActive,
       semanticQuery: semanticQuery.trim(),
       criteria: {
         dateRange: {
@@ -190,12 +228,18 @@ const FiltersView: React.FC = () => {
     };
 
     try {
+      let savedFilter;
       if (editingFilter) {
         // Update existing filter
-        await updateFilter(editingFilter.id, filterData);
+        savedFilter = await updateFilter(editingFilter.id, filterData);
       } else {
         // Create new filter
-        await createFilter(filterData);
+        savedFilter = await createFilter(filterData);
+      }
+
+      // If the filter is active, apply it
+      if (isActive) {
+        await applyFilters([savedFilter.id]);
       }
 
       setModalVisible(false);
@@ -219,7 +263,7 @@ const FiltersView: React.FC = () => {
         </View>
         <View style={styles.filterTitleContainer}>
           <Text style={styles.filterName}>{item.name}</Text>
-          {item.isActive && (
+          {activeFilterIds.includes(item.id) && (
             <View style={styles.activeBadge}>
               <Text style={styles.activeText}>ACTIVE</Text>
             </View>

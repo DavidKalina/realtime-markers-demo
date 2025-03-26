@@ -1,6 +1,6 @@
 import { useFilterStore } from "@/stores/useFilterStore";
 import { Filter as FilterIcon } from "lucide-react-native";
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import { StyleSheet, View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import Animated, {
@@ -21,9 +21,16 @@ interface FilterIndicatorProps {
 const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(
     ({ position = "top-right" }) => {
         const router = useRouter();
-        // Get active filters from the store
+        // Get active filters and loading state from the store
         const activeFilterIds = useFilterStore((state) => state.activeFilterIds);
         const filters = useFilterStore((state) => state.filters);
+        const isLoading = useFilterStore((state) => state.isLoading);
+        const fetchFilters = useFilterStore((state) => state.fetchFilters);
+
+        // Fetch filters on mount
+        useEffect(() => {
+            fetchFilters();
+        }, []);
 
         // Memoize position style
         const positionStyle = useMemo(() => {
@@ -45,11 +52,20 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(
 
         // Get active filters
         const activeFilters = useMemo(() => {
+            if (isLoading) return [];
             return filters.filter((filter) => activeFilterIds.includes(filter.id));
-        }, [filters, activeFilterIds]);
+        }, [filters, activeFilterIds, isLoading]);
 
         // Get the display content based on number of active filters
         const displayContent = useMemo(() => {
+            if (isLoading) {
+                return {
+                    emoji: "⏳",
+                    text: "Loading filters...",
+                    isActive: false,
+                };
+            }
+
             if (activeFilters.length === 0) {
                 return {
                     emoji: "🌍",
@@ -70,7 +86,7 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(
                     isActive: true,
                 };
             }
-        }, [activeFilters]);
+        }, [activeFilters, isLoading]);
 
         return (
             <Pressable
