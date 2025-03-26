@@ -62,17 +62,6 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
       saveCount: 0,
       scanCount: 0,
     },
-    {
-      email: "garrett@example.com",
-      password: "password123!",
-      displayName: "Garret L.",
-      bio: "Another regular user",
-      role: UserRole.USER,
-      isVerified: true,
-      discoveryCount: 0,
-      saveCount: 0,
-      scanCount: 0,
-    },
   ];
 
   // Hash passwords and create user entities
@@ -88,8 +77,8 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
       user.bio = userData.bio;
       user.role = userData.role;
       user.isVerified = userData.isVerified;
-      user.discoveryCount = Math.floor(Math.random() * 10);
-      user.scanCount = Math.floor(Math.random() * 20);
+      user.discoveryCount = 0
+      user.scanCount = 0
 
       return user;
     })
