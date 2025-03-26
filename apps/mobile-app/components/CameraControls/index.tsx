@@ -90,16 +90,16 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    paddingBottom: Platform.OS === "ios" ? 30 : 20,
+    paddingBottom: Platform.OS === "ios" ? 20 : 16,
   },
   controlsContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   sideContainer: {
-    width: 60,
+    width: 50,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -109,9 +109,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   flashButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "rgba(0, 0, 0, 0.3)",
     justifyContent: "center",
     alignItems: "center",

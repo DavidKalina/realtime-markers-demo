@@ -17,6 +17,7 @@ export interface Filter {
   name: string;
   isActive: boolean;
   semanticQuery?: string; // New field for natural language query
+  emoji?: string; // AI-generated emoji for the filter
   // embedding field exists on server but not needed in client
   criteria: {
     // Remove categories, keywords, tags

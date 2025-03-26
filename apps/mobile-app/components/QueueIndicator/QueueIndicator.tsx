@@ -269,7 +269,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
         case "bottom-left":
           return { bottom: 50, left: 16 };
         case "top-left":
-          return { top: 50, left: 16 };
+          return { top: 100, left: 16 };
         case "custom":
           return {};
         default:
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(38, 38, 38, 0.85)",
     borderRadius: 16,
-    padding: 4,
+    padding: 8,
     paddingRight: 10,
     zIndex: 1000,
     shadowColor: "#000",

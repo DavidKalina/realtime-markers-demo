@@ -110,17 +110,28 @@ const redisConfig = {
   maxRetriesPerRequest: 3,
 };
 
-const redisPub = new Redis(redisConfig);
+const redisPub = new Redis({
+  host: process.env.REDIS_HOST || "localhost",
+  port: parseInt(process.env.REDIS_PORT || "6379"),
+  password: process.env.REDIS_PASSWORD || undefined,
+});
+
+// Initialize OpenAI service with Redis for rate limiting
+OpenAIService.initRedis({
+  host: process.env.REDIS_HOST || "localhost",
+  port: parseInt(process.env.REDIS_PORT || "6379"),
+  password: process.env.REDIS_PASSWORD || undefined,
+});
+
+const openai = OpenAIService.getInstance();
+
+const jobQueue = new JobQueue(redisPub);
 
 CacheService.initRedis({
   host: redisConfig.host,
   port: redisConfig.port,
   password: process.env.REDIS_PASSWORD ?? "",
 });
-
-const openai = OpenAIService.getInstance();
-
-const jobQueue = new JobQueue(redisPub);
 
 async function initializeServices() {
   console.log("Initializing database connection...");

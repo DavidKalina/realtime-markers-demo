@@ -244,7 +244,7 @@ function HomeScreen() {
         <ConnectionIndicator
           eventsCount={markers.length}
           initialConnectionState={isConnected}
-          position="top-right"
+          position="top-left"
           showAnimation={!selectedItem}
         />
         <QueueIndicator position="top-left" />

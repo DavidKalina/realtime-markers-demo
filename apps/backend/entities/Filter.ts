@@ -33,6 +33,9 @@ export class Filter {
   @Column({ type: "text", nullable: true })
   embedding?: string; // Vector embedding stored in pgvector format
 
+  @Column({ type: "varchar", nullable: true })
+  emoji?: string; // AI-generated emoji for the filter
+
   @Column({ type: "jsonb" })
   criteria!: {
     dateRange?: {

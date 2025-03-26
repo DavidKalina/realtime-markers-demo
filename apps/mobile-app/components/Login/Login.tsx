@@ -70,14 +70,6 @@ const TEST_PROFILES: Profile[] = [
     role: "ADMIN",
     emoji: "👨‍💻",
   },
-  {
-    id: "9ebdc75b-c023-4c3e-a72c-d4d300f3e13b",
-    email: "garrett@example.com",
-    password: "password123!",
-    name: "Garret L.",
-    role: "ADMIN",
-    emoji: "💪",
-  },
 ];
 
 const Login: React.FC = () => {
@@ -95,7 +87,6 @@ const Login: React.FC = () => {
   const passwordInputRef = useRef<TextInput>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Fade in animation for form
   React.useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -163,15 +154,14 @@ const Login: React.FC = () => {
     router.push("/register");
   };
 
-  // Helper function to get role color - adjusted for dark theme
   const getRoleColor = (role: string) => {
     switch (role.toUpperCase()) {
       case "ADMIN":
-        return "#ffcc00"; // Bright gold for dark theme
+        return "#ffcc00";
       case "MODERATOR":
-        return "#4dabf7"; // Blue for dark theme
+        return "#4dabf7";
       default:
-        return "#adb5bd"; // Light gray for dark theme
+        return "#adb5bd";
     }
   };
 
@@ -265,7 +255,6 @@ const Login: React.FC = () => {
                     editable={!selectedProfile}
                   />
                 </View>
-                {/* Password Input */}
                 <View style={styles.inputContainer}>
                   <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
                   <TextInput
@@ -292,7 +281,7 @@ const Login: React.FC = () => {
                 <TouchableOpacity
                   style={styles.loginButton}
                   onPress={() => {
-                    Keyboard.dismiss(); // Dismiss keyboard when button is pressed
+                    Keyboard.dismiss();
                     handleLogin();
                   }}
                   disabled={isLoading}
@@ -354,11 +343,10 @@ const Login: React.FC = () => {
   );
 };
 
-// Inline styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "transparent", // Remains transparent to show the background
+    backgroundColor: "transparent",
   },
 
   headerContainer: {
@@ -366,12 +354,12 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2, // Ensure header is above background
+    zIndex: 2,
   },
 
   keyboardAvoidingView: {
     flex: 1,
-    zIndex: 2, // Ensure content is above background
+    zIndex: 2,
   },
 
   scrollContent: {
@@ -386,7 +374,7 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     alignSelf: "center",
     marginTop: 20,
-    zIndex: 2, // Ensure form is above background
+    zIndex: 2,
   },
 
   formCard: {
@@ -468,7 +456,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginVertical: 20,
     shadowColor: "#4dabf7",
-    backgroundColor: "#4dabf7", // Add this techy blue background color
+    backgroundColor: "#4dabf7",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -515,7 +503,6 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
   },
 
-  // Profile selector styling
   profileSelectorContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -595,7 +582,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(147, 197, 253, 0.15)",
   },
 
-  // Modal dropdown styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.7)",

@@ -455,20 +455,12 @@ export default function ScanScreen() {
           <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
             <Image source={{ uri: capturedImage }} style={styles.previewImage} />
 
-            {/* Scanner overlay with progress indicator */}
+            {/* Scanner overlay */}
             <ScannerOverlay
               detectionStatus="aligned"
               isCapturing={true}
               showScannerAnimation={true}
-              guideText={`Processing... ${uploadProgress}%`}
             />
-
-            {/* Progress bar */}
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBarContainer}>
-                <View style={[styles.progressBar, getProgressBarWidth(uploadProgress)] as any} />
-              </View>
-            </View>
           </Animated.View>
         </View>
 
@@ -509,13 +501,6 @@ export default function ScanScreen() {
                 detectionStatus={detectionStatus}
                 isCapturing={isCapturing || isUploading}
                 showScannerAnimation={false}
-                guideText={
-                  isCameraReady
-                    ? detectionStatus === "aligned"
-                      ? "Document aligned - ready to capture"
-                      : "Position document in frame"
-                    : "Initializing camera..."
-                }
               />
 
               {/* Camera not ready indicator */}
@@ -610,8 +595,7 @@ const styles = StyleSheet.create({
   },
   contentArea: {
     flex: 1,
-    padding: 16,
-    paddingBottom: 8, // Reduced bottom padding since we removed the instructions card
+    padding: 8, // Reduced padding to maximize space
   },
   flexContainer: {
     flex: 1,
@@ -629,7 +613,7 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
-    marginBottom: 16, // Add margin at bottom to provide spacing for the camera controls
+    marginBottom: 8, // Reduced margin
   },
   camera: {
     flex: 1,
@@ -671,7 +655,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   controlsPlaceholder: {
-    height: 100, // Match the height that would be taken by CameraControls
+    height: 80, // Reduced height to match new controls height
   },
   progressBarContainer: {
     height: 4,

@@ -90,12 +90,9 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
   // Shared values for animations - created once
   const borderWidth = useSharedValue(2);
   const colorAnimation = useSharedValue(0);
-  const cornerOpacity = useSharedValue(0.4);
   const scaleAnimation = useSharedValue(1);
 
   // Status-dependent state
-  const [message, setMessage] = useState(guideText);
-  const [icon, setIcon] = useState<string | null>(null);
   const [scanColor, setScanColor] = useState("#4dabf7");
 
   // Set isMounted to false when component unmounts
@@ -111,7 +108,6 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
 
     cancelAnimation(borderWidth);
     cancelAnimation(colorAnimation);
-    cancelAnimation(cornerOpacity);
     cancelAnimation(scaleAnimation);
 
     // Clear any pending timeouts
@@ -119,7 +115,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
       clearTimeout(frameReadyTimeoutRef.current);
       frameReadyTimeoutRef.current = null;
     }
-  }, [borderWidth, colorAnimation, cornerOpacity, scaleAnimation]);
+  }, [borderWidth, colorAnimation, scaleAnimation]);
 
   // Unified status update function
   const updateStatusVisuals = useCallback(
@@ -133,20 +129,14 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
       const config =
         status === "capturing" ? STATUS_CONFIG.capturing : STATUS_CONFIG[detectionStatus];
 
-      // Update message if component is still mounted
+      // Update scan color if component is still mounted
       if (isMounted.current) {
-        setMessage(config.message || guideText);
-        setIcon(config.icon);
         setScanColor(config.scanColor);
       }
 
       // Apply animations with proper timing - ensure component is mounted
       if (isMounted.current) {
         colorAnimation.value = withTiming(config.colorValue, {
-          duration: ANIMATIONS.STATUS_CHANGE.DURATION,
-        });
-
-        cornerOpacity.value = withTiming(config.opacityValue, {
           duration: ANIMATIONS.STATUS_CHANGE.DURATION,
         });
 
@@ -169,7 +159,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
         animationsSet.current = true;
       }
     },
-    [cleanupAnimations, detectionStatus, guideText, colorAnimation, cornerOpacity, scaleAnimation]
+    [cleanupAnimations, detectionStatus, colorAnimation, scaleAnimation]
   );
 
   // Update based on the component's props
@@ -255,10 +245,6 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
     };
   });
 
-  const cornerStyle = useAnimatedStyle(() => ({
-    opacity: cornerOpacity.value,
-  }));
-
   // Determine if scanning animation should be shown - memoized
   // Now respects the showScannerAnimation prop
   const showScanning = useMemo(
@@ -279,7 +265,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
       <View style={overlayStyles.frameContainer}>
         {/* Animated frame */}
         <Animated.View style={[overlayStyles.frame, frameStyle]}>
-          {/* Scanner animation component - conditionally rendered based on showScannerAnimation */}
+          {/* Scanner animation component */}
           {showScannerAnimation && (
             <ScannerAnimation
               isActive={showScanning}
@@ -287,22 +273,8 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
               speed={isCapturing ? 1000 : 1500}
             />
           )}
-
-          {/* Corners for additional visual guidance */}
-          <Animated.View style={[overlayStyles.corner, overlayStyles.topLeft, cornerStyle]} />
-          <Animated.View style={[overlayStyles.corner, overlayStyles.topRight, cornerStyle]} />
-          <Animated.View style={[overlayStyles.corner, overlayStyles.bottomLeft, cornerStyle]} />
-          <Animated.View style={[overlayStyles.corner, overlayStyles.bottomRight, cornerStyle]} />
         </Animated.View>
       </View>
-
-      {/* Message container with icon */}
-      <Animated.View style={overlayStyles.messageContainer} entering={FadeIn.duration(400)}>
-        {icon && (
-          <Feather name={icon as any} size={18} color={iconColor} style={overlayStyles.icon} />
-        )}
-        <Text style={overlayStyles.message}>{message}</Text>
-      </Animated.View>
     </View>
   );
 });
@@ -310,17 +282,17 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
 const overlayStyles = StyleSheet.create({
   overlay: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: 8,
+    left: 8,
+    right: 8,
+    bottom: 8,
     backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
   },
   frameContainer: {
-    width: "85%",
-    aspectRatio: 0.75,
+    width: "100%",
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -328,67 +300,8 @@ const overlayStyles = StyleSheet.create({
     width: "100%",
     height: "100%",
     position: "relative",
-    borderRadius: 12,
     backgroundColor: "rgba(51, 51, 51, 0.1)",
-    overflow: "hidden", // Important for the scanner animation
-  },
-  corner: {
-    position: "absolute",
-    width: 24,
-    height: 24,
-    borderColor: "#f8f9fa",
-  },
-  topLeft: {
-    top: -2,
-    left: -2,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-    borderTopLeftRadius: 12,
-  },
-  topRight: {
-    top: -2,
-    right: -2,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-    borderTopRightRadius: 12,
-  },
-  bottomLeft: {
-    bottom: -2,
-    left: -2,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-    borderBottomLeftRadius: 12,
-  },
-  bottomRight: {
-    bottom: -2,
-    right: -2,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-    borderBottomRightRadius: 12,
-  },
-  messageContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#333",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    overflow: "hidden",
     borderRadius: 12,
-    marginTop: 24,
-    borderWidth: 1,
-    borderColor: "#3a3a3a",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  icon: {
-    marginRight: 8,
-  },
-  message: {
-    color: "#f8f9fa",
-    fontSize: 15,
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
   },
 });

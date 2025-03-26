@@ -102,8 +102,8 @@ const NotificationText = React.memo(
         {isConnected
           ? "Connected"
           : hasConnectionEverBeenEstablished
-          ? "Reconnecting"
-          : "Connecting"}
+            ? "Reconnecting..."
+            : "Connecting"}
       </Animated.Text>
     );
   }
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(51, 51, 51, 0.92)",
     borderRadius: 16,
-    padding: 4,
+    padding: 8,
     paddingRight: 10,
     zIndex: 1000,
     shadowColor: "#000",

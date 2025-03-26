@@ -221,7 +221,11 @@ const FiltersView: React.FC = () => {
     <View style={styles.filterCard}>
       <View style={styles.filterHeader}>
         <View style={styles.filterIconContainer}>
-          <FilterIcon size={18} color="#93c5fd" />
+          {item.emoji ? (
+            <Text style={styles.filterEmoji}>{item.emoji}</Text>
+          ) : (
+            <FilterIcon size={18} color="#93c5fd" />
+          )}
         </View>
         <View style={styles.filterTitleContainer}>
           <Text style={styles.filterName}>{item.name}</Text>
@@ -1087,6 +1091,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontFamily: "SpaceMono",
     marginLeft: 8,
+  },
+
+  filterEmoji: {
+    fontSize: 20,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 
