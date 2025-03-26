@@ -197,12 +197,12 @@ export class EventService {
       categoryNames = categories.map((cat: any) => cat.name);
     }
 
-    // Generate embedding from title and description
+    // Generate embedding from title, description and categories
     const textForEmbedding = `
-    TITLE: ${input.title} ${input.title}
+    TITLE: ${input.title} ${input.title} ${input.title}
     CATEGORIES: ${categoryNames.join(", ")} ${categoryNames.join(", ")}
     DESCRIPTION: ${input.description || ""}
-  `.trim();
+    `.trim();
     const embedding = await this.generateEmbedding(textForEmbedding);
 
     // Create base event data without relations
@@ -305,7 +305,11 @@ export class EventService {
     console.log(`Cache miss for search: "${query}"`);
 
     // Check if we have the embedding cached
-    const normalizedQuery = `Title: ${query}`;
+    const normalizedQuery = `
+    TITLE: ${query}
+    CATEGORIES: ${query}
+    DESCRIPTION: ${query}
+    `.trim();
     let searchEmbedding = CacheService.getCachedEmbedding(normalizedQuery);
 
     if (!searchEmbedding) {
@@ -341,6 +345,16 @@ export class EventService {
       WHEN LOWER(event.title) LIKE LOWER(:partialQuery) THEN 0.7
       WHEN LOWER(event.description) LIKE LOWER(:exactQuery) THEN 0.5
       WHEN LOWER(event.description) LIKE LOWER(:partialQuery) THEN 0.3
+      WHEN EXISTS (
+        SELECT 1 FROM category 
+        WHERE category.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id)
+        AND LOWER(category.name) LIKE LOWER(:exactQuery)
+      ) THEN 0.8
+      WHEN EXISTS (
+        SELECT 1 FROM category 
+        WHERE category.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id)
+        AND LOWER(category.name) LIKE LOWER(:partialQuery)
+      ) THEN 0.4
       ELSE 0
     END) * 0.4
   `;
@@ -356,9 +370,14 @@ export class EventService {
       new Brackets((qb) => {
         qb.where("LOWER(event.title) LIKE LOWER(:partialQuery)", {
           partialQuery: `%${query.toLowerCase()}%`,
-        }).orWhere("LOWER(event.description) LIKE LOWER(:partialQuery)", {
+        })
+        .orWhere("LOWER(event.description) LIKE LOWER(:partialQuery)", {
           partialQuery: `%${query.toLowerCase()}%`,
-        });
+        })
+        .orWhere(
+          "EXISTS (SELECT 1 FROM category WHERE category.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id) AND LOWER(category.name) LIKE LOWER(:partialQuery))",
+          { partialQuery: `%${query.toLowerCase()}%` }
+        );
       })
     );
 
