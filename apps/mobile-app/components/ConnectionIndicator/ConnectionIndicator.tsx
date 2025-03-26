@@ -167,16 +167,16 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
       let text = "";
       switch (type) {
         case "added":
-          text = `${count} new event${count !== 1 ? "s" : ""} added!`;
+          text = `new event!`;
           break;
         case "removed":
-          text = `${count} event${count !== 1 ? "s" : ""} removed`;
+          text = `event removed`;
           break;
         case "reconnecting":
-          text = "Reconnecting...";
+          text = "Reconnecting";
           break;
         case "connecting":
-          text = "Connecting...";
+          text = "Connecting";
           break;
       }
 
