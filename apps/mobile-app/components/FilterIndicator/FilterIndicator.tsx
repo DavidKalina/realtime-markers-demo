@@ -17,12 +17,6 @@ import Animated, {
 
 // Pre-defined animations for reuse
 const SPRING_LAYOUT = Layout.springify();
-const BOUNCE_IN = BounceIn.duration(500).springify().damping(12);
-const BOUNCE_OUT = BounceOut.duration(400);
-const SLIDE_IN = SlideInRight.duration(400).springify();
-const SLIDE_OUT = SlideOutLeft.duration(300);
-const FADE_IN = FadeIn.duration(300);
-const FADE_OUT = FadeOut.duration(200);
 
 interface FilterIndicatorProps {
   position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
@@ -98,7 +92,7 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(({ position =
   useEffect(() => {
     if (displayContent.isActive) {
       // Expand when filters are active
-      containerWidth.value = withTiming(140, { duration: 300 });
+      containerWidth.value = withTiming(180, { duration: 300 });
     } else {
       // Collapse to just show the emoji when no filters
       containerWidth.value = withTiming(32, { duration: 300 });
@@ -187,6 +181,8 @@ const styles = StyleSheet.create({
   },
   centeredEmoji: {
     marginLeft: 0,
+    fontSize: 10,
+    lineHeight: 12,
   },
   contentContainer: {
     flexDirection: "column",
