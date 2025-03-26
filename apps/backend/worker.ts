@@ -17,6 +17,7 @@ import { EnhancedLocationService } from "./services/shared/LocationService";
 import { OpenAIService } from "./services/shared/OpenAIService";
 import { isEventTemporalyRelevant } from "./utils/isEventTemporalyRelevant";
 import { StorageService } from "./services/shared/StorageService";
+import { User } from "./entities/User";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -324,6 +325,18 @@ async function initializeWorker() {
             detectedQrData: scanResult.qrCodeData,
             originalImageUrl: originalImageUrl, // Add this line to include the image URL
           });
+
+          // Increment the user's scan count if they are the creator
+          if (job.data.creatorId) {
+            await AppDataSource
+              .createQueryBuilder()
+              .update(User)
+              .set({
+                scanCount: () => "scan_count + 1"
+              })
+              .where("id = :userId", { userId: job.data.creatorId })
+              .execute();
+          }
 
           // Check if QR code was detected in the image
           if (scanResult.qrCodeDetected && scanResult.qrCodeData) {
