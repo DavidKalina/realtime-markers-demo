@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -14,19 +14,21 @@ import {
   Animated,
   StyleSheet,
 } from "react-native";
-import { ArrowLeft, Search, X, Calendar, MapPin, Clock, AlertCircle } from "lucide-react-native";
+import { ArrowLeft, Search, X, Calendar, MapPin, Clock, AlertCircle, QrCode } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { EventType } from "@/types/types";
 import { useLocationStore } from "@/stores/useLocationStore";
 import useEventSearch from "@/hooks/useEventSearch";
+import debounce from 'lodash/debounce';
 
-const SearchView: React.FC = () => {
+const SearchView = () => {
   const router = useRouter();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scrollY = useRef(new Animated.Value(0)).current;
+  const [isTyping, setIsTyping] = useState(false);
 
   // Animation for header shadow
   const headerShadowOpacity = scrollY.interpolate({
@@ -54,6 +56,31 @@ const SearchView: React.FC = () => {
 
   const searchInputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList>(null);
+
+  // Debounced search function
+  const debouncedSearch = useCallback(
+    debounce((query: string) => {
+      setIsTyping(false);
+      if (query.trim()) {
+        searchEvents(true);
+      }
+    }, 500),
+    [searchEvents]
+  );
+
+  // Handle text input changes
+  const handleSearchInput = (text: string) => {
+    setSearchQuery(text);
+    setIsTyping(true);
+    debouncedSearch(text);
+  };
+
+  // Cancel debounced search on unmount
+  useEffect(() => {
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [debouncedSearch]);
 
   // Set up keyboard listeners
   useEffect(() => {
@@ -186,9 +213,12 @@ const SearchView: React.FC = () => {
             placeholder="Search events, venues, categories..."
             placeholderTextColor="#919191"
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearchInput}
             returnKeyType="search"
-            onSubmitEditing={handleSearch}
+            onSubmitEditing={() => {
+              setIsTyping(false);
+              handleSearch();
+            }}
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -204,10 +234,12 @@ const SearchView: React.FC = () => {
         </Animated.View>
 
         {/* Main Content */}
-        {isLoading && eventResults.length === 0 ? (
+        {(isLoading || isTyping) && eventResults.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#93c5fd" />
-            <Text style={styles.loadingText}>Searching events...</Text>
+            <Text style={styles.loadingText}>
+              {isTyping ? "Finding events..." : "Searching events..."}
+            </Text>
           </View>
         ) : (
           <Animated.FlatList
@@ -221,9 +253,8 @@ const SearchView: React.FC = () => {
                 <View style={styles.resultsContainer}>
                   <Text style={styles.resultsText}>
                     {hasSearched
-                      ? `${eventResults.length} ${
-                          eventResults.length === 1 ? "result" : "results"
-                        } found`
+                      ? `${eventResults.length} ${eventResults.length === 1 ? "result" : "results"
+                      } found`
                       : "Showing nearby events"}
                   </Text>
                 </View>
@@ -243,9 +274,16 @@ const SearchView: React.FC = () => {
 
                   {/* Event Details */}
                   <View style={styles.resultTextContainer}>
-                    <Text style={styles.resultTitle} numberOfLines={1} ellipsizeMode="tail">
-                      {item.title}
-                    </Text>
+                    <View style={styles.titleRow}>
+                      <Text style={styles.resultTitle} numberOfLines={1} ellipsizeMode="tail">
+                        {item.title}
+                      </Text>
+                      {item.qrData && (
+                        <View style={styles.qrIconContainer}>
+                          <QrCode size={14} color="#93c5fd" />
+                        </View>
+                      )}
+                    </View>
 
                     {/* Event Details with improved icons */}
                     <View style={styles.detailsContainer}>
@@ -415,16 +453,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
 
-  clearButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "rgba(73, 171, 247, 0.1)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 4,
-  },
-
   searchInput: {
     flex: 1,
     color: "#f8f9fa",
@@ -494,12 +522,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+
   resultTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
-    marginBottom: 6,
+    flex: 1,
   },
 
   detailsContainer: {
@@ -630,6 +665,36 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontWeight: "500",
     fontSize: 14,
+  },
+
+  inputRightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+
+  searchSpinner: {
+    marginRight: 8,
+  },
+
+  clearButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(73, 171, 247, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 4,
+  },
+
+  qrIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
   },
 });
 

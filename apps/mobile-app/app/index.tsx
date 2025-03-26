@@ -98,7 +98,7 @@ function HomeScreen() {
     }
 
     // Return cleanup function - empty since we moved MapboxGL setup outside component
-    return () => {};
+    return () => { };
   }, [userLocation, getUserLocation]);
 
   // Memoize map press handler to avoid recreation on each render
