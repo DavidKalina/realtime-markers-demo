@@ -107,11 +107,27 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(({ position =
 
   // Animated styles for container width and padding
   const animatedContainerStyle = useAnimatedStyle(() => {
-    return {
-      width: containerWidth.value,
-      paddingRight: displayContent.isActive ? 10 : 8,
-      justifyContent: displayContent.isActive ? "flex-start" : "center",
-    };
+    if (displayContent.isActive) {
+      // Expanded state: use a pill shape
+      return {
+        width: containerWidth.value, // e.g. animates from 32 to 140
+        height: 40, // fixed height for pill shape
+        paddingHorizontal: 10,
+        justifyContent: "center",
+        alignItems: "center",
+        borderRadius: 20, // half of height for pill curvature
+      };
+    } else {
+      // Collapsed state: force a perfect circle
+      const size = 32; // or containerWidth.value if you want to animate it too
+      return {
+        width: size,
+        height: size,
+        justifyContent: "center",
+        alignItems: "center",
+        borderRadius: size / 2,
+      };
+    }
   });
 
   return (
@@ -125,12 +141,10 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(({ position =
         </Text>
 
         {displayContent.text ? (
-          <Animated.View style={styles.contentContainer} entering={SLIDE_IN} exiting={SLIDE_OUT}>
+          <Animated.View style={styles.contentContainer} entering={FadeIn} exiting={FadeOut}>
             <Animated.Text
               style={[styles.filterText, !displayContent.isActive && styles.inactiveText]}
               numberOfLines={1}
-              entering={FADE_IN}
-              exiting={FADE_OUT}
             >
               {displayContent.text}
             </Animated.Text>
