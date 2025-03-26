@@ -114,24 +114,29 @@ export class EventService {
   }
 
   async getEventById(id: string): Promise<Event | null> {
-    // Try to get from cache first
-    const cachedEvent = await CacheService.getCachedEvent(id);
-    if (cachedEvent) {
-      return cachedEvent;
+    try {
+      // Try to get from cache first
+      const cachedEvent = await CacheService.getCachedEvent(id);
+      if (cachedEvent) {
+        return cachedEvent;
+      }
+
+      // If not in cache, get from database
+      const evt = await this.eventRepository.findOne({
+        where: { id },
+        relations: ["categories", "creator"],
+      });
+
+      // If found, cache it with a shorter TTL for frequently accessed events
+      if (evt) {
+        await CacheService.setCachedEvent(id, evt, 300); // 5 minutes TTL
+      }
+
+      return evt;
+    } catch (error) {
+      console.error(`Error fetching event ${id}:`, error);
+      return null;
     }
-
-    // If not in cache, get from database
-    const evt = await this.eventRepository.findOne({
-      where: { id },
-      relations: ["categories", "creator"],
-    });
-
-    // If found, cache it
-    if (evt) {
-      await CacheService.setCachedEvent(id, evt);
-    }
-
-    return evt;
   }
 
   async getNearbyEvents(
@@ -160,13 +165,13 @@ export class EventService {
   }
 
   async storeDetectedQRCode(eventId: string, qrCodeData: string): Promise<Event | null> {
-    // Get the event
-    const event = await this.getEventById(eventId);
-    if (!event) {
-      return null;
-    }
-
     try {
+      // Get the event
+      const event = await this.getEventById(eventId);
+      if (!event) {
+        throw new Error(`Event ${eventId} not found`);
+      }
+
       // Store the detected QR code data
       event.qrCodeData = qrCodeData;
       event.hasQrCode = true;
@@ -176,10 +181,14 @@ export class EventService {
 
       // Save the updated event
       const updatedEvent = await this.eventRepository.save(event);
+      
+      // Invalidate the cache for this event
+      await CacheService.invalidateEventCache(eventId);
+      
       return updatedEvent;
     } catch (error) {
       console.error(`Error storing detected QR code for event ${eventId}:`, error);
-      return null;
+      throw error; // Re-throw to handle in the controller
     }
   }
 
@@ -251,45 +260,55 @@ export class EventService {
   }
 
   async updateEvent(id: string, eventData: Partial<CreateEventInput>): Promise<Event | null> {
-    const event = await this.getEventById(id);
-    if (!event) return null;
+    try {
+      const event = await this.getEventById(id);
+      if (!event) return null;
 
-    // Handle basic fields
-    if (eventData.title) event.title = eventData.title;
-    if (eventData.description !== undefined) event.description = eventData.description;
-    if (eventData.eventDate) event.eventDate = eventData.eventDate;
-    if (eventData.endDate !== undefined) event.endDate = eventData.endDate;
-    if (eventData.location) {
-      event.location = eventData.location;
+      // Handle basic fields
+      if (eventData.title) event.title = eventData.title;
+      if (eventData.description !== undefined) event.description = eventData.description;
+      if (eventData.eventDate) event.eventDate = eventData.eventDate;
+      if (eventData.endDate !== undefined) event.endDate = eventData.endDate;
+      if (eventData.location) {
+        event.location = eventData.location;
 
-      // If location changed but timezone wasn't specified, try to determine new timezone
-      if (!eventData.timezone) {
-        try {
-          const timezone = await this.locationService.getTimezoneFromCoordinates(
-            eventData.location.coordinates[1],
-            eventData.location.coordinates[0]
-          );
-          event.timezone = timezone;
-        } catch (error) {
-          console.error("Error determining timezone from updated coordinates:", error);
+        // If location changed but timezone wasn't specified, try to determine new timezone
+        if (!eventData.timezone) {
+          try {
+            const timezone = await this.locationService.getTimezoneFromCoordinates(
+              eventData.location.coordinates[1],
+              eventData.location.coordinates[0]
+            );
+            event.timezone = timezone;
+          } catch (error) {
+            console.error("Error determining timezone from updated coordinates:", error);
+          }
         }
       }
+
+      // Update timezone if provided
+      if (eventData.timezone) {
+        event.timezone = eventData.timezone;
+      }
+
+      // Handle categories if provided
+      if (eventData.categoryIds) {
+        const categories = await this.categoryRepository.findByIds(eventData.categoryIds);
+        event.categories = categories;
+      }
+
+      const updatedEvent = await this.eventRepository.save(event);
+      
+      // Invalidate the cache for this event
+      await CacheService.invalidateEventCache(id);
+      
+      await CacheService.invalidateSearchCache();
+
+      return updatedEvent;
+    } catch (error) {
+      console.error(`Error updating event ${id}:`, error);
+      throw error; // Re-throw to handle in the controller
     }
-
-    // Update timezone if provided
-    if (eventData.timezone) {
-      event.timezone = eventData.timezone;
-    }
-
-    // Handle categories if provided
-    if (eventData.categoryIds) {
-      const categories = await this.categoryRepository.findByIds(eventData.categoryIds);
-      event.categories = categories;
-    }
-
-    await CacheService.invalidateSearchCache();
-
-    return this.eventRepository.save(event);
   }
 
   // The rest of the methods remain unchanged
@@ -358,14 +377,14 @@ export class EventService {
       WHEN LOWER(event.description) LIKE LOWER(:exactQuery) THEN 0.5
       WHEN LOWER(event.description) LIKE LOWER(:partialQuery) THEN 0.3
       WHEN EXISTS (
-        SELECT 1 FROM category 
-        WHERE category.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id)
-        AND LOWER(category.name) LIKE LOWER(:exactQuery)
+        SELECT 1 FROM categories c
+        WHERE c.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id)
+        AND LOWER(c.name) LIKE LOWER(:exactQuery)
       ) THEN 0.8
       WHEN EXISTS (
-        SELECT 1 FROM category 
-        WHERE category.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id)
-        AND LOWER(category.name) LIKE LOWER(:partialQuery)
+        SELECT 1 FROM categories c
+        WHERE c.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id)
+        AND LOWER(c.name) LIKE LOWER(:partialQuery)
       ) THEN 0.4
       ELSE 0
     END) * 0.4
@@ -387,7 +406,7 @@ export class EventService {
           partialQuery: `%${query.toLowerCase()}%`,
         })
         .orWhere(
-          "EXISTS (SELECT 1 FROM category WHERE category.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id) AND LOWER(category.name) LIKE LOWER(:partialQuery))",
+          "EXISTS (SELECT 1 FROM categories WHERE category.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id) AND LOWER(category.name) LIKE LOWER(:partialQuery))",
           { partialQuery: `%${query.toLowerCase()}%` }
         );
       })
@@ -463,16 +482,38 @@ export class EventService {
   }
 
   async deleteEvent(id: string): Promise<boolean> {
-    const result = await this.eventRepository.delete(id);
-    return result.affected ? result.affected > 0 : false;
+    try {
+      const result = await this.eventRepository.delete(id);
+      
+      // Invalidate the cache for this event
+      await CacheService.invalidateEventCache(id);
+      
+      // Invalidate search cache since we deleted an event
+      await CacheService.invalidateSearchCache();
+      
+      return result.affected ? result.affected > 0 : false;
+    } catch (error) {
+      console.error(`Error deleting event ${id}:`, error);
+      throw error; // Re-throw to handle in the controller
+    }
   }
 
   async updateEventStatus(id: string, status: EventStatus): Promise<Event | null> {
-    const event = await this.getEventById(id);
-    if (!event) return null;
+    try {
+      const event = await this.getEventById(id);
+      if (!event) return null;
 
-    event.status = status;
-    return this.eventRepository.save(event);
+      event.status = status;
+      const updatedEvent = await this.eventRepository.save(event);
+      
+      // Invalidate the cache for this event
+      await CacheService.invalidateEventCache(id);
+      
+      return updatedEvent;
+    } catch (error) {
+      console.error(`Error updating event status for ${id}:`, error);
+      throw error; // Re-throw to handle in the controller
+    }
   }
 
   async getEventsByCategories(
