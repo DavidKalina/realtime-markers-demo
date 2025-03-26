@@ -236,7 +236,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
           setActiveNotification(type);
           setNotificationData({
             count: 0,
-            text: type === "reconnecting" ? "Reconnecting..." : "Connecting...",
+            text: type === "reconnecting" ? "Reconnecting" : "Connecting",
           });
 
           // Even connection notifications should have timeouts (but much longer)
