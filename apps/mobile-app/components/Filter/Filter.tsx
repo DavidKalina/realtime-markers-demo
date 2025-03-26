@@ -31,12 +31,23 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import apiClient, { Filter as FilterType } from "../../services/ApiClient";
+import { Filter as FilterType } from "../../services/ApiClient";
+import { useFilterStore } from "@/stores/useFilterStore";
 
 const FiltersView: React.FC = () => {
-  const [filters, setFilters] = useState<FilterType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Get state and actions from the store
+  const {
+    filters,
+    isLoading,
+    error,
+    fetchFilters,
+    createFilter,
+    updateFilter,
+    deleteFilter,
+    applyFilters,
+    clearFilters,
+  } = useFilterStore();
+
   const [modalVisible, setModalVisible] = useState(false);
   const [editingFilter, setEditingFilter] = useState<FilterType | null>(null);
   const [filterName, setFilterName] = useState("");
@@ -60,22 +71,6 @@ const FiltersView: React.FC = () => {
   useEffect(() => {
     fetchFilters();
   }, []);
-
-  // Fetch all filters from API
-  const fetchFilters = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const userFilters = await apiClient.getUserFilters();
-      setFilters(userFilters);
-    } catch (err) {
-      setError(`Failed to load filters: ${err instanceof Error ? err.message : "Unknown error"}`);
-      console.error("Error fetching filters:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Handle back button
   const handleBack = () => {
@@ -132,8 +127,7 @@ const FiltersView: React.FC = () => {
         style: "destructive",
         onPress: async () => {
           try {
-            await apiClient.deleteFilter(filterId);
-            setFilters(filters.filter((filter) => filter.id !== filterId));
+            await deleteFilter(filterId);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           } catch (err) {
             console.error("Error deleting filter:", err);
@@ -148,7 +142,7 @@ const FiltersView: React.FC = () => {
   const handleApplyFilter = async (filter: FilterType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      await apiClient.applyFilters([filter.id]);
+      await applyFilters([filter.id]);
       router.back();
     } catch (err) {
       console.error("Error applying filter:", err);
@@ -160,7 +154,7 @@ const FiltersView: React.FC = () => {
   const handleClearFilters = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      await apiClient.clearFilters();
+      await clearFilters();
       router.back();
     } catch (err) {
       console.error("Error clearing filters:", err);
@@ -196,16 +190,12 @@ const FiltersView: React.FC = () => {
     };
 
     try {
-      let updatedFilter: FilterType;
-
       if (editingFilter) {
         // Update existing filter
-        updatedFilter = await apiClient.updateFilter(editingFilter.id, filterData);
-        setFilters(filters.map((f) => (f.id === updatedFilter.id ? updatedFilter : f)));
+        await updateFilter(editingFilter.id, filterData);
       } else {
         // Create new filter
-        updatedFilter = await apiClient.createFilter(filterData);
-        setFilters([...filters, updatedFilter]);
+        await createFilter(filterData);
       }
 
       setModalVisible(false);
@@ -329,7 +319,7 @@ const FiltersView: React.FC = () => {
 
       {/* Content Area */}
       <View style={styles.contentArea}>
-        {loading ? (
+        {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#93c5fd" />
             <Text style={styles.loadingText}>Loading filters...</Text>
