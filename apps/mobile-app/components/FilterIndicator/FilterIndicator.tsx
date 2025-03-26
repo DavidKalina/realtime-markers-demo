@@ -1,5 +1,4 @@
 import { useFilterStore } from "@/stores/useFilterStore";
-import { Filter as FilterIcon } from "lucide-react-native";
 import React, { useMemo, useEffect } from "react";
 import { StyleSheet, View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
@@ -7,12 +6,23 @@ import Animated, {
     BounceIn,
     BounceOut,
     Layout,
+    SlideInRight,
+    SlideOutLeft,
+    FadeIn,
+    FadeOut,
+    withTiming,
+    useAnimatedStyle,
+    useSharedValue
 } from "react-native-reanimated";
 
 // Pre-defined animations for reuse
 const SPRING_LAYOUT = Layout.springify();
 const BOUNCE_IN = BounceIn.duration(500).springify().damping(12);
 const BOUNCE_OUT = BounceOut.duration(400);
+const SLIDE_IN = SlideInRight.duration(400).springify();
+const SLIDE_OUT = SlideOutLeft.duration(300);
+const FADE_IN = FadeIn.duration(300);
+const FADE_OUT = FadeOut.duration(200);
 
 interface FilterIndicatorProps {
     position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
@@ -26,6 +36,9 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(
         const filters = useFilterStore((state) => state.filters);
         const isLoading = useFilterStore((state) => state.isLoading);
         const fetchFilters = useFilterStore((state) => state.fetchFilters);
+
+        // Width animation value
+        const containerWidth = useSharedValue(60);
 
         // Fetch filters on mount
         useEffect(() => {
@@ -69,24 +82,42 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(
             if (activeFilters.length === 0) {
                 return {
                     emoji: "🌍",
-                    text: "All Events",
+                    text: "",
                     isActive: false,
                 };
             } else if (activeFilters.length === 1) {
                 const filter = activeFilters[0];
                 return {
                     emoji: filter.emoji || "🔍",
-                    text: `${filter.name} filter`,
+                    text: `${filter.name}`,
                     isActive: true,
                 };
             } else {
                 return {
                     emoji: "🔍",
-                    text: `${activeFilters.length} filters active`,
+                    text: `${activeFilters.length} filters`,
                     isActive: true,
                 };
             }
         }, [activeFilters, isLoading]);
+
+        // Update width animation when active filters change
+        useEffect(() => {
+            if (displayContent.isActive) {
+                // Expand when filters are active
+                containerWidth.value = withTiming(140, { duration: 300 });
+            } else {
+                // Collapse to just show the emoji when no filters
+                containerWidth.value = withTiming(60, { duration: 300 });
+            }
+        }, [displayContent.isActive]);
+
+        // Animated styles for container width
+        const animatedContainerStyle = useAnimatedStyle(() => {
+            return {
+                width: containerWidth.value,
+            };
+        });
 
         return (
             <Pressable
@@ -100,26 +131,41 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(
             >
                 <Animated.View
                     style={[
-                        styles.indicator,
-                        !displayContent.isActive && styles.inactiveIndicator,
+                        styles.wrapper,
+                        animatedContainerStyle
                     ]}
                     layout={SPRING_LAYOUT}
                 >
-                    <Text style={styles.emojiText}>{displayContent.emoji}</Text>
-                </Animated.View>
-
-                <View style={styles.contentContainer}>
-                    <Animated.Text
+                    <Animated.View
                         style={[
-                            styles.filterText,
-                            !displayContent.isActive && styles.inactiveText,
+                            styles.indicator,
+                            !displayContent.isActive && styles.inactiveIndicator,
                         ]}
                         layout={SPRING_LAYOUT}
-                        numberOfLines={1}
                     >
-                        {displayContent.text}
-                    </Animated.Text>
-                </View>
+                        <Text style={styles.emojiText}>{displayContent.emoji}</Text>
+                    </Animated.View>
+
+                    {displayContent.text ? (
+                        <Animated.View
+                            style={styles.contentContainer}
+                            entering={SLIDE_IN}
+                            exiting={SLIDE_OUT}
+                        >
+                            <Animated.Text
+                                style={[
+                                    styles.filterText,
+                                    !displayContent.isActive && styles.inactiveText,
+                                ]}
+                                numberOfLines={1}
+                                entering={FADE_IN}
+                                exiting={FADE_OUT}
+                            >
+                                {displayContent.text}
+                            </Animated.Text>
+                        </Animated.View>
+                    ) : null}
+                </Animated.View>
             </Pressable>
         );
     }
@@ -128,26 +174,25 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(
 const styles = StyleSheet.create({
     container: {
         position: "absolute",
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "#333",
-        borderRadius: 16,
-        padding: 8,
-        paddingRight: 10,
         zIndex: 1000,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 6,
         elevation: 8,
-        maxWidth: 220,
-        minWidth: 140,
-        flexShrink: 1,
+    },
+    wrapper: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#333",
+        borderRadius: 16,
+        padding: 8,
+        paddingRight: 12,
         borderWidth: 1,
         borderColor: "rgba(255, 255, 255, 0.1)",
+        overflow: "hidden",
     },
     pressedContainer: {
-        backgroundColor: "#2a2a2a",
         transform: [{ scale: 0.98 }],
     },
     inactiveContainer: {
@@ -155,9 +200,9 @@ const styles = StyleSheet.create({
         borderColor: "rgba(255, 255, 255, 0.05)",
     },
     indicator: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         justifyContent: "center",
         alignItems: "center",
         marginRight: 8,
@@ -173,9 +218,9 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(147, 197, 253, 0.5)",
     },
     emojiText: {
-        fontSize: 14,
+        fontSize: 16,
         textAlign: "center",
-        lineHeight: 14,
+        lineHeight: 18,
     },
     contentContainer: {
         flexDirection: "column",
@@ -184,7 +229,7 @@ const styles = StyleSheet.create({
     },
     filterText: {
         color: "rgba(255, 255, 255, 0.9)",
-        fontSize: 10,
+        fontSize: 12,
         fontFamily: "SpaceMono",
         fontWeight: "600",
     },
@@ -193,4 +238,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default FilterIndicator; 
+export default FilterIndicator;
