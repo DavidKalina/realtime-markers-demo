@@ -51,7 +51,7 @@ const ProgressBar = React.memo(({ percentage, color }: { percentage: number; col
 // Component for the rotating cog
 const ProcessingIcon = React.memo(({ style }: { style: any }) => (
   <Animated.View style={style}>
-    <Cog size={16} color="#fff" />
+    <Cog size={16} color="rgba(255, 255, 255, 0.7)" />
   </Animated.View>
 ));
 
@@ -59,17 +59,21 @@ const ProcessingIcon = React.memo(({ style }: { style: any }) => (
 const StatusIcon = React.memo(({ style, status }: { style: any; status: string }) => (
   <Animated.View style={style}>
     {status === "completed" ? (
-      <CheckCircle size={16} color="#fff" />
+      <CheckCircle size={16} color="rgba(255, 255, 255, 0.9)" />
     ) : (
-      <AlertTriangle size={16} color="#fff" />
+      <AlertTriangle size={16} color="rgba(255, 255, 255, 0.9)" />
     )}
   </Animated.View>
 ));
 
 // Component for the job count text
-const JobCountText = React.memo(({ count }: { count: number }) => (
+const JobCountText = React.memo(({ count, status }: { count: number; status: string }) => (
   <Animated.Text style={styles.countText} entering={FADE_IN} layout={SPRING_LAYOUT}>
-    {count} job{count !== 1 ? "s" : ""}
+    {status === "completed"
+      ? "Success"
+      : status === "failed"
+        ? "Failed"
+        : `${count} job${count !== 1 ? "s" : ""}`}
   </Animated.Text>
 ));
 
@@ -98,8 +102,8 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
         const activeJob =
           activeJobs.length > 0
             ? activeJobs.reduce((prev, current) =>
-                new Date(prev.updatedAt) > new Date(current.updatedAt) ? prev : current
-              )
+              new Date(prev.updatedAt) > new Date(current.updatedAt) ? prev : current
+            )
             : null;
 
         // Calculate progress percentage for active job
@@ -277,13 +281,13 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
     const statusColor = useMemo(() => {
       switch (status) {
         case "processing":
-          return "#60a5fa"; // Blue that matches our UI language
+          return "rgba(107, 114, 128, 0.95)"; // Subtle gray
         case "completed":
-          return "#10b981"; // Green that matches our UI language
+          return "rgba(52, 211, 153, 0.95)"; // Subtle emerald
         case "failed":
-          return "#ef4444"; // Red that matches our UI language
+          return "rgba(239, 68, 68, 0.95)"; // Subtle red
         default:
-          return "#6b7280"; // Gray
+          return "rgba(107, 114, 128, 0.95)"; // Subtle gray
       }
     }, [status]);
 
@@ -322,7 +326,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
           )}
 
           {/* Job count text - only render when there are jobs */}
-          {totalJobs > 0 && <JobCountText count={totalJobs} />}
+          {totalJobs > 0 && <JobCountText count={totalJobs} status={status} />}
         </View>
       </Animated.View>
     );
@@ -335,27 +339,27 @@ const styles = StyleSheet.create({
     position: "absolute",
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(51, 51, 51, 0.92)",
-    borderRadius: 18,
-    padding: 6,
-    paddingRight: 12,
+    backgroundColor: "rgba(38, 38, 38, 0.85)",
+    borderRadius: 16,
+    padding: 4,
+    paddingRight: 10,
     zIndex: 1000,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 8,
-    maxWidth: 140,
+    maxWidth: 120,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
   },
   indicator: {
-    width: 28,
-    height: 28,
-    borderRadius: 16,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
+    marginRight: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -367,23 +371,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   countText: {
-    color: "#f8f9fa",
-    fontSize: 8,
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 10,
     fontFamily: "SpaceMono",
-    marginTop: 2,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   progressBarContainer: {
-    height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 2,
-    marginVertical: 4,
+    height: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 1,
+    marginVertical: 3,
     width: "100%",
     overflow: "hidden",
   },
   progressBar: {
     height: "100%",
-    borderRadius: 2,
+    borderRadius: 1,
   },
 });
 
