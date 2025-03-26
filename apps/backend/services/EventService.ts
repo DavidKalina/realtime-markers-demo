@@ -114,10 +114,22 @@ export class EventService {
   }
 
   async getEventById(id: string): Promise<Event | null> {
+    // Try to get from cache first
+    const cachedEvent = await CacheService.getCachedEvent(id);
+    if (cachedEvent) {
+      return cachedEvent;
+    }
+
+    // If not in cache, get from database
     const evt = await this.eventRepository.findOne({
       where: { id },
       relations: ["categories", "creator"],
     });
+
+    // If found, cache it
+    if (evt) {
+      await CacheService.setCachedEvent(id, evt);
+    }
 
     return evt;
   }

@@ -125,6 +125,28 @@ export class CacheService {
     }
   }
 
+  static async getCachedEvent(id: string): Promise<any | null> {
+    if (!this.redisClient) return null;
+
+    const cached = await this.redisClient.get(`event:${id}`);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+    return null;
+  }
+
+  static async setCachedEvent(id: string, event: any, ttlSeconds: number = 3600): Promise<void> {
+    if (!this.redisClient) return;
+
+    await this.redisClient.set(`event:${id}`, JSON.stringify(event), "EX", ttlSeconds);
+  }
+
+  static async invalidateEventCache(id: string): Promise<void> {
+    if (!this.redisClient) return;
+
+    await this.redisClient.del(`event:${id}`);
+  }
+
   static setCachedCategories(text: string, categories: string[]): void {
     const key = this.getCacheKey(text);
 
