@@ -39,7 +39,6 @@ export const ScannerAnimation: React.FC<ScannerAnimationProps> = React.memo(
 
     // Start or stop the animation based on isActive prop
     useEffect(() => {
-      // Always cancel any existing animation first to prevent conflicts
       if (!isMounted.current) return;
 
       cancelAnimation(scanPosition);
@@ -90,7 +89,6 @@ export const ScannerAnimation: React.FC<ScannerAnimationProps> = React.memo(
       () => ({
         top: `${scanPosition.value}%`,
         backgroundColor: color,
-        shadowColor: color,
       }),
       [color]
     );
@@ -120,17 +118,13 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     overflow: "hidden",
-    zIndex: 5,
     backgroundColor: "transparent",
   },
   scanLine: {
     position: "absolute",
     left: 0,
     right: 0,
-    height: 3,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 8,
+    height: 2,
+    opacity: 0.8,
   },
 });

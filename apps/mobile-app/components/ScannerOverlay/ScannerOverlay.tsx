@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -8,10 +8,8 @@ import Animated, {
   Easing,
   withSequence,
   interpolateColor,
-  FadeIn,
   cancelAnimation,
 } from "react-native-reanimated";
-import { Feather } from "@expo/vector-icons";
 import { ScannerAnimation } from "@/components/ScannerAnimation";
 
 // Animation configurations - defined outside component to prevent recreation
@@ -32,65 +30,56 @@ const ANIMATIONS: any = {
 // Status configurations for cleaner code
 const STATUS_CONFIG = {
   none: {
-    message: null, // Use default message
-    icon: "move",
     colorValue: 0,
-    opacityValue: 0.4,
     scaleValue: 1,
     scanColor: "#4dabf7",
+    overlayOpacity: 0.3,
   },
   detecting: {
-    message: "Almost there...",
-    icon: "search",
     colorValue: 0.5,
-    opacityValue: 0.6,
     scaleValue: 1.02,
     scanColor: "#4dabf7",
+    overlayOpacity: 0.4,
   },
   aligned: {
-    message: "Ready to capture!",
-    icon: "check-circle",
     colorValue: 1,
-    opacityValue: 0.8,
-    scaleValue: 1.02, // Base scale before pulse
+    scaleValue: 1.02,
     scanColor: "#37D05C",
+    overlayOpacity: 0.5,
   },
   capturing: {
-    message: "Capturing document...",
-    icon: "camera",
     colorValue: 1,
-    opacityValue: 0.9,
     scaleValue: 1.05,
     scanColor: "#37D05C",
+    overlayOpacity: 0.6,
   },
 };
 
 interface ScannerOverlayProps {
-  guideText?: string;
   detectionStatus?: "none" | "detecting" | "aligned";
   isCapturing?: boolean;
   onFrameReady?: () => void;
-  showScannerAnimation?: boolean; // New prop to control the visibility of scanner animation
+  showScannerAnimation?: boolean;
 }
 
 export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) => {
   const {
-    guideText = "Position your document",
     detectionStatus = "none",
     isCapturing = false,
     onFrameReady,
-    showScannerAnimation = true, // Default to true for backward compatibility
+    showScannerAnimation = true,
   } = props;
 
   // Refs to store timeouts and track component mounted state
   const frameReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animationsSet = useRef(false);
-  const isMounted = useRef(true); // Track if component is mounted
+  const isMounted = useRef(true);
 
   // Shared values for animations - created once
   const borderWidth = useSharedValue(2);
   const colorAnimation = useSharedValue(0);
   const scaleAnimation = useSharedValue(1);
+  const overlayOpacity = useSharedValue(0.3);
 
   // Status-dependent state
   const [scanColor, setScanColor] = useState("#4dabf7");
@@ -109,13 +98,13 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
     cancelAnimation(borderWidth);
     cancelAnimation(colorAnimation);
     cancelAnimation(scaleAnimation);
+    cancelAnimation(overlayOpacity);
 
-    // Clear any pending timeouts
     if (frameReadyTimeoutRef.current) {
       clearTimeout(frameReadyTimeoutRef.current);
       frameReadyTimeoutRef.current = null;
     }
-  }, [borderWidth, colorAnimation, scaleAnimation]);
+  }, [borderWidth, colorAnimation, scaleAnimation, overlayOpacity]);
 
   // Unified status update function
   const updateStatusVisuals = useCallback(
@@ -129,18 +118,19 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
       const config =
         status === "capturing" ? STATUS_CONFIG.capturing : STATUS_CONFIG[detectionStatus];
 
-      // Update scan color if component is still mounted
       if (isMounted.current) {
         setScanColor(config.scanColor);
       }
 
-      // Apply animations with proper timing - ensure component is mounted
       if (isMounted.current) {
         colorAnimation.value = withTiming(config.colorValue, {
           duration: ANIMATIONS.STATUS_CHANGE.DURATION,
         });
 
-        // Special pulse animation for aligned state
+        overlayOpacity.value = withTiming(config.overlayOpacity, {
+          duration: ANIMATIONS.STATUS_CHANGE.DURATION,
+        });
+
         if (status === "aligned") {
           scaleAnimation.value = withRepeat(
             withSequence(
@@ -159,7 +149,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
         animationsSet.current = true;
       }
     },
-    [cleanupAnimations, detectionStatus, colorAnimation, scaleAnimation]
+    [cleanupAnimations, detectionStatus, colorAnimation, scaleAnimation, overlayOpacity]
   );
 
   // Update based on the component's props
@@ -172,7 +162,6 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
       updateStatusVisuals(detectionStatus);
     }
 
-    // Cleanup on unmount or props change
     return cleanupAnimations;
   }, [detectionStatus, isCapturing, updateStatusVisuals, cleanupAnimations]);
 
@@ -222,10 +211,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
   // Master cleanup effect
   useEffect(() => {
     return () => {
-      // Set mounted flag to false first
       isMounted.current = false;
-
-      // Then run cleanup
       cleanupAnimations();
     };
   }, [cleanupAnimations]);
@@ -245,54 +231,40 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
     };
   });
 
+  // Animated overlay style
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: overlayOpacity.value,
+  }));
+
   // Determine if scanning animation should be shown - memoized
-  // Now respects the showScannerAnimation prop
   const showScanning = useMemo(
     () => showScannerAnimation && (detectionStatus !== "none" || isCapturing),
     [detectionStatus, isCapturing, showScannerAnimation]
   );
 
-  // Compute icon color - memoized
-  const iconColor = useMemo(() => {
-    if (detectionStatus === "aligned" || isCapturing) return "#37D05C";
-    if (detectionStatus === "detecting") return "#4dabf7";
-    return "#f8f9fa";
-  }, [detectionStatus, isCapturing]);
-
   return (
-    <View style={overlayStyles.overlay}>
-      {/* Frame container */}
-      <View style={overlayStyles.frameContainer}>
-        {/* Animated frame */}
-        <Animated.View style={[overlayStyles.frame, frameStyle]}>
-          {/* Scanner animation component */}
-          {showScannerAnimation && (
-            <ScannerAnimation
-              isActive={showScanning}
-              color={scanColor}
-              speed={isCapturing ? 1000 : 1500}
-            />
-          )}
-        </Animated.View>
-      </View>
+    <View style={overlayStyles.container}>
+      <Animated.View style={[overlayStyles.frame, frameStyle]}>
+        <Animated.View style={[overlayStyles.overlay, overlayStyle]} />
+        {showScannerAnimation && (
+          <ScannerAnimation
+            isActive={showScanning}
+            color={scanColor}
+            speed={isCapturing ? 1000 : 1500}
+          />
+        )}
+      </Animated.View>
     </View>
   );
 });
 
 const overlayStyles = StyleSheet.create({
-  overlay: {
+  container: {
     position: "absolute",
-    top: 8,
-    left: 8,
-    right: 8,
-    bottom: 8,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  frameContainer: {
-    width: "100%",
-    height: "100%",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -300,8 +272,15 @@ const overlayStyles = StyleSheet.create({
     width: "100%",
     height: "100%",
     position: "relative",
-    backgroundColor: "rgba(51, 51, 51, 0.1)",
     overflow: "hidden",
     borderRadius: 12,
+  },
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#000",
   },
 });
