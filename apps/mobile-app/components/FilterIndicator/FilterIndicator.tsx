@@ -2,11 +2,10 @@ import { useFilterStore } from "@/stores/useFilterStore";
 import React, { useMemo, useEffect } from "react";
 import { StyleSheet, View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
+import { Filter, FilterX } from "lucide-react-native";
 import Animated, {
-  BounceIn,
-  BounceOut,
   Layout,
-  SlideInRight,
+  SlideInLeft,
   SlideOutLeft,
   FadeIn,
   FadeOut,
@@ -17,6 +16,15 @@ import Animated, {
 
 // Pre-defined animations for reuse
 const SPRING_LAYOUT = Layout.springify();
+const SLIDE_IN = SlideInLeft.springify()
+  .damping(20)  // Increased damping for more controlled movement
+  .mass(1.2)    // Slightly increased mass for more weight feel
+  .stiffness(150); // Reduced stiffness for smoother movement
+const SLIDE_OUT = SlideOutLeft.springify()
+  .damping(20)
+  .mass(1.2)
+  .stiffness(150);
+const FADE_IN = FadeIn.duration(400).delay(100);
 
 interface FilterIndicatorProps {
   position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
@@ -42,17 +50,17 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(({ position =
   const positionStyle = useMemo(() => {
     switch (position) {
       case "top-right":
-        return { top: 50, right: 16 };
+        return { top: 100, left: 16 }; // Middle position
       case "bottom-right":
         return { bottom: 50, right: 16 };
       case "bottom-left":
         return { bottom: 50, left: 16 };
       case "top-left":
-        return { top: 100, left: 16 };
+        return { top: 100, left: 16 }; // Middle position
       case "custom":
         return {};
       default:
-        return { top: 50, left: 16 };
+        return { top: 100, left: 16 }; // Middle position
     }
   }, [position]);
 
@@ -66,24 +74,28 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(({ position =
   const displayContent = useMemo(() => {
     if (isLoading) {
       return {
-        emoji: "⏳",
+        icon: Filter,
         text: "Loading filters...",
         isActive: false,
+        useIcon: true,
       };
     }
 
     if (activeFilters.length === 0) {
       return {
-        emoji: "🌍",
-        text: "",
+        icon: Filter,
+        text: "Showing all",
         isActive: false,
+        useIcon: true,
       };
     } else {
       const filter = activeFilters[0];
       return {
-        emoji: filter.emoji || "🔍",
+        icon: FilterX,
         text: `${filter.name} filter`,
         isActive: true,
+        useIcon: false,
+        emoji: filter.emoji || "🔍",
       };
     }
   }, [activeFilters, isLoading]);
@@ -100,50 +112,45 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(({ position =
   }, [displayContent.isActive]);
 
   // Animated styles for container width and padding
-  const animatedContainerStyle = useAnimatedStyle(() => {
-    if (displayContent.isActive) {
-      // Expanded state: use a pill shape
-      return {
-        width: containerWidth.value, // e.g. animates from 32 to 140
-        height: 40, // fixed height for pill shape
-        paddingHorizontal: 10,
-        justifyContent: "center",
-        alignItems: "center",
-        borderRadius: 20, // half of height for pill curvature
-      };
-    } else {
-      // Collapsed state: force a perfect circle
-      const size = 32; // or containerWidth.value if you want to animate it too
-      return {
-        width: size,
-        height: size,
-        justifyContent: "center",
-        alignItems: "center",
-        borderRadius: size / 2,
-      };
-    }
-  });
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    width: 140, // Match QueueIndicator's maxWidth
+    height: 40,
+    paddingHorizontal: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 16,
+  }));
 
   return (
     <Pressable
       onPress={() => router.push("/filter")}
       style={({ pressed }) => [styles.container, positionStyle, pressed && styles.pressedContainer]}
     >
-      <Animated.View style={[styles.wrapper, animatedContainerStyle]} layout={SPRING_LAYOUT}>
-        <Text style={[styles.emojiText, !displayContent.isActive && styles.centeredEmoji]}>
-          {displayContent.emoji}
-        </Text>
+      <Animated.View
+        style={[styles.indicator, animatedContainerStyle]}
+        layout={SPRING_LAYOUT}
+        entering={SLIDE_IN}
+        exiting={SLIDE_OUT}
+      >
+        <View style={styles.iconContainer}>
+          {displayContent.useIcon ? (
+            React.createElement(displayContent.icon, {
+              size: 16,
+              color: "rgba(255, 255, 255, 0.7)",
+            })
+          ) : (
+            <Text style={styles.emojiText}>{displayContent.emoji}</Text>
+          )}
+        </View>
 
-        {displayContent.text ? (
-          <Animated.View style={styles.contentContainer} entering={FadeIn} exiting={FadeOut}>
-            <Animated.Text
-              style={[styles.filterText, !displayContent.isActive && styles.inactiveText]}
-              numberOfLines={1}
-            >
-              {displayContent.text}
-            </Animated.Text>
-          </Animated.View>
-        ) : null}
+        <Animated.View style={styles.contentContainer} entering={FADE_IN} exiting={FadeOut}>
+          <Animated.Text
+            style={[styles.filterText, !displayContent.isActive && styles.inactiveText]}
+            numberOfLines={1}
+          >
+            {displayContent.text}
+          </Animated.Text>
+        </Animated.View>
       </Animated.View>
     </Pressable>
   );
@@ -159,13 +166,14 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 8,
   },
-  wrapper: {
+  indicator: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(51, 51, 51, 0.92)",
     borderRadius: 16,
     padding: 8,
     paddingRight: 10,
+    maxWidth: 140,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
     overflow: "hidden",
@@ -173,22 +181,18 @@ const styles = StyleSheet.create({
   pressedContainer: {
     transform: [{ scale: 0.98 }],
   },
-  emojiText: {
-    fontSize: 14,
-    textAlign: "center",
-    lineHeight: 16,
-    color: "#f8f9fa",
-  },
-  centeredEmoji: {
-    marginLeft: 0,
-    fontSize: 10,
-    lineHeight: 12,
+  iconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   contentContainer: {
     flexDirection: "column",
     flex: 1,
-    flexShrink: 1,
-    marginLeft: 8,
   },
   filterText: {
     color: "#f8f9fa",
@@ -197,7 +201,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   inactiveText: {
-    color: "rgba(255, 255, 255, 0.6)",
+    color: "#f8f9fa",
+  },
+  emojiText: {
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 16,
+    color: "rgba(255, 255, 255, 0.7)",
   },
 });
 

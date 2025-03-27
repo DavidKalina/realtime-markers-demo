@@ -249,7 +249,7 @@ function HomeScreen() {
           showAnimation={!selectedItem}
         />
         <QueueIndicator position="top-left" />
-        <FilterIndicator position="top-right" />
+        <FilterIndicator position="top-left" />
       </>
     );
   }, [shouldRenderUI, markers.length, isConnected, selectedItem]);

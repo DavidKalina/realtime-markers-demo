@@ -13,6 +13,9 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withTiming,
+  withSpring,
+  SlideInLeft,
+  SlideOutLeft,
 } from "react-native-reanimated";
 
 interface QueueIndicatorProps {
@@ -23,8 +26,8 @@ interface QueueIndicatorProps {
 
 // Pre-defined animations for reuse
 const SPRING_LAYOUT = Layout.springify();
-const BOUNCE_IN = BounceIn.duration(500).springify().damping(12);
-const BOUNCE_OUT = BounceOut.duration(400);
+const SLIDE_IN = SlideInLeft.springify().damping(15).mass(0.8);
+const SLIDE_OUT = SlideOutLeft.springify().damping(15).mass(0.8);
 const FADE_IN = FadeIn.duration(400).delay(100);
 
 // Animation configurations
@@ -35,6 +38,11 @@ const ANIMATION_CONFIG = {
   checkmarkScale: {
     duration: 400,
     easing: Easing.elastic(1.2),
+  },
+  slide: {
+    damping: 15,
+    mass: 0.8,
+    stiffness: 200,
   },
 };
 
@@ -263,17 +271,17 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
     const positionStyle = useMemo(() => {
       switch (position) {
         case "top-right":
-          return { top: 50, right: 16 };
+          return { top: 150, left: 16 }; // Bottom position
         case "bottom-right":
           return { bottom: 50, right: 16 };
         case "bottom-left":
           return { bottom: 50, left: 16 };
         case "top-left":
-          return { top: 100, left: 16 };
+          return { top: 150, left: 16 }; // Bottom position
         case "custom":
           return {};
         default:
-          return { top: 50, left: 16 };
+          return { top: 150, left: 16 }; // Bottom position
       }
     }, [position]);
 
@@ -305,8 +313,8 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
     return (
       <Animated.View
         style={[styles.container, positionStyle]}
-        entering={BOUNCE_IN}
-        exiting={BOUNCE_OUT}
+        entering={SLIDE_IN}
+        exiting={SLIDE_OUT}
         layout={SPRING_LAYOUT}
       >
         <Animated.View style={indicatorStyle} layout={SPRING_LAYOUT}>
@@ -339,7 +347,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(38, 38, 38, 0.85)",
+    backgroundColor: "rgba(51, 51, 51, 0.92)",
     borderRadius: 16,
     padding: 8,
     paddingRight: 10,
@@ -349,7 +357,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 8,
-    maxWidth: 120,
+    maxWidth: 140,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
   },

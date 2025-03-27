@@ -14,8 +14,8 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  BounceIn,
-  BounceOut,
+  SlideInLeft,
+  SlideOutLeft,
 } from "react-native-reanimated";
 
 interface ConnectionIndicatorProps {
@@ -30,8 +30,14 @@ type NotificationType = "none" | "added" | "removed" | "reconnecting" | "connect
 
 // Pre-define animations to avoid recreation - matching QueueIndicator
 const SPRING_LAYOUT = Layout.springify();
-const BOUNCE_IN = BounceIn.duration(500).springify().damping(12);
-const BOUNCE_OUT = BounceOut.duration(400);
+const SLIDE_IN = SlideInLeft.springify()
+  .damping(20)  // Increased damping for more controlled movement
+  .mass(1.2)    // Slightly increased mass for more weight feel
+  .stiffness(150); // Reduced stiffness for smoother movement
+const SLIDE_OUT = SlideOutLeft.springify()
+  .damping(20)
+  .mass(1.2)
+  .stiffness(150);
 const FADE_IN = FadeIn.duration(400).delay(100);
 
 // Animation configurations
@@ -469,7 +475,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
     const positionStyle = useMemo(() => {
       switch (position) {
         case "top-left":
-          return { top: 50, left: 16 };
+          return { top: 50, left: 16 }; // Top position
         case "bottom-right":
           return { bottom: 50, right: 16 };
         case "bottom-left":
@@ -478,7 +484,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
           return {};
         case "top-right":
         default:
-          return { top: 50, right: 16 };
+          return { top: 50, left: 16 }; // Top position
       }
     }, [position]);
 
@@ -516,8 +522,8 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
     return (
       <Animated.View
         style={[styles.container, positionStyle]}
-        entering={BOUNCE_IN}
-        exiting={BOUNCE_OUT}
+        entering={SLIDE_IN}
+        exiting={SLIDE_OUT}
         layout={SPRING_LAYOUT}
       >
         <Animated.View style={indicatorStyle} layout={SPRING_LAYOUT}>
@@ -563,7 +569,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 8,
-    maxWidth: 120,
+    maxWidth: 140,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
   },
