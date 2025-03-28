@@ -75,9 +75,12 @@ export default function UploadScreen() {
         try {
             setUploadProgress(10);
 
+            // For base64 images from document scanner, we need to format it correctly
+            const imageUri = uri.startsWith('data:') ? uri : `data:image/jpeg;base64,${uri}`;
+
             // Create imageFile object for apiClient
             const imageFile = {
-                uri: uri,
+                uri: imageUri,
                 name: "document.jpg",
                 type: "image/jpeg",
             } as any;
@@ -127,7 +130,7 @@ export default function UploadScreen() {
             publish(EventTypes.NOTIFICATION, {
                 timestamp: Date.now(),
                 source: "UploadScreen",
-                message: "Processing document from gallery...",
+                message: "Processing document...",
             });
 
             // Upload the image and process
@@ -136,12 +139,24 @@ export default function UploadScreen() {
             console.error("Gallery image processing failed:", error);
 
             if (isMounted.current) {
-                Alert.alert("Operation Failed", "Failed to process the selected image. Please try again.", [
-                    { text: "OK" },
-                ]);
-
-                setPreviewImage(null);
-                setIsUploading(false);
+                Alert.alert(
+                    "Upload Failed",
+                    "Failed to process the image. Please try again or choose a different image.",
+                    [
+                        {
+                            text: "Try Again",
+                            onPress: () => handleImageSelected(uri)
+                        },
+                        {
+                            text: "Cancel",
+                            style: "cancel",
+                            onPress: () => {
+                                setPreviewImage(null);
+                                setIsUploading(false);
+                            }
+                        }
+                    ]
+                );
             }
         }
     };

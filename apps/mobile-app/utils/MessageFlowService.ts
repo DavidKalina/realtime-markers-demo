@@ -58,6 +58,8 @@ const EMOJI_MAP: Record<string, string> = {
   hotspot: "🔥",
   Customize: "🎨",
   "event hub": "🌟",
+  upload: "📤",
+  "add a new event": "📤",
 };
 
 /**
@@ -154,6 +156,8 @@ export class MessageFlowService {
         return ["Let's see what you've bookmarked for later."];
       case "filter":
         return ["Customize your map experience."];
+      case "upload":
+        return ["Let's add a new event to the map!"];
       default:
         return ["How can I help you with this location?"];
     }

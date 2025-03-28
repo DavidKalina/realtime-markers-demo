@@ -136,12 +136,12 @@ const DEFAULT_AVAILABLE_ACTIONS = ["search", "camera", "upload", "locate", "user
 
 // Icons memo - created once outside the component to avoid recreation
 const ICON_MAP = {
-  search: <SearchIcon size={20} color="#fff" />,
-  camera: <Camera size={20} color="#fff" />,
-  upload: <Upload size={20} color="#fff" />,
-  locate: <Navigation size={20} color="#fff" />,
-  saved: <BookMarkedIcon size={20} color="#fff" />,
-  user: <User size={20} color="#fff" />,
+  search: <SearchIcon size={16} color="#fff" />,
+  camera: <Camera size={16} color="#fff" />,
+  upload: <Upload size={16} color="#fff" />,
+  locate: <Navigation size={16} color="#fff" />,
+  saved: <BookMarkedIcon size={16} color="#fff" />,
+  user: <User size={16} color="#fff" />,
 };
 
 // Label map - created once outside the component
@@ -297,28 +297,18 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
       [animatedStyle, insets.bottom]
     );
 
-    // Calculate content container style - create once
-    const contentContainerStyle = useMemo(
-      () => [
-        globalStyles.scrollableActionsContainer,
-        {
-          justifyContent: "center",
-          flexGrow: 1,
-        },
-      ],
-      []
-    );
-
     return (
       <View style={containerStyle}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={globalStyles.scrollViewContainer}
-          contentContainerStyle={contentContainerStyle as any}
-          removeClippedSubviews={true} // Optimize offscreen rendering
-          keyboardShouldPersistTaps="handled" // Better keyboard handling
-          accessibilityRole="menubar"
+        <View
+          style={[
+            globalStyles.scrollableActionsContainer,
+            {
+              flexDirection: 'row',
+              justifyContent: 'space-around',
+              alignItems: 'center',
+              flex: 1,
+            },
+          ]}
         >
           {scrollableActions.map((action) => (
             <ActionButton
@@ -331,7 +321,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
               disabled={action.disabled}
             />
           ))}
-        </ScrollView>
+        </View>
       </View>
     );
   },

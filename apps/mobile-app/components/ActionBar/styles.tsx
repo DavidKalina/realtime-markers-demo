@@ -32,11 +32,11 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   actionButton: {
-    padding: 8,
-    borderRadius: 10, // Slightly more refined corners
-    marginHorizontal: 6,
-    width: 60,
-    height: 56,
+    padding: 6,
+    borderRadius: 8,
+    marginHorizontal: 4,
+    width: 50,
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",
@@ -56,13 +56,13 @@ export const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   actionButtonLabel: {
-    color: "#adb5bd", // Subtle gray for inactive
-    fontSize: 10,
+    color: "#adb5bd",
+    fontSize: 9,
     fontFamily: "SpaceMono",
-    marginTop: 5,
+    marginTop: 3,
     textAlign: "center",
   },
 
@@ -70,8 +70,8 @@ export const styles = StyleSheet.create({
     color: "#93c5fd", // Match the icon color when active
   },
   actionButtonIcon: {
-    width: 22,
-    height: 22,
+    width: 16,
+    height: 16,
     justifyContent: "center",
     alignItems: "center",
   },

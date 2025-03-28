@@ -144,44 +144,6 @@ export default function ScanScreen() {
 
     try {
       setIsUploading(true);
-
-      const photoUri = await takePicture();
-      if (!photoUri) {
-        throw new Error("No image captured");
-      }
-
-      // Navigate back to map
-      router.replace("/");
-
-    } catch (error) {
-      console.error("Scan failed:", error);
-      if (isMounted.current) {
-        Alert.alert(
-          "Scanner Error",
-          "Failed to process the document. Please try again.",
-          [{
-            text: "Try Again",
-            onPress: handleScan
-          }, {
-            text: "Cancel",
-            onPress: () => router.replace("/"),
-            style: "cancel"
-          }]
-        );
-      }
-    } finally {
-      if (isMounted.current) {
-        setIsUploading(false);
-      }
-    }
-  };
-
-  // Handle image capture - using document scanner
-  const handleCapture = async () => {
-    if (!isMounted.current) return;
-
-    try {
-      setIsUploading(true);
       publish(EventTypes.NOTIFICATION, {
         timestamp: Date.now(),
         source: "ScanScreen",
@@ -199,12 +161,19 @@ export default function ScanScreen() {
         await uploadImageAndQueue(photoUri);
       }
     } catch (error) {
-      console.error("Capture failed:", error);
+      console.error("Scan failed:", error);
       if (isMounted.current) {
         Alert.alert(
           "Scanner Error",
-          "Failed to open the document scanner. Please try again.",
-          [{ text: "OK" }]
+          "Failed to process the document. Please try again.",
+          [{
+            text: "Try Again",
+            onPress: handleScan
+          }, {
+            text: "Cancel",
+            onPress: () => router.replace("/"),
+            style: "cancel"
+          }]
         );
       }
     } finally {

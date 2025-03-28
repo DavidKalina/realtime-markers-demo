@@ -17,7 +17,6 @@ export class DocumentDetectionService {
     if (this.isInitialized) return;
 
     try {
-      // Add explicit initialization if needed
       this.isInitialized = true;
     } catch (error) {
       console.error('Failed to initialize document detection service:', error);
@@ -37,19 +36,19 @@ export class DocumentDetectionService {
 
     try {
       const scanResult = await DocumentScanner.scanDocument({
-        croppedImageQuality: 100,
+        croppedImageQuality: 100, // Maximum quality for QR code detection
         responseType: ResponseType.Base64,
         maxNumDocuments: 1,
-
-
       });
 
       if (scanResult.scannedImages?.[0]) {
+        // Ensure we're returning the base64 string directly
+        const base64Image = scanResult.scannedImages[0];
         return {
           isDetected: true,
           confidence: 1.0,
           corners: [[0, 0], [1, 0], [1, 1], [0, 1]],
-          scannedImage: scanResult.scannedImages[0]
+          scannedImage: base64Image
         };
       }
 
