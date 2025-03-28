@@ -5,7 +5,7 @@ export default {
   expo: {
     name: "MapMoji",
     slug: "mobile-app",
-    version: "1.5.0",
+    version: "1.5.3",
     orientation: "portrait",
     icon: "./assets/images/logo.png",
     scheme: "myapp",
@@ -31,7 +31,7 @@ export default {
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "51",
+      buildNumber: "54",
     },
     android: {
       adaptiveIcon: {
@@ -48,9 +48,24 @@ export default {
       "expo-router",
       "expo-localization",
       [
+        "@sentry/react-native/expo",
+        {
+          url: "https://sentry.io/",
+          organization: process.env.SENTRY_ORG,
+          project: process.env.SENTRY_PROJECT,
+          authToken: process.env.SENTRY_AUTH_TOKEN,
+        },
+      ],
+      [
         "expo-image-picker",
         {
           photosPermission: "The app accesses your photos to let you upload them to save events.",
+        },
+      ],
+      [
+        "react-native-document-scanner-plugin",
+        {
+          cameraPermission: "We need camera access, so you can scan documents",
         },
       ],
       [
