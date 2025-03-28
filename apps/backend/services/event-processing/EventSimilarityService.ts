@@ -23,8 +23,8 @@ export class EventSimilarityService implements IEventSimilarityService {
   constructor(private eventRepository: Repository<Event>, configService?: ConfigService) {
     // Get thresholds from config or use defaults
     this.DUPLICATE_SIMILARITY_THRESHOLD =
-      configService?.get("eventProcessing.similarityThreshold") || 0.72;
-    this.SAME_LOCATION_THRESHOLD = configService?.get("eventProcessing.locationThreshold") || 0.65;
+      configService?.get("eventProcessing.similarityThreshold") || 0.65;
+    this.SAME_LOCATION_THRESHOLD = configService?.get("eventProcessing.locationThreshold") || 0.55;
   }
 
   /**
@@ -67,15 +67,8 @@ export class EventSimilarityService implements IEventSimilarityService {
         pgvector.fromSql(bestMatch.embedding)
       );
 
-      // ---------- TITLE SIMILARITY ----------
-      // Calculate title similarity using Jaccard index for word overlap
-      const titleSimilarity = this.getJaccardSimilarity(
-        eventData.title.toLowerCase(),
-        (bestMatch.title || "").toLowerCase()
-      );
-
       // ---------- LOCATION SIMILARITY ----------
-      // Generate coordinate points for distance calculation
+      // Only consider location if embedding similarity is high enough
       const eventCoords = {
         lat: eventData.coordinates[1],
         lng: eventData.coordinates[0],
@@ -86,79 +79,34 @@ export class EventSimilarityService implements IEventSimilarityService {
         lng: bestMatch.location?.coordinates?.[0] ?? 0,
       };
 
-      // Calculate distance between coordinates in meters
-      const distanceInMeters = this.calculateDistance(eventCoords, matchCoords);
-
-      // Convert distance to a similarity score (closer = higher score)
-      // Events within 100m get a score of 1.0, decreasing as distance increases
-      const locationSimilarity = Math.max(0, Math.min(1, 1 - distanceInMeters / 1000));
-
-      // ---------- DATE SIMILARITY ----------
-      // Check for date similarity if dates are within 1 day
-      const eventDate = new Date(eventData.date);
-      const matchDate = new Date(bestMatch.eventDate || Date.now()); // Fallback to now
-      const dateDiffMs = Math.abs(eventDate.getTime() - matchDate.getTime());
-      const dateDiffDays = dateDiffMs / (1000 * 60 * 60 * 24);
-      const dateSimilarity = dateDiffDays <= 1 ? 1 : Math.max(0, 1 - dateDiffDays / 7);
-
-      // ---------- ADDRESS SIMILARITY ----------
-      // Check if addresses match closely, handling undefined addresses
-      const eventAddress = eventData.address || "";
-      const matchAddress = bestMatch.address || "";
-
-      const addressSimilarity = this.getSimilarityScore(
-        eventAddress.toLowerCase(),
-        matchAddress.toLowerCase()
+      const locationSimilarity = this.calculateLocationSimilarity(
+        eventCoords,
+        matchCoords,
+        new Date(eventData.date),
+        new Date(bestMatch.eventDate || Date.now())
       );
 
-      // ---------- TIMEZONE SIMILARITY ----------
-      // Add timezone matching to improve event comparison
-      const eventTimezone = eventData.timezone || "UTC";
-      const matchTimezone = bestMatch.timezone || "UTC";
-      const timezoneSimilarity = eventTimezone === matchTimezone ? 1.0 : 0.5;
-
       // ---------- COMPOSITE SCORE ----------
-      // Calculate weighted composite score
-      // Prioritize location (35%), then title (25%), then date (20%), then address (10%), timezone (5%), then embedding (5%)
-      const compositeScore =
-        locationSimilarity * 0.35 +
-        titleSimilarity * 0.25 +
-        dateSimilarity * 0.2 +
-        addressSimilarity * 0.1 +
-        timezoneSimilarity * 0.05 +
-        embeddingScore * 0.05;
+      // Use a weighted combination of embedding (80%) and location (20%)
+      const compositeScore = embeddingScore * 0.8 + locationSimilarity * 0.2;
 
       // ---------- MATCH REASON ----------
-      // Determine match reason for transparency
       let matchReason = "";
-
-      if (locationSimilarity > 0.95) {
-        // Essentially same location (within ~50 meters)
-        if (dateSimilarity > 0.9) {
-          matchReason = "Same location and same date";
-          if (titleSimilarity > 0.6) matchReason += " with similar title";
-        } else {
-          matchReason = "Same location, different date";
+      if (embeddingScore > 0.85) {
+        matchReason = "Very similar content";
+        if (locationSimilarity > 0.8) {
+          matchReason += " at same location";
         }
-      } else if (locationSimilarity > 0.8 && dateSimilarity > 0.9) {
-        matchReason = "Same date at nearby location";
-      } else if (titleSimilarity > 0.8 && dateSimilarity > 0.8) {
-        matchReason = "Similar title on same date";
-      } else if (embeddingScore > 0.85) {
-        matchReason = "Very similar overall content";
-      } else if (compositeScore > 0.78) {
+      } else if (embeddingScore > 0.75 && locationSimilarity > 0.9) {
+        matchReason = "Similar content at same location";
+      } else if (compositeScore > 0.7) {
         matchReason = "Multiple similarity factors";
       }
 
       // Store detailed match data for logging
       const matchDetails = {
-        distance: `${distanceInMeters.toFixed(0)} meters`,
+        distance: `${this.calculateDistance(eventCoords, matchCoords).toFixed(0)} meters`,
         locationSimilarity: locationSimilarity.toFixed(2),
-        titleSimilarity: titleSimilarity.toFixed(2),
-        dateSimilarity: dateSimilarity.toFixed(2),
-        dateDiffDays: dateDiffDays.toFixed(1),
-        addressSimilarity: addressSimilarity.toFixed(2),
-        timezoneSimilarity: timezoneSimilarity.toFixed(2),
         embeddingScore: embeddingScore.toFixed(2),
         compositeScore: compositeScore.toFixed(2),
         timezone: eventData.timezone,
@@ -203,12 +151,16 @@ export class EventSimilarityService implements IEventSimilarityService {
   public isDuplicate(similarityResult: SimilarityResult, threshold?: number): boolean {
     // Use provided threshold or default
     const duplicateThreshold = threshold || this.DUPLICATE_SIMILARITY_THRESHOLD;
-    const locationThreshold = this.SAME_LOCATION_THRESHOLD;
 
+    // Consider it a duplicate if:
+    // 1. High embedding similarity (>0.85) OR
+    // 2. Good composite score (>threshold) with high location similarity (>0.8)
     return !!(
-      (similarityResult.score > duplicateThreshold && !!similarityResult.matchingEventId) ||
-      (similarityResult.matchReason?.includes("Same location") &&
-        similarityResult.score > locationThreshold)
+      (similarityResult.matchDetails?.embeddingScore &&
+        parseFloat(similarityResult.matchDetails.embeddingScore) > 0.85) ||
+      (similarityResult.score > duplicateThreshold &&
+        similarityResult.matchDetails?.locationSimilarity &&
+        parseFloat(similarityResult.matchDetails.locationSimilarity) > 0.8)
     );
   }
 
@@ -220,47 +172,6 @@ export class EventSimilarityService implements IEventSimilarityService {
   public async handleDuplicateScan(eventId: string): Promise<void> {
     await this.eventRepository.increment({ id: eventId }, "scanCount", 1);
     console.log(`Incremented scan count for duplicate event: ${eventId}`);
-  }
-
-  // Helper method to calculate Jaccard similarity for text
-  private getJaccardSimilarity(text1: string, text2: string): number {
-    // Handle undefined or empty inputs
-    if (!text1 || !text2) return 0;
-
-    // Convert texts to word sets
-    const words1 = new Set(text1.split(/\s+/).filter(Boolean));
-    const words2 = new Set(text2.split(/\s+/).filter(Boolean));
-
-    // Handle empty sets
-    if (words1.size === 0 || words2.size === 0) return 0;
-
-    // Count intersection and union
-    const intersection = new Set([...words1].filter((word) => words2.has(word)));
-    const union = new Set([...words1, ...words2]);
-
-    // Return Jaccard index
-    return intersection.size / union.size;
-  }
-
-  // Helper method to calculate string similarity
-  private getSimilarityScore(str1: string, str2: string): number {
-    if (!str1 || !str2) return 0;
-
-    // Simple implementation - calculate percentage of matching words
-    const words1 = str1.split(/\s+/).filter(Boolean);
-    const words2 = str2.split(/\s+/).filter(Boolean);
-
-    // Handle empty strings
-    if (words1.length === 0 || words2.length === 0) return 0;
-
-    // Count matching words
-    let matches = 0;
-    for (const word of words1) {
-      if (words2.includes(word)) matches++;
-    }
-
-    // Return percentage of matches
-    return matches / Math.max(words1.length, words2.length);
   }
 
   // Helper method to calculate distance between coordinates in meters
@@ -291,6 +202,44 @@ export class EventSimilarityService implements IEventSimilarityService {
     const distance = R * c;
 
     return distance; // Distance in meters
+  }
+
+  // Helper method to calculate location similarity score
+  private calculateLocationSimilarity(
+    coords1: { lat: number; lng: number },
+    coords2: { lat: number; lng: number },
+    eventDate1: Date,
+    eventDate2: Date
+  ): number {
+    const distance = this.calculateDistance(coords1, coords2);
+
+    // Calculate time difference in hours
+    const timeDiffHours = Math.abs(eventDate1.getTime() - eventDate2.getTime()) / (1000 * 60 * 60);
+
+    // Define distance thresholds based on time difference
+    let maxDistance: number;
+    if (timeDiffHours <= 1) {
+      // Same hour: very strict (50m)
+      maxDistance = 50;
+    } else if (timeDiffHours <= 24) {
+      // Same day: moderate (200m)
+      maxDistance = 200;
+    } else if (timeDiffHours <= 168) {
+      // 1 week
+      // Same week: more lenient (500m)
+      maxDistance = 500;
+    } else {
+      // Different weeks: most lenient (1000m)
+      maxDistance = 1000;
+    }
+
+    // Calculate similarity score with exponential decay
+    const similarity = Math.exp(-distance / maxDistance);
+
+    // Add a small penalty for time difference
+    const timePenalty = Math.min(1, timeDiffHours / 24);
+
+    return similarity * (1 - timePenalty * 0.2); // 20% max penalty for time difference
   }
 
   // Helper method to calculate cosine similarity between vectors
