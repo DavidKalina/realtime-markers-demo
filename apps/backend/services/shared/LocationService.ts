@@ -95,47 +95,49 @@ export class EnhancedLocationService {
       };
     }
 
-    // Not in cache, proceed with inference
-    const address = await this.inferAddressFromClues(clues, userCityState, userCoordinates);
-
-    // If address was inferred successfully, geocode it
-    if (address) {
-      const coordinates = await this.geocodeAddress(address);
-      const confidence = this.calculateAddressConfidence(clues, address);
-
-      // Get timezone for these coordinates
-      const timezone = await this.getTimezoneFromCoordinates(coordinates[1], coordinates[0]);
-      console.log(`Resolved timezone: ${timezone} for coordinates [${coordinates}]`);
-
-      // Store in cache with timezone
-      this.locationCache.set(cluesFingerprint, {
-        cluesHash: cluesFingerprint,
-        address,
-        coordinates,
-        timestamp: Date.now(),
-        confidence,
-        timezone,
-      });
-
-      return { address, coordinates, confidence, timezone };
-    }
-
-    // Fallback to user coordinates or default
-    const fallbackCoords = userCoordinates
+    // If we have user coordinates, use them as the default location
+    const defaultCoords = userCoordinates
       ? ([userCoordinates.lng, userCoordinates.lat] as [number, number])
       : ([-111.6585, 40.2338] as [number, number]); // Default to Provo
 
-    // Get timezone for fallback coordinates
-    const fallbackTimezone = await this.getTimezoneFromCoordinates(
-      fallbackCoords[1],
-      fallbackCoords[0]
-    );
+    // Try to infer address from clues
+    const address = await this.inferAddressFromClues(clues, userCityState, userCoordinates);
+    let coordinates = defaultCoords;
+    let confidence = 0.1; // Start with low confidence
+
+    // Only proceed with geocoding if we have a valid address
+    if (address) {
+      const geocodedCoords = await this.geocodeAddress(address);
+      const addressConfidence = this.calculateAddressConfidence(clues, address);
+
+      // Only use the geocoded address if confidence is high enough
+      if (addressConfidence >= 0.7) {
+        coordinates = geocodedCoords;
+        confidence = addressConfidence;
+      } else {
+        console.log("Address confidence too low, using user coordinates");
+      }
+    }
+
+    // Get timezone for the coordinates
+    const timezone = await this.getTimezoneFromCoordinates(coordinates[1], coordinates[0]);
+    console.log(`Resolved timezone: ${timezone} for coordinates [${coordinates}]`);
+
+    // Store in cache with timezone
+    this.locationCache.set(cluesFingerprint, {
+      cluesHash: cluesFingerprint,
+      address: confidence >= 0.7 ? address : "", // Only store address if confidence is high
+      coordinates,
+      timestamp: Date.now(),
+      confidence,
+      timezone,
+    });
 
     return {
-      address: "",
-      coordinates: fallbackCoords,
-      confidence: 0.1,
-      timezone: fallbackTimezone,
+      address: confidence >= 0.7 ? address : "", // Only return address if confidence is high
+      coordinates,
+      confidence,
+      timezone,
     };
   }
 
@@ -285,26 +287,33 @@ If you cannot determine an address with high confidence, respond only with "UNKN
   private calculateAddressConfidence(clues: string[], address: string): number {
     if (!address) return 0;
 
-    // Base confidence starts at 0.5
-    let confidence = 0.5;
+    // Base confidence starts at 0.3 (lower base confidence)
+    let confidence = 0.3;
 
     // Increase confidence if address contains direct matches to clues
     for (const clue of clues) {
       if (clue && address.toLowerCase().includes(clue.toLowerCase())) {
-        confidence += 0.1;
+        confidence += 0.15; // Increased weight for direct matches
       }
     }
 
-    // Check for address completeness
+    // Check for address completeness with higher weights
     const hasStreetNumber = /^\d+\s/.test(address);
     const hasStreetName = /\d+\s+[A-Za-z\s]+/.test(address);
     const hasCityState = /[A-Za-z\s]+,\s*[A-Z]{2}/.test(address);
     const hasZip = /\d{5}(?:-\d{4})?$/.test(address);
 
-    if (hasStreetNumber) confidence += 0.1;
-    if (hasStreetName) confidence += 0.1;
-    if (hasCityState) confidence += 0.1;
-    if (hasZip) confidence += 0.1;
+    if (hasStreetNumber) confidence += 0.15;
+    if (hasStreetName) confidence += 0.15;
+    if (hasCityState) confidence += 0.15;
+    if (hasZip) confidence += 0.15;
+
+    // Additional validation for common address patterns
+    const hasValidStreetPattern =
+      /^\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Boulevard|Blvd|Road|Rd|Lane|Ln|Drive|Dr|Court|Ct|Circle|Cir|Way|Place|Pl)/.test(
+        address
+      );
+    if (hasValidStreetPattern) confidence += 0.1;
 
     // Cap at 1.0
     return Math.min(1.0, confidence);

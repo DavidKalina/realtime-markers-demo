@@ -23,8 +23,8 @@ export class EventSimilarityService implements IEventSimilarityService {
   constructor(private eventRepository: Repository<Event>, configService?: ConfigService) {
     // Get thresholds from config or use defaults
     this.DUPLICATE_SIMILARITY_THRESHOLD =
-      configService?.get("eventProcessing.similarityThreshold") || 0.72;
-    this.SAME_LOCATION_THRESHOLD = configService?.get("eventProcessing.locationThreshold") || 0.65;
+      configService?.get("eventProcessing.similarityThreshold") || 0.65;
+    this.SAME_LOCATION_THRESHOLD = configService?.get("eventProcessing.locationThreshold") || 0.55;
   }
 
   /**
@@ -86,12 +86,13 @@ export class EventSimilarityService implements IEventSimilarityService {
         lng: bestMatch.location?.coordinates?.[0] ?? 0,
       };
 
-      // Calculate distance between coordinates in meters
-      const distanceInMeters = this.calculateDistance(eventCoords, matchCoords);
-
-      // Convert distance to a similarity score (closer = higher score)
-      // Events within 100m get a score of 1.0, decreasing as distance increases
-      const locationSimilarity = Math.max(0, Math.min(1, 1 - distanceInMeters / 1000));
+      // Calculate location similarity using the new method
+      const locationSimilarity = this.calculateLocationSimilarity(
+        eventCoords,
+        matchCoords,
+        new Date(eventData.date),
+        new Date(bestMatch.eventDate || Date.now())
+      );
 
       // ---------- DATE SIMILARITY ----------
       // Check for date similarity if dates are within 1 day
@@ -119,20 +120,23 @@ export class EventSimilarityService implements IEventSimilarityService {
 
       // ---------- COMPOSITE SCORE ----------
       // Calculate weighted composite score
-      // Prioritize location (35%), then title (25%), then date (20%), then address (10%), timezone (5%), then embedding (5%)
+      // Prioritize semantic similarity (embedding) (35%), title (25%), location (20%), date (10%), address (7%), timezone (3%)
       const compositeScore =
-        locationSimilarity * 0.35 +
+        embeddingScore * 0.35 +
         titleSimilarity * 0.25 +
-        dateSimilarity * 0.2 +
-        addressSimilarity * 0.1 +
-        timezoneSimilarity * 0.05 +
-        embeddingScore * 0.05;
+        locationSimilarity * 0.2 +
+        dateSimilarity * 0.1 +
+        addressSimilarity * 0.07 +
+        timezoneSimilarity * 0.03;
 
       // ---------- MATCH REASON ----------
       // Determine match reason for transparency
       let matchReason = "";
 
-      if (locationSimilarity > 0.95) {
+      if (embeddingScore > 0.85) {
+        matchReason = "Very similar content";
+        if (titleSimilarity > 0.7) matchReason += " with matching title";
+      } else if (locationSimilarity > 0.95) {
         // Essentially same location (within ~50 meters)
         if (dateSimilarity > 0.9) {
           matchReason = "Same location and same date";
@@ -140,19 +144,15 @@ export class EventSimilarityService implements IEventSimilarityService {
         } else {
           matchReason = "Same location, different date";
         }
-      } else if (locationSimilarity > 0.8 && dateSimilarity > 0.9) {
-        matchReason = "Same date at nearby location";
       } else if (titleSimilarity > 0.8 && dateSimilarity > 0.8) {
         matchReason = "Similar title on same date";
-      } else if (embeddingScore > 0.85) {
-        matchReason = "Very similar overall content";
-      } else if (compositeScore > 0.78) {
+      } else if (compositeScore > 0.75) {
         matchReason = "Multiple similarity factors";
       }
 
       // Store detailed match data for logging
       const matchDetails = {
-        distance: `${distanceInMeters.toFixed(0)} meters`,
+        distance: `${this.calculateDistance(eventCoords, matchCoords).toFixed(0)} meters`,
         locationSimilarity: locationSimilarity.toFixed(2),
         titleSimilarity: titleSimilarity.toFixed(2),
         dateSimilarity: dateSimilarity.toFixed(2),
@@ -227,9 +227,19 @@ export class EventSimilarityService implements IEventSimilarityService {
     // Handle undefined or empty inputs
     if (!text1 || !text2) return 0;
 
-    // Convert texts to word sets
-    const words1 = new Set(text1.split(/\s+/).filter(Boolean));
-    const words2 = new Set(text2.split(/\s+/).filter(Boolean));
+    // Normalize text: remove special characters, convert to lowercase, and split into words
+    const normalizeText = (text: string) => {
+      return text
+        .toLowerCase()
+        .replace(/[^\w\s]/g, "") // Remove special characters
+        .replace(/\s+/g, " ") // Normalize whitespace
+        .trim()
+        .split(" ")
+        .filter((word) => word.length > 2); // Filter out very short words
+    };
+
+    const words1 = new Set(normalizeText(text1));
+    const words2 = new Set(normalizeText(text2));
 
     // Handle empty sets
     if (words1.size === 0 || words2.size === 0) return 0;
@@ -238,8 +248,78 @@ export class EventSimilarityService implements IEventSimilarityService {
     const intersection = new Set([...words1].filter((word) => words2.has(word)));
     const union = new Set([...words1, ...words2]);
 
-    // Return Jaccard index
-    return intersection.size / union.size;
+    // Calculate Jaccard index
+    const jaccardIndex = intersection.size / union.size;
+
+    // Add fuzzy matching for similar words
+    let fuzzyMatches = 0;
+    for (const word1 of words1) {
+      for (const word2 of words2) {
+        if (this.areWordsSimilar(word1, word2)) {
+          fuzzyMatches++;
+        }
+      }
+    }
+
+    // Combine exact and fuzzy matches
+    const fuzzyScore = fuzzyMatches / (words1.size * words2.size);
+    return Math.max(jaccardIndex, fuzzyScore);
+  }
+
+  // Helper method to check if two words are similar
+  private areWordsSimilar(word1: string, word2: string): boolean {
+    // Skip if words are too different in length
+    if (Math.abs(word1.length - word2.length) > 2) return false;
+
+    // Check for common prefixes/suffixes
+    const commonPrefixes = ["un", "re", "in", "dis", "en", "em"];
+    const commonSuffixes = ["ing", "ed", "er", "est", "s", "es"];
+
+    // Remove common prefixes/suffixes for comparison
+    let w1 = word1;
+    let w2 = word2;
+
+    for (const prefix of commonPrefixes) {
+      if (w1.startsWith(prefix)) w1 = w1.slice(prefix.length);
+      if (w2.startsWith(prefix)) w2 = w2.slice(prefix.length);
+    }
+
+    for (const suffix of commonSuffixes) {
+      if (w1.endsWith(suffix)) w1 = w1.slice(0, -suffix.length);
+      if (w2.endsWith(suffix)) w2 = w2.slice(0, -suffix.length);
+    }
+
+    // Calculate Levenshtein distance
+    const distance = this.levenshteinDistance(w1, w2);
+    return distance <= 2; // Words are similar if Levenshtein distance is 2 or less
+  }
+
+  // Helper method to calculate Levenshtein distance
+  private levenshteinDistance(str1: string, str2: string): number {
+    const m = str1.length;
+    const n = str2.length;
+    const dp: number[][] = Array(m + 1)
+      .fill(null)
+      .map(() => Array(n + 1).fill(0));
+
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (str1[i - 1] === str2[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1];
+        } else {
+          dp[i][j] = Math.min(
+            dp[i - 1][j - 1] + 1, // substitution
+            dp[i - 1][j] + 1, // deletion
+            dp[i][j - 1] + 1 // insertion
+          );
+        }
+      }
+    }
+
+    return dp[m][n];
   }
 
   // Helper method to calculate string similarity
@@ -291,6 +371,44 @@ export class EventSimilarityService implements IEventSimilarityService {
     const distance = R * c;
 
     return distance; // Distance in meters
+  }
+
+  // Helper method to calculate location similarity score
+  private calculateLocationSimilarity(
+    coords1: { lat: number; lng: number },
+    coords2: { lat: number; lng: number },
+    eventDate1: Date,
+    eventDate2: Date
+  ): number {
+    const distance = this.calculateDistance(coords1, coords2);
+
+    // Calculate time difference in hours
+    const timeDiffHours = Math.abs(eventDate1.getTime() - eventDate2.getTime()) / (1000 * 60 * 60);
+
+    // Define distance thresholds based on time difference
+    let maxDistance: number;
+    if (timeDiffHours <= 1) {
+      // Same hour: very strict (50m)
+      maxDistance = 50;
+    } else if (timeDiffHours <= 24) {
+      // Same day: moderate (200m)
+      maxDistance = 200;
+    } else if (timeDiffHours <= 168) {
+      // 1 week
+      // Same week: more lenient (500m)
+      maxDistance = 500;
+    } else {
+      // Different weeks: most lenient (1000m)
+      maxDistance = 1000;
+    }
+
+    // Calculate similarity score with exponential decay
+    const similarity = Math.exp(-distance / maxDistance);
+
+    // Add a small penalty for time difference
+    const timePenalty = Math.min(1, timeDiffHours / 24);
+
+    return similarity * (1 - timePenalty * 0.2); // 20% max penalty for time difference
   }
 
   // Helper method to calculate cosine similarity between vectors
