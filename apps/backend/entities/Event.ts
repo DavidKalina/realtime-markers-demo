@@ -108,6 +108,12 @@ export class Event {
   @Column({ name: "original_image_url", type: "text", nullable: true })
   originalImageUrl?: string;
 
+  @Column({ name: "last_update_timestamp", type: "timestamptz", nullable: true })
+  lastUpdateTimestamp?: Date;
+
+  @Column({ name: "update_count", type: "integer", default: 0 })
+  updateCount!: number;
+
   // Link to creator user
   @Column({ name: "creator_id", type: "uuid", nullable: true })
   creatorId?: string;

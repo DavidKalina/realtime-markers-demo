@@ -16,6 +16,8 @@ import type {
 import { ProgressReportingService } from "./event-processing/ProgressReportingService";
 import { EmbeddingService, type EmbeddingInput } from "./shared/EmbeddingService";
 import type { JobQueue } from "./JobQueue";
+import type { Event } from "../entities/Event";
+import { Repository } from "typeorm";
 
 interface LocationContext {
   userCoordinates?: { lat: number; lng: number };
@@ -50,6 +52,7 @@ export class EventProcessingService {
   private embeddingService: IEmbeddingService;
   private progressReportingService: IProgressReportingService;
   private jobQueue?: JobQueue; // Store JobQueue instance
+  private eventRepository: Repository<Event>;
 
   constructor(private dependencies: IEventProcessingServiceDependencies) {
     // Initialize the image processing service (use provided or create new one)
@@ -79,6 +82,7 @@ export class EventProcessingService {
       dependencies.progressReportingService || new ProgressReportingService();
 
     this.jobQueue = dependencies.jobQueue;
+    this.eventRepository = dependencies.eventRepository;
   }
 
   public createWorkflow(
@@ -104,7 +108,7 @@ export class EventProcessingService {
     imageData: Buffer | string,
     progressCallback?: ProgressCallback,
     locationContext?: LocationContext,
-    jobId?: string // Add jobId parameter
+    jobId?: string
   ): Promise<ScanResult> {
     // Create a workflow with the standard processing steps
     const workflow = this.createWorkflow(jobId, progressCallback);
@@ -128,19 +132,12 @@ export class EventProcessingService {
         qrCodeData: visionResult.qrCodeData || "[Content not readable]",
       });
     } else {
-      // Regular progress update if no QR detected
       await workflow.updateProgress(3, "Image analyzed successfully", {
         confidence: visionResult.confidence,
       });
     }
 
-    // Report progress after vision processing
-    await workflow.updateProgress(3, "Image analyzed successfully", {
-      confidence: visionResult.confidence,
-    });
-
     // Step 3: Extract event details
-    // Use the EventExtractionService to extract details from the text
     const extractionResult = await this.eventExtractionService.extractEventDetails(extractedText, {
       userCoordinates: locationContext?.userCoordinates,
       organizationHints: locationContext?.organizationHints,
@@ -156,13 +153,9 @@ export class EventProcessingService {
 
     // Step 4: Generate embeddings
     await workflow.updateProgress(5, "Generating text embeddings...");
-
-    // Generate embeddings with the structured event details
-    // This will properly weight location, title, date, etc.
     const finalEmbedding = await this.generateEmbedding(eventDetailsWithCategories);
 
     // Step 5: Find similar events
-    // Check for similar events using the event similarity service
     const similarity = await this.dependencies.eventSimilarityService.findSimilarEvents(
       finalEmbedding,
       {
@@ -180,17 +173,46 @@ export class EventProcessingService {
 
     // Handle duplicate if found
     if (isDuplicate && similarity.matchingEventId) {
-      await this.dependencies.eventSimilarityService.handleDuplicateScan(
-        similarity.matchingEventId
-      );
-
-      await workflow.updateProgress(5, "Duplicate event detected!", {
-        isDuplicate: true,
-        matchingEventId: similarity.matchingEventId,
-        similarityScore: similarity.score.toFixed(2),
-        matchReason: similarity.matchReason || "High similarity score",
-        matchDetails: similarity.matchDetails || {},
+      // Get the existing event
+      const existingEvent = await this.dependencies.eventRepository.findOne({
+        where: { id: similarity.matchingEventId },
       });
+
+      if (existingEvent) {
+        // Calculate confidence for this scan
+        const scanConfidence = this.calculateScanConfidence(
+          visionResult.confidence,
+          similarity.score,
+          eventDetailsWithCategories
+        );
+
+        // If this scan has higher confidence, merge the data
+        if (scanConfidence > (existingEvent.confidenceScore || 0)) {
+          await this.mergeHigherConfidenceData(existingEvent, {
+            ...eventDetailsWithCategories,
+            confidenceScore: scanConfidence,
+            qrDetectedInImage: visionResult.qrCodeDetected || false,
+            detectedQrData: visionResult.qrCodeData,
+            originalImageUrl: jobId ? `original-flyers/${jobId}` : undefined,
+            eventDate: new Date(eventDetailsWithCategories.date),
+            endDate: eventDetailsWithCategories.endDate
+              ? new Date(eventDetailsWithCategories.endDate)
+              : undefined,
+          });
+        }
+
+        await this.dependencies.eventSimilarityService.handleDuplicateScan(
+          similarity.matchingEventId
+        );
+
+        await workflow.updateProgress(5, "Duplicate event detected!", {
+          isDuplicate: true,
+          matchingEventId: similarity.matchingEventId,
+          similarityScore: similarity.score.toFixed(2),
+          matchReason: similarity.matchReason || "High similarity score",
+          matchDetails: similarity.matchDetails || {},
+        });
+      }
     }
 
     // Step 6: Complete processing
@@ -231,6 +253,126 @@ export class EventProcessingService {
 
       // Generate a structured embedding
       return await this.embeddingService.getStructuredEmbedding(input);
+    }
+  }
+
+  // Helper method to calculate overall scan confidence
+  private calculateScanConfidence(
+    visionConfidence: number,
+    similarityScore: number,
+    eventDetails: any
+  ): number {
+    // Base confidence from vision analysis
+    let confidence = visionConfidence * 0.4;
+
+    // Add confidence from similarity score
+    confidence += similarityScore * 0.3;
+
+    // Add confidence from completeness of event details
+    const completenessScore = this.calculateEventCompleteness(eventDetails);
+    confidence += completenessScore * 0.3;
+
+    return Math.min(1.0, confidence);
+  }
+
+  // Helper method to calculate how complete the event details are
+  private calculateEventCompleteness(eventDetails: any): number {
+    let score = 0;
+    const weights = {
+      title: 0.2,
+      description: 0.2,
+      date: 0.2,
+      location: 0.2,
+      categories: 0.1,
+      address: 0.1,
+    };
+
+    if (eventDetails.title) score += weights.title;
+    if (eventDetails.description) score += weights.description;
+    if (eventDetails.date) score += weights.date;
+    if (eventDetails.location) score += weights.location;
+    if (eventDetails.categories?.length) score += weights.categories;
+    if (eventDetails.address) score += weights.address;
+
+    return score;
+  }
+
+  // Helper method to merge higher confidence data
+  private async mergeHigherConfidenceData(
+    existingEvent: Event,
+    newData: {
+      title: string;
+      description?: string;
+      eventDate: Date;
+      endDate?: Date;
+      location: Point;
+      address?: string;
+      timezone?: string;
+      categories?: Category[];
+      confidenceScore: number;
+      qrDetectedInImage: boolean;
+      detectedQrData?: string;
+      originalImageUrl?: string;
+    }
+  ): Promise<void> {
+    // Check if we can update this event
+    const now = new Date();
+    const lastUpdate = existingEvent.lastUpdateTimestamp || existingEvent.createdAt;
+    const hoursSinceLastUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
+
+    // Rate limiting rules:
+    // 1. Minimum 24 hours between updates
+    // 2. Maximum 5 updates per event
+    const MIN_HOURS_BETWEEN_UPDATES = 24;
+    const MAX_UPDATES = 5;
+
+    if (hoursSinceLastUpdate < MIN_HOURS_BETWEEN_UPDATES) {
+      console.log(
+        `Skipping update - too soon since last update (${hoursSinceLastUpdate.toFixed(1)} hours)`
+      );
+      return;
+    }
+
+    if (existingEvent.updateCount >= MAX_UPDATES) {
+      console.log(`Skipping update - max updates (${MAX_UPDATES}) reached`);
+      return;
+    }
+
+    // Only update fields if new data has higher confidence
+    if (newData.confidenceScore > (existingEvent.confidenceScore || 0)) {
+      // Update basic fields
+      existingEvent.title = newData.title;
+      existingEvent.description = newData.description || existingEvent.description;
+      existingEvent.eventDate = newData.eventDate;
+      existingEvent.endDate = newData.endDate || existingEvent.endDate;
+      existingEvent.location = newData.location;
+      existingEvent.address = newData.address || existingEvent.address;
+      existingEvent.timezone = newData.timezone || existingEvent.timezone;
+      existingEvent.confidenceScore = newData.confidenceScore;
+
+      // Update QR code related fields if new scan has QR code
+      if (newData.qrDetectedInImage) {
+        existingEvent.qrDetectedInImage = true;
+        existingEvent.detectedQrData = newData.detectedQrData;
+        existingEvent.hasQrCode = true;
+      }
+
+      // Update original image if new one is available
+      if (newData.originalImageUrl) {
+        existingEvent.originalImageUrl = newData.originalImageUrl;
+      }
+
+      // Update categories if new ones are available
+      if (newData.categories?.length) {
+        existingEvent.categories = newData.categories;
+      }
+
+      // Update tracking fields
+      existingEvent.lastUpdateTimestamp = now;
+      existingEvent.updateCount += 1;
+
+      // Save the updated event
+      await this.dependencies.eventRepository.save(existingEvent);
     }
   }
 }

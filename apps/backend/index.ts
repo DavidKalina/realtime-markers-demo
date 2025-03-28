@@ -175,6 +175,7 @@ async function initializeServices() {
     imageProcessingService,
     configService,
     eventExtractionService,
+    eventRepository,
   });
 
   // Initialize the UserPreferencesService

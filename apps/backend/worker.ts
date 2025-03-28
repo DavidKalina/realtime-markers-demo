@@ -86,6 +86,7 @@ async function initializeWorker() {
     configService,
     eventExtractionService,
     jobQueue,
+    eventRepository,
   };
 
   const eventProcessingService = new EventProcessingService(eventProcessingDependencies);
@@ -328,11 +329,10 @@ async function initializeWorker() {
 
           // Increment the user's scan count if they are the creator
           if (job.data.creatorId) {
-            await AppDataSource
-              .createQueryBuilder()
+            await AppDataSource.createQueryBuilder()
               .update(User)
               .set({
-                scanCount: () => "scan_count + 1"
+                scanCount: () => "scan_count + 1",
               })
               .where("id = :userId", { userId: job.data.creatorId })
               .execute();

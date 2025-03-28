@@ -9,6 +9,8 @@ import type { IEventExtractionService } from "./IEventExtractionService";
 import type { IImageProcessingService } from "./IImageProcesssingService";
 import type { IProgressReportingService } from "./IProgressReportingService";
 import type { JobQueue } from "../../JobQueue";
+import type { Repository } from "typeorm";
+import type { Event } from "../../../entities/Event";
 
 /**
  * Interface for EventProcessingService dependencies
@@ -57,5 +59,13 @@ export interface IEventProcessingServiceDependencies {
    */
   configService?: ConfigService;
 
+  /**
+   * Job queue service
+   */
   jobQueue?: JobQueue;
+
+  /**
+   * Repository for Event entities
+   */
+  eventRepository: Repository<Event>;
 }
