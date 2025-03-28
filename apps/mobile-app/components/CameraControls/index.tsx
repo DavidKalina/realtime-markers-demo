@@ -12,8 +12,8 @@ interface CameraControlsProps {
   onImageSelected: (uri: string) => void;
   isCapturing?: boolean;
   isReady?: boolean;
-  flashMode: FlashMode;
-  onFlashToggle: () => void;
+  flashMode?: FlashMode;
+  onFlashToggle?: () => void;
   disabled?: boolean;
 }
 
@@ -55,20 +55,22 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.controlsContainer}>
-        {/* Left - Flash button */}
-        <View style={styles.sideContainer}>
-          <TouchableOpacity
-            style={[styles.flashButton, { borderColor: getFlashColor() }]}
-            onPress={onFlashToggle}
-            activeOpacity={0.7}
-            disabled={isCapturing || disabled}
-          >
-            <Feather name={getFlashIcon()} size={20} color={getFlashColor()} />
-          </TouchableOpacity>
-        </View>
+        {/* Left - Flash button (only show if onFlashToggle is provided) */}
+        {onFlashToggle && (
+          <View style={styles.sideContainer}>
+            <TouchableOpacity
+              style={[styles.flashButton, { borderColor: getFlashColor() }]}
+              onPress={onFlashToggle}
+              activeOpacity={0.7}
+              disabled={isCapturing || disabled}
+            >
+              <Feather name={getFlashIcon()} size={20} color={getFlashColor()} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Center - Capture button */}
-        <View style={styles.centerContainer}>
+        <View style={[styles.centerContainer, !onFlashToggle && styles.centerContainerNoFlash]}>
           <CaptureButton
             onPress={onCapture}
             isCapturing={isCapturing}
@@ -107,6 +109,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  centerContainerNoFlash: {
+    marginLeft: 50, // Add margin to center the capture button when flash is hidden
   },
   flashButton: {
     width: 40,

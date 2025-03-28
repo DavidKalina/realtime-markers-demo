@@ -39,6 +39,7 @@ export const useCamera = () => {
     isDetected: boolean;
     confidence: number;
     corners?: [[number, number], [number, number], [number, number], [number, number]];
+    scannedImage?: string;
   } | null>(null);
 
   // Permission handling - improved with better state tracking
@@ -182,17 +183,8 @@ export const useCamera = () => {
       }
 
       try {
-        // Get current frame using the correct method
-        const frame = await cameraRef.current.takePicture({
-          quality: 1,
-          base64: true,
-          exif: true,
-          skipProcessing: true,
-        });
-        if (!frame) return;
-
-        // Run document detection with the frame URI
-        const result = await detectionService.current.detectDocument({ uri: frame.uri });
+        // Run document detection with empty URI since we're using the native scanner
+        const result = await detectionService.current.detectDocument({ uri: '' });
         
         if (isMounted.current) {
           setDetectionResult(result);
@@ -222,7 +214,7 @@ export const useCamera = () => {
     return stopDocumentDetection;
   }, [isCameraReady, isCameraActive, startDocumentDetection, stopDocumentDetection]);
 
-  // Take picture - robust version with better error handling and flash support
+  // Take picture - updated to use document scanner
   const takePicture = async (): Promise<string | null> => {
     if (!cameraRef.current) {
       return null;
@@ -243,23 +235,17 @@ export const useCamera = () => {
     try {
       setIsCapturing(true);
 
-      const photo = await cameraRef.current.takePicture({
-        quality: 1,
-        base64: true,
-        exif: true,
-        skipProcessing: true,
-      });
+      // Use document scanner instead of regular camera
+      const result = await detectionService.current.detectDocument({ uri: '' });
+      
+      if (result.isDetected && result.scannedImage) {
+        return result.scannedImage;
+      }
 
-      // Return the URI directly
-      return photo.uri;
+      return null;
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Failed to capture image";
       console.error("Error capturing image:", error);
-
-      Alert.alert("Error", `${errorMsg}. Please try again.`, [{ text: "OK" }], {
-        cancelable: false,
-      });
-
+      Alert.alert("Error", "Failed to capture image. Please try again.", [{ text: "OK" }]);
       return null;
     } finally {
       setIsCapturing(false);

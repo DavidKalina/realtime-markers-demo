@@ -1,8 +1,7 @@
-// scan.tsx - Updated version with document detection integration
+// scan.tsx - Updated version with document scanner
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import { ImageSelector } from "@/components/ImageSelector";
-import { ScannerOverlay } from "@/components/ScannerOverlay/ScannerOverlay";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
 import { useEventBroker } from "@/hooks/useEventBroker";
@@ -10,7 +9,6 @@ import apiClient from "@/services/ApiClient";
 import { EventTypes } from "@/services/EventBroker";
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { Feather } from "@expo/vector-icons";
-import { CameraView } from "expo-camera";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -24,26 +22,18 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Animated, { FadeIn, SlideInDown, SlideInRight } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 type ImageSource = "camera" | "gallery" | null;
 
 export default function ScanScreen() {
   const {
     hasPermission,
-    cameraRef,
     takePicture,
     processImage,
     isCapturing,
-    isCameraActive,
-    isCameraReady,
-    onCameraReady,
-    releaseCamera,
-    flashMode,
-    toggleFlash,
     permissionRequested,
     checkPermission,
-    detectionResult,
   } = useCamera();
 
   const router = useRouter();
@@ -54,14 +44,8 @@ export default function ScanScreen() {
   const isMounted = useRef(true);
 
   const { userLocation } = useUserLocation();
-
-  // Navigation timer ref
   const navigationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Access job queue store directly
   const addJob = useJobSessionStore((state) => state.addJob);
-
-  // Get the event broker
   const { publish } = useEventBroker();
 
   // Set mounted flag to false when component unmounts
@@ -178,57 +162,30 @@ export default function ScanScreen() {
     }, 500);
   }, []);
 
-  // Handle image capture - improved with better error handling
+  // Handle image capture - simplified for document scanner
   const handleCapture = async () => {
     if (!isMounted.current) return;
 
-    if (!cameraRef.current) {
-      return;
-    }
-
-    if (!isCameraReady) {
-      // Show notification to the user
-      publish(EventTypes.NOTIFICATION, {
-        timestamp: Date.now(),
-        source: "ScanScreen",
-        message: "Camera is initializing, please try again in a moment.",
-      });
-
-      return;
-    }
-
     try {
-      // Take picture
-      const photoUri = await takePicture();
-
-      if (!photoUri || !isMounted.current) {
-        throw new Error("Failed to capture image");
-      }
-
-      // Show the captured image
-      setCapturedImage(photoUri);
-      setImageSource("camera");
-
-      // Start upload process
       setIsUploading(true);
-
-      // Show a notification
       publish(EventTypes.NOTIFICATION, {
         timestamp: Date.now(),
         source: "ScanScreen",
         message: "Processing document...",
       });
 
-      // Upload the image and process
+      const photoUri = await takePicture();
+      if (!photoUri || !isMounted.current) {
+        throw new Error("Failed to capture image");
+      }
+
+      setCapturedImage(photoUri);
+      setImageSource("camera");
       await uploadImageAndQueue(photoUri);
     } catch (error) {
       console.error("Capture failed:", error);
-
       if (isMounted.current) {
-        Alert.alert("Operation Failed", "Failed to process the document. Please try again.", [
-          { text: "OK" },
-        ]);
-
+        Alert.alert("Operation Failed", "Failed to process the document. Please try again.");
         setCapturedImage(null);
         setImageSource(null);
         setIsUploading(false);
@@ -296,7 +253,6 @@ export default function ScanScreen() {
 
     setTimeout(() => {
       if (isMounted.current) {
-        releaseCamera();
         router.replace("/");
       }
     }, 50);
@@ -329,11 +285,10 @@ export default function ScanScreen() {
     );
   }
 
-  // Image preview mode (for both camera captured and gallery selected images)
+  // Image preview mode
   if (capturedImage) {
     return (
       <SafeAreaView style={styles.container}>
-        {/* Header */}
         <Animated.View style={styles.header} entering={FadeIn.duration(300)}>
           <TouchableOpacity
             style={styles.backButton}
@@ -348,37 +303,22 @@ export default function ScanScreen() {
           <Text style={styles.headerTitle}>
             Processing {imageSource === "gallery" ? "Gallery Image" : "Document"}
           </Text>
-
-          <View style={styles.headerIconContainer}>
-            <Feather name="file" size={20} color="#93c5fd" />
-          </View>
         </Animated.View>
 
-        {/* Content area - same structure as camera view for consistency */}
         <View style={styles.contentArea}>
           <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
             <Image source={{ uri: capturedImage }} style={styles.previewImage} />
-
-            {/* Scanner overlay */}
-            <ScannerOverlay
-              detectionStatus={detectionResult?.isDetected ? "aligned" : "detecting"}
-              isCapturing={true}
-              showScannerAnimation={true}
-              detectionResult={detectionResult}
-            />
           </Animated.View>
         </View>
 
-        {/* Empty view to maintain same layout structure */}
         <View style={styles.controlsPlaceholder} />
       </SafeAreaView>
     );
   }
 
-  // Main camera view
+  // Main view - simplified since document scanner provides its own UI
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <Animated.View style={styles.header} entering={FadeIn.duration(300)}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
           <View style={styles.backButtonContainer}>
@@ -386,43 +326,14 @@ export default function ScanScreen() {
           </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Scan Document</Text>
-
-        <View style={styles.headerIconContainer}>
-          <Feather name="camera" size={20} color="#93c5fd" />
-        </View>
       </Animated.View>
 
-      {/* Camera container */}
       <View style={styles.contentArea}>
         <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
-          {isCameraActive ? (
-            <CameraView
-              ref={cameraRef as any}
-              style={styles.camera}
-              onCameraReady={onCameraReady}
-              flash={flashMode}
-            >
-              <ScannerOverlay
-                detectionStatus="aligned"
-                isCapturing={true}
-                showScannerAnimation={true}
-                detectionResult={null}
-              />
-
-              {/* Camera not ready indicator */}
-              {!isCameraReady && (
-                <View style={styles.cameraNotReadyOverlay}>
-                  <ActivityIndicator size="large" color="#ffffff" />
-                  <Text style={styles.cameraNotReadyText}>Initializing camera...</Text>
-                </View>
-              )}
-            </CameraView>
-          ) : (
-            <View style={styles.cameraPlaceholder}>
-              <ActivityIndicator size="large" color="#93c5fd" />
-              <Text style={styles.cameraPlaceholderText}>Initializing camera...</Text>
-            </View>
-          )}
+          <View style={styles.cameraPlaceholder}>
+            <ActivityIndicator size="large" color="#93c5fd" />
+            <Text style={styles.cameraPlaceholderText}>Initializing scanner...</Text>
+          </View>
         </Animated.View>
       </View>
 
@@ -430,10 +341,8 @@ export default function ScanScreen() {
         onCapture={handleCapture}
         onImageSelected={handleImageSelected}
         isCapturing={isCapturing || isUploading}
-        isReady={isCameraReady && detectionResult?.isDetected === true}
-        flashMode={flashMode}
-        onFlashToggle={toggleFlash}
-        disabled={!isCameraReady || isUploading}
+        isReady={true}
+        disabled={isUploading}
       />
     </SafeAreaView>
   );
@@ -491,14 +400,6 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     flex: 1,
   },
-  headerIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
   contentArea: {
     flex: 1,
     padding: 8, // Reduced padding to maximize space
@@ -521,20 +422,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.1)",
     marginBottom: 8, // Reduced margin
   },
-  camera: {
-    flex: 1,
-  },
-  cameraNotReadyOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cameraNotReadyText: {
-    color: "#ffffff",
-    marginTop: 16,
-    fontFamily: "SpaceMono",
-  },
   cameraPlaceholder: {
     flex: 1,
     backgroundColor: "#1a1a1a",
@@ -547,7 +434,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontFamily: "SpaceMono",
   },
-
   previewImage: {
     flex: 1,
     resizeMode: "contain",
