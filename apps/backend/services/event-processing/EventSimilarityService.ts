@@ -67,15 +67,8 @@ export class EventSimilarityService implements IEventSimilarityService {
         pgvector.fromSql(bestMatch.embedding)
       );
 
-      // ---------- TITLE SIMILARITY ----------
-      // Calculate title similarity using Jaccard index for word overlap
-      const titleSimilarity = this.getJaccardSimilarity(
-        eventData.title.toLowerCase(),
-        (bestMatch.title || "").toLowerCase()
-      );
-
       // ---------- LOCATION SIMILARITY ----------
-      // Generate coordinate points for distance calculation
+      // Only consider location if embedding similarity is high enough
       const eventCoords = {
         lat: eventData.coordinates[1],
         lng: eventData.coordinates[0],
@@ -86,7 +79,6 @@ export class EventSimilarityService implements IEventSimilarityService {
         lng: bestMatch.location?.coordinates?.[0] ?? 0,
       };
 
-      // Calculate location similarity using the new method
       const locationSimilarity = this.calculateLocationSimilarity(
         eventCoords,
         matchCoords,
@@ -94,59 +86,20 @@ export class EventSimilarityService implements IEventSimilarityService {
         new Date(bestMatch.eventDate || Date.now())
       );
 
-      // ---------- DATE SIMILARITY ----------
-      // Check for date similarity if dates are within 1 day
-      const eventDate = new Date(eventData.date);
-      const matchDate = new Date(bestMatch.eventDate || Date.now()); // Fallback to now
-      const dateDiffMs = Math.abs(eventDate.getTime() - matchDate.getTime());
-      const dateDiffDays = dateDiffMs / (1000 * 60 * 60 * 24);
-      const dateSimilarity = dateDiffDays <= 1 ? 1 : Math.max(0, 1 - dateDiffDays / 7);
-
-      // ---------- ADDRESS SIMILARITY ----------
-      // Check if addresses match closely, handling undefined addresses
-      const eventAddress = eventData.address || "";
-      const matchAddress = bestMatch.address || "";
-
-      const addressSimilarity = this.getSimilarityScore(
-        eventAddress.toLowerCase(),
-        matchAddress.toLowerCase()
-      );
-
-      // ---------- TIMEZONE SIMILARITY ----------
-      // Add timezone matching to improve event comparison
-      const eventTimezone = eventData.timezone || "UTC";
-      const matchTimezone = bestMatch.timezone || "UTC";
-      const timezoneSimilarity = eventTimezone === matchTimezone ? 1.0 : 0.5;
-
       // ---------- COMPOSITE SCORE ----------
-      // Calculate weighted composite score
-      // Prioritize semantic similarity (embedding) (35%), title (25%), location (20%), date (10%), address (7%), timezone (3%)
-      const compositeScore =
-        embeddingScore * 0.35 +
-        titleSimilarity * 0.25 +
-        locationSimilarity * 0.2 +
-        dateSimilarity * 0.1 +
-        addressSimilarity * 0.07 +
-        timezoneSimilarity * 0.03;
+      // Use a weighted combination of embedding (80%) and location (20%)
+      const compositeScore = embeddingScore * 0.8 + locationSimilarity * 0.2;
 
       // ---------- MATCH REASON ----------
-      // Determine match reason for transparency
       let matchReason = "";
-
       if (embeddingScore > 0.85) {
         matchReason = "Very similar content";
-        if (titleSimilarity > 0.7) matchReason += " with matching title";
-      } else if (locationSimilarity > 0.95) {
-        // Essentially same location (within ~50 meters)
-        if (dateSimilarity > 0.9) {
-          matchReason = "Same location and same date";
-          if (titleSimilarity > 0.6) matchReason += " with similar title";
-        } else {
-          matchReason = "Same location, different date";
+        if (locationSimilarity > 0.8) {
+          matchReason += " at same location";
         }
-      } else if (titleSimilarity > 0.8 && dateSimilarity > 0.8) {
-        matchReason = "Similar title on same date";
-      } else if (compositeScore > 0.75) {
+      } else if (embeddingScore > 0.75 && locationSimilarity > 0.9) {
+        matchReason = "Similar content at same location";
+      } else if (compositeScore > 0.7) {
         matchReason = "Multiple similarity factors";
       }
 
@@ -154,11 +107,6 @@ export class EventSimilarityService implements IEventSimilarityService {
       const matchDetails = {
         distance: `${this.calculateDistance(eventCoords, matchCoords).toFixed(0)} meters`,
         locationSimilarity: locationSimilarity.toFixed(2),
-        titleSimilarity: titleSimilarity.toFixed(2),
-        dateSimilarity: dateSimilarity.toFixed(2),
-        dateDiffDays: dateDiffDays.toFixed(1),
-        addressSimilarity: addressSimilarity.toFixed(2),
-        timezoneSimilarity: timezoneSimilarity.toFixed(2),
         embeddingScore: embeddingScore.toFixed(2),
         compositeScore: compositeScore.toFixed(2),
         timezone: eventData.timezone,
@@ -203,12 +151,16 @@ export class EventSimilarityService implements IEventSimilarityService {
   public isDuplicate(similarityResult: SimilarityResult, threshold?: number): boolean {
     // Use provided threshold or default
     const duplicateThreshold = threshold || this.DUPLICATE_SIMILARITY_THRESHOLD;
-    const locationThreshold = this.SAME_LOCATION_THRESHOLD;
 
+    // Consider it a duplicate if:
+    // 1. High embedding similarity (>0.85) OR
+    // 2. Good composite score (>threshold) with high location similarity (>0.8)
     return !!(
-      (similarityResult.score > duplicateThreshold && !!similarityResult.matchingEventId) ||
-      (similarityResult.matchReason?.includes("Same location") &&
-        similarityResult.score > locationThreshold)
+      (similarityResult.matchDetails?.embeddingScore &&
+        parseFloat(similarityResult.matchDetails.embeddingScore) > 0.85) ||
+      (similarityResult.score > duplicateThreshold &&
+        similarityResult.matchDetails?.locationSimilarity &&
+        parseFloat(similarityResult.matchDetails.locationSimilarity) > 0.8)
     );
   }
 
