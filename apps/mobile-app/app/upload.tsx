@@ -19,6 +19,7 @@ import {
     View,
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
+import * as FileSystem from "expo-file-system";
 
 export default function UploadScreen() {
     const router = useRouter();
@@ -75,8 +76,23 @@ export default function UploadScreen() {
         try {
             setUploadProgress(10);
 
-            // For base64 images from document scanner, we need to format it correctly
-            const imageUri = uri.startsWith('data:') ? uri : `data:image/jpeg;base64,${uri}`;
+            // Handle base64 images
+            let imageUri = uri;
+            if (uri.startsWith('data:') || uri.startsWith('base64,')) {
+                // Convert base64 to file URI
+                const base64Data = uri.startsWith('data:')
+                    ? uri.split(',')[1]
+                    : uri;
+
+                // Create a temporary file
+                const tempFilePath = `${FileSystem.cacheDirectory}temp_${Date.now()}.jpg`;
+                await FileSystem.writeAsStringAsync(
+                    tempFilePath,
+                    base64Data,
+                    { encoding: FileSystem.EncodingType.Base64 }
+                );
+                imageUri = tempFilePath;
+            }
 
             // Create imageFile object for apiClient
             const imageFile = {
