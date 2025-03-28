@@ -1,10 +1,11 @@
 // useCamera.ts - Improved version with better error handling and lifecycle management
-import { useRef, useState, useCallback, useEffect } from "react";
-import { useCameraPermissions, FlashMode } from "expo-camera";
-import { Alert, AppState, Platform } from "react-native";
+import { DocumentDetectionService } from "@/services/DocumentDetectionService";
 import { useIsFocused } from "@react-navigation/native";
-import * as ImageManipulator from "expo-image-manipulator";
+import { CameraViewRef, useCameraPermissions } from "expo-camera";
 import * as FileSystem from "expo-file-system";
+import * as ImageManipulator from "expo-image-manipulator";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Alert, AppState } from "react-native";
 
 export const useCamera = () => {
   // Permissions
@@ -15,10 +16,10 @@ export const useCamera = () => {
   // Camera state
   const [isCapturing, setIsCapturing] = useState(false);
   const isFocused = useIsFocused();
-  const cameraRef = useRef(null);
+  const cameraRef = useRef<CameraViewRef>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [flashMode, setFlashMode] = useState<FlashMode>("off");
+  const [flashMode, setFlashMode] = useState<"on" | "off">("off");
 
   // App state tracking
   const appState = useRef(AppState.currentState);
@@ -29,6 +30,16 @@ export const useCamera = () => {
 
   // Track camera initialization
   const cameraInitialized = useRef(false);
+
+  // Document detection
+  const detectionService = useRef(DocumentDetectionService.getInstance());
+  const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isMounted = useRef(true);
+  const [detectionResult, setDetectionResult] = useState<{
+    isDetected: boolean;
+    confidence: number;
+    corners?: [[number, number], [number, number], [number, number], [number, number]];
+  } | null>(null);
 
   // Permission handling - improved with better state tracking
   useEffect(() => {
@@ -91,6 +102,7 @@ export const useCamera = () => {
   const onCameraReady = useCallback(() => {
     setIsCameraReady(true);
     cameraInitialized.current = true;
+    setIsCameraActive(true);
   }, []);
 
   // Update camera active state based on all required conditions
@@ -122,6 +134,8 @@ export const useCamera = () => {
     setIsCapturing(false);
     setCapturedImage(null);
     cameraInitialized.current = false;
+    setIsCameraActive(false);
+    stopDocumentDetection();
   }, []);
 
   // Clean up when component unmounts
@@ -131,8 +145,85 @@ export const useCamera = () => {
     };
   }, [releaseCamera]);
 
+  // Initialize document detection service
+  useEffect(() => {
+    const initDetection = async () => {
+      try {
+        await detectionService.current.initialize();
+      } catch (error) {
+        console.error("Failed to initialize document detection:", error);
+      }
+    };
+
+    initDetection();
+
+    return () => {
+      isMounted.current = false;
+      detectionService.current.cleanup();
+    };
+  }, []);
+
+  // Update frame capture
+  const startDocumentDetection = useCallback(() => {
+    if (!cameraRef.current || !isCameraReady || !isCameraActive) return;
+
+    // Clear any existing interval
+    if (frameIntervalRef.current) {
+      clearInterval(frameIntervalRef.current);
+    }
+
+    // Start new detection interval
+    frameIntervalRef.current = setInterval(async () => {
+      if (!isMounted.current || !cameraRef.current || !isCameraReady || !isCameraActive) {
+        if (frameIntervalRef.current) {
+          clearInterval(frameIntervalRef.current);
+        }
+        return;
+      }
+
+      try {
+        // Get current frame using the correct method
+        const frame = await cameraRef.current.takePicture({
+          quality: 1,
+          base64: true,
+          exif: true,
+          skipProcessing: true,
+        });
+        if (!frame) return;
+
+        // Run document detection with the frame URI
+        const result = await detectionService.current.detectDocument({ uri: frame.uri });
+        
+        if (isMounted.current) {
+          setDetectionResult(result);
+        }
+      } catch (error) {
+        console.error("Error in document detection:", error);
+      }
+    }, 500); // Run detection every 500ms
+  }, [isCameraReady, isCameraActive]);
+
+  // Stop document detection
+  const stopDocumentDetection = useCallback(() => {
+    if (frameIntervalRef.current) {
+      clearInterval(frameIntervalRef.current);
+      frameIntervalRef.current = null;
+    }
+  }, []);
+
+  // Start/stop detection based on camera state
+  useEffect(() => {
+    if (isCameraReady && isCameraActive) {
+      startDocumentDetection();
+    } else {
+      stopDocumentDetection();
+    }
+
+    return stopDocumentDetection;
+  }, [isCameraReady, isCameraActive, startDocumentDetection, stopDocumentDetection]);
+
   // Take picture - robust version with better error handling and flash support
-  const takePicture = async () => {
+  const takePicture = async (): Promise<string | null> => {
     if (!cameraRef.current) {
       return null;
     }
@@ -152,10 +243,11 @@ export const useCamera = () => {
     try {
       setIsCapturing(true);
 
-      const photo = await (cameraRef.current as any).takePictureAsync({
-        quality: 0.8,
+      const photo = await cameraRef.current.takePicture({
+        quality: 1,
+        base64: true,
         exif: true,
-        flashMode: flashMode,
+        skipProcessing: true,
       });
 
       // Return the URI directly
@@ -183,7 +275,7 @@ export const useCamera = () => {
   }, []);
 
   // For useCamera.ts - Updated processImage function with proper type checking
-  const processImage = async (uri: string) => {
+  const processImage = async (uri: string): Promise<string | null> => {
     try {
       // Get file info with proper type checking
       const fileInfo = await FileSystem.getInfoAsync(uri);
@@ -211,21 +303,15 @@ export const useCamera = () => {
   }, []);
 
   // Explicitly request camera permission - useful for manual retry
-  const checkPermission = useCallback(async () => {
+  const checkPermission = useCallback(async (): Promise<boolean> => {
     try {
+      setPermissionRequested(true);
       const result = await requestPermission();
-      setHasPermission(result.granted);
-
-      if (result.granted) {
-        // Small delay to let the system register the permission
-        setTimeout(() => {
-          setIsCameraActive(true);
-        }, 500);
-      }
-
-      return result.granted;
+      const granted = result.granted;
+      setHasPermission(granted);
+      return granted;
     } catch (error) {
-      console.error("Error in manual permission check:", error);
+      console.error("Error checking camera permission:", error);
       return false;
     }
   }, [requestPermission]);
@@ -249,5 +335,6 @@ export const useCamera = () => {
     toggleFlash,
     // Additional state that can be helpful for debugging
     permissionRequested,
+    detectionResult,
   };
 };

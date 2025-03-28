@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
+import * as Sentry from "@sentry/react-native";
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
@@ -17,6 +18,14 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   useEffect(() => {
+    // Initialize Sentry inside useEffect
+    Sentry.init({
+      dsn: "https://9c69ddf62f2bf7490416ba65f2d5dd2d@o4509054186815488.ingest.us.sentry.io/4509054187798528",
+      // Adds more context data to events (IP address, cookies, user, etc.)
+      // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+      sendDefaultPii: true,
+    });
+
     // Establish the connection on app startup
     useJobSessionStore.getState().connect();
   }, []);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Dimensions } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -60,6 +60,11 @@ interface ScannerOverlayProps {
   isCapturing?: boolean;
   onFrameReady?: () => void;
   showScannerAnimation?: boolean;
+  detectionResult?: {
+    isDetected: boolean;
+    confidence: number;
+    corners?: [[number, number], [number, number], [number, number], [number, number]];
+  } | null;
 }
 
 export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) => {
@@ -68,6 +73,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
     isCapturing = false,
     onFrameReady,
     showScannerAnimation = true,
+    detectionResult,
   } = props;
 
   // Refs to store timeouts and track component mounted state
@@ -152,36 +158,22 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
     [cleanupAnimations, detectionStatus, colorAnimation, scaleAnimation, overlayOpacity]
   );
 
-  // Update based on the component's props
+  // Update based on the component's props and detection results
   useEffect(() => {
     if (!isMounted.current) return;
 
     if (isCapturing) {
       updateStatusVisuals("capturing");
+    } else if (detectionResult?.isDetected) {
+      updateStatusVisuals("aligned");
+    } else if (detectionResult && !detectionResult.isDetected) {
+      updateStatusVisuals("detecting");
     } else {
       updateStatusVisuals(detectionStatus);
     }
 
     return cleanupAnimations;
-  }, [detectionStatus, isCapturing, updateStatusVisuals, cleanupAnimations]);
-
-  // Separate effect for the constant border pulse animation
-  useEffect(() => {
-    if (!isMounted.current) return;
-
-    borderWidth.value = withRepeat(
-      withSequence(
-        withTiming(2.5, ANIMATIONS.BORDER_PULSE),
-        withTiming(2, ANIMATIONS.BORDER_PULSE)
-      ),
-      -1,
-      true
-    );
-
-    return () => {
-      cancelAnimation(borderWidth);
-    };
-  }, [borderWidth]);
+  }, [detectionStatus, isCapturing, detectionResult, updateStatusVisuals, cleanupAnimations]);
 
   // Handle the frame ready callback
   useEffect(() => {
@@ -192,7 +184,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
       frameReadyTimeoutRef.current = null;
     }
 
-    if (detectionStatus === "aligned" && onFrameReady) {
+    if (detectionResult?.isDetected && onFrameReady) {
       frameReadyTimeoutRef.current = setTimeout(() => {
         if (isMounted.current && onFrameReady) {
           onFrameReady();
@@ -206,7 +198,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
         frameReadyTimeoutRef.current = null;
       }
     };
-  }, [detectionStatus, onFrameReady]);
+  }, [detectionResult, onFrameReady]);
 
   // Master cleanup effect
   useEffect(() => {
@@ -242,6 +234,17 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
     [detectionStatus, isCapturing, showScannerAnimation]
   );
 
+  // Calculate document corners if available
+  const documentCorners = useMemo(() => {
+    if (!detectionResult?.corners) return null;
+
+    const { width, height } = Dimensions.get("window");
+    return detectionResult.corners.map(([x, y]) => ({
+      x: x * width,
+      y: y * height,
+    }));
+  }, [detectionResult?.corners]);
+
   return (
     <View style={overlayStyles.container}>
       <Animated.View style={[overlayStyles.frame, frameStyle]}>
@@ -252,6 +255,22 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
             color={scanColor}
             speed={isCapturing ? 1000 : 1500}
           />
+        )}
+        {documentCorners && (
+          <Animated.View style={[overlayStyles.documentCorners]}>
+            {documentCorners.map((corner, index) => (
+              <Animated.View
+                key={index}
+                style={[
+                  overlayStyles.corner,
+                  {
+                    left: corner.x,
+                    top: corner.y,
+                  },
+                ]}
+              />
+            ))}
+          </Animated.View>
         )}
       </Animated.View>
     </View>
@@ -282,5 +301,20 @@ const overlayStyles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: "#000",
+  },
+  documentCorners: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  corner: {
+    position: "absolute",
+    width: 20,
+    height: 20,
+    borderColor: "#37D05C",
+    borderWidth: 2,
+    backgroundColor: "transparent",
   },
 });

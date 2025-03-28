@@ -48,6 +48,12 @@ export default {
       "expo-router",
       "expo-localization",
       [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           photosPermission: "The app accesses your photos to let you upload them to save events.",

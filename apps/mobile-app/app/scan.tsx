@@ -1,4 +1,4 @@
-// scan.tsx - Updated version with card-like UI styling
+// scan.tsx - Updated version with document detection integration
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import { ImageSelector } from "@/components/ImageSelector";
@@ -26,7 +26,6 @@ import {
 } from "react-native";
 import Animated, { FadeIn, SlideInDown, SlideInRight } from "react-native-reanimated";
 
-type DetectionStatus = "none" | "detecting" | "aligned";
 type ImageSource = "camera" | "gallery" | null;
 
 export default function ScanScreen() {
@@ -44,12 +43,10 @@ export default function ScanScreen() {
     toggleFlash,
     permissionRequested,
     checkPermission,
+    detectionResult,
   } = useCamera();
 
   const router = useRouter();
-  const detectionIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [detectionStatus, setDetectionStatus] = useState<DetectionStatus>("none");
-  const [isFrameReady, setIsFrameReady] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [imageSource, setImageSource] = useState<ImageSource>(null);
@@ -67,14 +64,6 @@ export default function ScanScreen() {
   // Get the event broker
   const { publish } = useEventBroker();
 
-  // Clear detection interval function
-  const clearDetectionInterval = useCallback(() => {
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-      detectionIntervalRef.current = null;
-    }
-  }, []);
-
   // Set mounted flag to false when component unmounts
   useEffect(() => {
     return () => {
@@ -84,69 +73,6 @@ export default function ScanScreen() {
       }
     };
   }, []);
-
-  // Document detection simulation
-  const startDocumentDetection = useCallback(() => {
-    clearDetectionInterval();
-
-    if (!isCameraActive || !isCameraReady || !isMounted.current) return;
-
-    let counter = 0;
-
-    const interval = setInterval(() => {
-      if (!isMounted.current || !isCameraActive || !isCameraReady) {
-        clearInterval(interval);
-        return;
-      }
-
-      counter++;
-
-      // Simplified detection logic
-      if (counter < 3) {
-        setDetectionStatus("none");
-        setIsFrameReady(false);
-      } else if (counter < 5) {
-        setDetectionStatus("detecting");
-        setIsFrameReady(false);
-      } else {
-        setDetectionStatus("aligned");
-        setIsFrameReady(true);
-      }
-    }, 500);
-
-    detectionIntervalRef.current = interval;
-    return () => clearInterval(interval);
-  }, [isCameraActive, isCameraReady, clearDetectionInterval]);
-
-  // Start detection when camera becomes active and ready
-  useEffect(() => {
-    if (!isMounted.current) return;
-
-    if (isCameraActive && isCameraReady && !isCapturing && !isUploading && !capturedImage) {
-      startDocumentDetection();
-    } else {
-      clearDetectionInterval();
-    }
-
-    return clearDetectionInterval;
-  }, [
-    isCameraActive,
-    isCameraReady,
-    isCapturing,
-    isUploading,
-    capturedImage,
-    startDocumentDetection,
-    clearDetectionInterval,
-  ]);
-
-  // Clean up resources on component unmount
-  useEffect(() => {
-    return () => {
-      clearDetectionInterval();
-      releaseCamera();
-      isMounted.current = false;
-    };
-  }, [clearDetectionInterval, releaseCamera]);
 
   // Queue job and navigate after a brief delay
   const queueJobAndNavigateDelayed = useCallback(
@@ -167,15 +93,12 @@ export default function ScanScreen() {
       // Set a timer to navigate away after a brief preview
       navigationTimerRef.current = setTimeout(() => {
         if (isMounted.current) {
-          // Clean up
-          clearDetectionInterval();
-
           // Navigate back to the map
           router.replace("/");
         }
       }, 1500); // Show preview for 1.5 seconds
     },
-    [addJob, publish, clearDetectionInterval, router]
+    [addJob, publish, router]
   );
 
   // Updated uploadImageAndQueue function to handle both camera and gallery sources
@@ -250,10 +173,10 @@ export default function ScanScreen() {
     // Small delay to ensure camera is properly initialized
     setTimeout(() => {
       if (isMounted.current) {
-        startDocumentDetection();
+        // Camera will automatically start document detection when ready
       }
     }, 500);
-  }, [startDocumentDetection]);
+  }, []);
 
   // Handle image capture - improved with better error handling
   const handleCapture = async () => {
@@ -275,9 +198,6 @@ export default function ScanScreen() {
     }
 
     try {
-      // Stop detection while capturing
-      clearDetectionInterval();
-
       // Take picture
       const photoUri = await takePicture();
 
@@ -312,7 +232,6 @@ export default function ScanScreen() {
         setCapturedImage(null);
         setImageSource(null);
         setIsUploading(false);
-        startDocumentDetection();
       }
     }
   };
@@ -322,9 +241,6 @@ export default function ScanScreen() {
     if (!isMounted.current) return;
 
     try {
-      // Stop detection
-      clearDetectionInterval();
-
       // Show the selected image
       setCapturedImage(uri);
       setImageSource("gallery");
@@ -352,11 +268,6 @@ export default function ScanScreen() {
         setCapturedImage(null);
         setImageSource(null);
         setIsUploading(false);
-
-        // Restart camera if available
-        if (isCameraActive && isCameraReady) {
-          startDocumentDetection();
-        }
       }
     }
   };
@@ -373,18 +284,11 @@ export default function ScanScreen() {
       clearTimeout(navigationTimerRef.current);
       navigationTimerRef.current = null;
     }
-
-    // Restart detection
-    if (isCameraActive && isCameraReady) {
-      startDocumentDetection();
-    }
   };
 
   // Back button handler
   const handleBack = () => {
     if (!isMounted.current) return;
-
-    clearDetectionInterval();
 
     if (navigationTimerRef.current) {
       clearTimeout(navigationTimerRef.current);
@@ -457,9 +361,10 @@ export default function ScanScreen() {
 
             {/* Scanner overlay */}
             <ScannerOverlay
-              detectionStatus="aligned"
+              detectionStatus={detectionResult?.isDetected ? "aligned" : "detecting"}
               isCapturing={true}
               showScannerAnimation={true}
+              detectionResult={detectionResult}
             />
           </Animated.View>
         </View>
@@ -492,15 +397,16 @@ export default function ScanScreen() {
         <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
           {isCameraActive ? (
             <CameraView
-              ref={cameraRef}
+              ref={cameraRef as any}
               style={styles.camera}
               onCameraReady={onCameraReady}
               flash={flashMode}
             >
               <ScannerOverlay
-                detectionStatus={detectionStatus}
-                isCapturing={isCapturing || isUploading}
-                showScannerAnimation={false}
+                detectionStatus="aligned"
+                isCapturing={true}
+                showScannerAnimation={true}
+                detectionResult={null}
               />
 
               {/* Camera not ready indicator */}
@@ -524,7 +430,7 @@ export default function ScanScreen() {
         onCapture={handleCapture}
         onImageSelected={handleImageSelected}
         isCapturing={isCapturing || isUploading}
-        isReady={isCameraReady && detectionStatus === "aligned"}
+        isReady={isCameraReady && detectionResult?.isDetected === true}
         flashMode={flashMode}
         onFlashToggle={toggleFlash}
         disabled={!isCameraReady || isUploading}
