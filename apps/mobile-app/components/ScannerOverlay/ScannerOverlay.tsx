@@ -245,6 +245,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
   return (
     <View style={overlayStyles.container}>
       <Animated.View style={[overlayStyles.frame, frameStyle]}>
+        <View style={overlayStyles.boundary} />
         <Animated.View style={[overlayStyles.overlay, overlayStyle]} />
         {showScannerAnimation && (
           <ScannerAnimation
@@ -274,6 +275,16 @@ const overlayStyles = StyleSheet.create({
     position: "relative",
     overflow: "hidden",
     borderRadius: 12,
+  },
+  boundary: {
+    position: "absolute",
+    top: "10%",
+    left: "10%",
+    right: "10%",
+    bottom: "10%",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.5)",
+    borderRadius: 8,
   },
   overlay: {
     position: "absolute",
