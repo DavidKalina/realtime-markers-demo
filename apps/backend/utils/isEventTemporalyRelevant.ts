@@ -2,7 +2,7 @@
 import { differenceInDays } from "date-fns"; // Add this import at the top
 
 // Add configuration constants (you can move these to ConfigService if preferred)
-const MAX_DAYS_IN_PAST = -1; // Events older than 1 day in the past are filtered out
+const MAX_DAYS_IN_PAST = 0; // No past events allowed
 const MAX_DAYS_IN_FUTURE = 180; // Events more than 180 days in the future are filtered out
 
 // Add this function to validate event dates

@@ -51,14 +51,10 @@ export class EventService {
     const now = new Date();
 
     // Find events that are outdated:
-    // 1. Events with an end date that has passed
-    // 2. Events with only a start date that's more than 24 hours old
+    // 1. Any event that has passed its start date
     const eventsToDelete = await this.eventRepository
       .createQueryBuilder("event")
-      .where("(event.end_date IS NOT NULL AND event.end_date < :now)", { now })
-      .orWhere("(event.end_date IS NULL AND event.event_date < :dayAgo)", {
-        dayAgo: new Date(now.getTime() - 24 * 60 * 60 * 1000),
-      })
+      .where("event.event_date < :now", { now })
       .take(batchSize + 1) // Get one extra to check if there are more
       .getMany();
 
@@ -181,10 +177,10 @@ export class EventService {
 
       // Save the updated event
       const updatedEvent = await this.eventRepository.save(event);
-      
+
       // Invalidate the cache for this event
       await CacheService.invalidateEventCache(eventId);
-      
+
       return updatedEvent;
     } catch (error) {
       console.error(`Error storing detected QR code for event ${eventId}:`, error);
@@ -298,10 +294,10 @@ export class EventService {
       }
 
       const updatedEvent = await this.eventRepository.save(event);
-      
+
       // Invalidate the cache for this event
       await CacheService.invalidateEventCache(id);
-      
+
       await CacheService.invalidateSearchCache();
 
       return updatedEvent;
@@ -402,13 +398,13 @@ export class EventService {
         qb.where("LOWER(event.title) LIKE LOWER(:partialQuery)", {
           partialQuery: `%${query.toLowerCase()}%`,
         })
-        .orWhere("LOWER(event.description) LIKE LOWER(:partialQuery)", {
-          partialQuery: `%${query.toLowerCase()}%`,
-        })
-        .orWhere(
-          "EXISTS (SELECT 1 FROM categories WHERE category.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id) AND LOWER(category.name) LIKE LOWER(:partialQuery))",
-          { partialQuery: `%${query.toLowerCase()}%` }
-        );
+          .orWhere("LOWER(event.description) LIKE LOWER(:partialQuery)", {
+            partialQuery: `%${query.toLowerCase()}%`,
+          })
+          .orWhere(
+            "EXISTS (SELECT 1 FROM categories WHERE category.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id) AND LOWER(category.name) LIKE LOWER(:partialQuery))",
+            { partialQuery: `%${query.toLowerCase()}%` }
+          );
       })
     );
 
@@ -484,13 +480,13 @@ export class EventService {
   async deleteEvent(id: string): Promise<boolean> {
     try {
       const result = await this.eventRepository.delete(id);
-      
+
       // Invalidate the cache for this event
       await CacheService.invalidateEventCache(id);
-      
+
       // Invalidate search cache since we deleted an event
       await CacheService.invalidateSearchCache();
-      
+
       return result.affected ? result.affected > 0 : false;
     } catch (error) {
       console.error(`Error deleting event ${id}:`, error);
@@ -505,10 +501,10 @@ export class EventService {
 
       event.status = status;
       const updatedEvent = await this.eventRepository.save(event);
-      
+
       // Invalidate the cache for this event
       await CacheService.invalidateEventCache(id);
-      
+
       return updatedEvent;
     } catch (error) {
       console.error(`Error updating event status for ${id}:`, error);
