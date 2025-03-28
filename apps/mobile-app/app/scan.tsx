@@ -1,7 +1,6 @@
 // scan.tsx - Updated version with document scanner
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
-import { ImageSelector } from "@/components/ImageSelector";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
 import { useEventBroker } from "@/hooks/useEventBroker";
@@ -306,7 +305,7 @@ export default function ScanScreen() {
         </Animated.View>
 
         <View style={styles.contentArea}>
-          <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
+          <Animated.View style={styles.previewCard} entering={FadeIn.duration(300)}>
             <Image source={{ uri: capturedImage }} style={styles.previewImage} />
           </Animated.View>
         </View>
@@ -329,10 +328,10 @@ export default function ScanScreen() {
       </Animated.View>
 
       <View style={styles.contentArea}>
-        <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
-          <View style={styles.cameraPlaceholder}>
+        <Animated.View style={styles.scannerCard} entering={FadeIn.duration(300)}>
+          <View style={styles.scannerPlaceholder}>
             <ActivityIndicator size="large" color="#93c5fd" />
-            <Text style={styles.cameraPlaceholderText}>Initializing scanner...</Text>
+            <Text style={styles.scannerPlaceholderText}>Initializing scanner...</Text>
           </View>
         </Animated.View>
       </View>
@@ -347,13 +346,6 @@ export default function ScanScreen() {
     </SafeAreaView>
   );
 }
-
-// Fix React Native warning about string percentages in styles
-const getProgressBarWidth = (progress: number) => {
-  return {
-    width: `${progress}%`,
-  };
-};
 
 const styles = StyleSheet.create({
   container: {
@@ -402,13 +394,9 @@ const styles = StyleSheet.create({
   },
   contentArea: {
     flex: 1,
-    padding: 8, // Reduced padding to maximize space
+    padding: 8,
   },
-  flexContainer: {
-    flex: 1,
-    padding: 16,
-  },
-  cameraCard: {
+  scannerCard: {
     flex: 1,
     borderRadius: 16,
     overflow: "hidden",
@@ -420,45 +408,40 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
-    marginBottom: 8, // Reduced margin
+    marginBottom: 8,
   },
-  cameraPlaceholder: {
+  scannerPlaceholder: {
     flex: 1,
     backgroundColor: "#1a1a1a",
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 16,
   },
-  cameraPlaceholderText: {
+  scannerPlaceholderText: {
     color: "#f8f9fa",
     marginTop: 16,
     fontFamily: "SpaceMono",
+  },
+  previewCard: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#1a1a1a",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    marginBottom: 8,
   },
   previewImage: {
     flex: 1,
     resizeMode: "contain",
   },
-  progressContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
   controlsPlaceholder: {
-    height: 80, // Reduced height to match new controls height
-  },
-  progressBarContainer: {
-    height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  progressBar: {
-    height: "100%",
-    backgroundColor: "#93c5fd",
-    borderRadius: 2,
+    height: 80,
   },
   loaderContainer: {
     flex: 1,

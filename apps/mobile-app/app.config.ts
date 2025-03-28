@@ -60,6 +60,12 @@ export default {
         },
       ],
       [
+        "react-native-document-scanner-plugin",
+        {
+          "cameraPermission": "We need camera access, so you can scan documents"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           image: "./assets/images/splash.png",
