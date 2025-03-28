@@ -3,7 +3,7 @@ import { styles as globalStyles } from "@/components/globalStyles";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { CameraAnimateToLocationEvent, EventTypes } from "@/services/EventBroker";
 import * as Haptics from "expo-haptics";
-import { BookMarkedIcon, Camera, Filter, Navigation, SearchIcon, User } from "lucide-react-native";
+import { BookMarkedIcon, Camera, Filter, Navigation, SearchIcon, User, Upload } from "lucide-react-native";
 import React, { useRef, useState, useCallback, useMemo, useEffect } from "react";
 import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
@@ -132,15 +132,15 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 );
 
 // Default set of actions if none provided
-const DEFAULT_AVAILABLE_ACTIONS = ["search", "camera", "locate", "user", "saved", "filter"];
+const DEFAULT_AVAILABLE_ACTIONS = ["search", "camera", "upload", "locate", "user", "saved"];
 
 // Icons memo - created once outside the component to avoid recreation
 const ICON_MAP = {
   search: <SearchIcon size={20} color="#fff" />,
   camera: <Camera size={20} color="#fff" />,
+  upload: <Upload size={20} color="#fff" />,
   locate: <Navigation size={20} color="#fff" />,
   saved: <BookMarkedIcon size={20} color="#fff" />,
-  filter: <Filter size={20} color="#fff" />,
   user: <User size={20} color="#fff" />,
 };
 
@@ -148,9 +148,9 @@ const ICON_MAP = {
 const LABEL_MAP = {
   search: "Search",
   camera: "Scan",
+  upload: "Upload",
   locate: "Locate",
   saved: "Saved",
-  filter: "Filter",
   user: "Me",
 };
 
@@ -238,6 +238,12 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           action: actionHandlers.camera,
         },
         {
+          key: "upload",
+          label: LABEL_MAP.upload,
+          icon: ICON_MAP.upload,
+          action: actionHandlers.upload,
+        },
+        {
           key: "locate",
           label: LABEL_MAP.locate,
           icon: ICON_MAP.locate,
@@ -250,12 +256,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           icon: ICON_MAP.saved,
           action: actionHandlers.saved,
         },
-        {
-          key: "filter",
-          label: LABEL_MAP.filter,
-          icon: ICON_MAP.filter,
-          action: actionHandlers.filter,
-        },
+
         {
           key: "user",
           label: LABEL_MAP.user,

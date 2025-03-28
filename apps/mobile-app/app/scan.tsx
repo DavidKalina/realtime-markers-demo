@@ -47,6 +47,13 @@ export default function ScanScreen() {
   const addJob = useJobSessionStore((state) => state.addJob);
   const { publish } = useEventBroker();
 
+  // Start scanning immediately when the screen mounts
+  useEffect(() => {
+    if (hasPermission) {
+      handleScan();
+    }
+  }, [hasPermission]);
+
   // Set mounted flag to false when component unmounts
   useEffect(() => {
     return () => {
@@ -91,15 +98,13 @@ export default function ScanScreen() {
     try {
       setUploadProgress(10);
 
-      // Process/compress the image before uploading
-      const processedUri = await processImage(uri);
-
-      setUploadProgress(30);
+      // For base64 images from document scanner, we need to format it correctly
+      const imageUri = uri.startsWith('data:') ? uri : `data:image/jpeg;base64,${uri}`;
 
       // Create imageFile object for apiClient
       const imageFile = {
-        uri: processedUri || uri, // Fallback to original if processing failed
-        name: "image.jpg",
+        uri: imageUri,
+        name: "document.jpg",
         type: "image/jpeg",
       } as any;
 
@@ -109,59 +114,69 @@ export default function ScanScreen() {
         imageFile.userLng = userLocation[0].toString();
       }
 
-      // Add source information to track analytics
-      imageFile.source = imageSource || "unknown";
-
       setUploadProgress(70);
 
-      // Upload using API client - this handles FormData internally
+      // Upload using API client
       const result = await apiClient.processEventImage(imageFile);
 
       setUploadProgress(100);
 
       if (result.jobId && isMounted.current) {
-        queueJobAndNavigateDelayed(result.jobId);
+        addJob(result.jobId);
+        router.replace("/");
         return result.jobId;
-      } else {
-        throw new Error("No job ID returned");
       }
     } catch (error) {
       console.error("Upload failed:", error);
-
       if (isMounted.current) {
-        publish(EventTypes.ERROR_OCCURRED, {
-          timestamp: Date.now(),
-          source: "ScanScreen",
-          error: `Failed to upload image: ${error}`,
-        });
-
-        // Show error to user
         Alert.alert(
           "Upload Failed",
-          "There was a problem uploading your document. Please try again.",
+          "Failed to process the document. Please try again.",
           [{ text: "OK" }]
         );
       }
-
       throw error;
+    }
+  };
+
+  const handleScan = async () => {
+    if (!isMounted.current) return;
+
+    try {
+      setIsUploading(true);
+
+      const photoUri = await takePicture();
+      if (!photoUri) {
+        throw new Error("No image captured");
+      }
+
+      // Navigate back to map
+      router.replace("/");
+
+    } catch (error) {
+      console.error("Scan failed:", error);
+      if (isMounted.current) {
+        Alert.alert(
+          "Scanner Error",
+          "Failed to process the document. Please try again.",
+          [{
+            text: "Try Again",
+            onPress: handleScan
+          }, {
+            text: "Cancel",
+            onPress: () => router.replace("/"),
+            style: "cancel"
+          }]
+        );
+      }
     } finally {
       if (isMounted.current) {
-        setUploadProgress(0);
+        setIsUploading(false);
       }
     }
   };
 
-  // Handle camera permission granted
-  const handlePermissionGranted = useCallback(() => {
-    // Small delay to ensure camera is properly initialized
-    setTimeout(() => {
-      if (isMounted.current) {
-        // Camera will automatically start document detection when ready
-      }
-    }, 500);
-  }, []);
-
-  // Handle image capture - simplified for document scanner
+  // Handle image capture - using document scanner
   const handleCapture = async () => {
     if (!isMounted.current) return;
 
@@ -170,23 +185,30 @@ export default function ScanScreen() {
       publish(EventTypes.NOTIFICATION, {
         timestamp: Date.now(),
         source: "ScanScreen",
-        message: "Processing document...",
+        message: "Opening document scanner...",
       });
 
       const photoUri = await takePicture();
-      if (!photoUri || !isMounted.current) {
-        throw new Error("Failed to capture image");
+      if (!photoUri) {
+        throw new Error("No image captured");
       }
 
-      setCapturedImage(photoUri);
-      setImageSource("camera");
-      await uploadImageAndQueue(photoUri);
+      if (isMounted.current) {
+        setCapturedImage(photoUri);
+        setImageSource("camera");
+        await uploadImageAndQueue(photoUri);
+      }
     } catch (error) {
       console.error("Capture failed:", error);
       if (isMounted.current) {
-        Alert.alert("Operation Failed", "Failed to process the document. Please try again.");
-        setCapturedImage(null);
-        setImageSource(null);
+        Alert.alert(
+          "Scanner Error",
+          "Failed to open the document scanner. Please try again.",
+          [{ text: "OK" }]
+        );
+      }
+    } finally {
+      if (isMounted.current) {
         setIsUploading(false);
       }
     }
@@ -257,17 +279,15 @@ export default function ScanScreen() {
     }, 50);
   };
 
-  // In your ScanScreen component
-  const handleRetryPermission = useCallback(async (): Promise<boolean> => {
-    return await checkPermission();
-  }, [checkPermission]);
-
-  // Handle camera permission request if needed
+  // Handle permission request if needed
   if (hasPermission === false) {
     return (
       <CameraPermission
-        onPermissionGranted={handlePermissionGranted}
-        onRetryPermission={handleRetryPermission}
+        onPermissionGranted={() => {
+          // Start scanning immediately after permission is granted
+          handleScan();
+        }}
+        onRetryPermission={checkPermission}
       />
     );
   }
@@ -284,65 +304,13 @@ export default function ScanScreen() {
     );
   }
 
-  // Image preview mode
-  if (capturedImage) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <Animated.View style={styles.header} entering={FadeIn.duration(300)}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleCancel}
-            activeOpacity={0.7}
-            disabled={isUploading}
-          >
-            <View style={styles.backButtonContainer}>
-              <Feather name="x" size={20} color="#f8f9fa" />
-            </View>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            Processing {imageSource === "gallery" ? "Gallery Image" : "Document"}
-          </Text>
-        </Animated.View>
-
-        <View style={styles.contentArea}>
-          <Animated.View style={styles.previewCard} entering={FadeIn.duration(300)}>
-            <Image source={{ uri: capturedImage }} style={styles.previewImage} />
-          </Animated.View>
-        </View>
-
-        <View style={styles.controlsPlaceholder} />
-      </SafeAreaView>
-    );
-  }
-
-  // Main view - simplified since document scanner provides its own UI
+  // Simple loading screen while scanner is active
   return (
     <SafeAreaView style={styles.container}>
-      <Animated.View style={styles.header} entering={FadeIn.duration(300)}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
-          <View style={styles.backButtonContainer}>
-            <Feather name="arrow-left" size={20} color="#f8f9fa" />
-          </View>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Scan Document</Text>
-      </Animated.View>
-
-      <View style={styles.contentArea}>
-        <Animated.View style={styles.scannerCard} entering={FadeIn.duration(300)}>
-          <View style={styles.scannerPlaceholder}>
-            <ActivityIndicator size="large" color="#93c5fd" />
-            <Text style={styles.scannerPlaceholderText}>Initializing scanner...</Text>
-          </View>
-        </Animated.View>
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#93c5fd" />
+        <Text style={styles.loaderText}>Opening document scanner...</Text>
       </View>
-
-      <CameraControls
-        onCapture={handleCapture}
-        onImageSelected={handleImageSelected}
-        isCapturing={isCapturing || isUploading}
-        isReady={true}
-        disabled={isUploading}
-      />
     </SafeAreaView>
   );
 }
@@ -351,97 +319,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#333",
-    display: "flex",
-    flexDirection: "column",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#3a3a3a",
-    backgroundColor: "#333",
-    zIndex: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  backButton: {
-    marginRight: 12,
-  },
-  backButtonContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#3a3a3a",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#f8f9fa",
-    fontFamily: "SpaceMono",
-    flex: 1,
-  },
-  contentArea: {
-    flex: 1,
-    padding: 8,
-  },
-  scannerCard: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "#1a1a1a",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    marginBottom: 8,
-  },
-  scannerPlaceholder: {
-    flex: 1,
-    backgroundColor: "#1a1a1a",
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 16,
-  },
-  scannerPlaceholderText: {
-    color: "#f8f9fa",
-    marginTop: 16,
-    fontFamily: "SpaceMono",
-  },
-  previewCard: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "#1a1a1a",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    marginBottom: 8,
-  },
-  previewImage: {
-    flex: 1,
-    resizeMode: "contain",
-  },
-  controlsPlaceholder: {
-    height: 80,
   },
   loaderContainer: {
     flex: 1,
@@ -452,5 +329,5 @@ const styles = StyleSheet.create({
     color: "#f8f9fa",
     marginTop: 16,
     fontFamily: "SpaceMono",
-  },
+  }
 });

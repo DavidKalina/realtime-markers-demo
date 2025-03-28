@@ -296,6 +296,7 @@ const EventAssistant: React.FC = () => {
   const navigateToFilter = useCallback(() => router.push("filter" as never), [router]);
   const navigateToSearch = useCallback(() => router.push("search" as never), [router]);
   const navigateToScan = useCallback(() => router.push("scan" as never), [router]);
+  const navigateToUpload = useCallback(() => router.push("upload" as never), [router]);
   const navigateToUser = useCallback(() => router.push("user" as never), [router]);
   const navigateToSaved = useCallback(() => router.push("saved" as never), [router]);
 
@@ -380,6 +381,12 @@ const EventAssistant: React.FC = () => {
             pauseAfterMs: CONFIG.ACTION_PAUSE_MS,
           });
           break;
+        case "upload":
+          // Show action message, then navigate to upload
+          streamForMarker(itemId, actionMessages, () => executeNavigation(navigateToUpload), {
+            pauseAfterMs: CONFIG.ACTION_PAUSE_MS,
+          });
+          break;
         case "user":
           // Show action message, then navigate to user profile
           streamForMarker(itemId, actionMessages, () => executeNavigation(navigateToUser), {
@@ -407,6 +414,7 @@ const EventAssistant: React.FC = () => {
       navigateToFilter,
       navigateToSearch,
       navigateToScan,
+      navigateToUpload,
       navigateToUser,
       navigateToSaved,
       getUserName,

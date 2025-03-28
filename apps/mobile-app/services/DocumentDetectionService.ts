@@ -4,7 +4,7 @@ export class DocumentDetectionService {
   private static instance: DocumentDetectionService;
   private isInitialized = false;
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): DocumentDetectionService {
     if (!DocumentDetectionService.instance) {
@@ -14,10 +14,18 @@ export class DocumentDetectionService {
   }
 
   public async initialize(): Promise<void> {
-    this.isInitialized = true;
+    if (this.isInitialized) return;
+
+    try {
+      // Add explicit initialization if needed
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('Failed to initialize document detection service:', error);
+      throw error;
+    }
   }
 
-  public async detectDocument(cameraImage: { uri: string; base64?: string }): Promise<{
+  public async detectDocument(): Promise<{
     isDetected: boolean;
     confidence: number;
     corners?: [[number, number], [number, number], [number, number], [number, number]];
@@ -32,6 +40,8 @@ export class DocumentDetectionService {
         croppedImageQuality: 100,
         responseType: ResponseType.Base64,
         maxNumDocuments: 1,
+
+
       });
 
       if (scanResult.scannedImages?.[0]) {
@@ -50,10 +60,7 @@ export class DocumentDetectionService {
 
     } catch (error) {
       console.error('Document detection failed:', error);
-      return {
-        isDetected: false,
-        confidence: 0
-      };
+      throw error;
     }
   }
 

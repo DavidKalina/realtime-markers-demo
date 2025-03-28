@@ -55,6 +55,7 @@ export default function RootLayout() {
               <Stack.Screen name="login" options={{ headerShown: false }} />
               <Stack.Screen name="index" options={{ headerShown: false }} />
               <Stack.Screen name="scan" options={{ headerShown: false }} />
+              <Stack.Screen name="upload" options={{ headerShown: false }} />
               <Stack.Screen name="share" options={{ headerShown: false }} />
               <Stack.Screen name="user" options={{ headerShown: false }} />
               <Stack.Screen name="saved" options={{ headerShown: false }} />

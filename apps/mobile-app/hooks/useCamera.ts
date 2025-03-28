@@ -184,8 +184,8 @@ export const useCamera = () => {
 
       try {
         // Run document detection with empty URI since we're using the native scanner
-        const result = await detectionService.current.detectDocument({ uri: '' });
-        
+        const result = await detectionService.current.detectDocument();
+
         if (isMounted.current) {
           setDetectionResult(result);
         }
@@ -216,37 +216,23 @@ export const useCamera = () => {
 
   // Take picture - updated to use document scanner
   const takePicture = async (): Promise<string | null> => {
-    if (!cameraRef.current) {
-      return null;
-    }
-
-    if (isCapturing) {
-      return null;
-    }
-
-    if (!isCameraReady) {
-      return null;
-    }
-
-    if (!isCameraActive) {
-      return null;
-    }
-
     try {
       setIsCapturing(true);
 
-      // Use document scanner instead of regular camera
-      const result = await detectionService.current.detectDocument({ uri: '' });
-      
+      // Initialize the service if needed
+      await detectionService.current.initialize();
+
+      // Call detectDocument with an empty object since we're not using a camera image
+      const result = await detectionService.current.detectDocument();
+
       if (result.isDetected && result.scannedImage) {
         return result.scannedImage;
       }
 
-      return null;
+      throw new Error('No image captured');
     } catch (error) {
-      console.error("Error capturing image:", error);
-      Alert.alert("Error", "Failed to capture image. Please try again.", [{ text: "OK" }]);
-      return null;
+      console.error('Error capturing image:', error);
+      throw error; // Re-throw to handle in the UI layer
     } finally {
       setIsCapturing(false);
     }
