@@ -315,23 +315,8 @@ export class EventProcessingService {
       originalImageUrl?: string;
     }
   ): Promise<void> {
-    // Check if we can update this event
-    const now = new Date();
-    const lastUpdate = existingEvent.lastUpdateTimestamp || existingEvent.createdAt;
-    const hoursSinceLastUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
-
-    // Rate limiting rules:
-    // 1. Minimum 24 hours between updates
-    // 2. Maximum 5 updates per event
-    const MIN_HOURS_BETWEEN_UPDATES = 24;
+    // Rate limiting: Maximum 5 updates per event
     const MAX_UPDATES = 5;
-
-    if (hoursSinceLastUpdate < MIN_HOURS_BETWEEN_UPDATES) {
-      console.log(
-        `Skipping update - too soon since last update (${hoursSinceLastUpdate.toFixed(1)} hours)`
-      );
-      return;
-    }
 
     if (existingEvent.updateCount >= MAX_UPDATES) {
       console.log(`Skipping update - max updates (${MAX_UPDATES}) reached`);
@@ -367,8 +352,7 @@ export class EventProcessingService {
         existingEvent.categories = newData.categories;
       }
 
-      // Update tracking fields
-      existingEvent.lastUpdateTimestamp = now;
+      // Update tracking field
       existingEvent.updateCount += 1;
 
       // Save the updated event
