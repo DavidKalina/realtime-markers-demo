@@ -69,10 +69,17 @@ redisSub.on("message", (channel, message) => {
   if (channel === "discovered_events") {
     try {
       const data = JSON.parse(message);
+      // Format the message properly before sending to clients
+      const formattedMessage = JSON.stringify({
+        type: MessageTypes.EVENT_DISCOVERED,
+        event: data.event,
+        timestamp: new Date().toISOString()
+      });
+
       // Broadcast to all connected clients
       for (const [clientId, client] of clients.entries()) {
         try {
-          client.send(message);
+          client.send(formattedMessage);
         } catch (error) {
           console.error(`Error sending discovery event to client ${clientId}:`, error);
         }

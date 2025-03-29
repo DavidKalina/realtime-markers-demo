@@ -9,8 +9,6 @@ import Animated, {
     SlideOutLeft,
     FadeIn,
     FadeOut,
-    withRepeat,
-    withSequence,
     withTiming,
     useAnimatedStyle,
     useSharedValue,
@@ -22,9 +20,9 @@ import { useRouter } from "expo-router";
 // Pre-defined animations for reuse
 const SPRING_LAYOUT = Layout.springify();
 const SLIDE_IN = SlideInLeft.springify()
-    .damping(20)
-    .mass(1.2)
-    .stiffness(150);
+    .damping(20)  // Increased damping for more controlled movement
+    .mass(1.2)    // Slightly increased mass for more weight feel
+    .stiffness(150); // Reduced stiffness for smoother movement
 const SLIDE_OUT = SlideOutLeft.springify()
     .damping(20)
     .mass(1.2)
@@ -43,8 +41,8 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = React.memo(({ posi
 
     // Animation values
     const scale = useSharedValue(1);
-    const rotation = useSharedValue(0);
-    const opacity = useSharedValue(1);
+    const opacity = useSharedValue(0); // Start hidden
+    const containerWidth = useSharedValue(140); // Match FilterIndicator's width
 
     // Timer ref for auto-hiding
     const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -70,6 +68,11 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = React.memo(({ posi
     // Subscribe to discovery events
     useEffect(() => {
         const unsubscribe = subscribe(EventTypes.EVENT_DISCOVERED, (event: DiscoveryEvent) => {
+            console.log("[DiscoveryIndicator] Received discovery event:", {
+                event: event.event,
+                timestamp: new Date().toISOString()
+            });
+
             setDiscoveredEvent(event.event);
             setIsVisible(true);
 
@@ -79,31 +82,18 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = React.memo(({ posi
             }
 
             // Start celebration animation
-            scale.value = withRepeat(
-                withSequence(
-                    withTiming(1.2, { duration: 300, easing: Easing.elastic(1.2) }),
-                    withTiming(1, { duration: 300, easing: Easing.elastic(1.2) })
-                ),
-                2,
-                false
-            );
+            opacity.value = withTiming(1, { duration: 300, easing: Easing.ease });
+            scale.value = withTiming(1.2, { duration: 300, easing: Easing.elastic(1.2) }, () => {
+                scale.value = withTiming(1, { duration: 300, easing: Easing.elastic(1.2) });
+            });
 
-            rotation.value = withRepeat(
-                withSequence(
-                    withTiming(360, { duration: 1000, easing: Easing.linear }),
-                    withTiming(0, { duration: 0 })
-                ),
-                2,
-                false
-            );
-
-            // Auto-hide after 5 seconds
+            // Auto-hide after 10 seconds
             hideTimeoutRef.current = setTimeout(() => {
-                opacity.value = withTiming(0, { duration: 500 }, () => {
+                opacity.value = withTiming(0, { duration: 500, easing: Easing.ease }, () => {
                     "worklet";
                     setIsVisible(false);
                 });
-            }, 5000);
+            }, 10000);
         });
 
         return () => {
@@ -118,7 +108,6 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = React.memo(({ posi
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [
             { scale: scale.value },
-            { rotate: `${rotation.value}deg` },
         ],
         opacity: opacity.value,
     }));
@@ -128,12 +117,11 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = React.memo(({ posi
         if (discoveredEvent) {
             router.push(`/discovered?eventId=${discoveredEvent.id}`);
             setIsVisible(false);
+            opacity.value = withTiming(0, { duration: 300, easing: Easing.ease });
         }
     };
 
-    if (!isVisible || !discoveredEvent) {
-        return null;
-    }
+    if (!isVisible) return null;
 
     return (
         <Pressable
@@ -147,17 +135,14 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = React.memo(({ posi
                 exiting={SLIDE_OUT}
             >
                 <View style={styles.iconContainer}>
-                    <Sparkles size={16} color="#FFD700" />
+                    <Text style={styles.emojiText}>{discoveredEvent?.emoji || "🎉"}</Text>
                 </View>
 
-                <View style={styles.contentContainer}>
+                <Animated.View style={styles.contentContainer} entering={FADE_IN} exiting={FadeOut}>
                     <Animated.Text style={styles.titleText} numberOfLines={1}>
-                        New Event Discovered!
+                        Discovered
                     </Animated.Text>
-                    <Animated.Text style={styles.eventText} numberOfLines={1}>
-                        {discoveredEvent.emoji} {discoveredEvent.title}
-                    </Animated.Text>
-                </View>
+                </Animated.View>
             </Animated.View>
         </Pressable>
     );
@@ -181,6 +166,7 @@ const styles = StyleSheet.create({
         padding: 8,
         paddingRight: 10,
         maxWidth: 140,
+        height: 40,
         borderWidth: 1,
         borderColor: "rgba(255, 255, 255, 0.1)",
         overflow: "hidden",
@@ -200,6 +186,7 @@ const styles = StyleSheet.create({
     contentContainer: {
         flexDirection: "column",
         flex: 1,
+        justifyContent: "center",
     },
     titleText: {
         color: "#FFD700",
@@ -207,11 +194,11 @@ const styles = StyleSheet.create({
         fontFamily: "SpaceMono",
         fontWeight: "600",
     },
-    eventText: {
-        color: "#f8f9fa",
-        fontSize: 10,
-        fontFamily: "SpaceMono",
-        fontWeight: "500",
+    emojiText: {
+        fontSize: 14,
+        textAlign: "center",
+        lineHeight: 16,
+        color: "rgba(255, 255, 255, 0.7)",
     },
 });
 

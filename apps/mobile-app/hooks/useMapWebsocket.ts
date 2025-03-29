@@ -6,6 +6,7 @@ import {
   ViewportEvent,
   MarkersEvent,
   BaseEvent,
+  DiscoveryEvent,
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -280,6 +281,12 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       try {
         const data = JSON.parse(event.data);
 
+        console.log("[useMapWebsocket] Received WebSocket message:", {
+          type: data.type,
+          data: data.data,
+          timestamp: new Date().toISOString()
+        });
+
         switch (data.type) {
           case MessageTypes.CONNECTION_ESTABLISHED:
             setClientId(data.clientId);
@@ -349,7 +356,17 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
           // Handle discovered events
           case MessageTypes.EVENT_DISCOVERED: {
-            eventBroker.emit<BaseEvent & { event: any }>(EventTypes.EVENT_DISCOVERED, {
+            console.log("[useMapWebsocket] Processing discovery event:", {
+              event: data.event,
+              timestamp: data.timestamp
+            });
+
+            if (!data.event) {
+              console.error("[useMapWebsocket] Discovery event missing event data");
+              break;
+            }
+
+            eventBroker.emit<DiscoveryEvent>(EventTypes.EVENT_DISCOVERED, {
               timestamp: Date.now(),
               source: "useMapWebSocket",
               event: data.event,

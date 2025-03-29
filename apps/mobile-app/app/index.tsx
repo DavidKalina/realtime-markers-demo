@@ -2,6 +2,7 @@ import { AuthWrapper } from "@/components/AuthWrapper";
 import { ConnectionIndicator } from "@/components/ConnectionIndicator/ConnectionIndicator";
 import EventAssistant from "@/components/EventAssistant/EventAssistant";
 import FilterIndicator from "@/components/FilterIndicator/FilterIndicator";
+import DiscoveryIndicator from "@/components/DiscoveryIndicator/DiscoveryIndicator";
 import { styles } from "@/components/homeScreenStyles";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import QueueIndicator from "@/components/QueueIndicator/QueueIndicator";
@@ -250,6 +251,7 @@ function HomeScreen() {
         />
         <QueueIndicator position="top-left" />
         <FilterIndicator position="top-left" />
+        <DiscoveryIndicator position="top-right" />
       </>
     );
   }, [shouldRenderUI, markers.length, isConnected, selectedItem]);

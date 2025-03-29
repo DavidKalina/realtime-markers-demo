@@ -120,6 +120,7 @@ export const processEventImageHandler: EventHandler = async (c) => {
     const imageEntry = formData.get("image");
     const userLat = formData.get("userLat");
     const userLng = formData.get("userLng");
+    const isDummy = formData.get("isDummy") === "true";
     const user = c.get("user");
 
     const userCoordinates =
@@ -134,6 +135,37 @@ export const processEventImageHandler: EventHandler = async (c) => {
       return c.json({ error: "Missing user id" }, 404);
     }
 
+    // Get job queue from context - properly typed!
+    const jobQueue = c.get("jobQueue");
+
+    // If this is a dummy event request, we don't need an image
+    if (isDummy) {
+      const jobId = await jobQueue.enqueue(
+        "process_flyer",
+        {
+          isDummy: true,
+          userCoordinates: userCoordinates,
+          creatorId: user.userId,
+          authToken: c.req.header("Authorization"),
+        }
+      );
+
+      return c.json(
+        {
+          status: "processing",
+          jobId,
+          message: "Generating dummy event. Check status at /api/jobs/" + jobId,
+          _links: {
+            self: `/api/events/process/${jobId}`,
+            status: `/api/jobs/${jobId}`,
+            stream: `/api/jobs/${jobId}/stream`,
+          },
+        },
+        202
+      );
+    }
+
+    // For real image processing, validate the image
     if (!imageEntry) {
       return c.json({ error: "Missing image file" }, 400);
     }
@@ -153,9 +185,6 @@ export const processEventImageHandler: EventHandler = async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Get job queue from context - properly typed!
-    const jobQueue = c.get("jobQueue");
-
     // Create job with minimal metadata
     const jobId = await jobQueue.enqueue(
       "process_flyer",
@@ -163,8 +192,9 @@ export const processEventImageHandler: EventHandler = async (c) => {
         filename: file.name,
         contentType: file.type,
         size: buffer.length,
-        userCoordinates: userCoordinates, // Add user coordinates
+        userCoordinates: userCoordinates,
         creatorId: user.userId,
+        authToken: c.req.header("Authorization"),
       },
       {
         bufferData: buffer,
