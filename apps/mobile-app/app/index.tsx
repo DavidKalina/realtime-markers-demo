@@ -244,7 +244,6 @@ function HomeScreen() {
     return (
       <>
         <ConnectionIndicator
-          eventsCount={markers.length}
           initialConnectionState={isConnected}
           position="top-left"
           showAnimation={!selectedItem}

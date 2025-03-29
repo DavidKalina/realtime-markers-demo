@@ -281,11 +281,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       try {
         const data = JSON.parse(event.data);
 
-        console.log("[useMapWebsocket] Received WebSocket message:", {
-          type: data.type,
-          data: data.data,
-          timestamp: new Date().toISOString()
-        });
 
         switch (data.type) {
           case MessageTypes.CONNECTION_ESTABLISHED:
@@ -356,10 +351,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
           // Handle discovered events
           case MessageTypes.EVENT_DISCOVERED: {
-            console.log("[useMapWebsocket] Processing discovery event:", {
-              event: data.event,
-              timestamp: data.timestamp
-            });
 
             if (!data.event) {
               console.error("[useMapWebsocket] Discovery event missing event data");
