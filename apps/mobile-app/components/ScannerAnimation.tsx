@@ -126,5 +126,6 @@ const styles = StyleSheet.create({
     right: 0,
     height: 2,
     opacity: 0.8,
+    width: "100%",
   },
 });

@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
-    marginBottom: 8, // Reduced margin
+    marginBottom: 8,
   },
   camera: {
     flex: 1,
@@ -644,7 +644,10 @@ const styles = StyleSheet.create({
 
   previewImage: {
     flex: 1,
+    width: "100%",
+    height: "100%",
     resizeMode: "contain",
+    backgroundColor: "#1a1a1a",
   },
   progressContainer: {
     position: "absolute",

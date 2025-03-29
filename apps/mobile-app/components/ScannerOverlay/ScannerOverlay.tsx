@@ -248,11 +248,13 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) 
         <View style={overlayStyles.boundary} />
         <Animated.View style={[overlayStyles.overlay, overlayStyle]} />
         {showScannerAnimation && (
-          <ScannerAnimation
-            isActive={showScanning}
-            color={scanColor}
-            speed={isCapturing ? 1000 : 1500}
-          />
+          <View style={overlayStyles.scannerContainer}>
+            <ScannerAnimation
+              isActive={showScanning}
+              color={scanColor}
+              speed={isCapturing ? 1000 : 1500}
+            />
+          </View>
         )}
       </Animated.View>
     </View>
@@ -294,4 +296,12 @@ const overlayStyles = StyleSheet.create({
     bottom: 0,
     backgroundColor: "#000",
   },
+  scannerContainer: {
+    position: "absolute",
+    top: "3%",
+    left: "3%",
+    right: "3%",
+    bottom: "3%",
+    overflow: "hidden",
+  }
 });
