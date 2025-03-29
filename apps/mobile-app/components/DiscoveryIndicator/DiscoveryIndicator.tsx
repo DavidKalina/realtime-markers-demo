@@ -1,17 +1,13 @@
 import { useEventBroker } from "@/hooks/useEventBroker";
-import { EventTypes, DiscoveryEvent, DiscoveredEventData, CameraAnimateToLocationEvent } from "@/services/EventBroker";
-import React, { useEffect, useState, useMemo } from "react";
-import { StyleSheet, View, Text, Pressable } from "react-native";
-import Animated, {
-    LinearTransition,
-    useAnimatedStyle,
-    withTiming,
-    cancelAnimation,
-    runOnJS,
-    BounceIn,
-    FadeOut,
-} from "react-native-reanimated";
+import { CameraAnimateToLocationEvent, DiscoveredEventData, DiscoveryEvent, EventTypes } from "@/services/EventBroker";
 import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, {
+    BounceIn,
+    LinearTransition,
+    SlideOutRight
+} from "react-native-reanimated";
 
 interface DiscoveryIndicatorProps {
     position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
@@ -21,10 +17,8 @@ interface DiscoveryItem {
     id: string;
     event: DiscoveredEventData;
     timestamp: number;
-    opacity: number;
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top-right" }) => {
     const [discoveries, setDiscoveries] = useState<DiscoveryItem[]>([]);
@@ -82,8 +76,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
                 const newDiscovery: DiscoveryItem = {
                     id: event.event.id,
                     event: { ...event.event },
-                    timestamp: new Date().getTime(),
-                    opacity: 1, // Start fully visible
+                    timestamp: new Date().getTime()
                 };
 
                 // Add new discovery to the front of the array
@@ -91,24 +84,11 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
 
                 // Auto-dismiss after 10 seconds
                 setTimeout(() => {
+                    // Just remove the item - the exiting animation will handle the fade out
                     setDiscoveries(current => {
                         if (!current) return [];
-                        return current.map(item => {
-                            if (item.id === newDiscovery.id) {
-                                return { ...item, opacity: 0 }; // Fade out
-                            }
-                            return item;
-                        });
+                        return current.filter(item => item.id !== newDiscovery.id);
                     });
-
-                    // Remove item after animation
-                    setTimeout(() => {
-                        setDiscoveries(current => {
-                            if (!current) return [];
-                            return current.filter(item => item.id !== newDiscovery.id);
-                        });
-                    }, 500); // Match animation duration
-
                 }, 10000);
 
                 // Limit the number of displayed items
@@ -130,21 +110,13 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
             });
         }
 
-        // Mark as fading out
-        setDiscoveries(current =>
-            current.map(item =>
-                item.id === discovery.id
-                    ? { ...item, opacity: 0 }
-                    : item
-            )
-        );
-
-        // Remove after animation completes
+        // Mark as fading out but don't change opacity - let the exiting animation handle it
+        // Just remove the item - the exiting animation will handle the fade out
         setTimeout(() => {
             setDiscoveries(current =>
                 current.filter(item => item.id !== discovery.id)
             );
-        }, 300);
+        }, 50);
     };
 
     return (
@@ -158,15 +130,12 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
                             index > 0 && { marginTop: 8 }
                         ]}
                         entering={BounceIn}
-                        exiting={FadeOut.duration(300)}
+                        exiting={SlideOutRight.duration(400)}
                         layout={LinearTransition.springify()}
                     >
                         <Pressable
                             onPress={() => handlePress(item)}
-                            style={[
-                                styles.pressable,
-                                { opacity: item.opacity }
-                            ]}
+                            style={styles.pressable}
                         >
                             <View style={styles.indicator}>
                                 <View style={styles.iconContainer}>
