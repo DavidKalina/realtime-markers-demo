@@ -55,6 +55,10 @@ export class Event {
   @Column({ type: "text", nullable: true })
   address?: string;
 
+  @Column({ type: "text", nullable: true, name: "location_notes" })
+  locationNotes?: string;
+
+  @Index()
   @Column({
     type: "geometry",
     spatialFeatureType: "Point",

@@ -62,6 +62,11 @@ export interface EventExtractionResult {
      * IANA timezone identifier (e.g., "America/New_York")
      */
     timezone: string;
+
+    /**
+     * Additional location context like building names, room numbers, etc.
+     */
+    locationNotes?: string;
   };
 
   /**

@@ -67,8 +67,8 @@ export class EventExtractionService implements IEventExtractionService {
     const userLocationPrompt = userCityState
       ? `The user is currently in ${userCityState}. Consider this for location inference.`
       : options?.userCoordinates
-      ? `The user is currently located near latitude ${options.userCoordinates.lat}, longitude ${options.userCoordinates.lng}.`
-      : "";
+        ? `The user is currently located near latitude ${options.userCoordinates.lat}, longitude ${options.userCoordinates.lng}.`
+        : "";
 
     // Extract event details with enhanced location awareness
     const response = await OpenAIService.executeChatCompletion({
@@ -135,6 +135,13 @@ export class EventExtractionService implements IEventExtractionService {
       coordinates: options?.userCoordinates,
     });
 
+    console.log("[EventExtractionService] Resolved location:", {
+      address: resolvedLocation.address,
+      locationNotes: resolvedLocation.locationNotes,
+      confidence: resolvedLocation.confidence,
+      clues: locationClues
+    });
+
     // Create Point from resolved coordinates
     const location = resolvedLocation.coordinates;
 
@@ -160,19 +167,28 @@ export class EventExtractionService implements IEventExtractionService {
       );
     }
 
+    const eventDetails = {
+      emoji: parsedDetails.emoji || this.defaultEmoji,
+      title: parsedDetails.title || "",
+      date: eventDate,
+      endDate: eventEndDate,
+      address: resolvedLocation.address,
+      location: location,
+      description: parsedDetails.description || "",
+      categories: categories,
+      timezone: timezone,
+      locationNotes: resolvedLocation.locationNotes || "",
+    };
+
+    console.log("[EventExtractionService] Final event details:", {
+      title: eventDetails.title,
+      address: eventDetails.address,
+      locationNotes: eventDetails.locationNotes
+    });
+
     return {
       rawExtractedData: parsedDetails,
-      event: {
-        emoji: parsedDetails.emoji || this.defaultEmoji,
-        title: parsedDetails.title || "",
-        date: eventDate,
-        endDate: eventEndDate,
-        address: resolvedLocation.address,
-        location: location,
-        description: parsedDetails.description || "",
-        categories: categories,
-        timezone: timezone,
-      },
+      event: eventDetails,
       locationDetails: {
         confidence: resolvedLocation.confidence,
         resolvedAt: resolvedLocation.resolvedAt,

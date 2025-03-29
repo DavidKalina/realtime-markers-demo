@@ -286,6 +286,13 @@ async function initializeWorker() {
 
           const eventDetails = scanResult.eventDetails;
 
+          console.log("[Worker] Creating event with details:", {
+            title: eventDetails.title,
+            address: eventDetails.address,
+            locationNotes: eventDetails.locationNotes,
+            confidence: scanResult.confidence
+          });
+
           const eventDate = new Date(eventDetails.date);
 
           // Validate the event date
@@ -319,11 +326,19 @@ async function initializeWorker() {
             description: eventDetails.description,
             confidenceScore: scanResult.confidence,
             address: eventDetails.address,
+            locationNotes: eventDetails.locationNotes || "",
             categoryIds: eventDetails.categories?.map((cat) => cat.id),
             creatorId: job.data.creatorId,
             qrDetectedInImage: scanResult.qrCodeDetected || false,
             detectedQrData: scanResult.qrCodeData,
-            originalImageUrl: originalImageUrl, // Add this line to include the image URL
+            originalImageUrl: originalImageUrl,
+          });
+
+          console.log("[Worker] Event created successfully:", {
+            id: newEvent.id,
+            title: newEvent.title,
+            address: newEvent.address,
+            locationNotes: newEvent.locationNotes
           });
 
           // Increment the user's scan count if they are the creator

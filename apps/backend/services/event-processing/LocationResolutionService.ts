@@ -73,6 +73,7 @@ export class LocationResolutionService implements ILocationResolutionService {
         confidence: resolvedLocation.confidence,
         timezone: resolvedLocation.timezone,
         resolvedAt: new Date().toISOString(),
+        locationNotes: resolvedLocation.locationNotes
       };
     } catch (error) {
       console.error("Error resolving location:", error);
@@ -90,6 +91,7 @@ export class LocationResolutionService implements ILocationResolutionService {
         timezone: "UTC",
         resolvedAt: new Date().toISOString(),
         error: error instanceof Error ? error.message : "Unknown error resolving location",
+        locationNotes: ""
       };
     }
   }

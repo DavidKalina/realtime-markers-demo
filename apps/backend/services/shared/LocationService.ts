@@ -11,6 +11,7 @@ interface CachedLocation {
   timestamp: number;
   confidence: number;
   timezone?: string; // Add timezone to cache
+  locationNotes?: string;
 }
 
 export class EnhancedLocationService {
@@ -21,7 +22,7 @@ export class EnhancedLocationService {
   private readonly CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days
 
   // Private constructor for singleton pattern
-  private constructor() {}
+  private constructor() { }
 
   // Static method to get the singleton instance
   public static getInstance(): EnhancedLocationService {
@@ -66,6 +67,7 @@ export class EnhancedLocationService {
     coordinates: [number, number];
     confidence: number;
     timezone: string;
+    locationNotes?: string;
   }> {
     // Generate unique fingerprint for these clues
     const cluesFingerprint = this.generateCluesFingerprint(clues, userCityState);
@@ -74,71 +76,141 @@ export class EnhancedLocationService {
     const cachedLocation = this.locationCache.get(cluesFingerprint);
     if (cachedLocation && Date.now() - cachedLocation.timestamp < this.CACHE_EXPIRY) {
       console.log("Using cached location for clues fingerprint:", cluesFingerprint);
-
-      // If timezone is missing in cached data, add it now
-      let timezone = cachedLocation.timezone || "UTC";
-      if (!cachedLocation.timezone) {
-        timezone = await this.getTimezoneFromCoordinates(
-          cachedLocation.coordinates[1],
-          cachedLocation.coordinates[0]
-        );
-        // Update cache with timezone
-        cachedLocation.timezone = timezone;
-        this.locationCache.set(cluesFingerprint, cachedLocation);
-      }
-
       return {
         address: cachedLocation.address,
         coordinates: cachedLocation.coordinates,
         confidence: cachedLocation.confidence,
-        timezone: timezone,
+        timezone: cachedLocation.timezone || "UTC",
+        locationNotes: cachedLocation.locationNotes
       };
     }
 
-    // If we have user coordinates, use them as the default location
-    const defaultCoords = userCoordinates
-      ? ([userCoordinates.lng, userCoordinates.lat] as [number, number])
-      : ([-111.6585, 40.2338] as [number, number]); // Default to Provo
-
-    // Try to infer address from clues
-    const address = await this.inferAddressFromClues(clues, userCityState, userCoordinates);
-    let coordinates = defaultCoords;
-    let confidence = 0.1; // Start with low confidence
-
-    // Only proceed with geocoding if we have a valid address
-    if (address) {
-      const geocodedCoords = await this.geocodeAddress(address);
-      const addressConfidence = this.calculateAddressConfidence(clues, address);
-
-      // Only use the geocoded address if confidence is high enough
-      if (addressConfidence >= 0.7) {
-        coordinates = geocodedCoords;
-        confidence = addressConfidence;
-      } else {
-        console.log("Address confidence too low, using user coordinates");
-      }
+    // Filter and deduplicate clues
+    const uniqueClues = [...new Set(clues.filter(Boolean))];
+    if (uniqueClues.length === 0) {
+      throw new Error("No location clues provided");
     }
 
-    // Get timezone for the coordinates
-    const timezone = await this.getTimezoneFromCoordinates(coordinates[1], coordinates[0]);
-    console.log(`Resolved timezone: ${timezone} for coordinates [${coordinates}]`);
+    const cluesText = uniqueClues.join(" | ");
 
-    // Store in cache with timezone
-    this.locationCache.set(cluesFingerprint, {
-      cluesHash: cluesFingerprint,
-      address: confidence >= 0.7 ? address : "", // Only store address if confidence is high
-      coordinates,
-      timestamp: Date.now(),
-      confidence,
-      timezone,
-    });
+    // Add user location context
+    const userLocationContext = userCityState
+      ? `User is in ${userCityState}.`
+      : userCoordinates
+        ? `User coordinates: ${userCoordinates.lat.toFixed(5)},${userCoordinates.lng.toFixed(5)}`
+        : "";
 
-    return {
-      address: confidence >= 0.7 ? address : "", // Only return address if confidence is high
-      coordinates,
-      confidence,
-      timezone,
-    };
+    try {
+      // Use AI to analyze location clues and extract structured information
+      const response = await OpenAIService.executeChatCompletion({
+        model: "gpt-4o",
+        temperature: 0.1,
+        messages: [
+          {
+            role: "system",
+            content: `You are a location analysis expert. Analyze the provided location clues and extract structured information.
+
+KEY INSTRUCTIONS:
+1. EXTRACT THREE DISTINCT PIECES OF INFORMATION:
+   - FULL ADDRESS: If a complete street address is present, extract it in standard format (Street number + Street name, City, State ZIP)
+   - LOCATION NOTES: Extract ALL relevant context like building names, room numbers, organizations, landmarks, or any other location details
+   - CONFIDENCE: Rate your confidence in the extracted address (0.0 to 1.0)
+
+2. STRICT RULES:
+   - Only extract FULL ADDRESS if it's explicitly stated or can be determined with high confidence
+   - If no full address is found, return "NO_ADDRESS" for the address field
+   - Never guess or infer addresses
+   - ALWAYS include location notes, even if we have a full address
+   - Include any additional context that would help someone find the location
+
+3. USER CONTEXT:
+   ${userLocationContext}
+
+RESPOND IN THIS EXACT JSON FORMAT:
+{
+  "address": "FULL ADDRESS or NO_ADDRESS",
+  "locationNotes": "All relevant location context",
+  "confidence": 0.0 to 1.0
+}`
+          },
+          {
+            role: "user",
+            content: `LOCATION CLUES: ${cluesText}`
+          }
+        ],
+        max_tokens: 300,
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || "{}");
+      let address = result.address === "NO_ADDRESS" ? "" : result.address;
+      const locationNotes = result.locationNotes || "";
+      let confidence = result.confidence || 0;
+
+      console.log("[LocationService] Location resolution result:", {
+        address,
+        locationNotes,
+        confidence,
+        clues: uniqueClues
+      });
+
+      let coordinates: [number, number];
+
+      // Strict location hierarchy:
+      if (address) {
+        // If we have a valid address, geocode it
+        coordinates = await this.geocodeAddress(address);
+        confidence = 1.0; // Full confidence for explicit addresses
+        console.log("[LocationService] Using geocoded address:", {
+          address,
+          coordinates,
+          locationNotes
+        });
+      } else if (userCoordinates) {
+        // If no address but we have scan location, use that
+        coordinates = [userCoordinates.lng, userCoordinates.lat];
+        confidence = 0.5; // Medium confidence for scan location
+        console.log("[LocationService] Using scan coordinates:", {
+          coordinates,
+          locationNotes
+        });
+      } else {
+        // If no address and no scan location, we cannot determine location
+        throw new Error("Cannot determine event location: No address or scan coordinates available");
+      }
+
+      // Get timezone for the coordinates
+      const timezone = await this.getTimezoneFromCoordinates(coordinates[1], coordinates[0]);
+
+      // Store in cache
+      this.locationCache.set(cluesFingerprint, {
+        cluesHash: cluesFingerprint,
+        address,
+        coordinates,
+        timestamp: Date.now(),
+        confidence,
+        timezone,
+        locationNotes
+      });
+
+      console.log("[LocationService] Final resolved location:", {
+        address,
+        coordinates,
+        confidence,
+        timezone,
+        locationNotes
+      });
+
+      return {
+        address,
+        coordinates,
+        confidence,
+        timezone,
+        locationNotes
+      };
+    } catch (error) {
+      console.error("Error in location resolution:", error);
+      throw error;
+    }
   }
 
   // Rest of existing methods...
@@ -161,8 +233,8 @@ export class EnhancedLocationService {
     const userLocationContext = userCityState
       ? `User is in ${userCityState}.`
       : userCoordinates
-      ? `User coordinates: ${userCoordinates.lat.toFixed(5)},${userCoordinates.lng.toFixed(5)}`
-      : "";
+        ? `User coordinates: ${userCoordinates.lat.toFixed(5)},${userCoordinates.lng.toFixed(5)}`
+        : "";
 
     try {
       // First attempt - standard address inference using OpenAIService

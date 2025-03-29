@@ -25,9 +25,10 @@ interface CreateEventInput {
   categoryIds?: string[];
   confidenceScore?: number;
   address?: string;
+  locationNotes?: string;
   creatorId: string;
   timezone?: string;
-  qrDetectedInImage?: boolean; // New field
+  qrDetectedInImage?: boolean;
   detectedQrData?: string;
   originalImageUrl?: string | null;
 }
@@ -198,12 +199,9 @@ export class EventService {
           input.location.coordinates[0] // longitude
         );
         input.timezone = timezone;
-        console.log(
-          `Determined timezone ${timezone} for event at coordinates [${input.location.coordinates}]`
-        );
       } catch (error) {
-        console.error("Error determining timezone from coordinates:", error);
-        input.timezone = "UTC"; // Default to UTC
+        console.error("Error determining timezone:", error);
+        input.timezone = "UTC"; // Fallback to UTC
       }
     }
 
@@ -233,9 +231,10 @@ export class EventService {
       location: input.location,
       status: EventStatus.PENDING,
       address: input.address,
+      locationNotes: input.locationNotes || "",
       embedding: pgvector.toSql(embedding),
       creatorId: input.creatorId,
-      timezone: input.timezone || "UTC", // Save the timezone
+      timezone: input.timezone || "UTC",
       qrDetectedInImage: input.qrDetectedInImage || false,
       detectedQrData: input.detectedQrData,
       originalImageUrl: input.originalImageUrl || undefined,
