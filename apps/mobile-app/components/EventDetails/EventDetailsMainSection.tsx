@@ -88,6 +88,35 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
   },
 
+  // Location section styling
+  locationSection: {
+    marginBottom: 16,
+  },
+
+  locationLabel: {
+    fontSize: 13,
+    color: '#93c5fd',
+    fontFamily: 'SpaceMono',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+
+  // Location notes styling
+  locationNotesContainer: {
+    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+
+  locationNotesText: {
+    fontSize: 13,
+    color: "#93c5fd",
+    fontFamily: "SpaceMono",
+    lineHeight: 18,
+  },
+
   // Distance info styling
   distanceInfoContainer: {
     backgroundColor: "rgba(147, 197, 253, 0.15)",
@@ -95,8 +124,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 8,
     alignSelf: "flex-start",
-    marginTop: 10,
-    marginBottom: 12,
+    marginTop: 4,
   },
 
   distanceInfoText: {
@@ -109,7 +137,7 @@ const styles = StyleSheet.create({
   // Location actions container
   locationActionContainer: {
     flexDirection: "row",
-    marginTop: 14,
+    marginTop: 8,
     gap: 12,
   },
 
@@ -163,68 +191,48 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  // Location notes styling
-  locationNotesContainer: {
+  // Date & Time styling
+  dateTimeContainer: {
+    gap: 16,
+  },
+
+  dateTimeSection: {
+    gap: 4,
+  },
+
+  dateTimeLabel: {
+    fontSize: 13,
+    color: '#93c5fd',
+    fontFamily: 'SpaceMono',
+    fontWeight: '500',
+  },
+
+  dateTimeValueContainer: {
     backgroundColor: "rgba(147, 197, 253, 0.1)",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    marginTop: 8,
-    marginBottom: 8,
   },
 
-  locationNotesText: {
+  dateTimeValue: {
+    fontSize: 15,
+    color: '#f8f9fa',
+    fontFamily: 'SpaceMono',
+    lineHeight: 20,
+  },
+
+  localTimeContainer: {
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+
+  localTimeText: {
     fontSize: 13,
-    color: "#93c5fd",
-    fontFamily: "SpaceMono",
+    color: '#93c5fd',
+    fontFamily: 'SpaceMono',
     lineHeight: 18,
-  },
-
-  // Date & Time styling
-  dateTimeContainer: {
-    gap: 8,
-  },
-
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-
-  dateLabel: {
-    fontSize: 13,
-    color: '#93c5fd',
-    fontFamily: 'SpaceMono',
-    fontWeight: '500',
-    minWidth: 45,
-  },
-
-  dateValue: {
-    fontSize: 15,
-    color: '#f8f9fa',
-    fontFamily: 'SpaceMono',
-    flex: 1,
-  },
-
-  timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-
-  timeLabel: {
-    fontSize: 13,
-    color: '#93c5fd',
-    fontFamily: 'SpaceMono',
-    fontWeight: '500',
-    minWidth: 45,
-  },
-
-  timeValue: {
-    fontSize: 15,
-    color: '#f8f9fa',
-    fontFamily: 'SpaceMono',
-    flex: 1,
   },
 });
 
@@ -272,54 +280,61 @@ const EventDetailsMainSection: React.FC<EventDetailsMainSectionProps> = ({
       {/* Date & Time Card */}
       <DetailCard icon={<Calendar size={20} color="#93c5fd" />} title="Date & Time">
         <View style={styles.dateTimeContainer}>
-          {/* Date */}
-          <View style={styles.dateContainer}>
-            <Text style={styles.dateLabel}>Date:</Text>
-            <Text style={styles.dateValue}>
-              {formatDate(event.eventDate, event.timezone)}
-              {event.endDate && (
-                <>
-                  {" - "}
-                  {formatDate(event.endDate, event.timezone)}
-                </>
-              )}
-            </Text>
-          </View>
-
-          {/* Time */}
-          <View style={styles.timeContainer}>
-            <Text style={styles.timeLabel}>Time:</Text>
-            <Text style={styles.timeValue}>
-              {new Date(event.eventDate).toLocaleTimeString([], {
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-              })}
-              {event.endDate && (
-                <>
-                  {" - "}
-                  {new Date(event.endDate).toLocaleTimeString([], {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true
-                  })}
-                </>
-              )}
-            </Text>
-          </View>
-
-          {/* Add user's local time if different */}
-          {getUserLocalTime(event.eventDate, event.timezone) && (
-            <View style={styles.timezoneText}>
-              <Text style={styles.timezoneTextContent}>
-                {getUserLocalTime(event.eventDate, event.timezone)}
+          {/* Date Section */}
+          <View style={styles.dateTimeSection}>
+            <Text style={styles.dateTimeLabel}>Date</Text>
+            <View style={styles.dateTimeValueContainer}>
+              <Text style={styles.dateTimeValue}>
+                {formatDate(event.eventDate, event.timezone)}
                 {event.endDate && (
                   <>
                     {" - "}
-                    {getUserLocalTime(event.endDate, event.timezone)}
+                    {formatDate(event.endDate, event.timezone)}
                   </>
                 )}
               </Text>
+            </View>
+          </View>
+
+          {/* Time Section */}
+          <View style={styles.dateTimeSection}>
+            <Text style={styles.dateTimeLabel}>Time</Text>
+            <View style={styles.dateTimeValueContainer}>
+              <Text style={styles.dateTimeValue}>
+                {new Date(event.eventDate).toLocaleTimeString([], {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true
+                })}
+                {event.endDate && (
+                  <>
+                    {" - "}
+                    {new Date(event.endDate).toLocaleTimeString([], {
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </>
+                )}
+              </Text>
+            </View>
+          </View>
+
+          {/* Local Time Section - Only show if different */}
+          {getUserLocalTime(event.eventDate, event.timezone) && (
+            <View style={styles.dateTimeSection}>
+              <Text style={styles.dateTimeLabel}>Your Local Time</Text>
+              <View style={styles.localTimeContainer}>
+                <Text style={styles.localTimeText}>
+                  {getUserLocalTime(event.eventDate, event.timezone)}
+                  {event.endDate && (
+                    <>
+                      {" - "}
+                      {getUserLocalTime(event.endDate, event.timezone)}
+                    </>
+                  )}
+                </Text>
+              </View>
             </View>
           )}
         </View>
@@ -327,21 +342,31 @@ const EventDetailsMainSection: React.FC<EventDetailsMainSectionProps> = ({
 
       {/* Location Card */}
       <DetailCard icon={<MapPin size={20} color="#93c5fd" />} title="Location">
-        <Text style={styles.detailValue}>{event.location}</Text>
+        {/* Main Address */}
+        <View style={styles.locationSection}>
+          <Text style={styles.locationLabel}>Address</Text>
+          <Text style={styles.detailValue}>{event.location}</Text>
+        </View>
 
-        {/* Show location notes if available */}
-        {event.locationNotes && (
-          <View style={styles.locationNotesContainer}>
-            <Text style={styles.locationNotesText}>{event.locationNotes}</Text>
+        {/* Location Notes - Only show if there are notes */}
+        {event.locationNotes && event.locationNotes !== "No additional location context provided" && (
+          <View style={styles.locationSection}>
+            <Text style={styles.locationLabel}>Additional Details</Text>
+            <View style={styles.locationNotesContainer}>
+              <Text style={styles.locationNotesText}>{event.locationNotes}</Text>
+            </View>
           </View>
         )}
 
-        {/* Show calculated distance */}
+        {/* Distance Info */}
         {distanceInfo && (
-          <View style={styles.distanceInfoContainer}>
-            <Text style={styles.distanceInfoText}>
-              {isLoadingLocation ? "Calculating distance..." : distanceInfo}
-            </Text>
+          <View style={styles.locationSection}>
+            <Text style={styles.locationLabel}>Distance</Text>
+            <View style={styles.distanceInfoContainer}>
+              <Text style={styles.distanceInfoText}>
+                {isLoadingLocation ? "Calculating distance..." : distanceInfo}
+              </Text>
+            </View>
           </View>
         )}
 
