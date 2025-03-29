@@ -341,8 +341,12 @@ async function initializeWorker() {
             locationNotes: newEvent.locationNotes
           });
 
-          // Increment the user's scan count if they are the creator
+          // Create discovery record and increment user stats if they are the creator
           if (job.data.creatorId) {
+            // Create discovery record
+            await eventService.createDiscoveryRecord(job.data.creatorId, jobId);
+
+            // Increment scan count
             await AppDataSource
               .createQueryBuilder()
               .update(User)

@@ -595,17 +595,30 @@ class ApiClient {
   }
 
   // Get events discovered by current user
-  async getUserDiscoveredEvents(options?: EventOptions): Promise<EventType[]> {
+  async getUserDiscoveredEvents(options?: EventOptions): Promise<{
+    events: EventType[];
+    total: number;
+    hasMore: boolean;
+  }> {
     const queryParams = new URLSearchParams();
 
     if (options?.limit) queryParams.append("limit", options.limit.toString());
     if (options?.offset) queryParams.append("offset", options.offset.toString());
 
-    const url = `${this.baseUrl}/api/users/me/events/discovered?${queryParams.toString()}`;
+    const url = `${this.baseUrl}/api/events/discovered?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
-    const data = await this.handleResponse<ApiEvent[]>(response);
 
-    return data.map(this.mapEventToEventType);
+    const data = await this.handleResponse<{
+      events: ApiEvent[];
+      total: number;
+      hasMore: boolean;
+    }>(response);
+
+    return {
+      events: data.events.map(this.mapEventToEventType),
+      total: data.total,
+      hasMore: data.hasMore,
+    };
   }
 
   async generateClusterNames(request: ClusterNamingRequest): Promise<ClusterNamingResult[]> {

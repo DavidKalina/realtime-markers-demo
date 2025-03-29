@@ -125,9 +125,9 @@ export const processEventImageHandler: EventHandler = async (c) => {
     const userCoordinates =
       userLat && userLng
         ? {
-            lat: parseFloat(userLat.toString()),
-            lng: parseFloat(userLng.toString()),
-          }
+          lat: parseFloat(userLat.toString()),
+          lng: parseFloat(userLng.toString()),
+        }
         : null;
 
     if (!user || !user?.userId) {
@@ -470,6 +470,36 @@ export const generateClusterNamesHandler: EventHandler = async (c) => {
       {
         error: "Failed to generate cluster names",
         message: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
+export const getDiscoveredEventsHandler: EventHandler = async (c) => {
+  try {
+    const user = c.get("user");
+    const limit = c.req.query("limit");
+    const offset = c.req.query("offset");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    const eventService = c.get("eventService");
+
+    const discoveredEvents = await eventService.getDiscoveredEventsByUser(user.userId, {
+      limit: limit ? parseInt(limit) : undefined,
+      offset: offset ? parseInt(offset) : undefined,
+    });
+
+    return c.json(discoveredEvents);
+  } catch (error) {
+    console.error("Error fetching discovered events:", error);
+    return c.json(
+      {
+        error: "Failed to fetch discovered events",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       500
     );
