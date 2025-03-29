@@ -57,6 +57,82 @@ export class EnhancedLocationService {
     return createHash("md5").update(fingerprint).digest("hex");
   }
 
+  // Add new validation methods
+  private validateCoordinates(coordinates: [number, number]): boolean {
+    return (
+      Array.isArray(coordinates) &&
+      coordinates.length === 2 &&
+      typeof coordinates[0] === "number" &&
+      typeof coordinates[1] === "number" &&
+      coordinates[0] >= -180 &&
+      coordinates[0] <= 180 &&
+      coordinates[1] >= -90 &&
+      coordinates[1] <= 90
+    );
+  }
+
+  private calculateDistance(coords1: [number, number], coords2: [number, number]): number {
+    const toRad = (x: number) => (x * Math.PI) / 180;
+    const R = 6371e3; // Earth radius in meters
+
+    const dLat = toRad(coords2[1] - coords1[1]);
+    const dLng = toRad(coords2[0] - coords1[0]);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(coords1[1])) *
+      Math.cos(toRad(coords2[1])) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in meters
+  }
+
+  private async verifyLocationWithReverseGeocoding(
+    coordinates: [number, number],
+    expectedAddress: string
+  ): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${coordinates[0]},${coordinates[1]}.json?access_token=${process.env.MAPBOX_GEOCODING_TOKEN}`
+      );
+
+      if (!response.ok) return false;
+
+      const data = await response.json();
+      if (!data.features || data.features.length === 0) return false;
+
+      // Get the most relevant feature
+      const feature = data.features[0];
+      const reverseGeocodedAddress = feature.place_name;
+
+      // Simple string similarity check
+      const similarity = this.calculateStringSimilarity(
+        expectedAddress.toLowerCase(),
+        reverseGeocodedAddress.toLowerCase()
+      );
+
+      return similarity > 0.7; // 70% similarity threshold
+    } catch (error) {
+      console.error("Error in reverse geocoding verification:", error);
+      return false;
+    }
+  }
+
+  private calculateStringSimilarity(str1: string, str2: string): number {
+    const words1 = str1.split(/\s+/);
+    const words2 = str2.split(/\s+/);
+
+    const set1 = new Set(words1);
+    const set2 = new Set(words2);
+
+    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    const union = new Set([...set1, ...set2]);
+
+    return intersection.size / union.size;
+  }
+
   // 3. Lookup cached location or infer new one
   async resolveLocation(
     clues: string[],
@@ -145,23 +221,46 @@ RESPOND IN THIS EXACT JSON FORMAT:
       const locationNotes = result.locationNotes || "";
       let confidence = result.confidence || 0;
 
-
-
       let coordinates: [number, number];
+      let verificationScore = 0;
 
-      // Strict location hierarchy:
+      // Strict location hierarchy with verification
       if (address) {
-        // If we have a valid address, geocode it
         coordinates = await this.geocodeAddress(address);
-        confidence = 1.0; // Full confidence for explicit addresses
 
+        // Validate coordinates
+        if (!this.validateCoordinates(coordinates)) {
+          throw new Error("Invalid coordinates obtained from geocoding");
+        }
+
+        // Verify with reverse geocoding
+        const reverseGeocodingVerified = await this.verifyLocationWithReverseGeocoding(
+          coordinates,
+          address
+        );
+        verificationScore += reverseGeocodingVerified ? 0.5 : 0;
+
+        // If we have user coordinates, verify distance
+        if (userCoordinates) {
+          const userCoords: [number, number] = [userCoordinates.lng, userCoordinates.lat];
+          const distance = this.calculateDistance(coordinates, userCoords);
+
+          // Add distance-based verification score
+          if (distance < 100) { // Within 100 meters
+            verificationScore += 0.3;
+          } else if (distance < 1000) { // Within 1km
+            verificationScore += 0.2;
+          } else if (distance < 5000) { // Within 5km
+            verificationScore += 0.1;
+          }
+        }
+
+        // Base confidence for having an address
+        confidence = 0.5 + verificationScore;
       } else if (userCoordinates) {
-        // If no address but we have scan location, use that
         coordinates = [userCoordinates.lng, userCoordinates.lat];
-        confidence = 0.5; // Medium confidence for scan location
-
+        confidence = 0.3; // Lower confidence for scan-only location
       } else {
-        // If no address and no scan location, we cannot determine location
         throw new Error("Cannot determine event location: No address or scan coordinates available");
       }
 
@@ -178,8 +277,6 @@ RESPOND IN THIS EXACT JSON FORMAT:
         timezone,
         locationNotes
       });
-
-
 
       return {
         address,
