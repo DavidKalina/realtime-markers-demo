@@ -344,7 +344,7 @@ async function initializeWorker() {
           // Create discovery record and increment user stats if they are the creator
           if (job.data.creatorId) {
             // Create discovery record
-            await eventService.createDiscoveryRecord(job.data.creatorId, jobId);
+            await eventService.createDiscoveryRecord(job.data.creatorId, newEvent.id);
 
             // Increment scan count
             await AppDataSource

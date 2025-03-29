@@ -822,23 +822,10 @@ export class EventService {
   /**
    * Create a discovery record for a user scanning an event
    * @param userId The ID of the user who scanned the event
-   * @param jobId The ID of the job processing the scan
+   * @param eventId The ID of the event that was discovered
    */
-  async createDiscoveryRecord(userId: string, jobId: string): Promise<void> {
+  async createDiscoveryRecord(userId: string, eventId: string): Promise<void> {
     try {
-      // Get the job to find the event ID
-      const job = await this.dataSource
-        .createQueryBuilder()
-        .select("job")
-        .from("jobs", "job")
-        .where("job.id = :jobId", { jobId })
-        .getOne();
-
-      if (!job) {
-        console.error(`Job ${jobId} not found for discovery record`);
-        return;
-      }
-
       // Create the discovery record
       await this.dataSource
         .createQueryBuilder()
@@ -846,7 +833,7 @@ export class EventService {
         .into("user_event_discoveries")
         .values({
           userId,
-          eventId: job.eventId,
+          eventId,
         })
         .orIgnore() // Ignore if record already exists
         .execute();

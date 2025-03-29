@@ -65,7 +65,7 @@ const StatusText = React.memo(
         {isConnected
           ? "Connected"
           : hasConnectionEverBeenEstablished
-            ? "Reconnecting..."
+            ? "Reconnecting"
             : "Connecting"}
       </Animated.Text>
     );
