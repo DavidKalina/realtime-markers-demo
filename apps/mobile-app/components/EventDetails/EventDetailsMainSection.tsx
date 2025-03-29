@@ -162,6 +162,70 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontWeight: "500",
   },
+
+  // Location notes styling
+  locationNotesContainer: {
+    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+
+  locationNotesText: {
+    fontSize: 13,
+    color: "#93c5fd",
+    fontFamily: "SpaceMono",
+    lineHeight: 18,
+  },
+
+  // Date & Time styling
+  dateTimeContainer: {
+    gap: 8,
+  },
+
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  dateLabel: {
+    fontSize: 13,
+    color: '#93c5fd',
+    fontFamily: 'SpaceMono',
+    fontWeight: '500',
+    minWidth: 45,
+  },
+
+  dateValue: {
+    fontSize: 15,
+    color: '#f8f9fa',
+    fontFamily: 'SpaceMono',
+    flex: 1,
+  },
+
+  timeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  timeLabel: {
+    fontSize: 13,
+    color: '#93c5fd',
+    fontFamily: 'SpaceMono',
+    fontWeight: '500',
+    minWidth: 45,
+  },
+
+  timeValue: {
+    fontSize: 15,
+    color: '#f8f9fa',
+    fontFamily: 'SpaceMono',
+    flex: 1,
+  },
 });
 
 interface EventDetailsMainSectionProps {
@@ -207,35 +271,70 @@ const EventDetailsMainSection: React.FC<EventDetailsMainSectionProps> = ({
     <View style={styles.detailsContainer}>
       {/* Date & Time Card */}
       <DetailCard icon={<Calendar size={20} color="#93c5fd" />} title="Date & Time">
-        <Text style={styles.detailValue}>
-          {formatDate(event.eventDate, event.timezone)}
-          {event.endDate && (
-            <>
-              {" - "}
-              {formatDate(event.endDate, event.timezone)}
-            </>
-          )}
-        </Text>
-
-        {/* Add user's local time if different */}
-        {getUserLocalTime(event.eventDate, event.timezone) && (
-          <View style={styles.timezoneText}>
-            <Text style={styles.timezoneTextContent}>
-              {getUserLocalTime(event.eventDate, event.timezone)}
+        <View style={styles.dateTimeContainer}>
+          {/* Date */}
+          <View style={styles.dateContainer}>
+            <Text style={styles.dateLabel}>Date:</Text>
+            <Text style={styles.dateValue}>
+              {formatDate(event.eventDate, event.timezone)}
               {event.endDate && (
                 <>
                   {" - "}
-                  {getUserLocalTime(event.endDate, event.timezone)}
+                  {formatDate(event.endDate, event.timezone)}
                 </>
               )}
             </Text>
           </View>
-        )}
+
+          {/* Time */}
+          <View style={styles.timeContainer}>
+            <Text style={styles.timeLabel}>Time:</Text>
+            <Text style={styles.timeValue}>
+              {new Date(event.eventDate).toLocaleTimeString([], {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+              })}
+              {event.endDate && (
+                <>
+                  {" - "}
+                  {new Date(event.endDate).toLocaleTimeString([], {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                </>
+              )}
+            </Text>
+          </View>
+
+          {/* Add user's local time if different */}
+          {getUserLocalTime(event.eventDate, event.timezone) && (
+            <View style={styles.timezoneText}>
+              <Text style={styles.timezoneTextContent}>
+                {getUserLocalTime(event.eventDate, event.timezone)}
+                {event.endDate && (
+                  <>
+                    {" - "}
+                    {getUserLocalTime(event.endDate, event.timezone)}
+                  </>
+                )}
+              </Text>
+            </View>
+          )}
+        </View>
       </DetailCard>
 
       {/* Location Card */}
       <DetailCard icon={<MapPin size={20} color="#93c5fd" />} title="Location">
         <Text style={styles.detailValue}>{event.location}</Text>
+
+        {/* Show location notes if available */}
+        {event.locationNotes && (
+          <View style={styles.locationNotesContainer}>
+            <Text style={styles.locationNotesText}>{event.locationNotes}</Text>
+          </View>
+        )}
 
         {/* Show calculated distance */}
         {distanceInfo && (

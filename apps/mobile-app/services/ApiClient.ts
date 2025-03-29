@@ -65,6 +65,7 @@ export interface ApiEvent {
   endDate?: string;
   location: Location;
   address?: string;
+  locationNotes?: string; // Add location notes
   categories?: { id: string; name: string }[];
   createdAt: string;
   updatedAt: string;
@@ -357,11 +358,12 @@ class ApiClient {
       id: apiEvent.id,
       title: apiEvent.title,
       description: apiEvent.description || "",
-      eventDate: apiEvent.eventDate, // Add this - keep original ISO string
+      eventDate: apiEvent.eventDate,
       endDate: apiEvent.endDate ?? undefined,
-      time: new Date(apiEvent.eventDate).toLocaleString(), // Keep for backward compatibility
+      time: new Date(apiEvent.eventDate).toLocaleString(),
       coordinates: apiEvent.location.coordinates,
       location: apiEvent.address || "Location not specified",
+      locationNotes: apiEvent.locationNotes || "",
       distance: "",
       emoji: apiEvent.emoji || "📍",
       categories: apiEvent.categories?.map((c) => c.name) || [],
@@ -690,8 +692,7 @@ class ApiClient {
 
       // Log pagination details for debugging
       console.log(
-        `Search query: "${query}" | Results: ${data.results.length} | Next cursor: ${
-          data.nextCursor || "none"
+        `Search query: "${query}" | Results: ${data.results.length} | Next cursor: ${data.nextCursor || "none"
         }`
       );
 
