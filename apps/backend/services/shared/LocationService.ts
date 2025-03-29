@@ -178,7 +178,7 @@ export class EnhancedLocationService {
     try {
       // Use AI to analyze location clues and extract structured information
       const response = await OpenAIService.executeChatCompletion({
-        model: "gpt-4o",
+        model: "gpt-4",
         temperature: 0.1,
         messages: [
           {
@@ -187,19 +187,32 @@ export class EnhancedLocationService {
 
 KEY INSTRUCTIONS:
 1. EXTRACT THREE DISTINCT PIECES OF INFORMATION:
-   - FULL ADDRESS: If a complete street address is present, extract it in standard format (Street number + Street name, City, State ZIP)
-   - LOCATION NOTES: Extract ALL relevant context like building names, room numbers, organizations, landmarks, or any other location details
-   - CONFIDENCE: Rate your confidence in the extracted address (0.0 to 1.0)
+   - FULL ADDRESS: Extract if you find a complete address. Must include street number, street name, city, and state.
+   - LOCATION NOTES: Extract ALL relevant context like:
+     * Organization names (companies, schools, universities)
+     * Building names
+     * Room numbers
+     * Landmarks
+     * Campus information
+     * Any other location details
+   - CONFIDENCE: Rate your confidence in the extracted information (0.0 to 1.0)
 
 2. STRICT RULES:
-   - Only extract FULL ADDRESS if it's explicitly stated or can be determined with high confidence
-   - If no full address is found, return "NO_ADDRESS" for the address field
-   - Never guess or infer addresses
-   - ALWAYS include location notes, even if we have a full address
-   - Include any additional context that would help someone find the location
+   - For addresses: Only extract if you have a complete, unambiguous address
+   - If you find partial address information, include it in locationNotes
+   - If no address is found, look for organizations, buildings, or landmarks
+   - Location notes should include ALL relevant context that would help identify the location
+   - If user context is provided, use it to help identify the city/state if missing
 
 3. USER CONTEXT:
    ${userLocationContext}
+
+4. LOCATION HIERARCHY:
+   1. Complete addresses (highest priority)
+   2. Organizations/Institutions (universities, companies, etc.)
+   3. Buildings/Landmarks
+   4. Partial address information
+   5. User location (fallback)
 
 RESPOND IN THIS EXACT JSON FORMAT:
 {
@@ -224,8 +237,9 @@ RESPOND IN THIS EXACT JSON FORMAT:
       let coordinates: [number, number];
       let verificationScore = 0;
 
-      // Strict location hierarchy with verification
+      // Location resolution hierarchy
       if (address) {
+        // Try to resolve the address
         coordinates = await this.geocodeAddress(address);
 
         // Validate coordinates
@@ -240,28 +254,26 @@ RESPOND IN THIS EXACT JSON FORMAT:
         );
         verificationScore += reverseGeocodingVerified ? 0.5 : 0;
 
-        // If we have user coordinates, verify distance
-        if (userCoordinates) {
-          const userCoords: [number, number] = [userCoordinates.lng, userCoordinates.lat];
-          const distance = this.calculateDistance(coordinates, userCoords);
-
-          // Add distance-based verification score
-          if (distance < 100) { // Within 100 meters
-            verificationScore += 0.3;
-          } else if (distance < 1000) { // Within 1km
-            verificationScore += 0.2;
-          } else if (distance < 5000) { // Within 5km
-            verificationScore += 0.1;
-          }
-        }
-
         // Base confidence for having an address
         confidence = 0.5 + verificationScore;
+      } else if (locationNotes) {
+        // Try to resolve organization/landmark
+        const searchQuery = locationNotes.split('\n')[0]; // Use first line as primary search
+        coordinates = await this.geocodeAddress(searchQuery);
+
+        // Validate coordinates
+        if (!this.validateCoordinates(coordinates)) {
+          throw new Error("Invalid coordinates obtained from geocoding");
+        }
+
+        // Lower confidence for organization/landmark resolution
+        confidence = 0.4;
       } else if (userCoordinates) {
+        // Fall back to user location
         coordinates = [userCoordinates.lng, userCoordinates.lat];
-        confidence = 0.3; // Lower confidence for scan-only location
+        confidence = 0.3;
       } else {
-        throw new Error("Cannot determine event location: No address or scan coordinates available");
+        throw new Error("Cannot determine event location: No address, organization, or scan coordinates available");
       }
 
       // Get timezone for the coordinates
