@@ -64,6 +64,9 @@ const MessageTypes = {
 
   // For backward compatibility
   SESSION_UPDATE: "session_update",
+
+  // New event type for discovered events
+  EVENT_DISCOVERED: "event_discovered",
 };
 
 export const useMapWebSocket = (url: string): MapWebSocketResult => {
@@ -340,6 +343,16 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               source: "useMapWebSocket",
               markers: [],
               count: 1,
+            });
+            break;
+          }
+
+          // Handle discovered events
+          case MessageTypes.EVENT_DISCOVERED: {
+            eventBroker.emit<BaseEvent & { event: any }>(EventTypes.EVENT_DISCOVERED, {
+              timestamp: Date.now(),
+              source: "useMapWebSocket",
+              event: data.event,
             });
             break;
           }

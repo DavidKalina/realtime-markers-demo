@@ -390,8 +390,33 @@ async function initializeWorker() {
             })
           );
 
+          // Publish discovery event notification
+          await redisClient.publish(
+            "discovered_events",
+            JSON.stringify({
+              type: "EVENT_DISCOVERED",
+              event: {
+                id: newEvent.id,
+                title: newEvent.title,
+                emoji: newEvent.emoji,
+                location: newEvent.location,
+                description: newEvent.description,
+                eventDate: newEvent.eventDate,
+                endDate: newEvent.endDate,
+                address: newEvent.address,
+                locationNotes: newEvent.locationNotes,
+                categories: newEvent.categories,
+                confidenceScore: newEvent.confidenceScore,
+                originalImageUrl: newEvent.originalImageUrl,
+                creatorId: newEvent.creatorId,
+                createdAt: newEvent.createdAt,
+                updatedAt: newEvent.updatedAt,
+              },
+              timestamp: new Date().toISOString(),
+            })
+          );
+
           // Mark as completed with success
-          // In worker.ts, when marking the job as completed
           await jobQueue.updateJobStatus(jobId, {
             status: "completed",
             eventId: newEvent.id,

@@ -4,23 +4,23 @@ import { EventEmitter } from "eventemitter3";
 // Define event types for better type checking
 export enum EventTypes {
   // WebSocket and Map events
-  WEBSOCKET_CONNECTED = "websocket:connected",
-  WEBSOCKET_DISCONNECTED = "websocket:disconnected",
-  MARKERS_UPDATED = "markers:updated",
-
+  WEBSOCKET_CONNECTED = "websocket_connected",
+  WEBSOCKET_DISCONNECTED = "websocket_disconnected",
+  MARKERS_UPDATED = "markers_updated",
+  EVENT_DISCOVERED = "event_discovered",
   // New consolidated map item events
   MAP_ITEM_SELECTED = "map:item:selected",
   MAP_ITEM_DESELECTED = "map:item:deselected",
 
   // Keep these for backward compatibility but they'll be deprecated
-  MARKER_SELECTED = "marker:selected",
+  MARKER_SELECTED = "marker_selected",
   CLUSTER_SELECTED = "cluster_selected",
   CLUSTER_EXPANDED = "cluster_expanded",
-  MARKER_DESELECTED = "marker:deselected",
+  MARKER_DESELECTED = "marker_deselected",
 
-  MARKER_ADDED = "marker:added",
-  MARKER_REMOVED = "marker:removed",
-  VIEWPORT_CHANGED = "viewport:changed",
+  MARKER_ADDED = "marker_added",
+  MARKER_REMOVED = "marker_removed",
+  VIEWPORT_CHANGED = "viewport_changed",
   VIEWPORT_CHANGING = "viewport:changing",
 
   USER_PANNING_VIEWPORT = "user:panning:viewport",
@@ -39,7 +39,7 @@ export enum EventTypes {
   // Misc events
   MAP_READY = "map:ready",
   USER_LOCATION_UPDATED = "user:location:updated",
-  ERROR_OCCURRED = "error:occurred",
+  ERROR_OCCURRED = "error_occurred",
 
   JOB_QUEUED = "job:queued",
   JOB_STARTED = "job:started",
@@ -61,7 +61,7 @@ export enum EventTypes {
 // Base event interface that all event payloads should extend
 export interface BaseEvent {
   timestamp: number;
-  source?: string;
+  source: string;
 }
 
 // Unified MapItem type for both markers and clusters
@@ -211,6 +211,28 @@ export interface NotificationEvent extends BaseEvent {
 export interface ErrorEvent extends BaseEvent {
   error: Error | string;
   context?: string;
+}
+
+export interface DiscoveredEventData {
+  id: string;
+  title: string;
+  emoji: string;
+  location: any;
+  description?: string;
+  eventDate: string;
+  endDate?: string;
+  address?: string;
+  locationNotes?: string;
+  categories?: any[];
+  confidenceScore: number;
+  originalImageUrl?: string;
+  creatorId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DiscoveryEvent extends BaseEvent {
+  event: DiscoveredEventData;
 }
 
 // Main EventBroker class

@@ -26,6 +26,9 @@ const MessageTypes = {
   DELETE_EVENT: "delete-event",
   REPLACE_ALL: "replace-all",
 
+  // Discovery events
+  EVENT_DISCOVERED: "event_discovered",
+
   ADD_JOB: "add_job",
   JOB_ADDED: "job_added",
   CANCEL_JOB: "cancel_job",
@@ -57,6 +60,28 @@ const redisConfig = {
 
 // Main Redis client for publishing
 const redisPub = new Redis(redisConfig);
+
+// Subscribe to discovered events
+const redisSub = new Redis(redisConfig);
+redisSub.subscribe("discovered_events");
+
+redisSub.on("message", (channel, message) => {
+  if (channel === "discovered_events") {
+    try {
+      const data = JSON.parse(message);
+      // Broadcast to all connected clients
+      for (const [clientId, client] of clients.entries()) {
+        try {
+          client.send(message);
+        } catch (error) {
+          console.error(`Error sending discovery event to client ${clientId}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error("Error processing discovery event:", error);
+    }
+  }
+});
 
 // Initialize session manager
 const sessionManager = new SessionManager(redisPub);
