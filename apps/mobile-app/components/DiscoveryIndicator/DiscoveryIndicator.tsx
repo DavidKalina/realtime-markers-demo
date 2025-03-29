@@ -20,6 +20,7 @@ import Animated, {
     runOnJS,
 } from "react-native-reanimated";
 import { useRouter } from "expo-router";
+import { Ionicons } from '@expo/vector-icons';
 
 // Pre-define animations to avoid recreation
 const SPRING_LAYOUT = Layout.springify();
@@ -171,11 +172,14 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
                     <Text style={styles.emojiText}>{discoveredEvent?.emoji || "🎉"}</Text>
                 </View>
 
-                {/* Direct text with absolute styling to ensure visibility */}
                 <View style={{ flex: 1, justifyContent: 'center' }}>
                     <Text style={styles.titleText} numberOfLines={1}>
                         New Discovery
                     </Text>
+                </View>
+
+                <View style={styles.tapIndicator}>
+                    <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.6)" />
                 </View>
             </Animated.View>
         </Pressable>
@@ -193,8 +197,8 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(51, 51, 51, 0.92)",
         borderRadius: 16,
         padding: 8,
-        paddingRight: 12,
-        width: 140,
+        paddingRight: 8,
+        width: 160,
         height: 40,
         borderWidth: 1,
         borderColor: "rgba(255, 255, 255, 0.1)",
@@ -214,7 +218,7 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(255, 215, 0, 0.2)",
     },
     titleText: {
-        color: "#f8f9fa", // Using same color as ConnectionIndicator
+        color: "#f8f9fa",
         fontSize: 10,
         fontFamily: "SpaceMono",
         fontWeight: "600",
@@ -222,6 +226,11 @@ const styles = StyleSheet.create({
     emojiText: {
         fontSize: 14,
         textAlign: "center",
+    },
+    tapIndicator: {
+        marginLeft: 4,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });
 
