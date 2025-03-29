@@ -1,188 +1,193 @@
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes, DiscoveryEvent, DiscoveredEventData, CameraAnimateToLocationEvent } from "@/services/EventBroker";
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { StyleSheet, View, Text, Pressable } from "react-native";
 import Animated, {
-    Layout,
-    SlideInLeft,
-    SlideOutLeft,
-    SlideInRight,
-    SlideOutRight,
-    SlideInUp,
-    SlideOutUp,
-    SlideInDown,
-    SlideOutDown,
-    withTiming,
+    LinearTransition,
     useAnimatedStyle,
-    useSharedValue,
+    withTiming,
     cancelAnimation,
-    Easing,
     runOnJS,
+    BounceIn,
+    FadeOut,
 } from "react-native-reanimated";
-import { useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
-
-// Pre-define animations to avoid recreation
-const SPRING_LAYOUT = Layout.springify();
-
-// Create position-specific animations
-const createAnimations = (position: string) => {
-    const springConfig = {
-        damping: 20,
-        mass: 1.2,
-        stiffness: 150,
-    };
-
-    switch (position) {
-        case "top-left":
-            return {
-                entering: SlideInLeft.springify().damping(20).mass(1.2).stiffness(150),
-                exiting: SlideOutLeft.springify().damping(20).mass(1.2).stiffness(150),
-            };
-        case "top-right":
-            return {
-                entering: SlideInRight.springify().damping(20).mass(1.2).stiffness(150),
-                exiting: SlideOutRight.springify().damping(20).mass(1.2).stiffness(150),
-            };
-        case "bottom-left":
-            return {
-                entering: SlideInUp.springify().damping(20).mass(1.2).stiffness(150),
-                exiting: SlideOutUp.springify().damping(20).mass(1.2).stiffness(150),
-            };
-        case "bottom-right":
-            return {
-                entering: SlideInDown.springify().damping(20).mass(1.2).stiffness(150),
-                exiting: SlideOutDown.springify().damping(20).mass(1.2).stiffness(150),
-            };
-        default:
-            return {
-                entering: SlideInRight.springify().damping(20).mass(1.2).stiffness(150),
-                exiting: SlideOutRight.springify().damping(20).mass(1.2).stiffness(150),
-            };
-    }
-};
 
 interface DiscoveryIndicatorProps {
     position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
 }
 
+interface DiscoveryItem {
+    id: string;
+    event: DiscoveredEventData;
+    timestamp: number;
+    opacity: number;
+}
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top-right" }) => {
-    const [isVisible, setIsVisible] = useState(false);
-    const [discoveredEvent, setDiscoveredEvent] = useState<DiscoveredEventData | null>(null);
+    const [discoveries, setDiscoveries] = useState<DiscoveryItem[]>([]);
     const { subscribe, publish } = useEventBroker();
-
-    // Animation values
-    const opacity = useSharedValue(1);
-
-    // Timer ref for auto-hiding
-    const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Get position styles based on position prop
     const positionStyle = useMemo(() => {
+        const baseSpacing = 50; // Base spacing from the edge
+        const itemSpacing = 8; // Spacing between items
+        const maxItems = 5; // Maximum number of items to show
+
         switch (position) {
             case "top-left":
-                return { top: 150, left: 16 }; // Position below FilterIndicator
+                return {
+                    top: 150,
+                    left: 16,
+                    maxHeight: maxItems * (40 + itemSpacing)
+                };
             case "bottom-right":
-                return { bottom: 50, right: 16 };
+                return {
+                    bottom: baseSpacing,
+                    right: 16,
+                    maxHeight: maxItems * (40 + itemSpacing)
+                };
             case "bottom-left":
-                return { bottom: 50, left: 16 };
+                return {
+                    bottom: baseSpacing,
+                    left: 16,
+                    maxHeight: maxItems * (40 + itemSpacing)
+                };
             case "top-right":
-                return { top: 50, right: 16 }
-
+                return {
+                    top: baseSpacing,
+                    right: 16,
+                    maxHeight: maxItems * (40 + itemSpacing)
+                };
             default:
-                return { top: 150, left: 16 }; // Position below FilterIndicator
+                return {
+                    top: 150,
+                    left: 16,
+                    maxHeight: maxItems * (40 + itemSpacing)
+                };
         }
     }, [position]);
-
-    // Get animations based on position
-    const animations = useMemo(() => createAnimations(position), [position]);
 
     // Subscribe to discovery events
     useEffect(() => {
         const unsubscribe = subscribe(EventTypes.EVENT_DISCOVERED, (event: DiscoveryEvent) => {
+            setDiscoveries(prev => {
+                // Don't add duplicates
+                if (prev && prev.some(d => d.id === event.event.id)) {
+                    return prev;
+                }
 
-            setDiscoveredEvent(event.event);
-            setIsVisible(true);
+                const newDiscovery: DiscoveryItem = {
+                    id: event.event.id,
+                    event: { ...event.event },
+                    timestamp: new Date().getTime(),
+                    opacity: 1, // Start fully visible
+                };
 
-            // Reset animation values
-            opacity.value = 1;
+                // Add new discovery to the front of the array
+                const newDiscoveries = [newDiscovery, ...(prev || [])];
 
-            // Clear any existing timeout
-            if (hideTimeoutRef.current) {
-                clearTimeout(hideTimeoutRef.current);
-            }
+                // Auto-dismiss after 10 seconds
+                setTimeout(() => {
+                    setDiscoveries(current => {
+                        if (!current) return [];
+                        return current.map(item => {
+                            if (item.id === newDiscovery.id) {
+                                return { ...item, opacity: 0 }; // Fade out
+                            }
+                            return item;
+                        });
+                    });
 
-            // Auto-hide after 10 seconds
-            hideTimeoutRef.current = setTimeout(() => {
-                opacity.value = withTiming(0, { duration: 500 }, () => {
-                    "worklet";
-                    runOnJS(setIsVisible)(false);
-                });
-            }, 10000);
+                    // Remove item after animation
+                    setTimeout(() => {
+                        setDiscoveries(current => {
+                            if (!current) return [];
+                            return current.filter(item => item.id !== newDiscovery.id);
+                        });
+                    }, 500); // Match animation duration
+
+                }, 10000);
+
+                // Limit the number of displayed items
+                return newDiscoveries.slice(0, 10);
+            });
         });
 
         return () => {
             unsubscribe();
-            if (hideTimeoutRef.current) {
-                clearTimeout(hideTimeoutRef.current);
-            }
-            cancelAnimation(opacity);
         };
-    }, [subscribe, opacity]);
+    }, [subscribe]);
 
-    // Create animated styles
-    const animatedStyle = useAnimatedStyle(() => ({
-        opacity: opacity.value,
-    }));
-
-    // Handle press to view event
-    const handlePress = () => {
-        if (discoveredEvent) {
+    const handlePress = (discovery: DiscoveryItem) => {
+        if (discovery?.event?.location?.coordinates) {
             publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
-                coordinates: discoveredEvent.location.coordinates,
+                coordinates: discovery.event.location.coordinates,
                 timestamp: new Date().getTime(),
                 source: "discovery_indicator"
-            })
-
-            if (hideTimeoutRef.current) {
-                clearTimeout(hideTimeoutRef.current);
-            }
-
-            opacity.value = withTiming(0, { duration: 300 }, () => {
-                "worklet";
-                runOnJS(setIsVisible)(false);
             });
         }
+
+        // Mark as fading out
+        setDiscoveries(current =>
+            current.map(item =>
+                item.id === discovery.id
+                    ? { ...item, opacity: 0 }
+                    : item
+            )
+        );
+
+        // Remove after animation completes
+        setTimeout(() => {
+            setDiscoveries(current =>
+                current.filter(item => item.id !== discovery.id)
+            );
+        }, 300);
     };
 
-    if (!isVisible) return null;
-
     return (
-        <Pressable
-            onPress={handlePress}
-            style={[styles.container, positionStyle]}
-        >
-            <Animated.View
-                style={[styles.indicator, animatedStyle]}
-                layout={SPRING_LAYOUT}
-                entering={animations.entering}
-                exiting={animations.exiting}
-            >
-                <View style={styles.iconContainer}>
-                    <Text style={styles.emojiText}>{discoveredEvent?.emoji || "🎉"}</Text>
-                </View>
+        <View style={[styles.container, positionStyle]}>
+            <Animated.View style={styles.wrapper}>
+                {discoveries && discoveries.map((item, index) => (
+                    <Animated.View
+                        key={item.id}
+                        style={[
+                            styles.itemContainer,
+                            index > 0 && { marginTop: 8 }
+                        ]}
+                        entering={BounceIn}
+                        exiting={FadeOut.duration(300)}
+                        layout={LinearTransition.springify()}
+                    >
+                        <Pressable
+                            onPress={() => handlePress(item)}
+                            style={[
+                                styles.pressable,
+                                { opacity: item.opacity }
+                            ]}
+                        >
+                            <View style={styles.indicator}>
+                                <View style={styles.iconContainer}>
+                                    <Text style={styles.emojiText}>{item.event?.emoji || "🎉"}</Text>
+                                </View>
 
-                <View style={{ flex: 1, justifyContent: 'center' }}>
-                    <Text style={styles.titleText} numberOfLines={1}>
-                        New Discovery
-                    </Text>
-                </View>
+                                <View style={{ flex: 1, justifyContent: 'center' }}>
+                                    <Text style={styles.titleText} numberOfLines={1}>
+                                        New Discovery
+                                    </Text>
+                                </View>
 
-                <View style={styles.tapIndicator}>
-                    <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.6)" />
-                </View>
+                                <View style={styles.tapIndicator}>
+                                    <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.6)" />
+                                </View>
+                            </View>
+                        </Pressable>
+                    </Animated.View>
+                ))}
             </Animated.View>
-        </Pressable>
+        </View>
     );
 };
 
@@ -190,6 +195,15 @@ const styles = StyleSheet.create({
     container: {
         position: "absolute",
         zIndex: 1000,
+    },
+    wrapper: {
+        width: 160,
+    },
+    itemContainer: {
+        width: 160,
+    },
+    pressable: {
+        width: '100%',
     },
     indicator: {
         flexDirection: "row",
