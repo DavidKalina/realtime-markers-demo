@@ -15,7 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Sparkles, MapPin, Calendar, Clock } from "lucide-react-native";
 import { useEventBroker } from "@/hooks/useEventBroker";
-import { EventTypes, DiscoveredEventData } from "@/services/EventBroker";
+import { EventTypes, DiscoveredEventData, DiscoveryEvent } from "@/services/EventBroker";
 
 const { width } = Dimensions.get("window");
 
@@ -32,7 +32,7 @@ export default function DiscoveredEventScreen() {
 
     // Subscribe to discovery events
     useEffect(() => {
-        const unsubscribe = subscribe(EventTypes.EVENT_DISCOVERED, (event) => {
+        const unsubscribe = subscribe(EventTypes.EVENT_DISCOVERED, (event: DiscoveryEvent) => {
             if (event.event.id === eventId) {
                 setEvent(event.event);
             }
