@@ -99,7 +99,6 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
     // Subscribe to discovery events
     useEffect(() => {
         const unsubscribe = subscribe(EventTypes.EVENT_DISCOVERED, (event: DiscoveryEvent) => {
-            console.log("[DiscoveryIndicator] Received discovery event:", event.event);
 
             setDiscoveredEvent(event.event);
             setIsVisible(true);

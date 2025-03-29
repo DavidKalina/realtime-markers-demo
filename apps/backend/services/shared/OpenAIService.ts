@@ -53,7 +53,7 @@ export class OpenAIService {
   private static createFetchWithRateLimit(): typeof fetch {
     const originalFetch = fetch;
 
-    return async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const customFetch = async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       // Determine which model is being used from the request body
       let model = "default";
       if (init?.body) {
@@ -70,8 +70,8 @@ export class OpenAIService {
       const operation = urlString.includes("embeddings")
         ? "embeddings"
         : urlString.includes("chat/completions")
-        ? "chat"
-        : "api";
+          ? "chat"
+          : "api";
 
       const requestKey = `${operation}:${model}`;
       const rateLimits = MODEL_RATE_LIMITS[model] || MODEL_RATE_LIMITS.default;
@@ -132,6 +132,10 @@ export class OpenAIService {
         this.decrementActiveRequests(requestKey);
       }
     };
+
+    return Object.assign(customFetch, {
+      preconnect: originalFetch.preconnect
+    }) as typeof fetch;
   }
 
   private static async checkRateLimit(key: string, limits: RateLimitConfig): Promise<void> {

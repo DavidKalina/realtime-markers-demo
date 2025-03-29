@@ -244,7 +244,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
         },
         {
           key: "saved",
-          label: LABEL_MAP.saved,
+          label: "Events",
           icon: ICON_MAP.saved,
           action: actionHandlers.saved,
         },

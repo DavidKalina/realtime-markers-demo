@@ -145,12 +145,18 @@ export class EnhancedLocationService {
     timezone: string;
     locationNotes?: string;
   }> {
+    console.warn('\n🔍🔍🔍 LOCATION RESOLUTION START 🔍🔍🔍');
+    console.warn('Input Clues:', clues);
+    console.warn('User City/State:', userCityState);
+    console.warn('User Coordinates:', userCoordinates);
+
     // Generate unique fingerprint for these clues
     const cluesFingerprint = this.generateCluesFingerprint(clues, userCityState);
 
     // Check cache first
     const cachedLocation = this.locationCache.get(cluesFingerprint);
     if (cachedLocation && Date.now() - cachedLocation.timestamp < this.CACHE_EXPIRY) {
+      console.warn('📍 Using cached location:', cachedLocation);
       return {
         address: cachedLocation.address,
         coordinates: cachedLocation.coordinates,
@@ -167,80 +173,99 @@ export class EnhancedLocationService {
     }
 
     const cluesText = uniqueClues.join(" | ");
-
-    // Add user location context
-    const userLocationContext = userCityState
-      ? `User is in ${userCityState}.`
-      : userCoordinates
-        ? `User coordinates: ${userCoordinates.lat.toFixed(5)},${userCoordinates.lng.toFixed(5)}`
-        : "";
+    console.warn('🔍 Processed Clues:', cluesText);
 
     try {
       // Use AI to analyze location clues and extract structured information
+      console.warn('\n🤖 Querying LLM for location analysis...');
       const response = await OpenAIService.executeChatCompletion({
-        model: "gpt-4",
+        model: "gpt-4o",
         temperature: 0.1,
+        response_format: { type: "json_object" },
         messages: [
           {
             role: "system",
-            content: `You are a location analysis expert. Analyze the provided location clues and extract structured information.
+            content: `You are a location analysis expert working with Mapbox's geocoding API. Extract location information that will be used to query Mapbox's geocoding API.
 
 KEY INSTRUCTIONS:
-1. EXTRACT THREE DISTINCT PIECES OF INFORMATION:
-   - FULL ADDRESS: Extract if you find a complete address. Must include street number, street name, city, and state.
-   - LOCATION NOTES: Extract ALL relevant context like:
-     * Organization names (companies, schools, universities)
-     * Building names
-     * Room numbers
-     * Landmarks
-     * Campus information
-     * Any other location details
-   - CONFIDENCE: Rate your confidence in the extracted information (0.0 to 1.0)
+1. For ambiguous city names (like Washington, Springfield, etc):
+   - Look for state context in the full text
+   - Check phone area codes (e.g., 435 is Utah)
+   - Use landmarks or business names as context
+   - If a city could be confused with a state/DC, explicitly add the state
 
-2. STRICT RULES:
-   - For addresses: Only extract if you have a complete, unambiguous address
-   - If you find partial address information, include it in locationNotes
-   - If no address is found, look for organizations, buildings, or landmarks
-   - Location notes should include ALL relevant context that would help identify the location
-   - If user context is provided, use it to help identify the city/state if missing
+2. When extracting addresses:
+   - Must include street number, street name, city, and state
+   - Always use full state names or standard 2-letter codes (UT not Ut.)
+   - For cities that share names with states/DC, always include state
+   - Format: "Street number + Street name, City, State ZIP"
 
-3. USER CONTEXT:
-   ${userLocationContext}
+3. If no complete address is found:
+   - Extract business names, landmarks, and cross-streets
+   - Include city and state when known
+   - Note any phone area codes as they help confirm state
 
-4. LOCATION HIERARCHY:
-   1. Complete addresses (highest priority)
-   2. Organizations/Institutions (universities, companies, etc.)
-   3. Buildings/Landmarks
-   4. Partial address information
-   5. User location (fallback)
+4. Phone Area Code Reference:
+   - 435: Utah (outside Salt Lake area)
+   - Add other relevant area codes as needed
 
-RESPOND IN THIS EXACT JSON FORMAT:
-{
-  "address": "FULL ADDRESS or NO_ADDRESS",
-  "locationNotes": "All relevant location context",
-  "confidence": 0.0 to 1.0
-}`
+5. RESPONSE FORMAT:
+   You MUST respond with a valid JSON object in this exact format:
+   {
+     "address": "complete address if found, or empty string",
+     "locationNotes": "additional location context, or empty string",
+     "confidence": number between 0 and 1
+   }
+
+USER CONTEXT:
+${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coordinates: ${userCoordinates.lat.toFixed(5)},${userCoordinates.lng.toFixed(5)}` : ""}`
           },
           {
             role: "user",
             content: `LOCATION CLUES: ${cluesText}`
           }
         ],
-        max_tokens: 300,
+        max_tokens: 150,
       });
 
-      const result = JSON.parse(response.choices[0].message.content || "{}");
+      console.warn('LLM Response:', response.choices[0].message.content);
+
+      let result;
+      try {
+        result = JSON.parse(response.choices[0].message.content || "{}");
+      } catch (error) {
+        console.warn('Failed to parse LLM response as JSON, attempting to extract address from text');
+        const content = response.choices[0].message.content || "";
+        const addressMatch = content.match(/EXTRACTED LOCATION:\s*(.+)/i) ||
+          content.match(/ADDRESS:\s*(.+)/i) ||
+          content.match(/(\d+.*?,\s*[A-Za-z\s]+,\s*[A-Z]{2})/);
+
+        if (addressMatch) {
+          result = {
+            address: addressMatch[1].trim(),
+            locationNotes: "",
+            confidence: 0.8
+          };
+        } else {
+          throw new Error("Could not extract address from LLM response");
+        }
+      }
+
       let address = result.address === "NO_ADDRESS" ? "" : result.address;
       const locationNotes = result.locationNotes || "";
       let confidence = result.confidence || 0;
 
+      console.log('\nParsed LLM Result:');
+      console.log('Address:', address || '(none)');
+      console.log('Location Notes:', locationNotes || '(none)');
+      console.log('Initial Confidence:', confidence);
+
       let coordinates: [number, number];
-      let verificationScore = 0;
 
       // Location resolution hierarchy
       if (address) {
-        // Try to resolve the address
-        coordinates = await this.geocodeAddress(address);
+        console.log('\nTrying to resolve address:', address);
+        coordinates = await this.geocodeAddress(address, `${address} | ${locationNotes}`);
 
         // Validate coordinates
         if (!this.validateCoordinates(coordinates)) {
@@ -252,24 +277,20 @@ RESPOND IN THIS EXACT JSON FORMAT:
           coordinates,
           address
         );
-        verificationScore += reverseGeocodingVerified ? 0.5 : 0;
-
-        // Base confidence for having an address
-        confidence = 0.5 + verificationScore;
+        confidence = 0.5 + (reverseGeocodingVerified ? 0.3 : 0);
+        console.log('Reverse Geocoding Verification:', reverseGeocodingVerified ? 'Passed' : 'Failed');
       } else if (locationNotes) {
-        // Try to resolve organization/landmark
-        const searchQuery = locationNotes.split('\n')[0]; // Use first line as primary search
-        coordinates = await this.geocodeAddress(searchQuery);
+        console.log('\nTrying to resolve from location notes:', locationNotes);
+        coordinates = await this.geocodeAddress(locationNotes, locationNotes);
 
         // Validate coordinates
         if (!this.validateCoordinates(coordinates)) {
           throw new Error("Invalid coordinates obtained from geocoding");
         }
 
-        // Lower confidence for organization/landmark resolution
         confidence = 0.4;
       } else if (userCoordinates) {
-        // Fall back to user location
+        console.log('\nFalling back to user coordinates');
         coordinates = [userCoordinates.lng, userCoordinates.lat];
         confidence = 0.3;
       } else {
@@ -278,6 +299,11 @@ RESPOND IN THIS EXACT JSON FORMAT:
 
       // Get timezone for the coordinates
       const timezone = await this.getTimezoneFromCoordinates(coordinates[1], coordinates[0]);
+
+      console.log('\nFinal Resolution:');
+      console.log('Coordinates:', coordinates);
+      console.log('Final Confidence:', confidence);
+      console.log('Timezone:', timezone);
 
       // Store in cache
       this.locationCache.set(cluesFingerprint, {
@@ -289,6 +315,8 @@ RESPOND IN THIS EXACT JSON FORMAT:
         timezone,
         locationNotes
       });
+
+      console.log('=== Location Resolution End ===\n');
 
       return {
         address,
@@ -303,12 +331,24 @@ RESPOND IN THIS EXACT JSON FORMAT:
     }
   }
 
-  // 8. Geocoding implementation
-  private async geocodeAddress(address: string): Promise<[number, number]> {
+  private async geocodeAddress(query: string, locationContext?: string): Promise<[number, number]> {
     try {
-      const encodedAddress = encodeURIComponent(address);
+      console.warn('🌍🌍🌍 GEOCODING START 🌍🌍🌍');
+      console.warn('Query:', query);
+      console.warn('Context:', locationContext);
+
+      const params = new URLSearchParams({
+        access_token: process.env.MAPBOX_GEOCODING_TOKEN || '',
+        country: 'us',
+        limit: '5', // Get multiple options
+        types: 'address,poi,place'
+      });
+
+      const encodedQuery = encodeURIComponent(query);
+      console.warn('🔍 Mapbox URL:', `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?${params.toString()}`);
+
       const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${process.env.MAPBOX_GEOCODING_TOKEN}`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?${params.toString()}`
       );
 
       if (!response.ok) {
@@ -316,16 +356,81 @@ RESPOND IN THIS EXACT JSON FORMAT:
       }
 
       const data = await response.json();
+      console.warn('📍 Raw Mapbox Response:', JSON.stringify(data, null, 2));
 
       if (!data.features || data.features.length === 0) {
         throw new Error("No coordinates found for address");
       }
 
-      return data.features[0].center as [number, number];
+      console.log('\nMapbox Raw Results:');
+      data.features.forEach((f: any, i: number) => {
+        console.log(`${i + 1}. ${f.place_name}`);
+        console.log(`   Type: ${f.place_type.join(', ')}`);
+        console.log(`   Context: ${f.context?.map((c: any) => c.text).join(', ') || 'none'}`);
+        console.log(`   Coordinates: [${f.center[1]}, ${f.center[0]}]`);
+        console.log('');
+      });
+
+      // Format the location options for the LLM
+      const options = data.features.map((feature: any, index: number) => {
+        const place = feature.place_name;
+        const [lng, lat] = feature.center;
+        const context = feature.context?.map((c: any) => c.text).join(', ') || '';
+        return `Option ${index + 1}: ${place} (${context}) [${lat}, ${lng}]`;
+      }).join('\n');
+
+      console.log('\nPrompting LLM with:');
+      console.log('Location Context:', locationContext || query);
+      console.log('Options:\n', options);
+
+      // Use LLM to pick the best option
+      const llmResponse = await OpenAIService.executeChatCompletion({
+        model: "gpt-4o-mini",
+        temperature: 0,
+        messages: [
+          {
+            role: "system",
+            content: `You are a location selection expert. Given multiple location options and context, select the most appropriate location.
+Choose the option that best matches the context, considering:
+1. Area codes mentioned (e.g., 435 is Utah)
+2. Business names and landmarks
+3. Geographic context
+4. Local knowledge (e.g., Washington, UT is near St. George)
+
+Respond with TWO lines:
+1. The option number you choose (1, 2, 3, etc)
+2. A brief explanation of why you chose it`
+          },
+          {
+            role: "user",
+            content: `Location Context: ${locationContext || query}
+
+Available Options:
+${options}
+
+Which option best matches the context? Respond with the number and brief explanation.`
+          }
+        ],
+        max_tokens: 100
+      });
+
+      console.log('\nLLM Response:', llmResponse.choices[0].message.content);
+
+      // Parse just the number from the first line of the LLM response
+      const selectedIndex = parseInt(llmResponse.choices[0].message.content.split('\n')[0].trim()) - 1;
+
+      // Fallback to first result if LLM response isn't valid
+      const validIndex = isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= data.features.length
+        ? 0
+        : selectedIndex;
+
+      console.log(`\nSelected option ${validIndex + 1}: ${data.features[validIndex].place_name}`);
+      console.log('=== End Debug ===\n');
+
+      return data.features[validIndex].center as [number, number];
     } catch (error) {
-      console.error("Geocoding error:", error);
-      // Fallback to a default location in Provo if geocoding fails
-      return [-111.6585, 40.2338];
+      console.error("❌ Geocoding error:", error);
+      throw error;
     }
   }
 }

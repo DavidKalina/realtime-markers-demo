@@ -226,18 +226,22 @@ async function initializeWorker() {
         );
 
         // Add detailed debugging to see what's happening
-        console.log("DETAILED SCAN RESULT:", {
+        console.warn('🔍 LOCATION RESOLUTION RESULTS:', {
           confidence: scanResult.confidence,
           title: scanResult.eventDetails.title,
-          isDuplicate: scanResult.isDuplicate, // Check if this is properly set
+          isDuplicate: scanResult.isDuplicate,
           similarityScore: scanResult.similarity.score,
           threshold: 0.72,
           date: scanResult.eventDetails.date,
           timezone: scanResult.eventDetails.timezone,
           matchingEventId: scanResult.similarity.matchingEventId,
+          location: scanResult.eventDetails.location,
+          address: scanResult.eventDetails.address,
+          locationNotes: scanResult.eventDetails.locationNotes,
+          coordinates: scanResult.eventDetails.location?.coordinates
         });
 
-        console.log(`[Worker] Image analyzed with confidence: ${scanResult.confidence}`);
+        console.warn(`[Worker] Image analyzed with confidence: ${scanResult.confidence}`);
 
         // Now check if this is a duplicate event
         if (scanResult.isDuplicate && scanResult.similarity.matchingEventId) {
