@@ -153,10 +153,7 @@ export class StorageService extends EventEmitter {
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const key = `${prefix}/${timestamp}-${imageId}.jpg`;
 
-      console.log("Uploading to storage:", {
-        bucket: this.bucketName,
-        key,
-      });
+
 
       // Upload to DO Space if client is initialized
       if (this.s3Client) {

@@ -51,8 +51,6 @@ export class LocationResolutionService implements ILocationResolutionService {
       // Filter out empty clues and normalize
       const validClues = locationClues.filter(Boolean).map((clue) => clue.trim());
 
-      console.log("Resolving location with clues:", validClues);
-      console.log("User location context:", userCityState || "No city/state context");
 
       // Delegate to EnhancedLocationService for the heavy lifting
       const resolvedLocation = await this.locationService.resolveLocation(

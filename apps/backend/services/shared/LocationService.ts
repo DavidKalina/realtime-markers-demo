@@ -75,7 +75,6 @@ export class EnhancedLocationService {
     // Check cache first
     const cachedLocation = this.locationCache.get(cluesFingerprint);
     if (cachedLocation && Date.now() - cachedLocation.timestamp < this.CACHE_EXPIRY) {
-      console.log("Using cached location for clues fingerprint:", cluesFingerprint);
       return {
         address: cachedLocation.address,
         coordinates: cachedLocation.coordinates,
@@ -146,12 +145,7 @@ RESPOND IN THIS EXACT JSON FORMAT:
       const locationNotes = result.locationNotes || "";
       let confidence = result.confidence || 0;
 
-      console.log("[LocationService] Location resolution result:", {
-        address,
-        locationNotes,
-        confidence,
-        clues: uniqueClues
-      });
+
 
       let coordinates: [number, number];
 
@@ -160,19 +154,12 @@ RESPOND IN THIS EXACT JSON FORMAT:
         // If we have a valid address, geocode it
         coordinates = await this.geocodeAddress(address);
         confidence = 1.0; // Full confidence for explicit addresses
-        console.log("[LocationService] Using geocoded address:", {
-          address,
-          coordinates,
-          locationNotes
-        });
+
       } else if (userCoordinates) {
         // If no address but we have scan location, use that
         coordinates = [userCoordinates.lng, userCoordinates.lat];
         confidence = 0.5; // Medium confidence for scan location
-        console.log("[LocationService] Using scan coordinates:", {
-          coordinates,
-          locationNotes
-        });
+
       } else {
         // If no address and no scan location, we cannot determine location
         throw new Error("Cannot determine event location: No address or scan coordinates available");
@@ -192,13 +179,7 @@ RESPOND IN THIS EXACT JSON FORMAT:
         locationNotes
       });
 
-      console.log("[LocationService] Final resolved location:", {
-        address,
-        coordinates,
-        confidence,
-        timezone,
-        locationNotes
-      });
+
 
       return {
         address,
@@ -211,184 +192,6 @@ RESPOND IN THIS EXACT JSON FORMAT:
       console.error("Error in location resolution:", error);
       throw error;
     }
-  }
-
-  // Rest of existing methods...
-  // ... [existing methods remain unchanged] ...
-
-  private async inferAddressFromClues(
-    clues: string[],
-    userCityState: string,
-    userCoordinates?: { lat: number; lng: number }
-  ): Promise<string> {
-    // Filter and deduplicate clues
-    const uniqueClues = [...new Set(clues.filter(Boolean))];
-
-    // Early return if no meaningful clues
-    if (uniqueClues.length === 0) return "";
-
-    const cluesText = uniqueClues.join(" | ");
-
-    // Add precise user location context
-    const userLocationContext = userCityState
-      ? `User is in ${userCityState}.`
-      : userCoordinates
-        ? `User coordinates: ${userCoordinates.lat.toFixed(5)},${userCoordinates.lng.toFixed(5)}`
-        : "";
-
-    try {
-      // First attempt - standard address inference using OpenAIService
-      const response = await OpenAIService.executeChatCompletion({
-        model: "gpt-4o",
-        temperature: 0.1,
-        messages: [
-          {
-            role: "system",
-            content: `You are an address resolution expert specialized in standardizing location information for events.
-            
-KEY INSTRUCTIONS:
-1. ANALYZE all location clues in hierarchical priority:
-   - Explicit street addresses have highest priority
-   - Venue/building names with room numbers second priority
-   - Campus/institutional locations third priority
-   - Vague location references lowest priority
-
-2. STANDARDIZE the address in this exact format:
-   - Street number + Street name
-   - City, State ZIP
-   - No abbreviations except for state codes
-   - No extraneous information (no "Located at", "near", etc.)
-
-3. RESOLVE AMBIGUITY using user context:
-   - ${userLocationContext}
-   - If a venue has multiple locations, choose the one closest to user
-   - For campus buildings or coded locations (like "LC 301"), resolve to the full address
-   
-4. If you cannot determine a specific street address with high confidence, return "UNKNOWN" only.`,
-          },
-          {
-            role: "user",
-            content: `LOCATION CLUES: ${cluesText}
-            
-RESPOND WITH THE STANDARDIZED ADDRESS ONLY - NO EXPLANATIONS, PREFIXES, OR ADDITIONAL TEXT.`,
-          },
-        ],
-        max_tokens: 100,
-      });
-
-      const inferredAddress = response.choices[0].message.content?.trim();
-
-      // If we got a valid address, verify it looks reasonable
-      if (inferredAddress && inferredAddress !== "UNKNOWN") {
-        const isValidAddress = this.validateAddressFormat(inferredAddress);
-        if (isValidAddress) {
-          return inferredAddress;
-        } else {
-          // Try once more with explicit formatting instructions
-          return await this.retryAddressInference(cluesText, userLocationContext);
-        }
-      }
-
-      return inferredAddress === "UNKNOWN" ? "" : inferredAddress || "";
-    } catch (error) {
-      console.error("Error inferring address from clues:", error);
-      return "";
-    }
-  }
-
-  // 5. Validation for address format
-  private validateAddressFormat(address: string): boolean {
-    // Check for common address patterns
-    // - Must contain numbers (usually street number)
-    // - Must have city, state pattern
-    // - Shouldn't be too short
-
-    const hasNumbers = /\d/.test(address);
-    const hasCityState = /[A-Z][a-z]+,\s*[A-Z]{2}/.test(address);
-    const isReasonableLength = address.length > 10;
-
-    return hasNumbers && hasCityState && isReasonableLength;
-  }
-
-  // 6. Retry with more explicit instructions if first attempt fails validation
-  private async retryAddressInference(
-    cluesText: string,
-    userLocationContext: string
-  ): Promise<string> {
-    try {
-      const response = await OpenAIService.executeChatCompletion({
-        model: "gpt-4o",
-        temperature: 0,
-        messages: [
-          {
-            role: "system",
-            content: `You are an address standardization system. ${userLocationContext}
-            
-YOUR ONLY JOB is to output a properly formatted US address from the provided clues.
-The address MUST follow this exact pattern:
-123 Main Street
-City, ST 12345
-
-Where:
-- 123 is the street number
-- Main Street is the street name
-- City is the city name
-- ST is the two-letter state code
-- 12345 is the ZIP code (optional)
-
-DO NOT include any explanations or extraneous text.
-If you cannot determine an address with high confidence, respond only with "UNKNOWN".`,
-          },
-          {
-            role: "user",
-            content: cluesText,
-          },
-        ],
-        max_tokens: 100,
-      });
-
-      const inferredAddress = response.choices[0].message.content?.trim();
-      return inferredAddress === "UNKNOWN" ? "" : inferredAddress || "";
-    } catch (error) {
-      console.error("Error in retry address inference:", error);
-      return "";
-    }
-  }
-
-  // 7. Calculate confidence score for the inferred address
-  private calculateAddressConfidence(clues: string[], address: string): number {
-    if (!address) return 0;
-
-    // Base confidence starts at 0.3 (lower base confidence)
-    let confidence = 0.3;
-
-    // Increase confidence if address contains direct matches to clues
-    for (const clue of clues) {
-      if (clue && address.toLowerCase().includes(clue.toLowerCase())) {
-        confidence += 0.15; // Increased weight for direct matches
-      }
-    }
-
-    // Check for address completeness with higher weights
-    const hasStreetNumber = /^\d+\s/.test(address);
-    const hasStreetName = /\d+\s+[A-Za-z\s]+/.test(address);
-    const hasCityState = /[A-Za-z\s]+,\s*[A-Z]{2}/.test(address);
-    const hasZip = /\d{5}(?:-\d{4})?$/.test(address);
-
-    if (hasStreetNumber) confidence += 0.15;
-    if (hasStreetName) confidence += 0.15;
-    if (hasCityState) confidence += 0.15;
-    if (hasZip) confidence += 0.15;
-
-    // Additional validation for common address patterns
-    const hasValidStreetPattern =
-      /^\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Boulevard|Blvd|Road|Rd|Lane|Ln|Drive|Dr|Court|Ct|Circle|Cir|Way|Place|Pl)/.test(
-        address
-      );
-    if (hasValidStreetPattern) confidence += 0.1;
-
-    // Cap at 1.0
-    return Math.min(1.0, confidence);
   }
 
   // 8. Geocoding implementation
