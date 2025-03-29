@@ -13,11 +13,11 @@ import { EventProcessingService } from "./services/EventProcessingService";
 import { EventService } from "./services/EventService";
 import { JobQueue } from "./services/JobQueue";
 import { ConfigService } from "./services/shared/ConfigService";
-import { EnhancedLocationService } from "./services/shared/LocationService";
 import { OpenAIService } from "./services/shared/OpenAIService";
 import { isEventTemporalyRelevant } from "./utils/isEventTemporalyRelevant";
 import { StorageService } from "./services/shared/StorageService";
 import { User } from "./entities/User";
+import { GoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -49,7 +49,7 @@ async function initializeWorker() {
   StorageService.getInstance();
 
   // Initialize LocationService singleton (this is just to warm up the cache)
-  EnhancedLocationService.getInstance();
+  GoogleGeocodingService.getInstance();
 
   const configService = ConfigService.getInstance();
 

@@ -10,6 +10,7 @@ import { EnhancedLocationService } from "./shared/LocationService";
 import type { Filter } from "../entities/Filter";
 import { User } from "../entities/User";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
+import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 
 interface SearchResult {
   event: Event;
@@ -38,13 +39,13 @@ export class EventService {
   private eventRepository: Repository<Event>;
   private categoryRepository: Repository<Category>;
   private userEventSaveRepository: Repository<UserEventSave>;
-  private locationService: EnhancedLocationService;
+  private locationService: GoogleGeocodingService;
 
   constructor(private dataSource: DataSource) {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
     this.userEventSaveRepository = dataSource.getRepository(UserEventSave);
-    this.locationService = EnhancedLocationService.getInstance();
+    this.locationService = GoogleGeocodingService.getInstance();
   }
 
   async cleanupOutdatedEvents(

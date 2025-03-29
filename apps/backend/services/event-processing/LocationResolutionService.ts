@@ -6,13 +6,14 @@ import type { ConfigService } from "../shared/ConfigService";
 import { EnhancedLocationService } from "../shared/LocationService";
 import type { LocationResolutionResult } from "./dto/LocationResolutionResult";
 import type { ILocationResolutionService } from "./interfaces/ILocationResolutionService";
+import { GoogleGeocodingService } from "../shared/GoogleGeocodingService";
 
 /**
  * Service for resolving location information from textual clues
  * Wraps EnhancedLocationService to provide a cleaner interface
  */
 export class LocationResolutionService implements ILocationResolutionService {
-  private locationService: EnhancedLocationService;
+  private locationService: GoogleGeocodingService;
   private readonly geocodingApiKey: string;
 
   /**
@@ -20,7 +21,7 @@ export class LocationResolutionService implements ILocationResolutionService {
    * @param configService Optional configuration service for settings
    */
   constructor(private configService?: ConfigService) {
-    this.locationService = EnhancedLocationService.getInstance();
+    this.locationService = GoogleGeocodingService.getInstance();
     this.geocodingApiKey = process.env.MAPBOX_GEOCODING_TOKEN || "";
   }
 
