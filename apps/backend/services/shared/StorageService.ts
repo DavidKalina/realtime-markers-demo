@@ -277,8 +277,6 @@ export class StorageService extends EventEmitter {
 
       console.log(`Getting signed URL for key: ${key}`);
 
-      // Import the getSignedUrl function dynamically
-
       // Create the command
       const command = new GetObjectCommand({
         Bucket: this.bucketName,
@@ -286,9 +284,13 @@ export class StorageService extends EventEmitter {
       });
 
       // Generate signed URL
-      const signedUrl = await getSignedUrl(this.s3Client, command, {
-        expiresIn, // Seconds
-      });
+      const signedUrl = await getSignedUrl(
+        this.s3Client as unknown as any,
+        command as unknown as any,
+        {
+          expiresIn, // Seconds
+        }
+      );
 
       console.log(`Generated signed URL (expires in ${expiresIn}s)`);
       return signedUrl;
