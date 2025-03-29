@@ -32,6 +32,7 @@ interface EventDetails {
   description: string;
   categories?: Category[];
   timezone?: string; // IANA timezone identifier (e.g., "America/New_York")
+  locationNotes?: string; // Additional location context like building, room, etc.
 }
 
 interface ScanResult {
@@ -146,12 +147,16 @@ export class EventProcessingService {
       organizationHints: locationContext?.organizationHints,
     });
 
-    const eventDetailsWithCategories = extractionResult.event;
+    const eventDetailsWithCategories = {
+      ...extractionResult.event,
+      locationNotes: extractionResult.event.locationNotes || "", // Ensure locationNotes is always set
+    };
 
     await workflow.updateProgress(4, "Event details extracted", {
       title: eventDetailsWithCategories.title,
       categories: eventDetailsWithCategories.categories?.map((c) => c.name),
       timezone: eventDetailsWithCategories.timezone,
+      locationNotes: eventDetailsWithCategories.locationNotes, // Add to progress update
     });
 
     // Step 4: Generate embeddings

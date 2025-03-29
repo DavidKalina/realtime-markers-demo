@@ -11,16 +11,21 @@ import {
   StatusBar,
   SafeAreaView,
   ScrollView,
+  Animated,
+  StyleSheet,
 } from "react-native";
 import { Lock, Mail, Eye, EyeOff, ArrowLeft, User } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import apiClient from "@/services/ApiClient";
-import { styles as loginStyles } from "@/components/Login/styles"; // Reusing the same styles
 import { AuthWrapper } from "@/components/AuthWrapper";
+import MapMojiHeader from "@/components/AnimationHeader";
+import { useMapStyle } from "@/contexts/MapStyleContext";
+import AnimatedMapBackground from "@/components/Background";
 
 const RegisterScreen: React.FC = () => {
   const router = useRouter();
+  const { mapStyle } = useMapStyle();
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
@@ -34,12 +39,21 @@ const RegisterScreen: React.FC = () => {
   const displayNameInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Auto-focus the display name input when the screen loads
     setTimeout(() => {
       displayNameInputRef.current?.focus();
     }, 500);
+
+    // Start fade animation
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+      delay: 300,
+    }).start();
   }, []);
 
   const togglePasswordVisibility = () => {
@@ -108,142 +122,261 @@ const RegisterScreen: React.FC = () => {
 
   return (
     <AuthWrapper requireAuth={false}>
-      <SafeAreaView style={loginStyles.container}>
+      <SafeAreaView style={styles.container}>
+        <AnimatedMapBackground settings={{ styleURL: mapStyle }} />
         <StatusBar barStyle="light-content" backgroundColor="#333" />
+
+        <View style={styles.headerContainer}>
+          <MapMojiHeader />
+        </View>
 
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={loginStyles.keyboardAvoidingView}
+          style={styles.keyboardAvoidingView}
         >
           <ScrollView
-            contentContainerStyle={loginStyles.scrollContent}
+            contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <View style={loginStyles.formContainer}>
-              {/* App Title or Logo */}
-              <Text style={loginStyles.appTitle}>EventFinder</Text>
-              <Text style={loginStyles.welcomeText}>Join our community</Text>
-
-              {/* Error Message */}
-              {error && (
-                <View style={loginStyles.errorContainer}>
-                  <Text style={loginStyles.errorText}>{error}</Text>
-                </View>
-              )}
-
-              {/* Display Name Input */}
-              <View style={loginStyles.inputContainer}>
-                <User size={18} color="#4dabf7" style={loginStyles.inputIcon} />
-                <TextInput
-                  ref={displayNameInputRef}
-                  style={loginStyles.input}
-                  placeholder="Display name"
-                  placeholderTextColor="#919191"
-                  value={displayName}
-                  onChangeText={setDisplayName}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                  onSubmitEditing={() => emailInputRef.current?.focus()}
-                />
-              </View>
-
-              {/* Email Input */}
-              <View style={loginStyles.inputContainer}>
-                <Mail size={18} color="#4dabf7" style={loginStyles.inputIcon} />
-                <TextInput
-                  ref={emailInputRef}
-                  style={loginStyles.input}
-                  placeholder="Email address"
-                  placeholderTextColor="#919191"
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                  returnKeyType="next"
-                  onSubmitEditing={() => passwordInputRef.current?.focus()}
-                />
-              </View>
-
-              {/* Password Input */}
-              <View style={loginStyles.inputContainer}>
-                <Lock size={18} color="#4dabf7" style={loginStyles.inputIcon} />
-                <TextInput
-                  ref={passwordInputRef}
-                  style={loginStyles.input}
-                  placeholder="Password"
-                  placeholderTextColor="#919191"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  returnKeyType="next"
-                  onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
-                />
-                <TouchableOpacity onPress={togglePasswordVisibility} style={loginStyles.eyeIcon}>
-                  {showPassword ? (
-                    <EyeOff size={18} color="#4dabf7" />
-                  ) : (
-                    <Eye size={18} color="#4dabf7" />
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              {/* Confirm Password Input */}
-              <View style={loginStyles.inputContainer}>
-                <Lock size={18} color="#4dabf7" style={loginStyles.inputIcon} />
-                <TextInput
-                  ref={confirmPasswordInputRef}
-                  style={loginStyles.input}
-                  placeholder="Confirm password"
-                  placeholderTextColor="#919191"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry={!showConfirmPassword}
-                  returnKeyType="done"
-                  onSubmitEditing={handleRegister}
-                />
-                <TouchableOpacity
-                  onPress={toggleConfirmPasswordVisibility}
-                  style={loginStyles.eyeIcon}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff size={18} color="#4dabf7" />
-                  ) : (
-                    <Eye size={18} color="#4dabf7" />
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              <View style={{ height: 20 }} />
-
-              {/* Register Button */}
-              <TouchableOpacity
-                style={loginStyles.loginButton}
-                onPress={handleRegister}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#333" size="small" />
-                ) : (
-                  <Text style={loginStyles.loginButtonText}>Create Account</Text>
+            <Animated.View style={[styles.formContainer, { opacity: fadeAnim }]}>
+              <View style={styles.formCard}>
+                {error && (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
                 )}
-              </TouchableOpacity>
 
-              {/* Login Link */}
-              <View style={loginStyles.createAccountContainer}>
-                <Text style={loginStyles.createAccountText}>Already have an account? </Text>
-                <TouchableOpacity onPress={() => router.push("/login")}>
-                  <Text style={loginStyles.createAccountLink}>Login</Text>
+                <View style={styles.inputContainer}>
+                  <User size={18} color="#93c5fd" style={styles.inputIcon} />
+                  <TextInput
+                    ref={displayNameInputRef}
+                    style={styles.input}
+                    placeholder="Display name"
+                    placeholderTextColor="#808080"
+                    value={displayName}
+                    onChangeText={setDisplayName}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    onSubmitEditing={() => emailInputRef.current?.focus()}
+                  />
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
+                  <TextInput
+                    ref={emailInputRef}
+                    style={styles.input}
+                    placeholder="Email address"
+                    placeholderTextColor="#808080"
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordInputRef.current?.focus()}
+                  />
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
+                  <TextInput
+                    ref={passwordInputRef}
+                    style={styles.input}
+                    placeholder="Password"
+                    placeholderTextColor="#808080"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    returnKeyType="next"
+                    onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
+                  />
+                  <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
+                    {showPassword ? (
+                      <EyeOff size={18} color="#93c5fd" />
+                    ) : (
+                      <Eye size={18} color="#93c5fd" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
+                  <TextInput
+                    ref={confirmPasswordInputRef}
+                    style={styles.input}
+                    placeholder="Confirm password"
+                    placeholderTextColor="#808080"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                    returnKeyType="done"
+                    onSubmitEditing={handleRegister}
+                  />
+                  <TouchableOpacity
+                    onPress={toggleConfirmPasswordVisibility}
+                    style={styles.eyeIcon}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff size={18} color="#93c5fd" />
+                    ) : (
+                      <Eye size={18} color="#93c5fd" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.loginButton}
+                  onPress={handleRegister}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#000" />
+                  ) : (
+                    <Text style={styles.loginButtonText}>Create Account</Text>
+                  )}
                 </TouchableOpacity>
+
+                <View style={styles.createAccountContainer}>
+                  <Text style={styles.createAccountText}>Already have an account? </Text>
+                  <TouchableOpacity onPress={() => router.push("/login")}>
+                    <Text style={styles.createAccountLink}>Login</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </AuthWrapper>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
+  headerContainer: {
+    paddingTop: 10,
+    paddingBottom: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+    zIndex: 2,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "flex-start",
+    paddingHorizontal: 20,
+    paddingTop: 0,
+    paddingBottom: 20,
+  },
+  formContainer: {
+    width: "100%",
+    maxWidth: 400,
+    alignSelf: "center",
+    marginTop: 10,
+    zIndex: 2,
+  },
+  formCard: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 20,
+    backgroundColor: "rgba(58, 58, 58, 0.75)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
+    position: "relative",
+    overflow: "hidden",
+  },
+  errorContainer: {
+    backgroundColor: "rgba(255, 70, 70, 0.2)",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 70, 70, 0.3)",
+  },
+  errorText: {
+    color: "#ff7675",
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(45, 45, 45, 0.8)",
+    borderRadius: 12,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+    height: 55,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    height: "100%",
+    color: "#f8f9fa",
+    fontSize: 16,
+    fontFamily: "SpaceMono",
+  },
+  eyeIcon: {
+    padding: 8,
+  },
+  loginButton: {
+    borderRadius: 12,
+    height: 55,
+    justifyContent: "center",
+    alignItems: "center",
+    marginVertical: 20,
+    shadowColor: "#4dabf7",
+    backgroundColor: "#4dabf7",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+    overflow: "hidden",
+  },
+  loginButtonText: {
+    color: "black",
+    fontSize: 18,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
+  },
+  createAccountContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 16,
+  },
+  createAccountText: {
+    color: "#adb5bd",
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+  },
+  createAccountLink: {
+    color: "#93c5fd",
+    fontSize: 14,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
+  },
+});
 
 export default RegisterScreen;

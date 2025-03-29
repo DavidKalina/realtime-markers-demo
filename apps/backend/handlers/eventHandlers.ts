@@ -125,15 +125,19 @@ export const processEventImageHandler: EventHandler = async (c) => {
     const userCoordinates =
       userLat && userLng
         ? {
-            lat: parseFloat(userLat.toString()),
-            lng: parseFloat(userLng.toString()),
-          }
+          lat: parseFloat(userLat.toString()),
+          lng: parseFloat(userLng.toString()),
+        }
         : null;
 
     if (!user || !user?.userId) {
       return c.json({ error: "Missing user id" }, 404);
     }
 
+    // Get job queue from context - properly typed!
+    const jobQueue = c.get("jobQueue");
+
+    // Validate the image
     if (!imageEntry) {
       return c.json({ error: "Missing image file" }, 400);
     }
@@ -153,9 +157,6 @@ export const processEventImageHandler: EventHandler = async (c) => {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Get job queue from context - properly typed!
-    const jobQueue = c.get("jobQueue");
-
     // Create job with minimal metadata
     const jobId = await jobQueue.enqueue(
       "process_flyer",
@@ -163,8 +164,9 @@ export const processEventImageHandler: EventHandler = async (c) => {
         filename: file.name,
         contentType: file.type,
         size: buffer.length,
-        userCoordinates: userCoordinates, // Add user coordinates
+        userCoordinates: userCoordinates,
         creatorId: user.userId,
+        authToken: c.req.header("Authorization"),
       },
       {
         bufferData: buffer,
@@ -470,6 +472,36 @@ export const generateClusterNamesHandler: EventHandler = async (c) => {
       {
         error: "Failed to generate cluster names",
         message: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
+export const getDiscoveredEventsHandler: EventHandler = async (c) => {
+  try {
+    const user = c.get("user");
+    const limit = c.req.query("limit");
+    const offset = c.req.query("offset");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    const eventService = c.get("eventService");
+
+    const discoveredEvents = await eventService.getDiscoveredEventsByUser(user.userId, {
+      limit: limit ? parseInt(limit) : undefined,
+      offset: offset ? parseInt(offset) : undefined,
+    });
+
+    return c.json(discoveredEvents);
+  } catch (error) {
+    console.error("Error fetching discovered events:", error);
+    return c.json(
+      {
+        error: "Failed to fetch discovered events",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       500
     );

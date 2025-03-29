@@ -3,7 +3,7 @@ import { styles as globalStyles } from "@/components/globalStyles";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { CameraAnimateToLocationEvent, EventTypes } from "@/services/EventBroker";
 import * as Haptics from "expo-haptics";
-import { BookMarkedIcon, Camera, Filter, Navigation, SearchIcon, User } from "lucide-react-native";
+import { BookMarkedIcon, Camera, Navigation, SearchIcon, User } from "lucide-react-native";
 import React, { useRef, useState, useCallback, useMemo, useEffect } from "react";
 import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
@@ -132,7 +132,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 );
 
 // Default set of actions if none provided
-const DEFAULT_AVAILABLE_ACTIONS = ["search", "camera", "locate", "user", "saved", "filter"];
+const DEFAULT_AVAILABLE_ACTIONS = ["search", "camera", "locate", "user", "saved"];
 
 // Icons memo - created once outside the component to avoid recreation
 const ICON_MAP = {
@@ -140,7 +140,6 @@ const ICON_MAP = {
   camera: <Camera size={20} color="#fff" />,
   locate: <Navigation size={20} color="#fff" />,
   saved: <BookMarkedIcon size={20} color="#fff" />,
-  filter: <Filter size={20} color="#fff" />,
   user: <User size={20} color="#fff" />,
 };
 
@@ -150,7 +149,6 @@ const LABEL_MAP = {
   camera: "Scan",
   locate: "Locate",
   saved: "Saved",
-  filter: "Filter",
   user: "Me",
 };
 
@@ -246,16 +244,11 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
         },
         {
           key: "saved",
-          label: LABEL_MAP.saved,
+          label: "Events",
           icon: ICON_MAP.saved,
           action: actionHandlers.saved,
         },
-        {
-          key: "filter",
-          label: LABEL_MAP.filter,
-          icon: ICON_MAP.filter,
-          action: actionHandlers.filter,
-        },
+
         {
           key: "user",
           label: LABEL_MAP.user,

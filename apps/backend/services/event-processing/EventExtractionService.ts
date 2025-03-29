@@ -55,9 +55,7 @@ export class EventExtractionService implements IEventExtractionService {
           options.userCoordinates.lng
         );
 
-        if (userCityState) {
-          console.log("User location context:", userCityState);
-        }
+
       } catch (error) {
         console.error("Error reverse geocoding user coordinates:", error);
       }
@@ -67,8 +65,8 @@ export class EventExtractionService implements IEventExtractionService {
     const userLocationPrompt = userCityState
       ? `The user is currently in ${userCityState}. Consider this for location inference.`
       : options?.userCoordinates
-      ? `The user is currently located near latitude ${options.userCoordinates.lat}, longitude ${options.userCoordinates.lng}.`
-      : "";
+        ? `The user is currently located near latitude ${options.userCoordinates.lat}, longitude ${options.userCoordinates.lng}.`
+        : "";
 
     // Extract event details with enhanced location awareness
     const response = await OpenAIService.executeChatCompletion({
@@ -135,15 +133,12 @@ export class EventExtractionService implements IEventExtractionService {
       coordinates: options?.userCoordinates,
     });
 
+
     // Create Point from resolved coordinates
     const location = resolvedLocation.coordinates;
 
     // Get timezone from the location service
     const timezone = resolvedLocation.timezone;
-
-    // Log resolved information
-    console.log(`Address resolved with confidence: ${resolvedLocation.confidence.toFixed(2)}`);
-    console.log(`Resolved timezone: ${timezone} for coordinates [${location.coordinates}]`);
 
     // Process dates with timezone awareness
     const eventDate = this.processEventDate(parsedDetails.date, parsedDetails.timezone, timezone);
@@ -160,19 +155,23 @@ export class EventExtractionService implements IEventExtractionService {
       );
     }
 
+    const eventDetails = {
+      emoji: parsedDetails.emoji || this.defaultEmoji,
+      title: parsedDetails.title || "",
+      date: eventDate,
+      endDate: eventEndDate,
+      address: resolvedLocation.address,
+      location: location,
+      description: parsedDetails.description || "",
+      categories: categories,
+      timezone: timezone,
+      locationNotes: resolvedLocation.locationNotes || "",
+    };
+
+
     return {
       rawExtractedData: parsedDetails,
-      event: {
-        emoji: parsedDetails.emoji || this.defaultEmoji,
-        title: parsedDetails.title || "",
-        date: eventDate,
-        endDate: eventEndDate,
-        address: resolvedLocation.address,
-        location: location,
-        description: parsedDetails.description || "",
-        categories: categories,
-        timezone: timezone,
-      },
+      event: eventDetails,
       locationDetails: {
         confidence: resolvedLocation.confidence,
         resolvedAt: resolvedLocation.resolvedAt,
@@ -204,7 +203,6 @@ export class EventExtractionService implements IEventExtractionService {
 
       // If we can't parse it or it's invalid, handle that case
       if (isNaN(parsedDate.getTime())) {
-        console.log("Could not parse date directly:", dateString);
         return new Date().toISOString();
       }
 
@@ -222,7 +220,6 @@ export class EventExtractionService implements IEventExtractionService {
             "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
           );
 
-          console.log("Date processing with explicit zone:", { isoDate, formattedDate });
           return formattedDate;
         } catch (error) {
           console.error("Error converting date with timezone:", error);
@@ -237,7 +234,6 @@ export class EventExtractionService implements IEventExtractionService {
             "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
           );
 
-          console.log("Date processing with local zone:", { parsedDate, formattedDate });
           return formattedDate;
         } catch (error) {
           console.error("Error handling local event time:", error);

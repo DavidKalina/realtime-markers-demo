@@ -42,7 +42,6 @@ export class UserPreferencesService {
     this.filterRepository = dataSource.getRepository(FilterEntity);
     this.redisClient = redisClient;
     this.embeddingService = EmbeddingService.getInstance();
-    console.log('UserPreferencesService initialized');
   }
 
   /**
@@ -50,7 +49,6 @@ export class UserPreferencesService {
    */
   private async generateFilterEmoji(name: string, semanticQuery?: string): Promise<string> {
     try {
-      console.log(`Generating emoji for filter: ${name}${semanticQuery ? ` (query: ${semanticQuery})` : ''}`);
       const prompt = `Generate a single emoji that best represents this filter:
 Name: ${name}
 ${semanticQuery ? `Query: ${semanticQuery}` : ''}
@@ -59,7 +57,6 @@ IMPORTANT: Respond with ONLY a single emoji character. No text, no explanation, 
 Example valid responses: 🎉 🎨 🎭
 Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
 
-      console.log('Sending prompt to OpenAI:', prompt);
       const completion = await OpenAIService.executeChatCompletion({
         model: "gpt-4o-mini-2024-07-18",
         messages: [
@@ -78,10 +75,7 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
         frequency_penalty: 0,
       });
 
-      console.log('Raw OpenAI response:', JSON.stringify(completion, null, 2));
-      console.log('OpenAI response content:', completion.choices[0].message.content);
       const emoji = completion.choices[0].message.content?.trim();
-      console.log(`Generated emoji for filter "${name}": ${emoji || '❓'}`);
       return emoji || "❓";
     } catch (error) {
       console.error(`Error generating emoji for filter "${name}":`, error);
@@ -93,12 +87,10 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
    * Get all filters for a user
    */
   async getUserFilters(userId: string): Promise<Filter[]> {
-    console.log(`Fetching all filters for user ${userId}`);
     const filters = await this.filterRepository.find({
       where: { userId },
       order: { updatedAt: "DESC" },
     });
-    console.log(`Found ${filters.length} filters for user ${userId}`);
     return filters;
   }
 
@@ -106,23 +98,19 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
    * Get active filters for a user
    */
   async getActiveFilters(userId: string): Promise<Filter[]> {
-    console.log(`Fetching active filters for user ${userId}`);
     const filters = await this.filterRepository.find({
       where: { userId, isActive: true },
       order: { updatedAt: "DESC" },
       cache: 60000,
     });
-    console.log(`Found ${filters.length} active filters for user ${userId}`);
     return filters;
   }
 
   async createFilter(userId: string, filterData: Partial<FilterEntity>): Promise<FilterEntity> {
-    console.log(`Creating new filter for user ${userId}:`, { name: filterData.name, semanticQuery: filterData.semanticQuery });
-    
+
     // Generate embedding if semanticQuery is provided
     if (filterData.semanticQuery) {
       try {
-        console.log(`Generating embedding for filter "${filterData.name}"`);
         const embeddingSql = await this.embeddingService.getStructuredEmbeddingSql({
           text: filterData.semanticQuery,
           weights: {
@@ -131,7 +119,6 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
         });
 
         filterData.embedding = embeddingSql;
-        console.log(`Successfully generated embedding for filter "${filterData.name}"`);
       } catch (error) {
         console.error(`Error generating embedding for filter "${filterData.name}":`, error);
       }
@@ -158,7 +145,6 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
     });
 
     const savedFilter = await this.filterRepository.save(filter);
-    console.log(`Successfully created filter "${filter.name}" (ID: ${filter.id}) for user ${userId}`);
 
     // Publish filter change event to Redis
     await this.publishFilterChange(userId);
@@ -171,8 +157,7 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
     userId: string,
     filterData: Partial<Filter>
   ): Promise<Filter> {
-    console.log(`Updating filter ${filterId} for user ${userId}:`, filterData);
-    
+
     // Ensure the filter belongs to the user
     const filter = await this.filterRepository.findOne({
       where: { id: filterId, userId },
@@ -186,7 +171,6 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
     // Generate new embedding if semanticQuery is updated
     if (filterData.semanticQuery && filterData.semanticQuery !== filter.semanticQuery) {
       try {
-        console.log(`Generating new embedding for updated filter "${filter.name}"`);
         const embeddingSql = await this.embeddingService.getStructuredEmbeddingSql({
           text: filterData.semanticQuery,
           weights: {
@@ -195,7 +179,6 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
         });
 
         filterData.embedding = embeddingSql;
-        console.log(`Successfully generated new embedding for filter "${filter.name}"`);
       } catch (error) {
         console.error(`Error generating embedding for filter update "${filter.name}":`, error);
       }
@@ -219,7 +202,6 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
     // Update the filter
     const updatedFilter = this.filterRepository.merge(filter, filterData);
     const savedFilter = await this.filterRepository.save(updatedFilter);
-    console.log(`Successfully updated filter "${filter.name}" (ID: ${filter.id}) for user ${userId}`);
 
     // Publish filter change event to Redis
     await this.publishFilterChange(userId);
@@ -231,8 +213,7 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
    * Delete a filter
    */
   async deleteFilter(filterId: string, userId: string): Promise<boolean> {
-    console.log(`Attempting to delete filter ${filterId} for user ${userId}`);
-    
+
     // Ensure the filter belongs to the user
     const filter = await this.filterRepository.findOne({
       where: { id: filterId, userId },
@@ -245,7 +226,6 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
 
     // Delete the filter
     await this.filterRepository.remove(filter);
-    console.log(`Successfully deleted filter "${filter.name}" (ID: ${filterId}) for user ${userId}`);
 
     // Publish filter change event to Redis
     await this.publishFilterChange(userId);
@@ -257,8 +237,7 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
    * Set filters as active/inactive
    */
   async setActiveFilters(userId: string, filterIds: string[]): Promise<Filter[]> {
-    console.log(`Setting active filters for user ${userId}:`, filterIds);
-    
+
     return this.filterRepository.manager.transaction(async (transactionalEntityManager) => {
       // Get all user filters - using transactionalEntityManager
       const userFilters = await transactionalEntityManager.find(FilterEntity, {
@@ -287,8 +266,7 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
    * Clear all active filters for a user
    */
   async clearActiveFilters(userId: string): Promise<boolean> {
-    console.log(`Clearing all active filters for user ${userId}`);
-    
+
     const userFilters = await this.getUserFilters(userId);
 
     // Set all filters to inactive
@@ -299,7 +277,6 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
 
     // Save all updates
     await this.filterRepository.save(updatedFilters);
-    console.log(`Successfully cleared ${updatedFilters.length} active filters for user ${userId}`);
 
     // Publish filter change event to Redis
     await this.publishFilterChange(userId);
@@ -312,7 +289,6 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
    */
   private async publishFilterChange(userId: string): Promise<void> {
     try {
-      console.log(`Preparing to publish filter change event for user ${userId}`);
       // Get the active filters for the user
       const activeFilters = await this.getActiveFilters(userId);
 
@@ -326,7 +302,6 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
         })
       );
 
-      console.log(`Successfully published filter change event for user ${userId} with ${activeFilters.length} active filters`);
     } catch (error) {
       console.error(`Error publishing filter change for user ${userId}:`, error);
     }
@@ -334,7 +309,6 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
 
   async applyFilters(userId: string, filterIds: string[]): Promise<boolean> {
     try {
-      console.log(`Applying filters for user ${userId}: ${filterIds.join(", ")}`);
 
       // Get all user filters
       const userFilters = await this.getUserFilters(userId);
@@ -347,7 +321,6 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
 
       // Save the updates
       await this.filterRepository.save(updatedFilters);
-      console.log(`Successfully updated active state for ${updatedFilters.length} filters`);
 
       // Get only the active filters after update
       const activeFilters = updatedFilters.filter((filter) => filter.isActive);
@@ -362,9 +335,7 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
         })
       );
 
-      console.log(
-        `Successfully published filter change event for user ${userId} with ${activeFilters.length} active filters`
-      );
+
       return true;
     } catch (error) {
       console.error(`Error applying filters for user ${userId}:`, error);
@@ -373,14 +344,12 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
   }
 
   async getFilterById(filterId: string, userId: string): Promise<FilterEntity | null> {
-    console.log(`Fetching filter ${filterId} for user ${userId}`);
     const filter = await this.filterRepository.findOne({
       where: {
         id: filterId,
         userId,
       },
     });
-    console.log(`Filter ${filterId} ${filter ? 'found' : 'not found'} for user ${userId}`);
     return filter;
   }
 }

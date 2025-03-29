@@ -18,6 +18,16 @@ const navigationIntegration = Sentry.reactNavigationIntegration({
   enableTimeToInitialDisplay: !isRunningInExpoGo(),
 });
 
+// Initialize Sentry before the app renders
+Sentry.init({
+  dsn: "https://9c69ddf62f2bf7490416ba65f2d5dd2d@o4509054186815488.ingest.us.sentry.io/4509054187798528",
+  debug: __DEV__, // Only enable debug in development
+  tracesSampleRate: 0.1, // Sample only 10% of transactions
+  integrations: [navigationIntegration],
+  enableNativeFramesTracking: !isRunningInExpoGo(),
+  sendDefaultPii: true,
+});
+
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
@@ -31,20 +41,6 @@ function RootLayout() {
   }, [ref]);
 
   useEffect(() => {
-    // Initialize Sentry inside useEffect
-    Sentry.init({
-      dsn: "https://9c69ddf62f2bf7490416ba65f2d5dd2d@o4509054186815488.ingest.us.sentry.io/4509054187798528",
-      debug: true, // If `true`, Sentry will try to print out useful debugging information if something goes wrong with sending the event. Set it to `false` in production
-      tracesSampleRate: 1.0, // Set tracesSampleRate to 1.0 to capture 100% of transactions for tracing. Adjusting this value in production.
-      integrations: [
-        // Pass integration
-        navigationIntegration,
-      ],
-      enableNativeFramesTracking: !isRunningInExpoGo(), // Tracks slow and frozen frames in the application
-
-      sendDefaultPii: true,
-    });
-
     // Establish the connection on app startup
     useJobSessionStore.getState().connect();
   }, []);

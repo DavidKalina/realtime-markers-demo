@@ -27,7 +27,6 @@ export class ImageProcessingService implements IImageProcessingService {
     // Check if we have this image processed in cache
     const cachedResult = await this.getCachedResult(cacheKey);
     if (cachedResult) {
-      console.log("Using cached image processing result");
       return cachedResult;
     }
 
@@ -63,7 +62,6 @@ export class ImageProcessingService implements IImageProcessingService {
       const qrCode = jsQR(new Uint8ClampedArray(data.buffer), width, height);
 
       if (qrCode && qrCode.data) {
-        console.log("QR code detected with data:", qrCode.data);
         return {
           detected: true,
           data: qrCode.data,

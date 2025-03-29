@@ -18,6 +18,8 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
   const [savingState, setSavingState] = useState<"idle" | "loading">("idle");
   const router = useRouter();
 
+  console.log(JSON.stringify(event, null, 2));
+
   const { user } = useAuth();
 
   const isAdmin = user?.role === "ADMIN";
@@ -172,9 +174,8 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       // Create a shareable message
-      const message = `${event.title}\n\n📅 ${formatDate(event.eventDate, event.timezone)}\n📍 ${
-        event.location
-      }\n\n${event.description || ""}`;
+      const message = `${event.title}\n\n📅 ${formatDate(event.eventDate, event.timezone)}\n📍 ${event.location
+        }\n\n${event.description || ""}`;
 
       // Create a deep link (if your app supports it)
       const deepLink = `eventexplorer://event/${eventId}`;

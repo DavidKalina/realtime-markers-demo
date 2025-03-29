@@ -11,15 +11,18 @@ import {
   Animated,
   StyleSheet,
 } from "react-native";
-import { ArrowLeft, Calendar, MapPin, Heart, Bookmark, Search } from "lucide-react-native";
+import { ArrowLeft, Calendar, MapPin, Heart, Bookmark, Search, Scan } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { EventType } from "@/types/types";
 import apiClient from "@/services/ApiClient";
 
+type TabType = 'saved' | 'discovered';
+
 const SavedEventsView: React.FC = () => {
   const router = useRouter();
-  const [savedEvents, setSavedEvents] = useState<EventType[]>([]);
+  const [activeTab, setActiveTab] = useState<TabType>('saved');
+  const [events, setEvents] = useState<EventType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,8 +41,8 @@ const SavedEventsView: React.FC = () => {
     extrapolate: "clamp",
   });
 
-  // Fetch saved events
-  const fetchSavedEvents = async (refresh = false) => {
+  // Fetch events based on active tab
+  const fetchEvents = async (refresh = false) => {
     try {
       if (refresh) {
         setIsRefreshing(true);
@@ -51,23 +54,28 @@ const SavedEventsView: React.FC = () => {
 
       const offset = refresh ? 0 : page * pageSize;
 
-      const response = await apiClient.getSavedEvents({
-        limit: pageSize,
-        offset: offset,
-      });
+      const response = activeTab === 'saved'
+        ? await apiClient.getSavedEvents({
+          limit: pageSize,
+          offset: offset,
+        })
+        : await apiClient.getUserDiscoveredEvents({
+          limit: pageSize,
+          offset: offset,
+        });
 
       if (refresh) {
-        setSavedEvents(response.events);
+        setEvents(response.events);
       } else {
-        setSavedEvents((prev) => [...prev, ...response.events]);
+        setEvents((prev) => [...prev, ...response.events]);
       }
 
       setHasMore(response.hasMore);
       setPage((prev) => (refresh ? 0 : prev) + 1);
       setError(null);
     } catch (err) {
-      setError("Failed to load saved events. Please try again.");
-      console.error("Error fetching saved events:", err);
+      setError(`Failed to load ${activeTab} events. Please try again.`);
+      console.error(`Error fetching ${activeTab} events:`, err);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -77,19 +85,19 @@ const SavedEventsView: React.FC = () => {
 
   // Load initial data
   useEffect(() => {
-    fetchSavedEvents();
-  }, []);
+    fetchEvents();
+  }, [activeTab]);
 
   // Handle refreshing
   const handleRefresh = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    fetchSavedEvents(true);
+    fetchEvents(true);
   };
 
   // Handle loading more
   const handleLoadMore = () => {
     if (!isFetchingMore && !isRefreshing && hasMore) {
-      fetchSavedEvents();
+      fetchEvents();
     }
   };
 
@@ -102,20 +110,32 @@ const SavedEventsView: React.FC = () => {
   // Handle select event
   const handleSelectEvent = (event: EventType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // Navigate to event details
     if (event.id) {
       router.push(`/details?eventId=${event.id}`);
     }
   };
 
+  // Handle tab switch
+  const handleTabSwitch = (tab: TabType) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveTab(tab);
+    setEvents([]);
+    setPage(0);
+    setHasMore(true);
+  };
+
   // Render footer with loading indicator when fetching more
   const renderFooter = () => {
-    if (!isFetchingMore) return null;
-
     return (
       <View style={styles.loadingFooter}>
-        <ActivityIndicator size="small" color="#93c5fd" />
-        <Text style={styles.loadingFooterText}>Loading more...</Text>
+        {isFetchingMore ? (
+          <>
+            <ActivityIndicator size="small" color="#93c5fd" />
+            <Text style={styles.loadingFooterText}>Loading more...</Text>
+          </>
+        ) : (
+          <View style={styles.loadingFooterSpacer} />
+        )}
       </View>
     );
   };
@@ -140,24 +160,52 @@ const SavedEventsView: React.FC = () => {
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
           <ArrowLeft size={22} color="#f8f9fa" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Saved Events</Text>
+        <Text style={styles.headerTitle}>My Events</Text>
 
         <View style={styles.headerIconContainer}>
-          <Bookmark size={20} color="#93c5fd" fill="#93c5fd" />
+          {activeTab === 'saved' ? (
+            <Bookmark size={20} color="#93c5fd" fill="#93c5fd" />
+          ) : (
+            <Scan size={20} color="#93c5fd" />
+          )}
         </View>
       </Animated.View>
 
+      {/* Tab Toggle */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'saved' && styles.activeTab]}
+          onPress={() => handleTabSwitch('saved')}
+          activeOpacity={0.7}
+        >
+          <Bookmark size={16} color={activeTab === 'saved' ? '#93c5fd' : '#adb5bd'} />
+          <Text style={[styles.tabText, activeTab === 'saved' && styles.activeTabText]}>
+            Saved
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'discovered' && styles.activeTab]}
+          onPress={() => handleTabSwitch('discovered')}
+          activeOpacity={0.7}
+        >
+          <Scan size={16} color={activeTab === 'discovered' ? '#93c5fd' : '#adb5bd'} />
+          <Text style={[styles.tabText, activeTab === 'discovered' && styles.activeTabText]}>
+            Discovered
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Content Area */}
       <View style={styles.contentArea}>
-        {isLoading && savedEvents.length === 0 ? (
+        {isLoading && events.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#93c5fd" />
-            <Text style={styles.loadingText}>Loading saved events...</Text>
+            <Text style={styles.loadingText}>Loading {activeTab} events...</Text>
           </View>
         ) : (
           <Animated.FlatList
             ref={listRef}
-            data={savedEvents}
+            data={events}
             onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
               useNativeDriver: false,
             })}
@@ -165,11 +213,10 @@ const SavedEventsView: React.FC = () => {
               <View style={styles.listHeader}>
                 <View style={styles.counterContainer}>
                   <Text style={styles.resultsText}>
-                    {savedEvents.length > 0
-                      ? `${savedEvents.length} saved ${
-                          savedEvents.length === 1 ? "event" : "events"
-                        }`
-                      : "No saved events yet"}
+                    {events.length > 0
+                      ? `${events.length} ${activeTab} ${events.length === 1 ? "event" : "events"
+                      }`
+                      : `No ${activeTab} events yet`}
                   </Text>
                 </View>
               </View>
@@ -216,7 +263,11 @@ const SavedEventsView: React.FC = () => {
                   </View>
 
                   <View style={styles.savedBadge}>
-                    <Heart size={16} color="#93c5fd" fill="#93c5fd" />
+                    {activeTab === 'saved' ? (
+                      <Heart size={16} color="#93c5fd" fill="#93c5fd" />
+                    ) : (
+                      <Scan size={16} color="#93c5fd" />
+                    )}
                   </View>
                 </View>
               </TouchableOpacity>
@@ -225,22 +276,35 @@ const SavedEventsView: React.FC = () => {
               !isLoading ? (
                 <View style={styles.emptyStateContainer}>
                   <View style={styles.emptyStateIconContainer}>
-                    <Bookmark size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
+                    {activeTab === 'saved' ? (
+                      <Bookmark size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
+                    ) : (
+                      <Scan size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
+                    )}
                   </View>
-                  <Text style={styles.emptyStateTitle}>No saved events yet</Text>
+                  <Text style={styles.emptyStateTitle}>
+                    {activeTab === 'saved' ? 'No saved events yet' : 'No discovered events yet'}
+                  </Text>
                   <Text style={styles.emptyStateDescription}>
-                    Events you save will appear here. To save an event, tap the bookmark icon on any
-                    event details page.
+                    {activeTab === 'saved'
+                      ? 'Events you save will appear here. To save an event, tap the bookmark icon on any event details page.'
+                      : 'Events you scan will appear here. To discover events, use the scan feature to process event flyers.'}
                   </Text>
 
                   <TouchableOpacity
                     style={styles.emptyStateButton}
-                    onPress={() => router.push("/search")}
+                    onPress={() => router.push(activeTab === 'saved' ? "/search" : "/scan")}
                     activeOpacity={0.8}
                   >
                     <View style={styles.buttonContent}>
-                      <Search size={16} color="#ffffff" style={{ marginRight: 8 }} />
-                      <Text style={styles.emptyStateButtonText}>Find Events</Text>
+                      {activeTab === 'saved' ? (
+                        <Search size={16} color="#ffffff" style={{ marginRight: 8 }} />
+                      ) : (
+                        <Scan size={16} color="#ffffff" style={{ marginRight: 8 }} />
+                      )}
+                      <Text style={styles.emptyStateButtonText}>
+                        {activeTab === 'saved' ? 'Find Events' : 'Scan Events'}
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 </View>
@@ -251,7 +315,7 @@ const SavedEventsView: React.FC = () => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
               styles.listContent,
-              savedEvents.length === 0 && { flexGrow: 1 },
+              events.length === 0 && { flexGrow: 1 },
             ]}
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.3}
@@ -271,7 +335,7 @@ const SavedEventsView: React.FC = () => {
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity
               style={styles.retryButton}
-              onPress={() => fetchSavedEvents(true)}
+              onPress={() => fetchEvents(true)}
               activeOpacity={0.7}
             >
               <Text style={styles.retryButtonText}>Retry</Text>
@@ -516,10 +580,10 @@ const styles = StyleSheet.create({
   },
 
   loadingFooter: {
-    paddingVertical: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
+    height: 50, // Fixed height to prevent layout shifts
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
 
   loadingFooterText: {
@@ -527,6 +591,10 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontSize: 14,
     marginLeft: 8,
+  },
+
+  loadingFooterSpacer: {
+    height: 50, // Same height as loadingFooter
   },
 
   // Error state
@@ -565,6 +633,39 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontWeight: "500",
     fontSize: 14,
+  },
+
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#333',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3a3a3a',
+  },
+
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+
+  activeTab: {
+    backgroundColor: 'rgba(147, 197, 253, 0.15)',
+  },
+
+  tabText: {
+    fontSize: 14,
+    color: '#adb5bd',
+    fontFamily: 'SpaceMono',
+    marginLeft: 6,
+  },
+
+  activeTabText: {
+    color: '#93c5fd',
   },
 });
 

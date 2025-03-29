@@ -277,7 +277,6 @@ const Login: React.FC = () => {
                     )}
                   </TouchableOpacity>
                 </View>
-                // Update the loginButton TouchableOpacity component to include loading state
                 <TouchableOpacity
                   style={styles.loginButton}
                   onPress={() => {

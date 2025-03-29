@@ -11,6 +11,7 @@ interface CachedLocation {
   timestamp: number;
   confidence: number;
   timezone?: string; // Add timezone to cache
+  locationNotes?: string;
 }
 
 export class EnhancedLocationService {
@@ -21,7 +22,7 @@ export class EnhancedLocationService {
   private readonly CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days
 
   // Private constructor for singleton pattern
-  private constructor() {}
+  private constructor() { }
 
   // Static method to get the singleton instance
   public static getInstance(): EnhancedLocationService {
@@ -56,6 +57,82 @@ export class EnhancedLocationService {
     return createHash("md5").update(fingerprint).digest("hex");
   }
 
+  // Add new validation methods
+  private validateCoordinates(coordinates: [number, number]): boolean {
+    return (
+      Array.isArray(coordinates) &&
+      coordinates.length === 2 &&
+      typeof coordinates[0] === "number" &&
+      typeof coordinates[1] === "number" &&
+      coordinates[0] >= -180 &&
+      coordinates[0] <= 180 &&
+      coordinates[1] >= -90 &&
+      coordinates[1] <= 90
+    );
+  }
+
+  private calculateDistance(coords1: [number, number], coords2: [number, number]): number {
+    const toRad = (x: number) => (x * Math.PI) / 180;
+    const R = 6371e3; // Earth radius in meters
+
+    const dLat = toRad(coords2[1] - coords1[1]);
+    const dLng = toRad(coords2[0] - coords1[0]);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(coords1[1])) *
+      Math.cos(toRad(coords2[1])) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in meters
+  }
+
+  private async verifyLocationWithReverseGeocoding(
+    coordinates: [number, number],
+    expectedAddress: string
+  ): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${coordinates[0]},${coordinates[1]}.json?access_token=${process.env.MAPBOX_GEOCODING_TOKEN}`
+      );
+
+      if (!response.ok) return false;
+
+      const data = await response.json();
+      if (!data.features || data.features.length === 0) return false;
+
+      // Get the most relevant feature
+      const feature = data.features[0];
+      const reverseGeocodedAddress = feature.place_name;
+
+      // Simple string similarity check
+      const similarity = this.calculateStringSimilarity(
+        expectedAddress.toLowerCase(),
+        reverseGeocodedAddress.toLowerCase()
+      );
+
+      return similarity > 0.7; // 70% similarity threshold
+    } catch (error) {
+      console.error("Error in reverse geocoding verification:", error);
+      return false;
+    }
+  }
+
+  private calculateStringSimilarity(str1: string, str2: string): number {
+    const words1 = str1.split(/\s+/);
+    const words2 = str2.split(/\s+/);
+
+    const set1 = new Set(words1);
+    const set2 = new Set(words2);
+
+    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    const union = new Set([...set1, ...set2]);
+
+    return intersection.size / union.size;
+  }
+
   // 3. Lookup cached location or infer new one
   async resolveLocation(
     clues: string[],
@@ -66,265 +143,212 @@ export class EnhancedLocationService {
     coordinates: [number, number];
     confidence: number;
     timezone: string;
+    locationNotes?: string;
   }> {
+    console.warn('\n🔍🔍🔍 LOCATION RESOLUTION START 🔍🔍🔍');
+    console.warn('Input Clues:', clues);
+    console.warn('User City/State:', userCityState);
+    console.warn('User Coordinates:', userCoordinates);
+
     // Generate unique fingerprint for these clues
     const cluesFingerprint = this.generateCluesFingerprint(clues, userCityState);
 
     // Check cache first
     const cachedLocation = this.locationCache.get(cluesFingerprint);
     if (cachedLocation && Date.now() - cachedLocation.timestamp < this.CACHE_EXPIRY) {
-      console.log("Using cached location for clues fingerprint:", cluesFingerprint);
-
-      // If timezone is missing in cached data, add it now
-      let timezone = cachedLocation.timezone || "UTC";
-      if (!cachedLocation.timezone) {
-        timezone = await this.getTimezoneFromCoordinates(
-          cachedLocation.coordinates[1],
-          cachedLocation.coordinates[0]
-        );
-        // Update cache with timezone
-        cachedLocation.timezone = timezone;
-        this.locationCache.set(cluesFingerprint, cachedLocation);
-      }
-
+      console.warn('📍 Using cached location:', cachedLocation);
       return {
         address: cachedLocation.address,
         coordinates: cachedLocation.coordinates,
         confidence: cachedLocation.confidence,
-        timezone: timezone,
+        timezone: cachedLocation.timezone || "UTC",
+        locationNotes: cachedLocation.locationNotes
       };
     }
 
-    // If we have user coordinates, use them as the default location
-    const defaultCoords = userCoordinates
-      ? ([userCoordinates.lng, userCoordinates.lat] as [number, number])
-      : ([-111.6585, 40.2338] as [number, number]); // Default to Provo
-
-    // Try to infer address from clues
-    const address = await this.inferAddressFromClues(clues, userCityState, userCoordinates);
-    let coordinates = defaultCoords;
-    let confidence = 0.1; // Start with low confidence
-
-    // Only proceed with geocoding if we have a valid address
-    if (address) {
-      const geocodedCoords = await this.geocodeAddress(address);
-      const addressConfidence = this.calculateAddressConfidence(clues, address);
-
-      // Only use the geocoded address if confidence is high enough
-      if (addressConfidence >= 0.7) {
-        coordinates = geocodedCoords;
-        confidence = addressConfidence;
-      } else {
-        console.log("Address confidence too low, using user coordinates");
-      }
-    }
-
-    // Get timezone for the coordinates
-    const timezone = await this.getTimezoneFromCoordinates(coordinates[1], coordinates[0]);
-    console.log(`Resolved timezone: ${timezone} for coordinates [${coordinates}]`);
-
-    // Store in cache with timezone
-    this.locationCache.set(cluesFingerprint, {
-      cluesHash: cluesFingerprint,
-      address: confidence >= 0.7 ? address : "", // Only store address if confidence is high
-      coordinates,
-      timestamp: Date.now(),
-      confidence,
-      timezone,
-    });
-
-    return {
-      address: confidence >= 0.7 ? address : "", // Only return address if confidence is high
-      coordinates,
-      confidence,
-      timezone,
-    };
-  }
-
-  // Rest of existing methods...
-  // ... [existing methods remain unchanged] ...
-
-  private async inferAddressFromClues(
-    clues: string[],
-    userCityState: string,
-    userCoordinates?: { lat: number; lng: number }
-  ): Promise<string> {
     // Filter and deduplicate clues
     const uniqueClues = [...new Set(clues.filter(Boolean))];
-
-    // Early return if no meaningful clues
-    if (uniqueClues.length === 0) return "";
+    if (uniqueClues.length === 0) {
+      throw new Error("No location clues provided");
+    }
 
     const cluesText = uniqueClues.join(" | ");
-
-    // Add precise user location context
-    const userLocationContext = userCityState
-      ? `User is in ${userCityState}.`
-      : userCoordinates
-      ? `User coordinates: ${userCoordinates.lat.toFixed(5)},${userCoordinates.lng.toFixed(5)}`
-      : "";
+    console.warn('🔍 Processed Clues:', cluesText);
 
     try {
-      // First attempt - standard address inference using OpenAIService
+      // Use AI to analyze location clues and extract structured information
+      console.warn('\n🤖 Querying LLM for location analysis...');
       const response = await OpenAIService.executeChatCompletion({
         model: "gpt-4o",
         temperature: 0.1,
+        response_format: { type: "json_object" },
         messages: [
           {
             role: "system",
-            content: `You are an address resolution expert specialized in standardizing location information for events.
-            
+            content: `You are a location analysis expert working with Mapbox's geocoding API. Extract location information that will be used to query Mapbox's geocoding API.
+
 KEY INSTRUCTIONS:
-1. ANALYZE all location clues in hierarchical priority:
-   - Explicit street addresses have highest priority
-   - Venue/building names with room numbers second priority
-   - Campus/institutional locations third priority
-   - Vague location references lowest priority
+1. For ambiguous city names (like Washington, Springfield, etc):
+   - Look for state context in the full text
+   - Check phone area codes (e.g., 435 is Utah)
+   - Use landmarks or business names as context
+   - If a city could be confused with a state/DC, explicitly add the state
 
-2. STANDARDIZE the address in this exact format:
-   - Street number + Street name
-   - City, State ZIP
-   - No abbreviations except for state codes
-   - No extraneous information (no "Located at", "near", etc.)
+2. When extracting addresses:
+   - Must include street number, street name, city, and state
+   - Always use full state names or standard 2-letter codes (UT not Ut.)
+   - For cities that share names with states/DC, always include state
+   - Format: "Street number + Street name, City, State ZIP"
 
-3. RESOLVE AMBIGUITY using user context:
-   - ${userLocationContext}
-   - If a venue has multiple locations, choose the one closest to user
-   - For campus buildings or coded locations (like "LC 301"), resolve to the full address
-   
-4. If you cannot determine a specific street address with high confidence, return "UNKNOWN" only.`,
+3. If no complete address is found:
+   - Extract business names, landmarks, and cross-streets
+   - Include city and state when known
+   - Note any phone area codes as they help confirm state
+
+4. Phone Area Code Reference:
+   - 435: Utah (outside Salt Lake area)
+   - Add other relevant area codes as needed
+
+5. RESPONSE FORMAT:
+   You MUST respond with a valid JSON object in this exact format:
+   {
+     "address": "complete address if found, or empty string",
+     "locationNotes": "additional location context, or empty string",
+     "confidence": number between 0 and 1
+   }
+
+USER CONTEXT:
+${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coordinates: ${userCoordinates.lat.toFixed(5)},${userCoordinates.lng.toFixed(5)}` : ""}`
           },
           {
             role: "user",
-            content: `LOCATION CLUES: ${cluesText}
-            
-RESPOND WITH THE STANDARDIZED ADDRESS ONLY - NO EXPLANATIONS, PREFIXES, OR ADDITIONAL TEXT.`,
-          },
+            content: `LOCATION CLUES: ${cluesText}`
+          }
         ],
-        max_tokens: 100,
+        max_tokens: 150,
       });
 
-      const inferredAddress = response.choices[0].message.content?.trim();
+      console.warn('LLM Response:', response.choices[0].message.content);
 
-      // If we got a valid address, verify it looks reasonable
-      if (inferredAddress && inferredAddress !== "UNKNOWN") {
-        const isValidAddress = this.validateAddressFormat(inferredAddress);
-        if (isValidAddress) {
-          return inferredAddress;
+      let result;
+      try {
+        result = JSON.parse(response.choices[0].message.content || "{}");
+      } catch (error) {
+        console.warn('Failed to parse LLM response as JSON, attempting to extract address from text');
+        const content = response.choices[0].message.content || "";
+        const addressMatch = content.match(/EXTRACTED LOCATION:\s*(.+)/i) ||
+          content.match(/ADDRESS:\s*(.+)/i) ||
+          content.match(/(\d+.*?,\s*[A-Za-z\s]+,\s*[A-Z]{2})/);
+
+        if (addressMatch) {
+          result = {
+            address: addressMatch[1].trim(),
+            locationNotes: "",
+            confidence: 0.8
+          };
         } else {
-          // Try once more with explicit formatting instructions
-          return await this.retryAddressInference(cluesText, userLocationContext);
+          throw new Error("Could not extract address from LLM response");
         }
       }
 
-      return inferredAddress === "UNKNOWN" ? "" : inferredAddress || "";
-    } catch (error) {
-      console.error("Error inferring address from clues:", error);
-      return "";
-    }
-  }
+      let address = result.address === "NO_ADDRESS" ? "" : result.address;
+      const locationNotes = result.locationNotes || "";
+      let confidence = result.confidence || 0;
 
-  // 5. Validation for address format
-  private validateAddressFormat(address: string): boolean {
-    // Check for common address patterns
-    // - Must contain numbers (usually street number)
-    // - Must have city, state pattern
-    // - Shouldn't be too short
+      console.log('\nParsed LLM Result:');
+      console.log('Address:', address || '(none)');
+      console.log('Location Notes:', locationNotes || '(none)');
+      console.log('Initial Confidence:', confidence);
 
-    const hasNumbers = /\d/.test(address);
-    const hasCityState = /[A-Z][a-z]+,\s*[A-Z]{2}/.test(address);
-    const isReasonableLength = address.length > 10;
+      let coordinates: [number, number];
 
-    return hasNumbers && hasCityState && isReasonableLength;
-  }
+      // Location resolution hierarchy
+      if (address) {
+        console.log('\nTrying to resolve address:', address);
+        coordinates = await this.geocodeAddress(address, `${address} | ${locationNotes}`);
 
-  // 6. Retry with more explicit instructions if first attempt fails validation
-  private async retryAddressInference(
-    cluesText: string,
-    userLocationContext: string
-  ): Promise<string> {
-    try {
-      const response = await OpenAIService.executeChatCompletion({
-        model: "gpt-4o",
-        temperature: 0,
-        messages: [
-          {
-            role: "system",
-            content: `You are an address standardization system. ${userLocationContext}
-            
-YOUR ONLY JOB is to output a properly formatted US address from the provided clues.
-The address MUST follow this exact pattern:
-123 Main Street
-City, ST 12345
+        // Validate coordinates
+        if (!this.validateCoordinates(coordinates)) {
+          throw new Error("Invalid coordinates obtained from geocoding");
+        }
 
-Where:
-- 123 is the street number
-- Main Street is the street name
-- City is the city name
-- ST is the two-letter state code
-- 12345 is the ZIP code (optional)
+        // Verify with reverse geocoding
+        const reverseGeocodingVerified = await this.verifyLocationWithReverseGeocoding(
+          coordinates,
+          address
+        );
+        confidence = 0.5 + (reverseGeocodingVerified ? 0.3 : 0);
+        console.log('Reverse Geocoding Verification:', reverseGeocodingVerified ? 'Passed' : 'Failed');
+      } else if (locationNotes) {
+        console.log('\nTrying to resolve from location notes:', locationNotes);
+        coordinates = await this.geocodeAddress(locationNotes, locationNotes);
 
-DO NOT include any explanations or extraneous text.
-If you cannot determine an address with high confidence, respond only with "UNKNOWN".`,
-          },
-          {
-            role: "user",
-            content: cluesText,
-          },
-        ],
-        max_tokens: 100,
+        // Validate coordinates
+        if (!this.validateCoordinates(coordinates)) {
+          throw new Error("Invalid coordinates obtained from geocoding");
+        }
+
+        confidence = 0.4;
+      } else if (userCoordinates) {
+        console.log('\nFalling back to user coordinates');
+        coordinates = [userCoordinates.lng, userCoordinates.lat];
+        confidence = 0.3;
+      } else {
+        throw new Error("Cannot determine event location: No address, organization, or scan coordinates available");
+      }
+
+      // Get timezone for the coordinates
+      const timezone = await this.getTimezoneFromCoordinates(coordinates[1], coordinates[0]);
+
+      console.log('\nFinal Resolution:');
+      console.log('Coordinates:', coordinates);
+      console.log('Final Confidence:', confidence);
+      console.log('Timezone:', timezone);
+
+      // Store in cache
+      this.locationCache.set(cluesFingerprint, {
+        cluesHash: cluesFingerprint,
+        address,
+        coordinates,
+        timestamp: Date.now(),
+        confidence,
+        timezone,
+        locationNotes
       });
 
-      const inferredAddress = response.choices[0].message.content?.trim();
-      return inferredAddress === "UNKNOWN" ? "" : inferredAddress || "";
+      console.log('=== Location Resolution End ===\n');
+
+      return {
+        address,
+        coordinates,
+        confidence,
+        timezone,
+        locationNotes
+      };
     } catch (error) {
-      console.error("Error in retry address inference:", error);
-      return "";
+      console.error("Error in location resolution:", error);
+      throw error;
     }
   }
 
-  // 7. Calculate confidence score for the inferred address
-  private calculateAddressConfidence(clues: string[], address: string): number {
-    if (!address) return 0;
-
-    // Base confidence starts at 0.3 (lower base confidence)
-    let confidence = 0.3;
-
-    // Increase confidence if address contains direct matches to clues
-    for (const clue of clues) {
-      if (clue && address.toLowerCase().includes(clue.toLowerCase())) {
-        confidence += 0.15; // Increased weight for direct matches
-      }
-    }
-
-    // Check for address completeness with higher weights
-    const hasStreetNumber = /^\d+\s/.test(address);
-    const hasStreetName = /\d+\s+[A-Za-z\s]+/.test(address);
-    const hasCityState = /[A-Za-z\s]+,\s*[A-Z]{2}/.test(address);
-    const hasZip = /\d{5}(?:-\d{4})?$/.test(address);
-
-    if (hasStreetNumber) confidence += 0.15;
-    if (hasStreetName) confidence += 0.15;
-    if (hasCityState) confidence += 0.15;
-    if (hasZip) confidence += 0.15;
-
-    // Additional validation for common address patterns
-    const hasValidStreetPattern =
-      /^\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Boulevard|Blvd|Road|Rd|Lane|Ln|Drive|Dr|Court|Ct|Circle|Cir|Way|Place|Pl)/.test(
-        address
-      );
-    if (hasValidStreetPattern) confidence += 0.1;
-
-    // Cap at 1.0
-    return Math.min(1.0, confidence);
-  }
-
-  // 8. Geocoding implementation
-  private async geocodeAddress(address: string): Promise<[number, number]> {
+  private async geocodeAddress(query: string, locationContext?: string): Promise<[number, number]> {
     try {
-      const encodedAddress = encodeURIComponent(address);
+      console.warn('🌍🌍🌍 GEOCODING START 🌍🌍🌍');
+      console.warn('Query:', query);
+      console.warn('Context:', locationContext);
+
+      const params = new URLSearchParams({
+        access_token: process.env.MAPBOX_GEOCODING_TOKEN || '',
+        country: 'us',
+        limit: '5', // Get multiple options
+        types: 'address,poi,place'
+      });
+
+      const encodedQuery = encodeURIComponent(query);
+      console.warn('🔍 Mapbox URL:', `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?${params.toString()}`);
+
       const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${process.env.MAPBOX_GEOCODING_TOKEN}`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?${params.toString()}`
       );
 
       if (!response.ok) {
@@ -332,16 +356,81 @@ If you cannot determine an address with high confidence, respond only with "UNKN
       }
 
       const data = await response.json();
+      console.warn('📍 Raw Mapbox Response:', JSON.stringify(data, null, 2));
 
       if (!data.features || data.features.length === 0) {
         throw new Error("No coordinates found for address");
       }
 
-      return data.features[0].center as [number, number];
+      console.log('\nMapbox Raw Results:');
+      data.features.forEach((f: any, i: number) => {
+        console.log(`${i + 1}. ${f.place_name}`);
+        console.log(`   Type: ${f.place_type.join(', ')}`);
+        console.log(`   Context: ${f.context?.map((c: any) => c.text).join(', ') || 'none'}`);
+        console.log(`   Coordinates: [${f.center[1]}, ${f.center[0]}]`);
+        console.log('');
+      });
+
+      // Format the location options for the LLM
+      const options = data.features.map((feature: any, index: number) => {
+        const place = feature.place_name;
+        const [lng, lat] = feature.center;
+        const context = feature.context?.map((c: any) => c.text).join(', ') || '';
+        return `Option ${index + 1}: ${place} (${context}) [${lat}, ${lng}]`;
+      }).join('\n');
+
+      console.log('\nPrompting LLM with:');
+      console.log('Location Context:', locationContext || query);
+      console.log('Options:\n', options);
+
+      // Use LLM to pick the best option
+      const llmResponse = await OpenAIService.executeChatCompletion({
+        model: "gpt-4o-mini",
+        temperature: 0,
+        messages: [
+          {
+            role: "system",
+            content: `You are a location selection expert. Given multiple location options and context, select the most appropriate location.
+Choose the option that best matches the context, considering:
+1. Area codes mentioned (e.g., 435 is Utah)
+2. Business names and landmarks
+3. Geographic context
+4. Local knowledge (e.g., Washington, UT is near St. George)
+
+Respond with TWO lines:
+1. The option number you choose (1, 2, 3, etc)
+2. A brief explanation of why you chose it`
+          },
+          {
+            role: "user",
+            content: `Location Context: ${locationContext || query}
+
+Available Options:
+${options}
+
+Which option best matches the context? Respond with the number and brief explanation.`
+          }
+        ],
+        max_tokens: 100
+      });
+
+      console.log('\nLLM Response:', llmResponse.choices[0].message.content);
+
+      // Parse just the number from the first line of the LLM response
+      const selectedIndex = parseInt(llmResponse.choices[0].message.content.split('\n')[0].trim()) - 1;
+
+      // Fallback to first result if LLM response isn't valid
+      const validIndex = isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= data.features.length
+        ? 0
+        : selectedIndex;
+
+      console.log(`\nSelected option ${validIndex + 1}: ${data.features[validIndex].place_name}`);
+      console.log('=== End Debug ===\n');
+
+      return data.features[validIndex].center as [number, number];
     } catch (error) {
-      console.error("Geocoding error:", error);
-      // Fallback to a default location in Provo if geocoding fails
-      return [-111.6585, 40.2338];
+      console.error("❌ Geocoding error:", error);
+      throw error;
     }
   }
 }

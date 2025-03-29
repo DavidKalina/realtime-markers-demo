@@ -113,13 +113,6 @@ export class EventSimilarityService implements IEventSimilarityService {
         matchTimezone: bestMatch.timezone,
       };
 
-      console.log("Duplicate detection metrics:", {
-        eventId: bestMatch.id,
-        title: bestMatch.title || "[No title]",
-        eventTitle: eventData.title,
-        ...matchDetails,
-        matchReason,
-      });
 
       // Check if it's a duplicate based on thresholds
       const isDuplicate = this.isDuplicate({
@@ -171,7 +164,6 @@ export class EventSimilarityService implements IEventSimilarityService {
    */
   public async handleDuplicateScan(eventId: string): Promise<void> {
     await this.eventRepository.increment({ id: eventId }, "scanCount", 1);
-    console.log(`Incremented scan count for duplicate event: ${eventId}`);
   }
 
   // Helper method to calculate distance between coordinates in meters
@@ -194,9 +186,9 @@ export class EventSimilarityService implements IEventSimilarityService {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(toRad(coords1.lat)) *
-        Math.cos(toRad(coords2.lat)) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
+      Math.cos(toRad(coords2.lat)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distance = R * c;

@@ -9,6 +9,7 @@ import { OpenAIService } from "./shared/OpenAIService";
 import { EnhancedLocationService } from "./shared/LocationService";
 import type { Filter } from "../entities/Filter";
 import { User } from "../entities/User";
+import { UserEventDiscovery } from "../entities/UserEventDiscovery";
 
 interface SearchResult {
   event: Event;
@@ -25,9 +26,10 @@ interface CreateEventInput {
   categoryIds?: string[];
   confidenceScore?: number;
   address?: string;
+  locationNotes?: string;
   creatorId: string;
   timezone?: string;
-  qrDetectedInImage?: boolean; // New field
+  qrDetectedInImage?: boolean;
   detectedQrData?: string;
   originalImageUrl?: string | null;
 }
@@ -198,12 +200,9 @@ export class EventService {
           input.location.coordinates[0] // longitude
         );
         input.timezone = timezone;
-        console.log(
-          `Determined timezone ${timezone} for event at coordinates [${input.location.coordinates}]`
-        );
       } catch (error) {
-        console.error("Error determining timezone from coordinates:", error);
-        input.timezone = "UTC"; // Default to UTC
+        console.error("Error determining timezone:", error);
+        input.timezone = "UTC"; // Fallback to UTC
       }
     }
 
@@ -233,9 +232,10 @@ export class EventService {
       location: input.location,
       status: EventStatus.PENDING,
       address: input.address,
+      locationNotes: input.locationNotes || "",
       embedding: pgvector.toSql(embedding),
       creatorId: input.creatorId,
-      timezone: input.timezone || "UTC", // Save the timezone
+      timezone: input.timezone || "UTC",
       qrDetectedInImage: input.qrDetectedInImage || false,
       detectedQrData: input.detectedQrData,
       originalImageUrl: input.originalImageUrl || undefined,
@@ -777,5 +777,80 @@ export class EventService {
       total,
       hasMore: offset + events.length < total,
     };
+  }
+
+  /**
+   * Get all events discovered by a user
+   *
+   * @param userId The ID of the user
+   * @param options Pagination options
+   * @returns An array of discovered events with pagination info
+   */
+  async getDiscoveredEventsByUser(
+    userId: string,
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<{ events: Event[]; total: number; hasMore: boolean }> {
+    const { limit = 10, offset = 0 } = options;
+
+    // Get the discoveries with their associated events
+    const discoveries = await this.dataSource
+      .getRepository(UserEventDiscovery)
+      .find({
+        where: { userId },
+        relations: ["event", "event.categories", "event.creator"],
+        order: { discoveredAt: "DESC" },
+        skip: offset,
+        take: limit,
+      });
+
+    const total = await this.dataSource
+      .getRepository(UserEventDiscovery)
+      .count({
+        where: { userId },
+      });
+
+    // Extract the events from the discoveries
+    const events = discoveries.map((discovery) => discovery.event);
+
+    return {
+      events,
+      total,
+      hasMore: offset + events.length < total,
+    };
+  }
+
+  /**
+   * Create a discovery record for a user scanning an event
+   * @param userId The ID of the user who scanned the event
+   * @param eventId The ID of the event that was discovered
+   */
+  async createDiscoveryRecord(userId: string, eventId: string): Promise<void> {
+    try {
+      // Create the discovery record
+      await this.dataSource
+        .createQueryBuilder()
+        .insert()
+        .into("user_event_discoveries")
+        .values({
+          userId,
+          eventId,
+        })
+        .orIgnore() // Ignore if record already exists
+        .execute();
+
+      // Increment the user's discovery count
+      await this.dataSource
+        .createQueryBuilder()
+        .update(User)
+        .set({
+          discoveryCount: () => "discovery_count + 1"
+        })
+        .where("id = :userId", { userId })
+        .execute();
+
+    } catch (error) {
+      console.error(`Error creating discovery record for user ${userId}:`, error);
+      // Don't throw the error - we don't want to fail the scan if discovery recording fails
+    }
   }
 }

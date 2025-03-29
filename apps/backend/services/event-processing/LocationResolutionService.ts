@@ -51,8 +51,6 @@ export class LocationResolutionService implements ILocationResolutionService {
       // Filter out empty clues and normalize
       const validClues = locationClues.filter(Boolean).map((clue) => clue.trim());
 
-      console.log("Resolving location with clues:", validClues);
-      console.log("User location context:", userCityState || "No city/state context");
 
       // Delegate to EnhancedLocationService for the heavy lifting
       const resolvedLocation = await this.locationService.resolveLocation(
@@ -73,6 +71,7 @@ export class LocationResolutionService implements ILocationResolutionService {
         confidence: resolvedLocation.confidence,
         timezone: resolvedLocation.timezone,
         resolvedAt: new Date().toISOString(),
+        locationNotes: resolvedLocation.locationNotes
       };
     } catch (error) {
       console.error("Error resolving location:", error);
@@ -90,6 +89,7 @@ export class LocationResolutionService implements ILocationResolutionService {
         timezone: "UTC",
         resolvedAt: new Date().toISOString(),
         error: error instanceof Error ? error.message : "Unknown error resolving location",
+        locationNotes: ""
       };
     }
   }

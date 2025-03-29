@@ -226,18 +226,22 @@ async function initializeWorker() {
         );
 
         // Add detailed debugging to see what's happening
-        console.log("DETAILED SCAN RESULT:", {
+        console.warn('🔍 LOCATION RESOLUTION RESULTS:', {
           confidence: scanResult.confidence,
           title: scanResult.eventDetails.title,
-          isDuplicate: scanResult.isDuplicate, // Check if this is properly set
+          isDuplicate: scanResult.isDuplicate,
           similarityScore: scanResult.similarity.score,
           threshold: 0.72,
           date: scanResult.eventDetails.date,
           timezone: scanResult.eventDetails.timezone,
           matchingEventId: scanResult.similarity.matchingEventId,
+          location: scanResult.eventDetails.location,
+          address: scanResult.eventDetails.address,
+          locationNotes: scanResult.eventDetails.locationNotes,
+          coordinates: scanResult.eventDetails.location?.coordinates
         });
 
-        console.log(`[Worker] Image analyzed with confidence: ${scanResult.confidence}`);
+        console.warn(`[Worker] Image analyzed with confidence: ${scanResult.confidence}`);
 
         // Now check if this is a duplicate event
         if (scanResult.isDuplicate && scanResult.similarity.matchingEventId) {
@@ -286,6 +290,13 @@ async function initializeWorker() {
 
           const eventDetails = scanResult.eventDetails;
 
+          console.log("[Worker] Creating event with details:", {
+            title: eventDetails.title,
+            address: eventDetails.address,
+            locationNotes: eventDetails.locationNotes,
+            confidence: scanResult.confidence
+          });
+
           const eventDate = new Date(eventDetails.date);
 
           // Validate the event date
@@ -319,15 +330,27 @@ async function initializeWorker() {
             description: eventDetails.description,
             confidenceScore: scanResult.confidence,
             address: eventDetails.address,
+            locationNotes: eventDetails.locationNotes || "",
             categoryIds: eventDetails.categories?.map((cat) => cat.id),
             creatorId: job.data.creatorId,
             qrDetectedInImage: scanResult.qrCodeDetected || false,
             detectedQrData: scanResult.qrCodeData,
-            originalImageUrl: originalImageUrl, // Add this line to include the image URL
+            originalImageUrl: originalImageUrl,
           });
 
-          // Increment the user's scan count if they are the creator
+          console.log("[Worker] Event created successfully:", {
+            id: newEvent.id,
+            title: newEvent.title,
+            address: newEvent.address,
+            locationNotes: newEvent.locationNotes
+          });
+
+          // Create discovery record and increment user stats if they are the creator
           if (job.data.creatorId) {
+            // Create discovery record
+            await eventService.createDiscoveryRecord(job.data.creatorId, newEvent.id);
+
+            // Increment scan count
             await AppDataSource
               .createQueryBuilder()
               .update(User)
@@ -371,8 +394,33 @@ async function initializeWorker() {
             })
           );
 
+          // Publish discovery event notification
+          await redisClient.publish(
+            "discovered_events",
+            JSON.stringify({
+              type: "EVENT_DISCOVERED",
+              event: {
+                id: newEvent.id,
+                title: newEvent.title,
+                emoji: newEvent.emoji,
+                location: newEvent.location,
+                description: newEvent.description,
+                eventDate: newEvent.eventDate,
+                endDate: newEvent.endDate,
+                address: newEvent.address,
+                locationNotes: newEvent.locationNotes,
+                categories: newEvent.categories,
+                confidenceScore: newEvent.confidenceScore,
+                originalImageUrl: newEvent.originalImageUrl,
+                creatorId: newEvent.creatorId,
+                createdAt: newEvent.createdAt,
+                updatedAt: newEvent.updatedAt,
+              },
+              timestamp: new Date().toISOString(),
+            })
+          );
+
           // Mark as completed with success
-          // In worker.ts, when marking the job as completed
           await jobQueue.updateJobStatus(jobId, {
             status: "completed",
             eventId: newEvent.id,

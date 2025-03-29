@@ -36,4 +36,9 @@ export interface LocationResolutionResult {
    * Error message if resolution failed
    */
   error?: string;
+
+  /**
+   * Additional location context like building, room, etc.
+   */
+  locationNotes?: string;
 }

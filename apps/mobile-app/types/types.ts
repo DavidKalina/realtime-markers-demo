@@ -14,24 +14,29 @@ export interface UserType {
 }
 
 export interface EventType {
-  id?: string;
-  emoji: string;
+  id: string;
   title: string;
   description: string;
-  location: string;
+  eventDate: string;
+  endDate?: string;
   time: string;
-  coordinates?: Coordinates;
-  isVerified?: boolean;
-  color?: string;
-  created_at?: string;
-  updated_at?: string;
-  creator?: UserType; // Add this field to store the creator information
-  creatorId?: string; // Add this if you need just the ID reference
-  scanCount?: number;
-  saveCount?: number; // Add count of saves
-  isSaved?: boolean; // Add whether current user has saved this event
-  timezone?: string;
-  [key: string]: any; // Allow additional properties for flexibility
+  coordinates: [number, number];
+  location: string;
+  locationNotes?: string; // Additional location context like building, room, etc.
+  distance: string;
+  emoji: string;
+  categories: string[];
+  creator?: UserType;
+  scanCount: number;
+  saveCount: number;
+  timezone: string;
+  qrUrl?: string | null;
+  qrCodeData?: string;
+  qrImagePath?: string | null;
+  hasQrCode?: boolean;
+  qrGeneratedAt?: string | null;
+  qrDetectedInImage?: boolean;
+  detectedQrData?: string | null;
 }
 
 // Mapbox viewport format for map integration
