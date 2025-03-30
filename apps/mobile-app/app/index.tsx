@@ -22,6 +22,7 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { ActivityIndicator, Animated, Platform, Text, View } from "react-native";
+import IndicatorsContainer from "@/components/IndicatorsContainer/IndicatorsContainer";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -243,17 +244,15 @@ function HomeScreen() {
 
     return (
       <>
-        <ConnectionIndicator
-          initialConnectionState={isConnected}
-          position="top-left"
-          showAnimation={!selectedItem}
+        <IndicatorsContainer
+          showConnectionIndicator={!selectedItem}
+          showQueueIndicator={true}
+          showFilterIndicator={true}
+          showDiscoveryIndicator={true}
         />
-        <QueueIndicator position="top-left" />
-        <FilterIndicator position="top-left" />
-        <DiscoveryIndicator position="top-right" />
       </>
     );
-  }, [shouldRenderUI, markers.length, isConnected, selectedItem]);
+  }, [shouldRenderUI, selectedItem]);
 
   const assistantOverlay = useMemo(() => {
     if (!shouldRenderUI) return null;

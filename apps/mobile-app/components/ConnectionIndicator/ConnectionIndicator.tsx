@@ -14,27 +14,15 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  SlideInLeft,
-  SlideOutLeft,
 } from "react-native-reanimated";
 
 interface ConnectionIndicatorProps {
   initialConnectionState?: boolean;
-  position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
   showAnimation?: boolean;
 }
 
 // Pre-define animations to avoid recreation
 const SPRING_LAYOUT = Layout.springify();
-const SLIDE_IN = SlideInLeft.springify()
-  .damping(20)
-  .mass(1.2)
-  .stiffness(150);
-const SLIDE_OUT = SlideOutLeft.springify()
-  .damping(20)
-  .mass(1.2)
-  .stiffness(150);
-const FADE_IN = FadeIn.duration(400).delay(100);
 
 // Animation configurations
 const ANIMATION_CONFIG = {
@@ -58,7 +46,7 @@ const StatusText = React.memo(
     return (
       <Animated.Text
         style={styles.statusText}
-        entering={FADE_IN}
+        entering={FadeIn}
         exiting={FadeOut.duration(300)}
         layout={SPRING_LAYOUT}
       >
@@ -75,7 +63,6 @@ const StatusText = React.memo(
 export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.memo(
   ({
     initialConnectionState = false,
-    position = "top-right",
     showAnimation = true,
   }) => {
     // Track connection status from WebSocket events
@@ -175,23 +162,6 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
       };
     });
 
-    // Get position styles based on position prop
-    const positionStyle = useMemo(() => {
-      switch (position) {
-        case "top-left":
-          return { top: 50, left: 16 };
-        case "bottom-right":
-          return { bottom: 50, right: 16 };
-        case "bottom-left":
-          return { bottom: 50, left: 16 };
-        case "custom":
-          return {};
-        case "top-right":
-        default:
-          return { top: 50, left: 16 };
-      }
-    }, [position]);
-
     // Get status color based on connection status
     const statusColor = useMemo(() => {
       return isConnected ? "#4caf50" : "#f44336"; // Green when connected, red when disconnected
@@ -215,9 +185,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
 
     return (
       <Animated.View
-        style={[styles.container, positionStyle]}
-        entering={SLIDE_IN}
-        exiting={SLIDE_OUT}
+        style={styles.container}
         layout={SPRING_LAYOUT}
       >
         <Animated.View style={indicatorStyle} layout={SPRING_LAYOUT}>
@@ -238,14 +206,12 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
 // Refined styles
 const styles = StyleSheet.create({
   container: {
-    position: "absolute",
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(51, 51, 51, 0.92)",
     borderRadius: 16,
     padding: 8,
     paddingRight: 10,
-    zIndex: 1000,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
