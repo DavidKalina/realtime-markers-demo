@@ -91,7 +91,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
     position = "top-right",
     autoDismissDelay = 3000, // Default: auto-dismiss after 3 seconds
     sessionId,
-    initialDelay = 500, // Default delay of 500ms
+    initialDelay = 800, // Default delay of 500ms
   }) => {
     // Get jobs and clearAllJobs action from our store.
     const jobs = useJobSessionStore((state) => state.jobs);
