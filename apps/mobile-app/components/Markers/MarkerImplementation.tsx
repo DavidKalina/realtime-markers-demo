@@ -63,7 +63,7 @@ const SingleMarkerView = React.memo(
         anchor={{ x: 0.5, y: 1.0 }}
       >
         <Animated.View
-          entering={BounceIn.duration(500).springify().damping(15).stiffness(200).delay(index * 50)}
+          entering={BounceIn.duration(500).springify().damping(15).stiffness(200).delay(index * 300)}
           layout={LinearTransition.springify()}
         >
           <MysteryEmojiMarker
