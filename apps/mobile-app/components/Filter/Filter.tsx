@@ -1,3 +1,5 @@
+import { useFilterStore } from "@/stores/useFilterStore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import {
@@ -17,7 +19,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Animated,
+  FlatList,
   Keyboard,
   Modal,
   SafeAreaView,
@@ -30,10 +32,21 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
+  ViewStyle,
 } from "react-native";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  interpolate,
+  LinearTransition,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  BounceIn,
+  ZoomIn,
+} from "react-native-reanimated";
 import { Filter as FilterType } from "../../services/ApiClient";
-import { useFilterStore } from "@/stores/useFilterStore";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const ACTIVE_FILTERS_KEY = "@active_filters";
 
@@ -61,13 +74,28 @@ const FiltersView: React.FC = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const scrollY = React.useRef(new Animated.Value(0)).current;
+  const scrollY = useSharedValue(0);
+  const listRef = useAnimatedRef<FlatList>();
 
   // Animation for header shadow
-  const headerShadowOpacity = scrollY.interpolate({
-    inputRange: [0, 50],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
+  const headerAnimatedStyle = useAnimatedStyle(() => {
+    const borderBottomColor = interpolate(
+      scrollY.value,
+      [0, 50],
+      [0, 1],
+      'clamp'
+    );
+
+    return {
+      borderBottomColor: borderBottomColor === 0 ? 'transparent' : '#3a3a3a',
+    } as ViewStyle;
+  });
+
+  // Scroll handler
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
   });
 
   const router = useRouter();
@@ -251,42 +279,73 @@ const FiltersView: React.FC = () => {
   };
 
   // Render a single filter item
-  const renderFilterItem = ({ item }: { item: FilterType }) => (
-    <View style={styles.filterCard}>
-      <View style={styles.filterHeader}>
-        <View style={styles.filterIconContainer}>
+  const renderFilterItem = ({ item, index }: { item: FilterType; index: number }) => (
+    <Animated.View
+      style={styles.filterCard}
+      entering={ZoomIn.duration(200).springify().damping(30).stiffness(300).delay(index * 30)}
+      exiting={FadeOut.duration(150)}
+      layout={LinearTransition.springify().damping(30).stiffness(300)}
+    >
+      <Animated.View
+        style={styles.filterHeader}
+        layout={LinearTransition.springify().damping(30).stiffness(300)}
+      >
+        <Animated.View
+          style={styles.filterIconContainer}
+          layout={LinearTransition.springify().damping(30).stiffness(300)}
+        >
           {item.emoji ? (
             <Text style={styles.filterEmoji}>{item.emoji}</Text>
           ) : (
-            <FilterIcon size={18} color="#93c5fd" />
+            <FilterIcon size={16} color="#93c5fd" />
           )}
-        </View>
-        <View style={styles.filterTitleContainer}>
+        </Animated.View>
+        <Animated.View
+          style={styles.filterTitleContainer}
+          layout={LinearTransition.springify().damping(30).stiffness(300)}
+        >
           <Text style={styles.filterName}>{item.name}</Text>
           {activeFilterIds.includes(item.id) && (
-            <View style={styles.activeBadge}>
+            <Animated.View
+              style={styles.activeBadge}
+              entering={ZoomIn.duration(150).springify().damping(30).stiffness(300)}
+              exiting={FadeOut.duration(150)}
+              layout={LinearTransition.springify().damping(30).stiffness(300)}
+            >
               <Text style={styles.activeText}>ACTIVE</Text>
-            </View>
+            </Animated.View>
           )}
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
 
-      <View style={styles.filterDetails}>
+      <Animated.View
+        style={styles.filterDetails}
+        layout={LinearTransition.springify().damping(30).stiffness(300)}
+      >
         {/* Semantic Query */}
         {item.semanticQuery && (
-          <View style={styles.criteriaSection}>
+          <Animated.View
+            style={styles.criteriaSection}
+            layout={LinearTransition.springify().damping(30).stiffness(300)}
+          >
             <Text style={styles.criteriaLabel}>Search Query:</Text>
             <Text style={styles.criteriaValue}>{item.semanticQuery}</Text>
-          </View>
+          </Animated.View>
         )}
 
         {/* Date Range */}
         {(item.criteria.dateRange?.start || item.criteria.dateRange?.end) && (
-          <View style={styles.criteriaSection}>
-            <View style={styles.criteriaRow}>
+          <Animated.View
+            style={styles.criteriaSection}
+            layout={LinearTransition.springify().damping(30).stiffness(300)}
+          >
+            <Animated.View
+              style={styles.criteriaRow}
+              layout={LinearTransition.springify().damping(30).stiffness(300)}
+            >
               <Calendar size={14} color="#93c5fd" style={styles.criteriaIcon} />
               <Text style={styles.criteriaLabel}>Date Range:</Text>
-            </View>
+            </Animated.View>
             <Text style={styles.criteriaValue}>
               {item.criteria.dateRange?.start
                 ? new Date(item.criteria.dateRange.start).toLocaleDateString()
@@ -296,41 +355,53 @@ const FiltersView: React.FC = () => {
                 ? new Date(item.criteria.dateRange.end).toLocaleDateString()
                 : "Any"}
             </Text>
-          </View>
+          </Animated.View>
         )}
-      </View>
+      </Animated.View>
 
-      <View style={styles.divider} />
+      <Animated.View
+        style={styles.divider}
+        layout={LinearTransition.springify().damping(30).stiffness(300)}
+      />
 
-      <View style={styles.filterActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleApplyFilter(item)}
-          activeOpacity={0.7}
-        >
-          <SearchIcon size={16} color="#93c5fd" />
-          <Text style={styles.actionText}>Apply</Text>
-        </TouchableOpacity>
+      <Animated.View
+        style={styles.filterActions}
+        layout={LinearTransition.springify().damping(30).stiffness(300)}
+      >
+        <Animated.View layout={LinearTransition.springify().damping(30).stiffness(300)}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleApplyFilter(item)}
+            activeOpacity={0.7}
+          >
+            <SearchIcon size={14} color="#93c5fd" />
+            <Text style={styles.actionText}>Apply</Text>
+          </TouchableOpacity>
+        </Animated.View>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleEditFilter(item)}
-          activeOpacity={0.7}
-        >
-          <Edit2 size={16} color="#93c5fd" />
-          <Text style={styles.actionText}>Edit</Text>
-        </TouchableOpacity>
+        <Animated.View layout={LinearTransition.springify().damping(30).stiffness(300)}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleEditFilter(item)}
+            activeOpacity={0.7}
+          >
+            <Edit2 size={14} color="#93c5fd" />
+            <Text style={styles.actionText}>Edit</Text>
+          </TouchableOpacity>
+        </Animated.View>
 
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeleteFilter(item.id)}
-          activeOpacity={0.7}
-        >
-          <Trash2 size={16} color="#f97583" />
-          <Text style={styles.deleteText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+        <Animated.View layout={LinearTransition.springify().damping(30).stiffness(300)}>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDeleteFilter(item.id)}
+            activeOpacity={0.7}
+          >
+            <Trash2 size={14} color="#f97583" />
+            <Text style={styles.deleteText}>Delete</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </Animated.View>
+    </Animated.View>
   );
 
   return (
@@ -341,13 +412,7 @@ const FiltersView: React.FC = () => {
       <Animated.View
         style={[
           styles.header,
-          {
-            shadowOpacity: headerShadowOpacity,
-            borderBottomColor: headerShadowOpacity.interpolate({
-              inputRange: [0, 1],
-              outputRange: ["transparent", "#3a3a3a"],
-            }),
-          },
+          headerAnimatedStyle,
         ]}
       >
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
@@ -364,12 +429,22 @@ const FiltersView: React.FC = () => {
       {/* Content Area */}
       <View style={styles.contentArea}>
         {isLoading ? (
-          <View style={styles.loadingContainer}>
+          <Animated.View
+            style={styles.loadingContainer}
+            entering={FadeIn}
+            exiting={FadeOut}
+            layout={LinearTransition.springify()}
+          >
             <ActivityIndicator size="large" color="#93c5fd" />
             <Text style={styles.loadingText}>Loading filters...</Text>
-          </View>
+          </Animated.View>
         ) : error ? (
-          <View style={styles.errorContainer}>
+          <Animated.View
+            style={styles.errorContainer}
+            entering={FadeIn}
+            exiting={FadeOut}
+            layout={LinearTransition.springify()}
+          >
             <View style={styles.errorIconContainer}>
               <AlertCircle size={40} color="#f97583" />
             </View>
@@ -378,9 +453,14 @@ const FiltersView: React.FC = () => {
             <TouchableOpacity style={styles.retryButton} onPress={fetchFilters} activeOpacity={0.7}>
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         ) : filters.length === 0 ? (
-          <View style={styles.emptyStateContainer}>
+          <Animated.View
+            style={styles.emptyStateContainer}
+            entering={FadeIn}
+            exiting={FadeOut}
+            layout={LinearTransition.springify()}
+          >
             <View style={styles.emptyStateIconContainer}>
               <Sliders size={40} color="#93c5fd" />
             </View>
@@ -398,24 +478,29 @@ const FiltersView: React.FC = () => {
                 <Text style={styles.createFilterText}>Create Filter</Text>
               </View>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         ) : (
           <Animated.FlatList
+            ref={listRef}
             data={filters}
             renderItem={renderFilterItem}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-              useNativeDriver: false,
-            })}
+            onScroll={scrollHandler}
+            scrollEventThrottle={16}
           />
         )}
       </View>
 
       {/* Bottom Button for Clear All */}
       {filters.length > 0 && (
-        <View style={styles.bottomButtonContainer}>
+        <Animated.View
+          style={styles.bottomButtonContainer}
+          entering={FadeIn}
+          exiting={FadeOut}
+          layout={LinearTransition.springify()}
+        >
           <TouchableOpacity
             style={styles.clearButton}
             onPress={handleClearFilters}
@@ -424,7 +509,7 @@ const FiltersView: React.FC = () => {
             <X size={18} color="#f97583" />
             <Text style={styles.clearButtonText}>Clear All Filters</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       )}
 
       {/* Filter Create/Edit Modal */}
@@ -589,11 +674,6 @@ const styles = StyleSheet.create({
     borderBottomColor: "transparent",
     backgroundColor: "#333",
     zIndex: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0,
-    shadowRadius: 3,
-    elevation: 0,
   },
 
   backButton: {
@@ -628,20 +708,20 @@ const styles = StyleSheet.create({
 
   // List styles
   listContent: {
-    padding: 16,
+    padding: 12,
     paddingBottom: 100, // Extra padding for bottom button
   },
 
   // Filter card styles
   filterCard: {
     backgroundColor: "#3a3a3a",
-    borderRadius: 14,
-    marginBottom: 16,
+    borderRadius: 12,
+    marginBottom: 8,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.05)",
     overflow: "hidden",
@@ -650,17 +730,17 @@ const styles = StyleSheet.create({
   filterHeader: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    padding: 10,
   },
 
   filterIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: "rgba(147, 197, 253, 0.15)",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    marginRight: 8,
   },
 
   filterTitleContainer: {
@@ -671,113 +751,113 @@ const styles = StyleSheet.create({
   },
 
   filterName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
     flex: 1,
-    marginRight: 12,
+    marginRight: 8,
   },
 
   activeBadge: {
     backgroundColor: "rgba(64, 192, 87, 0.2)",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
     borderWidth: 1,
     borderColor: "rgba(64, 192, 87, 0.3)",
   },
 
   activeText: {
     color: "#40c057",
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: "600",
     fontFamily: "SpaceMono",
   },
 
   filterDetails: {
-    padding: 16,
+    padding: 10,
     paddingTop: 0,
   },
 
   criteriaSection: {
-    marginBottom: 12,
+    marginBottom: 6,
   },
 
   criteriaRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 2,
   },
 
   criteriaIcon: {
-    marginRight: 6,
+    marginRight: 4,
   },
 
   criteriaLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#93c5fd",
     fontFamily: "SpaceMono",
     fontWeight: "500",
-    marginBottom: 4,
+    marginBottom: 1,
   },
 
   criteriaValue: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
-    lineHeight: 20,
+    lineHeight: 16,
     paddingLeft: 4,
   },
 
   divider: {
     height: 1,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
-    marginHorizontal: 16,
+    marginHorizontal: 12,
   },
 
   filterActions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 16,
+    padding: 12,
   },
 
   actionButton: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(147, 197, 253, 0.1)",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: "rgba(147, 197, 253, 0.2)",
   },
 
   actionText: {
     color: "#93c5fd",
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: "SpaceMono",
     fontWeight: "500",
-    marginLeft: 8,
+    marginLeft: 4,
   },
 
   deleteButton: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(249, 117, 131, 0.1)",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: "rgba(249, 117, 131, 0.2)",
   },
 
   deleteText: {
     color: "#f97583",
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: "SpaceMono",
     fontWeight: "500",
-    marginLeft: 8,
+    marginLeft: 4,
   },
 
   // Loading state
@@ -1128,9 +1208,9 @@ const styles = StyleSheet.create({
   },
 
   filterEmoji: {
-    fontSize: 20,
+    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 20,
+    includeFontPadding: false,
   },
 });
 

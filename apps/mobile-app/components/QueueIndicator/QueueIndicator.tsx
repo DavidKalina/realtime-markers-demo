@@ -22,6 +22,7 @@ interface QueueIndicatorProps {
   position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
   autoDismissDelay?: number; // Time in ms to auto-dismiss after all jobs are complete/failed
   sessionId?: string;
+  initialDelay?: number; // Delay before initial render
 }
 
 // Pre-defined animations for reuse
@@ -90,12 +91,15 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
     position = "top-right",
     autoDismissDelay = 3000, // Default: auto-dismiss after 3 seconds
     sessionId,
+    initialDelay = 800, // Default delay of 500ms
   }) => {
     // Get jobs and clearAllJobs action from our store.
     const jobs = useJobSessionStore((state) => state.jobs);
     const clearAllJobs = useJobSessionStore((state) => state.clearAllJobs);
     const clearJobsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const animationCleanupRef = useRef(false);
+    const initialRenderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [shouldRender, setShouldRender] = useState(false);
 
     // Memoize derived values to prevent unnecessary recalculations
     const { activeJobs, completedJobs, failedJobs, totalJobs, activeJob, progressPercentage } =
@@ -130,6 +134,32 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
     const rotationValue = useSharedValue(0);
     const checkmarkScale = useSharedValue(0);
     const iconOpacity = useSharedValue(1);
+
+    // Handle delayed initial render
+    useEffect(() => {
+      if (totalJobs > 0) {
+        // Clear any existing timeout
+        if (initialRenderTimeoutRef.current) {
+          clearTimeout(initialRenderTimeoutRef.current);
+        }
+
+        // Set a timeout for initial render
+        initialRenderTimeoutRef.current = setTimeout(() => {
+          setShouldRender(true);
+          setIsVisible(true);
+        }, initialDelay);
+
+        return () => {
+          if (initialRenderTimeoutRef.current) {
+            clearTimeout(initialRenderTimeoutRef.current);
+            initialRenderTimeoutRef.current = null;
+          }
+        };
+      } else {
+        setShouldRender(false);
+        setIsVisible(false);
+      }
+    }, [totalJobs, initialDelay]);
 
     // Setup visibility when there are jobs - runs only when totalJobs changes
     useEffect(() => {
@@ -305,8 +335,8 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
       [statusColor]
     );
 
-    // If component is not visible or no jobs at all, don't render
-    if (!isVisible || (totalJobs === 0 && status === "idle")) {
+    // If component should not render yet or no jobs at all, don't render
+    if (!shouldRender || !isVisible || (totalJobs === 0 && status === "idle")) {
       return null;
     }
 

@@ -1,20 +1,21 @@
 // components/Markers/ClusteredMapMarkers.tsx
-import React, { useCallback, useMemo } from "react";
-import MapboxGL from "@rnmapbox/maps";
-import { useLocationStore } from "@/stores/useLocationStore";
-import { MysteryEmojiMarker } from "./CustomMapMarker";
-import { ClusterMarker } from "./ClusterMarker";
-import { useMarkerClustering, ClusterFeature, PointFeature } from "@/hooks/useMarkerClustering";
-import { Marker } from "@/hooks/useMapWebsocket";
 import { useEventBroker } from "@/hooks/useEventBroker";
+import { Marker } from "@/hooks/useMapWebsocket";
+import { ClusterFeature, PointFeature, useMarkerClustering } from "@/hooks/useMarkerClustering";
 import {
-  EventTypes,
   CameraAnimateToLocationEvent,
-  MapItemEvent,
-  MarkerItem as EventMarkerItem,
   ClusterItem as EventClusterItem,
+  MarkerItem as EventMarkerItem,
+  EventTypes,
+  MapItemEvent,
 } from "@/services/EventBroker";
+import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
+import MapboxGL from "@rnmapbox/maps";
+import React, { useCallback, useMemo } from "react";
+import Animated, { BounceIn, Layout, LinearTransition } from "react-native-reanimated";
+import { ClusterMarker } from "./ClusterMarker";
+import { MysteryEmojiMarker } from "./CustomMapMarker";
 
 // Define the map item types from the store (ideally these would be imported from a types file)
 interface BaseMapItem {
@@ -48,10 +49,12 @@ const SingleMarkerView = React.memo(
     marker,
     isSelected,
     onPress,
+    index,
   }: {
     marker: MarkerItem;
     isSelected: boolean;
     onPress: () => void;
+    index: number;
   }) => {
     return (
       <MapboxGL.MarkerView
@@ -59,22 +62,27 @@ const SingleMarkerView = React.memo(
         coordinate={marker.coordinates}
         anchor={{ x: 0.5, y: 1.0 }}
       >
-        <MysteryEmojiMarker
-          event={{
-            title: marker.data.title || "Unnamed Event",
-            emoji: marker.data.emoji || "📍",
-            location: marker.data.location || "Unknown location",
-            distance: marker.data.distance || "Unknown distance",
-            time: marker.data.time || new Date().toLocaleDateString(),
-            description: marker.data.description || "",
-            categories: marker.data.categories || [],
-            isVerified: marker.data.isVerified || false,
-            color: marker.data.color,
-          }}
-          isSelected={isSelected}
-          isHighlighted={false}
-          onPress={onPress}
-        />
+        <Animated.View
+          entering={BounceIn.duration(500).springify().damping(15).stiffness(200).delay(index * 300)}
+          layout={LinearTransition.springify()}
+        >
+          <MysteryEmojiMarker
+            event={{
+              title: marker.data.title || "Unnamed Event",
+              emoji: marker.data.emoji || "📍",
+              location: marker.data.location || "Unknown location",
+              distance: marker.data.distance || "Unknown distance",
+              time: marker.data.time || new Date().toLocaleDateString(),
+              description: marker.data.description || "",
+              categories: marker.data.categories || [],
+              isVerified: marker.data.isVerified || false,
+              color: marker.data.color,
+            }}
+            isSelected={isSelected}
+            isHighlighted={false}
+            onPress={onPress}
+          />
+        </Animated.View>
       </MapboxGL.MarkerView>
     );
   }
@@ -86,10 +94,12 @@ const ClusterView = React.memo(
     cluster,
     isSelected,
     onPress,
+    index,
   }: {
     cluster: ClusterItem;
     isSelected: boolean;
     onPress: () => void;
+    index: number;
   }) => {
     return (
       <MapboxGL.MarkerView
@@ -97,12 +107,17 @@ const ClusterView = React.memo(
         coordinate={cluster.coordinates}
         anchor={{ x: 0.5, y: 0.5 }}
       >
-        <ClusterMarker
-          count={cluster.count}
-          coordinates={cluster.coordinates}
-          onPress={onPress}
-          isSelected={isSelected}
-        />
+        <Animated.View
+          entering={BounceIn.duration(500).springify().damping(15).stiffness(200).delay(index * 50)}
+          layout={Layout.springify()}
+        >
+          <ClusterMarker
+            count={cluster.count}
+            coordinates={cluster.coordinates}
+            onPress={onPress}
+            isSelected={isSelected}
+          />
+        </Animated.View>
       </MapboxGL.MarkerView>
     );
   }
@@ -274,24 +289,26 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
 
     // Memoize the render functions to prevent recreation
     const renderCluster = useCallback(
-      (processed: { type: "cluster"; item: ClusterItem; isSelected: boolean; onPress: () => void }) => (
+      (processed: { type: "cluster"; item: ClusterItem; isSelected: boolean; onPress: () => void; index: number }) => (
         <ClusterView
           key={processed.item.id}
           cluster={processed.item}
           isSelected={processed.isSelected}
           onPress={processed.onPress}
+          index={processed.index}
         />
       ),
       []
     );
 
     const renderMarker = useCallback(
-      (processed: { type: "marker"; item: MarkerItem; isSelected: boolean; onPress: () => void }) => (
+      (processed: { type: "marker"; item: MarkerItem; isSelected: boolean; onPress: () => void; index: number }) => (
         <SingleMarkerView
           key={processed.item.id}
           marker={processed.item}
           isSelected={processed.isSelected}
           onPress={processed.onPress}
+          index={processed.index}
         />
       ),
       []
@@ -299,11 +316,11 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
 
     return (
       <>
-        {visibleItems.map((processed) => {
+        {visibleItems.map((processed, index) => {
           if (processed.type === "cluster") {
-            return renderCluster(processed);
+            return renderCluster({ ...processed, index });
           } else {
-            return renderMarker(processed);
+            return renderMarker({ ...processed, index });
           }
         })}
       </>

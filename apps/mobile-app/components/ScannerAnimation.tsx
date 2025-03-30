@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useCallback, useImperativeHandle } from "react";
 import { StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
@@ -12,7 +12,7 @@ import Animated, {
 
 // Animation configurations - defined outside component
 const SCANNER_ANIMATIONS = {
-  SCAN_LINE: {
+  SCAN: {
     EASING: Easing.inOut(Easing.ease),
     RESET_DURATION: 300,
   },
@@ -24,11 +24,39 @@ interface ScannerAnimationProps {
   speed?: number;
 }
 
-export const ScannerAnimation: React.FC<ScannerAnimationProps> = React.memo(
-  ({ isActive, color = "#4dabf7", speed = 1500 }) => {
-    // Animation value for the scanner bar position (0 to 100%)
-    const scanPosition = useSharedValue(0);
+export interface ScannerAnimationRef {
+  cleanup: () => void;
+  resetAnimation: () => void;
+}
+
+export const ScannerAnimation = React.forwardRef<ScannerAnimationRef, ScannerAnimationProps>(
+  ({ isActive, color = "#4dabf7", speed = 1500 }, ref) => {
+    // Create three scanning segments
+    const segments = Array(3).fill(0).map(() => useSharedValue(0));
     const isMounted = useRef(true);
+
+    // Create cleanup function
+    const cleanup = useCallback(() => {
+      if (!isMounted.current) return;
+      segments.forEach(animation => {
+        cancelAnimation(animation);
+        animation.value = 0;
+      });
+    }, [segments]);
+
+    // Create reset function
+    const resetAnimation = useCallback(() => {
+      if (!isMounted.current) return;
+      segments.forEach(animation => {
+        animation.value = 0;
+      });
+    }, [segments]);
+
+    // Expose methods via ref
+    useImperativeHandle(ref, () => ({
+      cleanup,
+      resetAnimation,
+    }), [cleanup, resetAnimation]);
 
     // Set isMounted to false on unmount
     useEffect(() => {
@@ -41,70 +69,63 @@ export const ScannerAnimation: React.FC<ScannerAnimationProps> = React.memo(
     useEffect(() => {
       if (!isMounted.current) return;
 
-      cancelAnimation(scanPosition);
-
-      let animation: any = null;
+      // Cancel any existing animations
+      segments.forEach(animation => cancelAnimation(animation));
 
       if (isActive) {
-        // Reset position on activation
-        scanPosition.value = 0;
+        // Create smooth scanning animations for each segment
+        segments.forEach((animation, index) => {
+          const delay = index * (speed / 3);
 
-        // Create the animation in a more controlled way
-        const upAnimation = withTiming(100, {
-          duration: speed,
-          easing: SCANNER_ANIMATIONS.SCAN_LINE.EASING,
+          animation.value = withRepeat(
+            withSequence(
+              withTiming(1, {
+                duration: speed,
+                easing: SCANNER_ANIMATIONS.SCAN.EASING,
+              }),
+              withTiming(0, {
+                duration: speed,
+                easing: SCANNER_ANIMATIONS.SCAN.EASING,
+              })
+            ),
+            -1,
+            false
+          );
         });
-
-        const downAnimation = withTiming(0, {
-          duration: speed,
-          easing: SCANNER_ANIMATIONS.SCAN_LINE.EASING,
-        });
-
-        // Create the sequence and repetition explicitly
-        animation = withRepeat(
-          withSequence(upAnimation, downAnimation),
-          -1, // Infinite repetitions
-          false // Don't reverse
-        );
-
-        // Assign the animation to the shared value
-        scanPosition.value = animation;
       } else {
-        // Smoothly reset to zero when not active
-        scanPosition.value = withTiming(0, {
-          duration: SCANNER_ANIMATIONS.SCAN_LINE.RESET_DURATION,
+        // Smoothly reset all segments when not active
+        segments.forEach(animation => {
+          animation.value = withTiming(0, {
+            duration: SCANNER_ANIMATIONS.SCAN.RESET_DURATION,
+          });
         });
       }
 
-      // Clean up on unmount or when props change
-      return () => {
-        if (animation) {
-          cancelAnimation(scanPosition);
-        }
-      };
-    }, [isActive, speed, scanPosition]);
-
-    // Animated style using top percentage - memoized with color dependency
-    const scanLineStyle = useAnimatedStyle(
-      () => ({
-        top: `${scanPosition.value}%`,
-        backgroundColor: color,
-      }),
-      [color]
-    );
+      return cleanup;
+    }, [isActive, speed, segments, cleanup]);
 
     return (
       <Animated.View style={styles.container}>
-        <Animated.View style={[styles.scanLine, scanLineStyle]} />
+        {segments.map((animation, index) => {
+          const animatedStyle = useAnimatedStyle(() => ({
+            opacity: animation.value * 0.2,
+            backgroundColor: color,
+          }));
+
+          return (
+            <Animated.View
+              key={index}
+              style={[
+                styles.scanSegment,
+                {
+                  top: `${(index * 33.33)}%`,
+                },
+                animatedStyle,
+              ]}
+            />
+          );
+        })}
       </Animated.View>
-    );
-  },
-  // Custom equality function for React.memo to prevent unnecessary re-renders
-  (prevProps, nextProps) => {
-    return (
-      prevProps.isActive === nextProps.isActive &&
-      prevProps.color === nextProps.color &&
-      prevProps.speed === nextProps.speed
     );
   }
 );
@@ -120,12 +141,13 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: "transparent",
   },
-  scanLine: {
+  scanSegment: {
     position: "absolute",
     left: 0,
     right: 0,
-    height: 2,
-    opacity: 0.8,
-    width: "100%",
+    height: "33.33%",
+    opacity: 0,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
 });

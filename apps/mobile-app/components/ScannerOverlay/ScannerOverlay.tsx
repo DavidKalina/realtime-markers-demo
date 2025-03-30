@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, useImperativeHandle } from "react";
 import { View, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
@@ -44,13 +44,13 @@ const STATUS_CONFIG = {
   aligned: {
     colorValue: 1,
     scaleValue: 1.02,
-    scanColor: "#37D05C",
+    scanColor: "#4dabf7",
     overlayOpacity: 0.5,
   },
   capturing: {
     colorValue: 1,
     scaleValue: 1.05,
-    scanColor: "#37D05C",
+    scanColor: "#4dabf7",
     overlayOpacity: 0.6,
   },
 };
@@ -62,204 +62,245 @@ interface ScannerOverlayProps {
   showScannerAnimation?: boolean;
 }
 
-export const ScannerOverlay: React.FC<ScannerOverlayProps> = React.memo((props) => {
-  const {
-    detectionStatus = "none",
-    isCapturing = false,
-    onFrameReady,
-    showScannerAnimation = true,
-  } = props;
+export interface ScannerOverlayRef {
+  cleanup: () => void;
+  resetAnimations: () => void;
+}
 
-  // Refs to store timeouts and track component mounted state
-  const frameReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const animationsSet = useRef(false);
-  const isMounted = useRef(true);
+export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlayProps>(
+  (props, ref) => {
+    const {
+      detectionStatus = "none",
+      isCapturing = false,
+      onFrameReady,
+      showScannerAnimation = true,
+    } = props;
 
-  // Shared values for animations - created once
-  const borderWidth = useSharedValue(2);
-  const colorAnimation = useSharedValue(0);
-  const scaleAnimation = useSharedValue(1);
-  const overlayOpacity = useSharedValue(0.3);
+    // Refs to store timeouts and track component mounted state
+    const frameReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const animationsSet = useRef(false);
+    const isMounted = useRef(true);
 
-  // Status-dependent state
-  const [scanColor, setScanColor] = useState("#4dabf7");
+    // Shared values for animations - created once
+    const borderWidth = useSharedValue(2);
+    const colorAnimation = useSharedValue(0);
+    const scaleAnimation = useSharedValue(1);
+    const overlayOpacity = useSharedValue(0.3);
 
-  // Set isMounted to false when component unmounts
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
+    // Status-dependent state
+    const [scanColor, setScanColor] = useState("#4dabf7");
 
-  // Create unified cleanup function to cancel all animations
-  const cleanupAnimations = useCallback(() => {
-    if (!isMounted.current) return;
-
-    cancelAnimation(borderWidth);
-    cancelAnimation(colorAnimation);
-    cancelAnimation(scaleAnimation);
-    cancelAnimation(overlayOpacity);
-
-    if (frameReadyTimeoutRef.current) {
-      clearTimeout(frameReadyTimeoutRef.current);
-      frameReadyTimeoutRef.current = null;
-    }
-  }, [borderWidth, colorAnimation, scaleAnimation, overlayOpacity]);
-
-  // Unified status update function
-  const updateStatusVisuals = useCallback(
-    (status: "none" | "detecting" | "aligned" | "capturing") => {
+    // Create unified cleanup function to cancel all animations
+    const cleanupAnimations = useCallback(() => {
       if (!isMounted.current) return;
 
-      if (animationsSet.current) {
-        cleanupAnimations();
-      }
-
-      const config =
-        status === "capturing" ? STATUS_CONFIG.capturing : STATUS_CONFIG[detectionStatus];
-
-      if (isMounted.current) {
-        setScanColor(config.scanColor);
-      }
-
-      if (isMounted.current) {
-        colorAnimation.value = withTiming(config.colorValue, {
-          duration: ANIMATIONS.STATUS_CHANGE.DURATION,
-        });
-
-        overlayOpacity.value = withTiming(config.overlayOpacity, {
-          duration: ANIMATIONS.STATUS_CHANGE.DURATION,
-        });
-
-        if (status === "aligned") {
-          scaleAnimation.value = withRepeat(
-            withSequence(
-              withTiming(1.05, ANIMATIONS.ALIGNED_PULSE),
-              withTiming(config.scaleValue, ANIMATIONS.ALIGNED_PULSE)
-            ),
-            3,
-            true
-          );
-        } else {
-          scaleAnimation.value = withTiming(config.scaleValue, {
-            duration: ANIMATIONS.STATUS_CHANGE.DURATION,
-          });
-        }
-
-        animationsSet.current = true;
-      }
-    },
-    [cleanupAnimations, detectionStatus, colorAnimation, scaleAnimation, overlayOpacity]
-  );
-
-  // Update based on the component's props
-  useEffect(() => {
-    if (!isMounted.current) return;
-
-    if (isCapturing) {
-      updateStatusVisuals("capturing");
-    } else {
-      updateStatusVisuals(detectionStatus);
-    }
-
-    return cleanupAnimations;
-  }, [detectionStatus, isCapturing, updateStatusVisuals, cleanupAnimations]);
-
-  // Separate effect for the constant border pulse animation
-  useEffect(() => {
-    if (!isMounted.current) return;
-
-    borderWidth.value = withRepeat(
-      withSequence(
-        withTiming(2.5, ANIMATIONS.BORDER_PULSE),
-        withTiming(2, ANIMATIONS.BORDER_PULSE)
-      ),
-      -1,
-      true
-    );
-
-    return () => {
+      // Cancel all Reanimated animations
       cancelAnimation(borderWidth);
-    };
-  }, [borderWidth]);
+      cancelAnimation(colorAnimation);
+      cancelAnimation(scaleAnimation);
+      cancelAnimation(overlayOpacity);
 
-  // Handle the frame ready callback
-  useEffect(() => {
-    if (!isMounted.current) return;
-
-    if (frameReadyTimeoutRef.current) {
-      clearTimeout(frameReadyTimeoutRef.current);
-      frameReadyTimeoutRef.current = null;
-    }
-
-    if (detectionStatus === "aligned" && onFrameReady) {
-      frameReadyTimeoutRef.current = setTimeout(() => {
-        if (isMounted.current && onFrameReady) {
-          onFrameReady();
-        }
-      }, 300);
-    }
-
-    return () => {
+      // Clear any pending timeouts
       if (frameReadyTimeoutRef.current) {
         clearTimeout(frameReadyTimeoutRef.current);
         frameReadyTimeoutRef.current = null;
       }
-    };
-  }, [detectionStatus, onFrameReady]);
 
-  // Master cleanup effect
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-      cleanupAnimations();
-    };
-  }, [cleanupAnimations]);
+      // Reset all animation values to their initial states
+      borderWidth.value = 2;
+      colorAnimation.value = 0;
+      scaleAnimation.value = 1;
+      overlayOpacity.value = 0.3;
 
-  // Memoized animated styles
-  const frameStyle = useAnimatedStyle(() => {
-    const borderColor = interpolateColor(
-      colorAnimation.value,
-      [0, 0.5, 1],
-      ["#868e96", "#4dabf7", "#37D05C"]
+      // Reset scan color to initial state
+      setScanColor("#4dabf7");
+
+      // Mark animations as not set
+      animationsSet.current = false;
+    }, [borderWidth, colorAnimation, scaleAnimation, overlayOpacity]);
+
+    // Reset animations without cancelling them
+    const resetAnimations = useCallback(() => {
+      if (!isMounted.current) return;
+
+      // Reset all animation values to their initial states
+      borderWidth.value = 2;
+      colorAnimation.value = 0;
+      scaleAnimation.value = 1;
+      overlayOpacity.value = 0.3;
+
+      // Reset scan color to initial state
+      setScanColor("#4dabf7");
+
+      // Mark animations as not set
+      animationsSet.current = false;
+    }, [borderWidth, colorAnimation, scaleAnimation, overlayOpacity]);
+
+    // Expose methods via ref
+    useImperativeHandle(ref, () => ({
+      cleanup: cleanupAnimations,
+      resetAnimations,
+    }), [cleanupAnimations, resetAnimations]);
+
+    // Set isMounted to false when component unmounts
+    useEffect(() => {
+      return () => {
+        isMounted.current = false;
+      };
+    }, []);
+
+    // Unified status update function
+    const updateStatusVisuals = useCallback(
+      (status: "none" | "detecting" | "aligned" | "capturing") => {
+        if (!isMounted.current) return;
+
+        if (animationsSet.current) {
+          cleanupAnimations();
+        }
+
+        const config =
+          status === "capturing" ? STATUS_CONFIG.capturing : STATUS_CONFIG[detectionStatus];
+
+        if (isMounted.current) {
+          setScanColor(config.scanColor);
+        }
+
+        if (isMounted.current) {
+          colorAnimation.value = withTiming(config.colorValue, {
+            duration: ANIMATIONS.STATUS_CHANGE.DURATION,
+          });
+
+          overlayOpacity.value = withTiming(config.overlayOpacity, {
+            duration: ANIMATIONS.STATUS_CHANGE.DURATION,
+          });
+
+          if (status === "aligned") {
+            scaleAnimation.value = withRepeat(
+              withSequence(
+                withTiming(1.05, ANIMATIONS.ALIGNED_PULSE),
+                withTiming(config.scaleValue, ANIMATIONS.ALIGNED_PULSE)
+              ),
+              3,
+              true
+            );
+          } else {
+            scaleAnimation.value = withTiming(config.scaleValue, {
+              duration: ANIMATIONS.STATUS_CHANGE.DURATION,
+            });
+          }
+
+          animationsSet.current = true;
+        }
+      },
+      [cleanupAnimations, detectionStatus, colorAnimation, scaleAnimation, overlayOpacity]
     );
 
-    return {
-      borderWidth: borderWidth.value,
-      borderColor,
-      transform: [{ scale: scaleAnimation.value }],
-    };
-  });
+    // Update based on the component's props
+    useEffect(() => {
+      if (!isMounted.current) return;
 
-  // Animated overlay style
-  const overlayStyle = useAnimatedStyle(() => ({
-    opacity: overlayOpacity.value,
-  }));
+      if (isCapturing) {
+        updateStatusVisuals("capturing");
+      } else {
+        updateStatusVisuals(detectionStatus);
+      }
 
-  // Determine if scanning animation should be shown - memoized
-  const showScanning = useMemo(
-    () => showScannerAnimation && (detectionStatus !== "none" || isCapturing),
-    [detectionStatus, isCapturing, showScannerAnimation]
-  );
+      return cleanupAnimations;
+    }, [detectionStatus, isCapturing, updateStatusVisuals, cleanupAnimations]);
 
-  return (
-    <View style={overlayStyles.container}>
-      <Animated.View style={[overlayStyles.frame, frameStyle]}>
-        <View style={overlayStyles.boundary} />
-        <Animated.View style={[overlayStyles.overlay, overlayStyle]} />
-        {showScannerAnimation && (
-          <View style={overlayStyles.scannerContainer}>
-            <ScannerAnimation
-              isActive={showScanning}
-              color={scanColor}
-              speed={isCapturing ? 1000 : 1500}
-            />
-          </View>
-        )}
-      </Animated.View>
-    </View>
-  );
-});
+    // Separate effect for the constant border pulse animation
+    useEffect(() => {
+      if (!isMounted.current) return;
+
+      borderWidth.value = withRepeat(
+        withSequence(
+          withTiming(2.5, ANIMATIONS.BORDER_PULSE),
+          withTiming(2, ANIMATIONS.BORDER_PULSE)
+        ),
+        -1,
+        true
+      );
+
+      return () => {
+        cancelAnimation(borderWidth);
+        borderWidth.value = 2; // Reset to initial value
+      };
+    }, [borderWidth]);
+
+    // Handle the frame ready callback
+    useEffect(() => {
+      if (!isMounted.current) return;
+
+      if (frameReadyTimeoutRef.current) {
+        clearTimeout(frameReadyTimeoutRef.current);
+        frameReadyTimeoutRef.current = null;
+      }
+
+      if (detectionStatus === "aligned" && onFrameReady) {
+        frameReadyTimeoutRef.current = setTimeout(() => {
+          if (isMounted.current && onFrameReady) {
+            onFrameReady();
+          }
+        }, 300);
+      }
+
+      return () => {
+        if (frameReadyTimeoutRef.current) {
+          clearTimeout(frameReadyTimeoutRef.current);
+          frameReadyTimeoutRef.current = null;
+        }
+      };
+    }, [detectionStatus, onFrameReady]);
+
+    // Memoized animated styles
+    const frameStyle = useAnimatedStyle(() => {
+      const borderColor = interpolateColor(
+        colorAnimation.value,
+        [0, 0.5, 1],
+        ["#868e96", "#4dabf7", "#37D05C"]
+      );
+
+      return {
+        borderWidth: borderWidth.value,
+        borderColor,
+        transform: [{ scale: scaleAnimation.value }],
+      };
+    });
+
+    // Animated overlay style
+    const overlayStyle = useAnimatedStyle(() => ({
+      opacity: overlayOpacity.value,
+    }));
+
+    // Determine if scanning animation should be shown - memoized
+    const showScanning = useMemo(
+      () => showScannerAnimation && (detectionStatus !== "none" || isCapturing),
+      [detectionStatus, isCapturing, showScannerAnimation]
+    );
+
+    return (
+      <View style={overlayStyles.container}>
+        <Animated.View style={[overlayStyles.frame, frameStyle]}>
+          <View style={overlayStyles.boundary} />
+          <Animated.View style={[overlayStyles.overlay, overlayStyle]} />
+          <View style={[overlayStyles.corner, overlayStyles.cornerTopLeft]} />
+          <View style={[overlayStyles.corner, overlayStyles.cornerTopRight]} />
+          <View style={[overlayStyles.corner, overlayStyles.cornerBottomLeft]} />
+          <View style={[overlayStyles.corner, overlayStyles.cornerBottomRight]} />
+          {showScannerAnimation && (
+            <View style={overlayStyles.scannerContainer}>
+              <ScannerAnimation
+                isActive={showScanning}
+                color={scanColor}
+                speed={isCapturing ? 1000 : 1500}
+              />
+            </View>
+          )}
+        </Animated.View>
+      </View>
+    );
+  }
+);
 
 const overlayStyles = StyleSheet.create({
   container: {
@@ -276,7 +317,6 @@ const overlayStyles = StyleSheet.create({
     height: "100%",
     position: "relative",
     overflow: "hidden",
-    borderRadius: 12,
   },
   boundary: {
     position: "absolute",
@@ -284,9 +324,13 @@ const overlayStyles = StyleSheet.create({
     left: "3%",
     right: "3%",
     bottom: "3%",
-    borderWidth: 3,
-    borderColor: "#00f2ff",
-    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "rgba(0, 242, 255, 0.8)",
+    shadowColor: "#00f2ff",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 8,
   },
   overlay: {
     position: "absolute",
@@ -303,5 +347,36 @@ const overlayStyles = StyleSheet.create({
     right: "3%",
     bottom: "3%",
     overflow: "hidden",
-  }
+  },
+  corner: {
+    position: "absolute",
+    width: 20,
+    height: 20,
+    borderColor: "#00f2ff",
+    borderWidth: 2,
+  },
+  cornerTopLeft: {
+    top: "3%",
+    left: "3%",
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+  },
+  cornerTopRight: {
+    top: "3%",
+    right: "3%",
+    borderLeftWidth: 0,
+    borderBottomWidth: 0,
+  },
+  cornerBottomLeft: {
+    bottom: "3%",
+    left: "3%",
+    borderRightWidth: 0,
+    borderTopWidth: 0,
+  },
+  cornerBottomRight: {
+    bottom: "3%",
+    right: "3%",
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+  },
 });

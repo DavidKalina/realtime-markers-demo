@@ -191,13 +191,13 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  // Date & Time styling
+  // Enhanced Date & Time styling
   dateTimeContainer: {
-    gap: 16,
+    gap: 20,
   },
 
   dateTimeSection: {
-    gap: 4,
+    gap: 8,
   },
 
   dateTimeLabel: {
@@ -205,34 +205,46 @@ const styles = StyleSheet.create({
     color: '#93c5fd',
     fontFamily: 'SpaceMono',
     fontWeight: '500',
+    marginBottom: 2,
   },
 
   dateTimeValueContainer: {
     backgroundColor: "rgba(147, 197, 253, 0.1)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.15)",
   },
 
   dateTimeValue: {
-    fontSize: 15,
+    fontSize: 16,
     color: '#f8f9fa',
     fontFamily: 'SpaceMono',
-    lineHeight: 20,
+    lineHeight: 22,
   },
 
   localTimeContainer: {
     backgroundColor: "rgba(147, 197, 253, 0.15)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.2)",
   },
 
   localTimeText: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#93c5fd',
     fontFamily: 'SpaceMono',
-    lineHeight: 18,
+    lineHeight: 20,
+  },
+
+  timeSeparator: {
+    width: '100%',
+    height: 1,
+    backgroundColor: 'rgba(147, 197, 253, 0.1)',
+    marginVertical: 8,
   },
 });
 
@@ -275,6 +287,71 @@ const EventDetailsMainSection: React.FC<EventDetailsMainSectionProps> = ({
     </View>
   );
 
+  const formatTimeRange = (startDate: Date | string, endDate?: Date | string, timezone?: string) => {
+    const formatTime = (date: Date | string) => {
+      const dateObj = typeof date === 'string' ? new Date(date) : date;
+      return dateObj.toLocaleTimeString([], {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    };
+
+    if (!endDate) {
+      return `${formatTime(startDate)} ${timezone ? `(${timezone})` : ''}`;
+    }
+
+    return `${formatTime(startDate)} - ${formatTime(endDate)} ${timezone ? `(${timezone})` : ''}`;
+  };
+
+  const formatDateRange = (startDate: Date | string, endDate?: Date | string, timezone?: string) => {
+    const startDateStr = typeof startDate === 'string' ? startDate : startDate.toISOString();
+    const endDateStr = endDate ? (typeof endDate === 'string' ? endDate : endDate.toISOString()) : undefined;
+
+    if (!endDateStr) {
+      return formatDate(startDateStr, timezone);
+    }
+
+    const start = formatDate(startDateStr, timezone);
+    const end = formatDate(endDateStr, timezone);
+
+    // If dates are the same, just show the date once
+    if (start === end) {
+      return start;
+    }
+
+    return `${start} - ${end}`;
+  };
+
+  const formatDateDisplay = (date: Date | string, timezone?: string) => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: timezone
+    };
+
+    return dateObj.toLocaleDateString(undefined, options);
+  };
+
+  const formatDateRangeDisplay = (startDate: Date | string, endDate?: Date | string, timezone?: string) => {
+    if (!endDate) {
+      return formatDateDisplay(startDate, timezone);
+    }
+
+    const start = formatDateDisplay(startDate, timezone);
+    const end = formatDateDisplay(endDate, timezone);
+
+    // If dates are the same, just show the date once
+    if (start === end) {
+      return start;
+    }
+
+    return `${start} - ${end}`;
+  };
+
   return (
     <View style={styles.detailsContainer}>
       {/* Date & Time Card */}
@@ -285,57 +362,40 @@ const EventDetailsMainSection: React.FC<EventDetailsMainSectionProps> = ({
             <Text style={styles.dateTimeLabel}>Date</Text>
             <View style={styles.dateTimeValueContainer}>
               <Text style={styles.dateTimeValue}>
-                {formatDate(event.eventDate, event.timezone)}
-                {event.endDate && (
-                  <>
-                    {" - "}
-                    {formatDate(event.endDate, event.timezone)}
-                  </>
-                )}
+                {formatDateRangeDisplay(event.eventDate, event.endDate, event.timezone)}
               </Text>
             </View>
           </View>
+
+          <View style={styles.timeSeparator} />
 
           {/* Time Section */}
           <View style={styles.dateTimeSection}>
             <Text style={styles.dateTimeLabel}>Time</Text>
             <View style={styles.dateTimeValueContainer}>
               <Text style={styles.dateTimeValue}>
-                {new Date(event.eventDate).toLocaleTimeString([], {
-                  hour: 'numeric',
-                  minute: '2-digit',
-                  hour12: true
-                })}
-                {event.endDate && (
-                  <>
-                    {" - "}
-                    {new Date(event.endDate).toLocaleTimeString([], {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true
-                    })}
-                  </>
-                )}
+                {formatTimeRange(event.eventDate, event.endDate, event.timezone)}
               </Text>
             </View>
           </View>
 
           {/* Local Time Section - Only show if different */}
           {getUserLocalTime(event.eventDate, event.timezone) && (
-            <View style={styles.dateTimeSection}>
-              <Text style={styles.dateTimeLabel}>Your Local Time</Text>
-              <View style={styles.localTimeContainer}>
-                <Text style={styles.localTimeText}>
-                  {getUserLocalTime(event.eventDate, event.timezone)}
-                  {event.endDate && (
-                    <>
-                      {" - "}
-                      {getUserLocalTime(event.endDate, event.timezone)}
-                    </>
-                  )}
-                </Text>
+            <>
+              <View style={styles.timeSeparator} />
+              <View style={styles.dateTimeSection}>
+                <Text style={styles.dateTimeLabel}>Your Local Time</Text>
+                <View style={styles.localTimeContainer}>
+                  <Text style={styles.localTimeText}>
+                    {formatTimeRange(
+                      new Date(getUserLocalTime(event.eventDate, event.timezone)!),
+                      event.endDate ? new Date(getUserLocalTime(event.endDate, event.timezone)!) : undefined,
+                      'Your Time'
+                    )}
+                  </Text>
+                </View>
               </View>
-            </View>
+            </>
           )}
         </View>
       </DetailCard>

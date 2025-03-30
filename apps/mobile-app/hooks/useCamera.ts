@@ -30,6 +30,28 @@ export const useCamera = () => {
   // Track camera initialization
   const cameraInitialized = useRef(false);
 
+  // Release camera resources
+  const releaseCamera = useCallback(() => {
+    // Reset all camera states
+    setIsCameraReady(false);
+    setIsCapturing(false);
+    setCapturedImage(null);
+    setIsCameraActive(false);
+    cameraInitialized.current = false;
+
+    // Clear camera ref
+    if (cameraRef.current) {
+      cameraRef.current = null;
+    }
+
+    // Reset flash mode
+    setFlashMode("off");
+
+    // Reset permission states
+    setHasPermission(null);
+    setPermissionRequested(false);
+  }, []);
+
   // Permission handling - improved with better state tracking
   useEffect(() => {
     const updatePermission = async () => {
@@ -77,6 +99,9 @@ export const useCamera = () => {
             setIsCameraActive(true);
           }
         }, 300);
+      } else if (!isActive) {
+        // Clean up when app goes to background
+        releaseCamera();
       }
 
       appState.current = nextAppState;
@@ -84,8 +109,9 @@ export const useCamera = () => {
 
     return () => {
       subscription.remove();
+      releaseCamera();
     };
-  }, [isFocused]);
+  }, [isFocused, releaseCamera]);
 
   // Handle camera readiness with better logging
   const onCameraReady = useCallback(() => {
@@ -115,21 +141,6 @@ export const useCamera = () => {
       setIsCapturing(false);
     }
   }, [isFocused, appActive]);
-
-  // Release camera resources
-  const releaseCamera = useCallback(() => {
-    setIsCameraReady(false);
-    setIsCapturing(false);
-    setCapturedImage(null);
-    cameraInitialized.current = false;
-  }, []);
-
-  // Clean up when component unmounts
-  useEffect(() => {
-    return () => {
-      releaseCamera();
-    };
-  }, [releaseCamera]);
 
   // Take picture - robust version with better error handling and flash support
   const takePicture = async () => {

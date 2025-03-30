@@ -1,5 +1,5 @@
 // hooks/useEventSearch.ts
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import apiClient from "@/services/ApiClient";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { EventType } from "@/types/types";
@@ -10,11 +10,26 @@ const markerToEventType = (marker: Marker): EventType => {
     id: marker.id,
     title: marker.data.title || "Unnamed Event",
     description: marker.data.description || "",
+    eventDate: marker.data.eventDate || new Date().toISOString(),
+    endDate: marker.data.endDate,
     time: marker.data.time || "Time not specified",
+    coordinates: marker.coordinates,
     location: marker.data.location || "Location not specified",
+    locationNotes: marker.data.locationNotes,
     distance: marker.data.distance || "",
     emoji: marker.data.emoji || "📍",
     categories: marker.data.categories || [],
+    creator: marker.data.creator,
+    scanCount: marker.data.scanCount ?? 1,
+    saveCount: marker.data.saveCount ?? 0,
+    timezone: marker.data.timezone ?? "",
+    qrUrl: marker.data.qrUrl,
+    qrCodeData: marker.data.qrCodeData,
+    qrImagePath: marker.data.qrImagePath,
+    hasQrCode: marker.data.hasQrCode,
+    qrGeneratedAt: marker.data.qrGeneratedAt,
+    qrDetectedInImage: marker.data.qrDetectedInImage,
+    detectedQrData: marker.data.detectedQrData,
   };
 };
 
@@ -47,6 +62,10 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
 
+  // Add cache for search results
+  const searchCache = useRef<Map<string, { results: EventType[], nextCursor?: string }>>(new Map());
+  const lastSearchQuery = useRef<string>("");
+
   // Initialize with initial markers if available
   useEffect(() => {
     if (initialMarkers.length > 0 && !hasSearched) {
@@ -72,6 +91,18 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
         return;
       }
 
+      // Check if we're fetching more results for the same query
+      if (!reset && searchQuery === lastSearchQuery.current) {
+        // Use cached results if available
+        const cached = searchCache.current.get(searchQuery);
+        if (cached && !nextCursor) {
+          setEventResults(cached.results);
+          setNextCursor(cached.nextCursor);
+          setHasMoreResults(!!cached.nextCursor);
+          return;
+        }
+      }
+
       if (reset) {
         setIsLoading(true);
       } else {
@@ -94,19 +125,38 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
           id: result.id,
           title: result.title,
           description: result.description || "",
+          eventDate: result.eventDate,
+          endDate: result.endDate,
           time: new Date(result.eventDate).toLocaleString(),
+          coordinates: result.location.coordinates,
           location: result.address || "Location not specified",
+          locationNotes: result.locationNotes,
           distance: "",
           emoji: result.emoji || "📍",
           categories: result.categories?.map((c) => c.name) || [],
+          creator: result.creator,
+          scanCount: result.scanCount ?? 1,
+          saveCount: result.saveCount ?? 0,
+          timezone: result.timezone ?? "",
+          qrUrl: result.qrUrl,
+          qrCodeData: result.qrCodeData,
+          qrImagePath: result.qrImagePath,
+          hasQrCode: result.hasQrCode,
+          qrGeneratedAt: result.qrGeneratedAt,
+          qrDetectedInImage: result.qrDetectedInImage,
+          detectedQrData: result.detectedQrData,
         }));
 
         // Update pagination state
         setNextCursor(response.nextCursor);
         setHasMoreResults(!!response.nextCursor);
 
-        // If resetting, replace results. Otherwise, append to existing results
+        // Cache the results
         if (reset) {
+          searchCache.current.set(searchQuery, {
+            results: newResults,
+            nextCursor: response.nextCursor
+          });
           setEventResults(newResults);
         } else {
           // Use functional update to avoid dependency on eventResults
@@ -117,6 +167,7 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
           });
         }
 
+        lastSearchQuery.current = searchQuery;
         setHasSearched(true);
       } catch (err) {
         console.error("Search error:", err);
@@ -129,7 +180,7 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
         setIsFetchingMore(false);
       }
     },
-    [searchQuery, nextCursor, initialMarkers] // Removed eventResults from dependencies
+    [searchQuery, nextCursor, initialMarkers]
   );
 
   // Handle search query changes
@@ -145,7 +196,7 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
     // Set new timeout
     const timeout = setTimeout(() => {
       searchEvents(true);
-    }, 500);
+    }, 300);
 
     setSearchTimeout(timeout);
 

@@ -1,23 +1,127 @@
-import React, { useState, useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  StatusBar,
-  SafeAreaView,
-  ActivityIndicator,
-  RefreshControl,
-  Animated,
-  StyleSheet,
-} from "react-native";
-import { ArrowLeft, Calendar, MapPin, Heart, Bookmark, Search, Scan } from "lucide-react-native";
+import apiClient from "@/services/ApiClient";
+import { EventType } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { EventType } from "@/types/types";
-import apiClient from "@/services/ApiClient";
+import { ArrowLeft, Bookmark, Calendar, Heart, MapPin, Scan, Search } from "lucide-react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ViewStyle
+} from "react-native";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  interpolate,
+  LinearTransition,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  ZoomIn
+} from "react-native-reanimated";
 
 type TabType = 'saved' | 'discovered';
+
+// Memoize the EventCard component
+const EventCard: React.FC<{
+  item: EventType;
+  activeTab: TabType;
+  onPress: (event: EventType) => void;
+  index: number;
+}> = React.memo(({ item, activeTab, onPress, index }) => {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = useCallback(() => {
+    scale.value = withSpring(0.98, {
+      damping: 25,
+      stiffness: 400,
+    });
+  }, []);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, {
+      damping: 25,
+      stiffness: 400,
+    });
+  }, []);
+
+  const handlePress = useCallback(() => {
+    onPress(item);
+  }, [item, onPress]);
+
+  return (
+    <Animated.View
+      style={[styles.eventCard, animatedStyle]}
+      entering={ZoomIn.duration(300).springify().damping(25).stiffness(400).delay(index * 50)}
+      exiting={FadeOut.duration(200)}
+      layout={LinearTransition.springify().damping(25).stiffness(400)}
+    >
+      <TouchableOpacity
+        onPress={handlePress}
+        activeOpacity={1}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <View style={styles.eventCardContent}>
+          <View style={styles.emojiContainer}>
+            <Text style={styles.resultEmoji}>{item.emoji || "📍"}</Text>
+          </View>
+
+          <View style={styles.resultTextContainer}>
+            <Text style={styles.resultTitle} numberOfLines={1} ellipsizeMode="tail">
+              {item.title}
+            </Text>
+
+            <View style={styles.detailsContainer}>
+              <View style={styles.resultDetailsRow}>
+                <Calendar size={14} color="#93c5fd" style={{ marginRight: 6 }} />
+                <Text
+                  style={styles.resultDetailText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {item.time}
+                </Text>
+              </View>
+
+              <View style={styles.resultDetailsRow}>
+                <MapPin size={14} color="#93c5fd" style={{ marginRight: 6 }} />
+                <Text
+                  style={styles.resultDetailText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {item.location}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.savedBadge}>
+            {activeTab === 'saved' ? (
+              <Heart size={16} color="#93c5fd" fill="#93c5fd" />
+            ) : (
+              <Scan size={16} color="#93c5fd" />
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+});
 
 const SavedEventsView: React.FC = () => {
   const router = useRouter();
@@ -31,14 +135,28 @@ const SavedEventsView: React.FC = () => {
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const pageSize = 10;
 
-  const listRef = useRef<FlatList>(null);
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const listRef = useAnimatedRef<FlatList>();
+  const scrollY = useSharedValue(0);
 
-  // Computed styles based on scroll position
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 50],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
+  // Animation for header shadow
+  const headerAnimatedStyle = useAnimatedStyle(() => {
+    const borderBottomColor = interpolate(
+      scrollY.value,
+      [0, 50],
+      [0, 1],
+      'clamp'
+    );
+
+    return {
+      borderBottomColor: borderBottomColor === 0 ? 'transparent' : '#3a3a3a',
+    } as ViewStyle;
+  });
+
+  // Scroll handler
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
   });
 
   // Fetch events based on active tab
@@ -88,73 +206,151 @@ const SavedEventsView: React.FC = () => {
     fetchEvents();
   }, [activeTab]);
 
-  // Handle refreshing
-  const handleRefresh = () => {
+  // Memoize handlers
+  const handleRefresh = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     fetchEvents(true);
-  };
+  }, []);
 
-  // Handle loading more
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
     if (!isFetchingMore && !isRefreshing && hasMore) {
       fetchEvents();
     }
-  };
+  }, [isFetchingMore, isRefreshing, hasMore]);
 
-  // Handle back button
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
-  };
+  }, []);
 
-  // Handle select event
-  const handleSelectEvent = (event: EventType) => {
+  const handleSelectEvent = useCallback((event: EventType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (event.id) {
       router.push(`/details?eventId=${event.id}`);
     }
-  };
+  }, []);
 
-  // Handle tab switch
-  const handleTabSwitch = (tab: TabType) => {
+  const handleTabSwitch = useCallback((tab: TabType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tab);
     setEvents([]);
     setPage(0);
     setHasMore(true);
-  };
+  }, []);
 
-  // Render footer with loading indicator when fetching more
-  const renderFooter = () => {
-    return (
-      <View style={styles.loadingFooter}>
-        {isFetchingMore ? (
-          <>
-            <ActivityIndicator size="small" color="#93c5fd" />
-            <Text style={styles.loadingFooterText}>Loading more...</Text>
-          </>
-        ) : (
-          <View style={styles.loadingFooterSpacer} />
-        )}
+  // Memoize the getItemLayout function
+  const getItemLayout = useCallback((data: any, index: number) => ({
+    length: 74, // Height of each item (including margin)
+    offset: 74 * index,
+    index,
+  }), []);
+
+  // Memoize the keyExtractor function
+  const keyExtractor = useCallback((item: EventType) => {
+    return `${activeTab}-${item.id || item.title}-${item.time}`;
+  }, [activeTab]);
+
+  // Memoize the renderItem function
+  const renderItem = useCallback(({ item, index }: { item: EventType; index: number }) => (
+    <EventCard
+      item={item}
+      activeTab={activeTab}
+      onPress={handleSelectEvent}
+      index={index}
+    />
+  ), [activeTab, handleSelectEvent]);
+
+  // Memoize the ListHeaderComponent
+  const ListHeaderComponent = useCallback(() => (
+    <Animated.View
+      style={styles.listHeader}
+      entering={FadeIn}
+      layout={LinearTransition.springify()}
+    >
+      <View style={styles.counterContainer}>
+        <Text style={styles.resultsText}>
+          {events.length > 0
+            ? `${events.length} ${activeTab} ${events.length === 1 ? "event" : "events"}`
+            : `No ${activeTab} events yet`}
+        </Text>
       </View>
+    </Animated.View>
+  ), [events.length, activeTab]);
+
+  // Memoize the ListEmptyComponent
+  const ListEmptyComponent = useCallback(() => {
+    if (isLoading) return null;
+    return (
+      <Animated.View
+        style={styles.emptyStateContainer}
+        entering={FadeIn}
+        exiting={FadeOut}
+        layout={LinearTransition.springify()}
+      >
+        <View style={styles.emptyStateIconContainer}>
+          {activeTab === 'saved' ? (
+            <Bookmark size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
+          ) : (
+            <Scan size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
+          )}
+        </View>
+        <Text style={styles.emptyStateTitle}>
+          {activeTab === 'saved' ? 'No saved events yet' : 'No discovered events yet'}
+        </Text>
+        <Text style={styles.emptyStateDescription}>
+          {activeTab === 'saved'
+            ? 'Events you save will appear here. To save an event, tap the bookmark icon on any event details page.'
+            : 'Events you scan will appear here. To discover events, use the scan feature to process event flyers.'}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.emptyStateButton}
+          onPress={() => router.push(activeTab === 'saved' ? "/search" : "/scan")}
+          activeOpacity={0.8}
+        >
+          <View style={styles.buttonContent}>
+            {activeTab === 'saved' ? (
+              <Search size={16} color="#ffffff" style={{ marginRight: 8 }} />
+            ) : (
+              <Scan size={16} color="#ffffff" style={{ marginRight: 8 }} />
+            )}
+            <Text style={styles.emptyStateButtonText}>
+              {activeTab === 'saved' ? 'Find Events' : 'Scan Events'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
     );
-  };
+  }, [isLoading, activeTab]);
+
+  // Memoize the ListFooterComponent
+  const ListFooterComponent = useCallback(() => (
+    <Animated.View
+      style={styles.loadingFooter}
+      entering={FadeIn}
+      exiting={FadeOut}
+      layout={LinearTransition.springify()}
+    >
+      {isFetchingMore ? (
+        <>
+          <ActivityIndicator size="small" color="#93c5fd" />
+          <Text style={styles.loadingFooterText}>Loading more...</Text>
+        </>
+      ) : (
+        <View style={styles.loadingFooterSpacer} />
+      )}
+    </Animated.View>
+  ), [isFetchingMore]);
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#333" />
 
-      {/* Header with animation */}
+      {/* Animated Header */}
       <Animated.View
         style={[
           styles.header,
-          {
-            shadowOpacity: headerOpacity,
-            borderBottomColor: headerOpacity.interpolate({
-              inputRange: [0, 1],
-              outputRange: ["transparent", "#3a3a3a"],
-            }),
-          },
+          headerAnimatedStyle,
         ]}
       >
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
@@ -162,17 +358,23 @@ const SavedEventsView: React.FC = () => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Events</Text>
 
-        <View style={styles.headerIconContainer}>
+        <Animated.View
+          style={styles.headerIconContainer}
+          layout={LinearTransition.springify()}
+        >
           {activeTab === 'saved' ? (
             <Bookmark size={20} color="#93c5fd" fill="#93c5fd" />
           ) : (
             <Scan size={20} color="#93c5fd" />
           )}
-        </View>
+        </Animated.View>
       </Animated.View>
 
       {/* Tab Toggle */}
-      <View style={styles.tabContainer}>
+      <Animated.View
+        style={styles.tabContainer}
+        layout={LinearTransition.springify()}
+      >
         <TouchableOpacity
           style={[styles.tab, activeTab === 'saved' && styles.activeTab]}
           onPress={() => handleTabSwitch('saved')}
@@ -193,125 +395,36 @@ const SavedEventsView: React.FC = () => {
             Discovered
           </Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       {/* Content Area */}
       <View style={styles.contentArea}>
         {isLoading && events.length === 0 ? (
-          <View style={styles.loadingContainer}>
+          <Animated.View
+            style={styles.loadingContainer}
+            entering={FadeIn}
+            exiting={FadeOut}
+            layout={LinearTransition.springify()}
+          >
             <ActivityIndicator size="large" color="#93c5fd" />
             <Text style={styles.loadingText}>Loading {activeTab} events...</Text>
-          </View>
+          </Animated.View>
         ) : (
           <Animated.FlatList
             ref={listRef}
             data={events}
-            onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-              useNativeDriver: false,
-            })}
-            ListHeaderComponent={() => (
-              <View style={styles.listHeader}>
-                <View style={styles.counterContainer}>
-                  <Text style={styles.resultsText}>
-                    {events.length > 0
-                      ? `${events.length} ${activeTab} ${events.length === 1 ? "event" : "events"
-                      }`
-                      : `No ${activeTab} events yet`}
-                  </Text>
-                </View>
-              </View>
-            )}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.eventCard}
-                onPress={() => handleSelectEvent(item)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.eventCardContent}>
-                  <View style={styles.emojiContainer}>
-                    <Text style={styles.resultEmoji}>{item.emoji || "📍"}</Text>
-                  </View>
-
-                  <View style={styles.resultTextContainer}>
-                    <Text style={styles.resultTitle} numberOfLines={1} ellipsizeMode="tail">
-                      {item.title}
-                    </Text>
-
-                    <View style={styles.detailsContainer}>
-                      <View style={styles.resultDetailsRow}>
-                        <Calendar size={14} color="#93c5fd" style={{ marginRight: 6 }} />
-                        <Text
-                          style={styles.resultDetailText}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {item.time}
-                        </Text>
-                      </View>
-
-                      <View style={styles.resultDetailsRow}>
-                        <MapPin size={14} color="#93c5fd" style={{ marginRight: 6 }} />
-                        <Text
-                          style={styles.resultDetailText}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {item.location}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={styles.savedBadge}>
-                    {activeTab === 'saved' ? (
-                      <Heart size={16} color="#93c5fd" fill="#93c5fd" />
-                    ) : (
-                      <Scan size={16} color="#93c5fd" />
-                    )}
-                  </View>
-                </View>
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={() =>
-              !isLoading ? (
-                <View style={styles.emptyStateContainer}>
-                  <View style={styles.emptyStateIconContainer}>
-                    {activeTab === 'saved' ? (
-                      <Bookmark size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
-                    ) : (
-                      <Scan size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
-                    )}
-                  </View>
-                  <Text style={styles.emptyStateTitle}>
-                    {activeTab === 'saved' ? 'No saved events yet' : 'No discovered events yet'}
-                  </Text>
-                  <Text style={styles.emptyStateDescription}>
-                    {activeTab === 'saved'
-                      ? 'Events you save will appear here. To save an event, tap the bookmark icon on any event details page.'
-                      : 'Events you scan will appear here. To discover events, use the scan feature to process event flyers.'}
-                  </Text>
-
-                  <TouchableOpacity
-                    style={styles.emptyStateButton}
-                    onPress={() => router.push(activeTab === 'saved' ? "/search" : "/scan")}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.buttonContent}>
-                      {activeTab === 'saved' ? (
-                        <Search size={16} color="#ffffff" style={{ marginRight: 8 }} />
-                      ) : (
-                        <Scan size={16} color="#ffffff" style={{ marginRight: 8 }} />
-                      )}
-                      <Text style={styles.emptyStateButtonText}>
-                        {activeTab === 'saved' ? 'Find Events' : 'Scan Events'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              ) : null
-            }
-            ListFooterComponent={renderFooter}
-            keyExtractor={(item) => item.id as string}
+            onScroll={scrollHandler}
+            scrollEventThrottle={16}
+            getItemLayout={getItemLayout}
+            initialNumToRender={10}
+            maxToRenderPerBatch={5}
+            windowSize={5}
+            removeClippedSubviews={true}
+            ListHeaderComponent={ListHeaderComponent}
+            renderItem={renderItem}
+            ListEmptyComponent={ListEmptyComponent}
+            ListFooterComponent={ListFooterComponent}
+            keyExtractor={keyExtractor}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
               styles.listContent,
@@ -331,7 +444,12 @@ const SavedEventsView: React.FC = () => {
         )}
 
         {error && (
-          <View style={styles.errorContainer}>
+          <Animated.View
+            style={styles.errorContainer}
+            entering={FadeIn}
+            exiting={FadeOut}
+            layout={LinearTransition.springify()}
+          >
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity
               style={styles.retryButton}
@@ -340,7 +458,7 @@ const SavedEventsView: React.FC = () => {
             >
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         )}
       </View>
     </SafeAreaView>
@@ -364,11 +482,6 @@ const styles = StyleSheet.create({
     borderBottomColor: "transparent",
     backgroundColor: "#333",
     zIndex: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0,
-    shadowRadius: 3,
-    elevation: 0,
   },
 
   backButton: {
