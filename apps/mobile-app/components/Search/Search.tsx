@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -41,40 +41,46 @@ import Animated, {
   ZoomIn
 } from "react-native-reanimated";
 
+// Memoize the SearchResultCard component
 const SearchResultCard: React.FC<{
   item: EventType;
   index: number;
   onPress: (event: EventType) => void;
-}> = ({ item, index, onPress }) => {
+  entering: any;
+}> = React.memo(({ item, index, onPress, entering }) => {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
-  const handlePressIn = () => {
+  const handlePressIn = useCallback(() => {
     scale.value = withSpring(0.98, {
       damping: 25,
       stiffness: 400,
     });
-  };
+  }, []);
 
-  const handlePressOut = () => {
+  const handlePressOut = useCallback(() => {
     scale.value = withSpring(1, {
       damping: 25,
       stiffness: 400,
     });
-  };
+  }, []);
+
+  const handlePress = useCallback(() => {
+    onPress(item);
+  }, [item, onPress]);
 
   return (
     <Animated.View
       style={[styles.eventCard, animatedStyle]}
-      entering={ZoomIn.duration(300).springify().damping(25).stiffness(400).delay(index * 50)}
+      entering={entering}
       exiting={FadeOut.duration(200)}
       layout={LinearTransition.springify().damping(25).stiffness(400)}
     >
       <TouchableOpacity
-        onPress={() => onPress(item)}
+        onPress={handlePress}
         activeOpacity={1}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -119,7 +125,7 @@ const SearchResultCard: React.FC<{
       </TouchableOpacity>
     </Animated.View>
   );
-};
+});
 
 const SearchView = () => {
   const router = useRouter();
@@ -181,18 +187,112 @@ const SearchView = () => {
     [searchEvents]
   );
 
-  // Handle text input changes
-  const handleSearchInput = (text: string) => {
+  // Memoize handlers
+  const handleBack = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Keyboard.dismiss();
+    router.back();
+  }, []);
+
+  const handleClearSearch = useCallback(() => {
+    Haptics.selectionAsync();
+    clearSearch();
+    searchInputRef.current?.focus();
+  }, [clearSearch]);
+
+  const handleSelectEvent = useCallback((event: EventType) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Keyboard.dismiss();
+    router.push(`details?eventId=${event.id}` as never);
+  }, []);
+
+  const handleSearch = useCallback(() => {
+    Keyboard.dismiss();
+    searchEvents(true);
+  }, [searchEvents]);
+
+  // Memoize the getItemLayout function
+  const getItemLayout = useCallback((data: any, index: number) => ({
+    length: 74, // Height of each item (including margin)
+    offset: 74 * index,
+    index,
+  }), []);
+
+  // Memoize the keyExtractor function
+  const keyExtractor = useCallback((item: EventType) => {
+    return `${item.id}-${item.title}-${item.time}`;
+  }, []);
+
+  // Memoize the renderItem function
+  const renderItem = useCallback(({ item, index }: { item: EventType; index: number }) => (
+    <SearchResultCard
+      item={item}
+      index={index}
+      onPress={handleSelectEvent}
+      entering={ZoomIn.duration(300).springify().damping(25).stiffness(400)}
+    />
+  ), [handleSelectEvent]);
+
+  // Memoize the ListHeaderComponent
+  const ListHeaderComponent = useCallback(() => (
+    <Animated.View
+      style={styles.listHeader}
+      entering={FadeIn}
+      layout={LinearTransition.springify()}
+    >
+      <View style={styles.resultsContainer}>
+        <Text style={styles.resultsText}>
+          {hasSearched
+            ? `${eventResults.length} ${eventResults.length === 1 ? "result" : "results"} found`
+            : "Showing nearby events"}
+        </Text>
+      </View>
+    </Animated.View>
+  ), [hasSearched, eventResults.length]);
+
+  // Memoize the ListEmptyComponent
+  const ListEmptyComponent = useCallback(() => {
+    if (!hasSearched || isLoading) return null;
+    return (
+      <Animated.View
+        style={styles.emptyStateContainer}
+        entering={FadeIn}
+        exiting={FadeOut}
+        layout={LinearTransition.springify()}
+      >
+        <View style={styles.emptyStateIconContainer}>
+          <Search size={36} color="#93c5fd" style={{ opacity: 0.6 }} />
+        </View>
+        <Text style={styles.emptyStateTitle}>No results found</Text>
+        <Text style={styles.emptyStateDescription}>
+          We couldn't find any events matching your search. Try different keywords or
+          browse nearby events.
+        </Text>
+      </Animated.View>
+    );
+  }, [hasSearched, isLoading]);
+
+  // Memoize the ListFooterComponent
+  const ListFooterComponent = useCallback(() => {
+    if (!isFetchingMore) return null;
+    return (
+      <Animated.View
+        style={styles.loadingFooter}
+        entering={FadeIn}
+        exiting={FadeOut}
+        layout={LinearTransition.springify()}
+      >
+        <ActivityIndicator size="small" color="#93c5fd" />
+        <Text style={styles.loadingFooterText}>Loading more events...</Text>
+      </Animated.View>
+    );
+  }, [isFetchingMore]);
+
+  // Memoize the search input handler
+  const handleSearchInput = useCallback((text: string) => {
     setSearchQuery(text);
     setIsTyping(true);
     debouncedSearch(text);
-  };
-
-  // Cancel debounced search on unmount
-  useEffect(() => {
-    return () => {
-      debouncedSearch.cancel();
-    };
   }, [debouncedSearch]);
 
   // Set up keyboard listeners
@@ -227,34 +327,6 @@ const SearchView = () => {
       keyboardDidHideListener.remove();
     };
   }, [fadeAnim]);
-
-  // Handle back button
-  const handleBack = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Keyboard.dismiss();
-    router.back();
-  };
-
-  // Handle clear search with haptic feedback
-  const handleClearSearch = () => {
-    Haptics.selectionAsync();
-    clearSearch();
-    searchInputRef.current?.focus();
-  };
-
-  // Handle select event
-  const handleSelectEvent = (event: EventType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Keyboard.dismiss();
-    // Add navigation logic here
-    router.push(`details?eventId=${event.id}` as never);
-  };
-
-  // Handle search submission
-  const handleSearch = () => {
-    Keyboard.dismiss();
-    searchEvents(true);
-  };
 
   // Render footer with loading indicator when fetching more
   const renderFooter = () => {
@@ -294,6 +366,7 @@ const SearchView = () => {
       {/* Animated Header */}
       <Animated.View
         style={[styles.header, headerAnimatedStyle]}
+        entering={FadeIn.duration(300).springify().damping(25).stiffness(400)}
       >
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
           <ArrowLeft size={22} color="#f8f9fa" />
@@ -313,6 +386,7 @@ const SearchView = () => {
         {/* Enhanced Search Input */}
         <Animated.View
           style={[styles.searchInputContainer, searchInputAnimatedStyle]}
+          entering={FadeIn.duration(300).springify().damping(25).stiffness(400)}
           layout={LinearTransition.springify()}
         >
           <View style={styles.searchIconContainer}>
@@ -363,50 +437,16 @@ const SearchView = () => {
             data={eventResults}
             onScroll={scrollHandler}
             scrollEventThrottle={16}
-            ListHeaderComponent={() => (
-              <Animated.View
-                style={styles.listHeader}
-                entering={FadeIn}
-                layout={LinearTransition.springify()}
-              >
-                <View style={styles.resultsContainer}>
-                  <Text style={styles.resultsText}>
-                    {hasSearched
-                      ? `${eventResults.length} ${eventResults.length === 1 ? "result" : "results"
-                      } found`
-                      : "Showing nearby events"}
-                  </Text>
-                </View>
-              </Animated.View>
-            )}
-            renderItem={({ item, index }) => (
-              <SearchResultCard
-                item={item}
-                index={index}
-                onPress={handleSelectEvent}
-              />
-            )}
-            ListEmptyComponent={() =>
-              hasSearched && !isLoading ? (
-                <Animated.View
-                  style={styles.emptyStateContainer}
-                  entering={FadeIn}
-                  exiting={FadeOut}
-                  layout={LinearTransition.springify()}
-                >
-                  <View style={styles.emptyStateIconContainer}>
-                    <Search size={36} color="#93c5fd" style={{ opacity: 0.6 }} />
-                  </View>
-                  <Text style={styles.emptyStateTitle}>No results found</Text>
-                  <Text style={styles.emptyStateDescription}>
-                    We couldn't find any events matching your search. Try different keywords or
-                    browse nearby events.
-                  </Text>
-                </Animated.View>
-              ) : null
-            }
-            ListFooterComponent={renderFooter}
-            keyExtractor={(item) => item.id}
+            getItemLayout={getItemLayout}
+            initialNumToRender={10}
+            maxToRenderPerBatch={5}
+            windowSize={5}
+            removeClippedSubviews={true}
+            ListHeaderComponent={ListHeaderComponent}
+            renderItem={renderItem}
+            ListEmptyComponent={ListEmptyComponent}
+            ListFooterComponent={ListFooterComponent}
+            keyExtractor={keyExtractor}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
               styles.listContent,

@@ -3,65 +3,64 @@ import { EventType } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Bookmark, Calendar, Heart, MapPin, Scan, Search } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
-  Animated as RNAnimated,
   SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  ViewStyle,
+  ViewStyle
 } from "react-native";
 import Animated, {
   FadeIn,
   FadeOut,
+  interpolate,
   LinearTransition,
-  Layout,
-  SlideInRight,
-  SlideOutLeft,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
-  withSequence,
-  interpolate,
-  useAnimatedScrollHandler,
-  useAnimatedRef,
-  ZoomIn,
+  ZoomIn
 } from "react-native-reanimated";
 
 type TabType = 'saved' | 'discovered';
 
+// Memoize the EventCard component
 const EventCard: React.FC<{
   item: EventType;
   activeTab: TabType;
   onPress: (event: EventType) => void;
   index: number;
-}> = ({ item, activeTab, onPress, index }) => {
+}> = React.memo(({ item, activeTab, onPress, index }) => {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
-  const handlePressIn = () => {
+  const handlePressIn = useCallback(() => {
     scale.value = withSpring(0.98, {
       damping: 25,
       stiffness: 400,
     });
-  };
+  }, []);
 
-  const handlePressOut = () => {
+  const handlePressOut = useCallback(() => {
     scale.value = withSpring(1, {
       damping: 25,
       stiffness: 400,
     });
-  };
+  }, []);
+
+  const handlePress = useCallback(() => {
+    onPress(item);
+  }, [item, onPress]);
 
   return (
     <Animated.View
@@ -71,7 +70,7 @@ const EventCard: React.FC<{
       layout={LinearTransition.springify().damping(25).stiffness(400)}
     >
       <TouchableOpacity
-        onPress={() => onPress(item)}
+        onPress={handlePress}
         activeOpacity={1}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -122,7 +121,7 @@ const EventCard: React.FC<{
       </TouchableOpacity>
     </Animated.View>
   );
-};
+});
 
 const SavedEventsView: React.FC = () => {
   const router = useRouter();
@@ -207,62 +206,141 @@ const SavedEventsView: React.FC = () => {
     fetchEvents();
   }, [activeTab]);
 
-  // Handle refreshing
-  const handleRefresh = () => {
+  // Memoize handlers
+  const handleRefresh = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     fetchEvents(true);
-  };
+  }, []);
 
-  // Handle loading more
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
     if (!isFetchingMore && !isRefreshing && hasMore) {
       fetchEvents();
     }
-  };
+  }, [isFetchingMore, isRefreshing, hasMore]);
 
-  // Handle back button
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
-  };
+  }, []);
 
-  // Handle select event
-  const handleSelectEvent = (event: EventType) => {
+  const handleSelectEvent = useCallback((event: EventType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (event.id) {
       router.push(`/details?eventId=${event.id}`);
     }
-  };
+  }, []);
 
-  // Handle tab switch
-  const handleTabSwitch = (tab: TabType) => {
+  const handleTabSwitch = useCallback((tab: TabType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tab);
     setEvents([]);
     setPage(0);
     setHasMore(true);
-  };
+  }, []);
 
-  // Render footer with loading indicator when fetching more
-  const renderFooter = () => {
+  // Memoize the getItemLayout function
+  const getItemLayout = useCallback((data: any, index: number) => ({
+    length: 74, // Height of each item (including margin)
+    offset: 74 * index,
+    index,
+  }), []);
+
+  // Memoize the keyExtractor function
+  const keyExtractor = useCallback((item: EventType) => {
+    return `${activeTab}-${item.id || item.title}-${item.time}`;
+  }, [activeTab]);
+
+  // Memoize the renderItem function
+  const renderItem = useCallback(({ item, index }: { item: EventType; index: number }) => (
+    <EventCard
+      item={item}
+      activeTab={activeTab}
+      onPress={handleSelectEvent}
+      index={index}
+    />
+  ), [activeTab, handleSelectEvent]);
+
+  // Memoize the ListHeaderComponent
+  const ListHeaderComponent = useCallback(() => (
+    <Animated.View
+      style={styles.listHeader}
+      entering={FadeIn}
+      layout={LinearTransition.springify()}
+    >
+      <View style={styles.counterContainer}>
+        <Text style={styles.resultsText}>
+          {events.length > 0
+            ? `${events.length} ${activeTab} ${events.length === 1 ? "event" : "events"}`
+            : `No ${activeTab} events yet`}
+        </Text>
+      </View>
+    </Animated.View>
+  ), [events.length, activeTab]);
+
+  // Memoize the ListEmptyComponent
+  const ListEmptyComponent = useCallback(() => {
+    if (isLoading) return null;
     return (
       <Animated.View
-        style={styles.loadingFooter}
+        style={styles.emptyStateContainer}
         entering={FadeIn}
         exiting={FadeOut}
         layout={LinearTransition.springify()}
       >
-        {isFetchingMore ? (
-          <>
-            <ActivityIndicator size="small" color="#93c5fd" />
-            <Text style={styles.loadingFooterText}>Loading more...</Text>
-          </>
-        ) : (
-          <View style={styles.loadingFooterSpacer} />
-        )}
+        <View style={styles.emptyStateIconContainer}>
+          {activeTab === 'saved' ? (
+            <Bookmark size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
+          ) : (
+            <Scan size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
+          )}
+        </View>
+        <Text style={styles.emptyStateTitle}>
+          {activeTab === 'saved' ? 'No saved events yet' : 'No discovered events yet'}
+        </Text>
+        <Text style={styles.emptyStateDescription}>
+          {activeTab === 'saved'
+            ? 'Events you save will appear here. To save an event, tap the bookmark icon on any event details page.'
+            : 'Events you scan will appear here. To discover events, use the scan feature to process event flyers.'}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.emptyStateButton}
+          onPress={() => router.push(activeTab === 'saved' ? "/search" : "/scan")}
+          activeOpacity={0.8}
+        >
+          <View style={styles.buttonContent}>
+            {activeTab === 'saved' ? (
+              <Search size={16} color="#ffffff" style={{ marginRight: 8 }} />
+            ) : (
+              <Scan size={16} color="#ffffff" style={{ marginRight: 8 }} />
+            )}
+            <Text style={styles.emptyStateButtonText}>
+              {activeTab === 'saved' ? 'Find Events' : 'Scan Events'}
+            </Text>
+          </View>
+        </TouchableOpacity>
       </Animated.View>
     );
-  };
+  }, [isLoading, activeTab]);
+
+  // Memoize the ListFooterComponent
+  const ListFooterComponent = useCallback(() => (
+    <Animated.View
+      style={styles.loadingFooter}
+      entering={FadeIn}
+      exiting={FadeOut}
+      layout={LinearTransition.springify()}
+    >
+      {isFetchingMore ? (
+        <>
+          <ActivityIndicator size="small" color="#93c5fd" />
+          <Text style={styles.loadingFooterText}>Loading more...</Text>
+        </>
+      ) : (
+        <View style={styles.loadingFooterSpacer} />
+      )}
+    </Animated.View>
+  ), [isFetchingMore]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -337,75 +415,16 @@ const SavedEventsView: React.FC = () => {
             data={events}
             onScroll={scrollHandler}
             scrollEventThrottle={16}
-            ListHeaderComponent={() => (
-              <Animated.View
-                style={styles.listHeader}
-                entering={FadeIn}
-                layout={LinearTransition.springify()}
-              >
-                <View style={styles.counterContainer}>
-                  <Text style={styles.resultsText}>
-                    {events.length > 0
-                      ? `${events.length} ${activeTab} ${events.length === 1 ? "event" : "events"
-                      }`
-                      : `No ${activeTab} events yet`}
-                  </Text>
-                </View>
-              </Animated.View>
-            )}
-            renderItem={({ item, index }) => (
-              <EventCard
-                item={item}
-                activeTab={activeTab}
-                onPress={handleSelectEvent}
-                index={index}
-              />
-            )}
-            ListEmptyComponent={() =>
-              !isLoading ? (
-                <Animated.View
-                  style={styles.emptyStateContainer}
-                  entering={FadeIn}
-                  exiting={FadeOut}
-                  layout={LinearTransition.springify()}
-                >
-                  <View style={styles.emptyStateIconContainer}>
-                    {activeTab === 'saved' ? (
-                      <Bookmark size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
-                    ) : (
-                      <Scan size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
-                    )}
-                  </View>
-                  <Text style={styles.emptyStateTitle}>
-                    {activeTab === 'saved' ? 'No saved events yet' : 'No discovered events yet'}
-                  </Text>
-                  <Text style={styles.emptyStateDescription}>
-                    {activeTab === 'saved'
-                      ? 'Events you save will appear here. To save an event, tap the bookmark icon on any event details page.'
-                      : 'Events you scan will appear here. To discover events, use the scan feature to process event flyers.'}
-                  </Text>
-
-                  <TouchableOpacity
-                    style={styles.emptyStateButton}
-                    onPress={() => router.push(activeTab === 'saved' ? "/search" : "/scan")}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.buttonContent}>
-                      {activeTab === 'saved' ? (
-                        <Search size={16} color="#ffffff" style={{ marginRight: 8 }} />
-                      ) : (
-                        <Scan size={16} color="#ffffff" style={{ marginRight: 8 }} />
-                      )}
-                      <Text style={styles.emptyStateButtonText}>
-                        {activeTab === 'saved' ? 'Find Events' : 'Scan Events'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                </Animated.View>
-              ) : null
-            }
-            ListFooterComponent={renderFooter}
-            keyExtractor={(item) => item.id as string}
+            getItemLayout={getItemLayout}
+            initialNumToRender={10}
+            maxToRenderPerBatch={5}
+            windowSize={5}
+            removeClippedSubviews={true}
+            ListHeaderComponent={ListHeaderComponent}
+            renderItem={renderItem}
+            ListEmptyComponent={ListEmptyComponent}
+            ListFooterComponent={ListFooterComponent}
+            keyExtractor={keyExtractor}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
               styles.listContent,
