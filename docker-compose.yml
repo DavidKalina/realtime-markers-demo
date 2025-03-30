@@ -76,6 +76,7 @@ services:
       - NODE_ENV=production
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - MAPBOX_GEOCODING_TOKEN=${MAPBOX_GEOCODING_TOKEN}
+      - GOOGLE_GEOCODING_API_KEY=${GOOGLE_GEOCODING_API_KEY}
       # Image storage configuration
       - ENABLE_IMAGE_STORAGE=${ENABLE_IMAGE_STORAGE:-false}
       - DO_SPACE_ENDPOINT=${DO_SPACE_ENDPOINT:-https://nyc3.digitaloceanspaces.com}
@@ -123,6 +124,7 @@ services:
       - NODE_ENV=production
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - MAPBOX_GEOCODING_TOKEN=${MAPBOX_GEOCODING_TOKEN}
+      - GOOGLE_GEOCODING_API_KEY=${GOOGLE_GEOCODING_API_KEY}
       - ENABLE_IMAGE_STORAGE=${ENABLE_IMAGE_STORAGE:-false}
       - DO_SPACE_ENDPOINT=${DO_SPACE_ENDPOINT:-https://nyc3.digitaloceanspaces.com}
       - DO_SPACE_REGION=${DO_SPACE_REGION:-nyc3}

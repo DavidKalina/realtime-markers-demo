@@ -22,7 +22,7 @@ export class LocationResolutionService implements ILocationResolutionService {
    */
   constructor(private configService?: ConfigService) {
     this.locationService = GoogleGeocodingService.getInstance();
-    this.geocodingApiKey = process.env.MAPBOX_GEOCODING_TOKEN || "";
+    this.geocodingApiKey = process.env.GOOGLE_GEOCODING_API_KEY || "";
   }
 
   /**
@@ -122,22 +122,8 @@ export class LocationResolutionService implements ILocationResolutionService {
     }
 
     try {
-      const encodedAddress = encodeURIComponent(address);
-      const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${this.geocodingApiKey}`
-      );
-
-      if (!response.ok) {
-        throw new Error(`Geocoding failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      if (!data.features || data.features.length === 0) {
-        throw new Error("No coordinates found for address");
-      }
-
-      return data.features[0].center as [number, number];
+      const result = await this.locationService.geocodeAddress(address);
+      return result.coordinates;
     } catch (error) {
       console.error("Geocoding error:", error);
       // Return default coordinates in case of error
@@ -153,26 +139,7 @@ export class LocationResolutionService implements ILocationResolutionService {
    */
   public async reverseGeocodeCityState(lat: number, lng: number): Promise<string> {
     try {
-      const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${this.geocodingApiKey}&types=place,region`
-      );
-
-      if (!response.ok) {
-        throw new Error(`Reverse geocoding failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      if (data.features && data.features.length > 0) {
-        // Extract city and state when available
-        const place = data.features.find((f: any) => f.place_type.includes("place"));
-        const region = data.features.find((f: any) => f.place_type.includes("region"));
-
-        if (place && region) {
-          return `${place.text}, ${region.text}`;
-        }
-      }
-
-      return "";
+      return await this.locationService.reverseGeocodeCityState(lat, lng);
     } catch (error) {
       console.error("Error reverse geocoding:", error);
       return "";

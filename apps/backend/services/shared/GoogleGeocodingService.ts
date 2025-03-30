@@ -16,13 +16,17 @@ export class GoogleGeocodingService {
     private static instance: GoogleGeocodingService;
     private locationCache: Map<string, CachedLocation> = new Map();
     private readonly CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days
-    private readonly apiKey: string;
 
     private constructor() {
-        this.apiKey = process.env.GOOGLE_MAPS_API_KEY || "";
-        if (!this.apiKey) {
-            console.warn("Google Maps API key not provided. Geocoding functionality will be limited.");
+        // We specifically use the Geocoding API key since we're only using the Geocoding API
+        if (!process.env.GOOGLE_GEOCODING_API_KEY) {
+            throw new Error("GOOGLE_GEOCODING_API_KEY environment variable is required for geocoding functionality. This should be a key with Geocoding API enabled.");
         }
+        console.log("=== Google Geocoding Service Initialization ===");
+        console.log("GOOGLE_GEOCODING_API_KEY exists:", !!process.env.GOOGLE_GEOCODING_API_KEY);
+        console.log("GOOGLE_GEOCODING_API_KEY length:", process.env.GOOGLE_GEOCODING_API_KEY.length);
+        console.log("NODE_ENV:", process.env.NODE_ENV);
+        console.log("=============================================");
     }
 
     public static getInstance(): GoogleGeocodingService {
@@ -66,36 +70,15 @@ export class GoogleGeocodingService {
         );
     }
 
-    private calculateDistance(coords1: [number, number], coords2: [number, number]): number {
-        const toRad = (x: number) => (x * Math.PI) / 180;
-        const R = 6371e3; // Earth radius in meters
-
-        const dLat = toRad(coords2[1] - coords1[1]);
-        const dLng = toRad(coords2[0] - coords1[0]);
-
-        const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(toRad(coords1[1])) *
-            Math.cos(toRad(coords2[1])) *
-            Math.sin(dLng / 2) *
-            Math.sin(dLng / 2);
-
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c; // Distance in meters
-    }
-
     private async verifyLocationWithReverseGeocoding(
         coordinates: [number, number],
         expectedAddress: string
     ): Promise<boolean> {
         try {
-            const response = await fetch(
-                `https://maps.googleapis.com/maps/api/geocode/json?latlng=${coordinates[1]},${coordinates[0]}&key=${this.apiKey}`
+            const data = await this.makeGeocodingRequest(
+                `https://maps.googleapis.com/maps/api/geocode/json?latlng=${coordinates[1]},${coordinates[0]}&key=${process.env.GOOGLE_GEOCODING_API_KEY}`
             );
 
-            if (!response.ok) return false;
-
-            const data = await response.json();
             if (!data.results || data.results.length === 0) return false;
 
             const reverseGeocodedAddress = data.results[0].formatted_address;
@@ -247,10 +230,13 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
             console.log('Initial Confidence:', confidence);
 
             let coordinates: [number, number];
+            let formattedAddress = address;
 
             if (address) {
                 console.log('\nTrying to resolve address:', address);
-                coordinates = await this.geocodeAddress(address, `${address} | ${locationNotes}`);
+                const geocodeResult = await this.geocodeAddress(address, `${address} | ${locationNotes}`);
+                coordinates = geocodeResult.coordinates;
+                formattedAddress = geocodeResult.formattedAddress;
 
                 if (!this.validateCoordinates(coordinates)) {
                     throw new Error("Invalid coordinates obtained from geocoding");
@@ -258,13 +244,15 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
 
                 const reverseGeocodingVerified = await this.verifyLocationWithReverseGeocoding(
                     coordinates,
-                    address
+                    formattedAddress
                 );
                 confidence = 0.5 + (reverseGeocodingVerified ? 0.3 : 0);
                 console.log('Reverse Geocoding Verification:', reverseGeocodingVerified ? 'Passed' : 'Failed');
             } else if (locationNotes) {
                 console.log('\nTrying to resolve from location notes:', locationNotes);
-                coordinates = await this.geocodeAddress(locationNotes, locationNotes);
+                const geocodeResult = await this.geocodeAddress(locationNotes, locationNotes);
+                coordinates = geocodeResult.coordinates;
+                formattedAddress = geocodeResult.formattedAddress;
 
                 if (!this.validateCoordinates(coordinates)) {
                     throw new Error("Invalid coordinates obtained from geocoding");
@@ -288,7 +276,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
 
             this.locationCache.set(cluesFingerprint, {
                 cluesHash: cluesFingerprint,
-                address,
+                address: formattedAddress,
                 coordinates,
                 timestamp: Date.now(),
                 confidence,
@@ -299,7 +287,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
             console.log('=== Location Resolution End ===\n');
 
             return {
-                address,
+                address: formattedAddress,
                 coordinates,
                 confidence,
                 timezone,
@@ -311,91 +299,108 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
         }
     }
 
-    public async geocodeAddress(query: string, locationContext?: string): Promise<[number, number]> {
+    private async makeGeocodingRequest(url: string): Promise<any> {
+        if (!process.env.GOOGLE_GEOCODING_API_KEY) {
+            throw new Error("Geocoding API key is required for geocoding requests");
+        }
+
+        console.log("\n=== Google Geocoding API Request ===");
+        console.log("Request URL:", url);
+        console.log("API Key length:", process.env.GOOGLE_GEOCODING_API_KEY.length);
+        console.log("API Key first 4 chars:", process.env.GOOGLE_GEOCODING_API_KEY.substring(0, 4));
+        console.log("API Key last 4 chars:", process.env.GOOGLE_GEOCODING_API_KEY.substring(process.env.GOOGLE_GEOCODING_API_KEY.length - 4));
+
+        const response = await fetch(url);
+        console.log("Response status:", response.status);
+        console.log("Response status text:", response.statusText);
+
+        const data = await response.json();
+        console.log("Response data:", JSON.stringify(data, null, 2));
+        console.log("=== End Request ===\n");
+
+        if (!response.ok) {
+            throw new Error(`Geocoding API request failed: ${response.statusText}`);
+        }
+
+        if (data.status === "REQUEST_DENIED") {
+            console.error("Geocoding API request denied. Full response:", data);
+            throw new Error(`Geocoding API request denied: ${data.error_message}`);
+        }
+
+        return data;
+    }
+
+    public async geocodeAddress(query: string, locationContext?: string): Promise<{
+        coordinates: [number, number];
+        formattedAddress: string;
+        addressComponents: {
+            streetNumber?: string;
+            streetName?: string;
+            city?: string;
+            state?: string;
+            zipCode?: string;
+        };
+        locationType: string;
+        placeId: string;
+        isPartialMatch: boolean;
+    }> {
         try {
             console.warn('🌍🌍🌍 GEOCODING START 🌍🌍🌍');
             console.warn('Query:', query);
             console.warn('Context:', locationContext);
 
             const encodedQuery = encodeURIComponent(query);
-            const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedQuery}&key=${this.apiKey}`;
+            const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedQuery}&key=${process.env.GOOGLE_GEOCODING_API_KEY}`;
             console.warn('🔍 Google Maps URL:', url);
 
-            const response = await fetch(url);
-
-            if (!response.ok) {
-                throw new Error(`Geocoding failed: ${response.statusText}`);
-            }
-
-            const data = await response.json();
+            const data = await this.makeGeocodingRequest(url);
             console.warn('📍 Raw Google Maps Response:', JSON.stringify(data, null, 2));
 
             if (!data.results || data.results.length === 0) {
                 throw new Error("No coordinates found for address");
             }
 
-            console.log('\nGoogle Maps Raw Results:');
-            data.results.forEach((result: any, i: number) => {
-                console.log(`${i + 1}. ${result.formatted_address}`);
-                console.log(`   Types: ${result.types.join(', ')}`);
-                console.log(`   Location: [${result.geometry.location.lat}, ${result.geometry.location.lng}]`);
-                console.log('');
-            });
+            // Get the first result (most relevant match)
+            const result = data.results[0];
+            const { lat, lng } = result.geometry.location;
 
-            const options = data.results.map((result: any, index: number) => {
-                const place = result.formatted_address;
-                const { lat, lng } = result.geometry.location;
-                const types = result.types.join(', ');
-                return `Option ${index + 1}: ${place} (${types}) [${lat}, ${lng}]`;
-            }).join('\n');
+            // Format the address components for better readability
+            const addressComponents = result.address_components;
+            const streetNumber = addressComponents.find((c: { types: string[] }) => c.types.includes('street_number'))?.long_name;
+            const streetName = addressComponents.find((c: { types: string[] }) => c.types.includes('route'))?.long_name;
+            const city = addressComponents.find((c: { types: string[] }) => c.types.includes('locality'))?.long_name;
+            const state = addressComponents.find((c: { types: string[] }) => c.types.includes('administrative_area_level_1'))?.short_name;
+            const zipCode = addressComponents.find((c: { types: string[] }) => c.types.includes('postal_code'))?.long_name;
 
-            console.log('\nPrompting LLM with:');
-            console.log('Location Context:', locationContext || query);
-            console.log('Options:\n', options);
+            // Construct a clean address string
+            const formattedAddress = [
+                streetNumber,
+                streetName,
+                city,
+                state,
+                zipCode
+            ].filter(Boolean).join(', ');
 
-            const llmResponse = await OpenAIService.executeChatCompletion({
-                model: "gpt-4o-mini",
-                temperature: 0,
-                messages: [
-                    {
-                        role: "system",
-                        content: `You are a location selection expert. Given multiple location options and context, select the most appropriate location.
-Choose the option that best matches the context, considering:
-1. Area codes mentioned (e.g., 435 is Utah)
-2. Business names and landmarks
-3. Geographic context
-4. Local knowledge (e.g., Washington, UT is near St. George)
+            console.log('\nFormatted Address:', formattedAddress);
+            console.log('Coordinates:', [lng, lat]);
+            console.log('Location Type:', result.geometry.location_type);
+            console.log('Place ID:', result.place_id);
+            console.log('Partial Match:', result.partial_match);
 
-Respond with TWO lines:
-1. The option number you choose (1, 2, 3, etc)
-2. A brief explanation of why you chose it`
-                    },
-                    {
-                        role: "user",
-                        content: `Location Context: ${locationContext || query}
-
-Available Options:
-${options}
-
-Which option best matches the context? Respond with the number and brief explanation.`
-                    }
-                ],
-                max_tokens: 100
-            });
-
-            console.log('\nLLM Response:', llmResponse.choices[0].message.content);
-
-            const selectedIndex = parseInt(llmResponse.choices[0].message.content.split('\n')[0].trim()) - 1;
-
-            const validIndex = isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= data.results.length
-                ? 0
-                : selectedIndex;
-
-            console.log(`\nSelected option ${validIndex + 1}: ${data.results[validIndex].formatted_address}`);
-            console.log('=== End Debug ===\n');
-
-            const { lat, lng } = data.results[validIndex].geometry.location;
-            return [lng, lat];
+            return {
+                coordinates: [lng, lat],
+                formattedAddress,
+                addressComponents: {
+                    streetNumber,
+                    streetName,
+                    city,
+                    state,
+                    zipCode
+                },
+                locationType: result.geometry.location_type,
+                placeId: result.place_id,
+                isPartialMatch: result.partial_match || false
+            };
         } catch (error) {
             console.error("❌ Geocoding error:", error);
             throw error;
@@ -405,7 +410,7 @@ Which option best matches the context? Respond with the number and brief explana
     public async reverseGeocodeCityState(lat: number, lng: number): Promise<string> {
         try {
             const response = await fetch(
-                `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${this.apiKey}`
+                `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_GEOCODING_API_KEY}`
             );
 
             if (!response.ok) {
