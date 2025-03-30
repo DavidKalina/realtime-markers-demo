@@ -140,6 +140,8 @@ export class ImageProcessingService implements IImageProcessingService {
    */
   private async callVisionAPI(base64Image: string): Promise<ImageProcessingResult> {
     try {
+      // In the callVisionAPI method, update the prompt:
+      // In the callVisionAPI method, update the prompt:
       const response = await OpenAIService.executeChatCompletion({
         model: this.VISION_MODEL,
         messages: [
@@ -149,18 +151,39 @@ export class ImageProcessingService implements IImageProcessingService {
               {
                 type: "text",
                 text: `Please analyze this event flyer and extract as much detail as possible:
-                     - Check if there's a QR code present in the image (yes/no)
-                     - Event Title
-                     - Event Date and Time (be specific about year, month, day, time)
-                     - Any timezone information (EST, PST, GMT, etc.)
-                     - Full Location Details (venue name, address, city, state)
-                     - Complete Description
-                     - Any contact information
-                     - Any social media handles
-                     - Any other important details
+               - Check if there's a QR code present in the image (yes/no)
+               - Event Title
+               - Event Date and Time (be specific about year, month, day, time)
+               - Any timezone information (EST, PST, GMT, etc.)
+               - Full Location Details:
+                 * PRIMARY VENUE: Focus on the most prominently displayed location in the image
+                 * Pay attention to visual hierarchy - larger text for locations is likely the actual venue
+                 * EXACT venue name as written (e.g., "Provo Airport", "Grande Ballroom")
+                 * Building/Room number if applicable
+                 * Full address if provided
+                 * City and State
+               - Organizer Information (SEPARATE from venue):
+                 * Organization name (e.g., "UVU Career Center")
+                 * Note this as the ORGANIZER, not the location, if it appears in a less prominent position
+                 * Look for logos, smaller text at bottom/sides that indicate who is hosting, not where
+               - Complete Description
+               - Any contact information
+               - Any social media handles
+               - Any other important details
 
-                     Also, provide a confidence score between 0 and 1, indicating how confident you are that the extraction is an event.
-                     Consider whether there's a date, a time, and a location.`,
+               IMPORTANT: For location extraction:
+               1. Use the EXACT venue name as shown in the image
+               2. Clearly distinguish between the EVENT VENUE and the EVENT ORGANIZER
+               3. Consider VISUAL HIERARCHY - larger, more prominent text is likely the actual venue
+               4. If it's a well-known venue (airport, stadium, theater, etc.), that's often sufficient as the location
+               5. Report organization details (like "UVU Career & Internship Center") as the ORGANIZER, not the venue
+
+               Format your response with clear separation:
+               VENUE: [exact venue name]
+               ORGANIZER: [organization hosting the event]
+
+               Also, provide a confidence score between 0 and 1, indicating how confident you are that the extraction is an event.
+               Consider whether there's a date, a time, and a location.`,
               },
               {
                 type: "image_url",

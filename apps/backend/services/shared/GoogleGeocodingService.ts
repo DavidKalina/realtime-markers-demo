@@ -350,34 +350,45 @@ export class GoogleGeocodingService {
                         content: `You are a location analysis expert working with Google's Geocoding and Places APIs. Extract location information that will be used to query these APIs.
 
 KEY INSTRUCTIONS:
-1. For campus buildings and specific rooms:
+1. PRIORITIZE EXPLICIT VENUES OVER ORGANIZATIONS:
+   - If both a venue (e.g., "Provo Airport") and an organization (e.g., "UVU Career Center") are present, the VENUE is the location
+   - Recognize venue types vs. organization names based on context and common knowledge
+   - For known venue types like airports, the exact venue name should be the primary search query
+
+2. For campus buildings and specific rooms:
    - Extract specific building names (e.g., "Sorensen Center")
    - Extract specific room/area names (e.g., "Grande Ballroom", "Room 101")
    - Prioritize these details in the Places API query
    - Example: "Grande Ballroom Sorensen Center" is better than just "UVU Campus"
 
-2. For ambiguous city names (like Washington, Springfield, etc):
+3. For ambiguous city names (like Washington, Springfield, etc):
    - Look for state context in the full text
    - Check phone area codes (e.g., 435 is Utah)
    - Use landmarks or business names as context
    - If a city could be confused with a state/DC, explicitly add the state
 
-3. When extracting addresses:
+4. When extracting addresses:
    - Must include street number, street name, city, and state
    - Always use full state names or standard 2-letter codes (UT not Ut.)
    - For cities that share names with states/DC, always add the state
    - Format: "Street number + Street name, City, State ZIP"
 
-4. If no complete address is found:
+5. If no complete address is found:
    - Extract business names, landmarks, and cross-streets
    - Include city and state when known
    - Note any phone area codes as they help confirm state
 
-5. Places API Analysis:
+6. SPECIAL HANDLING FOR NOTABLE VENUES:
+   - For well-known locations, use the exact venue name as the primary query
+   - When the venue is a landmark, prioritize the landmark name in the query
+   - Do not add organization names to venue queries unless the organization IS the venue
+
+7. Places API Analysis:
    - Look for business names, landmarks, or points of interest
    - Consider if the location is likely to be in Google's Places database
    - Note if the location is a business, venue, or landmark
    - When constructing Places API queries:
+     * For specific venues, use ONLY the venue name first
      * Start with the most specific identifier (room/area + building name)
      * Add city and state for context
      * Include any distinguishing features (e.g., "downtown", "north side")
@@ -387,7 +398,7 @@ KEY INSTRUCTIONS:
        - Include neighborhood/area context if known
        - Prioritize exact matches over general searches
 
-6. RESPONSE FORMAT:
+8. RESPONSE FORMAT:
    You MUST respond with a valid JSON object in this exact format:
    {
      "address": "complete address if found, or empty string",
@@ -396,6 +407,7 @@ KEY INSTRUCTIONS:
      "shouldTryPlacesApi": boolean indicating if we should try Places API,
      "placesQuery": "query string for Places API if shouldTryPlacesApi is true",
      "placesQueryContext": {
+       "isNotableVenue": boolean indicating if this is a well-known venue like an airport or stadium,
        "buildingName": "specific building name if found",
        "roomArea": "specific room/area if found",
        "businessType": "type of business/venue if applicable",
@@ -482,28 +494,44 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
                 // Step 2: Try Places API with user location context
                 console.log('\nTrying Places API with query:', placesQuery);
                 // Construct a more specific query using context
+                const isNotableVenue = result.placesQueryContext?.isNotableVenue || false;
+
+                // Construct the Places API query based on context
                 let enhancedQuery = '';
 
-                // Start with the most specific details (room/area + building)
-                if (placesQueryContext.roomArea && placesQueryContext.buildingName) {
+                // For notable venues like airports, use the venue name directly
+                if (isNotableVenue && placesQuery) {
+                    enhancedQuery = placesQuery; // Use the exact placesQuery provided by the LLM
+                    console.log('Using notable venue query:', enhancedQuery);
+                } else if (placesQueryContext.roomArea && placesQueryContext.buildingName) {
                     enhancedQuery = `${placesQueryContext.roomArea} ${placesQueryContext.buildingName}`;
                 } else if (placesQueryContext.buildingName) {
                     enhancedQuery = placesQueryContext.buildingName;
-                } else if (placesQuery) {
+                } else {
                     enhancedQuery = placesQuery;
                 }
 
-                // Add area context if available
-                if (placesQueryContext.area && !enhancedQuery.toLowerCase().includes(placesQueryContext.area.toLowerCase())) {
+                // Add area context if available and not redundant
+                if (placesQueryContext.area &&
+                    !enhancedQuery.toLowerCase().includes(placesQueryContext.area.toLowerCase())) {
                     enhancedQuery += ` ${placesQueryContext.area}`;
                 }
 
-                // Add city/state if not already included
-                if (placesQueryContext.city && !enhancedQuery.toLowerCase().includes(placesQueryContext.city.toLowerCase())) {
-                    enhancedQuery += ` ${placesQueryContext.city}`;
-                }
-                if (placesQueryContext.state && !enhancedQuery.toLowerCase().includes(placesQueryContext.state.toLowerCase())) {
-                    enhancedQuery += ` ${placesQueryContext.state}`;
+                const skipCityState = isNotableVenue &&
+                    (enhancedQuery.toLowerCase().includes(placesQueryContext.city?.toLowerCase() || '') ||
+                        enhancedQuery.toLowerCase().includes(placesQueryContext.state?.toLowerCase() || ''));
+
+
+                // Add city/state if needed
+                if (!skipCityState) {
+                    if (placesQueryContext.city &&
+                        !enhancedQuery.toLowerCase().includes(placesQueryContext.city.toLowerCase())) {
+                        enhancedQuery += ` ${placesQueryContext.city}`;
+                    }
+                    if (placesQueryContext.state &&
+                        !enhancedQuery.toLowerCase().includes(placesQueryContext.state.toLowerCase())) {
+                        enhancedQuery += ` ${placesQueryContext.state}`;
+                    }
                 }
 
                 console.log('Enhanced Places Query:', enhancedQuery);
