@@ -151,13 +151,8 @@ async function fetchUserFiltersAndPublish(userId: string): Promise<void> {
 
     const filters = await response.json();
 
-    console.log("FILTERS", filters);
-
-    console.log(`📊 Fetched ${filters.length} filters for user ${userId}`);
-
     // Get only active filters
     const activeFilters = filters.filter((filter: any) => filter.isActive);
-    console.log(`📊 User ${userId} has ${activeFilters.length} active filters`);
 
     // Publish to filter-changes
     redisPub.publish(
@@ -169,9 +164,7 @@ async function fetchUserFiltersAndPublish(userId: string): Promise<void> {
       })
     );
 
-    console.log(
-      `📤 Published filter update for user ${userId} with ${activeFilters.length} active filters`
-    );
+
   } catch (error) {
     console.error(`Error fetching filters for user ${userId}:`, error);
     // Default to empty filter set (match all) on error
@@ -182,7 +175,6 @@ async function fetchUserFiltersAndPublish(userId: string): Promise<void> {
 // Function to get or create a Redis subscriber for a user
 function getRedisSubscriberForUser(userId: string): Redis {
   if (!userSubscribers.has(userId)) {
-    console.log(`Creating new Redis subscriber for user ${userId}`);
 
     const subscriber = new Redis(redisConfig);
     userSubscribers.set(userId, subscriber);

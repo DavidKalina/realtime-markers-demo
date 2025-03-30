@@ -42,7 +42,9 @@ export class FilterProcessor {
    */
   public async initialize(): Promise<void> {
     try {
-      console.log("🔄 Loading initial data and subscribing to channels...");
+      if (process.env.NODE_ENV !== 'production') {
+        console.log("Initializing Filter Processor...");
+      }
 
       // Initialize the spatial index with existing events
       await this.initializeSpatialIndex();
@@ -50,12 +52,14 @@ export class FilterProcessor {
       // Subscribe to Redis channels
       await this.subscribeToChannels();
 
-      console.log("🔄 Filter Processor initialized with:", {
-        events: this.spatialIndex.all().length,
-        users: this.userFilters.size,
-      });
+      if (process.env.NODE_ENV !== 'production') {
+        console.log("Filter Processor initialized:", {
+          events: this.spatialIndex.all().length,
+          users: this.userFilters.size,
+        });
+      }
     } catch (error) {
-      console.error("❌ Error initializing Filter Processor:", error);
+      console.error("Error initializing Filter Processor:", error);
       throw error;
     }
   }
@@ -64,14 +68,15 @@ export class FilterProcessor {
    * Gracefully shut down the filter processor.
    */
   public async shutdown(): Promise<void> {
-    console.log("🛑 Shutting down Filter Processor...");
+    if (process.env.NODE_ENV !== 'production') {
+      console.log("Shutting down Filter Processor...");
+      console.log("Final stats:", this.stats);
+    }
 
     // Clean up Redis subscribers
     await this.redisSub.unsubscribe();
     await this.redisSub.quit();
     await this.redisPub.quit();
-
-    console.log("📊 Final stats:", this.stats);
   }
 
   /**
@@ -86,13 +91,16 @@ export class FilterProcessor {
    */
   private async initializeSpatialIndex(): Promise<void> {
     try {
-      console.log("🌍 Initializing spatial index...");
+      if (process.env.NODE_ENV !== 'production') {
+        console.log("Initializing spatial index...");
+      }
 
       // Fetch events from the API or database
       const events = await this.fetchAllEvents();
 
-      // Log some diagnostic info about the events
-      console.log(`🌍 Received ${events.length} events for initialization`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Received ${events.length} events for initialization`);
+      }
 
       // Filter out events without valid coordinates
       const validEvents = events.filter((event) => {
@@ -101,15 +109,17 @@ export class FilterProcessor {
           !Array.isArray(event.location.coordinates) ||
           event.location.coordinates.length !== 2
         ) {
-          console.warn(`⚠️ Event ${event.id} has invalid coordinates:`, event.location);
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn(`Event ${event.id} has invalid coordinates:`, event.location);
+          }
           return false;
         }
         return true;
       });
 
-      if (validEvents.length < events.length) {
+      if (process.env.NODE_ENV !== 'production' && validEvents.length < events.length) {
         console.warn(
-          `⚠️ Filtered out ${events.length - validEvents.length} events with invalid coordinates`
+          `Filtered out ${events.length - validEvents.length} events with invalid coordinates`
         );
       }
 
@@ -124,15 +134,14 @@ export class FilterProcessor {
         this.eventCache.set(event.id, event);
       });
 
-      // Log info about the initialized index
-      console.log(`🌍 Spatial index initialized with ${items.length} events`);
-
-      // Log a sample item for debugging
-      if (items.length > 0) {
-        console.log("🌍 Sample spatial item:", items[0]);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Spatial index initialized with ${items.length} events`);
+        if (items.length > 0) {
+          console.log("Sample spatial item:", items[0]);
+        }
       }
     } catch (error) {
-      console.error("❌ Error initializing spatial index:", error);
+      console.error("Error initializing spatial index:", error);
       throw error;
     }
   }
@@ -157,22 +166,26 @@ export class FilterProcessor {
       // And this one for pattern matching
       this.redisSub.on("pmessage", (pattern, channel, message) => {
         try {
-          console.log(`📦 Received pmessage on channel ${channel} from pattern ${pattern}`);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`Received pmessage on channel ${channel} from pattern ${pattern}`);
+          }
           const data = JSON.parse(message);
 
           if (channel.startsWith("event_changes")) {
             this.processEvent(data);
           }
         } catch (error) {
-          console.error(`❌ Error handling pmessage: ${error}`);
+          console.error(`Error handling pmessage: ${error}`);
         }
       });
 
-      console.log(
-        "📡 Subscribed to Redis channels: filter-changes, viewport-updates, filter-processor:request-initial, event_changes"
-      );
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(
+          "Subscribed to Redis channels: filter-changes, viewport-updates, filter-processor:request-initial, event_changes"
+        );
+      }
     } catch (error) {
-      console.error("❌ Error subscribing to Redis channels:", error);
+      console.error("Error subscribing to Redis channels:", error);
       throw error;
     }
   }
@@ -184,7 +197,9 @@ export class FilterProcessor {
       if (channel === "filter-changes") {
         const { userId, filters } = data;
 
-        console.log("FILTERS", filters);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log("Processing filter changes:", { userId, filterCount: filters.length });
+        }
 
         this.updateUserFilters(userId, filters);
         this.stats.filterChangesProcessed++;
@@ -194,17 +209,23 @@ export class FilterProcessor {
         this.stats.viewportUpdatesProcessed++;
       } else if (channel === "filter-processor:request-initial") {
         const { userId } = data;
-        console.log(`📥 Received request for initial events for user ${userId}`);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`Received request for initial events for user ${userId}`);
+        }
 
         // Send all filtered events to this user
         if (userId) {
           // If we have filters for this user, use them
           if (this.userFilters.has(userId)) {
-            console.log(`🔍 User ${userId} has existing filters, sending filtered events`);
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(`User ${userId} has existing filters, sending filtered events`);
+            }
             this.sendAllFilteredEvents(userId);
           } else {
             // If no filters yet, send empty filter set to get all events
-            console.log(`🔍 User ${userId} has no filters yet, setting empty filter`);
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(`User ${userId} has no filters yet, setting empty filter`);
+            }
             this.updateUserFilters(userId, []);
           }
         }
@@ -213,7 +234,7 @@ export class FilterProcessor {
         this.stats.eventsProcessed++;
       }
     } catch (error) {
-      console.error(`❌ Error processing message from channel ${channel}:`, error);
+      console.error(`Error processing message from channel ${channel}:`, error);
     }
   };
 
@@ -222,7 +243,9 @@ export class FilterProcessor {
    */
   private updateUserFilters(userId: string, filters: Filter[]): void {
     try {
-      console.log(`👤 Updating filters for user ${userId} with ${filters.length} filters`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Updating filters for user ${userId} with ${filters.length} filters`);
+      }
 
       // Store the user's current filters
       this.userFilters.set(userId, filters);
@@ -236,7 +259,7 @@ export class FilterProcessor {
         this.sendAllFilteredEvents(userId);
       }
     } catch (error) {
-      console.error(`❌ Error updating filters for user ${userId}:`, error);
+      console.error(`Error updating filters for user ${userId}:`, error);
     }
   }
 
@@ -245,7 +268,9 @@ export class FilterProcessor {
    */
   private updateUserViewport(userId: string, viewport: BoundingBox): void {
     try {
-      console.log(`🗺️ Updating viewport for user ${userId}`, viewport);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Updating viewport for user ${userId}`, viewport);
+      }
 
       // Store the user's current viewport
       this.userViewports.set(userId, viewport);
@@ -253,31 +278,36 @@ export class FilterProcessor {
       // Send events in this viewport that match the user's filters
       this.sendViewportEvents(userId, viewport);
     } catch (error) {
-      console.error(`❌ Error updating viewport for user ${userId}:`, error);
+      console.error(`Error updating viewport for user ${userId}:`, error);
     }
   }
 
   private sendAllFilteredEvents(userId: string): void {
     try {
       const filters = this.userFilters.get(userId) || [];
-      console.log(`📊 Applying ${filters.length} filters for user ${userId}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Applying ${filters.length} filters for user ${userId}`);
+      }
 
       // Get all events from cache
       const allEvents = Array.from(this.eventCache.values());
-      console.log(`📊 Total events before filtering: ${allEvents.length}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Total events before filtering: ${allEvents.length}`);
+      }
 
       // Apply filters
       const filteredEvents = allEvents.filter((event) => this.eventMatchesFilters(event, filters));
-      console.log(`📊 Events after filtering: ${filteredEvents.length}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Events after filtering: ${filteredEvents.length}`);
+        console.log(
+          `Filter results: ${filteredEvents.length}/${allEvents.length} events passed filters`
+        );
+      }
 
       // Send to user's channel
       this.publishFilteredEvents(userId, "replace-all", filteredEvents);
-
-      console.log(
-        `📊 Filter results: ${filteredEvents.length}/${allEvents.length} events passed filters`
-      );
     } catch (error) {
-      console.error(`❌ Error sending filtered events to user ${userId}:`, error);
+      console.error(`Error sending filtered events to user ${userId}:`, error);
     }
   }
 
@@ -397,175 +427,184 @@ export class FilterProcessor {
     if (filters.length === 0) return true;
 
     // Event matches if it satisfies ANY filter
-    return filters.some((filter) => this.matchesFilter(event, filter));
-  }
-
-  private matchesFilter(event: Event, filter: Filter): boolean {
-    // For debugging, log the complete event structure
-    console.log(
-      `📊 FILTER DEBUG: Event structure:`,
-      JSON.stringify(
-        {
-          id: event.id,
-          title: event.title,
-          categories: event.categories,
-          startDate: event.eventDate,
-          createdAt: event.createdAt,
-          status: event.status,
-          tags: event.tags,
-        },
-        null,
-        2
-      )
-    );
-
-    const criteria = filter.criteria;
-
-    if (criteria.dateRange) {
-      const { start, end } = criteria.dateRange;
-
-      // Get event start and end dates with validation
-      const eventStartDate = new Date(event.eventDate);
-      const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
-
-      // Check if dates are valid before using them
-      const isStartDateValid = !isNaN(eventStartDate.getTime());
-      const isEndDateValid = !isNaN(eventEndDate.getTime());
-
-      // Log safely
-      console.log(`📊 FILTER DEBUG: Event ${event.id} date validation:`, {
-        hasStartDate: !!event.eventDate,
-        startDateValid: isStartDateValid,
-        hasEndDate: !!event.endDate,
-        endDateValid: isEndDateValid,
-        startDateValue: event.eventDate,
-        endDateValue: event.endDate,
-      });
-
-      // Only use toISOString on valid dates
-      if (isStartDateValid) {
-        console.log(`📊 FILTER DEBUG: Event start date: ${eventStartDate.toISOString()}`);
-      }
-
-      if (isEndDateValid) {
-        console.log(`📊 FILTER DEBUG: Event end date: ${eventEndDate.toISOString()}`);
-      }
-
-      // Only log filter dates if they exist and are valid
-      if (start) {
-        const filterStartDate = new Date(start);
-        if (!isNaN(filterStartDate.getTime())) {
-          console.log(`📊 FILTER DEBUG: Filter start: ${filterStartDate.toISOString()}`);
-        }
-      }
-
-      if (end) {
-        const filterEndDate = new Date(end);
-        if (!isNaN(filterEndDate.getTime())) {
-          console.log(`📊 FILTER DEBUG: Filter end: ${filterEndDate.toISOString()}`);
-        }
-      }
-
-      // Filter logic with validation
-      if (start && isEndDateValid) {
-        const filterStartDate = new Date(start);
-        if (!isNaN(filterStartDate.getTime()) && eventEndDate < filterStartDate) {
-          console.log(
-            `❌ FILTER DEBUG: Event ${event.id} FAILED start date filter (event ends before filter start)`
-          );
-          return false;
-        }
-      }
-
-      if (end && isStartDateValid) {
-        const filterEndDate = new Date(end);
-        if (!isNaN(filterEndDate.getTime()) && eventStartDate > filterEndDate) {
-          console.log(
-            `❌ FILTER DEBUG: Event ${event.id} FAILED end date filter (event starts after filter end)`
-          );
-          return false;
-        }
-      }
-
-      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED date filter`);
-    }
-
-    if (criteria.location?.latitude && criteria.location?.longitude && criteria.location?.radius) {
-      const [eventLng, eventLat] = event.location.coordinates;
-      const distance = this.calculateDistance(
-        eventLat,
-        eventLng,
-        criteria.location.latitude,
-        criteria.location.longitude
-      );
-
-      if (distance > criteria.location.radius) {
+    return filters.some((filter) => {
+      if (process.env.NODE_ENV !== 'production') {
         console.log(
-          `❌ FILTER DEBUG: Event ${event.id} FAILED location filter (${distance}m > ${criteria.location.radius}m radius)`
-        );
-        return false;
-      }
-
-      console.log(`✅ FILTER DEBUG: Event ${event.id} PASSED location filter`);
-    }
-
-    if (filter.embedding && event.embedding) {
-      try {
-        const filterEmbedding = this.vectorService.parseSqlEmbedding(filter.embedding);
-        const eventEmbedding = this.vectorService.parseSqlEmbedding(event.embedding);
-
-        const similarityScore = this.vectorService.calculateSimilarity(
-          filterEmbedding,
-          eventEmbedding
-        );
-
-        // Tiered thresholds
-        let threshold = 0.7; // Default high threshold
-
-        // Lower threshold if event title contains query words
-        if (
-          filter.semanticQuery &&
-          filter.semanticQuery
-            .split(" ")
-            .some((word) => event.title.toLowerCase().includes(word.toLowerCase()))
-        ) {
-          threshold = 0.35;
-        }
-
-        // Lower threshold for category matches
-        if (
-          event.categories &&
-          event.categories.some((category) =>
-            filter.semanticQuery?.toLowerCase().includes(category.name.toLowerCase())
+          `Filter Debug: Event structure:`,
+          JSON.stringify(
+            {
+              id: event.id,
+              title: event.title,
+              categories: event.categories,
+              startDate: event.eventDate,
+              createdAt: event.createdAt,
+              status: event.status,
+              tags: event.tags,
+            },
+            null,
+            2
           )
-        ) {
-          threshold = 0.3;
+        );
+      }
+
+      const criteria = filter.criteria;
+
+      if (criteria.dateRange) {
+        const { start, end } = criteria.dateRange;
+
+        // Get event start and end dates with validation
+        const eventStartDate = new Date(event.eventDate);
+        const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
+
+        // Check if dates are valid before using them
+        const isStartDateValid = !isNaN(eventStartDate.getTime());
+        const isEndDateValid = !isNaN(eventEndDate.getTime());
+
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`Filter Debug: Event ${event.id} date validation:`, {
+            hasStartDate: !!event.eventDate,
+            startDateValid: isStartDateValid,
+            hasEndDate: !!event.endDate,
+            endDateValid: isEndDateValid,
+            startDateValue: event.eventDate,
+            endDateValue: event.endDate,
+          });
         }
 
-        if (similarityScore < threshold) {
-          console.log(
-            `❌ FILTER DEBUG: Event ${
-              event.id
-            } FAILED semantic filter (similarity: ${similarityScore.toFixed(
-              2
-            )}, threshold: ${threshold})`
-          );
+        // Only use toISOString on valid dates
+        if (process.env.NODE_ENV !== 'production') {
+          if (isStartDateValid) {
+            console.log(`Filter Debug: Event start date: ${eventStartDate.toISOString()}`);
+          }
+          if (isEndDateValid) {
+            console.log(`Filter Debug: Event end date: ${eventEndDate.toISOString()}`);
+          }
+          if (start) {
+            const filterStartDate = new Date(start);
+            if (!isNaN(filterStartDate.getTime())) {
+              console.log(`Filter Debug: Filter start: ${filterStartDate.toISOString()}`);
+            }
+          }
+          if (end) {
+            const filterEndDate = new Date(end);
+            if (!isNaN(filterEndDate.getTime())) {
+              console.log(`Filter Debug: Filter end: ${filterEndDate.toISOString()}`);
+            }
+          }
+        }
+
+        // Filter logic with validation
+        if (start && isEndDateValid) {
+          const filterStartDate = new Date(start);
+          if (!isNaN(filterStartDate.getTime()) && eventEndDate < filterStartDate) {
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(
+                `Filter Debug: Event ${event.id} FAILED start date filter (event ends before filter start)`
+              );
+            }
+            return false;
+          }
+        }
+
+        if (end && isStartDateValid) {
+          const filterEndDate = new Date(end);
+          if (!isNaN(filterEndDate.getTime()) && eventStartDate > filterEndDate) {
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(
+                `Filter Debug: Event ${event.id} FAILED end date filter (event starts after filter end)`
+              );
+            }
+            return false;
+          }
+        }
+
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`Filter Debug: Event ${event.id} PASSED date filter`);
+        }
+      }
+
+      if (criteria.location?.latitude && criteria.location?.longitude && criteria.location?.radius) {
+        const [eventLng, eventLat] = event.location.coordinates;
+        const distance = this.calculateDistance(
+          eventLat,
+          eventLng,
+          criteria.location.latitude,
+          criteria.location.longitude
+        );
+
+        if (distance > criteria.location.radius) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(
+              `Filter Debug: Event ${event.id} FAILED location filter (${distance}m > ${criteria.location.radius}m radius)`
+            );
+          }
           return false;
         }
 
-        console.log(
-          `✅ FILTER DEBUG: Event ${
-            event.id
-          } PASSED semantic filter (similarity: ${similarityScore.toFixed(2)})`
-        );
-      } catch (error) {
-        console.error(`❌ Error calculating semantic similarity:`, error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`Filter Debug: Event ${event.id} PASSED location filter`);
+        }
       }
-    }
 
-    // All criteria passed
-    console.log(`✅✅ FILTER DEBUG: Event ${event.id} MATCHED ALL filter criteria`);
-    return true;
+      if (filter.embedding && event.embedding) {
+        try {
+          const filterEmbedding = this.vectorService.parseSqlEmbedding(filter.embedding);
+          const eventEmbedding = this.vectorService.parseSqlEmbedding(event.embedding);
+
+          const similarityScore = this.vectorService.calculateSimilarity(
+            filterEmbedding,
+            eventEmbedding
+          );
+
+          // Tiered thresholds
+          let threshold = 0.7; // Default high threshold
+
+          // Lower threshold if event title contains query words
+          if (
+            filter.semanticQuery &&
+            filter.semanticQuery
+              .split(" ")
+              .some((word) => event.title.toLowerCase().includes(word.toLowerCase()))
+          ) {
+            threshold = 0.35;
+          }
+
+          // Lower threshold for category matches
+          if (
+            event.categories &&
+            event.categories.some((category) =>
+              filter.semanticQuery?.toLowerCase().includes(category.name.toLowerCase())
+            )
+          ) {
+            threshold = 0.3;
+          }
+
+          if (similarityScore < threshold) {
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(
+                `Filter Debug: Event ${event.id} FAILED semantic filter (similarity: ${similarityScore.toFixed(
+                  2
+                )}, threshold: ${threshold})`
+              );
+            }
+            return false;
+          }
+
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(
+              `Filter Debug: Event ${event.id} PASSED semantic filter (similarity: ${similarityScore.toFixed(2)})`
+            );
+          }
+        } catch (error) {
+          console.error(`Error calculating semantic similarity:`, error);
+        }
+      }
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Filter Debug: Event ${event.id} MATCHED ALL filter criteria`);
+      }
+      return true;
+    });
   }
 
   private calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -576,9 +615,9 @@ export class FilterProcessor {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(this.toRadians(lat1)) *
-        Math.cos(this.toRadians(lat2)) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
+      Math.cos(this.toRadians(lat2)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in meters
@@ -629,23 +668,21 @@ export class FilterProcessor {
         })
       );
 
-      // console.log(`📤 Published ${events.length} ${type} events to user ${userId}`);
-
       // Update stats
       this.stats.totalFilteredEventsPublished += events.length;
 
       // If this was a replace-all operation, log additional details
-      if (type === "replace-all") {
-        console.log(`🔄 Sent complete replacement set to user ${userId}`);
+      if (process.env.NODE_ENV !== 'production' && type === "replace-all") {
+        console.log(`Sent complete replacement set to user ${userId}`);
 
         // Log sample of event IDs for debugging
         if (events.length > 0) {
           const sampleIds = events.slice(0, Math.min(5, events.length)).map((e) => e.id);
-          console.log(`🔍 Sample event IDs: ${sampleIds.join(", ")}`);
+          console.log(`Sample event IDs: ${sampleIds.join(", ")}`);
         }
       }
     } catch (error) {
-      console.error(`❌ Error publishing events to user ${userId}:`, error);
+      console.error(`Error publishing events to user ${userId}:`, error);
     }
   }
   /**
@@ -660,9 +697,11 @@ export class FilterProcessor {
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          console.log(
-            `📊 Attempt ${attempt}/${maxRetries} - Fetching events from API at ${backendUrl}/api/internal/events`
-          );
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(
+              `Attempt ${attempt}/${maxRetries} - Fetching events from API at ${backendUrl}/api/internal/events`
+            );
+          }
 
           const response = await fetch(`${backendUrl}/api/internal/events`, {
             headers: {
@@ -675,7 +714,9 @@ export class FilterProcessor {
           }
 
           const events = await response.json();
-          console.log(`📊 Received ${events.length} events from API`);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`Received ${events.length} events from API`);
+          }
 
           const validEvents = events
             .filter((event: any) => event.location?.coordinates)
@@ -690,38 +731,39 @@ export class FilterProcessor {
               createdAt: event.created_at || event.createdAt,
               updatedAt: event.updated_at || event.updatedAt,
               categories: event.categories || [],
-              embedding: event.embedding, // Add this line
+              embedding: event.embedding,
               status: event.status,
             }));
 
-          console.log(`📊 Transformed ${validEvents.length} valid events for spatial index`);
-
-          // Log a sample of coordinates to verify data
-          if (validEvents.length > 0) {
-            console.log("📊 Sample coordinates:", {
-              id: validEvents[0].id,
-              coordinates: validEvents[0].location.coordinates,
-            });
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`Transformed ${validEvents.length} valid events for spatial index`);
+            if (validEvents.length > 0) {
+              console.log("Sample coordinates:", {
+                id: validEvents[0].id,
+                coordinates: validEvents[0].location.coordinates,
+              });
+            }
           }
 
           return validEvents;
         } catch (error) {
-          console.error(`❌ Attempt ${attempt}/${maxRetries} failed:`, error);
+          console.error(`Attempt ${attempt}/${maxRetries} failed:`, error);
 
           if (attempt === maxRetries) {
-            console.error("❌ Max API retries reached, falling back to database query");
+            console.error("Max API retries reached, falling back to database query");
             break;
           }
 
-          console.log(`⏳ Waiting ${retryDelay}ms before next attempt...`);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`Waiting ${retryDelay}ms before next attempt...`);
+          }
           await new Promise((resolve) => setTimeout(resolve, retryDelay));
         }
       }
 
       return [];
     } catch (error) {
-      console.error("❌ Error fetching events:", error);
-      // Return empty array in case of error, but log the issue
+      console.error("Error fetching events:", error);
       return [];
     }
   }
