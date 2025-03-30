@@ -18,13 +18,12 @@ export class GoogleGeocodingService {
     private readonly CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days
 
     private constructor() {
-        // We specifically use the Geocoding API key since we're only using the Geocoding API
+        // We use the Geocoding API key for both Geocoding and Places APIs
         if (!process.env.GOOGLE_GEOCODING_API_KEY) {
-            throw new Error("GOOGLE_GEOCODING_API_KEY environment variable is required for geocoding functionality. This should be a key with Geocoding API enabled.");
+            throw new Error("GOOGLE_GEOCODING_API_KEY environment variable is required for geocoding functionality. This should be a key with both Geocoding and Places APIs enabled.");
         }
         console.log("=== Google Geocoding Service Initialization ===");
         console.log("GOOGLE_GEOCODING_API_KEY exists:", !!process.env.GOOGLE_GEOCODING_API_KEY);
-        console.log("GOOGLE_GEOCODING_API_KEY length:", process.env.GOOGLE_GEOCODING_API_KEY.length);
         console.log("NODE_ENV:", process.env.NODE_ENV);
         console.log("=============================================");
     }
@@ -107,6 +106,61 @@ export class GoogleGeocodingService {
         return intersection.size / union.size;
     }
 
+    private async searchPlaces(query: string, locationContext?: string): Promise<{
+        coordinates: [number, number];
+        formattedAddress: string;
+        placeId: string;
+        name: string;
+        types: string[];
+        rating?: number;
+        userRatingsTotal?: number;
+    } | null> {
+        try {
+            console.warn('🔍🔍🔍 PLACES API SEARCH START 🔍🔍🔍');
+            console.warn('Query:', query);
+            console.warn('Context:', locationContext);
+
+            const encodedQuery = encodeURIComponent(query);
+            const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodedQuery}&key=${process.env.GOOGLE_GEOCODING_API_KEY}`;
+
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Places API request failed: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            if (data.status !== "OK" || !data.results || data.results.length === 0) {
+                console.warn('No places found for query:', query);
+                return null;
+            }
+
+            const result = data.results[0];
+            const { lat, lng } = result.geometry.location;
+            const formattedAddress = result.formatted_address;
+
+            console.log('\nFound Place:');
+            console.log('Name:', result.name);
+            console.log('Address:', formattedAddress);
+            console.log('Coordinates:', [lng, lat]);
+            console.log('Types:', result.types);
+            console.log('Rating:', result.rating);
+            console.log('Total Ratings:', result.user_ratings_total);
+
+            return {
+                coordinates: [lng, lat],
+                formattedAddress,
+                placeId: result.place_id,
+                name: result.name,
+                types: result.types,
+                rating: result.rating,
+                userRatingsTotal: result.user_ratings_total
+            };
+        } catch (error) {
+            console.error("❌ Places API error:", error);
+            return null;
+        }
+    }
+
     async resolveLocation(
         clues: string[],
         userCityState: string,
@@ -154,7 +208,7 @@ export class GoogleGeocodingService {
                 messages: [
                     {
                         role: "system",
-                        content: `You are a location analysis expert working with Google's Geocoding API. Extract location information that will be used to query Google's Geocoding API.
+                        content: `You are a location analysis expert working with Google's Geocoding and Places APIs. Extract location information that will be used to query these APIs.
 
 KEY INSTRUCTIONS:
 1. For ambiguous city names (like Washington, Springfield, etc):
@@ -178,12 +232,19 @@ KEY INSTRUCTIONS:
    - 435: Utah (outside Salt Lake area)
    - Add other relevant area codes as needed
 
-5. RESPONSE FORMAT:
+5. Places API Analysis:
+   - Look for business names, landmarks, or points of interest
+   - Consider if the location is likely to be in Google's Places database
+   - Note if the location is a business, venue, or landmark
+
+6. RESPONSE FORMAT:
    You MUST respond with a valid JSON object in this exact format:
    {
      "address": "complete address if found, or empty string",
      "locationNotes": "additional location context, or empty string",
-     "confidence": number between 0 and 1
+     "confidence": number between 0 and 1,
+     "shouldTryPlacesApi": boolean indicating if we should try Places API,
+     "placesQuery": "query string for Places API if shouldTryPlacesApi is true"
    }
 
 USER CONTEXT:
@@ -213,7 +274,9 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
                     result = {
                         address: addressMatch[1].trim(),
                         locationNotes: "",
-                        confidence: 0.8
+                        confidence: 0.8,
+                        shouldTryPlacesApi: false,
+                        placesQuery: ""
                     };
                 } else {
                     throw new Error("Could not extract address from LLM response");
@@ -223,11 +286,15 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
             let address = result.address === "NO_ADDRESS" ? "" : result.address;
             const locationNotes = result.locationNotes || "";
             let confidence = result.confidence || 0;
+            const shouldTryPlacesApi = result.shouldTryPlacesApi || false;
+            const placesQuery = result.placesQuery || "";
 
             console.log('\nParsed LLM Result:');
             console.log('Address:', address || '(none)');
             console.log('Location Notes:', locationNotes || '(none)');
             console.log('Initial Confidence:', confidence);
+            console.log('Should Try Places API:', shouldTryPlacesApi);
+            console.log('Places Query:', placesQuery);
 
             let coordinates: [number, number];
             let formattedAddress = address;
@@ -248,6 +315,18 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
                 );
                 confidence = 0.5 + (reverseGeocodingVerified ? 0.3 : 0);
                 console.log('Reverse Geocoding Verification:', reverseGeocodingVerified ? 'Passed' : 'Failed');
+            } else if (shouldTryPlacesApi && placesQuery) {
+                console.log('\nTrying Places API with query:', placesQuery);
+                const placesResult = await this.searchPlaces(placesQuery, locationNotes);
+
+                if (placesResult) {
+                    coordinates = placesResult.coordinates;
+                    formattedAddress = placesResult.formattedAddress;
+                    confidence = 0.6; // Places API results are generally reliable
+                    console.log('Places API Resolution:', placesResult.name);
+                } else {
+                    throw new Error("No places found matching the query");
+                }
             } else if (locationNotes) {
                 console.log('\nTrying to resolve from location notes:', locationNotes);
                 const geocodeResult = await this.geocodeAddress(locationNotes, locationNotes);
