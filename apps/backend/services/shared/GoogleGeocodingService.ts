@@ -121,32 +121,21 @@ export class GoogleGeocodingService {
         userRatingsTotal?: number;
     } | null> {
         try {
-            console.warn('🔍🔍🔍 PLACES API SEARCH START 🔍🔍🔍');
-            console.warn('Query:', query);
-            console.warn('Context:', locationContext);
-            console.warn('User Coordinates:', userCoordinates);
-            console.warn('User City/State:', userCityState);
+            // Only log essential information in production
+            if (process.env.NODE_ENV !== 'production') {
+                console.log('🔍 Places API Search:', { query, locationContext, userCityState });
+            }
 
             // First, try to get city/state from reverse geocoding if we have coordinates
             let cityState = userCityState;
             if (!cityState && userCoordinates) {
-                console.warn('Attempting reverse geocoding for coordinates:', userCoordinates);
                 cityState = await this.reverseGeocodeCityState(userCoordinates.lat, userCoordinates.lng);
-                console.warn('Reverse geocoded city/state:', cityState);
             }
 
             // Enhance the query with city/state context if available
             let enhancedQuery = query;
-            if (cityState) {
-                // Only add city/state if it's not already in the query
-                if (!query.toLowerCase().includes(cityState.toLowerCase())) {
-                    enhancedQuery = `${query} ${cityState}`;
-                    console.warn('Enhanced query with city/state:', enhancedQuery);
-                } else {
-                    console.warn('City/state already in query, using original query');
-                }
-            } else {
-                console.warn('No city/state available for query enhancement');
+            if (cityState && !query.toLowerCase().includes(cityState.toLowerCase())) {
+                enhancedQuery = `${query} ${cityState}`;
             }
 
             // Use the newer Places API v1
@@ -184,9 +173,6 @@ export class GoogleGeocodingService {
                 };
             }
 
-            console.warn('🔍 Google Places URL:', url);
-            console.warn('Request Body:', JSON.stringify(requestBody, null, 2));
-
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -202,10 +188,11 @@ export class GoogleGeocodingService {
             }
 
             const data = await response.json();
-            console.warn('Places API Response:', JSON.stringify(data, null, 2));
 
             if (!data.places || data.places.length === 0) {
-                console.warn('No places found for query:', enhancedQuery);
+                if (process.env.NODE_ENV !== 'production') {
+                    console.log('No places found for query:', enhancedQuery);
+                }
                 return null;
             }
 
@@ -255,9 +242,13 @@ Enhanced query: ${enhancedQuery}`
                 selectedIndex = llmResult.selectedIndex || 0;
                 confidence = llmResult.confidence || 0.6;
                 reasoning = llmResult.reasoning || "";
-                console.log('LLM Analysis:', reasoning);
+                if (process.env.NODE_ENV !== 'production') {
+                    console.log('LLM Analysis:', reasoning);
+                }
             } catch (error) {
-                console.warn('Failed to parse LLM response, using first result');
+                if (process.env.NODE_ENV !== 'production') {
+                    console.warn('Failed to parse LLM response, using first result');
+                }
             }
 
             // Ensure selectedIndex is valid
@@ -269,21 +260,21 @@ Enhanced query: ${enhancedQuery}`
             const { latitude, longitude } = result.location;
             const formattedAddress = result.formattedAddress;
 
-            console.log('\nSelected Place:');
-            console.log('Name:', result.displayName.text);
-            console.log('Address:', formattedAddress);
-            console.log('Coordinates:', [longitude, latitude]);
-            console.log('Types:', result.types);
-            console.log('Rating:', result.rating);
-            console.log('Total Ratings:', result.userRatingCount);
-            if (userCoordinates) {
-                const distance = this.calculateDistance(
-                    userCoordinates.lat,
-                    userCoordinates.lng,
-                    latitude,
-                    longitude
-                );
-                console.log('Distance from user:', distance.toFixed(2), 'km');
+            if (process.env.NODE_ENV !== 'production') {
+                console.log('Selected Place:', {
+                    name: result.displayName.text,
+                    address: formattedAddress,
+                    coordinates: [longitude, latitude],
+                    types: result.types,
+                    rating: result.rating,
+                    totalRatings: result.userRatingCount,
+                    distance: userCoordinates ? this.calculateDistance(
+                        userCoordinates.lat,
+                        userCoordinates.lng,
+                        latitude,
+                        longitude
+                    ).toFixed(2) + ' km' : undefined
+                });
             }
 
             return {
@@ -296,7 +287,9 @@ Enhanced query: ${enhancedQuery}`
                 userRatingsTotal: result.userRatingCount
             };
         } catch (error) {
-            console.error("❌ Places API error:", error);
+            if (process.env.NODE_ENV !== 'production') {
+                console.error("Places API error:", error);
+            }
             return null;
         }
     }

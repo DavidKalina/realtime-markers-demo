@@ -226,26 +226,28 @@ async function initializeWorker() {
         );
 
         // Add detailed debugging to see what's happening
-        console.warn('🔍 LOCATION RESOLUTION RESULTS:', {
-          confidence: scanResult.confidence,
-          title: scanResult.eventDetails.title,
-          isDuplicate: scanResult.isDuplicate,
-          similarityScore: scanResult.similarity.score,
-          threshold: 0.72,
-          date: scanResult.eventDetails.date,
-          timezone: scanResult.eventDetails.timezone,
-          matchingEventId: scanResult.similarity.matchingEventId,
-          location: scanResult.eventDetails.location,
-          address: scanResult.eventDetails.address,
-          locationNotes: scanResult.eventDetails.locationNotes,
-          coordinates: scanResult.eventDetails.location?.coordinates,
-          userCoordinates: job.data.userCoordinates,
-          userCityState: scanResult.eventDetails.userCityState
-        });
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Location Resolution:', {
+            confidence: scanResult.confidence,
+            title: scanResult.eventDetails.title,
+            isDuplicate: scanResult.isDuplicate,
+            similarityScore: scanResult.similarity.score,
+            threshold: 0.72,
+            date: scanResult.eventDetails.date,
+            timezone: scanResult.eventDetails.timezone,
+            matchingEventId: scanResult.similarity.matchingEventId,
+            location: scanResult.eventDetails.location,
+            address: scanResult.eventDetails.address,
+            locationNotes: scanResult.eventDetails.locationNotes,
+            coordinates: scanResult.eventDetails.location?.coordinates,
+            userCoordinates: job.data.userCoordinates,
+            userCityState: scanResult.eventDetails.userCityState
+          });
+        }
 
         // Log the Places API search process
-        if (scanResult.eventDetails.locationNotes) {
-          console.warn('🔍 PLACES API SEARCH DETAILS:', {
+        if (process.env.NODE_ENV !== 'production' && scanResult.eventDetails.locationNotes) {
+          console.log('Places API Search:', {
             query: scanResult.eventDetails.locationNotes,
             userCoordinates: job.data.userCoordinates,
             userCityState: scanResult.eventDetails.userCityState,
@@ -254,7 +256,9 @@ async function initializeWorker() {
           });
         }
 
-        console.warn(`[Worker] Image analyzed with confidence: ${scanResult.confidence}`);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`Image analyzed with confidence: ${scanResult.confidence}`);
+        }
 
         // Now check if this is a duplicate event
         if (scanResult.isDuplicate && scanResult.similarity.matchingEventId) {
