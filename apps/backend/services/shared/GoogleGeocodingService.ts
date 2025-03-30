@@ -106,7 +106,12 @@ export class GoogleGeocodingService {
         return intersection.size / union.size;
     }
 
-    private async searchPlaces(query: string, locationContext?: string): Promise<{
+    private async searchPlaces(
+        query: string,
+        locationContext?: string,
+        userCoordinates?: { lat: number; lng: number },
+        userCityState?: string
+    ): Promise<{
         coordinates: [number, number];
         formattedAddress: string;
         placeId: string;
@@ -119,9 +124,22 @@ export class GoogleGeocodingService {
             console.warn('🔍🔍🔍 PLACES API SEARCH START 🔍🔍🔍');
             console.warn('Query:', query);
             console.warn('Context:', locationContext);
+            console.warn('User Coordinates:', userCoordinates);
+            console.warn('User City/State:', userCityState);
 
             const encodedQuery = encodeURIComponent(query);
-            const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodedQuery}&key=${process.env.GOOGLE_GEOCODING_API_KEY}`;
+            let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodedQuery}`;
+
+            // If we have user coordinates, add location bias and radius
+            if (userCoordinates) {
+                // Add location bias to prioritize results near the user
+                url += `&location=${userCoordinates.lat},${userCoordinates.lng}`;
+                // Set radius to 5000 meters (5km) to find nearby places
+                url += '&radius=5000';
+            }
+
+            url += `&key=${process.env.GOOGLE_GEOCODING_API_KEY}`;
+            console.warn('🔍 Google Places URL:', url);
 
             const response = await fetch(url);
             if (!response.ok) {
@@ -134,7 +152,40 @@ export class GoogleGeocodingService {
                 return null;
             }
 
-            const result = data.results[0];
+            // Filter and sort results based on user context
+            let results = data.results;
+            if (userCoordinates) {
+                // Sort by distance if we have coordinates
+                results = results.sort((a: any, b: any) => {
+                    const distA = this.calculateDistance(
+                        userCoordinates.lat,
+                        userCoordinates.lng,
+                        a.geometry.location.lat,
+                        a.geometry.location.lng
+                    );
+                    const distB = this.calculateDistance(
+                        userCoordinates.lat,
+                        userCoordinates.lng,
+                        b.geometry.location.lat,
+                        b.geometry.location.lng
+                    );
+                    return distA - distB;
+                });
+            } else if (userCityState) {
+                // Filter results to match user's city/state if available
+                results = results.filter((result: any) => {
+                    const addressComponents = result.formatted_address.toLowerCase();
+                    const userLocation = userCityState.toLowerCase();
+                    return addressComponents.includes(userLocation);
+                });
+            }
+
+            if (results.length === 0) {
+                console.warn('No places found matching user context');
+                return null;
+            }
+
+            const result = results[0];
             const { lat, lng } = result.geometry.location;
             const formattedAddress = result.formatted_address;
 
@@ -145,6 +196,15 @@ export class GoogleGeocodingService {
             console.log('Types:', result.types);
             console.log('Rating:', result.rating);
             console.log('Total Ratings:', result.user_ratings_total);
+            if (userCoordinates) {
+                const distance = this.calculateDistance(
+                    userCoordinates.lat,
+                    userCoordinates.lng,
+                    lat,
+                    lng
+                );
+                console.log('Distance from user:', distance.toFixed(2), 'km');
+            }
 
             return {
                 coordinates: [lng, lat],
@@ -159,6 +219,23 @@ export class GoogleGeocodingService {
             console.error("❌ Places API error:", error);
             return null;
         }
+    }
+
+    // Calculate distance between two points using the Haversine formula
+    private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+        const R = 6371; // Earth's radius in kilometers
+        const dLat = this.toRad(lat2 - lat1);
+        const dLon = this.toRad(lon2 - lon1);
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(this.toRad(lat1)) * Math.cos(this.toRad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    private toRad(degrees: number): number {
+        return degrees * (Math.PI / 180);
     }
 
     async resolveLocation(
@@ -220,7 +297,7 @@ KEY INSTRUCTIONS:
 2. When extracting addresses:
    - Must include street number, street name, city, and state
    - Always use full state names or standard 2-letter codes (UT not Ut.)
-   - For cities that share names with states/DC, always include state
+   - For cities that share names with states/DC, always add the state
    - Format: "Street number + Street name, City, State ZIP"
 
 3. If no complete address is found:
@@ -236,6 +313,20 @@ KEY INSTRUCTIONS:
    - Look for business names, landmarks, or points of interest
    - Consider if the location is likely to be in Google's Places database
    - Note if the location is a business, venue, or landmark
+   - When constructing Places API queries:
+     * Start with the most specific identifier (business name, landmark)
+     * Add city and state for context
+     * Include any distinguishing features (e.g., "downtown", "north side")
+     * Keep queries concise but specific
+     * If user coordinates are provided:
+       - Focus on finding places near the user's location
+       - Include neighborhood/area context if known
+       - Prioritize exact matches over general searches
+     * Examples:
+       - With coordinates: "Starbucks Downtown Salt Lake City"
+       - Without coordinates: "Starbucks Salt Lake City Utah"
+       - With coordinates: "Space Needle Seattle Washington"
+       - Without coordinates: "Space Needle Seattle"
 
 6. RESPONSE FORMAT:
    You MUST respond with a valid JSON object in this exact format:
@@ -244,7 +335,14 @@ KEY INSTRUCTIONS:
      "locationNotes": "additional location context, or empty string",
      "confidence": number between 0 and 1,
      "shouldTryPlacesApi": boolean indicating if we should try Places API,
-     "placesQuery": "query string for Places API if shouldTryPlacesApi is true"
+     "placesQuery": "query string for Places API if shouldTryPlacesApi is true",
+     "placesQueryContext": {
+       "businessType": "type of business/venue if applicable",
+       "area": "specific area/neighborhood if known",
+       "city": "city name if known",
+       "state": "state name if known",
+       "isNearUser": boolean indicating if this is likely near user coordinates
+     }
    }
 
 USER CONTEXT:
@@ -276,7 +374,8 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
                         locationNotes: "",
                         confidence: 0.8,
                         shouldTryPlacesApi: false,
-                        placesQuery: ""
+                        placesQuery: "",
+                        placesQueryContext: {}
                     };
                 } else {
                     throw new Error("Could not extract address from LLM response");
@@ -288,6 +387,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
             let confidence = result.confidence || 0;
             const shouldTryPlacesApi = result.shouldTryPlacesApi || false;
             const placesQuery = result.placesQuery || "";
+            const placesQueryContext = result.placesQueryContext || {};
 
             console.log('\nParsed LLM Result:');
             console.log('Address:', address || '(none)');
@@ -295,11 +395,13 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
             console.log('Initial Confidence:', confidence);
             console.log('Should Try Places API:', shouldTryPlacesApi);
             console.log('Places Query:', placesQuery);
+            console.log('Places Query Context:', placesQueryContext);
 
             let coordinates: [number, number];
             let formattedAddress = address;
 
             if (address) {
+                // Step 1: Try complete address first
                 console.log('\nTrying to resolve address:', address);
                 const geocodeResult = await this.geocodeAddress(address, `${address} | ${locationNotes}`);
                 coordinates = geocodeResult.coordinates;
@@ -316,18 +418,67 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
                 confidence = 0.5 + (reverseGeocodingVerified ? 0.3 : 0);
                 console.log('Reverse Geocoding Verification:', reverseGeocodingVerified ? 'Passed' : 'Failed');
             } else if (shouldTryPlacesApi && placesQuery) {
+                // Step 2: Try Places API with user location context
                 console.log('\nTrying Places API with query:', placesQuery);
-                const placesResult = await this.searchPlaces(placesQuery, locationNotes);
+                // Construct a more specific query using context
+                let enhancedQuery = placesQuery;
+                if (placesQueryContext.area) {
+                    enhancedQuery += ` ${placesQueryContext.area}`;
+                }
+                if (placesQueryContext.city && !enhancedQuery.includes(placesQueryContext.city)) {
+                    enhancedQuery += ` ${placesQueryContext.city}`;
+                }
+                if (placesQueryContext.state && !enhancedQuery.includes(placesQueryContext.state)) {
+                    enhancedQuery += ` ${placesQueryContext.state}`;
+                }
+
+                console.log('Enhanced Places Query:', enhancedQuery);
+                const placesResult = await this.searchPlaces(
+                    enhancedQuery,
+                    locationNotes,
+                    userCoordinates,
+                    userCityState
+                );
 
                 if (placesResult) {
                     coordinates = placesResult.coordinates;
                     formattedAddress = placesResult.formattedAddress;
-                    confidence = 0.6; // Places API results are generally reliable
+                    // Adjust confidence based on distance from user if coordinates available
+                    if (userCoordinates) {
+                        const distance = this.calculateDistance(
+                            userCoordinates.lat,
+                            userCoordinates.lng,
+                            coordinates[1],
+                            coordinates[0]
+                        );
+                        // Higher confidence for places closer to user
+                        confidence = 0.6 + (distance < 1 ? 0.2 : distance < 5 ? 0.1 : 0);
+                        console.log('Distance from user:', distance.toFixed(2), 'km');
+
+                        // If the place is too far from user, fall back to user coordinates
+                        if (distance > 10) { // 10km threshold
+                            console.log('Place too far from user, falling back to user coordinates');
+                            coordinates = [userCoordinates.lng, userCoordinates.lat];
+                            formattedAddress = userCityState;
+                            confidence = 0.3;
+                        }
+                    } else {
+                        confidence = 0.6;
+                    }
                     console.log('Places API Resolution:', placesResult.name);
                 } else {
-                    throw new Error("No places found matching the query");
+                    // If Places API fails, fall back to user coordinates
+                    console.log('Places API failed, falling back to user coordinates');
+                    if (userCoordinates) {
+                        coordinates = [userCoordinates.lng, userCoordinates.lat];
+                        formattedAddress = userCityState;
+                        confidence = 0.3;
+                    } else {
+                        throw new Error("No places found matching the query and no user coordinates available");
+                    }
                 }
             } else if (locationNotes) {
+                // Step 3: Try general geocoding with location notes
                 console.log('\nTrying to resolve from location notes:', locationNotes);
                 const geocodeResult = await this.geocodeAddress(locationNotes, locationNotes);
                 coordinates = geocodeResult.coordinates;
@@ -337,10 +488,33 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
                     throw new Error("Invalid coordinates obtained from geocoding");
                 }
 
-                confidence = 0.4;
+                // If we have user coordinates, check if this location is reasonable
+                if (userCoordinates) {
+                    const distance = this.calculateDistance(
+                        userCoordinates.lat,
+                        userCoordinates.lng,
+                        coordinates[1],
+                        coordinates[0]
+                    );
+                    console.log('Distance from user:', distance.toFixed(2), 'km');
+
+                    // If too far, fall back to user coordinates
+                    if (distance > 10) {
+                        console.log('Location too far from user, falling back to user coordinates');
+                        coordinates = [userCoordinates.lng, userCoordinates.lat];
+                        formattedAddress = userCityState;
+                        confidence = 0.3;
+                    } else {
+                        confidence = 0.4;
+                    }
+                } else {
+                    confidence = 0.4;
+                }
             } else if (userCoordinates) {
+                // Step 4: Fall back to user coordinates
                 console.log('\nFalling back to user coordinates');
                 coordinates = [userCoordinates.lng, userCoordinates.lat];
+                formattedAddress = userCityState;
                 confidence = 0.3;
             } else {
                 throw new Error("Cannot determine event location: No address, organization, or scan coordinates available");
