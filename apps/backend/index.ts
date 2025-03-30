@@ -47,39 +47,6 @@ RateLimitService.getInstance().initRedis({
   password: process.env.REDIS_PASSWORD || undefined,
 });
 
-// Global rate limit for all routes (100 requests per minute)
-app.use("*", rateLimit({
-  maxRequests: 100,
-  windowMs: 60 * 1000,
-  keyGenerator: (c) => {
-    const ipInfo = c.get("ip");
-    // Use IP address for rate limiting, with different limits for private IPs
-    return ipInfo.isPrivate ? `private:${ipInfo.ip}` : `public:${ipInfo.ip}`;
-  }
-}));
-
-// More strict rate limit for auth routes (5 requests per minute)
-app.use("/api/auth/*", rateLimit({
-  maxRequests: 5,
-  windowMs: 60 * 1000,
-  keyGenerator: (c) => {
-    const ipInfo = c.get("ip");
-    // Even stricter limits for private IPs on auth routes
-    return ipInfo.isPrivate ? `auth:private:${ipInfo.ip}` : `auth:public:${ipInfo.ip}`;
-  }
-}));
-
-// Rate limit for event creation (10 requests per minute)
-app.use("/api/events", rateLimit({
-  maxRequests: 10,
-  windowMs: 60 * 1000,
-  keyGenerator: (c) => {
-    const ipInfo = c.get("ip");
-    // Different limits for private vs public IPs
-    return ipInfo.isPrivate ? `events:private:${ipInfo.ip}` : `events:public:${ipInfo.ip}`;
-  }
-}));
-
 app.use("*", async (c, next) => {
   const url = c.req.url;
   if (url !== "/" && url.endsWith("/")) {

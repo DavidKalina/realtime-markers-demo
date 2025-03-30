@@ -5,11 +5,20 @@ import { authMiddleware } from "../middleware/authMiddleware";
 import { adminAuthMiddleware } from "../middleware/adminMiddleware";
 import { StorageService } from "../services/shared/StorageService";
 import { ip } from "../middleware/ip";
+import { rateLimit } from "../middleware/rateLimit";
 
 export const adminRouter = new Hono<AppContext>();
 
-// Apply IP, auth, and admin middleware to all routes
+// Apply IP, rate limiting, auth, and admin middleware to all routes
 adminRouter.use("*", ip());
+adminRouter.use("*", rateLimit({
+  maxRequests: 30, // 30 requests per minute for admin routes
+  windowMs: 60 * 1000,
+  keyGenerator: (c) => {
+    const ipInfo = c.get("ip");
+    return `admin:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
+  }
+}));
 adminRouter.use("*", authMiddleware);
 adminRouter.use("*", adminAuthMiddleware);
 

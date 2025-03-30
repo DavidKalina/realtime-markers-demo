@@ -4,12 +4,21 @@ import * as handlers from "../handlers/eventHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
+import { rateLimit } from "../middleware/rateLimit";
 
 // Create a router with the correct typing
 export const eventsRouter = new Hono<AppContext>();
 
-// Apply IP and auth middleware to all routes in this router
+// Apply IP, rate limiting, and auth middleware to all routes in this router
 eventsRouter.use("*", ip());
+eventsRouter.use("*", rateLimit({
+    maxRequests: 10, // 10 requests per minute for event routes
+    windowMs: 60 * 1000,
+    keyGenerator: (c) => {
+        const ipInfo = c.get("ip");
+        return `events:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
+    }
+}));
 eventsRouter.use("*", authMiddleware);
 
 // Static/specific paths should come before dynamic ones
