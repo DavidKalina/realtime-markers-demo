@@ -197,65 +197,9 @@ export class GoogleGeocodingService {
                 return null;
             }
 
-            // Have the LLM analyze the results and choose the best match
-            const llmResponse = await OpenAIService.executeChatCompletion({
-                model: "gpt-4o",
-                temperature: 0.1,
-                response_format: { type: "json_object" },
-                messages: [
-                    {
-                        role: "system",
-                        content: `You are a location analysis expert. Analyze the provided Places API results and choose the best match based on the following criteria:
-
-1. Proximity to user (if coordinates provided)
-2. Name similarity to the original query
-3. Address relevance to user's city/state
-4. Business/venue type relevance
-5. Rating and popularity (if available)
-
-You must respond with a JSON object containing:
-{
-    "selectedIndex": number (index of the best match in the results array),
-    "confidence": number between 0 and 1,
-    "reasoning": "explanation of why this is the best match"
-}
-
-USER CONTEXT:
-${cityState ? `User is in ${cityState}.` : ''}
-${userCoordinates ? `User coordinates: ${userCoordinates.lat.toFixed(5)},${userCoordinates.lng.toFixed(5)}` : ''}
-Original query: ${query}
-Enhanced query: ${enhancedQuery}`
-                    },
-                    {
-                        role: "user",
-                        content: JSON.stringify(data.places)
-                    }
-                ],
-                max_tokens: 150,
-            });
 
             let selectedIndex = 0;
-            let confidence = 0.6;
-            let reasoning = "";
 
-            try {
-                const llmResult = JSON.parse(llmResponse.choices[0].message.content || "{}");
-                selectedIndex = llmResult.selectedIndex || 0;
-                confidence = llmResult.confidence || 0.6;
-                reasoning = llmResult.reasoning || "";
-                if (process.env.NODE_ENV !== 'production') {
-                    console.log('LLM Analysis:', reasoning);
-                }
-            } catch (error) {
-                if (process.env.NODE_ENV !== 'production') {
-                    console.warn('Failed to parse LLM response, using first result');
-                }
-            }
-
-            // Ensure selectedIndex is valid
-            if (selectedIndex >= data.places.length) {
-                selectedIndex = 0;
-            }
 
             const result = data.places[selectedIndex];
             const { latitude, longitude } = result.location;
