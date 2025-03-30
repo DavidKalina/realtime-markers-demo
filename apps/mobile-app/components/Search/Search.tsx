@@ -180,10 +180,10 @@ const SearchView = () => {
   const debouncedSearch = useCallback(
     debounce((query: string) => {
       setIsTyping(false);
-      if (query.trim()) {
+      if (query.trim().length >= 2) {
         searchEvents(true);
       }
-    }, 500),
+    }, 300),
     [searchEvents]
   );
 
@@ -385,9 +385,9 @@ const SearchView = () => {
       <View style={styles.contentArea}>
         {/* Enhanced Search Input */}
         <Animated.View
-          style={[styles.searchInputContainer, searchInputAnimatedStyle]}
-          entering={FadeIn.duration(300).springify().damping(25).stiffness(400)}
-          layout={LinearTransition.springify()}
+          style={[styles.searchInputContainer]}
+          entering={FadeIn.duration(200)}
+          layout={LinearTransition.springify().damping(25).stiffness(400)}
         >
           <View style={styles.searchIconContainer}>
             <Search size={18} color="#4dabf7" />
@@ -406,6 +406,7 @@ const SearchView = () => {
             }}
             autoCapitalize="none"
             autoCorrect={false}
+            autoFocus={true}
           />
           {searchQuery !== "" && (
             <TouchableOpacity
@@ -420,17 +421,12 @@ const SearchView = () => {
 
         {/* Main Content */}
         {(isLoading || isTyping) && eventResults.length === 0 ? (
-          <Animated.View
-            style={styles.loadingContainer}
-            entering={FadeIn}
-            exiting={FadeOut}
-            layout={LinearTransition.springify()}
-          >
+          <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#93c5fd" />
             <Text style={styles.loadingText}>
               {isTyping ? "Finding events..." : "Searching events..."}
             </Text>
-          </Animated.View>
+          </View>
         ) : (
           <Animated.FlatList
             ref={listRef}
@@ -535,7 +531,6 @@ const styles = StyleSheet.create({
 
   // Enhanced Search Input
   searchInputContainer: {
-    position: "relative",
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#3a3a3a",
@@ -544,22 +539,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     marginHorizontal: 16,
     marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.05)",
-    overflow: "hidden",
-  },
-
-  searchGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
   },
 
   searchIconContainer: {
