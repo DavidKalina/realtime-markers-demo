@@ -224,21 +224,29 @@ export class GoogleGeocodingService {
             if (result) {
                 const details = [];
 
-                // Add business name
-                details.push(`${result.displayName.text}`);
+                // Add venue/building name and any specific room/area
+                if (result.displayName.text) {
+                    // If it's a specific venue/building (like Noorda Center), use that
+                    if (result.types.some((type: string) => ['performing_arts_theater', 'event_venue', 'museum', 'library', 'university'].includes(type))) {
+                        details.push(result.displayName.text);
+                    }
+                }
 
-                // Add rating info if available
-                if (result.rating) {
+                // Add rating info only for appropriate venues (not for campus buildings)
+                if (result.rating && !result.types.includes('university')) {
                     details.push(`Rating: ${result.rating}/5${result.userRatingCount ? ` (${result.userRatingCount} reviews)` : ''}`);
                 }
 
-                // Add relevant place types (cleaned up for human readability)
+                // Add relevant place types (cleaned up and filtered)
                 if (result.types && result.types.length > 0) {
-                    const readableTypes = result.types
+                    const relevantTypes = result.types
+                        .filter((type: string) => !['point_of_interest', 'establishment', 'university'].includes(type))
                         .map((type: string) => type.replace(/_/g, ' ').toLowerCase())
-                        .slice(0, 3)  // Limit to first 3 types
-                        .join(', ');
-                    details.push(`Type: ${readableTypes}`);
+                        .slice(0, 2);  // Limit to first 2 most relevant types
+
+                    if (relevantTypes.length > 0) {
+                        details.push(`Type: ${relevantTypes.join(', ')}`);
+                    }
                 }
 
                 // Add distance from user if coordinates available
@@ -252,8 +260,8 @@ export class GoogleGeocodingService {
                     details.push(`${distance.toFixed(1)} km from user location`);
                 }
 
-                // Add the original LLM notes if they contain additional context
-                if (locationContext && !details.includes(locationContext)) {
+                // Add the original location context if it contains additional details
+                if (locationContext && !details.some(detail => locationContext.toLowerCase().includes(detail.toLowerCase()))) {
                     details.push(locationContext);
                 }
 
