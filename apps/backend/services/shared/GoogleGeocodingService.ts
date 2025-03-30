@@ -127,93 +127,173 @@ export class GoogleGeocodingService {
             console.warn('User Coordinates:', userCoordinates);
             console.warn('User City/State:', userCityState);
 
-            const encodedQuery = encodeURIComponent(query);
-            let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodedQuery}`;
-
-            // If we have user coordinates, add location bias and radius
-            if (userCoordinates) {
-                // Add location bias to prioritize results near the user
-                url += `&location=${userCoordinates.lat},${userCoordinates.lng}`;
-                // Set radius to 5000 meters (5km) to find nearby places
-                url += '&radius=5000';
+            // First, try to get city/state from reverse geocoding if we have coordinates
+            let cityState = userCityState;
+            if (!cityState && userCoordinates) {
+                console.warn('Attempting reverse geocoding for coordinates:', userCoordinates);
+                cityState = await this.reverseGeocodeCityState(userCoordinates.lat, userCoordinates.lng);
+                console.warn('Reverse geocoded city/state:', cityState);
             }
 
-            url += `&key=${process.env.GOOGLE_GEOCODING_API_KEY}`;
-            console.warn('🔍 Google Places URL:', url);
+            // Enhance the query with city/state context if available
+            let enhancedQuery = query;
+            if (cityState) {
+                // Only add city/state if it's not already in the query
+                if (!query.toLowerCase().includes(cityState.toLowerCase())) {
+                    enhancedQuery = `${query} ${cityState}`;
+                    console.warn('Enhanced query with city/state:', enhancedQuery);
+                } else {
+                    console.warn('City/state already in query, using original query');
+                }
+            } else {
+                console.warn('No city/state available for query enhancement');
+            }
 
-            const response = await fetch(url);
+            // Use the newer Places API v1
+            const url = 'https://places.googleapis.com/v1/places:searchText';
+
+            // Define the request body type
+            interface PlacesSearchRequest {
+                textQuery: string;
+                locationBias?: {
+                    circle: {
+                        center: {
+                            latitude: number;
+                            longitude: number;
+                        };
+                        radius: number;
+                    };
+                };
+            }
+
+            // Prepare the request body
+            const requestBody: PlacesSearchRequest = {
+                textQuery: enhancedQuery
+            };
+
+            // Add location bias if we have coordinates
+            if (userCoordinates) {
+                requestBody.locationBias = {
+                    circle: {
+                        center: {
+                            latitude: userCoordinates.lat,
+                            longitude: userCoordinates.lng
+                        },
+                        radius: 5000.0 // 5km radius
+                    }
+                };
+            }
+
+            console.warn('🔍 Google Places URL:', url);
+            console.warn('Request Body:', JSON.stringify(requestBody, null, 2));
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Goog-Api-Key': process.env.GOOGLE_GEOCODING_API_KEY || '',
+                    'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.id'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
             if (!response.ok) {
                 throw new Error(`Places API request failed: ${response.statusText}`);
             }
 
             const data = await response.json();
-            if (data.status !== "OK" || !data.results || data.results.length === 0) {
-                console.warn('No places found for query:', query);
+            console.warn('Places API Response:', JSON.stringify(data, null, 2));
+
+            if (!data.places || data.places.length === 0) {
+                console.warn('No places found for query:', enhancedQuery);
                 return null;
             }
 
-            // Filter and sort results based on user context
-            let results = data.results;
-            if (userCoordinates) {
-                // Sort by distance if we have coordinates
-                results = results.sort((a: any, b: any) => {
-                    const distA = this.calculateDistance(
-                        userCoordinates.lat,
-                        userCoordinates.lng,
-                        a.geometry.location.lat,
-                        a.geometry.location.lng
-                    );
-                    const distB = this.calculateDistance(
-                        userCoordinates.lat,
-                        userCoordinates.lng,
-                        b.geometry.location.lat,
-                        b.geometry.location.lng
-                    );
-                    return distA - distB;
-                });
-            } else if (userCityState) {
-                // Filter results to match user's city/state if available
-                results = results.filter((result: any) => {
-                    const addressComponents = result.formatted_address.toLowerCase();
-                    const userLocation = userCityState.toLowerCase();
-                    return addressComponents.includes(userLocation);
-                });
+            // Have the LLM analyze the results and choose the best match
+            const llmResponse = await OpenAIService.executeChatCompletion({
+                model: "gpt-4o",
+                temperature: 0.1,
+                response_format: { type: "json_object" },
+                messages: [
+                    {
+                        role: "system",
+                        content: `You are a location analysis expert. Analyze the provided Places API results and choose the best match based on the following criteria:
+
+1. Proximity to user (if coordinates provided)
+2. Name similarity to the original query
+3. Address relevance to user's city/state
+4. Business/venue type relevance
+5. Rating and popularity (if available)
+
+RESPONSE FORMAT:
+{
+    "selectedIndex": number (index of the best match in the results array),
+    "confidence": number between 0 and 1,
+    "reasoning": "explanation of why this is the best match"
+}
+
+USER CONTEXT:
+${cityState ? `User is in ${cityState}.` : ''}
+${userCoordinates ? `User coordinates: ${userCoordinates.lat.toFixed(5)},${userCoordinates.lng.toFixed(5)}` : ''}
+Original query: ${query}
+Enhanced query: ${enhancedQuery}`
+                    },
+                    {
+                        role: "user",
+                        content: JSON.stringify(data.places)
+                    }
+                ],
+                max_tokens: 150,
+            });
+
+            let selectedIndex = 0;
+            let confidence = 0.6;
+            let reasoning = "";
+
+            try {
+                const llmResult = JSON.parse(llmResponse.choices[0].message.content || "{}");
+                selectedIndex = llmResult.selectedIndex || 0;
+                confidence = llmResult.confidence || 0.6;
+                reasoning = llmResult.reasoning || "";
+                console.log('LLM Analysis:', reasoning);
+            } catch (error) {
+                console.warn('Failed to parse LLM response, using first result');
             }
 
-            if (results.length === 0) {
-                console.warn('No places found matching user context');
-                return null;
+            // Ensure selectedIndex is valid
+            if (selectedIndex >= data.places.length) {
+                selectedIndex = 0;
             }
 
-            const result = results[0];
-            const { lat, lng } = result.geometry.location;
-            const formattedAddress = result.formatted_address;
+            const result = data.places[selectedIndex];
+            const { latitude, longitude } = result.location;
+            const formattedAddress = result.formattedAddress;
 
-            console.log('\nFound Place:');
-            console.log('Name:', result.name);
+            console.log('\nSelected Place:');
+            console.log('Name:', result.displayName.text);
             console.log('Address:', formattedAddress);
-            console.log('Coordinates:', [lng, lat]);
+            console.log('Coordinates:', [longitude, latitude]);
             console.log('Types:', result.types);
             console.log('Rating:', result.rating);
-            console.log('Total Ratings:', result.user_ratings_total);
+            console.log('Total Ratings:', result.userRatingCount);
             if (userCoordinates) {
                 const distance = this.calculateDistance(
                     userCoordinates.lat,
                     userCoordinates.lng,
-                    lat,
-                    lng
+                    latitude,
+                    longitude
                 );
                 console.log('Distance from user:', distance.toFixed(2), 'km');
             }
 
             return {
-                coordinates: [lng, lat],
+                coordinates: [longitude, latitude],
                 formattedAddress,
-                placeId: result.place_id,
-                name: result.name,
+                placeId: result.id,
+                name: result.displayName.text,
                 types: result.types,
                 rating: result.rating,
-                userRatingsTotal: result.user_ratings_total
+                userRatingsTotal: result.userRatingCount
             };
         } catch (error) {
             console.error("❌ Places API error:", error);
@@ -662,32 +742,56 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
 
     public async reverseGeocodeCityState(lat: number, lng: number): Promise<string> {
         try {
+            console.warn('🌍 Reverse Geocoding for city/state:', { lat, lng });
             const response = await fetch(
                 `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_GEOCODING_API_KEY}`
             );
 
             if (!response.ok) {
+                console.error('Reverse geocoding failed:', response.statusText);
                 throw new Error(`Reverse geocoding failed: ${response.statusText}`);
             }
 
             const data = await response.json();
-            if (data.results && data.results.length > 0) {
-                const result = data.results[0];
-                const addressComponents = result.address_components;
+            console.warn('Reverse geocoding response:', JSON.stringify(data, null, 2));
 
-                const city = addressComponents.find((component: any) =>
-                    component.types.includes('locality') || component.types.includes('postal_town')
-                );
-                const state = addressComponents.find((component: any) =>
-                    component.types.includes('administrative_area_level_1')
-                );
-
-                if (city && state) {
-                    return `${city.long_name}, ${state.short_name}`;
-                }
+            if (data.status !== "OK" || !data.results || data.results.length === 0) {
+                console.warn('No results found for reverse geocoding');
+                return "";
             }
 
-            return "";
+            const result = data.results[0];
+            const addressComponents = result.address_components;
+
+            // Try to find city from various possible types
+            const city = addressComponents.find((component: any) =>
+                component.types.includes('locality') ||
+                component.types.includes('postal_town') ||
+                component.types.includes('sublocality') ||
+                component.types.includes('sublocality_level_2')
+            );
+
+            // Try to find state from various possible types
+            const state = addressComponents.find((component: any) =>
+                component.types.includes('administrative_area_level_1') ||
+                component.types.includes('administrative_area_level_2')
+            );
+
+            if (city && state) {
+                const cityState = `${city.long_name}, ${state.short_name}`;
+                console.warn('Found city/state:', cityState);
+                return cityState;
+            } else {
+                console.warn('Could not find both city and state:', {
+                    foundCity: !!city,
+                    foundState: !!state,
+                    addressComponents: addressComponents.map((c: any) => ({
+                        name: c.long_name,
+                        types: c.types
+                    }))
+                });
+                return "";
+            }
         } catch (error) {
             console.error("Error reverse geocoding:", error);
             return "";

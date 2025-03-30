@@ -238,8 +238,21 @@ async function initializeWorker() {
           location: scanResult.eventDetails.location,
           address: scanResult.eventDetails.address,
           locationNotes: scanResult.eventDetails.locationNotes,
-          coordinates: scanResult.eventDetails.location?.coordinates
+          coordinates: scanResult.eventDetails.location?.coordinates,
+          userCoordinates: job.data.userCoordinates,
+          userCityState: scanResult.eventDetails.userCityState
         });
+
+        // Log the Places API search process
+        if (scanResult.eventDetails.locationNotes) {
+          console.warn('🔍 PLACES API SEARCH DETAILS:', {
+            query: scanResult.eventDetails.locationNotes,
+            userCoordinates: job.data.userCoordinates,
+            userCityState: scanResult.eventDetails.userCityState,
+            location: scanResult.eventDetails.location,
+            address: scanResult.eventDetails.address
+          });
+        }
 
         console.warn(`[Worker] Image analyzed with confidence: ${scanResult.confidence}`);
 

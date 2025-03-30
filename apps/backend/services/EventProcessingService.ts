@@ -33,6 +33,7 @@ interface EventDetails {
   categories?: Category[];
   timezone?: string; // IANA timezone identifier (e.g., "America/New_York")
   locationNotes?: string; // Additional location context like building, room, etc.
+  userCityState?: string; // User's city and state for location context
 }
 
 interface ScanResult {
