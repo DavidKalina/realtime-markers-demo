@@ -4,10 +4,12 @@ import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { adminAuthMiddleware } from "../middleware/adminMiddleware";
 import { StorageService } from "../services/shared/StorageService";
+import { ip } from "../middleware/ip";
 
 export const adminRouter = new Hono<AppContext>();
 
-// Apply auth middleware to all routes
+// Apply IP, auth, and admin middleware to all routes
+adminRouter.use("*", ip());
 adminRouter.use("*", authMiddleware);
 adminRouter.use("*", adminAuthMiddleware);
 

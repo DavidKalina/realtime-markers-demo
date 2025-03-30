@@ -3,11 +3,13 @@ import { Hono } from "hono";
 import * as handlers from "../handlers/eventHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
+import { ip } from "../middleware/ip";
 
 // Create a router with the correct typing
 export const eventsRouter = new Hono<AppContext>();
 
-// Apply auth middleware to all routes in this router
+// Apply IP and auth middleware to all routes in this router
+eventsRouter.use("*", ip());
 eventsRouter.use("*", authMiddleware);
 
 // Static/specific paths should come before dynamic ones

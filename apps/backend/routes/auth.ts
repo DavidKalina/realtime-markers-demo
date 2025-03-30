@@ -3,9 +3,13 @@ import { Hono } from "hono";
 import * as handlers from "../handlers/authHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
+import { ip } from "../middleware/ip";
 
 // Create a router with the correct typing
 export const authRouter = new Hono<AppContext>();
+
+// Apply IP middleware to all routes
+authRouter.use("*", ip());
 
 // Public routes (no session required)
 authRouter.post("/register", handlers.registerHandler);

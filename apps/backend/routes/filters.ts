@@ -3,11 +3,13 @@ import { Hono } from "hono";
 import * as handlers from "../handlers/filterHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
+import { ip } from "../middleware/ip";
 
 // Create a router with the correct typing
 export const filterRouter = new Hono<AppContext>();
 
-// Apply auth middleware to all routes in this router
+// Apply IP and auth middleware to all routes in this router
+filterRouter.use("*", ip());
 filterRouter.use("*", authMiddleware);
 
 // Filter CRUD endpoints
