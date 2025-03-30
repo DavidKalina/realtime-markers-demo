@@ -197,11 +197,8 @@ export class GoogleGeocodingService {
                 return null;
             }
 
-
-            let selectedIndex = 0;
-
-
-            const result = data.places[selectedIndex];
+            // Use the first (most relevant) result directly
+            const result = data.places[0];
             const { latitude, longitude } = result.location;
             const formattedAddress = result.formattedAddress;
 
