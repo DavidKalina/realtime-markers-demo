@@ -148,6 +148,54 @@ export default function ScanScreen() {
     };
   }, [clearDetectionInterval, releaseCamera]);
 
+  // Comprehensive cleanup function
+  const performFullCleanup = useCallback(() => {
+    if (!isMounted.current) return;
+
+    // Clear all intervals
+    clearDetectionInterval();
+
+    // Clear navigation timer
+    if (navigationTimerRef.current) {
+      clearTimeout(navigationTimerRef.current);
+      navigationTimerRef.current = null;
+    }
+
+    // Reset all state
+    setDetectionStatus("none");
+    setIsFrameReady(false);
+    setIsUploading(false);
+    setCapturedImage(null);
+    setImageSource(null);
+    setUploadProgress(0);
+
+    // Release camera resources
+    releaseCamera();
+  }, [clearDetectionInterval, releaseCamera]);
+
+  // Back button handler with enhanced cleanup
+  const handleBack = () => {
+    if (!isMounted.current) return;
+
+    // Perform full cleanup
+    performFullCleanup();
+
+    // Small delay to ensure cleanup is complete before navigation
+    setTimeout(() => {
+      if (isMounted.current) {
+        router.replace("/");
+      }
+    }, 100);
+  };
+
+  // Enhanced cleanup effect
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      performFullCleanup();
+    };
+  }, [performFullCleanup]);
+
   // Queue job and navigate after a brief delay
   const queueJobAndNavigateDelayed = useCallback(
     (jobId: string) => {
@@ -167,15 +215,13 @@ export default function ScanScreen() {
       // Set a timer to navigate away after a brief preview
       navigationTimerRef.current = setTimeout(() => {
         if (isMounted.current) {
-          // Clean up
-          clearDetectionInterval();
-
-          // Navigate back to the map
+          // Perform full cleanup before navigation
+          performFullCleanup();
           router.replace("/");
         }
-      }, 1500); // Show preview for 1.5 seconds
+      }, 1500);
     },
-    [addJob, publish, clearDetectionInterval, router]
+    [addJob, publish, performFullCleanup, router]
   );
 
   // Updated uploadImageAndQueue function to handle both camera and gallery sources
@@ -378,24 +424,6 @@ export default function ScanScreen() {
     if (isCameraActive && isCameraReady) {
       startDocumentDetection();
     }
-  };
-
-  // Back button handler
-  const handleBack = () => {
-    if (!isMounted.current) return;
-
-    clearDetectionInterval();
-
-    if (navigationTimerRef.current) {
-      clearTimeout(navigationTimerRef.current);
-    }
-
-    setTimeout(() => {
-      if (isMounted.current) {
-        releaseCamera();
-        router.replace("/");
-      }
-    }, 50);
   };
 
   // In your ScanScreen component
