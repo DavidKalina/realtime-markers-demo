@@ -224,12 +224,9 @@ export class GoogleGeocodingService {
             if (result) {
                 const details = [];
 
-                // Add venue/building name and any specific room/area
+                // Always include the venue name from Places API
                 if (result.displayName.text) {
-                    // If it's a specific venue/building (like Noorda Center), use that
-                    if (result.types.some((type: string) => ['performing_arts_theater', 'event_venue', 'museum', 'library', 'university'].includes(type))) {
-                        details.push(result.displayName.text);
-                    }
+                    details.push(result.displayName.text);
                 }
 
                 // Add rating info only for appropriate venues (not for campus buildings)
