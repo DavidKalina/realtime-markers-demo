@@ -76,12 +76,21 @@ redisSub.on("message", (channel, message) => {
         timestamp: new Date().toISOString()
       });
 
-      // Broadcast to all connected clients
-      for (const [clientId, client] of clients.entries()) {
-        try {
-          client.send(formattedMessage);
-        } catch (error) {
-          console.error(`Error sending discovery event to client ${clientId}:`, error);
+      // Only send to the creator of the event
+      const creatorId = data.event.creatorId;
+      if (creatorId) {
+        const creatorClients = userToClients.get(creatorId);
+        if (creatorClients) {
+          for (const clientId of creatorClients) {
+            const client = clients.get(clientId);
+            if (client) {
+              try {
+                client.send(formattedMessage);
+              } catch (error) {
+                console.error(`Error sending discovery event to client ${clientId}:`, error);
+              }
+            }
+          }
         }
       }
     } catch (error) {
