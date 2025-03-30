@@ -7,6 +7,7 @@ import { ClusterMarker } from "./ClusterMarker";
 import { useMarkerClustering, ClusterFeature, PointFeature } from "@/hooks/useMarkerClustering";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { useEventBroker } from "@/hooks/useEventBroker";
+import Animated, { BounceIn, Layout } from "react-native-reanimated";
 import {
   EventTypes,
   CameraAnimateToLocationEvent,
@@ -48,10 +49,12 @@ const SingleMarkerView = React.memo(
     marker,
     isSelected,
     onPress,
+    index,
   }: {
     marker: MarkerItem;
     isSelected: boolean;
     onPress: () => void;
+    index: number;
   }) => {
     return (
       <MapboxGL.MarkerView
@@ -59,22 +62,27 @@ const SingleMarkerView = React.memo(
         coordinate={marker.coordinates}
         anchor={{ x: 0.5, y: 1.0 }}
       >
-        <MysteryEmojiMarker
-          event={{
-            title: marker.data.title || "Unnamed Event",
-            emoji: marker.data.emoji || "📍",
-            location: marker.data.location || "Unknown location",
-            distance: marker.data.distance || "Unknown distance",
-            time: marker.data.time || new Date().toLocaleDateString(),
-            description: marker.data.description || "",
-            categories: marker.data.categories || [],
-            isVerified: marker.data.isVerified || false,
-            color: marker.data.color,
-          }}
-          isSelected={isSelected}
-          isHighlighted={false}
-          onPress={onPress}
-        />
+        <Animated.View
+          entering={BounceIn.duration(500).springify().damping(15).stiffness(200).delay(index * 50)}
+          layout={Layout.springify()}
+        >
+          <MysteryEmojiMarker
+            event={{
+              title: marker.data.title || "Unnamed Event",
+              emoji: marker.data.emoji || "📍",
+              location: marker.data.location || "Unknown location",
+              distance: marker.data.distance || "Unknown distance",
+              time: marker.data.time || new Date().toLocaleDateString(),
+              description: marker.data.description || "",
+              categories: marker.data.categories || [],
+              isVerified: marker.data.isVerified || false,
+              color: marker.data.color,
+            }}
+            isSelected={isSelected}
+            isHighlighted={false}
+            onPress={onPress}
+          />
+        </Animated.View>
       </MapboxGL.MarkerView>
     );
   }
@@ -86,10 +94,12 @@ const ClusterView = React.memo(
     cluster,
     isSelected,
     onPress,
+    index,
   }: {
     cluster: ClusterItem;
     isSelected: boolean;
     onPress: () => void;
+    index: number;
   }) => {
     return (
       <MapboxGL.MarkerView
@@ -97,12 +107,17 @@ const ClusterView = React.memo(
         coordinate={cluster.coordinates}
         anchor={{ x: 0.5, y: 0.5 }}
       >
-        <ClusterMarker
-          count={cluster.count}
-          coordinates={cluster.coordinates}
-          onPress={onPress}
-          isSelected={isSelected}
-        />
+        <Animated.View
+          entering={BounceIn.duration(500).springify().damping(15).stiffness(200).delay(index * 50)}
+          layout={Layout.springify()}
+        >
+          <ClusterMarker
+            count={cluster.count}
+            coordinates={cluster.coordinates}
+            onPress={onPress}
+            isSelected={isSelected}
+          />
+        </Animated.View>
       </MapboxGL.MarkerView>
     );
   }
@@ -274,24 +289,26 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
 
     // Memoize the render functions to prevent recreation
     const renderCluster = useCallback(
-      (processed: { type: "cluster"; item: ClusterItem; isSelected: boolean; onPress: () => void }) => (
+      (processed: { type: "cluster"; item: ClusterItem; isSelected: boolean; onPress: () => void; index: number }) => (
         <ClusterView
           key={processed.item.id}
           cluster={processed.item}
           isSelected={processed.isSelected}
           onPress={processed.onPress}
+          index={processed.index}
         />
       ),
       []
     );
 
     const renderMarker = useCallback(
-      (processed: { type: "marker"; item: MarkerItem; isSelected: boolean; onPress: () => void }) => (
+      (processed: { type: "marker"; item: MarkerItem; isSelected: boolean; onPress: () => void; index: number }) => (
         <SingleMarkerView
           key={processed.item.id}
           marker={processed.item}
           isSelected={processed.isSelected}
           onPress={processed.onPress}
+          index={processed.index}
         />
       ),
       []
@@ -299,11 +316,11 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
 
     return (
       <>
-        {visibleItems.map((processed) => {
+        {visibleItems.map((processed, index) => {
           if (processed.type === "cluster") {
-            return renderCluster(processed);
+            return renderCluster({ ...processed, index });
           } else {
-            return renderMarker(processed);
+            return renderMarker({ ...processed, index });
           }
         })}
       </>

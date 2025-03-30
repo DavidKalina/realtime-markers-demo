@@ -40,7 +40,6 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     // Destructure for cleaner code
     const { scale, floatY, rotation, pulseScale, pulseOpacity } = animationsRef.current;
 
-    const isFirstRender = useRef(true);
     const [wasSelected, setWasSelected] = useState(false);
     const prevSelectedRef = useRef(isSelected);
     const prevHighlightedRef = useRef(isHighlighted);
@@ -81,15 +80,8 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
       return { gradientColors: gradient, accentColor: accent, pulseColor: pulse };
     }, [count]);
 
-    // Initialize animations - only run once
+    // Initialize animations
     useEffect(() => {
-      if (isFirstRender.current) {
-        // Initial pop-in animation
-        scale.value = 0.5;
-        scale.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.back(1.5)) });
-        isFirstRender.current = false;
-      }
-
       // Start subtle floating animation
       floatY.value = withRepeat(
         withSequence(
@@ -110,9 +102,7 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
         true // Reverse
       );
 
-      // Return cleanup function
       return () => {
-        cancelAnimation(scale);
         cancelAnimation(floatY);
         cancelAnimation(rotation);
       };

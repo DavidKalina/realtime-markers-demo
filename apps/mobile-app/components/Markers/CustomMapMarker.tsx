@@ -89,19 +89,11 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
     const animations = useMemo(() => [scale, floatY, rotation, pulseScale, pulseOpacity], []);
 
     // Component state
-    const isFirstRender = useRef(true);
     const prevSelectedRef = useRef(isSelected);
     const prevHighlightedRef = useRef(isHighlighted);
 
-    // Initial mount animations
+    // Add subtle float animation
     useEffect(() => {
-      if (isFirstRender.current) {
-        scale.value = 0.5;
-        scale.value = withTiming(1, ANIMATIONS.INITIAL_MOUNT);
-        isFirstRender.current = false;
-      }
-
-      // Add subtle float animation even for non-selected markers
       floatY.value = withRepeat(
         withSequence(
           withTiming(1, ANIMATIONS.FLOAT_CONFIG),
