@@ -5,6 +5,8 @@ import { useRouter } from "expo-router";
 import { Filter, FilterX } from "lucide-react-native";
 import Animated, {
   Layout,
+  SlideInLeft,
+  SlideOutLeft,
   FadeIn,
   FadeOut,
   withTiming,
@@ -14,10 +16,21 @@ import Animated, {
 
 // Pre-defined animations for reuse
 const SPRING_LAYOUT = Layout.springify();
+const SLIDE_IN = SlideInLeft.springify()
+  .damping(20)  // Increased damping for more controlled movement
+  .mass(1.2)    // Slightly increased mass for more weight feel
+  .stiffness(150); // Reduced stiffness for smoother movement
+const SLIDE_OUT = SlideOutLeft.springify()
+  .damping(20)
+  .mass(1.2)
+  .stiffness(150);
+const FADE_IN = FadeIn.duration(400).delay(100);
 
-interface FilterIndicatorProps { }
+interface FilterIndicatorProps {
+  position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
+}
 
-const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(() => {
+const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(({ position = "top-right" }) => {
   const router = useRouter();
   // Get active filters and loading state from the store
   const activeFilterIds = useFilterStore((state) => state.activeFilterIds);
@@ -32,6 +45,24 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(() => {
   useEffect(() => {
     fetchFilters();
   }, []);
+
+  // Memoize position style
+  const positionStyle = useMemo(() => {
+    switch (position) {
+      case "top-right":
+        return { top: 100, left: 16 }; // Middle position
+      case "bottom-right":
+        return { bottom: 50, right: 16 };
+      case "bottom-left":
+        return { bottom: 50, left: 16 };
+      case "top-left":
+        return { top: 100, left: 16 }; // Middle position
+      case "custom":
+        return {};
+      default:
+        return { top: 100, left: 16 }; // Middle position
+    }
+  }, [position]);
 
   // Get active filters
   const activeFilters = useMemo(() => {
@@ -93,11 +124,13 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(() => {
   return (
     <Pressable
       onPress={() => router.push("/filter")}
-      style={({ pressed }) => [styles.container, pressed && styles.pressedContainer]}
+      style={({ pressed }) => [styles.container, positionStyle, pressed && styles.pressedContainer]}
     >
       <Animated.View
         style={[styles.indicator, animatedContainerStyle]}
         layout={SPRING_LAYOUT}
+        entering={SLIDE_IN}
+        exiting={SLIDE_OUT}
       >
         <View style={styles.iconContainer}>
           {displayContent.useIcon ? (
@@ -110,7 +143,7 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(() => {
           )}
         </View>
 
-        <Animated.View style={styles.contentContainer} entering={FadeIn} exiting={FadeOut}>
+        <Animated.View style={styles.contentContainer} entering={FADE_IN} exiting={FadeOut}>
           <Animated.Text
             style={[styles.filterText, !displayContent.isActive && styles.inactiveText]}
             numberOfLines={1}
@@ -125,6 +158,8 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(() => {
 
 const styles = StyleSheet.create({
   container: {
+    position: "absolute",
+    zIndex: 1000,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,

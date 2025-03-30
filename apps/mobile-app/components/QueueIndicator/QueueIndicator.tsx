@@ -14,9 +14,12 @@ import Animated, {
   withRepeat,
   withTiming,
   withSpring,
+  SlideInLeft,
+  SlideOutLeft,
 } from "react-native-reanimated";
 
 interface QueueIndicatorProps {
+  position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
   autoDismissDelay?: number; // Time in ms to auto-dismiss after all jobs are complete/failed
   sessionId?: string;
   initialDelay?: number; // Delay before initial render
@@ -24,6 +27,9 @@ interface QueueIndicatorProps {
 
 // Pre-defined animations for reuse
 const SPRING_LAYOUT = Layout.springify();
+const SLIDE_IN = SlideInLeft.springify().damping(15).mass(0.8);
+const SLIDE_OUT = SlideOutLeft.springify().damping(15).mass(0.8);
+const FADE_IN = FadeIn.duration(400).delay(100);
 
 // Animation configurations
 const ANIMATION_CONFIG = {
@@ -71,7 +77,7 @@ const StatusIcon = React.memo(({ style, status }: { style: any; status: string }
 
 // Component for the job count text
 const JobCountText = React.memo(({ count, status }: { count: number; status: string }) => (
-  <Animated.Text style={styles.countText} entering={FadeIn} layout={SPRING_LAYOUT}>
+  <Animated.Text style={styles.countText} entering={FADE_IN} layout={SPRING_LAYOUT}>
     {status === "completed"
       ? "Success"
       : status === "failed"
@@ -82,6 +88,7 @@ const JobCountText = React.memo(({ count, status }: { count: number; status: str
 
 const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
   ({
+    position = "top-right",
     autoDismissDelay = 3000, // Default: auto-dismiss after 3 seconds
     sessionId,
     initialDelay = 800, // Default delay of 500ms
@@ -290,6 +297,24 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
       position: "absolute",
     }));
 
+    // Memoize position style - only recalculate when position prop changes
+    const positionStyle = useMemo(() => {
+      switch (position) {
+        case "top-right":
+          return { top: 150, left: 16 }; // Bottom position
+        case "bottom-right":
+          return { bottom: 50, right: 16 };
+        case "bottom-left":
+          return { bottom: 50, left: 16 };
+        case "top-left":
+          return { top: 150, left: 16 }; // Bottom position
+        case "custom":
+          return {};
+        default:
+          return { top: 150, left: 16 }; // Bottom position
+      }
+    }, [position]);
+
     // Memoize status color - only recalculate when status changes
     const statusColor = useMemo(() => {
       switch (status) {
@@ -317,7 +342,9 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
 
     return (
       <Animated.View
-        style={styles.container}
+        style={[styles.container, positionStyle]}
+        entering={SLIDE_IN}
+        exiting={SLIDE_OUT}
         layout={SPRING_LAYOUT}
       >
         <Animated.View style={indicatorStyle} layout={SPRING_LAYOUT}>
@@ -347,12 +374,14 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
 // Refined styles to match our card-like design language
 const styles = StyleSheet.create({
   container: {
+    position: "absolute",
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(51, 51, 51, 0.92)",
     borderRadius: 16,
     padding: 8,
     paddingRight: 10,
+    zIndex: 1000,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,

@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { Layout } from 'react-native-reanimated';
+import Animated, { Layout, LinearTransition } from 'react-native-reanimated';
 import { ConnectionIndicator } from '../ConnectionIndicator/ConnectionIndicator';
 import FilterIndicator from '../FilterIndicator/FilterIndicator';
 import QueueIndicator from '../QueueIndicator/QueueIndicator';
@@ -21,27 +21,27 @@ const IndicatorsContainer: React.FC<IndicatorsContainerProps> = ({
 }) => {
     return (
         <View style={styles.container}>
-            <Animated.View style={styles.indicatorsWrapper} layout={Layout.springify()}>
+            <Animated.View style={styles.indicatorsWrapper} layout={LinearTransition.springify()}>
                 {showConnectionIndicator && (
-                    <Animated.View layout={Layout.springify()}>
-                        <ConnectionIndicator position="top-left" />
+                    <Animated.View layout={LinearTransition.springify()}>
+                        <ConnectionIndicator />
                     </Animated.View>
                 )}
 
                 {showQueueIndicator && (
-                    <Animated.View layout={Layout.springify()}>
-                        <QueueIndicator position="top-left" />
+                    <Animated.View layout={LinearTransition.springify()}>
+                        <QueueIndicator />
                     </Animated.View>
                 )}
 
                 {showFilterIndicator && (
-                    <Animated.View layout={Layout.springify()}>
-                        <FilterIndicator position="top-left" />
+                    <Animated.View layout={LinearTransition.springify()}>
+                        <FilterIndicator />
                     </Animated.View>
                 )}
 
                 {showDiscoveryIndicator && (
-                    <Animated.View layout={Layout.springify()}>
+                    <Animated.View layout={LinearTransition.springify()}>
                         <DiscoveryIndicator position="top-right" />
                     </Animated.View>
                 )}
