@@ -1,6 +1,10 @@
 // src/services/CacheService.ts
 import { createHash } from "crypto";
 import { Redis } from "ioredis";
+import { DataSource } from "typeorm";
+import { OpenAIService } from "./OpenAIService";
+import { Category } from "../../entities/Category";
+import { Event } from "../../entities/Event";
 
 export class CacheService {
   private static embeddingCache = new Map<string, number[]>();
@@ -13,6 +17,18 @@ export class CacheService {
   private static MAX_CATEGORY_CACHE_SIZE = 1000; // Increase from 500
   private static MAX_VISION_CACHE_SIZE = 200;
 
+  private static cacheStats = {
+    embeddingHits: 0,
+    embeddingMisses: 0,
+    categoryHits: 0,
+    categoryMisses: 0,
+    visionHits: 0,
+    visionMisses: 0,
+    redisHits: 0,
+    redisMisses: 0,
+    lastReset: Date.now()
+  };
+
   static initRedis(options: { host: string; port: number; password: string }) {
     this.redisClient = new Redis(options);
   }
@@ -21,9 +37,60 @@ export class CacheService {
     return createHash("md5").update(text).digest("hex");
   }
 
+  static getCacheStats() {
+    const totalEmbedding = this.cacheStats.embeddingHits + this.cacheStats.embeddingMisses;
+    const totalCategory = this.cacheStats.categoryHits + this.cacheStats.categoryMisses;
+    const totalVision = this.cacheStats.visionHits + this.cacheStats.visionMisses;
+    const totalRedis = this.cacheStats.redisHits + this.cacheStats.redisMisses;
+
+    return {
+      embedding: {
+        hits: this.cacheStats.embeddingHits,
+        misses: this.cacheStats.embeddingMisses,
+        hitRate: totalEmbedding ? (this.cacheStats.embeddingHits / totalEmbedding) * 100 : 0
+      },
+      category: {
+        hits: this.cacheStats.categoryHits,
+        misses: this.cacheStats.categoryMisses,
+        hitRate: totalCategory ? (this.cacheStats.categoryHits / totalCategory) * 100 : 0
+      },
+      vision: {
+        hits: this.cacheStats.visionHits,
+        misses: this.cacheStats.visionMisses,
+        hitRate: totalVision ? (this.cacheStats.visionHits / totalVision) * 100 : 0
+      },
+      redis: {
+        hits: this.cacheStats.redisHits,
+        misses: this.cacheStats.redisMisses,
+        hitRate: totalRedis ? (this.cacheStats.redisHits / totalRedis) * 100 : 0
+      },
+      uptime: Date.now() - this.cacheStats.lastReset
+    };
+  }
+
+  static resetCacheStats() {
+    this.cacheStats = {
+      embeddingHits: 0,
+      embeddingMisses: 0,
+      categoryHits: 0,
+      categoryMisses: 0,
+      visionHits: 0,
+      visionMisses: 0,
+      redisHits: 0,
+      redisMisses: 0,
+      lastReset: Date.now()
+    };
+  }
+
   static getCachedEmbedding(text: string): number[] | undefined {
     const key = this.getCacheKey(text);
-    return this.embeddingCache.get(key);
+    const result = this.embeddingCache.get(key);
+    if (result) {
+      this.cacheStats.embeddingHits++;
+    } else {
+      this.cacheStats.embeddingMisses++;
+    }
+    return result;
   }
 
   static setCachedEmbedding(text: string, embedding: number[]): void {
@@ -47,11 +114,20 @@ export class CacheService {
       // First check in-memory cache for vision results
       if (key.startsWith("vision:")) {
         const inMemoryResult = this.visionCache.get(key);
-        if (inMemoryResult) return inMemoryResult;
+        if (inMemoryResult) {
+          this.cacheStats.redisHits++;
+          return inMemoryResult;
+        }
       }
 
       // Fall back to Redis
-      return await this.redisClient.get(key);
+      const result = await this.redisClient.get(key);
+      if (result) {
+        this.cacheStats.redisHits++;
+      } else {
+        this.cacheStats.redisMisses++;
+      }
+      return result;
     } catch (error) {
       console.error(`Error getting cached data for key ${key}:`, error);
       return null;
@@ -78,7 +154,13 @@ export class CacheService {
   }
 
   static getCachedVision(key: string): string | undefined {
-    return this.visionCache.get(key);
+    const result = this.visionCache.get(key);
+    if (result) {
+      this.cacheStats.visionHits++;
+    } else {
+      this.cacheStats.visionMisses++;
+    }
+    return result;
   }
 
   /**
@@ -97,7 +179,13 @@ export class CacheService {
 
   static getCachedCategories(text: string): string[] | undefined {
     const key = this.getCacheKey(text);
-    return this.categoryCache.get(key);
+    const result = this.categoryCache.get(key);
+    if (result) {
+      this.cacheStats.categoryHits++;
+    } else {
+      this.cacheStats.categoryMisses++;
+    }
+    return result;
   }
 
   static async getCachedSearch(key: string): Promise<any | null> {
@@ -171,5 +259,53 @@ export class CacheService {
       this.categoryCache.clear();
       console.warn(`Memory pressure detected: ${mbUsed}MB/${mbTotal}MB - Cache cleared`);
     }
+  }
+
+  static async warmCache(dataSource: DataSource): Promise<void> {
+    try {
+      console.log("Starting cache warm-up...");
+
+      // Warm up categories
+      const categories = await dataSource.getRepository(Category).find();
+      categories.forEach((category: Category) => {
+        this.setCachedCategories(category.name, [category.name]);
+      });
+
+      // Warm up recent events
+      const recentEvents = await dataSource.getRepository(Event)
+        .find({
+          order: { eventDate: "DESC" },
+          take: 100
+        });
+
+      for (const event of recentEvents) {
+        await this.setCachedEvent(event.id, event, 3600); // 1 hour TTL
+      }
+
+      // Warm up embeddings for recent event titles
+      for (const event of recentEvents) {
+        const textForEmbedding = `
+          TITLE: ${event.title} ${event.title} ${event.title}
+          CATEGORIES: ${event.categories?.map(c => c.name).join(", ")}
+          DESCRIPTION: ${event.description || ""}
+        `.trim();
+
+        const embedding = await OpenAIService.getInstance().embeddings.create({
+          model: "text-embedding-3-small",
+          input: textForEmbedding,
+          encoding_format: "float",
+        });
+
+        this.setCachedEmbedding(textForEmbedding, embedding.data[0].embedding);
+      }
+
+      console.log("Cache warm-up completed");
+    } catch (error) {
+      console.error("Error during cache warm-up:", error);
+    }
+  }
+
+  static getRedisClient(): Redis | null {
+    return this.redisClient;
   }
 }

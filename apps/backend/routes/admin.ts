@@ -6,6 +6,7 @@ import { adminAuthMiddleware } from "../middleware/adminMiddleware";
 import { StorageService } from "../services/shared/StorageService";
 import { ip } from "../middleware/ip";
 import { rateLimit } from "../middleware/rateLimit";
+import { CacheService } from "../services/shared/CacheService";
 
 export const adminRouter = new Hono<AppContext>();
 
@@ -48,5 +49,33 @@ adminRouter.get("/images/:id/image", async (c) => {
   } catch (error) {
     console.error("Error fetching original image:", error);
     return c.json({ error: "Failed to fetch original image" }, 500);
+  }
+});
+
+adminRouter.get("/cache/health", async (c) => {
+  try {
+    const stats = CacheService.getCacheStats();
+    const redisClient = CacheService.getRedisClient();
+
+    // Check Redis connection
+    const redisStatus = redisClient ? await redisClient.ping() === "PONG" : false;
+
+    return c.json({
+      status: "healthy",
+      stats,
+      redis: {
+        connected: redisStatus,
+        memory: redisClient ? await redisClient.info("memory") : null
+      },
+      memory: {
+        heapUsed: process.memoryUsage().heapUsed,
+        heapTotal: process.memoryUsage().heapTotal,
+        external: process.memoryUsage().external,
+        rss: process.memoryUsage().rss
+      }
+    });
+  } catch (error) {
+    console.error("Error checking cache health:", error);
+    return c.json({ error: "Failed to check cache health" }, 500);
   }
 });
