@@ -119,6 +119,7 @@ export class GoogleGeocodingService {
         types: string[];
         rating?: number;
         userRatingsTotal?: number;
+        locationNotes?: string;
     } | null> {
         try {
             // Only log essential information in production
@@ -277,6 +278,42 @@ Enhanced query: ${enhancedQuery}`
                 });
             }
 
+            // After getting the result, construct detailed location notes
+            let locationNotes = '';
+            if (result) {
+                const details = [];
+
+                // Add business name
+                details.push(`${result.displayName.text}`);
+
+                // Add rating info if available
+                if (result.rating) {
+                    details.push(`Rating: ${result.rating}/5${result.userRatingCount ? ` (${result.userRatingCount} reviews)` : ''}`);
+                }
+
+                // Add relevant place types (cleaned up for human readability)
+                if (result.types && result.types.length > 0) {
+                    const readableTypes = result.types
+                        .map((type: string) => type.replace(/_/g, ' ').toLowerCase())
+                        .slice(0, 3)  // Limit to first 3 types
+                        .join(', ');
+                    details.push(`Type: ${readableTypes}`);
+                }
+
+                // Add distance from user if coordinates available
+                if (userCoordinates) {
+                    const distance = this.calculateDistance(
+                        userCoordinates.lat,
+                        userCoordinates.lng,
+                        latitude,
+                        longitude
+                    );
+                    details.push(`${distance.toFixed(1)} km from user location`);
+                }
+
+                locationNotes = details.join(' | ');
+            }
+
             return {
                 coordinates: [longitude, latitude],
                 formattedAddress,
@@ -284,7 +321,8 @@ Enhanced query: ${enhancedQuery}`
                 name: result.displayName.text,
                 types: result.types,
                 rating: result.rating,
-                userRatingsTotal: result.userRatingCount
+                userRatingsTotal: result.userRatingCount,
+                locationNotes
             };
         } catch (error) {
             if (process.env.NODE_ENV !== 'production') {
@@ -456,7 +494,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
             }
 
             let address = result.address === "NO_ADDRESS" ? "" : result.address;
-            const locationNotes = result.locationNotes || "";
+            let locationNotes = result.locationNotes || "";
             let confidence = result.confidence || 0;
             const shouldTryPlacesApi = result.shouldTryPlacesApi || false;
             const placesQuery = result.placesQuery || "";
@@ -516,6 +554,9 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
                 if (placesResult) {
                     coordinates = placesResult.coordinates;
                     formattedAddress = placesResult.formattedAddress;
+                    // Use the Places API generated location notes instead of LLM notes
+                    locationNotes = placesResult.locationNotes || locationNotes;
+
                     // Adjust confidence based on distance from user if coordinates available
                     if (userCoordinates) {
                         const distance = this.calculateDistance(
