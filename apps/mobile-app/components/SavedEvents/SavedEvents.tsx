@@ -8,7 +8,7 @@ import {
   SafeAreaView,
   ActivityIndicator,
   RefreshControl,
-  Animated,
+  Animated as RNAnimated,
   StyleSheet,
 } from "react-native";
 import { ArrowLeft, Calendar, MapPin, Heart, Bookmark, Search, Scan } from "lucide-react-native";
@@ -16,6 +16,14 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { EventType } from "@/types/types";
 import apiClient from "@/services/ApiClient";
+import Animated, {
+  Layout,
+  FadeIn,
+  FadeOut,
+  SlideInRight,
+  SlideOutLeft,
+  LinearTransition,
+} from "react-native-reanimated";
 
 type TabType = 'saved' | 'discovered';
 
@@ -32,7 +40,7 @@ const SavedEventsView: React.FC = () => {
   const pageSize = 10;
 
   const listRef = useRef<FlatList>(null);
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollY = useRef(new RNAnimated.Value(0)).current;
 
   // Computed styles based on scroll position
   const headerOpacity = scrollY.interpolate({
@@ -127,7 +135,12 @@ const SavedEventsView: React.FC = () => {
   // Render footer with loading indicator when fetching more
   const renderFooter = () => {
     return (
-      <View style={styles.loadingFooter}>
+      <Animated.View
+        style={styles.loadingFooter}
+        entering={FadeIn}
+        exiting={FadeOut}
+        layout={Layout.springify()}
+      >
         {isFetchingMore ? (
           <>
             <ActivityIndicator size="small" color="#93c5fd" />
@@ -136,7 +149,7 @@ const SavedEventsView: React.FC = () => {
         ) : (
           <View style={styles.loadingFooterSpacer} />
         )}
-      </View>
+      </Animated.View>
     );
   };
 
@@ -145,7 +158,7 @@ const SavedEventsView: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor="#333" />
 
       {/* Header with animation */}
-      <Animated.View
+      <RNAnimated.View
         style={[
           styles.header,
           {
@@ -162,17 +175,23 @@ const SavedEventsView: React.FC = () => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Events</Text>
 
-        <View style={styles.headerIconContainer}>
+        <Animated.View
+          style={styles.headerIconContainer}
+          layout={Layout.springify()}
+        >
           {activeTab === 'saved' ? (
             <Bookmark size={20} color="#93c5fd" fill="#93c5fd" />
           ) : (
             <Scan size={20} color="#93c5fd" />
           )}
-        </View>
-      </Animated.View>
+        </Animated.View>
+      </RNAnimated.View>
 
       {/* Tab Toggle */}
-      <View style={styles.tabContainer}>
+      <Animated.View
+        style={styles.tabContainer}
+        layout={Layout.springify()}
+      >
         <TouchableOpacity
           style={[styles.tab, activeTab === 'saved' && styles.activeTab]}
           onPress={() => handleTabSwitch('saved')}
@@ -193,24 +212,33 @@ const SavedEventsView: React.FC = () => {
             Discovered
           </Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       {/* Content Area */}
       <View style={styles.contentArea}>
         {isLoading && events.length === 0 ? (
-          <View style={styles.loadingContainer}>
+          <Animated.View
+            style={styles.loadingContainer}
+            entering={FadeIn}
+            exiting={FadeOut}
+            layout={Layout.springify()}
+          >
             <ActivityIndicator size="large" color="#93c5fd" />
             <Text style={styles.loadingText}>Loading {activeTab} events...</Text>
-          </View>
+          </Animated.View>
         ) : (
-          <Animated.FlatList
+          <RNAnimated.FlatList
             ref={listRef}
             data={events}
-            onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+            onScroll={RNAnimated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
               useNativeDriver: false,
             })}
             ListHeaderComponent={() => (
-              <View style={styles.listHeader}>
+              <Animated.View
+                style={styles.listHeader}
+                entering={FadeIn}
+                layout={Layout.springify()}
+              >
                 <View style={styles.counterContainer}>
                   <Text style={styles.resultsText}>
                     {events.length > 0
@@ -219,62 +247,73 @@ const SavedEventsView: React.FC = () => {
                       : `No ${activeTab} events yet`}
                   </Text>
                 </View>
-              </View>
+              </Animated.View>
             )}
             renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.eventCard}
-                onPress={() => handleSelectEvent(item)}
-                activeOpacity={0.8}
+              <Animated.View
+                entering={SlideInRight}
+                exiting={SlideOutLeft}
+                layout={Layout.springify()}
               >
-                <View style={styles.eventCardContent}>
-                  <View style={styles.emojiContainer}>
-                    <Text style={styles.resultEmoji}>{item.emoji || "📍"}</Text>
-                  </View>
+                <TouchableOpacity
+                  style={styles.eventCard}
+                  onPress={() => handleSelectEvent(item)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.eventCardContent}>
+                    <View style={styles.emojiContainer}>
+                      <Text style={styles.resultEmoji}>{item.emoji || "📍"}</Text>
+                    </View>
 
-                  <View style={styles.resultTextContainer}>
-                    <Text style={styles.resultTitle} numberOfLines={1} ellipsizeMode="tail">
-                      {item.title}
-                    </Text>
+                    <View style={styles.resultTextContainer}>
+                      <Text style={styles.resultTitle} numberOfLines={1} ellipsizeMode="tail">
+                        {item.title}
+                      </Text>
 
-                    <View style={styles.detailsContainer}>
-                      <View style={styles.resultDetailsRow}>
-                        <Calendar size={14} color="#93c5fd" style={{ marginRight: 6 }} />
-                        <Text
-                          style={styles.resultDetailText}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {item.time}
-                        </Text>
-                      </View>
+                      <View style={styles.detailsContainer}>
+                        <View style={styles.resultDetailsRow}>
+                          <Calendar size={14} color="#93c5fd" style={{ marginRight: 6 }} />
+                          <Text
+                            style={styles.resultDetailText}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {item.time}
+                          </Text>
+                        </View>
 
-                      <View style={styles.resultDetailsRow}>
-                        <MapPin size={14} color="#93c5fd" style={{ marginRight: 6 }} />
-                        <Text
-                          style={styles.resultDetailText}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {item.location}
-                        </Text>
+                        <View style={styles.resultDetailsRow}>
+                          <MapPin size={14} color="#93c5fd" style={{ marginRight: 6 }} />
+                          <Text
+                            style={styles.resultDetailText}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {item.location}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
 
-                  <View style={styles.savedBadge}>
-                    {activeTab === 'saved' ? (
-                      <Heart size={16} color="#93c5fd" fill="#93c5fd" />
-                    ) : (
-                      <Scan size={16} color="#93c5fd" />
-                    )}
+                    <View style={styles.savedBadge}>
+                      {activeTab === 'saved' ? (
+                        <Heart size={16} color="#93c5fd" fill="#93c5fd" />
+                      ) : (
+                        <Scan size={16} color="#93c5fd" />
+                      )}
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </Animated.View>
             )}
             ListEmptyComponent={() =>
               !isLoading ? (
-                <View style={styles.emptyStateContainer}>
+                <Animated.View
+                  style={styles.emptyStateContainer}
+                  entering={FadeIn}
+                  exiting={FadeOut}
+                  layout={Layout.springify()}
+                >
                   <View style={styles.emptyStateIconContainer}>
                     {activeTab === 'saved' ? (
                       <Bookmark size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
@@ -307,7 +346,7 @@ const SavedEventsView: React.FC = () => {
                       </Text>
                     </View>
                   </TouchableOpacity>
-                </View>
+                </Animated.View>
               ) : null
             }
             ListFooterComponent={renderFooter}
@@ -331,7 +370,12 @@ const SavedEventsView: React.FC = () => {
         )}
 
         {error && (
-          <View style={styles.errorContainer}>
+          <Animated.View
+            style={styles.errorContainer}
+            entering={FadeIn}
+            exiting={FadeOut}
+            layout={Layout.springify()}
+          >
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity
               style={styles.retryButton}
@@ -340,7 +384,7 @@ const SavedEventsView: React.FC = () => {
             >
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         )}
       </View>
     </SafeAreaView>
