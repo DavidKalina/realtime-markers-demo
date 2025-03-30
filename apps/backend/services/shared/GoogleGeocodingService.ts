@@ -212,7 +212,7 @@ export class GoogleGeocodingService {
 4. Business/venue type relevance
 5. Rating and popularity (if available)
 
-RESPONSE FORMAT:
+You must respond with a JSON object containing:
 {
     "selectedIndex": number (index of the best match in the results array),
     "confidence": number between 0 and 1,
