@@ -1,21 +1,21 @@
 // components/Markers/ClusteredMapMarkers.tsx
-import React, { useCallback, useMemo } from "react";
-import MapboxGL from "@rnmapbox/maps";
-import { useLocationStore } from "@/stores/useLocationStore";
-import { MysteryEmojiMarker } from "./CustomMapMarker";
-import { ClusterMarker } from "./ClusterMarker";
-import { useMarkerClustering, ClusterFeature, PointFeature } from "@/hooks/useMarkerClustering";
-import { Marker } from "@/hooks/useMapWebsocket";
 import { useEventBroker } from "@/hooks/useEventBroker";
-import Animated, { BounceIn, Layout } from "react-native-reanimated";
+import { Marker } from "@/hooks/useMapWebsocket";
+import { ClusterFeature, PointFeature, useMarkerClustering } from "@/hooks/useMarkerClustering";
 import {
-  EventTypes,
   CameraAnimateToLocationEvent,
-  MapItemEvent,
-  MarkerItem as EventMarkerItem,
   ClusterItem as EventClusterItem,
+  MarkerItem as EventMarkerItem,
+  EventTypes,
+  MapItemEvent,
 } from "@/services/EventBroker";
+import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
+import MapboxGL from "@rnmapbox/maps";
+import React, { useCallback, useMemo } from "react";
+import Animated, { BounceIn, Layout, LinearTransition } from "react-native-reanimated";
+import { ClusterMarker } from "./ClusterMarker";
+import { MysteryEmojiMarker } from "./CustomMapMarker";
 
 // Define the map item types from the store (ideally these would be imported from a types file)
 interface BaseMapItem {
@@ -64,7 +64,7 @@ const SingleMarkerView = React.memo(
       >
         <Animated.View
           entering={BounceIn.duration(500).springify().damping(15).stiffness(200).delay(index * 50)}
-          layout={Layout.springify()}
+          layout={LinearTransition.springify()}
         >
           <MysteryEmojiMarker
             event={{
