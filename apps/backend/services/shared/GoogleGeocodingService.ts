@@ -345,33 +345,35 @@ export class GoogleGeocodingService {
                         content: `You are a location analysis expert working with Google's Geocoding and Places APIs. Extract location information that will be used to query these APIs.
 
 KEY INSTRUCTIONS:
-1. For ambiguous city names (like Washington, Springfield, etc):
+1. For campus buildings and specific rooms:
+   - Extract specific building names (e.g., "Sorensen Center")
+   - Extract specific room/area names (e.g., "Grande Ballroom", "Room 101")
+   - Prioritize these details in the Places API query
+   - Example: "Grande Ballroom Sorensen Center" is better than just "UVU Campus"
+
+2. For ambiguous city names (like Washington, Springfield, etc):
    - Look for state context in the full text
    - Check phone area codes (e.g., 435 is Utah)
    - Use landmarks or business names as context
    - If a city could be confused with a state/DC, explicitly add the state
 
-2. When extracting addresses:
+3. When extracting addresses:
    - Must include street number, street name, city, and state
    - Always use full state names or standard 2-letter codes (UT not Ut.)
    - For cities that share names with states/DC, always add the state
    - Format: "Street number + Street name, City, State ZIP"
 
-3. If no complete address is found:
+4. If no complete address is found:
    - Extract business names, landmarks, and cross-streets
    - Include city and state when known
    - Note any phone area codes as they help confirm state
-
-4. Phone Area Code Reference:
-   - 435: Utah (outside Salt Lake area)
-   - Add other relevant area codes as needed
 
 5. Places API Analysis:
    - Look for business names, landmarks, or points of interest
    - Consider if the location is likely to be in Google's Places database
    - Note if the location is a business, venue, or landmark
    - When constructing Places API queries:
-     * Start with the most specific identifier (business name, landmark)
+     * Start with the most specific identifier (room/area + building name)
      * Add city and state for context
      * Include any distinguishing features (e.g., "downtown", "north side")
      * Keep queries concise but specific
@@ -379,11 +381,6 @@ KEY INSTRUCTIONS:
        - Focus on finding places near the user's location
        - Include neighborhood/area context if known
        - Prioritize exact matches over general searches
-     * Examples:
-       - With coordinates: "Starbucks Downtown Salt Lake City"
-       - Without coordinates: "Starbucks Salt Lake City Utah"
-       - With coordinates: "Space Needle Seattle Washington"
-       - Without coordinates: "Space Needle Seattle"
 
 6. RESPONSE FORMAT:
    You MUST respond with a valid JSON object in this exact format:
@@ -394,6 +391,8 @@ KEY INSTRUCTIONS:
      "shouldTryPlacesApi": boolean indicating if we should try Places API,
      "placesQuery": "query string for Places API if shouldTryPlacesApi is true",
      "placesQueryContext": {
+       "buildingName": "specific building name if found",
+       "roomArea": "specific room/area if found",
        "businessType": "type of business/venue if applicable",
        "area": "specific area/neighborhood if known",
        "city": "city name if known",
@@ -478,14 +477,27 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
                 // Step 2: Try Places API with user location context
                 console.log('\nTrying Places API with query:', placesQuery);
                 // Construct a more specific query using context
-                let enhancedQuery = placesQuery;
-                if (placesQueryContext.area) {
+                let enhancedQuery = '';
+
+                // Start with the most specific details (room/area + building)
+                if (placesQueryContext.roomArea && placesQueryContext.buildingName) {
+                    enhancedQuery = `${placesQueryContext.roomArea} ${placesQueryContext.buildingName}`;
+                } else if (placesQueryContext.buildingName) {
+                    enhancedQuery = placesQueryContext.buildingName;
+                } else if (placesQuery) {
+                    enhancedQuery = placesQuery;
+                }
+
+                // Add area context if available
+                if (placesQueryContext.area && !enhancedQuery.toLowerCase().includes(placesQueryContext.area.toLowerCase())) {
                     enhancedQuery += ` ${placesQueryContext.area}`;
                 }
-                if (placesQueryContext.city && !enhancedQuery.includes(placesQueryContext.city)) {
+
+                // Add city/state if not already included
+                if (placesQueryContext.city && !enhancedQuery.toLowerCase().includes(placesQueryContext.city.toLowerCase())) {
                     enhancedQuery += ` ${placesQueryContext.city}`;
                 }
-                if (placesQueryContext.state && !enhancedQuery.includes(placesQueryContext.state)) {
+                if (placesQueryContext.state && !enhancedQuery.toLowerCase().includes(placesQueryContext.state.toLowerCase())) {
                     enhancedQuery += ` ${placesQueryContext.state}`;
                 }
 
