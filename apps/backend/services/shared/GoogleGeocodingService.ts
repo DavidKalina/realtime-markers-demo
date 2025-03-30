@@ -311,6 +311,11 @@ Enhanced query: ${enhancedQuery}`
                     details.push(`${distance.toFixed(1)} km from user location`);
                 }
 
+                // Add the original LLM notes if they contain additional context
+                if (locationContext && !details.includes(locationContext)) {
+                    details.push(locationContext);
+                }
+
                 locationNotes = details.join(' | ');
             }
 
