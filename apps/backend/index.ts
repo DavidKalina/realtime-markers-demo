@@ -30,12 +30,30 @@ import { EventExtractionService } from "./services/event-processing/EventExtract
 import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
 import { StorageService } from "./services/shared/StorageService";
 import { adminRouter } from "./routes/admin";
+import { RateLimitService } from "./services/shared/RateLimitService";
+import { rateLimit } from "./middleware/rateLimit";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
 
 app.use("*", logger());
 app.use("*", cors());
+
+// Initialize rate limit service
+RateLimitService.getInstance().initRedis({
+  host: process.env.REDIS_HOST || "localhost",
+  port: parseInt(process.env.REDIS_PORT || "6379"),
+  password: process.env.REDIS_PASSWORD || undefined,
+});
+
+// Global rate limit for all routes (100 requests per minute)
+app.use("*", rateLimit({ maxRequests: 100, windowMs: 60 * 1000 }));
+
+// More strict rate limit for auth routes (5 requests per minute)
+app.use("/api/auth/*", rateLimit({ maxRequests: 5, windowMs: 60 * 1000 }));
+
+// Rate limit for event creation (10 requests per minute)
+app.use("/api/events", rateLimit({ maxRequests: 10, windowMs: 60 * 1000 }));
 
 app.use("*", async (c, next) => {
   const url = c.req.url;
