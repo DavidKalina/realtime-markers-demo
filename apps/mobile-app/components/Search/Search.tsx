@@ -11,30 +11,143 @@ import {
   StatusBar,
   SafeAreaView,
   ActivityIndicator,
-  Animated,
   StyleSheet,
+  ViewStyle,
 } from "react-native";
-import { ArrowLeft, Search, X, Calendar, MapPin, Clock, AlertCircle, QrCode } from "lucide-react-native";
+import { ArrowLeft, Search, X, Calendar, MapPin, Clock, AlertCircle } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { EventType } from "@/types/types";
 import { useLocationStore } from "@/stores/useLocationStore";
 import useEventSearch from "@/hooks/useEventSearch";
 import debounce from 'lodash/debounce';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  Layout,
+  SlideInRight,
+  SlideOutLeft,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  withSequence,
+  withDelay,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedRef,
+  useAnimatedProps,
+  LinearTransition,
+  ZoomIn
+} from "react-native-reanimated";
+
+const SearchResultCard: React.FC<{
+  item: EventType;
+  index: number;
+  onPress: (event: EventType) => void;
+}> = ({ item, index, onPress }) => {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.98, {
+      damping: 25,
+      stiffness: 400,
+    });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, {
+      damping: 25,
+      stiffness: 400,
+    });
+  };
+
+  return (
+    <Animated.View
+      style={[styles.eventCard, animatedStyle]}
+      entering={ZoomIn.duration(300).springify().damping(25).stiffness(400).delay(index * 50)}
+      exiting={FadeOut.duration(200)}
+      layout={LinearTransition.springify().damping(25).stiffness(400)}
+    >
+      <TouchableOpacity
+        onPress={() => onPress(item)}
+        activeOpacity={1}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <View style={styles.eventCardContent}>
+          <View style={styles.emojiContainer}>
+            <Text style={styles.resultEmoji}>{item.emoji || "📍"}</Text>
+          </View>
+
+          <View style={styles.resultTextContainer}>
+            <View style={styles.titleRow}>
+              <Text style={styles.resultTitle} numberOfLines={1} ellipsizeMode="tail">
+                {item.title}
+              </Text>
+            </View>
+
+            <View style={styles.detailsContainer}>
+              <View style={styles.resultDetailsRow}>
+                <Clock size={14} color="#93c5fd" style={{ marginRight: 6 }} />
+                <Text
+                  style={styles.resultDetailText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {item.time}
+                </Text>
+              </View>
+
+              <View style={styles.resultDetailsRow}>
+                <MapPin size={14} color="#93c5fd" style={{ marginRight: 6 }} />
+                <Text
+                  style={styles.resultDetailText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {item.distance ? item.distance : item.location}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
 
 const SearchView = () => {
   const router = useRouter();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useSharedValue(0);
+  const scrollY = useSharedValue(0);
   const [isTyping, setIsTyping] = useState(false);
 
   // Animation for header shadow
-  const headerShadowOpacity = scrollY.interpolate({
-    inputRange: [0, 50],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
+  const headerAnimatedStyle = useAnimatedStyle(() => {
+    const borderBottomColor = interpolate(
+      scrollY.value,
+      [0, 50],
+      [0, 1],
+      'clamp'
+    );
+
+    return {
+      borderBottomColor: borderBottomColor === 0 ? 'transparent' : '#3a3a3a',
+    } as ViewStyle;
+  });
+
+  // Scroll handler
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
   });
 
   // Get stored markers from location store to show nearby events initially
@@ -55,7 +168,7 @@ const SearchView = () => {
   } = useEventSearch({ initialMarkers: storedMarkers });
 
   const searchInputRef = useRef<TextInput>(null);
-  const listRef = useRef<FlatList>(null);
+  const listRef = useAnimatedRef<FlatList>();
 
   // Debounced search function
   const debouncedSearch = useCallback(
@@ -103,13 +216,10 @@ const SearchView = () => {
     // Auto-focus the search input when the screen opens
     setTimeout(() => {
       searchInputRef.current?.focus();
-
-      // Fade in animation
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      fadeAnim.value = withSpring(1, {
+        damping: 15,
+        stiffness: 200,
+      });
     }, 500);
 
     return () => {
@@ -151,12 +261,31 @@ const SearchView = () => {
     if (!isFetchingMore) return null;
 
     return (
-      <View style={styles.loadingFooter}>
+      <Animated.View
+        style={styles.loadingFooter}
+        entering={FadeIn}
+        exiting={FadeOut}
+        layout={LinearTransition.springify()}
+      >
         <ActivityIndicator size="small" color="#93c5fd" />
         <Text style={styles.loadingFooterText}>Loading more events...</Text>
-      </View>
+      </Animated.View>
     );
   };
+
+  // Search input animated style
+  const searchInputAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: fadeAnim.value,
+    transform: [
+      {
+        translateY: interpolate(
+          fadeAnim.value,
+          [0, 1],
+          [10, 0]
+        ),
+      },
+    ],
+  }));
 
   return (
     <SafeAreaView style={styles.container}>
@@ -164,45 +293,27 @@ const SearchView = () => {
 
       {/* Animated Header */}
       <Animated.View
-        style={[
-          styles.header,
-          {
-            shadowOpacity: headerShadowOpacity,
-            borderBottomColor: headerShadowOpacity.interpolate({
-              inputRange: [0, 1],
-              outputRange: ["transparent", "#3a3a3a"],
-            }),
-          },
-        ]}
+        style={[styles.header, headerAnimatedStyle]}
       >
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
           <ArrowLeft size={22} color="#f8f9fa" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Search Events</Text>
 
-        <View style={styles.headerIconContainer}>
+        <Animated.View
+          style={styles.headerIconContainer}
+          layout={LinearTransition.springify()}
+        >
           <Search size={18} color="#93c5fd" />
-        </View>
+        </Animated.View>
       </Animated.View>
 
       {/* Content Area */}
       <View style={styles.contentArea}>
         {/* Enhanced Search Input */}
         <Animated.View
-          style={[
-            styles.searchInputContainer,
-            {
-              opacity: fadeAnim,
-              transform: [
-                {
-                  translateY: fadeAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [10, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
+          style={[styles.searchInputContainer, searchInputAnimatedStyle]}
+          layout={LinearTransition.springify()}
         >
           <View style={styles.searchIconContainer}>
             <Search size={18} color="#4dabf7" />
@@ -235,21 +346,29 @@ const SearchView = () => {
 
         {/* Main Content */}
         {(isLoading || isTyping) && eventResults.length === 0 ? (
-          <View style={styles.loadingContainer}>
+          <Animated.View
+            style={styles.loadingContainer}
+            entering={FadeIn}
+            exiting={FadeOut}
+            layout={LinearTransition.springify()}
+          >
             <ActivityIndicator size="large" color="#93c5fd" />
             <Text style={styles.loadingText}>
               {isTyping ? "Finding events..." : "Searching events..."}
             </Text>
-          </View>
+          </Animated.View>
         ) : (
           <Animated.FlatList
             ref={listRef}
             data={eventResults}
-            onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-              useNativeDriver: false,
-            })}
+            onScroll={scrollHandler}
+            scrollEventThrottle={16}
             ListHeaderComponent={() => (
-              <View style={styles.listHeader}>
+              <Animated.View
+                style={styles.listHeader}
+                entering={FadeIn}
+                layout={LinearTransition.springify()}
+              >
                 <View style={styles.resultsContainer}>
                   <Text style={styles.resultsText}>
                     {hasSearched
@@ -258,64 +377,23 @@ const SearchView = () => {
                       : "Showing nearby events"}
                   </Text>
                 </View>
-              </View>
+              </Animated.View>
             )}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.eventCard}
-                onPress={() => handleSelectEvent(item)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.eventCardContent}>
-                  {/* Emoji Container */}
-                  <View style={styles.emojiContainer}>
-                    <Text style={styles.resultEmoji}>{item.emoji || "📍"}</Text>
-                  </View>
-
-                  {/* Event Details */}
-                  <View style={styles.resultTextContainer}>
-                    <View style={styles.titleRow}>
-                      <Text style={styles.resultTitle} numberOfLines={1} ellipsizeMode="tail">
-                        {item.title}
-                      </Text>
-                      {item.qrData && (
-                        <View style={styles.qrIconContainer}>
-                          <QrCode size={14} color="#93c5fd" />
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Event Details with improved icons */}
-                    <View style={styles.detailsContainer}>
-                      <View style={styles.resultDetailsRow}>
-                        <Clock size={14} color="#93c5fd" style={{ marginRight: 6 }} />
-                        <Text
-                          style={styles.resultDetailText}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {item.time}
-                        </Text>
-                      </View>
-
-                      <View style={styles.resultDetailsRow}>
-                        <MapPin size={14} color="#93c5fd" style={{ marginRight: 6 }} />
-                        <Text
-                          style={styles.resultDetailText}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {item.distance ? item.distance : item.location}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              </TouchableOpacity>
+            renderItem={({ item, index }) => (
+              <SearchResultCard
+                item={item}
+                index={index}
+                onPress={handleSelectEvent}
+              />
             )}
             ListEmptyComponent={() =>
               hasSearched && !isLoading ? (
-                <View style={styles.emptyStateContainer}>
+                <Animated.View
+                  style={styles.emptyStateContainer}
+                  entering={FadeIn}
+                  exiting={FadeOut}
+                  layout={LinearTransition.springify()}
+                >
                   <View style={styles.emptyStateIconContainer}>
                     <Search size={36} color="#93c5fd" style={{ opacity: 0.6 }} />
                   </View>
@@ -324,7 +402,7 @@ const SearchView = () => {
                     We couldn't find any events matching your search. Try different keywords or
                     browse nearby events.
                   </Text>
-                </View>
+                </Animated.View>
               ) : null
             }
             ListFooterComponent={renderFooter}
@@ -343,7 +421,12 @@ const SearchView = () => {
 
         {/* Improved Error Display */}
         {error && (
-          <View style={styles.errorContainer}>
+          <Animated.View
+            style={styles.errorContainer}
+            entering={FadeIn}
+            exiting={FadeOut}
+            layout={LinearTransition.springify()}
+          >
             <View style={styles.errorIconContainer}>
               <AlertCircle size={18} color="#f97583" />
             </View>
@@ -355,7 +438,7 @@ const SearchView = () => {
             >
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         )}
       </View>
     </SafeAreaView>
@@ -379,11 +462,6 @@ const styles = StyleSheet.create({
     borderBottomColor: "transparent",
     backgroundColor: "#333",
     zIndex: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0,
-    shadowRadius: 3,
-    elevation: 0,
   },
 
   backButton: {

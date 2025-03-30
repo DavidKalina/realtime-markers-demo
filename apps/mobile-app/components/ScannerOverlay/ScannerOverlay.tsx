@@ -44,13 +44,13 @@ const STATUS_CONFIG = {
   aligned: {
     colorValue: 1,
     scaleValue: 1.02,
-    scanColor: "#37D05C",
+    scanColor: "#4dabf7",
     overlayOpacity: 0.5,
   },
   capturing: {
     colorValue: 1,
     scaleValue: 1.05,
-    scanColor: "#37D05C",
+    scanColor: "#4dabf7",
     overlayOpacity: 0.6,
   },
 };
@@ -283,6 +283,10 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
         <Animated.View style={[overlayStyles.frame, frameStyle]}>
           <View style={overlayStyles.boundary} />
           <Animated.View style={[overlayStyles.overlay, overlayStyle]} />
+          <View style={[overlayStyles.corner, overlayStyles.cornerTopLeft]} />
+          <View style={[overlayStyles.corner, overlayStyles.cornerTopRight]} />
+          <View style={[overlayStyles.corner, overlayStyles.cornerBottomLeft]} />
+          <View style={[overlayStyles.corner, overlayStyles.cornerBottomRight]} />
           {showScannerAnimation && (
             <View style={overlayStyles.scannerContainer}>
               <ScannerAnimation
@@ -313,7 +317,6 @@ const overlayStyles = StyleSheet.create({
     height: "100%",
     position: "relative",
     overflow: "hidden",
-    borderRadius: 12,
   },
   boundary: {
     position: "absolute",
@@ -321,9 +324,13 @@ const overlayStyles = StyleSheet.create({
     left: "3%",
     right: "3%",
     bottom: "3%",
-    borderWidth: 3,
-    borderColor: "#00f2ff",
-    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "rgba(0, 242, 255, 0.8)",
+    shadowColor: "#00f2ff",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 8,
   },
   overlay: {
     position: "absolute",
@@ -340,5 +347,36 @@ const overlayStyles = StyleSheet.create({
     right: "3%",
     bottom: "3%",
     overflow: "hidden",
-  }
+  },
+  corner: {
+    position: "absolute",
+    width: 20,
+    height: 20,
+    borderColor: "#00f2ff",
+    borderWidth: 2,
+  },
+  cornerTopLeft: {
+    top: "3%",
+    left: "3%",
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+  },
+  cornerTopRight: {
+    top: "3%",
+    right: "3%",
+    borderLeftWidth: 0,
+    borderBottomWidth: 0,
+  },
+  cornerBottomLeft: {
+    bottom: "3%",
+    left: "3%",
+    borderRightWidth: 0,
+    borderTopWidth: 0,
+  },
+  cornerBottomRight: {
+    bottom: "3%",
+    right: "3%",
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+  },
 });
