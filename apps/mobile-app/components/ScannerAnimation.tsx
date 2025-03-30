@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useCallback, useImperativeHandle } from "react";
 import { StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
@@ -24,11 +24,35 @@ interface ScannerAnimationProps {
   speed?: number;
 }
 
-export const ScannerAnimation: React.FC<ScannerAnimationProps> = React.memo(
-  ({ isActive, color = "#4dabf7", speed = 1500 }) => {
+export interface ScannerAnimationRef {
+  cleanup: () => void;
+  resetAnimation: () => void;
+}
+
+export const ScannerAnimation = React.forwardRef<ScannerAnimationRef, ScannerAnimationProps>(
+  ({ isActive, color = "#4dabf7", speed = 1500 }, ref) => {
     // Animation value for the scanner bar position (0 to 100%)
     const scanPosition = useSharedValue(0);
     const isMounted = useRef(true);
+
+    // Create cleanup function
+    const cleanup = useCallback(() => {
+      if (!isMounted.current) return;
+      cancelAnimation(scanPosition);
+      scanPosition.value = 0;
+    }, [scanPosition]);
+
+    // Create reset function
+    const resetAnimation = useCallback(() => {
+      if (!isMounted.current) return;
+      scanPosition.value = 0;
+    }, [scanPosition]);
+
+    // Expose methods via ref
+    useImperativeHandle(ref, () => ({
+      cleanup,
+      resetAnimation,
+    }), [cleanup, resetAnimation]);
 
     // Set isMounted to false on unmount
     useEffect(() => {
@@ -41,6 +65,7 @@ export const ScannerAnimation: React.FC<ScannerAnimationProps> = React.memo(
     useEffect(() => {
       if (!isMounted.current) return;
 
+      // Cancel any existing animation
       cancelAnimation(scanPosition);
 
       let animation: any = null;
@@ -80,6 +105,7 @@ export const ScannerAnimation: React.FC<ScannerAnimationProps> = React.memo(
       return () => {
         if (animation) {
           cancelAnimation(scanPosition);
+          scanPosition.value = 0; // Reset to initial value
         }
       };
     }, [isActive, speed, scanPosition]);
@@ -97,14 +123,6 @@ export const ScannerAnimation: React.FC<ScannerAnimationProps> = React.memo(
       <Animated.View style={styles.container}>
         <Animated.View style={[styles.scanLine, scanLineStyle]} />
       </Animated.View>
-    );
-  },
-  // Custom equality function for React.memo to prevent unnecessary re-renders
-  (prevProps, nextProps) => {
-    return (
-      prevProps.isActive === nextProps.isActive &&
-      prevProps.color === nextProps.color &&
-      prevProps.speed === nextProps.speed
     );
   }
 );

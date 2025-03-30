@@ -2,7 +2,8 @@
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import { ImageSelector } from "@/components/ImageSelector";
-import { ScannerOverlay } from "@/components/ScannerOverlay/ScannerOverlay";
+import { ScannerOverlay, ScannerOverlayRef } from "@/components/ScannerOverlay/ScannerOverlay";
+import { ScannerAnimation, ScannerAnimationRef } from "@/components/ScannerAnimation";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
 import { useEventBroker } from "@/hooks/useEventBroker";
@@ -66,6 +67,10 @@ export default function ScanScreen() {
 
   // Get the event broker
   const { publish } = useEventBroker();
+
+  // Refs for animation components
+  const scannerOverlayRef = useRef<ScannerOverlayRef>(null);
+  const scannerAnimationRef = useRef<ScannerAnimationRef>(null);
 
   // Clear detection interval function
   const clearDetectionInterval = useCallback(() => {
@@ -148,7 +153,7 @@ export default function ScanScreen() {
     };
   }, [clearDetectionInterval, releaseCamera]);
 
-  // Comprehensive cleanup function
+  // Enhanced cleanup function
   const performFullCleanup = useCallback(() => {
     if (!isMounted.current) return;
 
@@ -168,6 +173,10 @@ export default function ScanScreen() {
     setCapturedImage(null);
     setImageSource(null);
     setUploadProgress(0);
+
+    // Clean up animations
+    scannerOverlayRef.current?.cleanup();
+    scannerAnimationRef.current?.cleanup();
 
     // Release camera resources
     releaseCamera();
@@ -526,6 +535,7 @@ export default function ScanScreen() {
               flash={flashMode}
             >
               <ScannerOverlay
+                ref={scannerOverlayRef}
                 detectionStatus={detectionStatus}
                 isCapturing={isCapturing || isUploading}
                 showScannerAnimation={false}
