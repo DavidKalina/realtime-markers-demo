@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
+import React, { useMemo } from "react";
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Animated } from "react-native";
 import { Bookmark, BookmarkCheck, CheckCircle } from "lucide-react-native";
 
 const styles = StyleSheet.create({
@@ -44,6 +44,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(147, 197, 253, 0.15)",
     marginRight: 16,
+    shadowColor: "#93c5fd",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
   resultEmoji: {
@@ -53,6 +58,7 @@ const styles = StyleSheet.create({
   // Title area styling
   eventTitleWrapper: {
     flex: 1,
+    marginRight: 8,
   },
 
   resultTitle: {
@@ -60,7 +66,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
-    marginBottom: 5,
+    marginBottom: 6,
+    letterSpacing: -0.2,
   },
 
   // Verified badge with improved styling
@@ -68,12 +75,12 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(64, 192, 87, 0.2)",
+    backgroundColor: "rgba(64, 192, 87, 0.15)",
     borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 4,
     borderWidth: 1,
-    borderColor: "rgba(64, 192, 87, 0.3)",
+    borderColor: "rgba(64, 192, 87, 0.2)",
   },
 
   statusText: {
@@ -82,6 +89,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontFamily: "SpaceMono",
     marginLeft: 4,
+    letterSpacing: 0.5,
   },
 
   // Save button styling
@@ -114,6 +122,25 @@ const EventDetailsHeader = ({
   savingState: "idle" | "loading";
   handleToggleSave: () => void;
 }) => {
+  const scaleAnim = React.useRef(new Animated.Value(1)).current;
+  const titleFontSize = useMemo(() => {
+    return event.title.length > 40 ? 16 : 18;
+  }, [event.title]);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
+
   return (
     <View style={styles.eventHeaderContainer}>
       <View style={styles.headerContent}>
@@ -122,7 +149,13 @@ const EventDetailsHeader = ({
         </View>
 
         <View style={styles.eventTitleWrapper}>
-          <Text style={styles.resultTitle}>{event.title}</Text>
+          <Text
+            style={[styles.resultTitle, { fontSize: titleFontSize }]}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
+            {event.title}
+          </Text>
           {event.verified && (
             <View style={styles.statusBadge}>
               <CheckCircle size={12} color="#40c057" />
@@ -131,21 +164,24 @@ const EventDetailsHeader = ({
           )}
         </View>
 
-        {/* Save Button with improved styling */}
-        <TouchableOpacity
-          style={[styles.saveButton, savingState === "loading" && { opacity: 0.7 }]}
-          onPress={handleToggleSave}
-          disabled={savingState === "loading"}
-          activeOpacity={0.7}
-        >
-          {savingState === "loading" ? (
-            <ActivityIndicator size="small" color="#93c5fd" />
-          ) : isSaved ? (
-            <BookmarkCheck size={24} color="#93c5fd" />
-          ) : (
-            <Bookmark size={24} color="#93c5fd" />
-          )}
-        </TouchableOpacity>
+        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+          <TouchableOpacity
+            style={[styles.saveButton, savingState === "loading" && { opacity: 0.7 }]}
+            onPress={handleToggleSave}
+            disabled={savingState === "loading"}
+            activeOpacity={0.7}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+          >
+            {savingState === "loading" ? (
+              <ActivityIndicator size="small" color="#93c5fd" />
+            ) : isSaved ? (
+              <BookmarkCheck size={24} color="#93c5fd" />
+            ) : (
+              <Bookmark size={24} color="#93c5fd" />
+            )}
+          </TouchableOpacity>
+        </Animated.View>
       </View>
     </View>
   );

@@ -282,35 +282,35 @@ const FiltersView: React.FC = () => {
   const renderFilterItem = ({ item, index }: { item: FilterType; index: number }) => (
     <Animated.View
       style={styles.filterCard}
-      entering={ZoomIn.duration(300).springify().damping(25).stiffness(400).delay(index * 50)}
-      exiting={FadeOut.duration(200)}
-      layout={LinearTransition.springify().damping(25).stiffness(400)}
+      entering={ZoomIn.duration(200).springify().damping(30).stiffness(300).delay(index * 30)}
+      exiting={FadeOut.duration(150)}
+      layout={LinearTransition.springify().damping(30).stiffness(300)}
     >
       <Animated.View
         style={styles.filterHeader}
-        layout={LinearTransition.springify().damping(25).stiffness(400)}
+        layout={LinearTransition.springify().damping(30).stiffness(300)}
       >
         <Animated.View
           style={styles.filterIconContainer}
-          layout={LinearTransition.springify().damping(25).stiffness(400)}
+          layout={LinearTransition.springify().damping(30).stiffness(300)}
         >
           {item.emoji ? (
             <Text style={styles.filterEmoji}>{item.emoji}</Text>
           ) : (
-            <FilterIcon size={18} color="#93c5fd" />
+            <FilterIcon size={16} color="#93c5fd" />
           )}
         </Animated.View>
         <Animated.View
           style={styles.filterTitleContainer}
-          layout={LinearTransition.springify().damping(25).stiffness(400)}
+          layout={LinearTransition.springify().damping(30).stiffness(300)}
         >
           <Text style={styles.filterName}>{item.name}</Text>
           {activeFilterIds.includes(item.id) && (
             <Animated.View
               style={styles.activeBadge}
-              entering={ZoomIn.duration(200).springify().damping(25).stiffness(400)}
-              exiting={FadeOut.duration(200)}
-              layout={LinearTransition.springify().damping(25).stiffness(400)}
+              entering={ZoomIn.duration(150).springify().damping(30).stiffness(300)}
+              exiting={FadeOut.duration(150)}
+              layout={LinearTransition.springify().damping(30).stiffness(300)}
             >
               <Text style={styles.activeText}>ACTIVE</Text>
             </Animated.View>
@@ -320,13 +320,13 @@ const FiltersView: React.FC = () => {
 
       <Animated.View
         style={styles.filterDetails}
-        layout={LinearTransition.springify().damping(25).stiffness(400)}
+        layout={LinearTransition.springify().damping(30).stiffness(300)}
       >
         {/* Semantic Query */}
         {item.semanticQuery && (
           <Animated.View
             style={styles.criteriaSection}
-            layout={LinearTransition.springify().damping(25).stiffness(400)}
+            layout={LinearTransition.springify().damping(30).stiffness(300)}
           >
             <Text style={styles.criteriaLabel}>Search Query:</Text>
             <Text style={styles.criteriaValue}>{item.semanticQuery}</Text>
@@ -337,11 +337,11 @@ const FiltersView: React.FC = () => {
         {(item.criteria.dateRange?.start || item.criteria.dateRange?.end) && (
           <Animated.View
             style={styles.criteriaSection}
-            layout={LinearTransition.springify().damping(25).stiffness(400)}
+            layout={LinearTransition.springify().damping(30).stiffness(300)}
           >
             <Animated.View
               style={styles.criteriaRow}
-              layout={LinearTransition.springify().damping(25).stiffness(400)}
+              layout={LinearTransition.springify().damping(30).stiffness(300)}
             >
               <Calendar size={14} color="#93c5fd" style={styles.criteriaIcon} />
               <Text style={styles.criteriaLabel}>Date Range:</Text>
@@ -361,42 +361,42 @@ const FiltersView: React.FC = () => {
 
       <Animated.View
         style={styles.divider}
-        layout={LinearTransition.springify().damping(25).stiffness(400)}
+        layout={LinearTransition.springify().damping(30).stiffness(300)}
       />
 
       <Animated.View
         style={styles.filterActions}
-        layout={LinearTransition.springify().damping(25).stiffness(400)}
+        layout={LinearTransition.springify().damping(30).stiffness(300)}
       >
-        <Animated.View layout={LinearTransition.springify().damping(25).stiffness(400)}>
+        <Animated.View layout={LinearTransition.springify().damping(30).stiffness(300)}>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => handleApplyFilter(item)}
             activeOpacity={0.7}
           >
-            <SearchIcon size={16} color="#93c5fd" />
+            <SearchIcon size={14} color="#93c5fd" />
             <Text style={styles.actionText}>Apply</Text>
           </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View layout={LinearTransition.springify().damping(25).stiffness(400)}>
+        <Animated.View layout={LinearTransition.springify().damping(30).stiffness(300)}>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => handleEditFilter(item)}
             activeOpacity={0.7}
           >
-            <Edit2 size={16} color="#93c5fd" />
+            <Edit2 size={14} color="#93c5fd" />
             <Text style={styles.actionText}>Edit</Text>
           </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View layout={LinearTransition.springify().damping(25).stiffness(400)}>
+        <Animated.View layout={LinearTransition.springify().damping(30).stiffness(300)}>
           <TouchableOpacity
             style={styles.deleteButton}
             onPress={() => handleDeleteFilter(item.id)}
             activeOpacity={0.7}
           >
-            <Trash2 size={16} color="#f97583" />
+            <Trash2 size={14} color="#f97583" />
             <Text style={styles.deleteText}>Delete</Text>
           </TouchableOpacity>
         </Animated.View>
@@ -716,12 +716,12 @@ const styles = StyleSheet.create({
   filterCard: {
     backgroundColor: "#3a3a3a",
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 8,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.05)",
     overflow: "hidden",
@@ -730,7 +730,7 @@ const styles = StyleSheet.create({
   filterHeader: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    padding: 10,
   },
 
   filterIconContainer: {
@@ -740,7 +740,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(147, 197, 253, 0.15)",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
+    marginRight: 8,
   },
 
   filterTitleContainer: {
@@ -751,37 +751,37 @@ const styles = StyleSheet.create({
   },
 
   filterName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
     flex: 1,
-    marginRight: 10,
+    marginRight: 8,
   },
 
   activeBadge: {
     backgroundColor: "rgba(64, 192, 87, 0.2)",
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
     borderWidth: 1,
     borderColor: "rgba(64, 192, 87, 0.3)",
   },
 
   activeText: {
     color: "#40c057",
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: "600",
     fontFamily: "SpaceMono",
   },
 
   filterDetails: {
-    padding: 12,
+    padding: 10,
     paddingTop: 0,
   },
 
   criteriaSection: {
-    marginBottom: 8,
+    marginBottom: 6,
   },
 
   criteriaRow: {
@@ -795,18 +795,18 @@ const styles = StyleSheet.create({
   },
 
   criteriaLabel: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#93c5fd",
     fontFamily: "SpaceMono",
     fontWeight: "500",
-    marginBottom: 2,
+    marginBottom: 1,
   },
 
   criteriaValue: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
-    lineHeight: 18,
+    lineHeight: 16,
     paddingLeft: 4,
   },
 
@@ -826,8 +826,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(147, 197, 253, 0.1)",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: "rgba(147, 197, 253, 0.2)",
@@ -835,18 +835,18 @@ const styles = StyleSheet.create({
 
   actionText: {
     color: "#93c5fd",
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "SpaceMono",
     fontWeight: "500",
-    marginLeft: 6,
+    marginLeft: 4,
   },
 
   deleteButton: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(249, 117, 131, 0.1)",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: "rgba(249, 117, 131, 0.2)",
@@ -854,10 +854,10 @@ const styles = StyleSheet.create({
 
   deleteText: {
     color: "#f97583",
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "SpaceMono",
     fontWeight: "500",
-    marginLeft: 6,
+    marginLeft: 4,
   },
 
   // Loading state
@@ -1208,9 +1208,9 @@ const styles = StyleSheet.create({
   },
 
   filterEmoji: {
-    fontSize: 20,
+    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 20,
+    includeFontPadding: false,
   },
 });
 
