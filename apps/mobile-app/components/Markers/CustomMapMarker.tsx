@@ -94,27 +94,33 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
 
     // Add subtle float animation
     useEffect(() => {
-      floatY.value = withRepeat(
-        withSequence(
-          withTiming(1, ANIMATIONS.FLOAT_CONFIG),
-          withTiming(-1, ANIMATIONS.FLOAT_CONFIG)
-        ),
-        -1, // Infinite repeats
-        true // Reverse
-      );
+      if (isSelected) {
+        floatY.value = withRepeat(
+          withSequence(
+            withTiming(1, ANIMATIONS.FLOAT_CONFIG),
+            withTiming(-1, ANIMATIONS.FLOAT_CONFIG)
+          ),
+          -1, // Infinite repeats
+          true // Reverse
+        );
 
-      // Add subtle rotation
-      rotation.value = withRepeat(
-        withSequence(
-          withTiming(0.02, { ...ANIMATIONS.FLOAT_CONFIG, duration: 2000 }),
-          withTiming(-0.02, { ...ANIMATIONS.FLOAT_CONFIG, duration: 2000 })
-        ),
-        -1, // Infinite repeats
-        true // Reverse
-      );
+        // Add subtle rotation
+        rotation.value = withRepeat(
+          withSequence(
+            withTiming(0.02, { ...ANIMATIONS.FLOAT_CONFIG, duration: 2000 }),
+            withTiming(-0.02, { ...ANIMATIONS.FLOAT_CONFIG, duration: 2000 })
+          ),
+          -1, // Infinite repeats
+          true // Reverse
+        );
+      } else {
+        // Reset animations when not selected
+        floatY.value = 0;
+        rotation.value = 0;
+      }
 
       return createAnimationCleanup([floatY, rotation]);
-    }, []); // Empty deps array - only run on mount
+    }, [isSelected]); // Now depends on isSelected
 
     // Handle selection state changes
     useEffect(() => {
@@ -144,7 +150,7 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
           // Stop pulse animation
           pulseOpacity.value = withTiming(0, ANIMATIONS.FADE_CONFIG);
 
-          // Scale down
+          // Scale down and reset other animations
           scale.value = withTiming(1, ANIMATIONS.SCALE_UP_CONFIG);
         }
       }
