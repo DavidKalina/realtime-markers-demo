@@ -1,43 +1,36 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import useEventSearch from "@/hooks/useEventSearch";
+import { useLocationStore } from "@/stores/useLocationStore";
+import { EventType } from "@/types/types";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
+import debounce from 'lodash/debounce';
+import { AlertCircle, ArrowLeft, Clock, MapPin, Search, X } from "lucide-react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
+  ActivityIndicator,
   FlatList,
   Keyboard,
   KeyboardEvent,
   Platform,
-  StatusBar,
   SafeAreaView,
-  ActivityIndicator,
+  StatusBar,
   StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
   ViewStyle,
 } from "react-native";
-import { ArrowLeft, Search, X, Calendar, MapPin, Clock, AlertCircle } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import { EventType } from "@/types/types";
-import { useLocationStore } from "@/stores/useLocationStore";
-import useEventSearch from "@/hooks/useEventSearch";
-import debounce from 'lodash/debounce';
 import Animated, {
   FadeIn,
   FadeOut,
-  Layout,
-  SlideInRight,
-  SlideOutLeft,
+  interpolate,
+  LinearTransition,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
-  withSequence,
-  withDelay,
-  interpolate,
-  useAnimatedScrollHandler,
-  useAnimatedRef,
-  useAnimatedProps,
-  LinearTransition,
   ZoomIn
 } from "react-native-reanimated";
 

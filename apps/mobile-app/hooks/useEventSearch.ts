@@ -193,10 +193,10 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
       return;
     }
 
-    // Set new timeout
+    // Set new timeout with increased debounce time
     const timeout = setTimeout(() => {
       searchEvents(true);
-    }, 300);
+    }, 500); // Increased from 300ms to 500ms
 
     setSearchTimeout(timeout);
 
@@ -206,12 +206,29 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
     };
   }, [searchQuery, hasSearched, searchEvents]);
 
-  // Handle loading more results
-  const handleLoadMore = useCallback(() => {
-    if (!isLoading && !isFetchingMore && hasMoreResults && searchQuery.trim()) {
-      searchEvents(false);
+  // Add debounced load more function
+  const debouncedLoadMore = useCallback(() => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
     }
+
+    const timeout = setTimeout(() => {
+      if (!isLoading && !isFetchingMore && hasMoreResults && searchQuery.trim()) {
+        searchEvents(false);
+      }
+    }, 500); // Same debounce time as search
+
+    setSearchTimeout(timeout);
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
   }, [isLoading, isFetchingMore, hasMoreResults, searchQuery, searchEvents]);
+
+  // Handle loading more results with debouncing
+  const handleLoadMore = useCallback(() => {
+    debouncedLoadMore();
+  }, [debouncedLoadMore]);
 
   // Clear search query
   const clearSearch = useCallback(() => {
