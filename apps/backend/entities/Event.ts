@@ -78,6 +78,7 @@ export class Event {
   @Column({ name: "embedding", type: "text", nullable: true })
   embedding?: string;
 
+  @Index()
   @Column({
     type: "enum",
     enum: EventStatus,
@@ -111,7 +112,7 @@ export class Event {
   @Column({ name: "original_image_url", type: "text", nullable: true })
   originalImageUrl?: string;
 
-  // Link to creator user
+  @Index()
   @Column({ name: "creator_id", type: "uuid", nullable: true })
   creatorId?: string;
 
