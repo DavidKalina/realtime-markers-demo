@@ -32,15 +32,12 @@ export interface EmbeddingInput {
    */
   coordinates?: [number, number];
 
-  /**
-   * Optional address to include in the embedding
-   */
-  address?: string;
 
-  /**
-   * Optional timezone to include in the embedding
-   */
   timezone?: string;
+
+  locationNotes?: string
+
+  address?: string;
 
   /**
    * Optional custom weighting configuration (overrides defaults)
@@ -52,6 +49,7 @@ export interface EmbeddingInput {
     address?: number;
     timezone?: number;
     text?: number;
+    locationNotes?: number;
   };
 }
 
@@ -71,12 +69,13 @@ export class EmbeddingService implements IEmbeddingService {
 
   // Default weights for different input components
   private readonly DEFAULT_WEIGHTS = {
-    title: 4,
-    date: 2,
-    coordinates: 2,
-    address: 5,
-    timezone: 1,
-    text: 1,
+    title: 6,
+    date: 3,
+    coordinates: 0.5,
+    address: 4,
+    timezone: 0.5,
+    text: 3,
+    locationNotes: 3,
   };
 
   /**
@@ -278,6 +277,11 @@ export class EmbeddingService implements IEmbeddingService {
     // Add address with weight
     if (input.address) {
       components.push(`ADDRESS: ${input.address.repeat(weights.address)}`);
+    }
+
+    // Add location notes with weight
+    if (input.locationNotes) {
+      components.push(`LOCATION_NOTES: ${input.locationNotes.repeat(weights.locationNotes)}`);
     }
 
     // Add main text

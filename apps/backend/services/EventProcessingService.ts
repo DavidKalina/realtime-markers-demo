@@ -232,7 +232,7 @@ export class EventProcessingService {
         coordinates: eventDetails.location.coordinates as [number, number],
         address: eventDetails.address,
         timezone: eventDetails.timezone,
-        // Use default weights from EmbeddingService
+        locationNotes: eventDetails.locationNotes,
       };
 
       // Generate a structured embedding
