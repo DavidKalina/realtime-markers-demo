@@ -1,8 +1,9 @@
 // hooks/useEventSearch.ts
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import apiClient from "@/services/ApiClient";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { EventType } from "@/types/types";
+import debounce from "lodash/debounce";
 
 // Convert Marker to EventType for consistent handling
 const markerToEventType = (marker: Marker): EventType => {
@@ -60,11 +61,12 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
   const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
   const [hasMoreResults, setHasMoreResults] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
-  const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const searchInProgress = useRef(false);
+  const lastSearchQuery = useRef<string>("");
+  const searchTimeout = useRef<NodeJS.Timeout>();
 
   // Add cache for search results
   const searchCache = useRef<Map<string, { results: EventType[], nextCursor?: string }>>(new Map());
-  const lastSearchQuery = useRef<string>("");
 
   // Initialize with initial markers if available
   useEffect(() => {
@@ -74,161 +76,126 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
     }
   }, [initialMarkers, hasSearched]);
 
-  // Search function
-  const searchEvents = useCallback(
-    async (reset = true) => {
-      // If search is empty, show initial markers
-      if (!searchQuery.trim()) {
-        if (initialMarkers.length > 0) {
-          const initialEvents = initialMarkers.map(markerToEventType);
-          setEventResults(initialEvents);
-        } else {
-          setEventResults([]);
+  // Create a debounced search function that persists across renders
+  const debouncedSearchEvents = useMemo(
+    () =>
+      debounce(async (query: string, reset: boolean = true) => {
+        // Clear any pending timeouts
+        if (searchTimeout.current) {
+          clearTimeout(searchTimeout.current);
         }
-        setHasMoreResults(false);
-        setNextCursor(undefined);
-        setHasSearched(false);
-        return;
-      }
 
-      // Check if we're fetching more results for the same query
-      if (!reset && searchQuery === lastSearchQuery.current) {
-        // Use cached results if available
-        const cached = searchCache.current.get(searchQuery);
-        if (cached && !nextCursor) {
-          setEventResults(cached.results);
-          setNextCursor(cached.nextCursor);
-          setHasMoreResults(!!cached.nextCursor);
+        if (!query.trim()) {
+          if (initialMarkers.length > 0) {
+            const initialEvents = initialMarkers.map(markerToEventType);
+            setEventResults(initialEvents);
+          } else {
+            setEventResults([]);
+          }
+          setHasMoreResults(false);
+          setNextCursor(undefined);
+          setHasSearched(false);
+          setIsLoading(false);
+          setIsFetchingMore(false);
           return;
         }
-      }
 
-      if (reset) {
-        setIsLoading(true);
-      } else {
-        setIsFetchingMore(true);
-      }
-      setError(null);
+        // Prevent concurrent searches and duplicate queries
+        if (searchInProgress.current || query === lastSearchQuery.current) return;
+        searchInProgress.current = true;
+        lastSearchQuery.current = query;
 
-      try {
-        // Use the cursor for pagination if we're loading more
-        const cursorToUse = reset ? undefined : nextCursor;
+        try {
+          if (reset) {
+            setIsLoading(true);
+            setIsFetchingMore(false);
+          } else {
+            setIsFetchingMore(true);
+          }
+          setError(null);
 
-        const response = await apiClient.searchEvents(
-          searchQuery,
-          10, // Limit
-          cursorToUse
-        );
+          const response = await apiClient.searchEvents(
+            query,
+            10,
+            reset ? undefined : nextCursor
+          );
 
-        // Map API results to EventType
-        const newResults = response.results.map((result) => ({
-          id: result.id,
-          title: result.title,
-          description: result.description || "",
-          eventDate: result.eventDate,
-          endDate: result.endDate,
-          time: new Date(result.eventDate).toLocaleString(),
-          coordinates: result.location.coordinates,
-          location: result.address || "Location not specified",
-          locationNotes: result.locationNotes,
-          distance: "",
-          emoji: result.emoji || "📍",
-          categories: result.categories?.map((c) => c.name) || [],
-          creator: result.creator,
-          scanCount: result.scanCount ?? 1,
-          saveCount: result.saveCount ?? 0,
-          timezone: result.timezone ?? "",
-          qrUrl: result.qrUrl,
-          qrCodeData: result.qrCodeData,
-          qrImagePath: result.qrImagePath,
-          hasQrCode: result.hasQrCode,
-          qrGeneratedAt: result.qrGeneratedAt,
-          qrDetectedInImage: result.qrDetectedInImage,
-          detectedQrData: result.detectedQrData,
-        }));
+          const newResults = response.results.map((result) => ({
+            id: result.id,
+            title: result.title,
+            description: result.description || "",
+            eventDate: result.eventDate,
+            endDate: result.endDate,
+            time: new Date(result.eventDate).toLocaleString(),
+            coordinates: result.location.coordinates,
+            location: result.address || "Location not specified",
+            locationNotes: result.locationNotes,
+            distance: "",
+            emoji: result.emoji || "📍",
+            categories: result.categories?.map((c) => c.name) || [],
+            creator: result.creator,
+            scanCount: result.scanCount ?? 1,
+            saveCount: result.saveCount ?? 0,
+            timezone: result.timezone ?? "",
+            qrUrl: result.qrUrl,
+            qrCodeData: result.qrCodeData,
+            qrImagePath: result.qrImagePath,
+            hasQrCode: result.hasQrCode,
+            qrGeneratedAt: result.qrGeneratedAt,
+            qrDetectedInImage: result.qrDetectedInImage,
+            detectedQrData: result.detectedQrData,
+          }));
 
-        // Update pagination state
-        setNextCursor(response.nextCursor);
-        setHasMoreResults(!!response.nextCursor);
-
-        // Cache the results
-        if (reset) {
-          searchCache.current.set(searchQuery, {
-            results: newResults,
-            nextCursor: response.nextCursor
-          });
-          setEventResults(newResults);
-        } else {
-          // Use functional update to avoid dependency on eventResults
-          setEventResults((prev) => {
-            const existingIds = new Set(prev.map((event) => event.id));
-            const uniqueNewResults = newResults.filter((event) => !existingIds.has(event.id));
-            return [...prev, ...uniqueNewResults];
-          });
+          setEventResults(prev => reset ? newResults : [...prev, ...newResults]);
+          setNextCursor(response.nextCursor);
+          setHasMoreResults(!!response.nextCursor);
+          setHasSearched(true);
+        } catch (err) {
+          console.error("Search error:", err);
+          setError("Failed to search events. Please try again.");
+          if (reset) {
+            setEventResults([]);
+          }
+        } finally {
+          setIsLoading(false);
+          setIsFetchingMore(false);
+          searchInProgress.current = false;
         }
-
-        lastSearchQuery.current = searchQuery;
-        setHasSearched(true);
-      } catch (err) {
-        console.error("Search error:", err);
-        setError("Failed to search events. Please try again.");
-        if (reset) {
-          setEventResults([]);
-        }
-      } finally {
-        setIsLoading(false);
-        setIsFetchingMore(false);
-      }
-    },
-    [searchQuery, nextCursor, initialMarkers]
+      }, 800),
+    [initialMarkers, nextCursor]
   );
 
-  // Handle search query changes
+  // Clean up the debounced function and timeouts on unmount
   useEffect(() => {
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
-
-    if (!searchQuery.trim() && !hasSearched) {
-      return;
-    }
-
-    // Increased debounce time to 800ms
-    const timeout = setTimeout(() => {
-      searchEvents(true);
-    }, 800);
-
-    setSearchTimeout(timeout);
-
-    // Cleanup timeout on component unmount or query change
     return () => {
-      if (timeout) clearTimeout(timeout);
-    };
-  }, [searchQuery, hasSearched, searchEvents]);
-
-  // Add debounced load more function
-  const debouncedLoadMore = useCallback(() => {
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
-
-    const timeout = setTimeout(() => {
-      if (!isLoading && !isFetchingMore && hasMoreResults && searchQuery.trim()) {
-        searchEvents(false);
+      debouncedSearchEvents.cancel();
+      if (searchTimeout.current) {
+        clearTimeout(searchTimeout.current);
       }
-    }, 500); // Same debounce time as search
-
-    setSearchTimeout(timeout);
-
-    return () => {
-      if (timeout) clearTimeout(timeout);
     };
-  }, [isLoading, isFetchingMore, hasMoreResults, searchQuery, searchEvents]);
+  }, [debouncedSearchEvents]);
+
+  // Update search when query changes
+  useEffect(() => {
+    if (searchQuery.trim() || hasSearched) {
+      // Clear any pending timeouts
+      if (searchTimeout.current) {
+        clearTimeout(searchTimeout.current);
+      }
+
+      // Set a new timeout to prevent immediate double renders
+      searchTimeout.current = setTimeout(() => {
+        debouncedSearchEvents(searchQuery, true);
+      }, 100);
+    }
+  }, [searchQuery, hasSearched, debouncedSearchEvents]);
 
   // Handle loading more results with debouncing
   const handleLoadMore = useCallback(() => {
-    debouncedLoadMore();
-  }, [debouncedLoadMore]);
+    if (!isLoading && !isFetchingMore && hasMoreResults && searchQuery.trim()) {
+      debouncedSearchEvents(searchQuery, false);
+    }
+  }, [isLoading, isFetchingMore, hasMoreResults, searchQuery, debouncedSearchEvents]);
 
   // Clear search query
   const clearSearch = useCallback(() => {
@@ -240,7 +207,16 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
       setEventResults([]);
     }
     setHasSearched(false);
+    setIsLoading(false);
+    setIsFetchingMore(false);
+    lastSearchQuery.current = "";
   }, [initialMarkers]);
+
+  // Create a wrapper for searchEvents that matches the expected type
+  const searchEvents = useCallback(async (reset: boolean = true) => {
+    if (!searchQuery.trim()) return;
+    await debouncedSearchEvents(searchQuery, reset);
+  }, [searchQuery, debouncedSearchEvents]);
 
   return {
     searchQuery,

@@ -125,7 +125,6 @@ const SearchView = () => {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const fadeAnim = useSharedValue(0);
   const scrollY = useSharedValue(0);
-  const [isTyping, setIsTyping] = useState(false);
 
   // Animation for header shadow
   const headerAnimatedStyle = useAnimatedStyle(() => {
@@ -170,19 +169,13 @@ const SearchView = () => {
 
   // Simplify the search input handler
   const handleSearchInput = useCallback((text: string) => {
-    setIsTyping(true);
-    setSearchQuery(text);  // This will trigger the debounced search in the hook
+    setSearchQuery(text);
   }, []);
 
-  // When typing stops, clear the typing indicator
-  useEffect(() => {
-    if (isTyping) {
-      const timeout = setTimeout(() => {
-        setIsTyping(false);
-      }, 500);
-      return () => clearTimeout(timeout);
-    }
-  }, [searchQuery, isTyping]);
+  const handleSearch = useCallback(() => {
+    Keyboard.dismiss();
+    searchEvents(true);
+  }, [searchEvents]);
 
   // Memoize handlers
   const handleBack = useCallback(() => {
@@ -202,11 +195,6 @@ const SearchView = () => {
     Keyboard.dismiss();
     router.push(`details?eventId=${event.id}` as never);
   }, []);
-
-  const handleSearch = useCallback(() => {
-    Keyboard.dismiss();
-    searchEvents(true);
-  }, [searchEvents]);
 
   // Memoize the getItemLayout function
   const getItemLayout = useCallback((data: any, index: number) => ({
@@ -391,7 +379,6 @@ const SearchView = () => {
             onChangeText={handleSearchInput}
             returnKeyType="search"
             onSubmitEditing={() => {
-              setIsTyping(false);
               handleSearch();
             }}
             autoCapitalize="none"
@@ -410,12 +397,10 @@ const SearchView = () => {
         </Animated.View>
 
         {/* Main Content */}
-        {(isLoading || isTyping) && eventResults.length === 0 ? (
+        {isLoading && eventResults.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#93c5fd" />
-            <Text style={styles.loadingText}>
-              {isTyping ? "Finding events..." : "Searching events..."}
-            </Text>
+            <Text style={styles.loadingText}>Searching events...</Text>
           </View>
         ) : (
           <Animated.FlatList
