@@ -353,6 +353,7 @@ async function initializeWorker() {
             qrDetectedInImage: scanResult.qrCodeDetected || false,
             detectedQrData: scanResult.qrCodeData,
             originalImageUrl: originalImageUrl,
+            embedding: scanResult.embedding,
           });
 
           console.log("[Worker] Event created successfully:", {

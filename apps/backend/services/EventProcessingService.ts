@@ -41,8 +41,9 @@ interface ScanResult {
   eventDetails: EventDetails;
   similarity: SimilarityResult;
   isDuplicate?: boolean;
-  qrCodeDetected?: boolean; // New field
-  qrCodeData?: string; // New field
+  qrCodeDetected?: boolean;
+  qrCodeData?: string;
+  embedding: number[];
 }
 
 export class EventProcessingService {
@@ -215,6 +216,7 @@ export class EventProcessingService {
       isDuplicate: isDuplicate || false,
       qrCodeDetected: visionResult.qrCodeDetected,
       qrCodeData: visionResult.qrCodeData,
+      embedding: finalEmbedding,
     };
   }
 
