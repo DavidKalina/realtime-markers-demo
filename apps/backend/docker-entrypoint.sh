@@ -37,29 +37,34 @@ echo "Starting Bun application"
 exec "$@" &
 APP_PID=$!
 
-# Wait for the events table to be created by TypeORM before trying to create indexes
-echo "Waiting for TypeORM to create the database schema..."
-for i in {1..30}; do
-  if PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'events')" | grep -q 't'; then
-    echo "Events table exists, proceeding with index creation"
-    break
-  fi
-  
-  if [ $i -eq 30 ]; then
-    echo "Timeout waiting for events table to be created"
-    # Don't exit, let the application continue
-  fi
-  
-  echo "Waiting for events table to be created by TypeORM... (attempt $i/30)"
-  sleep 2
+# Wait for all relevant tables to be created
+echo "Waiting for all tables to be created by TypeORM..."
+tables=("events" "user_event_saves" "user_event_discoveries" "filters")
+for table in "${tables[@]}"; do
+  for i in {1..30}; do
+    if PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '$table')" | grep -q 't'; then
+      echo "$table table exists"
+      break
+    fi
+    
+    if [ $i -eq 30 ]; then
+      echo "Timeout waiting for $table table to be created"
+    fi
+    
+    echo "Waiting for $table table to be created... (attempt $i/30)"
+    sleep 2
+  done
 done
+
+# Add before index creation
+echo "Starting index creation process..."
 
 # Create non-vector indexes only if the events table exists
 if PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'events')" | grep -q 't'; then
   echo "Creating additional indexes on events table"
   
   PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<EOSQL
-      -- Only create indexes if they don't exist
+      -- Existing indexes
       CREATE INDEX IF NOT EXISTS events_location_idx 
       ON events 
       USING GIST (location);
@@ -72,7 +77,35 @@ if PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d
       ON events 
       USING gin (description gin_trgm_ops);
 
-      -- Don't try to create events_date_idx as TypeORM already creates it
+      -- New indexes for events
+      CREATE INDEX IF NOT EXISTS events_creator_id_idx
+      ON events(creator_id);
+
+      CREATE INDEX IF NOT EXISTS events_status_idx
+      ON events(status);
+
+      -- New compound index for location + date
+      CREATE INDEX IF NOT EXISTS events_location_date_idx
+      ON events(event_date)
+      INCLUDE (location);
+
+      -- New indexes for user_event_saves
+      CREATE INDEX IF NOT EXISTS user_event_saves_saved_at_idx
+      ON user_event_saves(saved_at);
+
+      CREATE INDEX IF NOT EXISTS user_event_saves_user_date_idx
+      ON user_event_saves(user_id, saved_at);
+
+      -- New indexes for user_event_discoveries
+      CREATE INDEX IF NOT EXISTS user_event_discoveries_discovered_at_idx
+      ON user_event_discoveries(discovered_at);
+
+      CREATE INDEX IF NOT EXISTS user_event_discoveries_user_date_idx
+      ON user_event_discoveries(user_id, discovered_at);
+
+      -- New indexes for filters
+      CREATE INDEX IF NOT EXISTS filters_user_active_idx
+      ON filters(user_id, is_active);
 EOSQL
 
   # Check if the embedding column exists and is of type vector
@@ -101,6 +134,9 @@ EOSQL
 else
   echo "Events table does not exist, skipping index creation"
 fi
+
+# Add after index creation
+echo "Index creation completed successfully"
 
 # Wait for the application to exit
 wait $APP_PID

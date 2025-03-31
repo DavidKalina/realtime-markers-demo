@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from "typeorm";
 import { User } from "./User";
 
@@ -14,6 +15,7 @@ export class Filter {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
+  @Index()
   @Column({ type: "uuid" })
   userId!: string;
 
@@ -24,6 +26,7 @@ export class Filter {
   @Column({ type: "varchar" })
   name!: string;
 
+  @Index()
   @Column({ type: "boolean", default: true })
   isActive!: boolean;
 

@@ -76,9 +76,11 @@ export class Event {
   @Column({ name: "confidence_score", type: "float", nullable: true })
   confidenceScore?: number;
 
+  @Index({ spatial: true })
   @Column({ name: "embedding", type: "text", nullable: true })
   embedding?: string;
 
+  @Index()
   @Column({
     type: "enum",
     enum: EventStatus,
@@ -113,6 +115,7 @@ export class Event {
   originalImageUrl?: string;
 
   // Link to creator user
+  @Index()
   @Column({ name: "creator_id", type: "uuid", nullable: true })
   creatorId?: string;
 
