@@ -137,16 +137,7 @@ async function initializeWorker() {
     }, JOB_TIMEOUT);
 
     try {
-      // Update job status to processing
-      await jobQueue.updateJobStatus(jobId, {
-        status: "processing",
-        started: new Date().toISOString(),
-        progress: "Initializing job...",
-      });
-
-      // Add a small delay to ensure UI can process the updates
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
+      // Get job data
       const job = JSON.parse(jobData);
 
       // In worker.ts processJobs function, add a new job type handler
@@ -192,7 +183,7 @@ async function initializeWorker() {
           throw new Error("Image data not found");
         }
 
-        // Update status to analyzing (this initial update remains)
+        // Upload image
         const storageService = StorageService.getInstance();
         const originalImageUrl = await storageService.uploadImage(bufferData, "original-flyers", {
           jobId: jobId,
@@ -200,65 +191,15 @@ async function initializeWorker() {
           filename: job.data.filename || "event-flyer.jpg",
         });
 
-        await jobQueue.updateJobStatus(jobId, {
-          progress: "Analyzing image...",
-        });
-
-        // Create progress callback function
-        const progressCallback = async (message: string, metadata?: Record<string, any>) => {
-          console.log(`[Worker] Progress update for job ${jobId}: ${message}`);
-          await jobQueue.updateJobStatus(jobId, {
-            progress: message,
-            ...metadata,
-          });
-
-          // Add a small delay to ensure UI can process the updates
-          await new Promise((resolve) => setTimeout(resolve, 300));
-        };
-
+        // Process the image - ProgressReportingService will handle all progress updates
         const scanResult = await eventProcessingService.processFlyerFromImage(
           bufferData,
-          progressCallback,
+          undefined, // No need for progress callback
           {
             userCoordinates: job.data.userCoordinates,
           },
           jobId
         );
-
-        // Add detailed debugging to see what's happening
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('Location Resolution:', {
-            confidence: scanResult.confidence,
-            title: scanResult.eventDetails.title,
-            isDuplicate: scanResult.isDuplicate,
-            similarityScore: scanResult.similarity.score,
-            threshold: 0.72,
-            date: scanResult.eventDetails.date,
-            timezone: scanResult.eventDetails.timezone,
-            matchingEventId: scanResult.similarity.matchingEventId,
-            location: scanResult.eventDetails.location,
-            address: scanResult.eventDetails.address,
-            locationNotes: scanResult.eventDetails.locationNotes,
-            coordinates: scanResult.eventDetails.location?.coordinates,
-            userCoordinates: job.data.userCoordinates,
-            userCityState: scanResult.eventDetails.userCityState
-          });
-        }
-
-        // Log the Places API search process
-        if (process.env.NODE_ENV !== 'production' && scanResult.eventDetails.locationNotes) {
-          console.log('Places API Search:', {
-            query: scanResult.eventDetails.locationNotes,
-            userCoordinates: job.data.userCoordinates,
-            userCityState: scanResult.eventDetails.userCityState,
-            location: scanResult.eventDetails.location,
-            address: scanResult.eventDetails.address
-          });
-        }
-
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`Image analyzed with confidence: ${scanResult.confidence}`);
-        }
 
         // Now check if this is a duplicate event
         if (scanResult.isDuplicate && scanResult.similarity.matchingEventId) {
@@ -300,20 +241,7 @@ async function initializeWorker() {
 
         // Create the event if confidence is high enough
         else if (scanResult.confidence >= 0.75) {
-          // Update for event creation
-          await jobQueue.updateJobStatus(jobId, {
-            progress: "Creating event...",
-          });
-
           const eventDetails = scanResult.eventDetails;
-
-          console.log("[Worker] Creating event with details:", {
-            title: eventDetails.title,
-            address: eventDetails.address,
-            locationNotes: eventDetails.locationNotes,
-            confidence: scanResult.confidence
-          });
-
           const eventDate = new Date(eventDetails.date);
 
           // Validate the event date
@@ -356,19 +284,9 @@ async function initializeWorker() {
             embedding: scanResult.embedding,
           });
 
-          console.log("[Worker] Event created successfully:", {
-            id: newEvent.id,
-            title: newEvent.title,
-            address: newEvent.address,
-            locationNotes: newEvent.locationNotes
-          });
-
           // Create discovery record and increment user stats if they are the creator
           if (job.data.creatorId) {
-            // Create discovery record
             await eventService.createDiscoveryRecord(job.data.creatorId, newEvent.id);
-
-            // Increment scan count
             await AppDataSource
               .createQueryBuilder()
               .update(User)
@@ -379,31 +297,7 @@ async function initializeWorker() {
               .execute();
           }
 
-          // Check if QR code was detected in the image
-          if (scanResult.qrCodeDetected && scanResult.qrCodeData) {
-            await jobQueue.updateJobStatus(jobId, {
-              progress: "Storing detected QR code...",
-            });
-
-            try {
-              // Use the detected QR code instead of generating a new one
-              await eventService.storeDetectedQRCode(newEvent.id, scanResult.qrCodeData);
-              console.log(`[Worker] Stored detected QR code for event ${newEvent.id}`);
-            } catch (error) {
-              console.error(
-                `[Worker] Error storing detected QR code for event ${newEvent.id}:`,
-                error
-              );
-              // Fall back to generating a QR code if storing fails
-            }
-          } else {
-            // No QR code detected, generate one as usual
-            await jobQueue.updateJobStatus(jobId, {
-              progress: "Generating QR code...",
-            });
-          }
-
-          // Publish event creation notification
+          // Publish notifications
           await redisClient.publish(
             "event_changes",
             JSON.stringify({
@@ -412,7 +306,6 @@ async function initializeWorker() {
             })
           );
 
-          // Publish discovery event notification
           await redisClient.publish(
             "discovered_events",
             JSON.stringify({
@@ -445,7 +338,7 @@ async function initializeWorker() {
             result: {
               eventId: newEvent.id,
               title: eventDetails.title,
-              coordinates: newEvent.location.coordinates, // Add coordinates here
+              coordinates: newEvent.location.coordinates,
             },
             completed: new Date().toISOString(),
           });

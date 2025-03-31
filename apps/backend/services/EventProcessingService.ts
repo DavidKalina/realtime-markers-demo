@@ -107,69 +107,36 @@ export class EventProcessingService {
     imageData: Buffer | string,
     progressCallback?: ProgressCallback,
     locationContext?: LocationContext,
-    jobId?: string // Add jobId parameter
+    jobId?: string
   ): Promise<ScanResult> {
-    // Create a workflow with the standard processing steps
     const workflow = this.createWorkflow(jobId, progressCallback);
 
-    // Start a session with 6 steps (image processing, vision API, extraction, embedding, similarity, completion)
-    workflow.startSession(6, "Flyer Processing");
+    // Define total steps for this workflow
+    const TOTAL_STEPS = 6;
+    workflow.startSession(TOTAL_STEPS, "Event Processing");
 
-    // Step 1: Analyze image
-    await workflow.updateProgress(1, "Analyzing image...");
-
-    // Step 2: Process with Vision API
-    await workflow.updateProgress(2, "Analyzing image with Vision API...");
-
-    // Use the ImageProcessingService to process the image
+    // Step 1: Process image
+    await workflow.updateProgress(1, "Processing image...");
     const visionResult = await this.imageProcessingService.processImage(imageData);
-    const extractedText = visionResult.rawText || "";
 
-    if (visionResult.qrCodeDetected) {
-      await workflow.updateProgress(3, "QR code detected in image", {
-        qrCodeDetected: true,
-        qrCodeData: visionResult.qrCodeData || "[Content not readable]",
-      });
-    } else {
-      // Regular progress update if no QR detected
-      await workflow.updateProgress(3, "Image analyzed successfully", {
-        confidence: visionResult.confidence,
-      });
-    }
-
-    // Report progress after vision processing
-    await workflow.updateProgress(3, "Image analyzed successfully", {
-      confidence: visionResult.confidence,
-    });
+    // Step 2: Extract text and analyze
+    await workflow.updateProgress(2, "Analyzing image content...");
+    const extractedText = visionResult.rawText;
 
     // Step 3: Extract event details
-    // Use the EventExtractionService to extract details from the text
-    const extractionResult = await this.eventExtractionService.extractEventDetails(extractedText, {
-      userCoordinates: locationContext?.userCoordinates,
-      organizationHints: locationContext?.organizationHints,
-    });
+    await workflow.updateProgress(3, "Extracting event details...");
+    const extractionResult = await this.eventExtractionService.extractEventDetails(
+      extractedText,
+      locationContext
+    );
 
-    const eventDetailsWithCategories = {
-      ...extractionResult.event,
-      locationNotes: extractionResult.event.locationNotes || "", // Ensure locationNotes is always set
-    };
-
-    await workflow.updateProgress(4, "Event details extracted", {
-      title: eventDetailsWithCategories.title,
-      categories: eventDetailsWithCategories.categories?.map((c) => c.name),
-      timezone: eventDetailsWithCategories.timezone,
-      locationNotes: eventDetailsWithCategories.locationNotes, // Add to progress update
-    });
-
-    // Step 4: Generate embeddings
-    await workflow.updateProgress(5, "Generating text embeddings...");
-
-    // Generate embeddings with the structured event details
-    // This will properly weight location, title, date, etc.
+    // Step 4: Generate embedding
+    await workflow.updateProgress(4, "Generating event embedding...");
+    const eventDetailsWithCategories = extractionResult.event;
     const finalEmbedding = await this.generateEmbedding(eventDetailsWithCategories);
 
-    // Step 5: Find similar events
-    // Check for similar events using the event similarity service
+    // Step 5: Check for duplicates
+    await workflow.updateProgress(5, "Checking for duplicate events...");
     const similarity = await this.dependencies.eventSimilarityService.findSimilarEvents(
       finalEmbedding,
       {
@@ -185,13 +152,12 @@ export class EventProcessingService {
 
     const isDuplicate = similarity.isDuplicate;
 
-    // Handle duplicate if found
     if (isDuplicate && similarity.matchingEventId) {
       await this.dependencies.eventSimilarityService.handleDuplicateScan(
         similarity.matchingEventId
       );
 
-      await workflow.updateProgress(5, "Duplicate event detected!", {
+      await workflow.updateProgress(5, "Duplicate event detected", {
         isDuplicate: true,
         matchingEventId: similarity.matchingEventId,
         similarityScore: similarity.score.toFixed(2),
@@ -201,7 +167,7 @@ export class EventProcessingService {
     }
 
     // Step 6: Complete processing
-    await workflow.completeSession("Processing complete!", {
+    await workflow.completeSession("Processing complete", {
       confidence: visionResult.confidence,
       similarityScore: similarity.score,
       isDuplicate: isDuplicate || false,
