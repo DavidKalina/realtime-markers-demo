@@ -366,21 +366,23 @@ export class EventService {
     // Define our score expression for consistency
     const scoreExpression = `
     (
-      -- Semantic similarity (35% weight)
-      (1 - (embedding <-> :embedding)::float) * 0.35 +
+      -- Semantic similarity (40% weight)
+      (1 - (embedding <-> :embedding)::float) * 0.4 +
       
-      -- Text matching (25% weight)
+      -- Text matching (35% weight)
       (
         CASE 
           WHEN LOWER(event.title) LIKE LOWER(:exactQuery) THEN 1.0
           WHEN LOWER(event.title) LIKE LOWER(:partialQuery) THEN 0.7
           WHEN LOWER(event.description) LIKE LOWER(:exactQuery) THEN 0.5
           WHEN LOWER(event.description) LIKE LOWER(:partialQuery) THEN 0.3
+          WHEN LOWER(event.address) LIKE LOWER(:exactQuery) THEN 0.5
+          WHEN LOWER(event.address) LIKE LOWER(:partialQuery) THEN 0.3
           ELSE 0
         END
-      ) * 0.25 +
+      ) * 0.35 +
       
-      -- Category matching (20% weight)
+      -- Category matching (15% weight)
       (
         CASE 
           WHEN EXISTS (
@@ -395,16 +397,7 @@ export class EventService {
           ) THEN 0.4
           ELSE 0
         END
-      ) * 0.2 +
-      
-      -- Emoji matching (10% weight)
-      (
-        CASE 
-          WHEN LOWER(event.emoji) LIKE LOWER(:exactQuery) THEN 1.0
-          WHEN LOWER(event.emoji) LIKE LOWER(:partialQuery) THEN 0.5
-          ELSE 0
-        END
-      ) * 0.1 +
+      ) * 0.15 +
       
       -- Recency boost (10% weight)
       (
@@ -433,7 +426,7 @@ export class EventService {
           .orWhere("LOWER(event.description) LIKE LOWER(:partialQuery)", {
             partialQuery: `%${query.toLowerCase()}%`,
           })
-          .orWhere("LOWER(event.emoji) LIKE LOWER(:partialQuery)", {
+          .orWhere("LOWER(event.address) LIKE LOWER(:partialQuery)", {
             partialQuery: `%${query.toLowerCase()}%`,
           })
           .orWhere(
