@@ -785,34 +785,77 @@ export class EventService {
    */
   async getDiscoveredEventsByUser(
     userId: string,
-    options: { limit?: number; offset?: number } = {}
-  ): Promise<{ events: Event[]; total: number; hasMore: boolean }> {
-    const { limit = 10, offset = 0 } = options;
+    options: { limit?: number; cursor?: string } = {}
+  ): Promise<{ events: Event[]; nextCursor?: string }> {
+    const { limit = 10, cursor } = options;
 
-    // Get the discoveries with their associated events
-    const discoveries = await this.dataSource
+    // Parse cursor if provided
+    let cursorData: { discoveredAt: Date; eventId: string } | undefined;
+    if (cursor) {
+      try {
+        const jsonStr = Buffer.from(cursor, 'base64').toString('utf-8');
+        cursorData = JSON.parse(jsonStr);
+      } catch (e) {
+        console.error("Invalid cursor format:", e);
+      }
+    }
+
+    // Build query
+    let queryBuilder = this.dataSource
       .getRepository(UserEventDiscovery)
-      .find({
-        where: { userId },
-        relations: ["event", "event.categories", "event.creator"],
-        order: { discoveredAt: "DESC" },
-        skip: offset,
-        take: limit,
-      });
+      .createQueryBuilder("discovery")
+      .leftJoinAndSelect("discovery.event", "event")
+      .leftJoinAndSelect("event.categories", "categories")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("discovery.userId = :userId", { userId });
 
-    const total = await this.dataSource
-      .getRepository(UserEventDiscovery)
-      .count({
-        where: { userId },
-      });
+    // Add cursor conditions if cursor is provided
+    if (cursorData) {
+      queryBuilder = queryBuilder.andWhere(
+        new Brackets(qb => {
+          qb.where("discovery.discoveredAt < :discoveredAt", {
+            discoveredAt: cursorData.discoveredAt
+          })
+            .orWhere(
+              new Brackets(qb2 => {
+                qb2.where("discovery.discoveredAt = :discoveredAt", {
+                  discoveredAt: cursorData.discoveredAt
+                })
+                  .andWhere("discovery.eventId > :eventId", {
+                    eventId: cursorData.eventId
+                  });
+              })
+            );
+        })
+      );
+    }
 
-    // Extract the events from the discoveries
-    const events = discoveries.map((discovery) => discovery.event);
+    // Execute query
+    const discoveries = await queryBuilder
+      .orderBy("discovery.discoveredAt", "DESC")
+      .addOrderBy("discovery.eventId", "ASC")
+      .take(limit + 1)
+      .getMany();
+
+    // Process results
+    const hasMore = discoveries.length > limit;
+    const results = discoveries.slice(0, limit);
+    const events = results.map(discovery => discovery.event);
+
+    // Generate next cursor if we have more results
+    let nextCursor: string | undefined;
+    if (hasMore && results.length > 0) {
+      const lastResult = results[results.length - 1];
+      const cursorObj = {
+        discoveredAt: lastResult.discoveredAt,
+        eventId: lastResult.eventId,
+      };
+      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString('base64');
+    }
 
     return {
       events,
-      total,
-      hasMore: offset + events.length < total,
+      nextCursor
     };
   }
 
