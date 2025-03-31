@@ -133,9 +133,7 @@ export class OpenAIService {
       }
     };
 
-    return Object.assign(customFetch, {
-      preconnect: originalFetch.preconnect
-    }) as typeof fetch;
+    return customFetch as typeof fetch;
   }
 
   private static async checkRateLimit(key: string, limits: RateLimitConfig): Promise<void> {

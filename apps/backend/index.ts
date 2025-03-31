@@ -30,12 +30,42 @@ import { EventExtractionService } from "./services/event-processing/EventExtract
 import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
 import { StorageService } from "./services/shared/StorageService";
 import { adminRouter } from "./routes/admin";
+import { RateLimitService } from "./services/shared/RateLimitService";
+import { rateLimit } from "./middleware/rateLimit";
+import { ip } from "./middleware/ip";
+import { securityHeaders } from "./middleware/securityHeaders";
+import { requestLimiter } from "./middleware/requestLimiter";
+import { performanceMonitor } from "./middleware/performanceMonitor";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
 
+// Initialize Redis clients
+const redisPub = new Redis({
+  host: process.env.REDIS_HOST || "localhost",
+  port: parseInt(process.env.REDIS_PORT || "6379"),
+  password: process.env.REDIS_PASSWORD || undefined,
+});
+
+// Apply global middlewares
 app.use("*", logger());
 app.use("*", cors());
+app.use("*", securityHeaders());
+app.use("*", requestLimiter({
+  maxBodySize: 5 * 1024 * 1024, // 5MB for file uploads
+  maxUrlLength: 2048,
+  maxHeadersSize: 8192,
+}));
+
+// Initialize rate limit service
+RateLimitService.getInstance().initRedis({
+  host: process.env.REDIS_HOST || "localhost",
+  port: parseInt(process.env.REDIS_PORT || "6379"),
+  password: process.env.REDIS_PASSWORD || undefined,
+});
+
+// Add performance monitoring after Redis initialization
+app.use("*", performanceMonitor(redisPub));
 
 app.use("*", async (c, next) => {
   const url = c.req.url;
@@ -109,12 +139,6 @@ const redisConfig = {
   password: process.env.REDIS_PASSWORD || undefined,
   maxRetriesPerRequest: 3,
 };
-
-const redisPub = new Redis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD || undefined,
-});
 
 // Initialize OpenAI service with Redis for rate limiting
 OpenAIService.initRedis({

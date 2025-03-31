@@ -381,13 +381,10 @@ export class FilterProcessor {
 
       // Check if event matches filters for each user
       for (const [userId, filters] of this.userFilters.entries()) {
-        console.log(userId, filters);
         // Skip if event doesn't match user's filters
         if (!this.eventMatchesFilters(record, filters)) {
           continue;
         }
-
-        console.log("MATCHES_FILTERS", this.eventMatchesFilters(record, filters));
 
         const viewport = this.userViewports.get(userId);
 
@@ -395,12 +392,15 @@ export class FilterProcessor {
           continue;
         }
 
+        // Strip sensitive data before publishing
+        const sanitizedEvent = this.stripSensitiveData(record);
+
         // Publish to user channel
         this.redisPub.publish(
           `user:${userId}:filtered-events`,
           JSON.stringify({
             type: operation === "INSERT" ? "add-event" : "update-event",
-            event: record,
+            event: sanitizedEvent,
           })
         );
         this.stats.totalFilteredEventsPublished++;
@@ -654,30 +654,41 @@ export class FilterProcessor {
     };
   }
 
+  /**
+   * Strip sensitive data from events before sending to client
+   */
+  private stripSensitiveData(event: Event): Omit<Event, 'embedding'> {
+    const { embedding, ...eventWithoutEmbedding } = event;
+    return eventWithoutEmbedding;
+  }
+
   // Enhanced publishFilteredEvents with more detailed reporting
   private publishFilteredEvents(userId: string, type: string, events: Event[]): void {
     try {
+      // Strip sensitive data from all events
+      const sanitizedEvents = events.map(event => this.stripSensitiveData(event));
+
       // Publish the filtered events to the user's channel
       this.redisPub.publish(
         `user:${userId}:filtered-events`,
         JSON.stringify({
           type,
-          events,
-          count: events.length,
+          events: sanitizedEvents,
+          count: sanitizedEvents.length,
           timestamp: new Date().toISOString(),
         })
       );
 
       // Update stats
-      this.stats.totalFilteredEventsPublished += events.length;
+      this.stats.totalFilteredEventsPublished += sanitizedEvents.length;
 
       // If this was a replace-all operation, log additional details
       if (process.env.NODE_ENV !== 'production' && type === "replace-all") {
         console.log(`Sent complete replacement set to user ${userId}`);
 
         // Log sample of event IDs for debugging
-        if (events.length > 0) {
-          const sampleIds = events.slice(0, Math.min(5, events.length)).map((e) => e.id);
+        if (sanitizedEvents.length > 0) {
+          const sampleIds = sanitizedEvents.slice(0, Math.min(5, sanitizedEvents.length)).map((e) => e.id);
           console.log(`Sample event IDs: ${sampleIds.join(", ")}`);
         }
       }
