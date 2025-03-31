@@ -25,8 +25,8 @@ export class AuthService {
 
   constructor(userRepository: Repository<User>) {
     this.userRepository = userRepository;
-    this.jwtSecret = process.env.JWT_SECRET || "your-default-jwt-secret";
-    this.refreshSecret = process.env.REFRESH_SECRET || "your-default-refresh-secret";
+    this.jwtSecret = process.env.JWT_SECRET!;
+    this.refreshSecret = process.env.REFRESH_SECRET!;
     this.accessTokenExpiry = "1h";
     this.refreshTokenExpiry = "7d";
   }
