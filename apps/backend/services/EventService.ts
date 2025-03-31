@@ -378,6 +378,8 @@ export class EventService {
           WHEN LOWER(event.description) LIKE LOWER(:partialQuery) THEN 0.3
           WHEN LOWER(event.address) LIKE LOWER(:exactQuery) THEN 0.5
           WHEN LOWER(event.address) LIKE LOWER(:partialQuery) THEN 0.3
+          WHEN LOWER(event.locationNotes) LIKE LOWER(:exactQuery) THEN 0.5
+          WHEN LOWER(event.locationNotes) LIKE LOWER(:partialQuery) THEN 0.3
           ELSE 0
         END
       ) * 0.35 +
@@ -427,6 +429,9 @@ export class EventService {
             partialQuery: `%${query.toLowerCase()}%`,
           })
           .orWhere("LOWER(event.address) LIKE LOWER(:partialQuery)", {
+            partialQuery: `%${query.toLowerCase()}%`,
+          })
+          .orWhere("LOWER(event.locationNotes) LIKE LOWER(:partialQuery)", {
             partialQuery: `%${query.toLowerCase()}%`,
           })
           .orWhere(
