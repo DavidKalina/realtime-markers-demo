@@ -33,6 +33,7 @@ interface CreateEventInput {
   qrDetectedInImage?: boolean;
   detectedQrData?: string;
   originalImageUrl?: string | null;
+  embedding: number[];
 }
 
 export class EventService {
@@ -197,52 +198,22 @@ export class EventService {
     // If timezone is not provided, try to determine it from coordinates
     if (!input.timezone && input.location) {
       try {
-        // Get timezone from coordinates
         const timezone = await this.locationService.getTimezoneFromCoordinates(
-          input.location.coordinates[1], // latitude
-          input.location.coordinates[0] // longitude
+          input.location.coordinates[1],
+          input.location.coordinates[0]
         );
         input.timezone = timezone;
       } catch (error) {
         console.error("Error determining timezone:", error);
-        input.timezone = "UTC"; // Fallback to UTC
+        input.timezone = "UTC";
       }
     }
 
     let categories: any = [];
-    let categoryNames: string[] = [];
     if (input.categoryIds?.length) {
       categories = await this.categoryRepository.findByIds(input.categoryIds);
-      categoryNames = categories.map((cat: any) => cat.name);
     }
 
-    // First, generate embedding and check for duplicates
-    const textForEmbedding = `
-    TITLE: ${input.title} ${input.title} ${input.title}
-    CATEGORIES: ${categoryNames.join(", ")} ${categoryNames.join(", ")}
-    DESCRIPTION: ${input.description || ""}
-    LOCATION: ${input.address || ""}
-    LOCATION_NOTES: ${input.locationNotes || ""}
-    `.trim();
-    const embedding = await this.generateEmbedding(textForEmbedding);
-
-    // Check for similar events before saving
-    const similarity = await this.eventSimilarityService.findSimilarEvents(
-      embedding,
-      {
-        title: input.title,
-        address: input.address,
-        description: input.description,
-        locationNotes: input.locationNotes,
-      }
-    );
-
-    if (similarity.isDuplicate) {
-      // You could either throw an error here or handle it however you want
-      throw new Error(`Duplicate event detected: ${similarity.matchingEventId}`);
-    }
-
-    // If no duplicate, proceed with event creation
     // Create base event data without relations
     const eventData: DeepPartial<Event> = {
       emoji: input.emoji,
@@ -255,7 +226,7 @@ export class EventService {
       status: EventStatus.PENDING,
       address: input.address,
       locationNotes: input.locationNotes || "",
-      embedding: pgvector.toSql(embedding),
+      embedding: pgvector.toSql(input.embedding),
       creatorId: input.creatorId,
       timezone: input.timezone || "UTC",
       qrDetectedInImage: input.qrDetectedInImage || false,

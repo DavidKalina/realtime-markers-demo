@@ -218,25 +218,17 @@ export class EventProcessingService {
     };
   }
 
-  private async generateEmbedding(eventDetails: EventDetails | string): Promise<number[]> {
-    if (typeof eventDetails === "string") {
-      // For raw text, use the embedding service directly
-      return await this.embeddingService.getEmbedding(eventDetails);
-    } else {
-      // For structured event details, create an appropriate embedding input
-      const input: EmbeddingInput = {
-        text: eventDetails.description || "",
-        title: eventDetails.title,
-        date: eventDetails.date,
-        endDate: eventDetails.endDate,
-        coordinates: eventDetails.location.coordinates as [number, number],
-        address: eventDetails.address,
-        timezone: eventDetails.timezone,
-        locationNotes: eventDetails.locationNotes,
-      };
+  private async generateEmbedding(eventDetails: EventDetails): Promise<number[]> {
+    // Use the same format as EventService
+    const textForEmbedding = `
+      TITLE: ${eventDetails.title} ${eventDetails.title} ${eventDetails.title}
+      CATEGORIES: ${eventDetails.categories?.map(c => c.name).join(", ") || ""}
+      DESCRIPTION: ${eventDetails.description || ""}
+      LOCATION: ${eventDetails.address || ""}
+      LOCATION_NOTES: ${eventDetails.locationNotes || ""}
+      `.trim();
 
-      // Generate a structured embedding
-      return await this.embeddingService.getStructuredEmbedding(input);
-    }
+    // Get embedding using the embedding service
+    return await this.embeddingService.getEmbedding(textForEmbedding);
   }
 }
