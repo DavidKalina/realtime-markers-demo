@@ -333,6 +333,8 @@ export class EventService {
     TITLE: ${query}
     CATEGORIES: ${query}
     DESCRIPTION: ${query}
+    EMOJI: ${query}
+    EMOJI_RELATED: ${query}
     `.trim();
     let searchEmbedding = CacheService.getCachedEmbedding(normalizedQuery);
 
@@ -364,10 +366,10 @@ export class EventService {
     // Define our score expression for consistency
     const scoreExpression = `
     (
-      -- Semantic similarity (40% weight)
-      (1 - (embedding <-> :embedding)::float) * 0.4 +
+      -- Semantic similarity (35% weight)
+      (1 - (embedding <-> :embedding)::float) * 0.35 +
       
-      -- Text matching (30% weight)
+      -- Text matching (25% weight)
       (
         CASE 
           WHEN LOWER(event.title) LIKE LOWER(:exactQuery) THEN 1.0
@@ -376,7 +378,7 @@ export class EventService {
           WHEN LOWER(event.description) LIKE LOWER(:partialQuery) THEN 0.3
           ELSE 0
         END
-      ) * 0.3 +
+      ) * 0.25 +
       
       -- Category matching (20% weight)
       (
@@ -394,6 +396,15 @@ export class EventService {
           ELSE 0
         END
       ) * 0.2 +
+      
+      -- Emoji matching (10% weight)
+      (
+        CASE 
+          WHEN LOWER(event.emoji) LIKE LOWER(:exactQuery) THEN 1.0
+          WHEN LOWER(event.emoji) LIKE LOWER(:partialQuery) THEN 0.5
+          ELSE 0
+        END
+      ) * 0.1 +
       
       -- Recency boost (10% weight)
       (
@@ -420,6 +431,9 @@ export class EventService {
           partialQuery: `%${query.toLowerCase()}%`,
         })
           .orWhere("LOWER(event.description) LIKE LOWER(:partialQuery)", {
+            partialQuery: `%${query.toLowerCase()}%`,
+          })
+          .orWhere("LOWER(event.emoji) LIKE LOWER(:partialQuery)", {
             partialQuery: `%${query.toLowerCase()}%`,
           })
           .orWhere(
