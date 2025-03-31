@@ -449,80 +449,36 @@ export class FilterProcessor {
 
       const criteria = filter.criteria;
 
+      // Initialize composite score
+      let compositeScore = 0;
+      let totalWeight = 0;
+
+      // 1. Date Range Filter (20% weight)
       if (criteria.dateRange) {
         const { start, end } = criteria.dateRange;
-
-        // Get event start and end dates with validation
         const eventStartDate = new Date(event.eventDate);
         const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
 
-        // Check if dates are valid before using them
-        const isStartDateValid = !isNaN(eventStartDate.getTime());
-        const isEndDateValid = !isNaN(eventEndDate.getTime());
-
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`Filter Debug: Event ${event.id} date validation:`, {
-            hasStartDate: !!event.eventDate,
-            startDateValid: isStartDateValid,
-            hasEndDate: !!event.endDate,
-            endDateValid: isEndDateValid,
-            startDateValue: event.eventDate,
-            endDateValue: event.endDate,
-          });
-        }
-
-        // Only use toISOString on valid dates
-        if (process.env.NODE_ENV !== 'production') {
-          if (isStartDateValid) {
-            console.log(`Filter Debug: Event start date: ${eventStartDate.toISOString()}`);
-          }
-          if (isEndDateValid) {
-            console.log(`Filter Debug: Event end date: ${eventEndDate.toISOString()}`);
-          }
-          if (start) {
-            const filterStartDate = new Date(start);
-            if (!isNaN(filterStartDate.getTime())) {
-              console.log(`Filter Debug: Filter start: ${filterStartDate.toISOString()}`);
-            }
-          }
-          if (end) {
-            const filterEndDate = new Date(end);
-            if (!isNaN(filterEndDate.getTime())) {
-              console.log(`Filter Debug: Filter end: ${filterEndDate.toISOString()}`);
-            }
-          }
-        }
-
-        // Filter logic with validation
-        if (start && isEndDateValid) {
+        if (start && end) {
           const filterStartDate = new Date(start);
-          if (!isNaN(filterStartDate.getTime()) && eventEndDate < filterStartDate) {
-            if (process.env.NODE_ENV !== 'production') {
-              console.log(
-                `Filter Debug: Event ${event.id} FAILED start date filter (event ends before filter start)`
-              );
-            }
-            return false;
-          }
-        }
-
-        if (end && isStartDateValid) {
           const filterEndDate = new Date(end);
-          if (!isNaN(filterEndDate.getTime()) && eventStartDate > filterEndDate) {
-            if (process.env.NODE_ENV !== 'production') {
-              console.log(
-                `Filter Debug: Event ${event.id} FAILED end date filter (event starts after filter end)`
-              );
-            }
-            return false;
-          }
-        }
 
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`Filter Debug: Event ${event.id} PASSED date filter`);
+          if (eventStartDate >= filterStartDate && eventEndDate <= filterEndDate) {
+            compositeScore += 1;
+          } else if (eventStartDate <= filterEndDate && eventEndDate >= filterStartDate) {
+            compositeScore += 0.5; // Partial overlap
+          }
+        } else if (start) {
+          const filterStartDate = new Date(start);
+          if (eventEndDate >= filterStartDate) compositeScore += 1;
+        } else if (end) {
+          const filterEndDate = new Date(end);
+          if (eventStartDate <= filterEndDate) compositeScore += 1;
         }
+        totalWeight += 0.2;
       }
 
+      // 2. Location Filter (20% weight)
       if (criteria.location?.latitude && criteria.location?.longitude && criteria.location?.radius) {
         const [eventLng, eventLat] = event.location.coordinates;
         const distance = this.calculateDistance(
@@ -532,20 +488,15 @@ export class FilterProcessor {
           criteria.location.longitude
         );
 
-        if (distance > criteria.location.radius) {
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(
-              `Filter Debug: Event ${event.id} FAILED location filter (${distance}m > ${criteria.location.radius}m radius)`
-            );
-          }
-          return false;
+        if (distance <= criteria.location.radius) {
+          // Score based on how close the event is to the center
+          const proximityScore = 1 - (distance / criteria.location.radius);
+          compositeScore += proximityScore;
         }
-
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`Filter Debug: Event ${event.id} PASSED location filter`);
-        }
+        totalWeight += 0.2;
       }
 
+      // 3. Semantic Similarity (40% weight)
       if (filter.embedding && event.embedding) {
         try {
           const filterEmbedding = this.vectorService.parseSqlEmbedding(filter.embedding);
@@ -556,7 +507,7 @@ export class FilterProcessor {
             eventEmbedding
           );
 
-          // Tiered thresholds
+          // Adjust threshold based on content type
           let threshold = 0.7; // Default high threshold
 
           // Lower threshold if event title contains query words
@@ -579,31 +530,72 @@ export class FilterProcessor {
             threshold = 0.3;
           }
 
-          if (similarityScore < threshold) {
-            if (process.env.NODE_ENV !== 'production') {
-              console.log(
-                `Filter Debug: Event ${event.id} FAILED semantic filter (similarity: ${similarityScore.toFixed(
-                  2
-                )}, threshold: ${threshold})`
-              );
-            }
-            return false;
+          if (similarityScore >= threshold) {
+            compositeScore += similarityScore;
           }
-
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(
-              `Filter Debug: Event ${event.id} PASSED semantic filter (similarity: ${similarityScore.toFixed(2)})`
-            );
-          }
+          totalWeight += 0.4;
         } catch (error) {
           console.error(`Error calculating semantic similarity:`, error);
         }
       }
 
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`Filter Debug: Event ${event.id} MATCHED ALL filter criteria`);
+      // 4. Text Field Matching (20% weight)
+      if (filter.semanticQuery) {
+        const query = filter.semanticQuery.toLowerCase();
+        let textScore = 0;
+
+        // Title match (highest weight)
+        if (event.title.toLowerCase().includes(query)) {
+          textScore += 0.5;
+        }
+
+        // Description match
+        if (event.description?.toLowerCase().includes(query)) {
+          textScore += 0.3;
+        }
+
+        // Address match
+        if (event.address?.toLowerCase().includes(query)) {
+          textScore += 0.2;
+        }
+
+        // Location notes match
+        if (event.locationNotes?.toLowerCase().includes(query)) {
+          textScore += 0.2;
+        }
+
+        compositeScore += textScore;
+        totalWeight += 0.2;
       }
-      return true;
+
+      // Calculate final score
+      const finalScore = totalWeight > 0 ? compositeScore / totalWeight : 0;
+
+      // Dynamic threshold based on filter type
+      let requiredScore = 0.7; // Default threshold
+
+      // Lower threshold if we have strong text matches
+      if (filter.semanticQuery && event.title.toLowerCase().includes(filter.semanticQuery.toLowerCase())) {
+        requiredScore = 0.5;
+      }
+
+      // Lower threshold for category matches
+      if (
+        event.categories &&
+        event.categories.some((category) =>
+          filter.semanticQuery?.toLowerCase().includes(category.name.toLowerCase())
+        )
+      ) {
+        requiredScore = 0.4;
+      }
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(
+          `Filter Debug: Event ${event.id} final score: ${finalScore.toFixed(2)} (threshold: ${requiredScore.toFixed(2)})`
+        );
+      }
+
+      return finalScore >= requiredScore;
     });
   }
 
