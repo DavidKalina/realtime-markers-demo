@@ -806,7 +806,19 @@ export class EventService {
       .leftJoinAndSelect("discovery.event", "event")
       .leftJoinAndSelect("event.categories", "categories")
       .leftJoinAndSelect("event.creator", "creator")
-      .where("discovery.userId = :userId", { userId });
+      .where("discovery.userId = :userId", { userId })
+      .andWhere(qb => {
+        const subQuery = qb
+          .subQuery()
+          .select("d2.id")
+          .from(UserEventDiscovery, "d2")
+          .where("d2.userId = :userId")
+          .andWhere("d2.eventId = discovery.eventId")
+          .orderBy("d2.discoveredAt", "DESC")
+          .limit(1)
+          .getQuery();
+        return "discovery.id = " + subQuery;
+      });
 
     // Add cursor conditions if cursor is provided
     if (cursorData) {
@@ -840,14 +852,8 @@ export class EventService {
     const hasMore = discoveries.length > limit;
     const results = discoveries.slice(0, limit);
 
-    // Ensure we don't have duplicate events by using a Map to keep only the first occurrence of each event
-    const eventsMap = new Map<string, Event>();
-    results.forEach(discovery => {
-      if (!eventsMap.has(discovery.event.id)) {
-        eventsMap.set(discovery.event.id, discovery.event);
-      }
-    });
-    const events = Array.from(eventsMap.values());
+    // Extract events from discoveries
+    const events = results.map(discovery => discovery.event);
 
     // Generate next cursor if we have more results
     let nextCursor: string | undefined;
