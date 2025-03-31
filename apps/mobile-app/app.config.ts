@@ -5,7 +5,7 @@ export default {
   expo: {
     name: "MapMoji",
     slug: "mobile-app",
-    version: "1.5.6",
+    version: "1.5.7",
     orientation: "portrait",
     icon: "./assets/images/logo.png",
     scheme: "myapp",
@@ -26,12 +26,12 @@ export default {
         NSCameraUsageDescription: "MapMoji needs camera access to let you take photos",
         NSMicrophoneUsageDescription: "MapMoji needs microphone access for video recording",
         NSAppTransportSecurity: {
-          NSAllowsArbitraryLoads: true,
+          NSAllowsArbitraryLoads: false,
         },
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "57",
+      buildNumber: "58",
     },
     android: {
       adaptiveIcon: {
