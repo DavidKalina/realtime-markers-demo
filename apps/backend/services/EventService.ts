@@ -6,7 +6,6 @@ import { Event, EventStatus } from "../entities/Event";
 import { UserEventSave } from "../entities/UserEventSave";
 import { CacheService } from "./shared/CacheService";
 import { OpenAIService } from "./shared/OpenAIService";
-import { EnhancedLocationService } from "./shared/LocationService";
 import type { Filter } from "../entities/Filter";
 import { User } from "../entities/User";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
