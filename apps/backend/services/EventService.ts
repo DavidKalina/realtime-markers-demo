@@ -439,35 +439,32 @@ export class EventService {
       );
     }
 
-    // Complete the query - fix the groupBy to match joined tables
-    queryBuilder = queryBuilder
-      .orderBy("combined_score", "DESC")
-      .addOrderBy("event.id", "ASC") // Secondary sort for deterministic pagination
-      .limit(limit + 1); // Fetch one extra to determine if there are more results
-
     // Execute query
-    const results = await queryBuilder.getRawAndEntities();
+    const events = await queryBuilder
+      .select('event')
+      .addSelect(`(${scoreExpression})`, 'score')
+      .orderBy('score', 'DESC')
+      .addOrderBy('event.id', 'ASC')
+      .limit(limit + 1)
+      .getMany();
 
     // Process results
-    const searchResults: SearchResult[] = [];
-
-    // Map results ensuring correct score association
-    for (let i = 0; i < Math.min(results.entities.length, limit); i++) {
-      searchResults.push({
-        event: results.entities[i],
-        score: parseFloat(results.raw[i].combined_score),
-      });
-    }
+    const searchResults: SearchResult[] = events
+      .slice(0, limit)
+      .map(event => ({
+        event,
+        score: parseFloat((event as any).__score)
+      }));
 
     // Generate next cursor if we have more results
     let nextCursor: string | undefined;
-    if (results.entities.length > limit) {
+    if (events.length > limit) {
       const lastResult = searchResults[searchResults.length - 1];
       const cursorObj = {
         id: lastResult.event.id,
         score: lastResult.score,
       };
-      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString("base64");
+      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString('base64');
     }
 
     // Store in cache
