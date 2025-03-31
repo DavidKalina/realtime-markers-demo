@@ -10,6 +10,7 @@ import type { Filter } from "../entities/Filter";
 import { User } from "../entities/User";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
 import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
+import { EventSimilarityService } from "./event-processing/EventSimilarityService";
 
 interface SearchResult {
   event: Event;
@@ -39,12 +40,14 @@ export class EventService {
   private categoryRepository: Repository<Category>;
   private userEventSaveRepository: Repository<UserEventSave>;
   private locationService: GoogleGeocodingService;
+  private eventSimilarityService: EventSimilarityService;
 
   constructor(private dataSource: DataSource) {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
     this.userEventSaveRepository = dataSource.getRepository(UserEventSave);
     this.locationService = GoogleGeocodingService.getInstance();
+    this.eventSimilarityService = new EventSimilarityService(this.eventRepository);
   }
 
   async cleanupOutdatedEvents(
@@ -213,7 +216,7 @@ export class EventService {
       categoryNames = categories.map((cat: any) => cat.name);
     }
 
-    // Generate embedding from title, description and categories
+    // First, generate embedding and check for duplicates
     const textForEmbedding = `
     TITLE: ${input.title} ${input.title} ${input.title}
     CATEGORIES: ${categoryNames.join(", ")} ${categoryNames.join(", ")}
@@ -223,6 +226,23 @@ export class EventService {
     `.trim();
     const embedding = await this.generateEmbedding(textForEmbedding);
 
+    // Check for similar events before saving
+    const similarity = await this.eventSimilarityService.findSimilarEvents(
+      embedding,
+      {
+        title: input.title,
+        address: input.address,
+        description: input.description,
+        locationNotes: input.locationNotes,
+      }
+    );
+
+    if (similarity.isDuplicate) {
+      // You could either throw an error here or handle it however you want
+      throw new Error(`Duplicate event detected: ${similarity.matchingEventId}`);
+    }
+
+    // If no duplicate, proceed with event creation
     // Create base event data without relations
     const eventData: DeepPartial<Event> = {
       emoji: input.emoji,

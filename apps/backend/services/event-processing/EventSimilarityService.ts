@@ -6,6 +6,7 @@ import { Event } from "../../entities/Event";
 import { type IEventSimilarityService } from "./interfaces/IEventSimilarityService";
 import { type SimilarityResult } from "./dto/SimilarityResult";
 import type { ConfigService } from "../shared/ConfigService";
+import { Brackets } from "typeorm";
 
 /**
  * Service for detecting event similarity and duplicates
@@ -37,20 +38,72 @@ export class EventSimilarityService implements IEventSimilarityService {
     embedding: number[],
     eventData: {
       title: string;
-      date: string;
-      coordinates: [number, number];
       address?: string;
       description?: string;
-      timezone?: string;
+      locationNotes?: string;
     }
   ): Promise<SimilarityResult> {
     try {
-      // First, use vector search to find potential matches
+      // Use vector search with text-based pre-filtering
       const similarEvents = await this.eventRepository
         .createQueryBuilder("event")
         .where("event.embedding IS NOT NULL")
-        .orderBy("embedding <-> :embedding")
-        .setParameters({ embedding: pgvector.toSql(embedding) })
+        .andWhere(
+          new Brackets(qb => {
+            qb.where("LOWER(event.title) LIKE LOWER(:titlePattern)", {
+              titlePattern: `%${eventData.title.toLowerCase()}%`
+            })
+              .orWhere("LOWER(event.description) LIKE LOWER(:descPattern)", {
+                descPattern: `%${eventData.description?.toLowerCase() || ''}%`
+              })
+              .orWhere("LOWER(event.address) LIKE LOWER(:addressPattern)", {
+                addressPattern: `%${eventData.address?.toLowerCase() || ''}%`
+              })
+              .orWhere("LOWER(event.location_notes) LIKE LOWER(:locationNotesPattern)", {
+                locationNotesPattern: `%${eventData.locationNotes?.toLowerCase() || ''}%`
+              });
+          })
+        )
+        // Combine vector similarity with text matching score
+        .addSelect(`
+          (
+            -- Vector similarity (40% weight)
+            (1 - (embedding <-> :embedding)::float) * 0.4 +
+            
+            -- Title match (30% weight)
+            CASE 
+              WHEN LOWER(event.title) = LOWER(:exactTitle) THEN 0.3
+              WHEN LOWER(event.title) LIKE LOWER(:titlePattern) THEN 0.2
+              ELSE 0
+            END +
+            
+            -- Location match (20% weight)
+            CASE 
+              WHEN LOWER(event.address) = LOWER(:exactAddress) THEN 0.1
+              WHEN LOWER(event.location_notes) = LOWER(:exactLocationNotes) THEN 0.1
+              WHEN LOWER(event.address) LIKE LOWER(:addressPattern) THEN 0.05
+              WHEN LOWER(event.location_notes) LIKE LOWER(:locationNotesPattern) THEN 0.05
+              ELSE 0
+            END +
+            
+            -- Description match (10% weight)
+            CASE 
+              WHEN LOWER(event.description) LIKE LOWER(:descPattern) THEN 0.1
+              ELSE 0
+            END
+          )`, 'similarity_score'
+        )
+        .orderBy('similarity_score', 'DESC')
+        .setParameters({
+          embedding: pgvector.toSql(embedding),
+          exactTitle: eventData.title.toLowerCase(),
+          titlePattern: `%${eventData.title.toLowerCase()}%`,
+          exactAddress: eventData.address?.toLowerCase() || '',
+          exactLocationNotes: eventData.locationNotes?.toLowerCase() || '',
+          addressPattern: `%${eventData.address?.toLowerCase() || ''}%`,
+          locationNotesPattern: `%${eventData.locationNotes?.toLowerCase() || ''}%`,
+          descPattern: `%${eventData.description?.toLowerCase() || ''}%`
+        })
         .limit(5)
         .getMany();
 
@@ -58,72 +111,41 @@ export class EventSimilarityService implements IEventSimilarityService {
         return { score: 0 };
       }
 
-      // Get best match from vector similarity
       const bestMatch = similarEvents[0];
-
-      // Calculate embedding similarity score
       const embeddingScore = this.calculateCosineSimilarity(
         embedding,
         pgvector.fromSql(bestMatch.embedding)
       );
 
-      // ---------- LOCATION SIMILARITY ----------
-      // Only consider location if embedding similarity is high enough
-      const eventCoords = {
-        lat: eventData.coordinates[1],
-        lng: eventData.coordinates[0],
-      };
-
-      const matchCoords = {
-        lat: bestMatch.location?.coordinates?.[1] ?? 0,
-        lng: bestMatch.location?.coordinates?.[0] ?? 0,
-      };
-
-      const locationSimilarity = this.calculateLocationSimilarity(
-        eventCoords,
-        matchCoords,
-        new Date(eventData.date),
-        new Date(bestMatch.eventDate || Date.now())
-      );
-
-      // ---------- COMPOSITE SCORE ----------
-      // Use a weighted combination of embedding (80%) and location (20%)
-      const compositeScore = embeddingScore * 0.8 + locationSimilarity * 0.2;
-
-      // ---------- MATCH REASON ----------
+      // Simplified match reason based on our core fields
       let matchReason = "";
       if (embeddingScore > 0.85) {
         matchReason = "Very similar content";
-        if (locationSimilarity > 0.8) {
-          matchReason += " at same location";
-        }
-      } else if (embeddingScore > 0.75 && locationSimilarity > 0.9) {
-        matchReason = "Similar content at same location";
-      } else if (compositeScore > 0.7) {
-        matchReason = "Multiple similarity factors";
+      } else if (
+        bestMatch.title.toLowerCase() === eventData.title.toLowerCase() &&
+        bestMatch.address?.toLowerCase() === eventData.address?.toLowerCase()
+      ) {
+        matchReason = "Same title at same location";
+      } else if (embeddingScore > 0.75) {
+        matchReason = "Similar content";
       }
 
-      // Store detailed match data for logging
       const matchDetails = {
-        distance: `${this.calculateDistance(eventCoords, matchCoords).toFixed(0)} meters`,
-        locationSimilarity: locationSimilarity.toFixed(2),
         embeddingScore: embeddingScore.toFixed(2),
-        compositeScore: compositeScore.toFixed(2),
-        timezone: eventData.timezone,
-        matchTimezone: bestMatch.timezone,
+        titleMatch: bestMatch.title.toLowerCase() === eventData.title.toLowerCase(),
+        addressMatch: bestMatch.address?.toLowerCase() === eventData.address?.toLowerCase(),
+        locationNotesMatch: bestMatch.locationNotes?.toLowerCase() === eventData.locationNotes?.toLowerCase()
       };
 
-
-      // Check if it's a duplicate based on thresholds
       const isDuplicate = this.isDuplicate({
-        score: compositeScore,
+        score: embeddingScore,
         matchingEventId: bestMatch.id,
         matchReason,
         matchDetails,
       });
 
       return {
-        score: compositeScore,
+        score: embeddingScore,
         matchingEventId: bestMatch.id,
         matchReason,
         matchDetails,
