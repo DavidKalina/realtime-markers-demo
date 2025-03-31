@@ -3,7 +3,6 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import { EventType } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import debounce from 'lodash/debounce';
 import { AlertCircle, ArrowLeft, Clock, MapPin, Search, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -169,16 +168,21 @@ const SearchView = () => {
   const searchInputRef = useRef<TextInput>(null);
   const listRef = useAnimatedRef<FlatList>();
 
-  // Debounced search function
-  const debouncedSearch = useCallback(
-    debounce((query: string) => {
-      setIsTyping(false);
-      if (query.trim().length >= 2) {
-        searchEvents(true);
-      }
-    }, 300),
-    [searchEvents]
-  );
+  // Simplify the search input handler
+  const handleSearchInput = useCallback((text: string) => {
+    setIsTyping(true);
+    setSearchQuery(text);  // This will trigger the debounced search in the hook
+  }, []);
+
+  // When typing stops, clear the typing indicator
+  useEffect(() => {
+    if (isTyping) {
+      const timeout = setTimeout(() => {
+        setIsTyping(false);
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [searchQuery, isTyping]);
 
   // Memoize handlers
   const handleBack = useCallback(() => {
@@ -280,13 +284,6 @@ const SearchView = () => {
       </Animated.View>
     );
   }, [isFetchingMore]);
-
-  // Memoize the search input handler
-  const handleSearchInput = useCallback((text: string) => {
-    setSearchQuery(text);
-    setIsTyping(true);
-    debouncedSearch(text);
-  }, [debouncedSearch]);
 
   // Set up keyboard listeners
   useEffect(() => {

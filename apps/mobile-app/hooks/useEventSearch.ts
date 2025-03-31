@@ -193,10 +193,10 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
       return;
     }
 
-    // Set new timeout with increased debounce time
+    // Increased debounce time to 800ms
     const timeout = setTimeout(() => {
       searchEvents(true);
-    }, 500); // Increased from 300ms to 500ms
+    }, 800);
 
     setSearchTimeout(timeout);
 

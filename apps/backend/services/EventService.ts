@@ -218,6 +218,8 @@ export class EventService {
     TITLE: ${input.title} ${input.title} ${input.title}
     CATEGORIES: ${categoryNames.join(", ")} ${categoryNames.join(", ")}
     DESCRIPTION: ${input.description || ""}
+    LOCATION: ${input.address || ""}
+    LOCATION_NOTES: ${input.locationNotes || ""}
     `.trim();
     const embedding = await this.generateEmbedding(textForEmbedding);
 
@@ -333,8 +335,9 @@ export class EventService {
     TITLE: ${query}
     CATEGORIES: ${query}
     DESCRIPTION: ${query}
-    EMOJI: ${query}
-    EMOJI_RELATED: ${query}
+    LOCATION: ${query}
+    ADDRESS: ${query}
+    LOCATION_NOTES: ${query}
     `.trim();
     let searchEmbedding = CacheService.getCachedEmbedding(normalizedQuery);
 
