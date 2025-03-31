@@ -133,6 +133,7 @@ const SavedEventsView: React.FC = () => {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
   const pageSize = 10;
 
   const listRef = useAnimatedRef<FlatList>();
@@ -165,31 +166,49 @@ const SavedEventsView: React.FC = () => {
       if (refresh) {
         setIsRefreshing(true);
         setPage(0);
+        setCursor(undefined);
         setHasMore(true);
       } else if (!refresh && isLoading === false) {
         setIsFetchingMore(true);
       }
 
-      const offset = refresh ? 0 : page * pageSize;
-
-      const response = activeTab === 'saved'
-        ? await apiClient.getSavedEvents({
+      let response;
+      if (activeTab === 'saved') {
+        response = await apiClient.getSavedEvents({
           limit: pageSize,
-          offset: offset,
-        })
-        : await apiClient.getUserDiscoveredEvents({
-          limit: pageSize,
-          offset: offset,
+          offset: refresh ? 0 : page * pageSize,
         });
+
+        setHasMore(response.hasMore);
+        setPage((prev) => (refresh ? 0 : prev) + 1);
+      } else {
+        response = await apiClient.getUserDiscoveredEvents({
+          limit: pageSize,
+          cursor: refresh ? undefined : cursor,
+        });
+
+        setHasMore(!!response.nextCursor);
+        setCursor(response.nextCursor);
+      }
 
       if (refresh) {
         setEvents(response.events);
       } else {
-        setEvents((prev) => [...prev, ...response.events]);
+        const existingIds = new Set(events.map(e => e.id));
+        const newEvents = response.events.filter(e => !existingIds.has(e.id));
+        setEvents((prev) => [...prev, ...newEvents]);
       }
 
-      setHasMore(response.hasMore);
-      setPage((prev) => (refresh ? 0 : prev) + 1);
+      if (__DEV__) {
+        // Debug logging
+        const ids = response.events.map(e => e.id);
+        const uniqueIds = new Set(ids);
+        if (ids.length !== uniqueIds.size) {
+          console.warn('Duplicate events in response:',
+            ids.filter((id, index) => ids.indexOf(id) !== index));
+        }
+      }
+
       setError(null);
     } catch (err) {
       setError(`Failed to load ${activeTab} events. Please try again.`);
@@ -235,6 +254,7 @@ const SavedEventsView: React.FC = () => {
     setActiveTab(tab);
     setEvents([]);
     setPage(0);
+    setCursor(undefined);
     setHasMore(true);
   }, []);
 
@@ -247,7 +267,7 @@ const SavedEventsView: React.FC = () => {
 
   // Memoize the keyExtractor function
   const keyExtractor = useCallback((item: EventType) => {
-    return `${activeTab}-${item.id || item.title}-${item.time}`;
+    return `${activeTab}-${item.id}-${item.time}`;
   }, [activeTab]);
 
   // Memoize the renderItem function

@@ -595,29 +595,26 @@ class ApiClient {
   }
 
   // Get events discovered by current user
-  async getUserDiscoveredEvents(options?: EventOptions): Promise<{
+  async getUserDiscoveredEvents(options: { limit?: number; cursor?: string } = {}): Promise<{
     events: EventType[];
-    total: number;
-    hasMore: boolean;
+    nextCursor?: string;
   }> {
     const queryParams = new URLSearchParams();
 
     if (options?.limit) queryParams.append("limit", options.limit.toString());
-    if (options?.offset) queryParams.append("offset", options.offset.toString());
+    if (options?.cursor) queryParams.append("cursor", options.cursor);
 
     const url = `${this.baseUrl}/api/events/discovered?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
 
     const data = await this.handleResponse<{
       events: ApiEvent[];
-      total: number;
-      hasMore: boolean;
+      nextCursor?: string;
     }>(response);
 
     return {
       events: data.events.map(this.mapEventToEventType),
-      total: data.total,
-      hasMore: data.hasMore,
+      nextCursor: data.nextCursor
     };
   }
 
