@@ -8,6 +8,7 @@ import {
   ManyToOne,
   JoinColumn,
   Unique,
+  Index,
 } from "typeorm";
 import { User } from "./User";
 import { Event } from "./Event";
@@ -18,6 +19,7 @@ export class UserEventSave {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
+  @Index()
   @Column({ name: "user_id", type: "uuid" })
   userId!: string;
 
@@ -35,6 +37,7 @@ export class UserEventSave {
   @Column({ name: "notes", type: "text", nullable: true })
   notes?: string;
 
+  @Index(["userId", "savedAt"])
   @CreateDateColumn({ name: "saved_at", type: "timestamptz" })
   savedAt!: Date;
 }

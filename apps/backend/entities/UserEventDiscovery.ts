@@ -18,6 +18,7 @@ export class UserEventDiscovery {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
+  @Index(["userId", "discoveredAt"])
   @Column({ name: "user_id", type: "uuid" })
   userId!: string;
 
@@ -32,6 +33,7 @@ export class UserEventDiscovery {
   @JoinColumn({ name: "event_id" })
   event!: Event;
 
+  @Index()
   @CreateDateColumn({ name: "discovered_at", type: "timestamptz" })
   discoveredAt!: Date;
 }
