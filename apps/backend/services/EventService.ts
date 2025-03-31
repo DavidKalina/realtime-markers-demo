@@ -307,8 +307,6 @@ export class EventService {
     }
   }
 
-
-
   async searchEvents(
     query: string,
     limit: number = 10,
@@ -365,25 +363,49 @@ export class EventService {
 
     // Define our score expression for consistency
     const scoreExpression = `
-    (1 - (embedding <-> :embedding)::float) * 0.6 +
-    (CASE 
-      WHEN LOWER(event.title) LIKE LOWER(:exactQuery) THEN 1.0
-      WHEN LOWER(event.title) LIKE LOWER(:partialQuery) THEN 0.7
-      WHEN LOWER(event.description) LIKE LOWER(:exactQuery) THEN 0.5
-      WHEN LOWER(event.description) LIKE LOWER(:partialQuery) THEN 0.3
-      WHEN EXISTS (
-        SELECT 1 FROM categories c
-        WHERE c.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id)
-        AND LOWER(c.name) LIKE LOWER(:exactQuery)
-      ) THEN 0.8
-      WHEN EXISTS (
-        SELECT 1 FROM categories c
-        WHERE c.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id)
-        AND LOWER(c.name) LIKE LOWER(:partialQuery)
-      ) THEN 0.4
-      ELSE 0
-    END) * 0.4
-  `;
+    (
+      -- Semantic similarity (40% weight)
+      (1 - (embedding <-> :embedding)::float) * 0.4 +
+      
+      -- Text matching (30% weight)
+      (
+        CASE 
+          WHEN LOWER(event.title) LIKE LOWER(:exactQuery) THEN 1.0
+          WHEN LOWER(event.title) LIKE LOWER(:partialQuery) THEN 0.7
+          WHEN LOWER(event.description) LIKE LOWER(:exactQuery) THEN 0.5
+          WHEN LOWER(event.description) LIKE LOWER(:partialQuery) THEN 0.3
+          ELSE 0
+        END
+      ) * 0.3 +
+      
+      -- Category matching (20% weight)
+      (
+        CASE 
+          WHEN EXISTS (
+            SELECT 1 FROM categories c
+            WHERE c.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id)
+            AND LOWER(c.name) LIKE LOWER(:exactQuery)
+          ) THEN 0.8
+          WHEN EXISTS (
+            SELECT 1 FROM categories c
+            WHERE c.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id)
+            AND LOWER(c.name) LIKE LOWER(:partialQuery)
+          ) THEN 0.4
+          ELSE 0
+        END
+      ) * 0.2 +
+      
+      -- Recency boost (10% weight)
+      (
+        CASE 
+          WHEN event.eventDate > NOW() THEN 1.0
+          WHEN event.eventDate > NOW() - INTERVAL '7 days' THEN 0.8
+          WHEN event.eventDate > NOW() - INTERVAL '30 days' THEN 0.6
+          WHEN event.eventDate > NOW() - INTERVAL '90 days' THEN 0.4
+          ELSE 0.2
+        END
+      ) * 0.1
+    )`;
 
     // Build query
     let queryBuilder = this.eventRepository

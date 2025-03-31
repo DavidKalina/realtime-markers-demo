@@ -168,6 +168,7 @@ const SavedEventsView: React.FC = () => {
         setPage(0);
         setCursor(undefined);
         setHasMore(true);
+        setEvents([]); // Clear events on refresh
       } else if (!refresh && isLoading === false) {
         setIsFetchingMore(true);
       }
@@ -194,9 +195,11 @@ const SavedEventsView: React.FC = () => {
       if (refresh) {
         setEvents(response.events);
       } else {
+        // Create a Set of existing event IDs for efficient lookup
         const existingIds = new Set(events.map(e => e.id));
+        // Filter out any events we already have
         const newEvents = response.events.filter(e => !existingIds.has(e.id));
-        setEvents((prev) => [...prev, ...newEvents]);
+        setEvents(prev => [...prev, ...newEvents]);
       }
 
       if (__DEV__) {
@@ -222,6 +225,10 @@ const SavedEventsView: React.FC = () => {
 
   // Load initial data
   useEffect(() => {
+    setEvents([]); // Clear events when tab changes
+    setPage(0);
+    setCursor(undefined);
+    setHasMore(true);
     fetchEvents();
   }, [activeTab]);
 
