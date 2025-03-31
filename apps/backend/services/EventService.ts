@@ -427,11 +427,17 @@ export class EventService {
     // Add text matching conditions for a better performance pre-filter
     queryBuilder = queryBuilder.andWhere(
       new Brackets((qb) => {
+        // Add debug logging for emoji matching
+        console.log(`Searching for query: "${query}"`);
+
         qb.where("LOWER(event.title) LIKE LOWER(:partialQuery)", {
           partialQuery: `%${query.toLowerCase()}%`,
         })
           .orWhere("LOWER(event.description) LIKE LOWER(:partialQuery)", {
             partialQuery: `%${query.toLowerCase()}%`,
+          })
+          .orWhere("LOWER(event.emoji) LIKE LOWER(:exactQuery)", {
+            exactQuery: query.toLowerCase(),
           })
           .orWhere("LOWER(event.emoji) LIKE LOWER(:partialQuery)", {
             partialQuery: `%${query.toLowerCase()}%`,
@@ -482,6 +488,12 @@ export class EventService {
       .addOrderBy('event.id', 'ASC')
       .limit(limit + 1)
       .getMany();
+
+    // Add debug logging for results
+    console.log(`Found ${events.length} events for query "${query}"`);
+    events.forEach(event => {
+      console.log(`Event: "${event.title}" with emoji: "${event.emoji}" and score: ${(event as any).__score}`);
+    });
 
     // Process results
     const searchResults: SearchResult[] = events
