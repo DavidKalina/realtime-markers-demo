@@ -26,7 +26,13 @@ export class AuthService {
   constructor(userRepository: Repository<User>) {
     this.userRepository = userRepository;
     this.jwtSecret = process.env.JWT_SECRET!;
+    if (!this.jwtSecret) {
+      throw new Error("JWT_SECRET environment variable must be set");
+    }
     this.refreshSecret = process.env.REFRESH_SECRET!;
+    if (!this.refreshSecret) {
+      throw new Error("REFRESH_SECRET environment variable must be set");
+    }
     this.accessTokenExpiry = "1h";
     this.refreshTokenExpiry = "7d";
   }
