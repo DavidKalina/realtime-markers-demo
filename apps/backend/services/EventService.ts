@@ -803,7 +803,6 @@ export class EventService {
     let queryBuilder = this.dataSource
       .getRepository(UserEventDiscovery)
       .createQueryBuilder("discovery")
-      .distinct(true)
       .leftJoinAndSelect("discovery.event", "event")
       .leftJoinAndSelect("event.categories", "categories")
       .leftJoinAndSelect("event.creator", "creator")
@@ -841,17 +840,14 @@ export class EventService {
     const hasMore = discoveries.length > limit;
     const results = discoveries.slice(0, limit);
 
-    // Ensure we don't have duplicate events
-    const seenEventIds = new Set<string>();
-    const events = results
-      .map(discovery => discovery.event)
-      .filter(event => {
-        if (seenEventIds.has(event.id)) {
-          return false;
-        }
-        seenEventIds.add(event.id);
-        return true;
-      });
+    // Ensure we don't have duplicate events by using a Map to keep only the first occurrence of each event
+    const eventsMap = new Map<string, Event>();
+    results.forEach(discovery => {
+      if (!eventsMap.has(discovery.event.id)) {
+        eventsMap.set(discovery.event.id, discovery.event);
+      }
+    });
+    const events = Array.from(eventsMap.values());
 
     // Generate next cursor if we have more results
     let nextCursor: string | undefined;
