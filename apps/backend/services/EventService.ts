@@ -307,8 +307,7 @@ export class EventService {
     }
   }
 
-  // The rest of the methods remain unchanged
-  // ...
+
 
   async searchEvents(
     query: string,
@@ -804,6 +803,7 @@ export class EventService {
     let queryBuilder = this.dataSource
       .getRepository(UserEventDiscovery)
       .createQueryBuilder("discovery")
+      .distinct(true)
       .leftJoinAndSelect("discovery.event", "event")
       .leftJoinAndSelect("event.categories", "categories")
       .leftJoinAndSelect("event.creator", "creator")
@@ -840,7 +840,18 @@ export class EventService {
     // Process results
     const hasMore = discoveries.length > limit;
     const results = discoveries.slice(0, limit);
-    const events = results.map(discovery => discovery.event);
+
+    // Ensure we don't have duplicate events
+    const seenEventIds = new Set<string>();
+    const events = results
+      .map(discovery => discovery.event)
+      .filter(event => {
+        if (seenEventIds.has(event.id)) {
+          return false;
+        }
+        seenEventIds.add(event.id);
+        return true;
+      });
 
     // Generate next cursor if we have more results
     let nextCursor: string | undefined;
