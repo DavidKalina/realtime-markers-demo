@@ -64,18 +64,15 @@ if PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d
   echo "Creating additional indexes on events table"
   
   PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<EOSQL
-      -- Existing indexes
-      CREATE INDEX IF NOT EXISTS events_location_idx 
-      ON events 
-      USING GIST (location);
+      -- Special indexes that TypeORM doesn't handle well
+      CREATE INDEX IF NOT EXISTS events_location_gist_idx 
+      ON events USING GIST (location);
 
       CREATE INDEX IF NOT EXISTS events_title_trgm_idx 
-      ON events 
-      USING gin (title gin_trgm_ops);
+      ON events USING gin (title gin_trgm_ops);
 
       CREATE INDEX IF NOT EXISTS events_description_trgm_idx 
-      ON events 
-      USING gin (description gin_trgm_ops);
+      ON events USING gin (description gin_trgm_ops);
 
       -- New indexes for events
       CREATE INDEX IF NOT EXISTS events_creator_id_idx
@@ -84,28 +81,17 @@ if PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d
       CREATE INDEX IF NOT EXISTS events_status_idx
       ON events(status);
 
-      -- New compound index for location + date
-      CREATE INDEX IF NOT EXISTS events_location_date_idx
-      ON events(event_date)
-      INCLUDE (location);
-
-      -- New indexes for user_event_saves
-      CREATE INDEX IF NOT EXISTS user_event_saves_saved_at_idx
-      ON user_event_saves(saved_at);
-
+      -- User event saves
       CREATE INDEX IF NOT EXISTS user_event_saves_user_date_idx
-      ON user_event_saves(user_id, saved_at);
+      ON user_event_saves(id, saved_at);
 
-      -- New indexes for user_event_discoveries
-      CREATE INDEX IF NOT EXISTS user_event_discoveries_discovered_at_idx
-      ON user_event_discoveries(discovered_at);
-
+      -- User event discoveries
       CREATE INDEX IF NOT EXISTS user_event_discoveries_user_date_idx
-      ON user_event_discoveries(user_id, discovered_at);
+      ON user_event_discoveries(id, discovered_at);
 
-      -- New indexes for filters
+      -- Filters
       CREATE INDEX IF NOT EXISTS filters_user_active_idx
-      ON filters(user_id, is_active);
+      ON filters(id, "isActive");
 EOSQL
 
   # Check if the embedding column exists and is of type vector

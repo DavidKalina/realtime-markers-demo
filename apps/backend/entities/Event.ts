@@ -58,7 +58,6 @@ export class Event {
   @Column({ type: "text", nullable: true, name: "location_notes" })
   locationNotes?: string;
 
-  @Index()
   @Column({
     type: "geometry",
     spatialFeatureType: "Point",
@@ -76,7 +75,6 @@ export class Event {
   @Column({ name: "confidence_score", type: "float", nullable: true })
   confidenceScore?: number;
 
-  @Index({ spatial: true })
   @Column({ name: "embedding", type: "text", nullable: true })
   embedding?: string;
 
