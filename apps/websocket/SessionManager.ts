@@ -338,29 +338,18 @@ export class SessionManager {
    * Calculate progress percentage from job update
    */
   private calculateProgressPercentage(jobUpdate: any): number {
-    // Map job progress messages to percentage values
-    const progressMap: Record<string, number> = {
-      "Initializing job...": 0,
-      "Analyzing image...": 15,
-      "Analyzing image with Vision API...": 30,
-      "Image analyzed successfully": 45,
-      "Generating text embeddings...": 60,
-      "Extracting event details and categories...": 75,
-      "Finding similar events...": 85,
-      "Processing complete!": 95,
-      "Creating event...": 98,
-    };
-
+    // If job is completed, return 100%
     if (jobUpdate.status === "completed") {
       return 100;
     }
 
-    if (jobUpdate.progress && progressMap[jobUpdate.progress]) {
-      return progressMap[jobUpdate.progress];
+    // If job has a numeric progress value, use it directly
+    if (typeof jobUpdate.progress === "number") {
+      return Math.min(99, Math.round(jobUpdate.progress * 100));
     }
 
-    // Default progress handling
-    return jobUpdate.progress ? 50 : 0;
+    // Default to 0 if no progress information
+    return 0;
   }
 
   /**

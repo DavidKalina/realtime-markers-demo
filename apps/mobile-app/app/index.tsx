@@ -103,6 +103,22 @@ function HomeScreen() {
     return () => { };
   }, [userLocation, getUserLocation]);
 
+  // Track if we've done initial centering
+  const hasCenteredOnUserRef = useRef(false);
+
+  // Update camera position only once when user location becomes available
+  useEffect(() => {
+    if (userLocation && !isLoadingLocation && isMapReady && cameraRef.current && !hasCenteredOnUserRef.current) {
+      hasCenteredOnUserRef.current = true;
+      cameraRef.current.setCamera({
+        centerCoordinate: userLocation,
+        zoomLevel: 14,
+        animationDuration: 1000,
+        animationMode: "easeTo",
+      });
+    }
+  }, [userLocation, isLoadingLocation, isMapReady]);
+
   // Memoize map press handler to avoid recreation on each render
   const handleMapPress = useCallback(() => {
     if (!selectedItem) return;

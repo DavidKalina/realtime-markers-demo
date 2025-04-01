@@ -32,25 +32,25 @@ const STATUS_CONFIG = {
   none: {
     colorValue: 0,
     scaleValue: 1,
-    scanColor: "#4dabf7",
+    scanColor: "#93c5fd",
     overlayOpacity: 0.3,
   },
   detecting: {
     colorValue: 0.5,
     scaleValue: 1.02,
-    scanColor: "#4dabf7",
+    scanColor: "#93c5fd",
     overlayOpacity: 0.4,
   },
   aligned: {
     colorValue: 1,
     scaleValue: 1.02,
-    scanColor: "#4dabf7",
+    scanColor: "#93c5fd",
     overlayOpacity: 0.5,
   },
   capturing: {
     colorValue: 1,
     scaleValue: 1.05,
-    scanColor: "#4dabf7",
+    scanColor: "#93c5fd",
     overlayOpacity: 0.6,
   },
 };
@@ -88,7 +88,7 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
     const overlayOpacity = useSharedValue(0.3);
 
     // Status-dependent state
-    const [scanColor, setScanColor] = useState("#4dabf7");
+    const [scanColor, setScanColor] = useState("#93c5fd");
 
     // Create unified cleanup function to cancel all animations
     const cleanupAnimations = useCallback(() => {
@@ -113,7 +113,7 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
       overlayOpacity.value = 0.3;
 
       // Reset scan color to initial state
-      setScanColor("#4dabf7");
+      setScanColor("#93c5fd");
 
       // Mark animations as not set
       animationsSet.current = false;
@@ -130,7 +130,7 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
       overlayOpacity.value = 0.3;
 
       // Reset scan color to initial state
-      setScanColor("#4dabf7");
+      setScanColor("#93c5fd");
 
       // Mark animations as not set
       animationsSet.current = false;
@@ -283,10 +283,6 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
         <Animated.View style={[overlayStyles.frame, frameStyle]}>
           <View style={overlayStyles.boundary} />
           <Animated.View style={[overlayStyles.overlay, overlayStyle]} />
-          <View style={[overlayStyles.corner, overlayStyles.cornerTopLeft]} />
-          <View style={[overlayStyles.corner, overlayStyles.cornerTopRight]} />
-          <View style={[overlayStyles.corner, overlayStyles.cornerBottomLeft]} />
-          <View style={[overlayStyles.corner, overlayStyles.cornerBottomRight]} />
           {showScannerAnimation && (
             <View style={overlayStyles.scannerContainer}>
               <ScannerAnimation
@@ -317,6 +313,7 @@ const overlayStyles = StyleSheet.create({
     height: "100%",
     position: "relative",
     overflow: "hidden",
+    borderRadius: 24,
   },
   boundary: {
     position: "absolute",
@@ -325,8 +322,9 @@ const overlayStyles = StyleSheet.create({
     right: "3%",
     bottom: "3%",
     borderWidth: 2,
-    borderColor: "rgba(0, 242, 255, 0.8)",
-    shadowColor: "#00f2ff",
+    borderColor: "rgba(147, 197, 253, 0.8)",
+    borderRadius: 20,
+    shadowColor: "#93c5fd",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 8,
@@ -339,6 +337,7 @@ const overlayStyles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: "#000",
+    borderRadius: 24,
   },
   scannerContainer: {
     position: "absolute",
@@ -347,36 +346,6 @@ const overlayStyles = StyleSheet.create({
     right: "3%",
     bottom: "3%",
     overflow: "hidden",
-  },
-  corner: {
-    position: "absolute",
-    width: 20,
-    height: 20,
-    borderColor: "#00f2ff",
-    borderWidth: 2,
-  },
-  cornerTopLeft: {
-    top: "3%",
-    left: "3%",
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-  },
-  cornerTopRight: {
-    top: "3%",
-    right: "3%",
-    borderLeftWidth: 0,
-    borderBottomWidth: 0,
-  },
-  cornerBottomLeft: {
-    bottom: "3%",
-    left: "3%",
-    borderRightWidth: 0,
-    borderTopWidth: 0,
-  },
-  cornerBottomRight: {
-    bottom: "3%",
-    right: "3%",
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
+    borderRadius: 20,
   },
 });

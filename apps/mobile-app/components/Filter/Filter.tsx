@@ -14,8 +14,10 @@ import {
   Sliders,
   Trash2,
   X,
+  MapPin,
+  Check,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -33,6 +35,7 @@ import {
   TouchableWithoutFeedback,
   View,
   ViewStyle,
+  TextStyle,
 } from "react-native";
 import Animated, {
   FadeIn,
@@ -43,10 +46,17 @@ import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  BounceIn,
   ZoomIn,
+  ZoomOut,
+  withSpring,
+  withTiming,
+  SlideInDown,
+  SlideOutDown,
+  Layout,
+  cancelAnimation,
 } from "react-native-reanimated";
 import { Filter as FilterType } from "../../services/ApiClient";
+import * as Location from "expo-location";
 
 const ACTIVE_FILTERS_KEY = "@active_filters";
 
@@ -73,30 +83,71 @@ const FiltersView: React.FC = () => {
   const [isActive, setIsActive] = useState(true);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [radius, setRadius] = useState<number>();
+  const [location, setLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [isLocationEnabled, setIsLocationEnabled] = useState(false);
 
   const scrollY = useSharedValue(0);
   const listRef = useAnimatedRef<FlatList>();
+  const isMounted = useRef(true);
 
   // Animation for header shadow
   const headerAnimatedStyle = useAnimatedStyle(() => {
-    const borderBottomColor = interpolate(
+    const shadowOpacity = interpolate(
       scrollY.value,
       [0, 50],
-      [0, 1],
+      [0, 0.15],
+      'clamp'
+    );
+
+    const borderOpacity = interpolate(
+      scrollY.value,
+      [0, 50],
+      [0, 0.1],
       'clamp'
     );
 
     return {
-      borderBottomColor: borderBottomColor === 0 ? 'transparent' : '#3a3a3a',
+      shadowOpacity,
+      borderBottomColor: `rgba(58, 58, 58, ${borderOpacity})`,
+      transform: [
+        {
+          translateY: interpolate(
+            scrollY.value,
+            [0, 50],
+            [0, -2],
+            'clamp'
+          )
+        }
+      ]
     } as ViewStyle;
   });
 
   // Scroll handler
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
+      if (!isMounted.current) return;
       scrollY.value = event.contentOffset.y;
     },
   });
+
+  // Cleanup function for animations
+  const cleanupAnimations = useCallback(() => {
+    if (!isMounted.current) return;
+    cancelAnimation(scrollY);
+    scrollY.value = 0;
+  }, [scrollY]);
+
+  // Set isMounted to false when component unmounts
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      cleanupAnimations();
+    };
+  }, [cleanupAnimations]);
 
   const router = useRouter();
 
@@ -155,6 +206,9 @@ const FiltersView: React.FC = () => {
     setIsActive(true);
     setStartDate("");
     setEndDate("");
+    setRadius(undefined);
+    setLocation(null);
+    setIsLocationEnabled(false);
     setModalVisible(true);
   };
 
@@ -167,6 +221,17 @@ const FiltersView: React.FC = () => {
     setIsActive(activeFilterIds.includes(filter.id));
     setStartDate(filter.criteria.dateRange?.start || "");
     setEndDate(filter.criteria.dateRange?.end || "");
+    setIsLocationEnabled(!!filter.criteria.location);
+    setRadius(filter.criteria.location?.radius ? filter.criteria.location.radius / 1000 : undefined);
+    setLocation(
+      filter.criteria.location?.latitude !== undefined &&
+        filter.criteria.location?.longitude !== undefined
+        ? {
+          latitude: filter.criteria.location.latitude,
+          longitude: filter.criteria.location.longitude
+        }
+        : null
+    );
     setModalVisible(true);
   };
 
@@ -243,7 +308,6 @@ const FiltersView: React.FC = () => {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Prepare the filter data
     const filterData: Partial<FilterType> = {
       name: filterName.trim(),
       semanticQuery: semanticQuery.trim(),
@@ -252,6 +316,14 @@ const FiltersView: React.FC = () => {
           start: startDate || undefined,
           end: endDate || undefined,
         },
+        // Only include location if enabled and we have both location and radius
+        ...(isLocationEnabled && location && radius ? {
+          location: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            radius: radius * 1000, // Convert km to meters
+          }
+        } : {}),
       },
     };
 
@@ -279,130 +351,157 @@ const FiltersView: React.FC = () => {
   };
 
   // Render a single filter item
-  const renderFilterItem = ({ item, index }: { item: FilterType; index: number }) => (
-    <Animated.View
-      style={styles.filterCard}
-      entering={ZoomIn.duration(200).springify().damping(30).stiffness(300).delay(index * 30)}
-      exiting={FadeOut.duration(150)}
-      layout={LinearTransition.springify().damping(30).stiffness(300)}
-    >
+  const renderFilterItem = ({ item, index }: { item: FilterType; index: number }) => {
+    // Calculate date range in days
+    const getDateRangeText = () => {
+      if (!item.criteria.dateRange?.start || !item.criteria.dateRange?.end) return null;
+
+      const start = new Date(item.criteria.dateRange.start);
+      const end = new Date(item.criteria.dateRange.end);
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) return "1d";
+      if (diffDays < 7) return `${diffDays}d`;
+      if (diffDays < 30) return `${Math.floor(diffDays / 7)}w`;
+      return `${Math.floor(diffDays / 30)}m`;
+    };
+
+    return (
       <Animated.View
-        style={styles.filterHeader}
-        layout={LinearTransition.springify().damping(30).stiffness(300)}
+        style={styles.filterCard}
+        entering={SlideInDown.springify()
+          .damping(15)
+          .stiffness(100)
+          .delay(index * 50)
+          .withInitialValues({ transform: [{ translateY: 50 }, { scale: 0.8 }] })}
+        exiting={SlideOutDown.springify().damping(15).stiffness(100)}
+        layout={Layout.springify().damping(12).stiffness(100)}
+        onLayout={() => {
+          // Cleanup any running animations when layout changes
+          if (!isMounted.current) {
+            cancelAnimation(scrollY);
+          }
+        }}
       >
         <Animated.View
-          style={styles.filterIconContainer}
+          style={styles.filterHeader}
           layout={LinearTransition.springify().damping(30).stiffness(300)}
         >
-          {item.emoji ? (
-            <Text style={styles.filterEmoji}>{item.emoji}</Text>
-          ) : (
-            <FilterIcon size={16} color="#93c5fd" />
-          )}
+          <Animated.View
+            style={styles.filterIconContainer}
+            layout={LinearTransition.springify().damping(30).stiffness(300)}
+          >
+            {item.emoji ? (
+              <Text style={styles.filterEmoji}>{item.emoji}</Text>
+            ) : (
+              <FilterIcon size={16} color="#93c5fd" />
+            )}
+          </Animated.View>
+
+          <Animated.View
+            style={styles.filterTitleContainer}
+            layout={LinearTransition.springify().damping(30).stiffness(300)}
+          >
+            <Text style={styles.filterName}>{item.name}</Text>
+            {item.semanticQuery && (
+              <Text style={styles.filterQuery} numberOfLines={2}>
+                {item.semanticQuery}
+              </Text>
+            )}
+          </Animated.View>
+
+          <Animated.View
+            style={styles.filterDetails}
+            layout={LinearTransition.springify().damping(30).stiffness(300)}
+          >
+            {/* Date Range */}
+            {(item.criteria.dateRange?.start || item.criteria.dateRange?.end) && (
+              <Animated.View
+                style={styles.filterDetailItem}
+                layout={LinearTransition.springify().damping(30).stiffness(300)}
+              >
+                <Calendar size={10} color="#93c5fd" />
+                <Text style={styles.filterDetailText}>
+                  {getDateRangeText()}
+                </Text>
+              </Animated.View>
+            )}
+
+            {/* Location Criteria */}
+            {item.criteria.location && (
+              <Animated.View
+                style={styles.filterDetailItem}
+                layout={LinearTransition.springify().damping(30).stiffness(300)}
+              >
+                <MapPin size={10} color="#93c5fd" />
+                <Text style={styles.filterDetailText}>
+                  {(item.criteria.location?.radius ? (item.criteria.location.radius / 1000).toFixed(1) : '0')}km
+                </Text>
+              </Animated.View>
+            )}
+
+            {activeFilterIds.includes(item.id) && (
+              <Animated.View
+                style={styles.activeCheckmark}
+                entering={ZoomIn.duration(150).springify().damping(30).stiffness(300)}
+                exiting={FadeOut.duration(150)}
+                layout={LinearTransition.springify().damping(30).stiffness(300)}
+              >
+                <Check size={12} color="#40c057" />
+              </Animated.View>
+            )}
+          </Animated.View>
         </Animated.View>
+
         <Animated.View
-          style={styles.filterTitleContainer}
+          style={styles.divider}
+          layout={LinearTransition.springify().damping(30).stiffness(300)}
+        />
+
+        <Animated.View
+          style={styles.filterActions}
           layout={LinearTransition.springify().damping(30).stiffness(300)}
         >
-          <Text style={styles.filterName}>{item.name}</Text>
-          {activeFilterIds.includes(item.id) && (
-            <Animated.View
-              style={styles.activeBadge}
-              entering={ZoomIn.duration(150).springify().damping(30).stiffness(300)}
-              exiting={FadeOut.duration(150)}
-              layout={LinearTransition.springify().damping(30).stiffness(300)}
+          <Animated.View layout={LinearTransition.springify().damping(30).stiffness(300)} style={{ flex: 1 }}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleApplyFilter(item)}
+              activeOpacity={0.7}
             >
-              <Text style={styles.activeText}>ACTIVE</Text>
-            </Animated.View>
-          )}
-        </Animated.View>
-      </Animated.View>
-
-      <Animated.View
-        style={styles.filterDetails}
-        layout={LinearTransition.springify().damping(30).stiffness(300)}
-      >
-        {/* Semantic Query */}
-        {item.semanticQuery && (
-          <Animated.View
-            style={styles.criteriaSection}
-            layout={LinearTransition.springify().damping(30).stiffness(300)}
-          >
-            <Text style={styles.criteriaLabel}>Search Query:</Text>
-            <Text style={styles.criteriaValue}>{item.semanticQuery}</Text>
+              <SearchIcon size={10} color="#93c5fd" />
+              <Text style={styles.actionText}>Apply</Text>
+            </TouchableOpacity>
           </Animated.View>
-        )}
 
-        {/* Date Range */}
-        {(item.criteria.dateRange?.start || item.criteria.dateRange?.end) && (
-          <Animated.View
-            style={styles.criteriaSection}
-            layout={LinearTransition.springify().damping(30).stiffness(300)}
-          >
-            <Animated.View
-              style={styles.criteriaRow}
-              layout={LinearTransition.springify().damping(30).stiffness(300)}
+          <Animated.View layout={LinearTransition.springify().damping(30).stiffness(300)} style={{ flex: 1 }}>
+            <TouchableOpacity
+              style={[styles.actionButton, {
+                backgroundColor: "rgba(255, 165, 0, 0.1)",
+                borderColor: "rgba(255, 165, 0, 0.2)",
+              }]}
+              onPress={() => handleEditFilter(item)}
+              activeOpacity={0.7}
             >
-              <Calendar size={14} color="#93c5fd" style={styles.criteriaIcon} />
-              <Text style={styles.criteriaLabel}>Date Range:</Text>
-            </Animated.View>
-            <Text style={styles.criteriaValue}>
-              {item.criteria.dateRange?.start
-                ? new Date(item.criteria.dateRange.start).toLocaleDateString()
-                : "Any"}
-              {" to "}
-              {item.criteria.dateRange?.end
-                ? new Date(item.criteria.dateRange.end).toLocaleDateString()
-                : "Any"}
-            </Text>
+              <Edit2 size={10} color="#ffa500" />
+              <Text style={[styles.actionText, { color: "#ffa500" }]}>Edit</Text>
+            </TouchableOpacity>
           </Animated.View>
-        )}
-      </Animated.View>
 
-      <Animated.View
-        style={styles.divider}
-        layout={LinearTransition.springify().damping(30).stiffness(300)}
-      />
-
-      <Animated.View
-        style={styles.filterActions}
-        layout={LinearTransition.springify().damping(30).stiffness(300)}
-      >
-        <Animated.View layout={LinearTransition.springify().damping(30).stiffness(300)}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleApplyFilter(item)}
-            activeOpacity={0.7}
-          >
-            <SearchIcon size={14} color="#93c5fd" />
-            <Text style={styles.actionText}>Apply</Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        <Animated.View layout={LinearTransition.springify().damping(30).stiffness(300)}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleEditFilter(item)}
-            activeOpacity={0.7}
-          >
-            <Edit2 size={14} color="#93c5fd" />
-            <Text style={styles.actionText}>Edit</Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        <Animated.View layout={LinearTransition.springify().damping(30).stiffness(300)}>
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={() => handleDeleteFilter(item.id)}
-            activeOpacity={0.7}
-          >
-            <Trash2 size={14} color="#f97583" />
-            <Text style={styles.deleteText}>Delete</Text>
-          </TouchableOpacity>
+          <Animated.View layout={LinearTransition.springify().damping(30).stiffness(300)} style={{ flex: 1 }}>
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => handleDeleteFilter(item.id)}
+              activeOpacity={0.7}
+            >
+              <Trash2 size={10} color="#f97583" />
+              <Text style={styles.deleteText}>Delete</Text>
+            </TouchableOpacity>
+          </Animated.View>
         </Animated.View>
       </Animated.View>
-    </Animated.View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -514,143 +613,235 @@ const FiltersView: React.FC = () => {
 
       {/* Filter Create/Edit Modal */}
       <Modal
-        animationType="slide"
+        animationType="none"
         transparent={true}
         visible={modalVisible}
         onRequestClose={handleCloseModal}
       >
-        <TouchableWithoutFeedback onPress={dismissKeyboard}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  {editingFilter ? "Edit Smart Filter" : "Create Smart Filter"}
-                </Text>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={handleCloseModal}
-                  activeOpacity={0.7}
-                >
-                  <X size={20} color="#f8f9fa" />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.modalScrollContent}
-                keyboardShouldPersistTaps="handled"
-              >
-                {/* Filter Name */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Filter Name</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={filterName}
-                    onChangeText={setFilterName}
-                    placeholder="Enter filter name"
-                    placeholderTextColor="#adb5bd"
-                    returnKeyType="next"
-                  />
-                </View>
-
-                {/* Active Toggle */}
-                <View style={styles.formGroup}>
-                  <View style={styles.switchContainer}>
-                    <Text style={styles.formLabel}>Active</Text>
-                    <Switch
-                      value={isActive}
-                      onValueChange={setIsActive}
-                      trackColor={{ false: "#3a3a3a", true: "#93c5fd" }}
-                      thumbColor={isActive ? "#f8f9fa" : "#f8f9fa"}
-                    />
-                  </View>
-                </View>
-
-                {/* Semantic Query */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Search Query</Text>
-                  <TextInput
-                    style={[styles.input, { height: 80, textAlignVertical: "top" }]}
-                    value={semanticQuery}
-                    onChangeText={setSemanticQuery}
-                    placeholder="Describe what you're looking for..."
-                    placeholderTextColor="#adb5bd"
-                    multiline={true}
-                    numberOfLines={3}
-                    returnKeyType="next"
-                  />
-                  <Text style={styles.helperText}>
-                    Examples: "Tech events in downtown", "Family activities this weekend", "Music
-                    festivals in July"
-                  </Text>
-                </View>
-
-                {/* Date Range */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Date Range (Optional)</Text>
-                  <View style={styles.dateInputContainer}>
-                    <View style={styles.dateInput}>
-                      <Text style={styles.dateLabel}>Start</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={startDate}
-                        onChangeText={setStartDate}
-                        placeholder="YYYY-MM-DD"
-                        placeholderTextColor="#adb5bd"
-                        returnKeyType="next"
-                      />
-                    </View>
-                    <View style={styles.dateInput}>
-                      <Text style={styles.dateLabel}>End</Text>
-                      <TextInput
-                        style={styles.input}
-                        value={endDate}
-                        onChangeText={setEndDate}
-                        placeholder="YYYY-MM-DD"
-                        placeholderTextColor="#adb5bd"
-                        returnKeyType="done"
-                        onSubmitEditing={dismissKeyboard}
-                      />
-                    </View>
-                  </View>
-                </View>
-
-                {/* Added extra padding at the bottom */}
-                <View style={{ height: 30 }} />
-              </ScrollView>
-
-              <View style={styles.modalFooter}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={handleCloseModal}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={handleSaveFilter}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.saveButtonContent}>
-                    <Save size={18} color="#fff" />
-                    <Text style={styles.saveButtonText}>Save Filter</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              {/* Keyboard dismiss button at the bottom of modal */}
+        <Animated.View
+          style={[styles.modalContainer]}
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(150)}
+          onLayout={() => {
+            // Cleanup any running animations when modal layout changes
+            if (!isMounted.current) {
+              cancelAnimation(scrollY);
+            }
+          }}
+        >
+          <Animated.View
+            style={[styles.modalContent]}
+            entering={SlideInDown.springify()
+              .damping(12)
+              .stiffness(100)
+              .withInitialValues({ transform: [{ translateY: 50 }, { scale: 0.9 }] })}
+            exiting={SlideOutDown.duration(150)}
+            layout={Layout.springify().damping(12).stiffness(100)}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {editingFilter ? "Edit Smart Filter" : "Create Smart Filter"}
+              </Text>
               <TouchableOpacity
-                style={styles.keyboardDismissButton}
-                onPress={dismissKeyboard}
+                style={styles.closeButton}
+                onPress={handleCloseModal}
                 activeOpacity={0.7}
               >
-                <Text style={styles.keyboardDismissText}>Tap to dismiss keyboard</Text>
+                <X size={20} color="#f8f9fa" />
               </TouchableOpacity>
             </View>
-          </View>
-        </TouchableWithoutFeedback>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Filter Name - Most important, goes first */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Filter Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={filterName}
+                  onChangeText={setFilterName}
+                  placeholder="Enter filter name"
+                  placeholderTextColor="#adb5bd"
+                  returnKeyType="next"
+                />
+              </View>
+
+              {/* Active Toggle - Quick setting */}
+              <View style={styles.formGroup}>
+                <View style={styles.switchContainer}>
+                  <Text style={styles.formLabel}>Active</Text>
+                  <Switch
+                    value={isActive}
+                    onValueChange={setIsActive}
+                    trackColor={{ false: "#3a3a3a", true: "#93c5fd" }}
+                    thumbColor={isActive ? "#f8f9fa" : "#f8f9fa"}
+                  />
+                </View>
+              </View>
+
+              {/* Date Range - Common filter criteria */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Date Range</Text>
+                <View style={styles.datePresetsContainer}>
+                  <Text style={styles.datePresetsLabel}>Select a date range</Text>
+                  <View style={styles.datePresetsGrid}>
+                    {[
+                      { label: '1 Day', days: 1 },
+                      { label: '3 Days', days: 3 },
+                      { label: '1 Week', days: 7 },
+                      { label: '2 Weeks', days: 14 },
+                    ].map((preset) => (
+                      <TouchableOpacity
+                        key={preset.label}
+                        style={[
+                          styles.datePresetButton,
+                          startDate && endDate &&
+                            new Date(endDate).getTime() - new Date(startDate).getTime() === preset.days * 24 * 60 * 60 * 1000
+                            ? styles.datePresetButtonActive
+                            : null
+                        ]}
+                        onPress={() => {
+                          const today = new Date();
+                          const endDate = new Date();
+                          endDate.setDate(today.getDate() + preset.days);
+                          setStartDate(today.toISOString().split('T')[0]);
+                          setEndDate(endDate.toISOString().split('T')[0]);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[
+                          styles.datePresetText,
+                          startDate && endDate &&
+                            new Date(endDate).getTime() - new Date(startDate).getTime() === preset.days * 24 * 60 * 60 * 1000
+                            ? styles.datePresetTextActive
+                            : null
+                        ]}>{preset.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+
+              {/* Location Section - Optional filter */}
+              <View style={styles.formGroup}>
+                <View style={styles.switchContainer}>
+                  <Text style={styles.formLabel}>Location Filter</Text>
+                  <Switch
+                    value={isLocationEnabled}
+                    onValueChange={async (value) => {
+                      setIsLocationEnabled(value);
+                      if (value) {
+                        try {
+                          const { status } = await Location.requestForegroundPermissionsAsync();
+                          if (status !== 'granted') {
+                            Alert.alert(
+                              'Permission Denied',
+                              'Please enable location services to use this feature'
+                            );
+                            setIsLocationEnabled(false);
+                            return;
+                          }
+
+                          const location = await Location.getCurrentPositionAsync({});
+                          setLocation({
+                            latitude: location.coords.latitude,
+                            longitude: location.coords.longitude
+                          });
+
+                          // Set a default radius if none is set
+                          if (!radius) {
+                            setRadius(5); // 5km default radius
+                          }
+
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        } catch (error) {
+                          console.error('Error getting location:', error);
+                          Alert.alert('Error', 'Failed to get current location');
+                          setIsLocationEnabled(false);
+                        }
+                      } else {
+                        setLocation(null);
+                        setRadius(undefined);
+                      }
+                    }}
+                    trackColor={{ false: "#3a3a3a", true: "#93c5fd" }}
+                    thumbColor={isLocationEnabled ? "#f8f9fa" : "#f8f9fa"}
+                  />
+                </View>
+
+                {isLocationEnabled && (
+                  <View style={styles.radiusInput}>
+                    <Text style={styles.locationLabel}>Radius (km)</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={radius ? radius.toString() : ''}
+                      onChangeText={(value) => setRadius(value ? parseInt(value) : undefined)}
+                      placeholder="5"
+                      placeholderTextColor="#adb5bd"
+                      keyboardType="numeric"
+                      returnKeyType="done"
+                    />
+                  </View>
+                )}
+              </View>
+
+              {/* Semantic Query - Most complex input, goes last */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Search Query</Text>
+                <TextInput
+                  style={[styles.input, { height: 80, textAlignVertical: "top" }]}
+                  value={semanticQuery}
+                  onChangeText={setSemanticQuery}
+                  placeholder="Describe what you're looking for..."
+                  placeholderTextColor="#adb5bd"
+                  multiline={true}
+                  numberOfLines={3}
+                  returnKeyType="next"
+                />
+                <Text style={styles.helperText}>
+                  Examples: "Tech events in downtown", "Family activities this weekend", "Music
+                  festivals in July"
+                </Text>
+              </View>
+
+              {/* Added extra padding at the bottom */}
+              <View style={{ height: 30 }} />
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCloseModal}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handleSaveFilter}
+                activeOpacity={0.7}
+              >
+                <View style={styles.saveButtonContent}>
+                  <Save size={18} color="#fff" />
+                  <Text style={styles.saveButtonText}>Save Filter</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Keyboard dismiss button at the bottom of modal */}
+            <TouchableOpacity
+              style={styles.keyboardDismissButton}
+              onPress={dismissKeyboard}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.keyboardDismissText}>Tap to dismiss keyboard</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
       </Modal>
     </SafeAreaView>
   );
@@ -709,14 +900,14 @@ const styles = StyleSheet.create({
   // List styles
   listContent: {
     padding: 12,
-    paddingBottom: 100, // Extra padding for bottom button
+    paddingBottom: 100,
   },
 
   // Filter card styles
   filterCard: {
     backgroundColor: "#3a3a3a",
-    borderRadius: 12,
-    marginBottom: 8,
+    borderRadius: 10,
+    marginBottom: 6,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -725,12 +916,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.05)",
     overflow: "hidden",
+    transform: [{ scale: 1 }],
   },
 
   filterHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     padding: 10,
+    gap: 8,
   },
 
   filterIconContainer: {
@@ -740,124 +933,129 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(147, 197, 253, 0.15)",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 8,
   },
 
   filterTitleContainer: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "column",
+    gap: 2,
   },
 
   filterName: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
-    flex: 1,
-    marginRight: 8,
   },
 
-  activeBadge: {
-    backgroundColor: "rgba(64, 192, 87, 0.2)",
-    borderRadius: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderWidth: 1,
-    borderColor: "rgba(64, 192, 87, 0.3)",
-  },
-
-  activeText: {
-    color: "#40c057",
-    fontSize: 8,
-    fontWeight: "600",
+  filterQuery: {
+    fontSize: 13,
+    color: "#adb5bd",
     fontFamily: "SpaceMono",
+    fontStyle: "italic",
+    lineHeight: 16,
   },
 
   filterDetails: {
-    padding: 10,
-    paddingTop: 0,
-  },
-
-  criteriaSection: {
-    marginBottom: 6,
-  },
-
-  criteriaRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 2,
+    gap: 8,
+    marginTop: 4,
   },
 
-  criteriaIcon: {
-    marginRight: 4,
+  filterDetailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.2)",
   },
 
-  criteriaLabel: {
-    fontSize: 12,
+  filterDetailText: {
+    fontSize: 11,
     color: "#93c5fd",
     fontFamily: "SpaceMono",
     fontWeight: "500",
-    marginBottom: 1,
+    marginLeft: 2,
   },
 
-  criteriaValue: {
-    fontSize: 12,
-    color: "#f8f9fa",
-    fontFamily: "SpaceMono",
-    lineHeight: 16,
-    paddingLeft: 4,
+  activeCheckmark: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(64, 192, 87, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(64, 192, 87, 0.2)",
+  },
+
+  filterEmoji: {
+    fontSize: 16,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
 
   divider: {
     height: 1,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
-    marginHorizontal: 12,
+    marginHorizontal: 10,
   },
 
   filterActions: {
+    display: "flex",
     flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 12,
+    padding: 8,
+    gap: 8,
+    width: '100%',
   },
 
   actionButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "rgba(147, 197, 253, 0.1)",
-    paddingVertical: 4,
+    paddingVertical: 6,
     paddingHorizontal: 8,
-    borderRadius: 6,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: "rgba(147, 197, 253, 0.2)",
+    minHeight: 28,
   },
 
   actionText: {
     color: "#93c5fd",
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "SpaceMono",
     fontWeight: "500",
-    marginLeft: 4,
+    marginLeft: 3,
   },
 
   deleteButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "rgba(249, 117, 131, 0.1)",
-    paddingVertical: 4,
+    paddingVertical: 6,
     paddingHorizontal: 8,
-    borderRadius: 6,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: "rgba(249, 117, 131, 0.2)",
+    minWidth: 0,
+    minHeight: 28,
   },
 
   deleteText: {
     color: "#f97583",
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "SpaceMono",
     fontWeight: "500",
-    marginLeft: 4,
+    marginLeft: 3,
   },
 
   // Loading state
@@ -1032,17 +1230,18 @@ const styles = StyleSheet.create({
   // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(0, 0, 0, 0)',
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 16,
+    backdropFilter: 'blur(10px)',
   },
 
   modalContent: {
     backgroundColor: "#3a3a3a",
     borderRadius: 16,
     width: "100%",
-    maxHeight: "85%", // Slightly smaller to make room for keyboard dismiss button
+    maxHeight: "85%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -1085,11 +1284,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     padding: 16,
+    gap: 8,
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.1)",
   },
 
-  // Added keyboard dismiss button
   keyboardDismissButton: {
     paddingVertical: 12,
     backgroundColor: "rgba(0, 0, 0, 0.3)",
@@ -1134,20 +1333,58 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  dateInputContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
+  datePresetsContainer: {
+    marginTop: 8,
+    marginBottom: 16,
   },
 
-  dateInput: {
+  datePresetsLabel: {
+    fontSize: 12,
+    color: '#adb5bd',
+    fontFamily: 'SpaceMono',
+    marginBottom: 8,
+  },
+
+  datePresetsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+
+  datePresetButton: {
+    backgroundColor: 'rgba(147, 197, 253, 0.1)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(147, 197, 253, 0.2)',
+  } as ViewStyle,
+
+  datePresetButtonActive: {
+    backgroundColor: 'rgba(147, 197, 253, 0.2)',
+    borderColor: 'rgba(147, 197, 253, 0.4)',
+  } as ViewStyle,
+
+  datePresetText: {
+    color: '#93c5fd',
+    fontSize: 13,
+    fontFamily: 'SpaceMono',
+    fontWeight: '500',
+  } as TextStyle,
+
+  datePresetTextActive: {
+    color: '#ffffff',
+    fontWeight: '600',
+  } as TextStyle,
+
+  radiusInput: {
     flex: 1,
   },
 
-  dateLabel: {
+  locationLabel: {
     fontSize: 12,
-    color: "#adb5bd",
-    fontFamily: "SpaceMono",
+    color: '#adb5bd',
+    fontFamily: 'SpaceMono',
     marginBottom: 4,
   },
 
@@ -1159,39 +1396,20 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
-  // Redesigned buttons with better contrast
   cancelButton: {
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
-    backgroundColor: "rgba(249, 117, 131, 0.15)", // Subtle red background
+    backgroundColor: "rgba(249, 117, 131, 0.15)",
     borderWidth: 1,
-    borderColor: "rgba(249, 117, 131, 0.3)", // Red border
+    borderColor: "rgba(249, 117, 131, 0.3)",
   },
 
   cancelButtonText: {
-    color: "#f97583", // Red text
+    color: "#f97583",
     fontSize: 14,
     fontFamily: "SpaceMono",
     fontWeight: "500",
-  },
-
-  saveButton: {
-    position: "relative",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    overflow: "hidden",
-  },
-
-  saveButtonGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
   },
 
   saveButtonContent: {
@@ -1200,17 +1418,11 @@ const styles = StyleSheet.create({
   },
 
   saveButtonText: {
-    color: "#f8f9fa", // White text for better contrast on blue
+    color: "#f8f9fa",
     fontSize: 14,
     fontWeight: "600",
     fontFamily: "SpaceMono",
     marginLeft: 8,
-  },
-
-  filterEmoji: {
-    fontSize: 14,
-    textAlign: 'center',
-    includeFontPadding: false,
   },
 });
 

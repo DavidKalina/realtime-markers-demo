@@ -61,6 +61,7 @@ export interface Event {
   createdAt: Date | string;
   updatedAt: Date | string;
   tags?: string[]; // Added for tag filtering support
+  locationNotes?: string;
 }
 
 // Update the FilterCriteria interface

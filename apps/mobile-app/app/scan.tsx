@@ -189,12 +189,12 @@ export default function ScanScreen() {
     // Perform full cleanup
     performFullCleanup();
 
-    // Small delay to ensure cleanup is complete before navigation
-    setTimeout(() => {
+    // Ensure all cleanup operations are completed before navigation
+    Promise.resolve().then(() => {
       if (isMounted.current) {
         router.replace("/");
       }
-    }, 100);
+    });
   };
 
   // Enhanced cleanup effect
@@ -649,8 +649,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 8,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
     marginBottom: 8,
   },
   camera: {

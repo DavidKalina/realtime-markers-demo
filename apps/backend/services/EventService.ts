@@ -10,6 +10,7 @@ import type { Filter } from "../entities/Filter";
 import { User } from "../entities/User";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
 import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
+import { EventSimilarityService } from "./event-processing/EventSimilarityService";
 
 interface SearchResult {
   event: Event;
@@ -32,6 +33,7 @@ interface CreateEventInput {
   qrDetectedInImage?: boolean;
   detectedQrData?: string;
   originalImageUrl?: string | null;
+  embedding: number[];
 }
 
 export class EventService {
@@ -39,12 +41,14 @@ export class EventService {
   private categoryRepository: Repository<Category>;
   private userEventSaveRepository: Repository<UserEventSave>;
   private locationService: GoogleGeocodingService;
+  private eventSimilarityService: EventSimilarityService;
 
   constructor(private dataSource: DataSource) {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
     this.userEventSaveRepository = dataSource.getRepository(UserEventSave);
     this.locationService = GoogleGeocodingService.getInstance();
+    this.eventSimilarityService = new EventSimilarityService(this.eventRepository);
   }
 
   async cleanupOutdatedEvents(
@@ -194,34 +198,21 @@ export class EventService {
     // If timezone is not provided, try to determine it from coordinates
     if (!input.timezone && input.location) {
       try {
-        // Get timezone from coordinates
         const timezone = await this.locationService.getTimezoneFromCoordinates(
-          input.location.coordinates[1], // latitude
-          input.location.coordinates[0] // longitude
+          input.location.coordinates[1],
+          input.location.coordinates[0]
         );
         input.timezone = timezone;
       } catch (error) {
         console.error("Error determining timezone:", error);
-        input.timezone = "UTC"; // Fallback to UTC
+        input.timezone = "UTC";
       }
     }
 
     let categories: any = [];
-    let categoryNames: string[] = [];
     if (input.categoryIds?.length) {
       categories = await this.categoryRepository.findByIds(input.categoryIds);
-      categoryNames = categories.map((cat: any) => cat.name);
     }
-
-    // Generate embedding from title, description and categories
-    const textForEmbedding = `
-    TITLE: ${input.title} ${input.title} ${input.title}
-    CATEGORIES: ${categoryNames.join(", ")} ${categoryNames.join(", ")}
-    DESCRIPTION: ${input.description || ""}
-    LOCATION: ${input.address || ""}
-    LOCATION_NOTES: ${input.locationNotes || ""}
-    `.trim();
-    const embedding = await this.generateEmbedding(textForEmbedding);
 
     // Create base event data without relations
     const eventData: DeepPartial<Event> = {
@@ -235,7 +226,7 @@ export class EventService {
       status: EventStatus.PENDING,
       address: input.address,
       locationNotes: input.locationNotes || "",
-      embedding: pgvector.toSql(embedding),
+      embedding: pgvector.toSql(input.embedding),
       creatorId: input.creatorId,
       timezone: input.timezone || "UTC",
       qrDetectedInImage: input.qrDetectedInImage || false,

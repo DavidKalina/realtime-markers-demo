@@ -114,16 +114,6 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
         coordinates: userCoords,
       });
 
-      if (userCoords) {
-        // Emit an event to animate to the user's location after obtaining it
-        publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
-          timestamp: Date.now(),
-          source: "LocationContext",
-          coordinates: userCoords,
-          duration: 1000,
-          zoomLevel: 14,
-        });
-      }
     } catch (error) {
       console.error("Error getting location:", error);
 
@@ -139,9 +129,8 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
       publish<BaseEvent & { error: string }>(EventTypes.ERROR_OCCURRED, {
         timestamp: Date.now(),
         source: "LocationContext",
-        error: `Failed to get user location: ${
-          error instanceof Error ? error.message : "unknown error"
-        }`,
+        error: `Failed to get user location: ${error instanceof Error ? error.message : "unknown error"
+          }`,
       });
     } finally {
       setIsLoadingLocation(false);
@@ -199,9 +188,8 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
       publish<BaseEvent & { error: string }>(EventTypes.ERROR_OCCURRED, {
         timestamp: Date.now(),
         source: "LocationContext",
-        error: `Failed to start location tracking: ${
-          error instanceof Error ? error.message : "unknown error"
-        }`,
+        error: `Failed to start location tracking: ${error instanceof Error ? error.message : "unknown error"
+          }`,
       });
     }
   }, [locationSubscription, locationPermissionGranted, getUserLocation, publish]);

@@ -3,8 +3,6 @@ import { AlertTriangle, CheckCircle, Cog } from "lucide-react-native";
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
-  BounceIn,
-  BounceOut,
   cancelAnimation,
   Easing,
   FadeIn,
@@ -34,11 +32,11 @@ const FADE_IN = FadeIn.duration(400).delay(100);
 // Animation configurations
 const ANIMATION_CONFIG = {
   rotationDuration: 2000,
-  fadeOut: { duration: 200 },
-  fadeIn: { duration: 300 },
+  fadeOut: { duration: 300, easing: Easing.bezier(0.4, 0, 0.2, 1) },
+  fadeIn: { duration: 400, easing: Easing.bezier(0.4, 0, 0.2, 1) },
   checkmarkScale: {
-    duration: 400,
-    easing: Easing.elastic(1.2),
+    duration: 500,
+    easing: Easing.bezier(0.34, 1.56, 0.64, 1),
   },
   slide: {
     damping: 15,
@@ -65,10 +63,12 @@ const ProcessingIcon = React.memo(({ style }: { style: any }) => (
 ));
 
 // Component for the completion status icon
-const StatusIcon = React.memo(({ style, status }: { style: any; status: string }) => (
+const StatusIcon = React.memo(({ style, status, checkmarkScale, floatValue }: { style: any; status: string; checkmarkScale: any; floatValue: any }) => (
   <Animated.View style={style}>
     {status === "completed" ? (
-      <CheckCircle size={16} color="rgba(255, 255, 255, 0.9)" />
+      <Animated.Text style={[styles.emojiText]}>
+        👍
+      </Animated.Text>
     ) : (
       <AlertTriangle size={16} color="rgba(255, 255, 255, 0.9)" />
     )}
@@ -79,9 +79,9 @@ const StatusIcon = React.memo(({ style, status }: { style: any; status: string }
 const JobCountText = React.memo(({ count, status }: { count: number; status: string }) => (
   <Animated.Text style={styles.countText} entering={FADE_IN} layout={SPRING_LAYOUT}>
     {status === "completed"
-      ? "Success"
+      ? "Scan Complete!"
       : status === "failed"
-        ? "Failed"
+        ? "Scan Failed."
         : `${count} job${count !== 1 ? "s" : ""}`}
   </Animated.Text>
 ));
@@ -134,6 +134,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
     const rotationValue = useSharedValue(0);
     const checkmarkScale = useSharedValue(0);
     const iconOpacity = useSharedValue(1);
+    const floatValue = useSharedValue(0); // New shared value for floating animation
 
     // Handle delayed initial render
     useEffect(() => {
@@ -229,7 +230,6 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
 
     // Handle animations based on status
     useEffect(() => {
-      // Mark that we have animations running that need cleanup
       animationCleanupRef.current = true;
 
       if (status === "processing") {
@@ -237,6 +237,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
         cancelAnimation(rotationValue);
         cancelAnimation(iconOpacity);
         cancelAnimation(checkmarkScale);
+        cancelAnimation(floatValue);
 
         // Start rotation animation for cog
         rotationValue.value = 0;
@@ -246,25 +247,43 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
             duration: ANIMATION_CONFIG.rotationDuration,
             easing: Easing.linear,
           }),
-          -1, // Infinite repeats
+          -1,
           false
         );
         checkmarkScale.value = 0;
+        floatValue.value = 0;
       } else if (status === "completed" || status === "failed") {
-        // Stop rotation and transition to checkmark/error icon
+        // Stop any ongoing animations first
         cancelAnimation(rotationValue);
+        cancelAnimation(iconOpacity);
+        cancelAnimation(checkmarkScale);
+        cancelAnimation(floatValue);
+
         iconOpacity.value = withTiming(0, ANIMATION_CONFIG.fadeOut, () => {
           "worklet";
-          checkmarkScale.value = withTiming(1, ANIMATION_CONFIG.checkmarkScale);
+          checkmarkScale.value = withSpring(1, {
+            damping: 12,
+            stiffness: 100,
+            mass: 0.8,
+          });
+
+          // Start floating animation for completed state
+          if (status === "completed") {
+            floatValue.value = withRepeat(
+              withTiming(1, { duration: 1000, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
+              -1,
+              true
+            );
+          }
         });
       }
 
       return () => {
-        // Only cancel animations if we've started them
         if (animationCleanupRef.current) {
           cancelAnimation(rotationValue);
           cancelAnimation(iconOpacity);
           cancelAnimation(checkmarkScale);
+          cancelAnimation(floatValue);
         }
       };
     }, [status]);
@@ -276,6 +295,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
         cancelAnimation(rotationValue);
         cancelAnimation(iconOpacity);
         cancelAnimation(checkmarkScale);
+        cancelAnimation(floatValue);
 
         // Clear any timeouts
         if (clearJobsTimeoutRef.current) {
@@ -284,6 +304,16 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
         }
       };
     }, []);
+
+    // Add cleanup for when component becomes invisible
+    useEffect(() => {
+      if (!isVisible) {
+        cancelAnimation(rotationValue);
+        cancelAnimation(iconOpacity);
+        cancelAnimation(checkmarkScale);
+        cancelAnimation(floatValue);
+      }
+    }, [isVisible]);
 
     // Memoize animated styles - these will only update when the shared values change
     const rotationAnimatedStyle = useAnimatedStyle(() => ({
@@ -295,6 +325,20 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
       transform: [{ scale: checkmarkScale.value }],
       opacity: checkmarkScale.value,
       position: "absolute",
+    }));
+
+    // Add new animated style for floating
+    const floatAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [
+        { scale: checkmarkScale.value },
+        {
+          translateY: withSpring(floatValue.value * -4, {
+            damping: 12,
+            stiffness: 80,
+            mass: 1,
+          })
+        }
+      ],
     }));
 
     // Memoize position style - only recalculate when position prop changes
@@ -319,9 +363,9 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
     const statusColor = useMemo(() => {
       switch (status) {
         case "processing":
-          return "rgba(107, 114, 128, 0.95)"; // Subtle gray
+          return "rgba(255, 140, 0, 0.95)"; // Industrial orange
         case "completed":
-          return "rgba(52, 211, 153, 0.95)"; // Subtle emerald
+          return "rgba(107, 114, 128, 0.95)"; // Subtle emerald
         case "failed":
           return "rgba(239, 68, 68, 0.95)"; // Subtle red
         default:
@@ -351,9 +395,14 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
           {/* Rotating cog for processing */}
           {status === "processing" && <ProcessingIcon style={rotationAnimatedStyle} />}
 
-          {/* Checkmark or error icon that appears when complete */}
+          {/* Thumbs up or error icon that appears when complete */}
           {(status === "completed" || status === "failed") && (
-            <StatusIcon style={checkmarkAnimatedStyle} status={status} />
+            <StatusIcon
+              style={[checkmarkAnimatedStyle, status === "completed" && floatAnimatedStyle]}
+              status={status}
+              checkmarkScale={checkmarkScale}
+              floatValue={floatValue}
+            />
           )}
         </Animated.View>
 
@@ -403,6 +452,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 3,
     elevation: 3,
+    overflow: 'hidden',
   },
   contentContainer: {
     flexDirection: "column",
@@ -425,6 +475,10 @@ const styles = StyleSheet.create({
   progressBar: {
     height: "100%",
     borderRadius: 1,
+  },
+  emojiText: {
+    fontSize: 12,
+    opacity: 1,
   },
 });
 

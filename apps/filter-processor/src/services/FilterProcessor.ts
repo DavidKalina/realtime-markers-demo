@@ -428,101 +428,11 @@ export class FilterProcessor {
 
     // Event matches if it satisfies ANY filter
     return filters.some((filter) => {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(
-          `Filter Debug: Event structure:`,
-          JSON.stringify(
-            {
-              id: event.id,
-              title: event.title,
-              categories: event.categories,
-              startDate: event.eventDate,
-              createdAt: event.createdAt,
-              status: event.status,
-              tags: event.tags,
-            },
-            null,
-            2
-          )
-        );
-      }
-
       const criteria = filter.criteria;
+      let compositeScore = 0;
+      let totalWeight = 0;
 
-      if (criteria.dateRange) {
-        const { start, end } = criteria.dateRange;
-
-        // Get event start and end dates with validation
-        const eventStartDate = new Date(event.eventDate);
-        const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
-
-        // Check if dates are valid before using them
-        const isStartDateValid = !isNaN(eventStartDate.getTime());
-        const isEndDateValid = !isNaN(eventEndDate.getTime());
-
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`Filter Debug: Event ${event.id} date validation:`, {
-            hasStartDate: !!event.eventDate,
-            startDateValid: isStartDateValid,
-            hasEndDate: !!event.endDate,
-            endDateValid: isEndDateValid,
-            startDateValue: event.eventDate,
-            endDateValue: event.endDate,
-          });
-        }
-
-        // Only use toISOString on valid dates
-        if (process.env.NODE_ENV !== 'production') {
-          if (isStartDateValid) {
-            console.log(`Filter Debug: Event start date: ${eventStartDate.toISOString()}`);
-          }
-          if (isEndDateValid) {
-            console.log(`Filter Debug: Event end date: ${eventEndDate.toISOString()}`);
-          }
-          if (start) {
-            const filterStartDate = new Date(start);
-            if (!isNaN(filterStartDate.getTime())) {
-              console.log(`Filter Debug: Filter start: ${filterStartDate.toISOString()}`);
-            }
-          }
-          if (end) {
-            const filterEndDate = new Date(end);
-            if (!isNaN(filterEndDate.getTime())) {
-              console.log(`Filter Debug: Filter end: ${filterEndDate.toISOString()}`);
-            }
-          }
-        }
-
-        // Filter logic with validation
-        if (start && isEndDateValid) {
-          const filterStartDate = new Date(start);
-          if (!isNaN(filterStartDate.getTime()) && eventEndDate < filterStartDate) {
-            if (process.env.NODE_ENV !== 'production') {
-              console.log(
-                `Filter Debug: Event ${event.id} FAILED start date filter (event ends before filter start)`
-              );
-            }
-            return false;
-          }
-        }
-
-        if (end && isStartDateValid) {
-          const filterEndDate = new Date(end);
-          if (!isNaN(filterEndDate.getTime()) && eventStartDate > filterEndDate) {
-            if (process.env.NODE_ENV !== 'production') {
-              console.log(
-                `Filter Debug: Event ${event.id} FAILED end date filter (event starts after filter end)`
-              );
-            }
-            return false;
-          }
-        }
-
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`Filter Debug: Event ${event.id} PASSED date filter`);
-        }
-      }
-
+      // 1. Apply strict location filter if specified
       if (criteria.location?.latitude && criteria.location?.longitude && criteria.location?.radius) {
         const [eventLng, eventLat] = event.location.coordinates;
         const distance = this.calculateDistance(
@@ -532,20 +442,36 @@ export class FilterProcessor {
           criteria.location.longitude
         );
 
+        // If event is outside the radius, reject immediately
         if (distance > criteria.location.radius) {
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(
-              `Filter Debug: Event ${event.id} FAILED location filter (${distance}m > ${criteria.location.radius}m radius)`
-            );
-          }
           return false;
-        }
-
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`Filter Debug: Event ${event.id} PASSED location filter`);
         }
       }
 
+      // 2. Apply strict date range filter if specified
+      if (criteria.dateRange) {
+        const { start, end } = criteria.dateRange;
+        const eventStartDate = new Date(event.eventDate);
+        const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
+
+        if (start && end) {
+          const filterStartDate = new Date(start);
+          const filterEndDate = new Date(end);
+
+          // If event is completely outside the date range, reject immediately
+          if (eventEndDate < filterStartDate || eventStartDate > filterEndDate) {
+            return false;
+          }
+        } else if (start) {
+          const filterStartDate = new Date(start);
+          if (eventEndDate < filterStartDate) return false;
+        } else if (end) {
+          const filterEndDate = new Date(end);
+          if (eventStartDate > filterEndDate) return false;
+        }
+      }
+
+      // 3. If we have a semantic query, calculate weighted similarity score
       if (filter.embedding && event.embedding) {
         try {
           const filterEmbedding = this.vectorService.parseSqlEmbedding(filter.embedding);
@@ -556,54 +482,67 @@ export class FilterProcessor {
             eventEmbedding
           );
 
-          // Tiered thresholds
-          let threshold = 0.7; // Default high threshold
+          // Base semantic similarity weight
+          compositeScore += similarityScore;
+          totalWeight += 0.4;
 
-          // Lower threshold if event title contains query words
-          if (
-            filter.semanticQuery &&
-            filter.semanticQuery
-              .split(" ")
-              .some((word) => event.title.toLowerCase().includes(word.toLowerCase()))
-          ) {
-            threshold = 0.35;
-          }
+          // Additional text matching for better natural language understanding
+          if (filter.semanticQuery) {
+            const query = filter.semanticQuery.toLowerCase();
 
-          // Lower threshold for category matches
-          if (
-            event.categories &&
-            event.categories.some((category) =>
-              filter.semanticQuery?.toLowerCase().includes(category.name.toLowerCase())
-            )
-          ) {
-            threshold = 0.3;
-          }
-
-          if (similarityScore < threshold) {
-            if (process.env.NODE_ENV !== 'production') {
-              console.log(
-                `Filter Debug: Event ${event.id} FAILED semantic filter (similarity: ${similarityScore.toFixed(
-                  2
-                )}, threshold: ${threshold})`
-              );
+            // Title match (highest weight)
+            if (event.title.toLowerCase().includes(query)) {
+              compositeScore += 0.5;
+              totalWeight += 0.2;
             }
-            return false;
-          }
 
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(
-              `Filter Debug: Event ${event.id} PASSED semantic filter (similarity: ${similarityScore.toFixed(2)})`
-            );
+            // Description match
+            if (event.description?.toLowerCase().includes(query)) {
+              compositeScore += 0.3;
+              totalWeight += 0.1;
+            }
+
+            // Location-related matches (higher weight when no location filter)
+            if (!criteria.location) {
+              if (event.address?.toLowerCase().includes(query)) {
+                compositeScore += 0.4;
+                totalWeight += 0.1;
+              }
+              if (event.locationNotes?.toLowerCase().includes(query)) {
+                compositeScore += 0.4;
+                totalWeight += 0.1;
+              }
+            }
           }
         } catch (error) {
           console.error(`Error calculating semantic similarity:`, error);
+          return false;
         }
       }
 
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`Filter Debug: Event ${event.id} MATCHED ALL filter criteria`);
+      // Calculate final score
+      const finalScore = totalWeight > 0 ? compositeScore / totalWeight : 0;
+
+      // Dynamic threshold based on filter combination
+      let threshold = 0.7; // Default threshold
+
+      // Lower threshold when relying on semantic matching (no location/date)
+      if (!criteria.location && !criteria.dateRange) {
+        threshold = 0.5;
       }
-      return true;
+
+      // Lower threshold if we have strong text matches
+      if (filter.semanticQuery && event.title.toLowerCase().includes(filter.semanticQuery.toLowerCase())) {
+        threshold = 0.5;
+      }
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(
+          `Filter Debug: Event ${event.id} final score: ${finalScore.toFixed(2)} (threshold: ${threshold.toFixed(2)})`
+        );
+      }
+
+      return finalScore >= threshold;
     });
   }
 
