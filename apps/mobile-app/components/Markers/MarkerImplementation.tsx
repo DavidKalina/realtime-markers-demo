@@ -12,7 +12,7 @@ import {
 import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
 import MapboxGL from "@rnmapbox/maps";
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import Animated, { BounceIn, Layout, LinearTransition } from "react-native-reanimated";
 import { ClusterMarker } from "./ClusterMarker";
 import { MysteryEmojiMarker } from "./CustomMapMarker";
@@ -41,6 +41,15 @@ interface ClusteredMapMarkersProps {
   markers?: Marker[];
   currentZoom?: number;
   viewport: MapboxViewport;
+}
+
+// Update the ClusterFeature type to include stableId
+interface ClusterProperties {
+  cluster: boolean;
+  cluster_id: number;
+  point_count: number;
+  point_count_abbreviated: string;
+  stableId: string;
 }
 
 // Component for rendering an individual marker - memoized
@@ -88,7 +97,7 @@ const SingleMarkerView = React.memo(
   }
 );
 
-// Component for rendering a cluster - memoized
+// Component for rendering a cluster - memoized with proper prop comparison
 const ClusterView = React.memo(
   ({
     cluster,
@@ -119,6 +128,17 @@ const ClusterView = React.memo(
           />
         </Animated.View>
       </MapboxGL.MarkerView>
+    );
+  },
+  (prevProps, nextProps) => {
+    // Custom comparison function to prevent unnecessary re-renders
+    return (
+      prevProps.cluster.id === nextProps.cluster.id &&
+      prevProps.cluster.count === nextProps.cluster.count &&
+      prevProps.cluster.coordinates[0] === nextProps.cluster.coordinates[0] &&
+      prevProps.cluster.coordinates[1] === nextProps.cluster.coordinates[1] &&
+      prevProps.isSelected === nextProps.isSelected &&
+      prevProps.index === nextProps.index
     );
   }
 );
@@ -219,13 +239,13 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
       [currentZoom, publish, selectMapItem, selectedItem?.id]
     );
 
-    // Memoize the cluster processing function to avoid recreation
+    // Memoize the cluster processing function with stable references
     const processCluster = useCallback((feature: ClusterFeature | PointFeature) => {
       if (feature.properties.cluster) {
         const clusterFeature = feature as ClusterFeature;
         const coordinates = clusterFeature.geometry.coordinates;
         const count = clusterFeature.properties.point_count;
-        const clusterId = `cluster-${clusterFeature.properties.cluster_id}`;
+        const clusterId = clusterFeature.properties.stableId || `cluster-${clusterFeature.properties.cluster_id}`;
 
         return {
           type: "cluster" as const,
@@ -268,9 +288,12 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
       }
     }, [createMapItemPressHandler, isItemSelected]);
 
-    // Process and memoize clusters for rendering
+    // Process and memoize clusters for rendering with stable references
     const processedClusters = useMemo(() => {
-      return clusters.map(processCluster);
+      return clusters.map((feature, index) => ({
+        ...processCluster(feature),
+        index,
+      }));
     }, [clusters, processCluster]);
 
     // Further optimize by adding culling for markers that are outside the viewport

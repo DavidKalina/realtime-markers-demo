@@ -1,5 +1,5 @@
 // hooks/useMarkerClustering.ts
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import Supercluster from "supercluster";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { MapboxViewport } from "@/types/types";
@@ -10,6 +10,7 @@ interface ClusterProperties {
   cluster_id: number;
   point_count: number;
   point_count_abbreviated: string;
+  stableId: string;
 }
 
 // Type for cluster feature
@@ -41,64 +42,122 @@ export interface ClusteringResult {
   clusters: (ClusterFeature | PointFeature)[];
 }
 
+// Helper function to generate a stable cluster ID using a hash
+const generateClusterId = (markers: Marker[]): string => {
+  // Use a simple but effective hash function
+  const hash = markers.reduce((acc, marker) => {
+    // XOR the current hash with the marker ID's hash
+    return acc ^ marker.id.split('').reduce((charAcc, char) => {
+      return ((charAcc << 5) - charAcc) + char.charCodeAt(0) | 0;
+    }, 0);
+  }, 0);
+
+  return `cluster-${hash}`;
+};
+
 export const useMarkerClustering = (
   markers: Marker[],
   viewport: MapboxViewport | null,
   currentZoom: number
 ): ClusteringResult => {
-  // Create a new supercluster instance
-  const supercluster = useMemo(() => {
-    return new Supercluster({
-      radius: 40, // Clustering radius in pixels
-      maxZoom: 16, // Maximum zoom level for clustering
-      minPoints: 2, // Minimum points to form a cluster
+  // Create a stable reference to supercluster instance
+  const superclusterRef = useRef<Supercluster>();
+  const lastZoomRef = useRef<number>(currentZoom);
+  const debouncedZoomRef = useRef<number>(currentZoom);
+
+  // Initialize supercluster only once
+  if (!superclusterRef.current) {
+    superclusterRef.current = new Supercluster({
+      radius: 40,
+      maxZoom: 16,
+      minPoints: 2,
       map: (props) => ({
         id: props.id,
         data: props.data,
       }),
     });
-  }, []);
+  }
 
-  // Convert markers to GeoJSON format
+  // Debounce zoom level changes
+  useEffect(() => {
+    const zoomDiff = Math.abs(currentZoom - lastZoomRef.current);
+    // Only update if zoom difference is significant (more than 0.5)
+    if (zoomDiff > 0.5) {
+      debouncedZoomRef.current = currentZoom;
+      lastZoomRef.current = currentZoom;
+    }
+  }, [currentZoom]);
+
+  // Convert markers to GeoJSON format and memoize
   const points = useMemo(() => {
     return markers.map(
       (marker) =>
-        ({
-          type: "Feature",
-          properties: {
-            cluster: false,
-            id: marker.id,
-            data: marker.data,
-          },
-          geometry: {
-            type: "Point",
-            coordinates: marker.coordinates,
-          },
-        } as PointFeature)
+      ({
+        type: "Feature",
+        properties: {
+          cluster: false,
+          id: marker.id,
+          data: marker.data,
+        },
+        geometry: {
+          type: "Point",
+          coordinates: marker.coordinates,
+        },
+      } as PointFeature)
     );
   }, [markers]);
 
-  // Generate clusters based on viewport and zoom
-  const clusters = useMemo(() => {
-    if (!viewport || points.length === 0) return [];
-
-    // Load points into supercluster each time
-    supercluster.load(points);
-
-    // Get bounds from the viewport
-    const bounds = [viewport.west, viewport.south, viewport.east, viewport.north] as [
+  // Memoize the bounds calculation
+  const bounds = useMemo(() => {
+    if (!viewport) return null;
+    return [viewport.west, viewport.south, viewport.east, viewport.north] as [
       number,
       number,
       number,
       number
     ];
+  }, [viewport]);
 
-    // Get clusters and points for the current viewport
-    return supercluster.getClusters(bounds, Math.floor(currentZoom)) as (
+  // Load points into supercluster only when points change
+  useMemo(() => {
+    if (superclusterRef.current && points.length > 0) {
+      superclusterRef.current.load(points);
+    }
+  }, [points]);
+
+  // Generate clusters based on viewport and zoom
+  const clusters = useMemo(() => {
+    if (!viewport || !bounds || points.length === 0 || !superclusterRef.current) return [];
+
+    // Get raw clusters from supercluster
+    const rawClusters = superclusterRef.current.getClusters(bounds, Math.floor(debouncedZoomRef.current)) as (
       | ClusterFeature
       | PointFeature
     )[];
-  }, [viewport, points, supercluster, currentZoom]);
+
+    // Process clusters to add stable IDs
+    return rawClusters.map(cluster => {
+      if (cluster.properties.cluster) {
+        // For clusters, get the leaf markers and generate a stable ID
+        const clusterFeature = cluster as ClusterFeature;
+        const leaves = superclusterRef.current!.getLeaves(
+          clusterFeature.properties.cluster_id,
+          Infinity
+        );
+        const markerIds = leaves.map(leaf => (leaf as PointFeature).properties.id);
+        const stableId = generateClusterId(markerIds.map(id => markers.find(m => m.id === id)!));
+
+        return {
+          ...clusterFeature,
+          properties: {
+            ...clusterFeature.properties,
+            stableId,
+          },
+        };
+      }
+      return cluster;
+    });
+  }, [viewport, bounds, points.length, debouncedZoomRef.current, markers]);
 
   return {
     clusters,
