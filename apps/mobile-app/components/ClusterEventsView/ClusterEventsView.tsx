@@ -391,20 +391,12 @@ const ClusterEventsView: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#333" />
 
-      {/* Animated Header */}
-      <Animated.View
-        style={[
-          styles.header,
-          {
-            shadowOpacity: headerShadowOpacity,
-            borderBottomColor: headerShadowOpacity.interpolate({
-              inputRange: [0, 1],
-              outputRange: ["transparent", "#3a3a3a"],
-            }),
-          },
-        ]}
-      >
-        <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBack}
+          activeOpacity={0.7}
+        >
           <ArrowLeft size={22} color="#f8f9fa" />
         </TouchableOpacity>
 
@@ -412,14 +404,13 @@ const ClusterEventsView: React.FC = () => {
           <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
             {getHeaderTitle()}
           </Text>
+          {geocodingInfo?.placeName && (
+            <Text style={styles.headerSubtitle} numberOfLines={1} ellipsizeMode="tail">
+              {geocodingInfo.placeName}
+            </Text>
+          )}
         </View>
-
-        {clusterCount && (
-          <View style={styles.countBadge}>
-            <Text style={styles.countText}>{clusterCount}</Text>
-          </View>
-        )}
-      </Animated.View>
+      </View>
 
       {/* Geocoding Info Panel (conditionally rendered) */}
       {renderGeocodingInfo()}
@@ -550,26 +541,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "transparent",
     backgroundColor: "#333",
-    zIndex: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0,
-    shadowRadius: 3,
-    elevation: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
 
   backButton: {
     padding: 8,
-    borderRadius: 20,
     marginRight: 12,
   },
 
   headerTitleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
     flex: 1,
   },
 
@@ -578,35 +560,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
-    flex: 1,
   },
 
-  infoButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 8,
-  },
-
-  countBadge: {
-    backgroundColor: "rgba(147, 197, 253, 0.2)",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.3)",
-    minWidth: 32,
-    alignItems: "center",
-  },
-
-  countText: {
-    color: "#93c5fd",
-    fontSize: 14,
-    fontWeight: "600",
+  headerSubtitle: {
+    fontSize: 13,
+    color: "#adb5bd",
     fontFamily: "SpaceMono",
+    marginTop: 2,
   },
 
   // Geocoding panel
