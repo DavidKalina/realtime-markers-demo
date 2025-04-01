@@ -10,7 +10,7 @@ import Animated, {
   interpolateColor,
   cancelAnimation,
 } from "react-native-reanimated";
-import { ScannerAnimation } from "@/components/ScannerAnimation";
+import { SimplifiedScannerAnimation } from "@/components/ScannerAnimation";
 
 // Animation configurations - defined outside component to prevent recreation
 const ANIMATIONS = {
@@ -322,7 +322,7 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
           <Animated.View style={[overlayStyles.overlay, overlayStyle]} />
           {showScannerAnimation && (
             <View style={overlayStyles.scannerContainer}>
-              <ScannerAnimation
+              <SimplifiedScannerAnimation
                 isActive={showScanning}
                 color={scanColor}
                 speed={isCapturing ? 1000 : 1500}

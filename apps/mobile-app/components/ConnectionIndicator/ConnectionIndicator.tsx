@@ -1,6 +1,7 @@
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes } from "@/services/EventBroker";
-import { WifiOff, Wifi } from "lucide-react-native";
+import { useNetworkQuality } from "@/hooks/useNetworkQuality";
+import { WifiOff, Wifi, Signal } from "lucide-react-native";
 import React, { useEffect, useState, useMemo } from "react";
 import { View, StyleSheet } from "react-native";
 import Animated, {
@@ -43,10 +44,47 @@ const ANIMATION_CONFIG = {
   fadeIn: { duration: 300 },
 };
 
+// Get status color based on network strength
+const getStatusColor = (strength: number): string => {
+  if (strength >= 80) return "#4caf50"; // Green for excellent
+  if (strength >= 60) return "#8bc34a"; // Light green for good
+  if (strength >= 40) return "#ffc107"; // Yellow for fair
+  if (strength >= 20) return "#ff9800"; // Orange for poor
+  return "#f44336"; // Red for very poor
+};
+
+// Get network type text
+const getNetworkTypeText = (type: string | null): string => {
+  switch (type) {
+    case "wifi":
+      return "WiFi";
+    case "cellular":
+      return "Cellular";
+    case "ethernet":
+      return "Ethernet";
+    case "vpn":
+      return "VPN";
+    case "none":
+      return "No Network";
+    default:
+      return "Unknown";
+  }
+};
+
+// Get network quality description
+const getNetworkQualityDescription = (strength: number): string => {
+  if (strength >= 80) return "Excellent";
+  if (strength >= 60) return "Good";
+  if (strength >= 40) return "Fair";
+  if (strength >= 20) return "Poor";
+  return "Very Poor";
+};
+
 // Create a memoized status icon component
-const StatusIcon = React.memo(({ isConnected, style }: { isConnected: boolean; style?: any }) => {
+const StatusIcon = React.memo(({ isConnected, networkState, style }: { isConnected: boolean; networkState: any; style?: any }) => {
   const icon = useMemo(() => {
-    return isConnected ? <Wifi size={16} color="#fff" /> : <WifiOff size={16} color="#fff" />;
+    if (!isConnected) return <WifiOff size={16} color="#fff" />;
+    return <Signal size={16} color="#fff" />;
   }, [isConnected]);
 
   return <Animated.View style={style}>{icon}</Animated.View>;
@@ -54,7 +92,22 @@ const StatusIcon = React.memo(({ isConnected, style }: { isConnected: boolean; s
 
 // Create a memoized status text component
 const StatusText = React.memo(
-  ({ isConnected, hasConnectionEverBeenEstablished }: { isConnected: boolean; hasConnectionEverBeenEstablished: boolean }) => {
+  ({ isConnected, hasConnectionEverBeenEstablished, networkState }: { isConnected: boolean; hasConnectionEverBeenEstablished: boolean; networkState: any }) => {
+    const statusText = useMemo(() => {
+      if (!isConnected) {
+        return hasConnectionEverBeenEstablished ? "Reconnecting" : "Connecting";
+      }
+
+      // Only show network details if both network and WebSocket are connected
+      if (networkState.isConnected) {
+        const networkType = getNetworkTypeText(networkState.type);
+        const quality = getNetworkQualityDescription(networkState.strength);
+        return `${networkType} - ${quality}`;
+      }
+
+      return "Connected";
+    }, [isConnected, hasConnectionEverBeenEstablished, networkState]);
+
     return (
       <Animated.Text
         style={styles.statusText}
@@ -62,11 +115,7 @@ const StatusText = React.memo(
         exiting={FadeOut.duration(300)}
         layout={SPRING_LAYOUT}
       >
-        {isConnected
-          ? "Connected"
-          : hasConnectionEverBeenEstablished
-            ? "Reconnecting"
-            : "Connecting"}
+        {statusText}
       </Animated.Text>
     );
   }
@@ -83,6 +132,9 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
     const [hasConnectionEverBeenEstablished, setHasConnectionEverBeenEstablished] =
       useState(initialConnectionState);
     const [isVisible, setIsVisible] = useState(true);
+
+    // Get network quality state
+    const networkState = useNetworkQuality();
 
     // Reanimated shared values for animations
     const scale = useSharedValue(1);
@@ -192,10 +244,11 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
       }
     }, [position]);
 
-    // Get status color based on connection status
+    // Get status color based on network strength
     const statusColor = useMemo(() => {
-      return isConnected ? "#4caf50" : "#f44336"; // Green when connected, red when disconnected
-    }, [isConnected]);
+      if (!isConnected) return "#f44336"; // Red when disconnected
+      return getStatusColor(networkState.strength);
+    }, [isConnected, networkState.strength]);
 
     // Combine indicator styles
     const indicatorStyle = useMemo(() => {
@@ -221,13 +274,14 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
         layout={SPRING_LAYOUT}
       >
         <Animated.View style={indicatorStyle} layout={SPRING_LAYOUT}>
-          <StatusIcon isConnected={isConnected} style={statusIconStyle} />
+          <StatusIcon isConnected={isConnected} networkState={networkState} style={statusIconStyle} />
         </Animated.View>
 
         <View style={styles.contentContainer}>
           <StatusText
             isConnected={isConnected}
             hasConnectionEverBeenEstablished={hasConnectionEverBeenEstablished}
+            networkState={networkState}
           />
         </View>
       </Animated.View>

@@ -1,10 +1,18 @@
-import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
-import { useCameraPermissions } from "expo-camera";
-import Animated, { FadeIn, ZoomIn } from "react-native-reanimated";
-import * as Linking from "expo-linking";
-import { AppState } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useCameraPermissions } from "expo-camera";
+import * as Linking from "expo-linking";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, AppState, StyleSheet, Text, TouchableOpacity } from "react-native";
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming
+} from "react-native-reanimated";
 
 interface CameraPermissionProps {
   onPermissionGranted: () => void;
@@ -120,12 +128,38 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
     }
   };
 
+  // Custom animation styles
+  const iconContainerStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          scale: withRepeat(
+            withSequence(
+              withTiming(1.05, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+              withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+            ),
+            -1,
+            true
+          ),
+        },
+      ],
+    };
+  });
+
   // If we're waiting for the permission check
   if (permission === undefined) {
     return (
-      <Animated.View style={styles.processingContainer} entering={ZoomIn.duration(500)}>
+      <Animated.View
+        style={styles.processingContainer}
+        entering={FadeIn.duration(400).easing(Easing.out(Easing.ease))}
+      >
         <ActivityIndicator size="large" color="#69db7c" />
-        <Text style={styles.processingText}>Checking camera permissions...</Text>
+        <Animated.Text
+          style={styles.processingText}
+          entering={FadeInDown.duration(400).delay(200).easing(Easing.out(Easing.ease))}
+        >
+          Checking camera permissions...
+        </Animated.Text>
       </Animated.View>
     );
   }
@@ -133,11 +167,17 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
   // If we're processing the permission request
   if (isProcessing) {
     return (
-      <Animated.View style={styles.processingContainer} entering={FadeIn.duration(500)}>
+      <Animated.View
+        style={styles.processingContainer}
+        entering={FadeIn.duration(400).easing(Easing.out(Easing.ease))}
+      >
         <ActivityIndicator size="large" color="#69db7c" />
-        <Text style={styles.processingText}>
+        <Animated.Text
+          style={styles.processingText}
+          entering={FadeInDown.duration(400).delay(200).easing(Easing.out(Easing.ease))}
+        >
           {permission?.granted ? "Camera ready!" : "Processing permission request..."}
-        </Text>
+        </Animated.Text>
       </Animated.View>
     );
   }
@@ -145,30 +185,47 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
   // If permission is not granted
   if (!permission?.granted) {
     return (
-      <Animated.View style={styles.permissionContainer} entering={ZoomIn.duration(500)}>
-        <View style={styles.iconContainer}>
+      <Animated.View
+        style={styles.permissionContainer}
+        entering={FadeIn.duration(400).easing(Easing.out(Easing.ease))}
+      >
+        <Animated.View style={[styles.iconContainer, iconContainerStyle]}>
           <Feather name="camera-off" size={64} color="#f8f9fa" />
-        </View>
+        </Animated.View>
 
-        <Text style={styles.permissionMessage}>Camera access required</Text>
-        <Text style={styles.permissionSubtext}>
+        <Animated.Text
+          style={styles.permissionMessage}
+          entering={FadeInDown.duration(400).delay(200).easing(Easing.out(Easing.ease))}
+        >
+          Camera access required
+        </Animated.Text>
+
+        <Animated.Text
+          style={styles.permissionSubtext}
+          entering={FadeInDown.duration(400).delay(300).easing(Easing.out(Easing.ease))}
+        >
           We need camera access to scan documents. Your privacy is important to us.
-        </Text>
+        </Animated.Text>
 
         {permission?.canAskAgain ? (
-          <TouchableOpacity style={styles.permissionButton} onPress={handleRequestPermission}>
-            <Text style={styles.permissionButtonText}>Grant Access</Text>
-          </TouchableOpacity>
+          <Animated.View
+            entering={FadeInUp.duration(400).delay(400).easing(Easing.out(Easing.ease))}
+          >
+            <TouchableOpacity style={styles.permissionButton} onPress={handleRequestPermission}>
+              <Text style={styles.permissionButtonText}>Grant Access</Text>
+            </TouchableOpacity>
+          </Animated.View>
         ) : (
-          // Show this when user has previously denied and needs to enable manually
-          <View style={styles.manualPermissionContainer}>
+          <Animated.View
+            style={styles.manualPermissionContainer}
+            entering={FadeInUp.duration(400).delay(400).easing(Easing.out(Easing.ease))}
+          >
             <Text style={styles.manualPermissionText}>
               Please enable camera access in your device settings to continue.
             </Text>
             <TouchableOpacity
               style={styles.settingsButton}
               onPress={() => {
-                // Open app settings
                 setHasSettingsOpened(true);
                 Linking.openSettings();
               }}
@@ -179,17 +236,23 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
             <TouchableOpacity style={styles.retryButton} onPress={handleRetryPermission}>
               <Text style={styles.retryButtonText}>Check Again</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         )}
 
         {hasSettingsOpened && (
-          <Animated.Text style={styles.returnHint} entering={FadeIn.duration(300)}>
+          <Animated.Text
+            style={styles.returnHint}
+            entering={FadeIn.duration(300).delay(500).easing(Easing.out(Easing.ease))}
+          >
             If you've enabled camera access, please tap "Check Again"
           </Animated.Text>
         )}
 
         {checkCount > 2 && !hasSettingsOpened && (
-          <Animated.Text style={styles.returnHint} entering={FadeIn.duration(300)}>
+          <Animated.Text
+            style={styles.returnHint}
+            entering={FadeIn.duration(300).delay(500).easing(Easing.out(Easing.ease))}
+          >
             Having trouble? Try restarting the app or your device.
           </Animated.Text>
         )}
@@ -199,9 +262,21 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
 
   // If permission is granted, we show a transition screen
   return (
-    <Animated.View style={styles.processingContainer} entering={FadeIn.duration(500)}>
-      <Feather name="check-circle" size={64} color="#69db7c" />
-      <Text style={styles.processingText}>Camera permission granted!</Text>
+    <Animated.View
+      style={styles.processingContainer}
+      entering={FadeIn.duration(400).easing(Easing.out(Easing.ease))}
+    >
+      <Animated.View
+        entering={FadeInDown.duration(400).delay(200).easing(Easing.out(Easing.ease))}
+      >
+        <Feather name="check-circle" size={64} color="#69db7c" />
+      </Animated.View>
+      <Animated.Text
+        style={styles.processingText}
+        entering={FadeInUp.duration(400).delay(300).easing(Easing.out(Easing.ease))}
+      >
+        Camera permission granted!
+      </Animated.Text>
     </Animated.View>
   );
 };

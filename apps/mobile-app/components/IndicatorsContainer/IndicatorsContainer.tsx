@@ -66,10 +66,11 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        gap: 8,
+        flexDirection: 'column',
+        alignItems: 'flex-start',
         paddingTop: 50,
         paddingLeft: 16,
-        paddingRight: 16,
+        gap: 8,
     },
 });
 

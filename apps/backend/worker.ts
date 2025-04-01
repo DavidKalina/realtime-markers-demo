@@ -51,13 +51,13 @@ async function initializeWorker() {
   // Initialize LocationService singleton (this is just to warm up the cache)
   GoogleGeocodingService.getInstance();
 
+
   const configService = ConfigService.getInstance();
 
   // Initialize repositories and services
   const eventRepository = AppDataSource.getRepository(Event);
   const categoryRepository = AppDataSource.getRepository(Category);
   const categoryProcessingService = new CategoryProcessingService(
-    OpenAIService.getInstance(),
     categoryRepository
   );
 

@@ -9,6 +9,10 @@ import { DataSource } from "typeorm";
 import AppDataSource from "./data-source";
 import { Category } from "./entities/Category";
 import { Event } from "./entities/Event";
+import { performanceMonitor } from "./middleware/performanceMonitor";
+import { requestLimiter } from "./middleware/requestLimiter";
+import { securityHeaders } from "./middleware/securityHeaders";
+import { adminRouter } from "./routes/admin";
 import { authRouter } from "./routes/auth";
 import { eventsRouter } from "./routes/events";
 import { filterRouter } from "./routes/filters";
@@ -16,7 +20,9 @@ import { internalRouter } from "./routes/internalRoutes";
 import { seedDatabase } from "./seeds";
 import { seedUsers } from "./seeds/seedUsers";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
+import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
+import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
 import { LocationResolutionService } from "./services/event-processing/LocationResolutionService";
 import { EventProcessingService } from "./services/EventProcessingService";
 import { EventService } from "./services/EventService";
@@ -24,18 +30,10 @@ import { JobQueue } from "./services/JobQueue";
 import { CacheService } from "./services/shared/CacheService";
 import { ConfigService } from "./services/shared/ConfigService";
 import { OpenAIService } from "./services/shared/OpenAIService";
+import { RateLimitService } from "./services/shared/RateLimitService";
+import { StorageService } from "./services/shared/StorageService";
 import { UserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
-import { EventExtractionService } from "./services/event-processing/EventExtractionService";
-import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
-import { StorageService } from "./services/shared/StorageService";
-import { adminRouter } from "./routes/admin";
-import { RateLimitService } from "./services/shared/RateLimitService";
-import { rateLimit } from "./middleware/rateLimit";
-import { ip } from "./middleware/ip";
-import { securityHeaders } from "./middleware/securityHeaders";
-import { requestLimiter } from "./middleware/requestLimiter";
-import { performanceMonitor } from "./middleware/performanceMonitor";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -170,7 +168,7 @@ async function initializeServices() {
   const categoryRepository = dataSource.getRepository(Category);
   const eventRepository = dataSource.getRepository(Event);
 
-  const categoryProcessingService = new CategoryProcessingService(openai, categoryRepository);
+  const categoryProcessingService = new CategoryProcessingService(categoryRepository);
 
   const eventService = new EventService(dataSource);
 

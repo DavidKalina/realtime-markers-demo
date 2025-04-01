@@ -3,10 +3,11 @@ import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import { ImageSelector } from "@/components/ImageSelector";
 import { ScannerOverlay, ScannerOverlayRef } from "@/components/ScannerOverlay/ScannerOverlay";
-import { ScannerAnimation, ScannerAnimationRef } from "@/components/ScannerAnimation";
+import { SimplifiedScannerAnimation, SimplifiedScannerAnimationRef } from "@/components/ScannerAnimation";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
 import { useEventBroker } from "@/hooks/useEventBroker";
+import { useNetworkQuality } from "@/hooks/useNetworkQuality";
 import apiClient from "@/services/ApiClient";
 import { EventTypes } from "@/services/EventBroker";
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
@@ -58,6 +59,9 @@ export default function ScanScreen() {
   const isMounted = useRef(true);
 
   const { userLocation } = useUserLocation();
+  const networkState = useNetworkQuality();
+  const uploadRetryCount = useRef(0);
+  const MAX_RETRIES = 3;
 
   // Navigation timer ref
   const navigationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -70,7 +74,7 @@ export default function ScanScreen() {
 
   // Refs for animation components
   const scannerOverlayRef = useRef<ScannerOverlayRef>(null);
-  const scannerAnimationRef = useRef<ScannerAnimationRef>(null);
+  const scannerAnimationRef = useRef<SimplifiedScannerAnimationRef>(null);
 
   // Clear detection interval function
   const clearDetectionInterval = useCallback(() => {
@@ -233,11 +237,23 @@ export default function ScanScreen() {
     [addJob, publish, performFullCleanup, router]
   );
 
-  // Updated uploadImageAndQueue function to handle both camera and gallery sources
+  // Check if network is suitable for upload
+  const isNetworkSuitable = useCallback(() => {
+    if (!networkState.isConnected) return false;
+    if (networkState.strength < 40) return false; // Reject if network strength is poor
+    return true;
+  }, [networkState.isConnected, networkState.strength]);
+
+  // Updated uploadImageAndQueue function with retry logic
   const uploadImageAndQueue = async (uri: string) => {
     if (!isMounted.current) return null;
 
     try {
+      // Check network before starting upload
+      if (!isNetworkSuitable()) {
+        throw new Error("Network connection is too weak for upload");
+      }
+
       setUploadProgress(10);
 
       // Process/compress the image before uploading
@@ -247,7 +263,7 @@ export default function ScanScreen() {
 
       // Create imageFile object for apiClient
       const imageFile = {
-        uri: processedUri || uri, // Fallback to original if processing failed
+        uri: processedUri || uri,
         name: "image.jpg",
         type: "image/jpeg",
       } as any;
@@ -263,7 +279,7 @@ export default function ScanScreen() {
 
       setUploadProgress(70);
 
-      // Upload using API client - this handles FormData internally
+      // Upload using API client
       const result = await apiClient.processEventImage(imageFile);
 
       setUploadProgress(100);
@@ -277,6 +293,20 @@ export default function ScanScreen() {
     } catch (error) {
       console.error("Upload failed:", error);
 
+      // Retry logic for network-related errors
+      if (uploadRetryCount.current < MAX_RETRIES && isNetworkSuitable()) {
+        uploadRetryCount.current++;
+        publish(EventTypes.NOTIFICATION, {
+          timestamp: Date.now(),
+          source: "ScanScreen",
+          message: `Retrying upload (${uploadRetryCount.current}/${MAX_RETRIES})...`,
+        });
+
+        // Wait for network to stabilize before retrying
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return uploadImageAndQueue(uri);
+      }
+
       if (isMounted.current) {
         publish(EventTypes.ERROR_OCCURRED, {
           timestamp: Date.now(),
@@ -284,10 +314,9 @@ export default function ScanScreen() {
           error: `Failed to upload image: ${error}`,
         });
 
-        // Show error to user
         Alert.alert(
           "Upload Failed",
-          "There was a problem uploading your document. Please try again.",
+          "There was a problem uploading your document. Please check your network connection and try again.",
           [{ text: "OK" }]
         );
       }
@@ -296,6 +325,7 @@ export default function ScanScreen() {
     } finally {
       if (isMounted.current) {
         setUploadProgress(0);
+        uploadRetryCount.current = 0;
       }
     }
   };
@@ -310,7 +340,7 @@ export default function ScanScreen() {
     }, 500);
   }, [startDocumentDetection]);
 
-  // Handle image capture - improved with better error handling
+  // Update handleCapture to check network before starting
   const handleCapture = async () => {
     if (!isMounted.current) return;
 
@@ -319,13 +349,21 @@ export default function ScanScreen() {
     }
 
     if (!isCameraReady) {
-      // Show notification to the user
       publish(EventTypes.NOTIFICATION, {
         timestamp: Date.now(),
         source: "ScanScreen",
         message: "Camera is initializing, please try again in a moment.",
       });
+      return;
+    }
 
+    // Check network before starting capture process
+    if (!isNetworkSuitable()) {
+      Alert.alert(
+        "Poor Network Connection",
+        "Please ensure you have a stable network connection before capturing.",
+        [{ text: "OK" }]
+      );
       return;
     }
 
@@ -372,9 +410,19 @@ export default function ScanScreen() {
     }
   };
 
-  // Handle image selection from gallery
+  // Update handleImageSelected to check network before starting
   const handleImageSelected = async (uri: string) => {
     if (!isMounted.current) return;
+
+    // Check network before starting gallery image process
+    if (!isNetworkSuitable()) {
+      Alert.alert(
+        "Poor Network Connection",
+        "Please ensure you have a stable network connection before selecting an image.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
 
     try {
       // Stop detection

@@ -1,10 +1,10 @@
 import { In, Repository } from "typeorm";
-import { OpenAI } from "openai";
 import { Category } from "../entities/Category";
 import { CacheService } from "./shared/CacheService";
+import { OpenAIService } from "./shared/OpenAIService";
 
 export class CategoryProcessingService {
-  constructor(private openai: OpenAI, private categoryRepository: Repository<Category>) {}
+  constructor(private categoryRepository: Repository<Category>) { }
 
   private async normalizeCategoryName(name: string): Promise<string> {
     return name.toLowerCase().trim().replace(/\s+/g, " "); // Replace multiple spaces with single space
@@ -75,12 +75,7 @@ export class CategoryProcessingService {
   }
 
   private async generateCategoryEmbedding(text: string): Promise<number[]> {
-    const response = await this.openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: text,
-      encoding_format: "float",
-    });
-    return response.data[0].embedding;
+    return OpenAIService.generateEmbedding(text);
   }
 
   private calculateCosineSimilarity(a: number[], b: number[]): number {
@@ -100,7 +95,7 @@ export class CategoryProcessingService {
       });
     }
 
-    const response = await this.openai.chat.completions.create({
+    const response = await OpenAIService.executeChatCompletion({
       model: "gpt-4o",
       messages: [
         {
