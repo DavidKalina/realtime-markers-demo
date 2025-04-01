@@ -25,10 +25,6 @@ const SCANNER_ANIMATIONS = {
   },
 };
 
-// Helper function to generate random number between min and max
-const randomBetween = (min: number, max: number) => {
-  return Math.random() * (max - min) + min;
-};
 
 interface ScannerAnimationProps {
   isActive: boolean;

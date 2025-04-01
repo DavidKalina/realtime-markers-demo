@@ -189,12 +189,12 @@ export default function ScanScreen() {
     // Perform full cleanup
     performFullCleanup();
 
-    // Small delay to ensure cleanup is complete before navigation
-    setTimeout(() => {
+    // Ensure all cleanup operations are completed before navigation
+    Promise.resolve().then(() => {
       if (isMounted.current) {
         router.replace("/");
       }
-    }, 100);
+    });
   };
 
   // Enhanced cleanup effect
