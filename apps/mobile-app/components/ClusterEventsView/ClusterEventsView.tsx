@@ -36,7 +36,6 @@ interface ClusterItem extends BaseMapItem {
   childrenIds?: string[];
 }
 
-type MapItem = MarkerItem | ClusterItem;
 
 // Define geocoding info type
 interface GeocodingInfo {
