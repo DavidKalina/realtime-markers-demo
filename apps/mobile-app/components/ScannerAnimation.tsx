@@ -20,7 +20,15 @@ const SCANNER_ANIMATIONS = {
     GLOW_RADIUS: 16,
     GLOW_OPACITY: 0.5,
     SCAN_EXTENSION: 50, // Percentage to extend beyond screen bounds
+    MIN_SPEED: 800, // Minimum animation duration in ms
+    MAX_SPEED: 1200, // Maximum animation duration in ms
+    MOVEMENT_RANGE: 1.5, // How much beyond the normal range (0-1) the lines can move
   },
+};
+
+// Helper function to generate random number between min and max
+const randomBetween = (min: number, max: number) => {
+  return Math.random() * (max - min) + min;
 };
 
 interface ScannerAnimationProps {
@@ -35,11 +43,13 @@ export interface ScannerAnimationRef {
 }
 
 export const ScannerAnimation = React.forwardRef<ScannerAnimationRef, ScannerAnimationProps>(
-  ({ isActive, color = "#4dabf7", speed = 1500 }, ref) => {
+  ({ isActive, color = "#4dabf7", speed = 1000 }, ref) => {
     // Create horizontal and vertical scan line animations
     const horizontalProgress = useSharedValue(0);
     const verticalProgress = useSharedValue(0);
     const isMounted = useRef(true);
+    const lastHorizontalEnd = useRef(0);
+    const lastVerticalEnd = useRef(0);
 
     // Create cleanup function
     const cleanup = useCallback(() => {
@@ -79,15 +89,41 @@ export const ScannerAnimation = React.forwardRef<ScannerAnimationRef, ScannerAni
       cancelAnimation(verticalProgress);
 
       if (isActive) {
+        // Generate random end positions for horizontal line with extended range
+        const horizontalStart = lastHorizontalEnd.current;
+        const horizontalEnd = randomBetween(
+          -SCANNER_ANIMATIONS.SCAN.MOVEMENT_RANGE / 2,
+          SCANNER_ANIMATIONS.SCAN.MOVEMENT_RANGE / 2
+        );
+        lastHorizontalEnd.current = horizontalEnd;
+
+        // Generate random end positions for vertical line with extended range
+        const verticalStart = lastVerticalEnd.current;
+        const verticalEnd = randomBetween(
+          -SCANNER_ANIMATIONS.SCAN.MOVEMENT_RANGE / 2,
+          SCANNER_ANIMATIONS.SCAN.MOVEMENT_RANGE / 2
+        );
+        lastVerticalEnd.current = verticalEnd;
+
+        // Generate random speeds for each line
+        const horizontalSpeed = randomBetween(
+          SCANNER_ANIMATIONS.SCAN.MIN_SPEED,
+          SCANNER_ANIMATIONS.SCAN.MAX_SPEED
+        );
+        const verticalSpeed = randomBetween(
+          SCANNER_ANIMATIONS.SCAN.MIN_SPEED,
+          SCANNER_ANIMATIONS.SCAN.MAX_SPEED
+        );
+
         // Animate horizontal line
         horizontalProgress.value = withRepeat(
           withSequence(
-            withTiming(1, {
-              duration: speed,
+            withTiming(horizontalEnd, {
+              duration: horizontalSpeed,
               easing: SCANNER_ANIMATIONS.SCAN.EASING,
             }),
-            withTiming(0, {
-              duration: speed,
+            withTiming(horizontalStart, {
+              duration: horizontalSpeed,
               easing: SCANNER_ANIMATIONS.SCAN.EASING,
             })
           ),
@@ -95,15 +131,15 @@ export const ScannerAnimation = React.forwardRef<ScannerAnimationRef, ScannerAni
           false
         );
 
-        // Animate vertical line with offset
+        // Animate vertical line
         verticalProgress.value = withRepeat(
           withSequence(
-            withTiming(1, {
-              duration: speed * 0.8, // Slightly faster for visual interest
+            withTiming(verticalEnd, {
+              duration: verticalSpeed,
               easing: SCANNER_ANIMATIONS.SCAN.EASING,
             }),
-            withTiming(0, {
-              duration: speed * 0.8,
+            withTiming(verticalStart, {
+              duration: verticalSpeed,
               easing: SCANNER_ANIMATIONS.SCAN.EASING,
             })
           ),

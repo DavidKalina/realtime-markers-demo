@@ -3,8 +3,6 @@ import { AlertTriangle, CheckCircle, Cog } from "lucide-react-native";
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
-  BounceIn,
-  BounceOut,
   cancelAnimation,
   Easing,
   FadeIn,
@@ -34,11 +32,11 @@ const FADE_IN = FadeIn.duration(400).delay(100);
 // Animation configurations
 const ANIMATION_CONFIG = {
   rotationDuration: 2000,
-  fadeOut: { duration: 200 },
-  fadeIn: { duration: 300 },
+  fadeOut: { duration: 300, easing: Easing.bezier(0.4, 0, 0.2, 1) },
+  fadeIn: { duration: 400, easing: Easing.bezier(0.4, 0, 0.2, 1) },
   checkmarkScale: {
-    duration: 400,
-    easing: Easing.elastic(1.2),
+    duration: 500,
+    easing: Easing.bezier(0.34, 1.56, 0.64, 1),
   },
   slide: {
     damping: 15,
@@ -79,9 +77,9 @@ const StatusIcon = React.memo(({ style, status }: { style: any; status: string }
 const JobCountText = React.memo(({ count, status }: { count: number; status: string }) => (
   <Animated.Text style={styles.countText} entering={FADE_IN} layout={SPRING_LAYOUT}>
     {status === "completed"
-      ? "Success"
+      ? "Scan Complete!"
       : status === "failed"
-        ? "Failed"
+        ? "Scan Failed."
         : `${count} job${count !== 1 ? "s" : ""}`}
   </Animated.Text>
 ));
@@ -251,11 +249,15 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
         );
         checkmarkScale.value = 0;
       } else if (status === "completed" || status === "failed") {
-        // Stop rotation and transition to checkmark/error icon
+        // Stop rotation and transition to checkmark/error icon with smoother animation
         cancelAnimation(rotationValue);
         iconOpacity.value = withTiming(0, ANIMATION_CONFIG.fadeOut, () => {
           "worklet";
-          checkmarkScale.value = withTiming(1, ANIMATION_CONFIG.checkmarkScale);
+          checkmarkScale.value = withSpring(1, {
+            damping: 12,
+            stiffness: 100,
+            mass: 0.8,
+          });
         });
       }
 
@@ -319,7 +321,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
     const statusColor = useMemo(() => {
       switch (status) {
         case "processing":
-          return "rgba(107, 114, 128, 0.95)"; // Subtle gray
+          return "rgba(255, 140, 0, 0.95)"; // Industrial orange
         case "completed":
           return "rgba(52, 211, 153, 0.95)"; // Subtle emerald
         case "failed":
