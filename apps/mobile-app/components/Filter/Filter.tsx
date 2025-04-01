@@ -50,8 +50,8 @@ import Animated, {
   ZoomOut,
   withSpring,
   withTiming,
-  SlideInRight,
-  SlideOutRight,
+  SlideInDown,
+  SlideOutDown,
   Layout,
   cancelAnimation,
 } from "react-native-reanimated";
@@ -370,12 +370,12 @@ const FiltersView: React.FC = () => {
     return (
       <Animated.View
         style={styles.filterCard}
-        entering={SlideInRight.springify()
+        entering={SlideInDown.springify()
           .damping(15)
           .stiffness(100)
           .delay(index * 50)
-          .withInitialValues({ transform: [{ translateX: 100 }, { scale: 0.8 }] })}
-        exiting={SlideOutRight.springify().damping(15).stiffness(100)}
+          .withInitialValues({ transform: [{ translateY: 50 }, { scale: 0.8 }] })}
+        exiting={SlideOutDown.springify().damping(15).stiffness(100)}
         layout={Layout.springify().damping(12).stiffness(100)}
         onLayout={() => {
           // Cleanup any running animations when layout changes
@@ -631,11 +631,11 @@ const FiltersView: React.FC = () => {
         >
           <Animated.View
             style={[styles.modalContent]}
-            entering={ZoomIn.springify()
+            entering={SlideInDown.springify()
               .damping(12)
               .stiffness(100)
-              .withInitialValues({ transform: [{ scale: 0.9 }] })}
-            exiting={ZoomOut.duration(150)}
+              .withInitialValues({ transform: [{ translateY: 50 }, { scale: 0.9 }] })}
+            exiting={SlideOutDown.duration(150)}
             layout={Layout.springify().damping(12).stiffness(100)}
           >
             <View style={styles.modalHeader}>
