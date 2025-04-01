@@ -428,57 +428,11 @@ export class FilterProcessor {
 
     // Event matches if it satisfies ANY filter
     return filters.some((filter) => {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(
-          `Filter Debug: Event structure:`,
-          JSON.stringify(
-            {
-              id: event.id,
-              title: event.title,
-              categories: event.categories,
-              startDate: event.eventDate,
-              createdAt: event.createdAt,
-              status: event.status,
-              tags: event.tags,
-            },
-            null,
-            2
-          )
-        );
-      }
-
       const criteria = filter.criteria;
-
-      // Initialize composite score
       let compositeScore = 0;
       let totalWeight = 0;
 
-      // 1. Date Range Filter (20% weight)
-      if (criteria.dateRange) {
-        const { start, end } = criteria.dateRange;
-        const eventStartDate = new Date(event.eventDate);
-        const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
-
-        if (start && end) {
-          const filterStartDate = new Date(start);
-          const filterEndDate = new Date(end);
-
-          if (eventStartDate >= filterStartDate && eventEndDate <= filterEndDate) {
-            compositeScore += 1;
-          } else if (eventStartDate <= filterEndDate && eventEndDate >= filterStartDate) {
-            compositeScore += 0.5; // Partial overlap
-          }
-        } else if (start) {
-          const filterStartDate = new Date(start);
-          if (eventEndDate >= filterStartDate) compositeScore += 1;
-        } else if (end) {
-          const filterEndDate = new Date(end);
-          if (eventStartDate <= filterEndDate) compositeScore += 1;
-        }
-        totalWeight += 0.2;
-      }
-
-      // 2. Location Filter (20% weight)
+      // 1. Apply strict location filter if specified
       if (criteria.location?.latitude && criteria.location?.longitude && criteria.location?.radius) {
         const [eventLng, eventLat] = event.location.coordinates;
         const distance = this.calculateDistance(
@@ -488,15 +442,36 @@ export class FilterProcessor {
           criteria.location.longitude
         );
 
-        if (distance <= criteria.location.radius) {
-          // Score based on how close the event is to the center
-          const proximityScore = 1 - (distance / criteria.location.radius);
-          compositeScore += proximityScore;
+        // If event is outside the radius, reject immediately
+        if (distance > criteria.location.radius) {
+          return false;
         }
-        totalWeight += 0.2;
       }
 
-      // 3. Semantic Similarity (40% weight)
+      // 2. Apply strict date range filter if specified
+      if (criteria.dateRange) {
+        const { start, end } = criteria.dateRange;
+        const eventStartDate = new Date(event.eventDate);
+        const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
+
+        if (start && end) {
+          const filterStartDate = new Date(start);
+          const filterEndDate = new Date(end);
+
+          // If event is completely outside the date range, reject immediately
+          if (eventEndDate < filterStartDate || eventStartDate > filterEndDate) {
+            return false;
+          }
+        } else if (start) {
+          const filterStartDate = new Date(start);
+          if (eventEndDate < filterStartDate) return false;
+        } else if (end) {
+          const filterEndDate = new Date(end);
+          if (eventStartDate > filterEndDate) return false;
+        }
+      }
+
+      // 3. If we have a semantic query, calculate weighted similarity score
       if (filter.embedding && event.embedding) {
         try {
           const filterEmbedding = this.vectorService.parseSqlEmbedding(filter.embedding);
@@ -507,95 +482,67 @@ export class FilterProcessor {
             eventEmbedding
           );
 
-          // Adjust threshold based on content type
-          let threshold = 0.7; // Default high threshold
-
-          // Lower threshold if event title contains query words
-          if (
-            filter.semanticQuery &&
-            filter.semanticQuery
-              .split(" ")
-              .some((word) => event.title.toLowerCase().includes(word.toLowerCase()))
-          ) {
-            threshold = 0.35;
-          }
-
-          // Lower threshold for category matches
-          if (
-            event.categories &&
-            event.categories.some((category) =>
-              filter.semanticQuery?.toLowerCase().includes(category.name.toLowerCase())
-            )
-          ) {
-            threshold = 0.3;
-          }
-
-          if (similarityScore >= threshold) {
-            compositeScore += similarityScore;
-          }
+          // Base semantic similarity weight
+          compositeScore += similarityScore;
           totalWeight += 0.4;
+
+          // Additional text matching for better natural language understanding
+          if (filter.semanticQuery) {
+            const query = filter.semanticQuery.toLowerCase();
+
+            // Title match (highest weight)
+            if (event.title.toLowerCase().includes(query)) {
+              compositeScore += 0.5;
+              totalWeight += 0.2;
+            }
+
+            // Description match
+            if (event.description?.toLowerCase().includes(query)) {
+              compositeScore += 0.3;
+              totalWeight += 0.1;
+            }
+
+            // Location-related matches (higher weight when no location filter)
+            if (!criteria.location) {
+              if (event.address?.toLowerCase().includes(query)) {
+                compositeScore += 0.4;
+                totalWeight += 0.1;
+              }
+              if (event.locationNotes?.toLowerCase().includes(query)) {
+                compositeScore += 0.4;
+                totalWeight += 0.1;
+              }
+            }
+          }
         } catch (error) {
           console.error(`Error calculating semantic similarity:`, error);
+          return false;
         }
-      }
-
-      // 4. Text Field Matching (20% weight)
-      if (filter.semanticQuery) {
-        const query = filter.semanticQuery.toLowerCase();
-        let textScore = 0;
-
-        // Title match (highest weight)
-        if (event.title.toLowerCase().includes(query)) {
-          textScore += 0.5;
-        }
-
-        // Description match
-        if (event.description?.toLowerCase().includes(query)) {
-          textScore += 0.3;
-        }
-
-        // Address match
-        if (event.address?.toLowerCase().includes(query)) {
-          textScore += 0.2;
-        }
-
-        // Location notes match
-        if (event.locationNotes?.toLowerCase().includes(query)) {
-          textScore += 0.2;
-        }
-
-        compositeScore += textScore;
-        totalWeight += 0.2;
       }
 
       // Calculate final score
       const finalScore = totalWeight > 0 ? compositeScore / totalWeight : 0;
 
-      // Dynamic threshold based on filter type
-      let requiredScore = 0.7; // Default threshold
+      // Dynamic threshold based on filter combination
+      let threshold = 0.7; // Default threshold
+
+      // Lower threshold when relying on semantic matching (no location/date)
+      if (!criteria.location && !criteria.dateRange) {
+        threshold = 0.5;
+      }
 
       // Lower threshold if we have strong text matches
       if (filter.semanticQuery && event.title.toLowerCase().includes(filter.semanticQuery.toLowerCase())) {
-        requiredScore = 0.5;
-      }
-
-      // Lower threshold for category matches
-      if (
-        event.categories &&
-        event.categories.some((category) =>
-          filter.semanticQuery?.toLowerCase().includes(category.name.toLowerCase())
-        )
-      ) {
-        requiredScore = 0.4;
+        threshold = 0.5;
       }
 
       if (process.env.NODE_ENV !== 'production') {
         console.log(
-          `Filter Debug: Event ${event.id} final score: ${finalScore.toFixed(2)} (threshold: ${requiredScore.toFixed(2)})`
+          `Filter Debug: Event ${event.id} final score: ${finalScore.toFixed(2)} (threshold: ${threshold.toFixed(2)})`
         );
       }
 
-      return finalScore >= requiredScore;
+      return finalScore >= threshold;
     });
   }
 
