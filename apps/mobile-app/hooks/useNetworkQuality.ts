@@ -129,7 +129,6 @@ export const useNetworkQuality = () => {
                         // Only check if at least 5 seconds have passed since last check
                         if (now - lastCheckTime.current >= 5000) {
                             const currentState = await NetInfo.fetch();
-                            console.log('Periodic network check:', currentState);
                             handleNetworkStateChange(currentState);
                             lastCheckTime.current = now;
                         }
