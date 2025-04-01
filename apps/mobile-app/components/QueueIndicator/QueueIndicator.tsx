@@ -253,7 +253,12 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
         checkmarkScale.value = 0;
         floatValue.value = 0;
       } else if (status === "completed" || status === "failed") {
+        // Stop any ongoing animations first
         cancelAnimation(rotationValue);
+        cancelAnimation(iconOpacity);
+        cancelAnimation(checkmarkScale);
+        cancelAnimation(floatValue);
+
         iconOpacity.value = withTiming(0, ANIMATION_CONFIG.fadeOut, () => {
           "worklet";
           checkmarkScale.value = withSpring(1, {
@@ -299,6 +304,16 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
         }
       };
     }, []);
+
+    // Add cleanup for when component becomes invisible
+    useEffect(() => {
+      if (!isVisible) {
+        cancelAnimation(rotationValue);
+        cancelAnimation(iconOpacity);
+        cancelAnimation(checkmarkScale);
+        cancelAnimation(floatValue);
+      }
+    }, [isVisible]);
 
     // Memoize animated styles - these will only update when the shared values change
     const rotationAnimatedStyle = useAnimatedStyle(() => ({
