@@ -67,6 +67,13 @@ const GRAVITATIONAL_CAMERA_CONFIG = {
   velocityMeasurementWindow: 200,
 };
 
+// Default camera settings
+const DEFAULT_CAMERA_SETTINGS = {
+  zoomLevel: 14,
+  animationDuration: 1000,
+  animationMode: "easeTo" as const,
+};
+
 function HomeScreen() {
   const [isMapReady, setIsMapReady] = useState(false);
   const mapRef = useRef<MapboxGL.MapView>(null);
@@ -95,13 +102,10 @@ function HomeScreen() {
 
   // Get user location only when needed
   useEffect(() => {
-    if (!userLocation) {
+    if (!userLocation && !isLoadingLocation) {
       getUserLocation();
     }
-
-    // Return cleanup function - empty since we moved MapboxGL setup outside component
-    return () => { };
-  }, [userLocation, getUserLocation]);
+  }, [userLocation, isLoadingLocation, getUserLocation]);
 
   // Track if we've done initial centering
   const hasCenteredOnUserRef = useRef(false);
@@ -111,10 +115,8 @@ function HomeScreen() {
     if (userLocation && !isLoadingLocation && isMapReady && cameraRef.current && !hasCenteredOnUserRef.current) {
       hasCenteredOnUserRef.current = true;
       cameraRef.current.setCamera({
+        ...DEFAULT_CAMERA_SETTINGS,
         centerCoordinate: userLocation,
-        zoomLevel: 14,
-        animationDuration: 1000,
-        animationMode: "easeTo",
       });
     }
   }, [userLocation, isLoadingLocation, isMapReady]);
@@ -123,53 +125,51 @@ function HomeScreen() {
   const handleMapPress = useCallback(() => {
     if (!selectedItem) return;
 
-    // Create appropriate item type based on selection
-    if (selectedItem.type === "marker") {
-      const markerItem: MarkerItem = {
-        id: selectedItem.id,
-        type: "marker",
-        coordinates: selectedItem.coordinates,
-        markerData: selectedItem.data,
-      };
+    try {
+      // Create appropriate item type based on selection
+      const item: MapItemEvent['item'] = selectedItem.type === "marker"
+        ? {
+          id: selectedItem.id,
+          type: "marker",
+          coordinates: selectedItem.coordinates,
+          markerData: selectedItem.data,
+        }
+        : {
+          id: selectedItem.id,
+          type: "cluster",
+          coordinates: selectedItem.coordinates,
+          count: selectedItem.count,
+          childMarkers: selectedItem.childrenIds,
+        };
 
       publish<MapItemEvent>(EventTypes.MAP_ITEM_DESELECTED, {
         timestamp: Date.now(),
         source: "MapPress",
-        item: markerItem,
+        item,
       });
-    } else {
-      const clusterItem: ClusterItem = {
-        id: selectedItem.id,
-        type: "cluster",
-        coordinates: selectedItem.coordinates,
-        count: selectedItem.count,
-        childMarkers: selectedItem.childrenIds,
-      };
 
-      publish<MapItemEvent>(EventTypes.MAP_ITEM_DESELECTED, {
-        timestamp: Date.now(),
-        source: "MapPress",
-        item: clusterItem,
-      });
+      // Clear selection in store
+      selectMapItem(null);
+    } catch (error) {
+      console.error("Error handling map press:", error);
+      // Ensure selection is cleared even if there's an error
+      selectMapItem(null);
     }
-
-    // Clear selection in store
-    selectMapItem(null);
   }, [selectMapItem, selectedItem, publish]);
 
   // Extracted viewport processing to a separate function for clarity
-  const processViewportBounds = useCallback((bounds: any) => {
-    if (
-      !bounds ||
-      !Array.isArray(bounds) ||
-      bounds.length !== 2 ||
-      !Array.isArray(bounds[0]) ||
-      !Array.isArray(bounds[1])
-    ) {
-      return null;
-    }
+  const processViewportBounds = useCallback((bounds: unknown): { north: number; south: number; east: number; west: number; } | null => {
+    if (!bounds || !Array.isArray(bounds) || bounds.length !== 2) return null;
 
-    const [[west, north], [east, south]] = bounds;
+    const [northWest, southEast] = bounds;
+    if (!Array.isArray(northWest) || !Array.isArray(southEast)) return null;
+
+    const [west, north] = northWest;
+    const [east, south] = southEast;
+
+    if (typeof west !== 'number' || typeof north !== 'number' ||
+      typeof east !== 'number' || typeof south !== 'number') return null;
+
     return {
       north,
       south,
@@ -180,9 +180,14 @@ function HomeScreen() {
 
   // Memoize viewport change handler with error handling
   const handleMapViewportChange = useCallback(
-    (feature: any) => {
+    (feature: unknown) => {
       try {
-        const viewport = processViewportBounds(feature?.properties?.visibleBounds);
+        if (!feature || typeof feature !== 'object') return;
+
+        const properties = (feature as any).properties;
+        if (!properties) return;
+
+        const viewport = processViewportBounds(properties.visibleBounds);
         if (viewport) {
           updateViewport(viewport);
           handleGravitationalViewportChange(feature);
@@ -217,39 +222,47 @@ function HomeScreen() {
 
   // Memoize region changing handler
   const handleRegionChanging = useCallback(
-    (feature: any) => {
-      const zoomLevel = feature?.properties?.zoomLevel;
+    (feature: unknown) => {
+      try {
+        if (!feature || typeof feature !== 'object') return;
 
-      // If zoom level is available, update it in the store
-      if (typeof zoomLevel === "number") {
-        setZoomLevel(zoomLevel);
+        const properties = (feature as any).properties;
+        if (!properties) return;
+
+        const zoomLevel = properties.zoomLevel;
+        if (typeof zoomLevel === "number") {
+          setZoomLevel(zoomLevel);
+        }
+
+        handleMapViewportChange(feature);
+        publish<BaseEvent>(EventTypes.VIEWPORT_CHANGING, {
+          timestamp: Date.now(),
+          source: "HomeScreen",
+        });
+      } catch (error) {
+        console.error("Error handling region change:", error);
       }
-      handleMapViewportChange(feature);
-      publish<BaseEvent>(EventTypes.VIEWPORT_CHANGING, {
-        timestamp: Date.now(),
-        source: "HomeScreen",
-      });
     },
-    [handleMapViewportChange, publish]
+    [handleMapViewportChange, publish, setZoomLevel]
   );
 
-  // Memoize default camera settings
+  // Memoize default camera settings with null check
   const defaultCameraSettings = useMemo(
     () => ({
-      centerCoordinate: userLocation!,
-      zoomLevel: 14,
+      ...DEFAULT_CAMERA_SETTINGS,
+      centerCoordinate: userLocation || [0, 0], // Fallback to [0,0] if userLocation is null
     }),
     [userLocation]
   );
 
   // Memoize rendering conditions
   const shouldRenderMarkers = useMemo(
-    () => isMapReady && !isLoadingLocation && currentViewport !== null,
+    () => Boolean(isMapReady && !isLoadingLocation && currentViewport),
     [isMapReady, isLoadingLocation, currentViewport]
   );
 
   const shouldRenderUI = useMemo(
-    () => isMapReady && !isLoadingLocation,
+    () => Boolean(isMapReady && !isLoadingLocation),
     [isMapReady, isLoadingLocation]
   );
 
@@ -269,11 +282,10 @@ function HomeScreen() {
         <DiscoveryIndicator position="top-right" />
       </>
     );
-  }, [shouldRenderUI, markers.length, isConnected, selectedItem]);
+  }, [shouldRenderUI, isConnected, selectedItem]);
 
   const assistantOverlay = useMemo(() => {
     if (!shouldRenderUI) return null;
-
     return (
       <View style={styles.assistantOverlay}>
         <EventAssistant />
@@ -281,24 +293,21 @@ function HomeScreen() {
     );
   }, [shouldRenderUI]);
 
-  // Memoize the user location element
+  // Memoize the user location element with null check
   const userLocationElement = useMemo(() => {
     if (!userLocation || !locationPermissionGranted) return null;
-
     return <UserLocationPoint userLocation={userLocation} />;
   }, [userLocation, locationPermissionGranted]);
 
   // Memoize markers component for better performance
   const markersComponent = useMemo(() => {
-    if (!shouldRenderMarkers) return null;
-
-    return <ClusteredMapMarkers markers={markers} viewport={currentViewport!} />;
+    if (!shouldRenderMarkers || !currentViewport) return null;
+    return <ClusteredMapMarkers markers={markers} viewport={currentViewport} />;
   }, [shouldRenderMarkers, markers, currentViewport]);
 
   // Memoize user location layer
   const userLocationLayer = useMemo(() => {
     if (!locationPermissionGranted) return null;
-
     return <MapboxGL.UserLocation visible={true} showsUserHeadingIndicator={true} />;
   }, [locationPermissionGranted]);
 
