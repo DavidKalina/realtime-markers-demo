@@ -1,4 +1,5 @@
 import apiClient from "@/services/ApiClient";
+import { useEventCacheStore } from "@/stores/useEventCacheStore";
 import { EventType } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -17,18 +18,17 @@ import {
   ViewStyle
 } from "react-native";
 import Animated, {
-  FadeIn,
+  FadeInDown,
   FadeOut,
   interpolate,
+  Layout,
   LinearTransition,
   useAnimatedRef,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
-  ZoomIn
+  withSpring
 } from "react-native-reanimated";
-import { useEventCacheStore } from "@/stores/useEventCacheStore";
 
 type TabType = 'saved' | 'discovered';
 
@@ -66,9 +66,9 @@ const EventCard: React.FC<{
   return (
     <Animated.View
       style={[styles.eventCard, animatedStyle]}
-      entering={ZoomIn.duration(300).springify().damping(25).stiffness(400).delay(index * 50)}
+      entering={FadeInDown.duration(600).delay(index * 100).springify()}
       exiting={FadeOut.duration(200)}
-      layout={LinearTransition.springify().damping(25).stiffness(400)}
+      layout={LinearTransition.duration(300)}
     >
       <TouchableOpacity
         onPress={handlePress}
@@ -127,7 +127,8 @@ const EventCard: React.FC<{
 const SavedEventsView: React.FC = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('saved');
-  const [events, setEvents] = useState<EventType[]>([]);
+  const [savedEvents, setSavedEvents] = useState<EventType[]>([]);
+  const [discoveredEvents, setDiscoveredEvents] = useState<EventType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -171,7 +172,12 @@ const SavedEventsView: React.FC = () => {
         setPage(0);
         setCursor(undefined);
         setHasMore(true);
-        setEvents([]); // Clear events on refresh
+        // Clear only the active tab's events on refresh
+        if (activeTab === 'saved') {
+          setSavedEvents([]);
+        } else {
+          setDiscoveredEvents([]);
+        }
       } else if (!refresh && isLoading === false) {
         setIsFetchingMore(true);
       }
@@ -183,7 +189,11 @@ const SavedEventsView: React.FC = () => {
           : getCachedDiscoveredEvents();
 
         if (cachedData) {
-          setEvents(cachedData.events);
+          if (activeTab === 'saved') {
+            setSavedEvents(cachedData.events);
+          } else {
+            setDiscoveredEvents(cachedData.events);
+          }
           setHasMore(cachedData.hasMore);
           setCursor(cachedData.cursor);
           setIsLoading(false);
@@ -204,6 +214,26 @@ const SavedEventsView: React.FC = () => {
 
         // Cache the results
         setCachedSavedEvents(response.events, response.hasMore);
+
+        if (refresh) {
+          setSavedEvents(response.events);
+        } else {
+          // Create a Map of existing events using a composite key
+          const existingEventsMap = new Map(
+            savedEvents.map(event => [
+              `${event.id}-${event.eventDate}-${event.location}`,
+              event
+            ])
+          );
+
+          // Filter out duplicates and add new events
+          const newEvents = response.events.filter(event => {
+            const key = `${event.id}-${event.eventDate}-${event.location}`;
+            return !existingEventsMap.has(key);
+          });
+
+          setSavedEvents(prev => [...prev, ...newEvents]);
+        }
       } else {
         response = await apiClient.getUserDiscoveredEvents({
           limit: pageSize,
@@ -215,25 +245,41 @@ const SavedEventsView: React.FC = () => {
 
         // Cache the results
         setCachedDiscoveredEvents(response.events, !!response.nextCursor, response.nextCursor);
-      }
 
-      if (refresh) {
-        setEvents(response.events);
-      } else {
-        // Create a Set of existing event IDs for efficient lookup
-        const existingIds = new Set(events.map(e => e.id));
-        // Filter out any events we already have
-        const newEvents = response.events.filter(e => !existingIds.has(e.id));
-        setEvents(prev => [...prev, ...newEvents]);
+        if (refresh) {
+          setDiscoveredEvents(response.events);
+        } else {
+          // Create a Map of existing events using a composite key
+          const existingEventsMap = new Map(
+            discoveredEvents.map(event => [
+              `${event.id}-${event.eventDate}-${event.location}`,
+              event
+            ])
+          );
+
+          // Filter out duplicates and add new events
+          const newEvents = response.events.filter(event => {
+            const key = `${event.id}-${event.eventDate}-${event.location}`;
+            return !existingEventsMap.has(key);
+          });
+
+          setDiscoveredEvents(prev => [...prev, ...newEvents]);
+        }
       }
 
       if (__DEV__) {
-        // Debug logging
-        const ids = response.events.map(e => e.id);
-        const uniqueIds = new Set(ids);
-        if (ids.length !== uniqueIds.size) {
-          console.warn('Duplicate events in response:',
-            ids.filter((id, index) => ids.indexOf(id) !== index));
+        // Debug logging for duplicates
+        const currentEvents = activeTab === 'saved' ? savedEvents : discoveredEvents;
+        const eventKeys = currentEvents.map(event =>
+          `${event.id}-${event.eventDate}-${event.location}`
+        );
+        const uniqueKeys = new Set(eventKeys);
+
+        if (eventKeys.length !== uniqueKeys.size) {
+          const duplicates = eventKeys.filter((key, index) =>
+            eventKeys.indexOf(key) !== index
+          );
+          console.warn('Duplicate events detected:', duplicates);
         }
       }
 
@@ -250,7 +296,6 @@ const SavedEventsView: React.FC = () => {
 
   // Load initial data
   useEffect(() => {
-    setEvents([]); // Clear events when tab changes
     setPage(0);
     setCursor(undefined);
     setHasMore(true);
@@ -284,11 +329,13 @@ const SavedEventsView: React.FC = () => {
   const handleTabSwitch = useCallback((tab: TabType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tab);
-    setEvents([]);
     setPage(0);
     setCursor(undefined);
     setHasMore(true);
   }, []);
+
+  // Get current events based on active tab
+  const currentEvents = activeTab === 'saved' ? savedEvents : discoveredEvents;
 
   // Memoize the getItemLayout function
   const getItemLayout = useCallback((data: any, index: number) => ({
@@ -316,18 +363,18 @@ const SavedEventsView: React.FC = () => {
   const ListHeaderComponent = useCallback(() => (
     <Animated.View
       style={styles.listHeader}
-      entering={FadeIn}
-      layout={LinearTransition.springify()}
+      entering={FadeInDown.duration(600).springify()}
+      layout={Layout.duration(300)}
     >
       <View style={styles.counterContainer}>
         <Text style={styles.resultsText}>
-          {events.length > 0
-            ? `${events.length} ${activeTab} ${events.length === 1 ? "event" : "events"}`
+          {currentEvents.length > 0
+            ? `${currentEvents.length} ${activeTab} ${currentEvents.length === 1 ? "event" : "events"}`
             : `No ${activeTab} events yet`}
         </Text>
       </View>
     </Animated.View>
-  ), [events.length, activeTab]);
+  ), [currentEvents.length, activeTab]);
 
   // Memoize the ListEmptyComponent
   const ListEmptyComponent = useCallback(() => {
@@ -335,9 +382,9 @@ const SavedEventsView: React.FC = () => {
     return (
       <Animated.View
         style={styles.emptyStateContainer}
-        entering={FadeIn}
-        exiting={FadeOut}
-        layout={LinearTransition.springify()}
+        entering={FadeInDown.duration(600).springify()}
+        exiting={FadeOut.duration(200)}
+        layout={Layout.duration(300)}
       >
         <View style={styles.emptyStateIconContainer}>
           {activeTab === 'saved' ? (
@@ -379,9 +426,9 @@ const SavedEventsView: React.FC = () => {
   const ListFooterComponent = useCallback(() => (
     <Animated.View
       style={styles.loadingFooter}
-      entering={FadeIn}
-      exiting={FadeOut}
-      layout={LinearTransition.springify()}
+      entering={FadeInDown.duration(600).springify()}
+      exiting={FadeOut.duration(200)}
+      layout={Layout.duration(300)}
     >
       {isFetchingMore ? (
         <>
@@ -404,6 +451,8 @@ const SavedEventsView: React.FC = () => {
           styles.header,
           headerAnimatedStyle,
         ]}
+        entering={FadeInDown.duration(600).springify()}
+        layout={Layout.duration(300)}
       >
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
           <ArrowLeft size={22} color="#f8f9fa" />
@@ -412,7 +461,7 @@ const SavedEventsView: React.FC = () => {
 
         <Animated.View
           style={styles.headerIconContainer}
-          layout={LinearTransition.springify()}
+          layout={Layout.duration(300)}
         >
           {activeTab === 'saved' ? (
             <Bookmark size={20} color="#93c5fd" fill="#93c5fd" />
@@ -425,7 +474,8 @@ const SavedEventsView: React.FC = () => {
       {/* Tab Toggle */}
       <Animated.View
         style={styles.tabContainer}
-        layout={LinearTransition.springify()}
+        entering={FadeInDown.duration(600).delay(200).springify()}
+        layout={Layout.duration(300)}
       >
         <TouchableOpacity
           style={[styles.tab, activeTab === 'saved' && styles.activeTab]}
@@ -451,12 +501,12 @@ const SavedEventsView: React.FC = () => {
 
       {/* Content Area */}
       <View style={styles.contentArea}>
-        {isLoading && events.length === 0 ? (
+        {isLoading && currentEvents.length === 0 ? (
           <Animated.View
             style={styles.loadingContainer}
-            entering={FadeIn}
-            exiting={FadeOut}
-            layout={LinearTransition.springify()}
+            entering={FadeInDown.duration(600).springify()}
+            exiting={FadeOut.duration(200)}
+            layout={Layout.duration(300)}
           >
             <ActivityIndicator size="large" color="#93c5fd" />
             <Text style={styles.loadingText}>Loading {activeTab} events...</Text>
@@ -464,7 +514,7 @@ const SavedEventsView: React.FC = () => {
         ) : (
           <Animated.FlatList
             ref={listRef}
-            data={events}
+            data={currentEvents}
             onScroll={scrollHandler}
             scrollEventThrottle={16}
             getItemLayout={getItemLayout}
@@ -480,7 +530,7 @@ const SavedEventsView: React.FC = () => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
               styles.listContent,
-              events.length === 0 && { flexGrow: 1 },
+              currentEvents.length === 0 && { flexGrow: 1 },
             ]}
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.3}
@@ -492,15 +542,17 @@ const SavedEventsView: React.FC = () => {
                 colors={["#93c5fd"]}
               />
             }
+            entering={FadeInDown.duration(600).delay(300).springify()}
+            layout={Layout.duration(300)}
           />
         )}
 
         {error && (
           <Animated.View
             style={styles.errorContainer}
-            entering={FadeIn}
-            exiting={FadeOut}
-            layout={LinearTransition.springify()}
+            entering={FadeInDown.duration(600).springify()}
+            exiting={FadeOut.duration(200)}
+            layout={Layout.duration(300)}
           >
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity
