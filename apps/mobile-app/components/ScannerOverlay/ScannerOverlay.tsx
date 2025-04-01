@@ -13,17 +13,18 @@ import Animated, {
 import { ScannerAnimation } from "@/components/ScannerAnimation";
 
 // Animation configurations - defined outside component to prevent recreation
-const ANIMATIONS: any = {
+const ANIMATIONS = {
   BORDER_PULSE: {
     DURATION: 1500,
-    EASING: Easing.inOut(Easing.ease),
+    EASING: Easing.bezier(0.4, 0, 0.2, 1),
   },
   STATUS_CHANGE: {
     DURATION: 300,
+    EASING: Easing.bezier(0.4, 0, 0.2, 1),
   },
   ALIGNED_PULSE: {
     DURATION: 400,
-    EASING: Easing.inOut(Easing.ease),
+    EASING: Easing.bezier(0.4, 0, 0.2, 1),
   },
 };
 
@@ -80,6 +81,12 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
     const frameReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const animationsSet = useRef(false);
     const isMounted = useRef(true);
+    const animationRefs = useRef<{
+      border?: ReturnType<typeof withRepeat>;
+      color?: ReturnType<typeof withTiming>;
+      scale?: ReturnType<typeof withTiming | typeof withRepeat>;
+      overlay?: ReturnType<typeof withTiming>;
+    }>({});
 
     // Shared values for animations - created once
     const borderWidth = useSharedValue(2);
@@ -115,6 +122,9 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
       // Reset scan color to initial state
       setScanColor("#93c5fd");
 
+      // Clear animation refs
+      animationRefs.current = {};
+
       // Mark animations as not set
       animationsSet.current = false;
     }, [borderWidth, colorAnimation, scaleAnimation, overlayOpacity]);
@@ -132,6 +142,9 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
       // Reset scan color to initial state
       setScanColor("#93c5fd");
 
+      // Clear animation refs
+      animationRefs.current = {};
+
       // Mark animations as not set
       animationsSet.current = false;
     }, [borderWidth, colorAnimation, scaleAnimation, overlayOpacity]);
@@ -146,8 +159,9 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
     useEffect(() => {
       return () => {
         isMounted.current = false;
+        cleanupAnimations();
       };
-    }, []);
+    }, [cleanupAnimations]);
 
     // Unified status update function
     const updateStatusVisuals = useCallback(
@@ -166,28 +180,43 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
         }
 
         if (isMounted.current) {
-          colorAnimation.value = withTiming(config.colorValue, {
+          // Color animation
+          animationRefs.current.color = withTiming(config.colorValue, {
             duration: ANIMATIONS.STATUS_CHANGE.DURATION,
+            easing: ANIMATIONS.STATUS_CHANGE.EASING,
           });
+          colorAnimation.value = animationRefs.current.color;
 
-          overlayOpacity.value = withTiming(config.overlayOpacity, {
+          // Overlay opacity animation
+          animationRefs.current.overlay = withTiming(config.overlayOpacity, {
             duration: ANIMATIONS.STATUS_CHANGE.DURATION,
+            easing: ANIMATIONS.STATUS_CHANGE.EASING,
           });
+          overlayOpacity.value = animationRefs.current.overlay;
 
+          // Scale animation
           if (status === "aligned") {
-            scaleAnimation.value = withRepeat(
+            animationRefs.current.scale = withRepeat(
               withSequence(
-                withTiming(1.05, ANIMATIONS.ALIGNED_PULSE),
-                withTiming(config.scaleValue, ANIMATIONS.ALIGNED_PULSE)
+                withTiming(1.05, {
+                  duration: ANIMATIONS.ALIGNED_PULSE.DURATION,
+                  easing: ANIMATIONS.ALIGNED_PULSE.EASING,
+                }),
+                withTiming(config.scaleValue, {
+                  duration: ANIMATIONS.ALIGNED_PULSE.DURATION,
+                  easing: ANIMATIONS.ALIGNED_PULSE.EASING,
+                })
               ),
               3,
               true
             );
           } else {
-            scaleAnimation.value = withTiming(config.scaleValue, {
+            animationRefs.current.scale = withTiming(config.scaleValue, {
               duration: ANIMATIONS.STATUS_CHANGE.DURATION,
+              easing: ANIMATIONS.STATUS_CHANGE.EASING,
             });
           }
+          scaleAnimation.value = animationRefs.current.scale;
 
           animationsSet.current = true;
         }
@@ -212,18 +241,26 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
     useEffect(() => {
       if (!isMounted.current) return;
 
-      borderWidth.value = withRepeat(
+      animationRefs.current.border = withRepeat(
         withSequence(
-          withTiming(2.5, ANIMATIONS.BORDER_PULSE),
-          withTiming(2, ANIMATIONS.BORDER_PULSE)
+          withTiming(2.5, {
+            duration: ANIMATIONS.BORDER_PULSE.DURATION,
+            easing: ANIMATIONS.BORDER_PULSE.EASING,
+          }),
+          withTiming(2, {
+            duration: ANIMATIONS.BORDER_PULSE.DURATION,
+            easing: ANIMATIONS.BORDER_PULSE.EASING,
+          })
         ),
         -1,
         true
       );
+      borderWidth.value = animationRefs.current.border;
 
       return () => {
         cancelAnimation(borderWidth);
         borderWidth.value = 2; // Reset to initial value
+        animationRefs.current.border = undefined;
       };
     }, [borderWidth]);
 
@@ -265,12 +302,12 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
         borderColor,
         transform: [{ scale: scaleAnimation.value }],
       };
-    });
+    }, []);
 
     // Animated overlay style
     const overlayStyle = useAnimatedStyle(() => ({
       opacity: overlayOpacity.value,
-    }));
+    }), []);
 
     // Determine if scanning animation should be shown - memoized
     const showScanning = useMemo(
