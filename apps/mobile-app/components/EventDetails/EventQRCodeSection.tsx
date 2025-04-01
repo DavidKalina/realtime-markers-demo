@@ -36,7 +36,7 @@ const EventQRCodeSection: React.FC<EventQRCodeSection> = ({ event }) => {
         <View style={styles.qrCodeContainer}>
           <View style={styles.qrCodeInner}>
             <QRCode
-              value={event.qrCodeData || event.detectedQrData}
+              value={event.qrCodeData || event.detectedQrData || ""}
               size={180}
               backgroundColor="#ffffff"
               color="#000000"
@@ -65,55 +65,34 @@ const EventQRCodeSection: React.FC<EventQRCodeSection> = ({ event }) => {
 
 const styles = StyleSheet.create({
   qrCodeSection: {
-    backgroundColor: "#3a3a3a",
-    borderRadius: 16,
-    marginVertical: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
-    position: "relative",
-  },
-
-  headerGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 50,
+    marginTop: 24,
   },
 
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    marginBottom: 20,
   },
 
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "rgba(147, 197, 253, 0.15)",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
+    marginRight: 16,
   },
 
   cardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
   },
 
   cardContent: {
-    paddingHorizontal: 18,
-    paddingBottom: 20,
+    alignItems: "center",
   },
 
   qrCodeContainer: {
@@ -125,26 +104,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 5,
   },
 
   qrCodeInner: {
     padding: 16,
     backgroundColor: "#ffffff",
     borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
   },
 
   qrSourceText: {
-    color: "#adb5bd",
+    color: "#93c5fd",
     fontSize: 14,
     fontFamily: "SpaceMono",
     textAlign: "center",
@@ -153,25 +122,12 @@ const styles = StyleSheet.create({
   },
 
   qrLinkButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 12,
-    height: 48,
-    alignSelf: "center",
-    overflow: "hidden",
-    position: "relative",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 5,
-    minWidth: 200,
-  },
-
-  buttonGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
   },
 
   buttonContent: {
@@ -183,11 +139,11 @@ const styles = StyleSheet.create({
   },
 
   qrLinkButtonText: {
-    color: "#f8f9fa",
-    fontSize: 15,
+    color: "#93c5fd",
+    fontSize: 13,
     fontWeight: "600",
     fontFamily: "SpaceMono",
-    marginLeft: 10,
+    marginLeft: 6,
   },
 });
 

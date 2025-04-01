@@ -67,6 +67,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                 isSaved={isSaved}
                 savingState={savingState}
                 handleToggleSave={handleToggleSave}
+                handleOpenMaps={handleOpenMaps}
+                handleGetDirections={handleGetDirections}
+                userLocation={userLocation}
               />
 
               {saveCount > 0 && <SaveCount saveCount={saveCount} />}
@@ -80,7 +83,6 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                 handleOpenMaps={handleOpenMaps}
                 handleGetDirections={handleGetDirections}
               />
-              {(event.qrCodeData || event.detectedQrData) && <EventQRCodeSection event={event} />}
               {isAdmin && <AdminOriginalImageViewer eventId={event.id!} isAdmin={isAdmin} />}
             </ScrollView>
 
