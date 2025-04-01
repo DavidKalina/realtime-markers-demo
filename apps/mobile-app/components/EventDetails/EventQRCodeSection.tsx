@@ -20,7 +20,6 @@ const EventQRCodeSection: React.FC<EventQRCodeSection> = ({ event }) => {
 
   return (
     <View style={styles.qrCodeSection}>
-      {/* Card header with gradient */}
 
       <View style={styles.cardHeader}>
         <View style={styles.iconContainer}>

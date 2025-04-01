@@ -1,8 +1,19 @@
+import { formatDate } from "@/utils/dateTimeFormatting";
+import { BookmarkIcon, Calendar, CheckCircle, Eye, Info, Map, MapPin, Navigation, User } from "lucide-react-native";
 import React, { useMemo } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Animated } from "react-native";
-import { Bookmark, BookmarkCheck, CheckCircle, User, BookmarkIcon, Eye, Calendar, MapPin, Info, Map, Navigation } from "lucide-react-native";
-import { formatDate, getUserLocalTime } from "@/utils/dateTimeFormatting";
+import { StyleSheet, Text, TouchableOpacity, View, ViewProps } from "react-native";
+import Animated, {
+  AnimatedProps,
+  FadeInDown,
+  FadeInUp,
+  withSpring,
+  withTiming,
+  Layout
+} from "react-native-reanimated";
 import EventQRCodeSection from "./EventQRCodeSection";
+import SaveButton from "./SaveButton";
+
+type AnimatedViewProps = AnimatedProps<ViewProps>;
 
 // Unified color theme
 const COLORS = {
@@ -47,8 +58,8 @@ const styles = StyleSheet.create({
   // Top row with emoji and title
   topRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 20,
+    alignItems: "center",
+    marginBottom: 16,
     position: 'relative',
   },
 
@@ -70,7 +81,7 @@ const styles = StyleSheet.create({
   // Title area styling
   eventTitleWrapper: {
     flex: 1,
-    paddingRight: 50, // Make space for save button
+    paddingRight: 40,
   },
 
   resultTitle: {
@@ -78,7 +89,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
-    marginBottom: 12,
     letterSpacing: -0.2,
   },
 
@@ -89,14 +99,14 @@ const styles = StyleSheet.create({
 
   descriptionText: {
     fontSize: 15,
-    color: COLORS.textSecondary,
+    color: COLORS.textPrimary,
     fontFamily: 'SpaceMono',
     lineHeight: 22,
   },
 
   // Divider styling
   divider: {
-    height: 1,
+    height: 2,
     backgroundColor: COLORS.divider,
     marginVertical: 24,
   },
@@ -345,6 +355,127 @@ const styles = StyleSheet.create({
   },
 });
 
+// Memoized Header Component
+const EventHeader = React.memo(({ event, titleFontSize, isSaved, savingState, handleToggleSave }: any) => (
+  <Animated.View
+    entering={FadeInDown.duration(600).springify()}
+    layout={Layout.duration(300)}
+    style={styles.topRow}
+  >
+    <View style={styles.emojiContainer}>
+      <Text style={styles.resultEmoji}>{event.emoji || "📍"}</Text>
+    </View>
+
+    <View style={styles.eventTitleWrapper}>
+      <Text
+        style={[styles.resultTitle, { fontSize: titleFontSize }]}
+        numberOfLines={2}
+        ellipsizeMode="tail"
+      >
+        {event.title}
+      </Text>
+    </View>
+
+    <SaveButton
+      isSaved={isSaved}
+      savingState={savingState}
+      onSave={handleToggleSave}
+    />
+  </Animated.View>
+));
+
+// Memoized Description Component
+const EventDescription = React.memo(({ description }: { description: string }) => (
+  <Animated.View
+    entering={FadeInDown.duration(600).delay(200).springify()}
+    layout={Layout.duration(300)}
+    style={styles.descriptionContainer}
+  >
+    <Text style={styles.descriptionText}>
+      {description}
+    </Text>
+  </Animated.View>
+));
+
+// Memoized Info Section Component
+const EventInfoSection = React.memo(({
+  icon: Icon,
+  label,
+  children,
+  delay = 0
+}: {
+  icon: any;
+  label: string;
+  children: React.ReactNode;
+  delay?: number;
+}) => (
+  <Animated.View
+    entering={FadeInUp.duration(600).delay(delay).springify()}
+    layout={Layout.duration(300)}
+    style={styles.infoSection}
+  >
+    <View style={styles.infoIcon}>
+      <Icon size={18} color={COLORS.accent} />
+    </View>
+    <View style={styles.infoContent}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      {children}
+    </View>
+  </Animated.View>
+));
+
+// Memoized Stats Component
+const EventStats = React.memo(({ event }: { event: any }) => (
+  <View style={styles.statsContainer}>
+    <View style={styles.statItem}>
+      <BookmarkIcon size={16} color={COLORS.accent} style={styles.statIcon} />
+      <Text style={styles.statText}>
+        {event.saveCount || 0}
+      </Text>
+    </View>
+    <View style={styles.statItem}>
+      <Eye size={16} color={COLORS.accent} style={styles.statIcon} />
+      <Text style={styles.statText}>
+        {event.scanCount || 0}
+      </Text>
+    </View>
+  </View>
+));
+
+// Memoized Location Actions Component
+const LocationActions = React.memo(({
+  handleOpenMaps,
+  handleGetDirections,
+  userLocation,
+  event
+}: any) => (
+  <View style={styles.locationActions}>
+    <TouchableOpacity style={styles.actionButton} onPress={handleOpenMaps}>
+      <Map size={14} color={COLORS.accent} />
+      <Text style={styles.actionButtonText}>View Map</Text>
+    </TouchableOpacity>
+    {userLocation && event.coordinates && (
+      <TouchableOpacity style={styles.actionButton} onPress={handleGetDirections}>
+        <Navigation size={14} color={COLORS.accent} />
+        <Text style={styles.actionButtonText}>Directions</Text>
+      </TouchableOpacity>
+    )}
+  </View>
+));
+
+// Memoized Categories Component
+const EventCategories = React.memo(({ categories }: { categories: any[] }) => (
+  <View style={styles.categoriesContainer}>
+    {categories.map((category: any, index: number) => (
+      <View key={index} style={styles.categoryTag}>
+        <Text style={styles.categoryText}>
+          {typeof category === "string" ? category : category.name}
+        </Text>
+      </View>
+    ))}
+  </View>
+));
+
 const EventDetailsHeader = ({
   event,
   savingState,
@@ -362,24 +493,9 @@ const EventDetailsHeader = ({
   handleGetDirections: () => void;
   userLocation: any;
 }) => {
-  const scaleAnim = React.useRef(new Animated.Value(1)).current;
   const titleFontSize = useMemo(() => {
     return event.title.length > 40 ? 20 : 24;
   }, [event.title]);
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.95,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-    }).start();
-  };
 
   const formatTimeRange = (startDate: Date | string, endDate?: Date | string, timezone?: string) => {
     const formatTime = (date: Date | string) => {
@@ -399,192 +515,118 @@ const EventDetailsHeader = ({
   };
 
   return (
-    <View style={styles.eventHeaderContainer}>
+    <Animated.View
+      entering={FadeInDown.duration(800).springify()}
+      layout={Layout.duration(300)}
+      style={styles.eventHeaderContainer}
+    >
       <View style={styles.headerContent}>
-        {/* Top Row with Emoji and Title */}
-        <View style={styles.topRow}>
-          <View style={styles.emojiContainer}>
-            <Text style={styles.resultEmoji}>{event.emoji || "📍"}</Text>
-          </View>
+        <EventHeader
+          event={event}
+          titleFontSize={titleFontSize}
+          isSaved={isSaved}
+          savingState={savingState}
+          handleToggleSave={handleToggleSave}
+        />
 
-          <View style={styles.eventTitleWrapper}>
-            <Text
-              style={[styles.resultTitle, { fontSize: titleFontSize }]}
-              numberOfLines={2}
-              ellipsizeMode="tail"
-            >
-              {event.title}
-            </Text>
+        {event.description && (
+          <EventDescription description={event.description} />
+        )}
 
-            {/* Description */}
-            {event.description && (
-              <View style={styles.descriptionContainer}>
-                <Text
-                  style={styles.descriptionText}
-                >
-                  {event.description}
-                </Text>
-              </View>
-            )}
-          </View>
+        <Animated.View
+          entering={FadeInUp.duration(600).delay(400).springify()}
+          layout={Layout.duration(300)}
+          style={styles.divider}
+        />
 
-          <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-            <TouchableOpacity
-              style={[styles.saveButton, savingState === "loading" && { opacity: 0.7 }]}
-              onPress={handleToggleSave}
-              disabled={savingState === "loading"}
-              activeOpacity={0.7}
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-            >
-              {savingState === "loading" ? (
-                <ActivityIndicator size="small" color={COLORS.accent} />
-              ) : isSaved ? (
-                <BookmarkCheck size={24} color={COLORS.accent} />
-              ) : (
-                <Bookmark size={24} color={COLORS.accent} />
-              )}
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-
-        {/* Divider after title/description */}
-        <View style={styles.divider} />
-
-        {/* Info Sections */}
         <View style={styles.infoSections}>
-          {/* Creator Section */}
           {event.creator && (
-            <View style={styles.infoSection}>
-              <View style={styles.infoIcon}>
-                <User size={18} color={COLORS.accent} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Scanned By</Text>
-                <Text style={styles.infoValue}>
-                  {event.creator.displayName || event.creator.email}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Stats Section */}
-          <View style={styles.infoSection}>
-            <View style={styles.infoIcon}>
-              <BookmarkIcon size={18} color={COLORS.accent} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Engagement</Text>
-              <View style={styles.statsContainer}>
-                <View style={styles.statItem}>
-                  <BookmarkIcon size={16} color={COLORS.accent} style={styles.statIcon} />
-                  <Text style={styles.statText}>
-                    {event.saveCount || 0}
-                  </Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Eye size={16} color={COLORS.accent} style={styles.statIcon} />
-                  <Text style={styles.statText}>
-                    {event.scanCount || 0}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Verification Section */}
-          {event.verified && (
-            <View style={styles.infoSection}>
-              <View style={styles.infoIcon}>
-                <CheckCircle size={18} color={COLORS.success} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Verification</Text>
-                <View style={styles.statusBadge}>
-                  <Text style={styles.statusText}>VERIFIED EVENT</Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Date & Time */}
-          <View style={styles.infoSection}>
-            <View style={styles.infoIcon}>
-              <Calendar size={18} color={COLORS.accent} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Date & Time</Text>
+            <EventInfoSection
+              icon={User}
+              label="Scanned By"
+              delay={300}
+            >
               <Text style={styles.infoValue}>
-                {formatDate(event.eventDate, event.timezone)}
+                {event.creator.displayName || event.creator.email}
               </Text>
-              <Text style={styles.infoValueSecondary}>
-                {formatTimeRange(event.eventDate, event.endDate)}
-                {event.timezone && ` (${event.timezone})`}
-              </Text>
-            </View>
-          </View>
+            </EventInfoSection>
+          )}
 
-          {/* Location */}
-          <View style={styles.infoSection}>
-            <View style={styles.infoIcon}>
-              <MapPin size={18} color={COLORS.accent} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Location</Text>
-              <Text style={styles.infoValue}>{event.location}</Text>
-              {event.locationNotes && event.locationNotes !== "No additional location context provided" && (
-                <Text style={styles.infoValueSmall}>
-                  {event.locationNotes}
-                </Text>
-              )}
-              <View style={styles.locationActions}>
-                <TouchableOpacity style={styles.actionButton} onPress={handleOpenMaps}>
-                  <Map size={14} color={COLORS.accent} />
-                  <Text style={styles.actionButtonText}>View Map</Text>
-                </TouchableOpacity>
-                {userLocation && event.coordinates && (
-                  <TouchableOpacity style={styles.actionButton} onPress={handleGetDirections}>
-                    <Navigation size={14} color={COLORS.accent} />
-                    <Text style={styles.actionButtonText}>Directions</Text>
-                  </TouchableOpacity>
-                )}
+          <EventInfoSection
+            icon={BookmarkIcon}
+            label="Engagement"
+            delay={400}
+          >
+            <EventStats event={event} />
+          </EventInfoSection>
+
+          {event.verified && (
+            <EventInfoSection
+              icon={CheckCircle}
+              label="Verification"
+              delay={500}
+            >
+              <View style={styles.statusBadge}>
+                <Text style={styles.statusText}>VERIFIED EVENT</Text>
               </View>
-            </View>
-          </View>
+            </EventInfoSection>
+          )}
 
-          {/* Categories */}
+          <EventInfoSection
+            icon={Calendar}
+            label="Date & Time"
+            delay={600}
+          >
+            <Text style={styles.infoValue}>
+              {formatDate(event.eventDate, event.timezone)}
+            </Text>
+            <Text style={styles.infoValueSecondary}>
+              {formatTimeRange(event.eventDate, event.endDate)}
+              {event.timezone && ` (${event.timezone})`}
+            </Text>
+          </EventInfoSection>
+
+          <EventInfoSection
+            icon={MapPin}
+            label="Location"
+            delay={700}
+          >
+            <Text style={styles.infoValue}>{event.location}</Text>
+            {event.locationNotes && event.locationNotes !== "No additional location context provided" && (
+              <Text style={styles.infoValueSmall}>
+                {event.locationNotes}
+              </Text>
+            )}
+            <LocationActions
+              handleOpenMaps={handleOpenMaps}
+              handleGetDirections={handleGetDirections}
+              userLocation={userLocation}
+              event={event}
+            />
+          </EventInfoSection>
+
           {event.categories && event.categories.length > 0 && (
-            <View style={styles.infoSection}>
-              <View style={styles.infoIcon}>
-                <Info size={18} color={COLORS.accent} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Categories</Text>
-                <View style={styles.categoriesContainer}>
-                  {event.categories.map((category: any, index: number) => (
-                    <View key={index} style={styles.categoryTag}>
-                      <Text style={styles.categoryText}>
-                        {typeof category === "string" ? category : category.name}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
+            <EventInfoSection
+              icon={Info}
+              label="Categories"
+              delay={800}
+            >
+              <EventCategories categories={event.categories} />
+            </EventInfoSection>
           )}
         </View>
 
-        {/* Divider before QR code */}
-        <View style={styles.divider} />
-
-        {/* QR Code Section */}
         {(event.qrCodeData || event.detectedQrData) && (
-          <View style={styles.qrSection}>
+          <Animated.View
+            entering={FadeInUp.duration(600).delay(900).springify()}
+            layout={Layout.duration(300)}
+            style={styles.qrSection}
+          >
             <EventQRCodeSection event={event} />
-          </View>
+          </Animated.View>
         )}
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
