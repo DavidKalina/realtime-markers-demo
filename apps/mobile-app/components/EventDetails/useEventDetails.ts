@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserLocation } from "@/contexts/LocationContext";
+import { useEventCacheStore } from "@/stores/useEventCacheStore";
 import apiClient from "@/services/ApiClient";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
@@ -17,17 +18,11 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
   const [saveCount, setSaveCount] = useState(0);
   const [savingState, setSavingState] = useState<"idle" | "loading">("idle");
   const router = useRouter();
-
-  console.log(JSON.stringify(event, null, 2));
+  const { getCachedEvent, setCachedEvent } = useEventCacheStore();
 
   const { user } = useAuth();
-
   const isAdmin = user?.role === "ADMIN";
-
-  // Get user location from our context
   const { userLocation, isLoadingLocation } = useUserLocation();
-
-  // Calculate distance when we have both user location and event data
   const [distanceInfo, setDistanceInfo] = useState<string | null>(null);
 
   // Fetch event details when eventId changes
@@ -41,14 +36,29 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
       setError(null);
 
       try {
+        // First check the cache
+        const cachedEvent = getCachedEvent(eventId);
+        if (cachedEvent) {
+          if (isMounted) {
+            setEvent(cachedEvent);
+            if (cachedEvent.saveCount !== undefined) {
+              setSaveCount(cachedEvent.saveCount);
+            }
+          }
+          setLoading(false);
+          return;
+        }
+
+        // If not in cache, fetch from API
         const eventData = await apiClient.getEventById(eventId);
 
         if (isMounted) {
           setEvent(eventData);
-          // If we have saveCount from the event, initialize it
           if (eventData.saveCount !== undefined) {
             setSaveCount(eventData.saveCount);
           }
+          // Cache the event data
+          setCachedEvent(eventId, eventData);
         }
 
         // Check if event is saved by the user
@@ -81,7 +91,7 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
     return () => {
       isMounted = false;
     };
-  }, [eventId]);
+  }, [eventId, getCachedEvent, setCachedEvent]);
 
   // Update distance whenever user location or event coordinates change
   useEffect(() => {

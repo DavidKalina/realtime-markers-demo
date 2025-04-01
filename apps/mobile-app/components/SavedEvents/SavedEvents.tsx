@@ -28,6 +28,7 @@ import Animated, {
   withSpring,
   ZoomIn
 } from "react-native-reanimated";
+import { useEventCacheStore } from "@/stores/useEventCacheStore";
 
 type TabType = 'saved' | 'discovered';
 
@@ -136,6 +137,8 @@ const SavedEventsView: React.FC = () => {
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const pageSize = 10;
 
+  const { getCachedSavedEvents, setCachedSavedEvents, getCachedDiscoveredEvents, setCachedDiscoveredEvents } = useEventCacheStore();
+
   const listRef = useAnimatedRef<FlatList>();
   const scrollY = useSharedValue(0);
 
@@ -173,6 +176,22 @@ const SavedEventsView: React.FC = () => {
         setIsFetchingMore(true);
       }
 
+      // Check cache first if not refreshing
+      if (!refresh) {
+        const cachedData = activeTab === 'saved'
+          ? getCachedSavedEvents()
+          : getCachedDiscoveredEvents();
+
+        if (cachedData) {
+          setEvents(cachedData.events);
+          setHasMore(cachedData.hasMore);
+          setCursor(cachedData.cursor);
+          setIsLoading(false);
+          setIsFetchingMore(false);
+          return;
+        }
+      }
+
       let response;
       if (activeTab === 'saved') {
         response = await apiClient.getSavedEvents({
@@ -182,6 +201,9 @@ const SavedEventsView: React.FC = () => {
 
         setHasMore(response.hasMore);
         setPage((prev) => (refresh ? 0 : prev) + 1);
+
+        // Cache the results
+        setCachedSavedEvents(response.events, response.hasMore);
       } else {
         response = await apiClient.getUserDiscoveredEvents({
           limit: pageSize,
@@ -190,6 +212,9 @@ const SavedEventsView: React.FC = () => {
 
         setHasMore(!!response.nextCursor);
         setCursor(response.nextCursor);
+
+        // Cache the results
+        setCachedDiscoveredEvents(response.events, !!response.nextCursor, response.nextCursor);
       }
 
       if (refresh) {

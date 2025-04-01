@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useEventCacheStore } from "@/stores/useEventCacheStore";
 
 // Import or define the MapItem types
 interface BaseMapItem {
@@ -46,9 +47,6 @@ interface GeocodingInfo {
   region?: string;
 }
 
-// Cache for cluster names to prevent duplicate API calls
-const clusterNameCache: Record<string, { name: string; geocodingInfo?: GeocodingInfo }> = {};
-
 const ClusterEventsView: React.FC = () => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
@@ -60,6 +58,7 @@ const ClusterEventsView: React.FC = () => {
   const [isLoadingName, setIsLoadingName] = useState(false);
   const [showGeocodingDetails, setShowGeocodingDetails] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const { getCachedClusterName, setCachedClusterName } = useEventCacheStore();
 
   // Animation for header shadow
   const headerShadowOpacity = scrollY.interpolate({
@@ -113,9 +112,10 @@ const ClusterEventsView: React.FC = () => {
     if (!clusterId) return;
 
     // Check if we already have this cluster name in cache
-    if (clusterNameCache[clusterId]) {
-      setClusterName(clusterNameCache[clusterId].name);
-      setGeocodingInfo(clusterNameCache[clusterId].geocodingInfo || null);
+    const cachedCluster = getCachedClusterName(clusterId);
+    if (cachedCluster) {
+      setClusterName(cachedCluster.name);
+      setGeocodingInfo(cachedCluster.geocodingInfo || null);
       return;
     }
 
@@ -143,11 +143,8 @@ const ClusterEventsView: React.FC = () => {
           setGeocodingInfo(result.geocodingInfo);
         }
 
-        // Store in local cache to prevent duplicate API calls
-        clusterNameCache[clusterId] = {
-          name: result.generatedName,
-          geocodingInfo: result.geocodingInfo,
-        };
+        // Store in cache
+        setCachedClusterName(clusterId, result.generatedName, result.geocodingInfo);
       }
     } catch (error) {
       console.error("Error fetching cluster name:", error);
@@ -156,7 +153,7 @@ const ClusterEventsView: React.FC = () => {
     } finally {
       setIsLoadingName(false);
     }
-  }, [effectiveCluster, clusterCoordinates, clusterCount, getClusterId, zoomLevel]);
+  }, [effectiveCluster, clusterCoordinates, clusterCount, getClusterId, zoomLevel, getCachedClusterName, setCachedClusterName]);
 
   // Restore cluster selection when returning to this screen if needed
   useFocusEffect(
@@ -208,35 +205,18 @@ const ClusterEventsView: React.FC = () => {
             id: marker.id,
             title: marker.data?.title || "Unnamed Event",
             emoji: marker.data?.emoji || "📍",
-            time: marker.data?.time || new Date().toLocaleDateString(),
+            eventDate: marker.data?.eventDate || new Date().toISOString(),
+            time: marker.data?.time || new Date().toLocaleTimeString(),
+            timezone: marker.data?.timezone || "UTC",
             location: marker.data?.location || "Unknown location",
-            distance: marker.data?.distance || `${(Math.random() * 2).toFixed(1)} mi away`,
+            coordinates: marker.coordinates,
+            distance: marker.data?.distance || "0 mi",
             description: marker.data?.description || "",
             categories: marker.data?.categories || [],
             isVerified: marker.data?.isVerified || false,
+            scanCount: marker.data?.scanCount || 0,
+            saveCount: marker.data?.saveCount || 0,
           }));
-      }
-
-      // If we don't have enough events from proximity filtering,
-      // add some dummy events to meet expected count
-      const clusterSize = effectiveCluster ? effectiveCluster.count : 10;
-
-      if (clusterEvents.length < clusterSize) {
-        const additionalEventsNeeded = clusterSize - clusterEvents.length;
-
-        const dummyEvents: EventType[] = Array.from({ length: additionalEventsNeeded }, (_, i) => ({
-          id: `event-dummy-${i}`,
-          title: `Event ${i + 1} in Cluster`,
-          emoji: ["🎉", "🎵", "🎸", "🎭", "🎨", "🎤", "🎬", "🎮", "🏆", "🍔"][i % 10],
-          time: `${new Date().toLocaleDateString()} • ${Math.floor(Math.random() * 12) + 1}:00 PM`,
-          location: `Venue ${i + 1}, City Center`,
-          distance: `${(Math.random() * 2).toFixed(1)} mi away`,
-          description: "Join us for this exciting event!",
-          categories: ["entertainment", "music"],
-          isVerified: Math.random() > 0.5,
-        }));
-
-        clusterEvents = [...clusterEvents, ...dummyEvents];
       }
 
       setEvents(clusterEvents);
@@ -247,7 +227,7 @@ const ClusterEventsView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [clusterCoordinates, markers, effectiveCluster]);
+  }, [clusterCoordinates, markers]);
 
   // Initial data loading
   useEffect(() => {
@@ -305,14 +285,9 @@ const ClusterEventsView: React.FC = () => {
 
     // Simulate loading more events
     setTimeout(() => {
-      const moreEvents: EventType[] = Array.from({ length: 5 }, (_, i) => ({
-        description: "",
-        id: `event-more-${i + events.length}`,
-        title: `Event ${i + events.length + 1} in Cluster`,
-        emoji: ["🎉", "🎵", "🎸", "🎭", "🎨", "🎤", "🎬", "🎮", "🏆", "🍔"][i % 10],
-        time: `${new Date().toLocaleDateString()} • ${Math.floor(Math.random() * 12) + 1}:00 PM`,
-        location: `Venue ${i + events.length + 1}, City Center`,
-        distance: `${(Math.random() * 5).toFixed(1)} mi away`,
+      const moreEvents: EventType[] = events.slice(0, 5).map(event => ({
+        ...event,
+        id: `event-more-${event.id}`,
       }));
 
       setEvents((prev) => [...prev, ...moreEvents]);
