@@ -100,9 +100,24 @@ const StatusText = React.memo(
 
       // Only show network details if both network and WebSocket are connected
       if (networkState.isConnected) {
-        const networkType = getNetworkTypeText(networkState.type);
         const quality = getNetworkQualityDescription(networkState.strength);
-        return `${networkType} - ${quality}`;
+
+        // If we're not connected or the network type is none, show "No Network"
+        if (!networkState.isConnected || networkState.type === 'none') {
+          return "No Network";
+        }
+
+        // If WiFi is turned off but we're still showing WiFi, show "No Network"
+        if (networkState.type === 'wifi' && !networkState.isWifiEnabled) {
+          return "No Network";
+        }
+
+        // If we're on cellular but cellular is not enabled, show "No Network"
+        if (networkState.type === 'cellular' && !networkState.isCellularEnabled) {
+          return "No Network";
+        }
+
+        return quality;
       }
 
       return "Connected";

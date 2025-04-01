@@ -1,5 +1,6 @@
 import NetInfo, { NetInfoState, NetInfoSubscription, NetInfoCellularGeneration } from '@react-native-community/netinfo';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 
 export interface NetworkQualityState {
     isConnected: boolean;
@@ -29,6 +30,8 @@ const DEFAULT_STATE: NetworkQualityState = {
 export const useNetworkQuality = () => {
     const [networkState, setNetworkState] = useState<NetworkQualityState>(DEFAULT_STATE);
     const [subscription, setSubscription] = useState<NetInfoSubscription | null>(null);
+    const appState = useRef(AppState.currentState);
+    const lastCheckTime = useRef(Date.now());
 
     // Calculate network strength based on available information
     const calculateStrength = useCallback((state: NetInfoState): number => {
@@ -62,15 +65,22 @@ export const useNetworkQuality = () => {
 
     // Process network state updates
     const handleNetworkStateChange = useCallback((state: NetInfoState) => {
-        // Ensure we have the correct network type
+        console.log('Raw NetInfo state:', state); // Log raw state
+
+        // Get the current network type
         const networkType = state.type || 'none';
-        const isWifiEnabled = networkType === 'wifi';
-        const isCellularEnabled = networkType === 'cellular';
+
+        // Check if WiFi is actually enabled and connected
+        const isWifiEnabled = networkType === 'wifi' && (state.isConnected ?? false);
+        const isCellularEnabled = networkType === 'cellular' && (state.isConnected ?? false);
+
+        // If we're not connected, reset the network type
+        const effectiveType = (state.isConnected ?? false) ? networkType : 'none';
 
         const newState: NetworkQualityState = {
             isConnected: state.isConnected ?? false,
             isInternetReachable: state.isInternetReachable,
-            type: networkType,
+            type: effectiveType,
             isWifiEnabled,
             isCellularEnabled,
             strength: calculateStrength(state),
@@ -86,19 +96,73 @@ export const useNetworkQuality = () => {
             },
         };
 
+        console.log('Processed network state:', newState); // Log processed state
         setNetworkState(newState);
     }, [calculateStrength]);
 
     // Initialize network monitoring
     useEffect(() => {
-        // Get initial state
-        NetInfo.fetch().then(handleNetworkStateChange);
+        let isSubscribed = true;
 
-        // Subscribe to network state changes
-        const unsubscribe = NetInfo.addEventListener(handleNetworkStateChange);
-        setSubscription(unsubscribe);
+        const setupNetworkMonitoring = async () => {
+            try {
+                // Get initial state
+                const initialState = await NetInfo.fetch();
+                console.log('Initial network state:', initialState);
+
+                if (isSubscribed) {
+                    handleNetworkStateChange(initialState);
+                }
+
+                // Subscribe to network state changes
+                const unsubscribe = NetInfo.addEventListener((state) => {
+                    console.log('Network state change detected:', state);
+                    if (isSubscribed) {
+                        handleNetworkStateChange(state);
+                    }
+                });
+
+                // Set up a periodic check for network changes
+                const intervalId = setInterval(async () => {
+                    if (isSubscribed && appState.current === 'active') {
+                        const now = Date.now();
+                        // Only check if at least 5 seconds have passed since last check
+                        if (now - lastCheckTime.current >= 5000) {
+                            const currentState = await NetInfo.fetch();
+                            console.log('Periodic network check:', currentState);
+                            handleNetworkStateChange(currentState);
+                            lastCheckTime.current = now;
+                        }
+                    }
+                }, 5000); // Check every 5 seconds
+
+                // Subscribe to app state changes
+                const appStateSubscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+                    appState.current = nextAppState;
+                    if (nextAppState === 'active') {
+                        // Check network state when app comes to foreground
+                        NetInfo.fetch().then(handleNetworkStateChange);
+                    }
+                });
+
+                if (isSubscribed) {
+                    setSubscription(() => {
+                        return () => {
+                            unsubscribe();
+                            clearInterval(intervalId);
+                            appStateSubscription.remove();
+                        };
+                    });
+                }
+            } catch (error) {
+                console.error('Error setting up network monitoring:', error);
+            }
+        };
+
+        setupNetworkMonitoring();
 
         return () => {
+            isSubscribed = false;
             if (subscription) {
                 subscription();
             }
