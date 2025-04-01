@@ -452,12 +452,15 @@ const FiltersView: React.FC = () => {
 
           <Animated.View layout={LinearTransition.springify().damping(30).stiffness(300)} style={{ flex: 1 }}>
             <TouchableOpacity
-              style={styles.actionButton}
+              style={[styles.actionButton, {
+                backgroundColor: "rgba(255, 165, 0, 0.1)",
+                borderColor: "rgba(255, 165, 0, 0.2)",
+              }]}
               onPress={() => handleEditFilter(item)}
               activeOpacity={0.7}
             >
-              <Edit2 size={10} color="#93c5fd" />
-              <Text style={styles.actionText}>Edit</Text>
+              <Edit2 size={10} color="#ffa500" />
+              <Text style={[styles.actionText, { color: "#ffa500" }]}>Edit</Text>
             </TouchableOpacity>
           </Animated.View>
 
