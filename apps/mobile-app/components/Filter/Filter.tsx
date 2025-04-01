@@ -17,7 +17,7 @@ import {
   MapPin,
   Check,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -53,6 +53,7 @@ import Animated, {
   SlideInRight,
   SlideOutRight,
   Layout,
+  cancelAnimation,
 } from "react-native-reanimated";
 import { Filter as FilterType } from "../../services/ApiClient";
 import * as Location from "expo-location";
@@ -91,6 +92,7 @@ const FiltersView: React.FC = () => {
 
   const scrollY = useSharedValue(0);
   const listRef = useAnimatedRef<FlatList>();
+  const isMounted = useRef(true);
 
   // Animation for header shadow
   const headerAnimatedStyle = useAnimatedStyle(() => {
@@ -127,9 +129,25 @@ const FiltersView: React.FC = () => {
   // Scroll handler
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
+      if (!isMounted.current) return;
       scrollY.value = event.contentOffset.y;
     },
   });
+
+  // Cleanup function for animations
+  const cleanupAnimations = useCallback(() => {
+    if (!isMounted.current) return;
+    cancelAnimation(scrollY);
+    scrollY.value = 0;
+  }, [scrollY]);
+
+  // Set isMounted to false when component unmounts
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      cleanupAnimations();
+    };
+  }, [cleanupAnimations]);
 
   const router = useRouter();
 
@@ -359,6 +377,12 @@ const FiltersView: React.FC = () => {
           .withInitialValues({ transform: [{ translateX: 100 }, { scale: 0.8 }] })}
         exiting={SlideOutRight.springify().damping(15).stiffness(100)}
         layout={Layout.springify().damping(12).stiffness(100)}
+        onLayout={() => {
+          // Cleanup any running animations when layout changes
+          if (!isMounted.current) {
+            cancelAnimation(scrollY);
+          }
+        }}
       >
         <Animated.View
           style={styles.filterHeader}
@@ -598,6 +622,12 @@ const FiltersView: React.FC = () => {
           style={[styles.modalContainer]}
           entering={FadeIn.duration(200)}
           exiting={FadeOut.duration(150)}
+          onLayout={() => {
+            // Cleanup any running animations when modal layout changes
+            if (!isMounted.current) {
+              cancelAnimation(scrollY);
+            }
+          }}
         >
           <Animated.View
             style={[styles.modalContent]}
