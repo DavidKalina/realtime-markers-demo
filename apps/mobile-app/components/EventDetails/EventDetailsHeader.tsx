@@ -1,19 +1,16 @@
 import { formatDate } from "@/utils/dateTimeFormatting";
 import { BookmarkIcon, Calendar, CheckCircle, Eye, Info, Map, MapPin, Navigation, User } from "lucide-react-native";
 import React, { useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View, ViewProps } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
-  AnimatedProps,
   FadeInDown,
   FadeInUp,
-  withSpring,
-  withTiming,
-  Layout
+  Layout,
+  LinearTransition
 } from "react-native-reanimated";
 import EventQRCodeSection from "./EventQRCodeSection";
 import SaveButton from "./SaveButton";
 
-type AnimatedViewProps = AnimatedProps<ViewProps>;
 
 // Unified color theme
 const COLORS = {
@@ -359,7 +356,7 @@ const styles = StyleSheet.create({
 const EventHeader = React.memo(({ event, titleFontSize, isSaved, savingState, handleToggleSave }: any) => (
   <Animated.View
     entering={FadeInDown.duration(600).springify()}
-    layout={Layout.duration(300)}
+    layout={LinearTransition.duration(300)}
     style={styles.topRow}
   >
     <View style={styles.emojiContainer}>
