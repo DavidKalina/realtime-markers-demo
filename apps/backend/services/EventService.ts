@@ -850,6 +850,11 @@ export class EventService {
 
     // Add cursor conditions if cursor is provided
     if (cursorData) {
+      console.log('Cursor data received:', {
+        discoveredAt: cursorData.discoveredAt,
+        eventId: cursorData.eventId
+      });
+
       queryBuilder = queryBuilder.andWhere(
         new Brackets(qb => {
           qb.where("discovery.discoveredAt < :discoveredAt", {
@@ -860,21 +865,36 @@ export class EventService {
                 qb2.where("discovery.discoveredAt = :discoveredAt", {
                   discoveredAt: cursorData.discoveredAt
                 })
-                  .andWhere("discovery.eventId < :eventId", {
+                  .andWhere("event.id < :eventId", {
                     eventId: cursorData.eventId
                   });
               })
             );
         })
       );
+
+      // Log the generated SQL query
+      console.log('Generated SQL query:', queryBuilder.getSql());
     }
 
     // Execute query
     const discoveries = await queryBuilder
       .orderBy("discovery.discoveredAt", "DESC")
-      .addOrderBy("discovery.eventId", "DESC")
+      .addOrderBy("event.id", "DESC")
       .take(limit + 1)
       .getMany();
+
+    console.log('Query results:', {
+      totalResults: discoveries.length,
+      firstResult: discoveries[0] ? {
+        discoveredAt: discoveries[0].discoveredAt,
+        eventId: discoveries[0].eventId
+      } : null,
+      lastResult: discoveries[discoveries.length - 1] ? {
+        discoveredAt: discoveries[discoveries.length - 1].discoveredAt,
+        eventId: discoveries[discoveries.length - 1].eventId
+      } : null
+    });
 
     // Process results
     const hasMore = discoveries.length > limit;
