@@ -374,7 +374,7 @@ export const getSavedEventsHandler: EventHandler = async (c) => {
   try {
     const user = c.get("user");
     const limit = c.req.query("limit");
-    const offset = c.req.query("offset");
+    const cursor = c.req.query("cursor");
 
     if (!user || !user.userId) {
       return c.json({ error: "Authentication required" }, 401);
@@ -384,7 +384,7 @@ export const getSavedEventsHandler: EventHandler = async (c) => {
 
     const savedEvents = await eventService.getSavedEventsByUser(user.userId, {
       limit: limit ? parseInt(limit) : undefined,
-      offset: offset ? parseInt(offset) : undefined,
+      cursor: cursor,
     });
 
     return c.json(savedEvents);

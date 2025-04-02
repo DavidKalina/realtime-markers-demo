@@ -684,30 +684,99 @@ export class EventService {
    */
   async getSavedEventsByUser(
     userId: string,
-    options: { limit?: number; offset?: number } = {}
-  ): Promise<{ events: Event[]; total: number; hasMore: boolean }> {
-    const { limit = 10, offset = 0 } = options;
+    options: { limit?: number; cursor?: string } = {}
+  ): Promise<{ events: Event[]; nextCursor?: string }> {
+    const { limit = 10, cursor } = options;
 
-    // Instead of using the query builder, use the repository's find methods
-    const saves = await this.userEventSaveRepository.find({
-      where: { userId },
-      relations: ["event", "event.categories", "event.creator"],
-      order: { savedAt: "DESC" },
-      skip: offset,
-      take: limit,
+    // Parse cursor if provided
+    let cursorData: { savedAt: Date; eventId: string } | undefined;
+    if (cursor) {
+      try {
+        const jsonStr = Buffer.from(cursor, 'base64').toString('utf-8');
+        cursorData = JSON.parse(jsonStr);
+      } catch (e) {
+        console.error("Invalid cursor format:", e);
+      }
+    }
+
+    // Build query
+    let queryBuilder = this.dataSource
+      .getRepository(UserEventSave)
+      .createQueryBuilder("save")
+      .leftJoinAndSelect("save.event", "event")
+      .leftJoinAndSelect("event.categories", "categories")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("save.userId = :userId", { userId });
+
+    // Add cursor conditions if cursor is provided
+    if (cursorData) {
+      console.log('Cursor data received:', {
+        savedAt: cursorData.savedAt,
+        eventId: cursorData.eventId
+      });
+
+      queryBuilder = queryBuilder.andWhere(
+        new Brackets(qb => {
+          qb.where("save.savedAt < :savedAt", {
+            savedAt: cursorData.savedAt
+          })
+            .orWhere(
+              new Brackets(qb2 => {
+                qb2.where("save.savedAt = :savedAt", {
+                  savedAt: cursorData.savedAt
+                })
+                  .andWhere("event.id < :eventId", {
+                    eventId: cursorData.eventId
+                  });
+              })
+            );
+        })
+      );
+
+      // Log the generated SQL query
+      console.log('Generated SQL query:', queryBuilder.getSql());
+    }
+
+    // Execute query
+    const saves = await queryBuilder
+      .orderBy("save.savedAt", "DESC")
+      .addOrderBy("event.id", "DESC")
+      .take(limit + 1)
+      .getMany();
+
+    console.log('Query results:', {
+      totalResults: saves.length,
+      firstResult: saves[0] ? {
+        savedAt: saves[0].savedAt,
+        eventId: saves[0].eventId
+      } : null,
+      lastResult: saves[saves.length - 1] ? {
+        savedAt: saves[saves.length - 1].savedAt,
+        eventId: saves[saves.length - 1].eventId
+      } : null
     });
 
-    const total = await this.userEventSaveRepository.count({
-      where: { userId },
-    });
+    // Process results
+    const hasMore = saves.length > limit;
+    const results = saves.slice(0, limit);
 
-    // Extract the events from the saves
-    const events = saves.map((save) => save.event);
+    // Extract events from saves
+    const events = results.map(save => save.event);
+
+    // Generate next cursor if we have more results
+    let nextCursor: string | undefined;
+    if (hasMore && results.length > 0) {
+      const lastResult = results[results.length - 1];
+      const cursorObj = {
+        savedAt: lastResult.savedAt,
+        eventId: lastResult.eventId,
+      };
+      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString('base64');
+    }
 
     return {
       events,
-      total,
-      hasMore: offset + events.length < total,
+      nextCursor
     };
   }
 
