@@ -89,21 +89,33 @@ const JobCountText = React.memo(({ count, status }: { count: number; status: str
 const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
   ({
     position = "top-right",
-    autoDismissDelay = 3000, // Default: auto-dismiss after 3 seconds
+    autoDismissDelay = 3000,
     sessionId,
-    initialDelay = 800, // Default delay of 500ms
+    initialDelay = 800,
   }) => {
     // Get jobs and clearAllJobs action from our store.
     const jobs = useJobSessionStore((state) => state.jobs);
     const clearAllJobs = useJobSessionStore((state) => state.clearAllJobs);
+
+    // Refs for cleanup
     const clearJobsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const animationCleanupRef = useRef(false);
     const initialRenderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isMounted = useRef(true);
     const [shouldRender, setShouldRender] = useState(false);
 
     // Memoize derived values to prevent unnecessary recalculations
     const { activeJobs, completedJobs, failedJobs, totalJobs, activeJob, progressPercentage } =
       useMemo(() => {
+        if (!isMounted.current) return {
+          activeJobs: [],
+          completedJobs: [],
+          failedJobs: [],
+          totalJobs: 0,
+          activeJob: null,
+          progressPercentage: 0
+        };
+
         const activeJobs = jobs.filter(
           (job) => job.status === "pending" || job.status === "processing"
         );
@@ -118,7 +130,6 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
             )
             : null;
 
-        // Calculate progress percentage for active job
         const progressPercentage = activeJob ? activeJob.progress : 0;
 
         return { activeJobs, completedJobs, failedJobs, totalJobs, activeJob, progressPercentage };
@@ -134,20 +145,25 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
     const rotationValue = useSharedValue(0);
     const checkmarkScale = useSharedValue(0);
     const iconOpacity = useSharedValue(1);
-    const floatValue = useSharedValue(0); // New shared value for floating animation
+    const floatValue = useSharedValue(0);
 
     // Handle delayed initial render
     useEffect(() => {
+      if (!isMounted.current) return;
+
       if (totalJobs > 0) {
         // Clear any existing timeout
         if (initialRenderTimeoutRef.current) {
           clearTimeout(initialRenderTimeoutRef.current);
+          initialRenderTimeoutRef.current = null;
         }
 
         // Set a timeout for initial render
         initialRenderTimeoutRef.current = setTimeout(() => {
-          setShouldRender(true);
-          setIsVisible(true);
+          if (isMounted.current) {
+            setShouldRender(true);
+            setIsVisible(true);
+          }
         }, initialDelay);
 
         return () => {
@@ -162,15 +178,17 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
       }
     }, [totalJobs, initialDelay]);
 
-    // Setup visibility when there are jobs - runs only when totalJobs changes
+    // Setup visibility when there are jobs
     useEffect(() => {
+      if (!isMounted.current) return;
       if (totalJobs > 0) {
         setIsVisible(true);
       }
     }, [totalJobs]);
 
-    // Derive status from job data - memoize the new status to prevent unnecessary status updates
+    // Derive status from job data
     const newStatus = useMemo(() => {
+      if (!isMounted.current) return "idle";
       if (failedJobs.length > 0) {
         return "failed";
       } else if (activeJobs.length > 0) {
@@ -183,13 +201,16 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
 
     // Update status only when newStatus changes
     useEffect(() => {
+      if (!isMounted.current) return;
       if (newStatus !== status) {
         setStatus(newStatus);
       }
     }, [newStatus, status]);
 
-    // Auto-dismiss logic with useCallback to prevent unnecessary function recreations
+    // Auto-dismiss logic
     const handleAutoDismiss = useCallback(() => {
+      if (!isMounted.current) return;
+
       if (activeJobs.length === 0 && (completedJobs.length > 0 || failedJobs.length > 0)) {
         // Clear any existing timeout first
         if (clearJobsTimeoutRef.current) {
@@ -198,11 +219,14 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
         }
 
         const timer = setTimeout(() => {
+          if (!isMounted.current) return;
           setIsVisible(false);
           // Clear the jobs after the exit animation completes
           clearJobsTimeoutRef.current = setTimeout(() => {
-            clearAllJobs();
-          }, 300); // Allow time for exit animation
+            if (isMounted.current) {
+              clearAllJobs();
+            }
+          }, 300);
         }, autoDismissDelay);
 
         return () => {
@@ -214,13 +238,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
         };
       }
       return undefined;
-    }, [
-      activeJobs.length,
-      completedJobs.length,
-      failedJobs.length,
-      clearAllJobs,
-      autoDismissDelay,
-    ]);
+    }, [activeJobs.length, completedJobs.length, failedJobs.length, clearAllJobs, autoDismissDelay]);
 
     // Apply auto-dismiss effect
     useEffect(() => {
@@ -230,88 +248,107 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
 
     // Handle animations based on status
     useEffect(() => {
+      if (!isMounted.current) return;
       animationCleanupRef.current = true;
 
-      if (status === "processing") {
-        // Stop any ongoing animations first
-        cancelAnimation(rotationValue);
-        cancelAnimation(iconOpacity);
-        cancelAnimation(checkmarkScale);
-        cancelAnimation(floatValue);
-
-        // Start rotation animation for cog
-        rotationValue.value = 0;
-        iconOpacity.value = withTiming(1, ANIMATION_CONFIG.fadeIn);
-        rotationValue.value = withRepeat(
-          withTiming(1, {
-            duration: ANIMATION_CONFIG.rotationDuration,
-            easing: Easing.linear,
-          }),
-          -1,
-          false
-        );
-        checkmarkScale.value = 0;
-        floatValue.value = 0;
-      } else if (status === "completed" || status === "failed") {
-        // Stop any ongoing animations first
-        cancelAnimation(rotationValue);
-        cancelAnimation(iconOpacity);
-        cancelAnimation(checkmarkScale);
-        cancelAnimation(floatValue);
-
-        iconOpacity.value = withTiming(0, ANIMATION_CONFIG.fadeOut, () => {
-          "worklet";
-          checkmarkScale.value = withSpring(1, {
-            damping: 12,
-            stiffness: 100,
-            mass: 0.8,
-          });
-
-          // Start floating animation for completed state
-          if (status === "completed") {
-            floatValue.value = withRepeat(
-              withTiming(1, { duration: 1000, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
-              -1,
-              true
-            );
-          }
-        });
-      }
-
-      return () => {
-        if (animationCleanupRef.current) {
+      const cleanupAnimations = () => {
+        try {
           cancelAnimation(rotationValue);
           cancelAnimation(iconOpacity);
           cancelAnimation(checkmarkScale);
           cancelAnimation(floatValue);
+        } catch (error) {
+          console.error('Error cleaning up animations:', error);
+        }
+      };
+
+      if (status === "processing") {
+        cleanupAnimations();
+        try {
+          rotationValue.value = 0;
+          iconOpacity.value = withTiming(1, ANIMATION_CONFIG.fadeIn);
+          rotationValue.value = withRepeat(
+            withTiming(1, {
+              duration: ANIMATION_CONFIG.rotationDuration,
+              easing: Easing.linear,
+            }),
+            -1,
+            false
+          );
+          checkmarkScale.value = 0;
+          floatValue.value = 0;
+        } catch (error) {
+          console.error('Error setting up processing animation:', error);
+        }
+      } else if (status === "completed" || status === "failed") {
+        cleanupAnimations();
+        try {
+          iconOpacity.value = withTiming(0, ANIMATION_CONFIG.fadeOut, () => {
+            "worklet";
+            checkmarkScale.value = withSpring(1, {
+              damping: 12,
+              stiffness: 100,
+              mass: 0.8,
+            });
+
+            if (status === "completed") {
+              floatValue.value = withRepeat(
+                withTiming(1, { duration: 1000, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
+                -1,
+                true
+              );
+            }
+          });
+        } catch (error) {
+          console.error('Error setting up completion animation:', error);
+        }
+      }
+
+      return () => {
+        if (animationCleanupRef.current) {
+          cleanupAnimations();
         }
       };
     }, [status]);
 
-    // Add a cleanup effect for unmounting
+    // Cleanup on unmount
     useEffect(() => {
       return () => {
+        isMounted.current = false;
+
         // Cancel all animations
-        cancelAnimation(rotationValue);
-        cancelAnimation(iconOpacity);
-        cancelAnimation(checkmarkScale);
-        cancelAnimation(floatValue);
+        try {
+          cancelAnimation(rotationValue);
+          cancelAnimation(iconOpacity);
+          cancelAnimation(checkmarkScale);
+          cancelAnimation(floatValue);
+        } catch (error) {
+          console.error('Error cleaning up animations on unmount:', error);
+        }
 
         // Clear any timeouts
         if (clearJobsTimeoutRef.current) {
           clearTimeout(clearJobsTimeoutRef.current);
           clearJobsTimeoutRef.current = null;
         }
+        if (initialRenderTimeoutRef.current) {
+          clearTimeout(initialRenderTimeoutRef.current);
+          initialRenderTimeoutRef.current = null;
+        }
       };
     }, []);
 
     // Add cleanup for when component becomes invisible
     useEffect(() => {
-      if (!isVisible) {
-        cancelAnimation(rotationValue);
-        cancelAnimation(iconOpacity);
-        cancelAnimation(checkmarkScale);
-        cancelAnimation(floatValue);
+      if (!isVisible && isMounted.current) {
+        try {
+          cancelAnimation(rotationValue);
+          cancelAnimation(iconOpacity);
+          cancelAnimation(checkmarkScale);
+          cancelAnimation(floatValue);
+        } catch (error) {
+          console.error('Error cleaning up animations on visibility change:', error);
+        }
       }
     }, [isVisible]);
 
