@@ -105,7 +105,6 @@ export const useNetworkQuality = () => {
                 },
             };
 
-            console.log('Processed network state:', newState);
             setNetworkState(newState);
         } catch (error) {
             console.error('Error processing network state:', error);
