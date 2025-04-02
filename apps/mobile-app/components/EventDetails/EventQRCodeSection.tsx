@@ -4,17 +4,23 @@ import { View, TouchableOpacity, Linking, Text, StyleSheet } from "react-native"
 import QRCode from "react-native-qrcode-svg";
 import * as Haptics from "expo-haptics";
 import { EventType } from "@/types/types";
+import useEventAnalytics from "@/hooks/useEventAnalytics";
 
 interface EventQRCodeSection {
   event: EventType;
 }
 
 const EventQRCodeSection: React.FC<EventQRCodeSection> = ({ event }) => {
+  const eventAnalytics = useEventAnalytics();
+
   const handleOpenLink = () => {
     const url = event.qrCodeData || event.detectedQrData;
     if (url && url.startsWith("http")) {
       Linking.openURL(url);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      // Track QR code link click
+      eventAnalytics.trackQRCodeLinkClick(event, url);
     }
   };
 

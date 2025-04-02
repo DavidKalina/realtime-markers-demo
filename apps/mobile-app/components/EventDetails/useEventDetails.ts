@@ -9,6 +9,7 @@ import { calculateDistance, formatDistance } from "@/utils/distanceUtils";
 import * as Haptics from "expo-haptics";
 import { formatDate } from "@/utils/dateTimeFormatting";
 import { EventType } from "@/types/types";
+import useEventAnalytics from "@/hooks/useEventAnalytics";
 
 export const useEventDetails = (eventId: string, onBack?: () => void) => {
   const [event, setEvent] = useState<EventType | null>(null);
@@ -19,6 +20,7 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
   const [savingState, setSavingState] = useState<"idle" | "loading">("idle");
   const router = useRouter();
   const { getCachedEvent, setCachedEvent } = useEventCacheStore();
+  const eventAnalytics = useEventAnalytics();
 
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
@@ -93,6 +95,13 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
     };
   }, [eventId, getCachedEvent, setCachedEvent]);
 
+  // Track event view when event is loaded
+  useEffect(() => {
+    if (event) {
+      eventAnalytics.trackEventView(event);
+    }
+  }, [event, eventAnalytics]);
+
   // Update distance whenever user location or event coordinates change
   useEffect(() => {
     if (!event || !event.coordinates || !userLocation) {
@@ -100,19 +109,9 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
       return;
     }
 
-    try {
-      // Calculate distance between user and event
-      const distance = calculateDistance(userLocation, event.coordinates);
-      if (distance !== null) {
-        setDistanceInfo(formatDistance(distance));
-      } else {
-        setDistanceInfo(null);
-      }
-    } catch (err) {
-      console.error("Error calculating distance:", err);
-      setDistanceInfo(null);
-    }
-  }, [userLocation, event]);
+    const distance = calculateDistance(userLocation, event.coordinates);
+    setDistanceInfo(formatDistance(distance));
+  }, [event, userLocation]);
 
   // Handle back button
   const handleBack = () => {
@@ -143,35 +142,36 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
 
   // Handle save/unsave toggle
   const handleToggleSave = async () => {
-    if (!apiClient.isAuthenticated()) {
-      // Navigate to login if user is not authenticated
-      router.push("/login");
-      return;
-    }
-
-    // Provide haptic feedback
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    // Optimistic UI update
-    setIsSaved((prevState) => !prevState);
-    setSaveCount((prevCount) => (isSaved ? prevCount - 1 : prevCount + 1));
+    if (!event || !apiClient.isAuthenticated()) return;
 
     setSavingState("loading");
-
     try {
-      const result = await apiClient.toggleSaveEvent(eventId);
+      const newSavedState = !isSaved;
+      await apiClient.toggleSaveEvent(event.id!);
+      setIsSaved(newSavedState);
 
-      // Update with the actual state from the server
-      setIsSaved(result.saved);
-      setSaveCount(result.saveCount);
+      // Update save count
+      const newSaveCount = newSavedState ? saveCount + 1 : saveCount - 1;
+      setSaveCount(newSaveCount);
+
+      // Update cached event
+      if (event) {
+        const updatedEvent = { ...event, saveCount: newSaveCount };
+        setCachedEvent(event.id!, updatedEvent);
+      }
+
+      // Track the save action
+      eventAnalytics.trackEventSave(event, newSavedState ? 'save' : 'unsave');
+
+      // Provide haptic feedback
+      Haptics.notificationAsync(
+        newSavedState
+          ? Haptics.NotificationFeedbackType.Success
+          : Haptics.NotificationFeedbackType.Warning
+      );
     } catch (err) {
       console.error("Error toggling save status:", err);
-
-      // Revert optimistic update on error
-      setIsSaved((prevState) => !prevState);
-      setSaveCount((prevCount) => (isSaved ? prevCount + 1 : prevCount - 1));
-
-      // Could show an error toast here
+      Alert.alert("Error", "Failed to save event. Please try again.");
     } finally {
       setSavingState("idle");
     }
@@ -181,7 +181,8 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
     if (!event) return;
 
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      // Track the share action
+      eventAnalytics.trackEventShare(event, 'native_share');
 
       // Create a shareable message
       const message = `${event.title}\n\n📅 ${formatDate(event.eventDate, event.timezone)}\n📍 ${event.location
@@ -210,62 +211,49 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
 
   // Open the location in the native maps app
   const handleOpenMaps = () => {
-    if (!event || !event.location) return;
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (!event || !event.coordinates) return;
 
     try {
-      let url;
-      const address = encodeURIComponent(event.location);
+      // Track the map open action
+      eventAnalytics.trackMapOpen(event);
 
-      // If we have coordinates, use them for more precise location
-      if (event.coordinates && event.coordinates.length === 2) {
-        const [longitude, latitude] = event.coordinates;
+      const [longitude, latitude] = event.coordinates;
+      const url = Platform.select({
+        ios: `maps:?q=${latitude},${longitude}`,
+        android: `geo:${latitude},${longitude}?q=${latitude},${longitude}`,
+      });
 
-        if (Platform.OS === "ios") {
-          url = `maps:0,0?q=${latitude},${longitude}`;
-        } else {
-          url = `geo:${latitude},${longitude}?q=${latitude},${longitude}(${address})`;
-        }
-      } else {
-        // Otherwise use address
-        if (Platform.OS === "ios") {
-          url = `maps:0,0?q=${address}`;
-        } else {
-          url = `geo:0,0?q=${address}`;
-        }
+      if (url) {
+        Linking.openURL(url);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
-
-      Linking.openURL(url);
     } catch (err) {
       console.error("Error opening maps:", err);
-      Alert.alert("Navigation Failed", "Could not open maps application.");
     }
   };
 
   // Handle get directions (uses turn-by-turn navigation)
   const handleGetDirections = () => {
-    if (!event?.coordinates || !userLocation) return;
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (!event || !event.coordinates || !userLocation) return;
 
     try {
+      // Track the directions request
+      eventAnalytics.trackGetDirections(event, userLocation);
+
       const [longitude, latitude] = event.coordinates;
+      const [userLongitude, userLatitude] = userLocation;
 
-      // Create navigation URL based on platform
-      let url;
-      if (Platform.OS === "ios") {
-        // Apple Maps
-        url = `http://maps.apple.com/?daddr=${latitude},${longitude}&dirflg=d`;
-      } else {
-        // Google Maps
-        url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+      const url = Platform.select({
+        ios: `maps:?saddr=${userLatitude},${userLongitude}&daddr=${latitude},${longitude}`,
+        android: `google.navigation:q=${latitude},${longitude}`,
+      });
+
+      if (url) {
+        Linking.openURL(url);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
-
-      Linking.openURL(url);
     } catch (err) {
-      console.error("Error opening directions:", err);
-      Alert.alert("Navigation Failed", "Could not open navigation application.");
+      console.error("Error getting directions:", err);
     }
   };
 
