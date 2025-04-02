@@ -860,7 +860,7 @@ export class EventService {
                 qb2.where("discovery.discoveredAt = :discoveredAt", {
                   discoveredAt: cursorData.discoveredAt
                 })
-                  .andWhere("discovery.eventId > :eventId", {
+                  .andWhere("discovery.eventId < :eventId", {
                     eventId: cursorData.eventId
                   });
               })
@@ -872,7 +872,7 @@ export class EventService {
     // Execute query
     const discoveries = await queryBuilder
       .orderBy("discovery.discoveredAt", "DESC")
-      .addOrderBy("discovery.eventId", "ASC")
+      .addOrderBy("discovery.eventId", "DESC")
       .take(limit + 1)
       .getMany();
 
