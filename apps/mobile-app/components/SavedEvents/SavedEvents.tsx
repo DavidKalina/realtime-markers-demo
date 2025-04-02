@@ -137,6 +137,7 @@ const SavedEventsList: React.FC<{
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [lastLoadMoreAttempt, setLastLoadMoreAttempt] = useState<number>(0);
   const pageSize = 10;
 
   const fetchEvents = useCallback(async (refresh = false) => {
@@ -237,8 +238,19 @@ const SavedEventsList: React.FC<{
       isRefreshing,
       hasMore,
       cursor,
-      currentEventsCount: events.length
+      currentEventsCount: events.length,
+      timeSinceLastAttempt: Date.now() - lastLoadMoreAttempt
     });
+
+    // If we've reached the end (hasMore is false), throttle attempts to once every 20 seconds
+    if (!hasMore) {
+      const now = Date.now();
+      if (now - lastLoadMoreAttempt < 20000) {
+        console.log('Throttling load more attempt - too soon after last attempt');
+        return;
+      }
+      setLastLoadMoreAttempt(now);
+    }
 
     if (!isFetchingMore && !isRefreshing && hasMore && cursor) {
       console.log('Conditions met to load more events with cursor:', cursor);
@@ -248,10 +260,11 @@ const SavedEventsList: React.FC<{
         isFetchingMore,
         isRefreshing,
         hasMore,
-        hasCursor: !!cursor
+        hasCursor: !!cursor,
+        timeSinceLastAttempt: Date.now() - lastLoadMoreAttempt
       });
     }
-  }, [isFetchingMore, isRefreshing, events.length, hasMore, cursor, fetchEvents]);
+  }, [isFetchingMore, isRefreshing, events.length, hasMore, cursor, fetchEvents, lastLoadMoreAttempt]);
 
   return (
     <EventsList
@@ -264,6 +277,7 @@ const SavedEventsList: React.FC<{
       hasMore={hasMore}
       cursor={cursor}
       error={error}
+      activeTab="saved"
     />
   );
 };
@@ -279,6 +293,7 @@ const DiscoveredEventsList: React.FC<{
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [lastLoadMoreAttempt, setLastLoadMoreAttempt] = useState<number>(0);
   const pageSize = 10;
 
   const fetchEvents = useCallback(async (refresh = false) => {
@@ -378,8 +393,19 @@ const DiscoveredEventsList: React.FC<{
       isRefreshing,
       hasMore,
       cursor,
-      currentEventsCount: events.length
+      currentEventsCount: events.length,
+      timeSinceLastAttempt: Date.now() - lastLoadMoreAttempt
     });
+
+    // If we've reached the end (hasMore is false), throttle attempts to once every 20 seconds
+    if (!hasMore) {
+      const now = Date.now();
+      if (now - lastLoadMoreAttempt < 20000) {
+        console.log('Throttling load more attempt - too soon after last attempt');
+        return;
+      }
+      setLastLoadMoreAttempt(now);
+    }
 
     if (!isFetchingMore && !isRefreshing && hasMore && cursor) {
       console.log('Conditions met to load more events with cursor:', cursor);
@@ -389,10 +415,11 @@ const DiscoveredEventsList: React.FC<{
         isFetchingMore,
         isRefreshing,
         hasMore,
-        hasCursor: !!cursor
+        hasCursor: !!cursor,
+        timeSinceLastAttempt: Date.now() - lastLoadMoreAttempt
       });
     }
-  }, [isFetchingMore, isRefreshing, events.length, hasMore, cursor, fetchEvents]);
+  }, [isFetchingMore, isRefreshing, events.length, hasMore, cursor, fetchEvents, lastLoadMoreAttempt]);
 
   return (
     <EventsList
@@ -405,6 +432,7 @@ const DiscoveredEventsList: React.FC<{
       hasMore={hasMore}
       cursor={cursor}
       error={error}
+      activeTab="discovered"
     />
   );
 };
@@ -419,6 +447,7 @@ interface EventsListProps {
   hasMore: boolean;
   cursor?: string;
   error?: string | null;
+  activeTab: TabType;
 }
 
 const EventsList = ({
@@ -430,7 +459,8 @@ const EventsList = ({
   isFetchingMore,
   hasMore,
   cursor,
-  error
+  error,
+  activeTab
 }: EventsListProps) => {
   const listRef = useAnimatedRef<FlatList>();
   const scrollY = useSharedValue(0);
@@ -490,11 +520,11 @@ const EventsList = ({
   const renderItem = useCallback(({ item, index }: { item: EventType; index: number }) => (
     <EventCard
       item={item}
-      activeTab="saved"
+      activeTab={activeTab}
       onPress={onEventPress}
       index={index}
     />
-  ), [onEventPress]);
+  ), [onEventPress, activeTab]);
 
   const ListHeaderComponent = useCallback(() => (
     <Animated.View
