@@ -18,8 +18,10 @@ import {
   ViewStyle
 } from "react-native";
 import Animated, {
+  FadeIn,
   FadeInDown,
   FadeOut,
+  FadeOutUp,
   interpolate,
   Layout,
   LinearTransition,
@@ -124,26 +126,316 @@ const EventCard: React.FC<{
   );
 });
 
-const SavedEventsView: React.FC = () => {
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabType>('saved');
-  const [savedEvents, setSavedEvents] = useState<EventType[]>([]);
-  const [discoveredEvents, setDiscoveredEvents] = useState<EventType[]>([]);
+// Separate component for Saved Events
+const SavedEventsList: React.FC<{
+  onEventPress: (event: EventType) => void;
+}> = ({ onEventPress }) => {
+  const [events, setEvents] = useState<EventType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const pageSize = 10;
 
-  const { getCachedSavedEvents, setCachedSavedEvents, getCachedDiscoveredEvents, setCachedDiscoveredEvents } = useEventCacheStore();
+  const fetchEvents = useCallback(async (refresh = false) => {
+    try {
+      if (refresh) {
+        setIsRefreshing(true);
+        setCursor(undefined);
+        setHasMore(true);
+        setEvents([]);
+      } else if (!refresh && isLoading === false) {
+        setIsFetchingMore(true);
+      }
 
+      console.log('Fetching saved events:', {
+        refresh,
+        cursor,
+        currentEventsCount: events.length,
+        hasMore,
+        isFetchingMore,
+        isRefreshing
+      });
+
+      const response = await apiClient.getSavedEvents({
+        limit: pageSize,
+        cursor: refresh ? undefined : cursor,
+      });
+
+      console.log('Saved events response:', {
+        eventsCount: response.events.length,
+        nextCursor: response.nextCursor,
+        hasMore: !!response.nextCursor,
+        firstEvent: response.events[0] ? {
+          id: response.events[0].id,
+          time: response.events[0].time
+        } : null,
+        lastEvent: response.events[response.events.length - 1] ? {
+          id: response.events[response.events.length - 1].id,
+          time: response.events[response.events.length - 1].time
+        } : null
+      });
+
+      // Update cursor and hasMore state
+      setHasMore(!!response.nextCursor);
+      setCursor(response.nextCursor);
+
+      if (refresh) {
+        setEvents(response.events);
+      } else {
+        // Create a Map of existing events using a composite key
+        const existingEventsMap = new Map(
+          events.map(event => [
+            `${event.id}-${event.eventDate}-${event.location}`,
+            event
+          ])
+        );
+
+        // Filter out duplicates and add new events
+        const newEvents = response.events.filter(event => {
+          const key = `${event.id}-${event.eventDate}-${event.location}`;
+          return !existingEventsMap.has(key);
+        });
+
+        console.log('Adding new events:', {
+          newEventsCount: newEvents.length,
+          totalEventsCount: events.length + newEvents.length,
+          existingEventsCount: events.length,
+          duplicateEventsCount: response.events.length - newEvents.length
+        });
+
+        setEvents(prev => [...prev, ...newEvents]);
+      }
+
+      setError(null);
+    } catch (err) {
+      setError('Failed to load saved events. Please try again.');
+      console.error('Error fetching saved events:', err);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+      setIsFetchingMore(false);
+    }
+  }, [cursor]);
+
+  useEffect(() => {
+    setCursor(undefined);
+    setHasMore(true);
+    fetchEvents();
+  }, [fetchEvents]);
+
+  const handleRefresh = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    fetchEvents(true);
+  }, [fetchEvents]);
+
+  const handleLoadMore = useCallback(() => {
+    console.log('Load more triggered:', {
+      isFetchingMore,
+      isRefreshing,
+      hasMore,
+      cursor,
+      currentEventsCount: events.length
+    });
+
+    if (!isFetchingMore && !isRefreshing && hasMore && cursor) {
+      console.log('Conditions met to load more events with cursor:', cursor);
+      fetchEvents();
+    } else {
+      console.log('Skipping load more due to:', {
+        isFetchingMore,
+        isRefreshing,
+        hasMore,
+        hasCursor: !!cursor
+      });
+    }
+  }, [isFetchingMore, isRefreshing, events.length, hasMore, cursor, fetchEvents]);
+
+  return (
+    <EventsList
+      events={events}
+      onEventPress={onEventPress}
+      onLoadMore={handleLoadMore}
+      onRefresh={handleRefresh}
+      isRefreshing={isRefreshing}
+      isFetchingMore={isFetchingMore}
+      hasMore={hasMore}
+      cursor={cursor}
+      error={error}
+    />
+  );
+};
+
+// Separate component for Discovered Events
+const DiscoveredEventsList: React.FC<{
+  onEventPress: (event: EventType) => void;
+}> = ({ onEventPress }) => {
+  const [events, setEvents] = useState<EventType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const pageSize = 10;
+
+  const fetchEvents = useCallback(async (refresh = false) => {
+    try {
+      if (refresh) {
+        setIsRefreshing(true);
+        setCursor(undefined);
+        setHasMore(true);
+        setEvents([]);
+      } else if (!refresh && isLoading === false) {
+        setIsFetchingMore(true);
+      }
+
+      console.log('Fetching discovered events:', {
+        refresh,
+        cursor,
+        currentEventsCount: events.length,
+        hasMore,
+        isFetchingMore,
+        isRefreshing
+      });
+
+      const response = await apiClient.getUserDiscoveredEvents({
+        limit: pageSize,
+        cursor: refresh ? undefined : cursor,
+      });
+
+      console.log('Discovered events response:', {
+        eventsCount: response.events.length,
+        nextCursor: response.nextCursor,
+        hasMore: !!response.nextCursor,
+        firstEvent: response.events[0] ? {
+          id: response.events[0].id,
+          time: response.events[0].time
+        } : null,
+        lastEvent: response.events[response.events.length - 1] ? {
+          id: response.events[response.events.length - 1].id,
+          time: response.events[response.events.length - 1].time
+        } : null
+      });
+
+      setHasMore(!!response.nextCursor);
+      setCursor(response.nextCursor);
+
+      if (refresh) {
+        setEvents(response.events);
+      } else {
+        // Create a Map of existing events using a composite key
+        const existingEventsMap = new Map(
+          events.map(event => [
+            `${event.id}-${event.eventDate}-${event.location}`,
+            event
+          ])
+        );
+
+        // Filter out duplicates and add new events
+        const newEvents = response.events.filter(event => {
+          const key = `${event.id}-${event.eventDate}-${event.location}`;
+          return !existingEventsMap.has(key);
+        });
+
+        console.log('Adding new events:', {
+          newEventsCount: newEvents.length,
+          totalEventsCount: events.length + newEvents.length,
+          existingEventsCount: events.length,
+          duplicateEventsCount: response.events.length - newEvents.length
+        });
+
+        setEvents(prev => [...prev, ...newEvents]);
+      }
+
+      setError(null);
+    } catch (err) {
+      setError('Failed to load discovered events. Please try again.');
+      console.error('Error fetching discovered events:', err);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+      setIsFetchingMore(false);
+    }
+  }, [cursor]);
+
+  useEffect(() => {
+    setCursor(undefined);
+    setHasMore(true);
+    fetchEvents();
+  }, [fetchEvents]);
+
+  const handleRefresh = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    fetchEvents(true);
+  }, [fetchEvents]);
+
+  const handleLoadMore = useCallback(() => {
+    console.log('Load more triggered:', {
+      isFetchingMore,
+      isRefreshing,
+      hasMore,
+      cursor,
+      currentEventsCount: events.length
+    });
+
+    if (!isFetchingMore && !isRefreshing && hasMore && cursor) {
+      console.log('Conditions met to load more events with cursor:', cursor);
+      fetchEvents();
+    } else {
+      console.log('Skipping load more due to:', {
+        isFetchingMore,
+        isRefreshing,
+        hasMore,
+        hasCursor: !!cursor
+      });
+    }
+  }, [isFetchingMore, isRefreshing, events.length, hasMore, cursor, fetchEvents]);
+
+  return (
+    <EventsList
+      events={events}
+      onEventPress={onEventPress}
+      onLoadMore={handleLoadMore}
+      onRefresh={handleRefresh}
+      isRefreshing={isRefreshing}
+      isFetchingMore={isFetchingMore}
+      hasMore={hasMore}
+      cursor={cursor}
+      error={error}
+    />
+  );
+};
+
+interface EventsListProps {
+  events: EventType[];
+  onEventPress: (event: EventType) => void;
+  onLoadMore: () => void;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+  isFetchingMore: boolean;
+  hasMore: boolean;
+  cursor?: string;
+  error?: string | null;
+}
+
+const EventsList = ({
+  events,
+  onEventPress,
+  onLoadMore,
+  onRefresh,
+  isRefreshing,
+  isFetchingMore,
+  hasMore,
+  cursor,
+  error
+}: EventsListProps) => {
   const listRef = useAnimatedRef<FlatList>();
   const scrollY = useSharedValue(0);
+  const router = useRouter();
 
-  // Animation for header shadow
   const headerAnimatedStyle = useAnimatedStyle(() => {
     const borderBottomColor = interpolate(
       scrollY.value,
@@ -157,209 +449,53 @@ const SavedEventsView: React.FC = () => {
     } as ViewStyle;
   });
 
-  // Scroll handler
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
     },
   });
 
-  // Fetch events based on active tab
-  const fetchEvents = async (refresh = false) => {
-    try {
-      if (refresh) {
-        setIsRefreshing(true);
-        setPage(0);
-        setCursor(undefined);
-        setHasMore(true);
-        // Clear only the active tab's events on refresh
-        if (activeTab === 'saved') {
-          setSavedEvents([]);
-        } else {
-          setDiscoveredEvents([]);
-        }
-      } else if (!refresh && isLoading === false) {
-        setIsFetchingMore(true);
-      }
+  const handleEndReached = useCallback(() => {
+    console.log('FlatList onEndReached triggered:', {
+      isFetchingMore,
+      isRefreshing,
+      eventsCount: events.length,
+      hasMore,
+      cursor,
+      timestamp: new Date().toISOString()
+    });
 
-      // Check cache first if not refreshing
-      if (!refresh) {
-        const cachedData = activeTab === 'saved'
-          ? getCachedSavedEvents()
-          : getCachedDiscoveredEvents();
-
-        if (cachedData) {
-          if (activeTab === 'saved') {
-            setSavedEvents(cachedData.events);
-          } else {
-            setDiscoveredEvents(cachedData.events);
-          }
-          setHasMore(cachedData.hasMore);
-          setCursor(cachedData.cursor);
-          setIsLoading(false);
-          setIsFetchingMore(false);
-          return;
-        }
-      }
-
-      let response;
-      if (activeTab === 'saved') {
-        response = await apiClient.getSavedEvents({
-          limit: pageSize,
-          offset: refresh ? 0 : page * pageSize,
-        });
-
-        setHasMore(response.hasMore);
-        setPage((prev) => (refresh ? 0 : prev) + 1);
-
-        // Cache the results
-        setCachedSavedEvents(response.events, response.hasMore);
-
-        if (refresh) {
-          setSavedEvents(response.events);
-        } else {
-          // Create a Map of existing events using a composite key
-          const existingEventsMap = new Map(
-            savedEvents.map(event => [
-              `${event.id}-${event.eventDate}-${event.location}`,
-              event
-            ])
-          );
-
-          // Filter out duplicates and add new events
-          const newEvents = response.events.filter(event => {
-            const key = `${event.id}-${event.eventDate}-${event.location}`;
-            return !existingEventsMap.has(key);
-          });
-
-          setSavedEvents(prev => [...prev, ...newEvents]);
-        }
-      } else {
-        response = await apiClient.getUserDiscoveredEvents({
-          limit: pageSize,
-          cursor: refresh ? undefined : cursor,
-        });
-
-        setHasMore(!!response.nextCursor);
-        setCursor(response.nextCursor);
-
-        // Cache the results
-        setCachedDiscoveredEvents(response.events, !!response.nextCursor, response.nextCursor);
-
-        if (refresh) {
-          setDiscoveredEvents(response.events);
-        } else {
-          // Create a Map of existing events using a composite key
-          const existingEventsMap = new Map(
-            discoveredEvents.map(event => [
-              `${event.id}-${event.eventDate}-${event.location}`,
-              event
-            ])
-          );
-
-          // Filter out duplicates and add new events
-          const newEvents = response.events.filter(event => {
-            const key = `${event.id}-${event.eventDate}-${event.location}`;
-            return !existingEventsMap.has(key);
-          });
-
-          setDiscoveredEvents(prev => [...prev, ...newEvents]);
-        }
-      }
-
-      if (__DEV__) {
-        // Debug logging for duplicates
-        const currentEvents = activeTab === 'saved' ? savedEvents : discoveredEvents;
-        const eventKeys = currentEvents.map(event =>
-          `${event.id}-${event.eventDate}-${event.location}`
-        );
-        const uniqueKeys = new Set(eventKeys);
-
-        if (eventKeys.length !== uniqueKeys.size) {
-          const duplicates = eventKeys.filter((key, index) =>
-            eventKeys.indexOf(key) !== index
-          );
-          console.warn('Duplicate events detected:', duplicates);
-        }
-      }
-
-      setError(null);
-    } catch (err) {
-      setError(`Failed to load ${activeTab} events. Please try again.`);
-      console.error(`Error fetching ${activeTab} events:`, err);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-      setIsFetchingMore(false);
-    }
-  };
-
-  // Load initial data
-  useEffect(() => {
-    setPage(0);
-    setCursor(undefined);
-    setHasMore(true);
-    fetchEvents();
-  }, [activeTab]);
-
-  // Memoize handlers
-  const handleRefresh = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    fetchEvents(true);
-  }, []);
-
-  const handleLoadMore = useCallback(() => {
     if (!isFetchingMore && !isRefreshing && hasMore) {
-      fetchEvents();
+      console.log('Conditions met to load more events');
+      onLoadMore();
+    } else {
+      console.log('Skipping load more due to:', {
+        isFetchingMore,
+        isRefreshing,
+        hasMore
+      });
     }
-  }, [isFetchingMore, isRefreshing, hasMore]);
+  }, [isFetchingMore, isRefreshing, events.length, hasMore, cursor, onLoadMore]);
 
-  const handleBack = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
-  }, []);
-
-  const handleSelectEvent = useCallback((event: EventType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (event.id) {
-      router.push(`/details?eventId=${event.id}`);
-    }
-  }, []);
-
-  const handleTabSwitch = useCallback((tab: TabType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActiveTab(tab);
-    setPage(0);
-    setCursor(undefined);
-    setHasMore(true);
-  }, []);
-
-  // Get current events based on active tab
-  const currentEvents = activeTab === 'saved' ? savedEvents : discoveredEvents;
-
-  // Memoize the getItemLayout function
   const getItemLayout = useCallback((data: any, index: number) => ({
-    length: 74, // Height of each item (including margin)
+    length: 74,
     offset: 74 * index,
     index,
   }), []);
 
-  // Memoize the keyExtractor function
   const keyExtractor = useCallback((item: EventType) => {
-    return `${activeTab}-${item.id}-${item.time}`;
-  }, [activeTab]);
+    return `${item.id}-${item.time}`;
+  }, []);
 
-  // Memoize the renderItem function
   const renderItem = useCallback(({ item, index }: { item: EventType; index: number }) => (
     <EventCard
       item={item}
-      activeTab={activeTab}
-      onPress={handleSelectEvent}
+      activeTab="saved"
+      onPress={onEventPress}
       index={index}
     />
-  ), [activeTab, handleSelectEvent]);
+  ), [onEventPress]);
 
-  // Memoize the ListHeaderComponent
   const ListHeaderComponent = useCallback(() => (
     <Animated.View
       style={styles.listHeader}
@@ -368,17 +504,16 @@ const SavedEventsView: React.FC = () => {
     >
       <View style={styles.counterContainer}>
         <Text style={styles.resultsText}>
-          {currentEvents.length > 0
-            ? `${currentEvents.length} ${activeTab} ${currentEvents.length === 1 ? "event" : "events"}`
-            : `No ${activeTab} events yet`}
+          {events.length > 0
+            ? `${events.length} events`
+            : `No events yet`}
         </Text>
       </View>
     </Animated.View>
-  ), [currentEvents.length, activeTab]);
+  ), [events.length]);
 
-  // Memoize the ListEmptyComponent
   const ListEmptyComponent = useCallback(() => {
-    if (isLoading) return null;
+    if (isRefreshing) return null;
     return (
       <Animated.View
         style={styles.emptyStateContainer}
@@ -387,42 +522,31 @@ const SavedEventsView: React.FC = () => {
         layout={Layout.duration(300)}
       >
         <View style={styles.emptyStateIconContainer}>
-          {activeTab === 'saved' ? (
-            <Bookmark size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
-          ) : (
-            <Scan size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
-          )}
+          <Scan size={40} color="#93c5fd" style={{ opacity: 0.6 }} />
         </View>
         <Text style={styles.emptyStateTitle}>
-          {activeTab === 'saved' ? 'No saved events yet' : 'No discovered events yet'}
+          No events yet
         </Text>
         <Text style={styles.emptyStateDescription}>
-          {activeTab === 'saved'
-            ? 'Events you save will appear here. To save an event, tap the bookmark icon on any event details page.'
-            : 'Events you scan will appear here. To discover events, use the scan feature to process event flyers.'}
+          Events you scan will appear here. To discover events, use the scan feature to process event flyers.
         </Text>
 
         <TouchableOpacity
           style={styles.emptyStateButton}
-          onPress={() => router.push(activeTab === 'saved' ? "/search" : "/scan")}
+          onPress={() => router.push("/scan")}
           activeOpacity={0.8}
         >
           <View style={styles.buttonContent}>
-            {activeTab === 'saved' ? (
-              <Search size={16} color="#ffffff" style={{ marginRight: 8 }} />
-            ) : (
-              <Scan size={16} color="#ffffff" style={{ marginRight: 8 }} />
-            )}
+            <Scan size={16} color="#ffffff" style={{ marginRight: 8 }} />
             <Text style={styles.emptyStateButtonText}>
-              {activeTab === 'saved' ? 'Find Events' : 'Scan Events'}
+              Scan Events
             </Text>
           </View>
         </TouchableOpacity>
       </Animated.View>
     );
-  }, [isLoading, activeTab]);
+  }, [isRefreshing]);
 
-  // Memoize the ListFooterComponent
   const ListFooterComponent = useCallback(() => (
     <Animated.View
       style={styles.loadingFooter}
@@ -440,6 +564,88 @@ const SavedEventsView: React.FC = () => {
       )}
     </Animated.View>
   ), [isFetchingMore]);
+
+  return (
+    <View style={styles.contentArea}>
+      <Animated.FlatList
+        ref={listRef}
+        data={events}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.5}
+        refreshing={isRefreshing}
+        onRefresh={onRefresh}
+        ListHeaderComponent={ListHeaderComponent}
+        ListEmptyComponent={ListEmptyComponent}
+        ListFooterComponent={ListFooterComponent}
+        maintainVisibleContentPosition={{
+          minIndexForVisible: 0,
+          autoscrollToTopThreshold: 10,
+        }}
+        contentContainerStyle={[
+          styles.listContent,
+          events.length === 0 && { flexGrow: 1 },
+        ]}
+      />
+
+      {error && (
+        <Animated.View
+          style={styles.errorContainer}
+          entering={FadeInDown.duration(600).springify()}
+          exiting={FadeOutUp.duration(400)}
+          layout={Layout.duration(300)}
+        >
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={onRefresh}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+    </View>
+  );
+};
+
+// Main SavedEventsView component
+const SavedEventsView: React.FC = () => {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<TabType>('saved');
+  const scrollY = useSharedValue(0);
+
+  const headerAnimatedStyle = useAnimatedStyle(() => {
+    const borderBottomColor = interpolate(
+      scrollY.value,
+      [0, 50],
+      [0, 1],
+      'clamp'
+    );
+
+    return {
+      borderBottomColor: borderBottomColor === 0 ? 'transparent' : '#3a3a3a',
+    } as ViewStyle;
+  });
+
+  const handleBack = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.back();
+  }, []);
+
+  const handleSelectEvent = useCallback((event: EventType) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (event.id) {
+      router.push(`/details?eventId=${event.id}`);
+    }
+  }, []);
+
+  const handleTabSwitch = useCallback((tab: TabType) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveTab(tab);
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -500,71 +706,11 @@ const SavedEventsView: React.FC = () => {
       </Animated.View>
 
       {/* Content Area */}
-      <View style={styles.contentArea}>
-        {isLoading && currentEvents.length === 0 ? (
-          <Animated.View
-            style={styles.loadingContainer}
-            entering={FadeInDown.duration(600).springify()}
-            exiting={FadeOut.duration(200)}
-            layout={Layout.duration(300)}
-          >
-            <ActivityIndicator size="large" color="#93c5fd" />
-            <Text style={styles.loadingText}>Loading {activeTab} events...</Text>
-          </Animated.View>
-        ) : (
-          <Animated.FlatList
-            ref={listRef}
-            data={currentEvents}
-            onScroll={scrollHandler}
-            scrollEventThrottle={16}
-            getItemLayout={getItemLayout}
-            initialNumToRender={10}
-            maxToRenderPerBatch={5}
-            windowSize={5}
-            removeClippedSubviews={true}
-            ListHeaderComponent={ListHeaderComponent}
-            renderItem={renderItem}
-            ListEmptyComponent={ListEmptyComponent}
-            ListFooterComponent={ListFooterComponent}
-            keyExtractor={keyExtractor}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.listContent,
-              currentEvents.length === 0 && { flexGrow: 1 },
-            ]}
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.3}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
-                tintColor="#93c5fd"
-                colors={["#93c5fd"]}
-              />
-            }
-            entering={FadeInDown.duration(600).delay(300).springify()}
-            layout={Layout.duration(300)}
-          />
-        )}
-
-        {error && (
-          <Animated.View
-            style={styles.errorContainer}
-            entering={FadeInDown.duration(600).springify()}
-            exiting={FadeOut.duration(200)}
-            layout={Layout.duration(300)}
-          >
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => fetchEvents(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
-      </View>
+      {activeTab === 'saved' ? (
+        <SavedEventsList onEventPress={handleSelectEvent} />
+      ) : (
+        <DiscoveredEventsList onEventPress={handleSelectEvent} />
+      )}
     </SafeAreaView>
   );
 };
