@@ -65,39 +65,45 @@ export const useNetworkQuality = () => {
 
     // Process network state updates
     const handleNetworkStateChange = useCallback((state: NetInfoState) => {
-        console.log('Raw NetInfo state:', state); // Log raw state
+        try {
+            console.log('Raw NetInfo state:', state); // Log raw state
 
-        // Get the current network type
-        const networkType = state.type || 'none';
+            // Get the current network type
+            const networkType = state.type || 'none';
 
-        // Check if WiFi is actually enabled and connected
-        const isWifiEnabled = networkType === 'wifi' && (state.isConnected ?? false);
-        const isCellularEnabled = networkType === 'cellular' && (state.isConnected ?? false);
+            // Check if WiFi is actually enabled and connected
+            const isWifiEnabled = networkType === 'wifi' && (state.isConnected ?? false);
+            const isCellularEnabled = networkType === 'cellular' && (state.isConnected ?? false);
 
-        // If we're not connected, reset the network type
-        const effectiveType = (state.isConnected ?? false) ? networkType : 'none';
+            // If we're not connected, reset the network type
+            const effectiveType = (state.isConnected ?? false) ? networkType : 'none';
 
-        const newState: NetworkQualityState = {
-            isConnected: state.isConnected ?? false,
-            isInternetReachable: state.isInternetReachable,
-            type: effectiveType,
-            isWifiEnabled,
-            isCellularEnabled,
-            strength: calculateStrength(state),
-            details: {
-                cellularGeneration: isCellularEnabled && state.details && 'cellularGeneration' in state.details
-                    ? (state.details as { cellularGeneration: NetInfoCellularGeneration }).cellularGeneration
-                    : null,
-                wifiStrength: isWifiEnabled && state.details && 'strength' in state.details
-                    ? (state.details as { strength: number }).strength
-                    : null,
+            const newState: NetworkQualityState = {
+                isConnected: state.isConnected ?? false,
+                isInternetReachable: state.isInternetReachable,
+                type: effectiveType,
                 isWifiEnabled,
                 isCellularEnabled,
-            },
-        };
+                strength: calculateStrength(state),
+                details: {
+                    cellularGeneration: isCellularEnabled && state.details && 'cellularGeneration' in state.details
+                        ? (state.details as { cellularGeneration: NetInfoCellularGeneration }).cellularGeneration
+                        : null,
+                    wifiStrength: isWifiEnabled && state.details && 'strength' in state.details
+                        ? (state.details as { strength: number }).strength
+                        : null,
+                    isWifiEnabled,
+                    isCellularEnabled,
+                },
+            };
 
-        console.log('Processed network state:', newState); // Log processed state
-        setNetworkState(newState);
+            console.log('Processed network state:', newState); // Log processed state
+            setNetworkState(newState);
+        } catch (error) {
+            console.error('Error processing network state:', error);
+            // Set a safe default state in case of error
+            setNetworkState(DEFAULT_STATE);
+        }
     }, [calculateStrength]);
 
     // Initialize network monitoring
@@ -105,6 +111,7 @@ export const useNetworkQuality = () => {
         let isSubscribed = true;
         let intervalId: NodeJS.Timeout | null = null;
         let appStateSubscription: { remove: () => void } | null = null;
+        let netInfoUnsubscribe: (() => void) | null = null;
 
         const setupNetworkMonitoring = async () => {
             try {
@@ -117,10 +124,14 @@ export const useNetworkQuality = () => {
                 }
 
                 // Subscribe to network state changes
-                const unsubscribe = NetInfo.addEventListener((state) => {
+                netInfoUnsubscribe = NetInfo.addEventListener((state) => {
                     if (!isSubscribed) return;
-                    console.log('Network state change detected:', state);
-                    handleNetworkStateChange(state);
+                    try {
+                        console.log('Network state change detected:', state);
+                        handleNetworkStateChange(state);
+                    } catch (error) {
+                        console.error('Error handling network state change:', error);
+                    }
                 });
 
                 // Set up a periodic check for network changes
@@ -152,6 +163,8 @@ export const useNetworkQuality = () => {
                             if (isSubscribed) {
                                 handleNetworkStateChange(state);
                             }
+                        }).catch(error => {
+                            console.error('Error fetching network state on app active:', error);
                         });
                     }
                 });
@@ -159,7 +172,7 @@ export const useNetworkQuality = () => {
                 if (isSubscribed) {
                     setSubscription(() => {
                         return () => {
-                            unsubscribe();
+                            if (netInfoUnsubscribe) netInfoUnsubscribe();
                             if (intervalId) clearInterval(intervalId);
                             if (appStateSubscription) appStateSubscription.remove();
                         };
@@ -182,6 +195,9 @@ export const useNetworkQuality = () => {
             }
             if (appStateSubscription) {
                 appStateSubscription.remove();
+            }
+            if (netInfoUnsubscribe) {
+                netInfoUnsubscribe();
             }
         };
     }, [handleNetworkStateChange]);

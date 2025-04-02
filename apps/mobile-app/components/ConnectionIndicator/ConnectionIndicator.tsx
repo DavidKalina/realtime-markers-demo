@@ -2,7 +2,7 @@ import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes } from "@/services/EventBroker";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
 import { WifiOff, Wifi, Signal } from "lucide-react-native";
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { View, StyleSheet } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -147,6 +147,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
     const [hasConnectionEverBeenEstablished, setHasConnectionEverBeenEstablished] =
       useState(initialConnectionState);
     const [isVisible, setIsVisible] = useState(true);
+    const isMounted = useRef(true);
 
     // Get network quality state
     const networkState = useNetworkQuality();
@@ -160,17 +161,20 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
 
     // Create event handlers with useCallback to maintain stable references
     const handleConnected = React.useCallback(() => {
+      if (!isMounted.current) return;
       setIsConnected(true);
       setHasConnectionEverBeenEstablished(true);
       setIsVisible(true);
     }, []);
 
     const handleDisconnected = React.useCallback(() => {
+      if (!isMounted.current) return;
       setIsConnected(false);
       setIsVisible(true);
     }, []);
 
     const handleError = React.useCallback((event: any) => {
+      if (!isMounted.current) return;
       if (
         event.error &&
         (event.error.message?.includes("WebSocket") ||
@@ -181,21 +185,34 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
       }
     }, []);
 
+    // Cleanup on unmount
+    useEffect(() => {
+      return () => {
+        isMounted.current = false;
+      };
+    }, []);
+
     // Listen to WebSocket connection events
     useEffect(() => {
+      if (!isMounted.current) return;
+
       const unsubConnect = subscribe(EventTypes.WEBSOCKET_CONNECTED, handleConnected);
       const unsubDisconnect = subscribe(EventTypes.WEBSOCKET_DISCONNECTED, handleDisconnected);
       const unsubError = subscribe(EventTypes.ERROR_OCCURRED, handleError);
 
       return () => {
-        unsubConnect();
-        unsubDisconnect();
-        unsubError();
+        if (isMounted.current) {
+          unsubConnect();
+          unsubDisconnect();
+          unsubError();
+        }
       };
     }, [subscribe, handleConnected, handleDisconnected, handleError]);
 
     // Handle animation based on connection status
     useEffect(() => {
+      if (!isMounted.current) return;
+
       let isActive = true;
       let cleanupNeeded = false;
 
@@ -204,24 +221,26 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
       if (shouldAnimate && showAnimation && isActive) {
         cleanupNeeded = true;
         try {
-          scale.value = withRepeat(
-            withSequence(
-              withTiming(1.1, {
-                duration: ANIMATION_CONFIG.pulseDuration / 2,
-                easing: Easing.inOut(Easing.sin),
-              }),
-              withTiming(1, {
-                duration: ANIMATION_CONFIG.pulseDuration / 2,
-                easing: Easing.inOut(Easing.sin),
-              })
-            ),
-            -1,
-            false
-          );
+          if (isMounted.current) {
+            scale.value = withRepeat(
+              withSequence(
+                withTiming(1.1, {
+                  duration: ANIMATION_CONFIG.pulseDuration / 2,
+                  easing: Easing.inOut(Easing.sin),
+                }),
+                withTiming(1, {
+                  duration: ANIMATION_CONFIG.pulseDuration / 2,
+                  easing: Easing.inOut(Easing.sin),
+                })
+              ),
+              -1,
+              false
+            );
+          }
         } catch (error) {
           console.error('Error setting up animation:', error);
         }
-      } else if (isActive) {
+      } else if (isActive && isMounted.current) {
         try {
           cancelAnimation(scale);
           scale.value = withTiming(1, { duration: 300, easing: Easing.bezier(0.25, 0.1, 0.25, 1) });
@@ -232,7 +251,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
 
       return () => {
         isActive = false;
-        if (cleanupNeeded) {
+        if (cleanupNeeded && isMounted.current) {
           try {
             cancelAnimation(scale);
             cancelAnimation(iconOpacity);
