@@ -14,24 +14,69 @@ import { EventType } from '@/types/types';
 export const useEventAnalytics = () => {
     const posthog = usePostHog();
 
+    // Safely capture an event with error handling
+    const safeCapture = (eventName: string, properties: Record<string, any>) => {
+        try {
+            if (!posthog) return;
+
+            // Filter out any undefined or null values to prevent crashes
+            const safeProperties = Object.entries(properties).reduce((acc, [key, value]) => {
+                // Skip null, undefined, or empty values
+                if (value === null || value === undefined) return acc;
+
+                // Handle arrays - filter out null/undefined values
+                if (Array.isArray(value)) {
+                    const filteredArray = value.filter(item => item !== null && item !== undefined);
+                    if (filteredArray.length > 0) {
+                        acc[key] = filteredArray;
+                    }
+                    return acc;
+                }
+
+                // Handle objects - recursively clean them
+                if (typeof value === 'object') {
+                    const safeObject = Object.entries(value).reduce((obj, [k, v]) => {
+                        if (v !== null && v !== undefined) {
+                            obj[k] = v;
+                        }
+                        return obj;
+                    }, {} as Record<string, any>);
+
+                    if (Object.keys(safeObject).length > 0) {
+                        acc[key] = safeObject;
+                    }
+                    return acc;
+                }
+
+                // For primitive values, just include them
+                acc[key] = value;
+                return acc;
+            }, {} as Record<string, any>);
+
+            posthog.capture(eventName, safeProperties);
+        } catch (error) {
+            console.error(`Error capturing PostHog event ${eventName}:`, error);
+        }
+    };
+
     /**
      * Track when a user views event details
      * @param event The event being viewed
      */
-    const trackEventView = (event: EventType) => {
-        if (!posthog) return;
+    const trackEventView = (event: EventType | null | undefined) => {
+        if (!event || !event.id) return;
 
-        posthog.capture('event_viewed', {
+        safeCapture('event_viewed', {
             event_id: event.id,
-            event_title: event.title,
+            event_title: event.title || 'Untitled Event',
             event_date: event.eventDate,
             event_location: event.location,
-            event_categories: event.categories,
+            event_categories: event.categories || [],
             event_creator: event.creator?.id,
-            event_scan_count: event.scanCount,
-            event_save_count: event.saveCount,
-            has_qr_code: !!event.qrCodeData || !!event.detectedQrData,
-            qr_detected_in_image: event.qrDetectedInImage || false,
+            event_scan_count: event.scanCount || 0,
+            event_save_count: event.saveCount || 0,
+            has_qr_code: !!(event.qrCodeData || event.detectedQrData),
+            qr_detected_in_image: !!event.qrDetectedInImage,
         });
     };
 
@@ -40,14 +85,14 @@ export const useEventAnalytics = () => {
      * @param event The event associated with the QR code
      * @param source Whether the QR was scanned from the app or from an image
      */
-    const trackQRCodeScan = (event: EventType, source: 'app' | 'image' = 'app') => {
-        if (!posthog) return;
+    const trackQRCodeScan = (event: EventType | null | undefined, source: 'app' | 'image' = 'app') => {
+        if (!event || !event.id) return;
 
-        posthog.capture('qr_code_scanned', {
+        safeCapture('qr_code_scanned', {
             event_id: event.id,
-            event_title: event.title,
+            event_title: event.title || 'Untitled Event',
             qr_source: source,
-            qr_url: event.qrCodeData || event.detectedQrData,
+            qr_url: event.qrCodeData || event.detectedQrData || '',
         });
     };
 
@@ -56,12 +101,12 @@ export const useEventAnalytics = () => {
      * @param event The event associated with the QR code
      * @param url The URL that was opened
      */
-    const trackQRCodeLinkClick = (event: EventType, url: string) => {
-        if (!posthog) return;
+    const trackQRCodeLinkClick = (event: EventType | null | undefined, url: string) => {
+        if (!event || !event.id || !url) return;
 
-        posthog.capture('qr_code_link_clicked', {
+        safeCapture('qr_code_link_clicked', {
             event_id: event.id,
-            event_title: event.title,
+            event_title: event.title || 'Untitled Event',
             qr_url: url,
         });
     };
@@ -71,12 +116,12 @@ export const useEventAnalytics = () => {
      * @param event The event being saved
      * @param action Whether the event was saved or unsaved
      */
-    const trackEventSave = (event: EventType, action: 'save' | 'unsave') => {
-        if (!posthog) return;
+    const trackEventSave = (event: EventType | null | undefined, action: 'save' | 'unsave') => {
+        if (!event || !event.id) return;
 
-        posthog.capture('event_saved', {
+        safeCapture('event_saved', {
             event_id: event.id,
-            event_title: event.title,
+            event_title: event.title || 'Untitled Event',
             action,
         });
     };
@@ -86,12 +131,12 @@ export const useEventAnalytics = () => {
      * @param event The event being shared
      * @param method The sharing method used
      */
-    const trackEventShare = (event: EventType, method: string) => {
-        if (!posthog) return;
+    const trackEventShare = (event: EventType | null | undefined, method: string) => {
+        if (!event || !event.id || !method) return;
 
-        posthog.capture('event_shared', {
+        safeCapture('event_shared', {
             event_id: event.id,
-            event_title: event.title,
+            event_title: event.title || 'Untitled Event',
             share_method: method,
         });
     };
@@ -100,14 +145,14 @@ export const useEventAnalytics = () => {
      * Track when a user opens the map for an event
      * @param event The event being viewed on the map
      */
-    const trackMapOpen = (event: EventType) => {
-        if (!posthog) return;
+    const trackMapOpen = (event: EventType | null | undefined) => {
+        if (!event || !event.id) return;
 
-        posthog.capture('event_map_opened', {
+        safeCapture('event_map_opened', {
             event_id: event.id,
-            event_title: event.title,
-            event_location: event.location,
-            event_coordinates: event.coordinates,
+            event_title: event.title || 'Untitled Event',
+            event_location: event.location || '',
+            event_coordinates: event.coordinates || [],
         });
     };
 
@@ -116,14 +161,14 @@ export const useEventAnalytics = () => {
      * @param event The event to get directions to
      * @param userLocation The user's current location
      */
-    const trackGetDirections = (event: EventType, userLocation: [number, number]) => {
-        if (!posthog) return;
+    const trackGetDirections = (event: EventType | null | undefined, userLocation: [number, number] | null | undefined) => {
+        if (!event || !event.id || !userLocation || userLocation.length !== 2) return;
 
-        posthog.capture('event_directions_requested', {
+        safeCapture('event_directions_requested', {
             event_id: event.id,
-            event_title: event.title,
-            event_location: event.location,
-            event_coordinates: event.coordinates,
+            event_title: event.title || 'Untitled Event',
+            event_location: event.location || '',
+            event_coordinates: event.coordinates || [],
             user_location: userLocation,
         });
     };

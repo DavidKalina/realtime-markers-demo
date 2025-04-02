@@ -16,11 +16,17 @@ const EventQRCodeSection: React.FC<EventQRCodeSection> = ({ event }) => {
   const handleOpenLink = () => {
     const url = event.qrCodeData || event.detectedQrData;
     if (url && url.startsWith("http")) {
-      Linking.openURL(url);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      try {
+        Linking.openURL(url);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Track QR code link click
-      eventAnalytics.trackQRCodeLinkClick(event, url);
+        // Track QR code link click with error handling
+        if (url) {
+          eventAnalytics.trackQRCodeLinkClick(event, url);
+        }
+      } catch (error) {
+        console.error("Error opening QR code link:", error);
+      }
     }
   };
 
