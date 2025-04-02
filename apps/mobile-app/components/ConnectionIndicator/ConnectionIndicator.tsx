@@ -148,6 +148,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
       useState(initialConnectionState);
     const [isVisible, setIsVisible] = useState(true);
     const isMounted = useRef(true);
+    const animationCleanupRef = useRef<(() => void) | null>(null);
 
     // Get network quality state
     const networkState = useNetworkQuality();
@@ -162,26 +163,38 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
     // Create event handlers with useCallback to maintain stable references
     const handleConnected = React.useCallback(() => {
       if (!isMounted.current) return;
-      setIsConnected(true);
-      setHasConnectionEverBeenEstablished(true);
-      setIsVisible(true);
+      try {
+        setIsConnected(true);
+        setHasConnectionEverBeenEstablished(true);
+        setIsVisible(true);
+      } catch (error) {
+        console.error('Error handling connection:', error);
+      }
     }, []);
 
     const handleDisconnected = React.useCallback(() => {
       if (!isMounted.current) return;
-      setIsConnected(false);
-      setIsVisible(true);
+      try {
+        setIsConnected(false);
+        setIsVisible(true);
+      } catch (error) {
+        console.error('Error handling disconnection:', error);
+      }
     }, []);
 
     const handleError = React.useCallback((event: any) => {
       if (!isMounted.current) return;
-      if (
-        event.error &&
-        (event.error.message?.includes("WebSocket") ||
-          event.source?.includes("WebSocket") ||
-          event.source?.includes("useMapWebSocket"))
-      ) {
-        setIsConnected(false);
+      try {
+        if (
+          event.error &&
+          (event.error.message?.includes("WebSocket") ||
+            event.source?.includes("WebSocket") ||
+            event.source?.includes("useMapWebSocket"))
+        ) {
+          setIsConnected(false);
+        }
+      } catch (error) {
+        console.error('Error handling WebSocket error:', error);
       }
     }, []);
 
@@ -189,6 +202,9 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
     useEffect(() => {
       return () => {
         isMounted.current = false;
+        if (animationCleanupRef.current) {
+          animationCleanupRef.current();
+        }
       };
     }, []);
 
@@ -196,17 +212,21 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
     useEffect(() => {
       if (!isMounted.current) return;
 
-      const unsubConnect = subscribe(EventTypes.WEBSOCKET_CONNECTED, handleConnected);
-      const unsubDisconnect = subscribe(EventTypes.WEBSOCKET_DISCONNECTED, handleDisconnected);
-      const unsubError = subscribe(EventTypes.ERROR_OCCURRED, handleError);
+      try {
+        const unsubConnect = subscribe(EventTypes.WEBSOCKET_CONNECTED, handleConnected);
+        const unsubDisconnect = subscribe(EventTypes.WEBSOCKET_DISCONNECTED, handleDisconnected);
+        const unsubError = subscribe(EventTypes.ERROR_OCCURRED, handleError);
 
-      return () => {
-        if (isMounted.current) {
-          unsubConnect();
-          unsubDisconnect();
-          unsubError();
-        }
-      };
+        return () => {
+          if (isMounted.current) {
+            unsubConnect();
+            unsubDisconnect();
+            unsubError();
+          }
+        };
+      } catch (error) {
+        console.error('Error setting up WebSocket subscriptions:', error);
+      }
     }, [subscribe, handleConnected, handleDisconnected, handleError]);
 
     // Handle animation based on connection status
@@ -249,7 +269,8 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
         }
       }
 
-      return () => {
+      // Store cleanup function
+      animationCleanupRef.current = () => {
         isActive = false;
         if (cleanupNeeded && isMounted.current) {
           try {
@@ -260,6 +281,8 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
           }
         }
       };
+
+      return animationCleanupRef.current;
     }, [isConnected, showAnimation, scale, iconOpacity]);
 
     // Create animated styles using Reanimated with error handling
@@ -291,36 +314,51 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
 
     // Get position styles based on position prop
     const positionStyle = useMemo(() => {
-      switch (position) {
-        case "top-left":
-          return { top: 50, left: 16 };
-        case "bottom-right":
-          return { bottom: 50, right: 16 };
-        case "bottom-left":
-          return { bottom: 50, left: 16 };
-        case "custom":
-          return {};
-        case "top-right":
-        default:
-          return { top: 50, left: 16 };
+      try {
+        switch (position) {
+          case "top-left":
+            return { top: 50, left: 16 };
+          case "bottom-right":
+            return { bottom: 50, right: 16 };
+          case "bottom-left":
+            return { bottom: 50, left: 16 };
+          case "custom":
+            return {};
+          case "top-right":
+          default:
+            return { top: 50, left: 16 };
+        }
+      } catch (error) {
+        console.error('Error calculating position style:', error);
+        return { top: 50, left: 16 };
       }
     }, [position]);
 
     // Get status color based on network strength
     const statusColor = useMemo(() => {
-      if (!isConnected) return "#f44336"; // Red when disconnected
-      return getStatusColor(networkState.strength);
+      try {
+        if (!isConnected) return "#f44336"; // Red when disconnected
+        return getStatusColor(networkState.strength);
+      } catch (error) {
+        console.error('Error calculating status color:', error);
+        return "#f44336"; // Default to red on error
+      }
     }, [isConnected, networkState.strength]);
 
     // Combine indicator styles
     const indicatorStyle = useMemo(() => {
-      const baseStyles = [styles.indicator, { backgroundColor: statusColor }];
+      try {
+        const baseStyles = [styles.indicator, { backgroundColor: statusColor }];
 
-      if (!isConnected && showAnimation) {
-        baseStyles.push(scaleAnimatedStyle as any);
+        if (!isConnected && showAnimation) {
+          baseStyles.push(scaleAnimatedStyle as any);
+        }
+
+        return baseStyles;
+      } catch (error) {
+        console.error('Error combining indicator styles:', error);
+        return [styles.indicator, { backgroundColor: statusColor }];
       }
-
-      return baseStyles;
     }, [statusColor, isConnected, showAnimation, scaleAnimatedStyle]);
 
     // If component should not be visible, return null
