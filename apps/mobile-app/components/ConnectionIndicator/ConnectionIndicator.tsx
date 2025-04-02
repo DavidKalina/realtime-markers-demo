@@ -196,50 +196,78 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
 
     // Handle animation based on connection status
     useEffect(() => {
+      let isActive = true;
       let cleanupNeeded = false;
 
       const shouldAnimate = !isConnected;
 
-      if (shouldAnimate && showAnimation) {
+      if (shouldAnimate && showAnimation && isActive) {
         cleanupNeeded = true;
-        scale.value = withRepeat(
-          withSequence(
-            withTiming(1.1, {
-              duration: ANIMATION_CONFIG.pulseDuration / 2,
-              easing: Easing.inOut(Easing.sin),
-            }),
-            withTiming(1, {
-              duration: ANIMATION_CONFIG.pulseDuration / 2,
-              easing: Easing.inOut(Easing.sin),
-            })
-          ),
-          -1,
-          false
-        );
-      } else {
-        cancelAnimation(scale);
-        scale.value = withTiming(1, { duration: 300, easing: Easing.bezier(0.25, 0.1, 0.25, 1) });
+        try {
+          scale.value = withRepeat(
+            withSequence(
+              withTiming(1.1, {
+                duration: ANIMATION_CONFIG.pulseDuration / 2,
+                easing: Easing.inOut(Easing.sin),
+              }),
+              withTiming(1, {
+                duration: ANIMATION_CONFIG.pulseDuration / 2,
+                easing: Easing.inOut(Easing.sin),
+              })
+            ),
+            -1,
+            false
+          );
+        } catch (error) {
+          console.error('Error setting up animation:', error);
+        }
+      } else if (isActive) {
+        try {
+          cancelAnimation(scale);
+          scale.value = withTiming(1, { duration: 300, easing: Easing.bezier(0.25, 0.1, 0.25, 1) });
+        } catch (error) {
+          console.error('Error canceling animation:', error);
+        }
       }
 
       return () => {
+        isActive = false;
         if (cleanupNeeded) {
-          cancelAnimation(scale);
-          cancelAnimation(iconOpacity);
+          try {
+            cancelAnimation(scale);
+            cancelAnimation(iconOpacity);
+          } catch (error) {
+            console.error('Error cleaning up animations:', error);
+          }
         }
       };
     }, [isConnected, showAnimation, scale, iconOpacity]);
 
-    // Create animated styles using Reanimated
+    // Create animated styles using Reanimated with error handling
     const scaleAnimatedStyle = useAnimatedStyle(() => {
-      return {
-        transform: [{ scale: scale.value }],
-      };
+      try {
+        return {
+          transform: [{ scale: scale.value }],
+        };
+      } catch (error) {
+        console.error('Error creating scale animation style:', error);
+        return {
+          transform: [{ scale: 1 }],
+        };
+      }
     });
 
     const statusIconStyle = useAnimatedStyle(() => {
-      return {
-        opacity: iconOpacity.value,
-      };
+      try {
+        return {
+          opacity: iconOpacity.value,
+        };
+      } catch (error) {
+        console.error('Error creating icon animation style:', error);
+        return {
+          opacity: 1,
+        };
+      }
     });
 
     // Get position styles based on position prop

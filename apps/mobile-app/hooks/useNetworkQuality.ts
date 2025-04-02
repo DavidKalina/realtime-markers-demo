@@ -103,6 +103,8 @@ export const useNetworkQuality = () => {
     // Initialize network monitoring
     useEffect(() => {
         let isSubscribed = true;
+        let intervalId: NodeJS.Timeout | null = null;
+        let appStateSubscription: { remove: () => void } | null = null;
 
         const setupNetworkMonitoring = async () => {
             try {
@@ -116,31 +118,41 @@ export const useNetworkQuality = () => {
 
                 // Subscribe to network state changes
                 const unsubscribe = NetInfo.addEventListener((state) => {
+                    if (!isSubscribed) return;
                     console.log('Network state change detected:', state);
-                    if (isSubscribed) {
-                        handleNetworkStateChange(state);
-                    }
+                    handleNetworkStateChange(state);
                 });
 
                 // Set up a periodic check for network changes
-                const intervalId = setInterval(async () => {
-                    if (isSubscribed && appState.current === 'active') {
+                intervalId = setInterval(async () => {
+                    if (!isSubscribed || appState.current !== 'active') return;
+
+                    try {
                         const now = Date.now();
-                        // Only check if at least 5 seconds have passed since last check
-                        if (now - lastCheckTime.current >= 5000) {
+                        // Only check if at least 10 seconds have passed since last check
+                        if (now - lastCheckTime.current >= 10000) {
                             const currentState = await NetInfo.fetch();
-                            handleNetworkStateChange(currentState);
-                            lastCheckTime.current = now;
+                            if (isSubscribed) {
+                                handleNetworkStateChange(currentState);
+                                lastCheckTime.current = now;
+                            }
                         }
+                    } catch (error) {
+                        console.error('Error in network check interval:', error);
                     }
-                }, 5000); // Check every 5 seconds
+                }, 10000);
 
                 // Subscribe to app state changes
-                const appStateSubscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+                appStateSubscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+                    if (!isSubscribed) return;
                     appState.current = nextAppState;
                     if (nextAppState === 'active') {
                         // Check network state when app comes to foreground
-                        NetInfo.fetch().then(handleNetworkStateChange);
+                        NetInfo.fetch().then(state => {
+                            if (isSubscribed) {
+                                handleNetworkStateChange(state);
+                            }
+                        });
                     }
                 });
 
@@ -148,8 +160,8 @@ export const useNetworkQuality = () => {
                     setSubscription(() => {
                         return () => {
                             unsubscribe();
-                            clearInterval(intervalId);
-                            appStateSubscription.remove();
+                            if (intervalId) clearInterval(intervalId);
+                            if (appStateSubscription) appStateSubscription.remove();
                         };
                     });
                 }
@@ -164,6 +176,12 @@ export const useNetworkQuality = () => {
             isSubscribed = false;
             if (subscription) {
                 subscription();
+            }
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+            if (appStateSubscription) {
+                appStateSubscription.remove();
             }
         };
     }, [handleNetworkStateChange]);
