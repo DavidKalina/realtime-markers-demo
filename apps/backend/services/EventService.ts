@@ -733,8 +733,6 @@ export class EventService {
         })
       );
 
-      // Log the generated SQL query
-      console.log('Generated SQL query:', queryBuilder.getSql());
     }
 
     // Execute query
@@ -744,17 +742,7 @@ export class EventService {
       .take(limit + 1)
       .getMany();
 
-    console.log('Query results:', {
-      totalResults: saves.length,
-      firstResult: saves[0] ? {
-        savedAt: saves[0].savedAt,
-        eventId: saves[0].eventId
-      } : null,
-      lastResult: saves[saves.length - 1] ? {
-        savedAt: saves[saves.length - 1].savedAt,
-        eventId: saves[saves.length - 1].eventId
-      } : null
-    });
+
 
     // Process results
     const hasMore = saves.length > limit;
@@ -919,10 +907,7 @@ export class EventService {
 
     // Add cursor conditions if cursor is provided
     if (cursorData) {
-      console.log('Cursor data received:', {
-        discoveredAt: cursorData.discoveredAt,
-        eventId: cursorData.eventId
-      });
+
 
       queryBuilder = queryBuilder.andWhere(
         new Brackets(qb => {
@@ -943,7 +928,6 @@ export class EventService {
       );
 
       // Log the generated SQL query
-      console.log('Generated SQL query:', queryBuilder.getSql());
     }
 
     // Execute query
@@ -952,18 +936,6 @@ export class EventService {
       .addOrderBy("event.id", "DESC")
       .take(limit + 1)
       .getMany();
-
-    console.log('Query results:', {
-      totalResults: discoveries.length,
-      firstResult: discoveries[0] ? {
-        discoveredAt: discoveries[0].discoveredAt,
-        eventId: discoveries[0].eventId
-      } : null,
-      lastResult: discoveries[discoveries.length - 1] ? {
-        discoveredAt: discoveries[discoveries.length - 1].discoveredAt,
-        eventId: discoveries[discoveries.length - 1].eventId
-      } : null
-    });
 
     // Process results
     const hasMore = discoveries.length > limit;

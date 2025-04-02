@@ -148,33 +148,14 @@ const SavedEventsList: React.FC<{
         setIsFetchingMore(true);
       }
 
-      console.log('Fetching saved events:', {
-        refresh,
-        cursor,
-        currentEventsCount: events.length,
-        hasMore,
-        isFetchingMore,
-        isRefreshing
-      });
+
 
       const response = await apiClient.getSavedEvents({
         limit: pageSize,
         cursor: refresh ? undefined : cursor,
       });
 
-      console.log('Saved events response:', {
-        eventsCount: response.events.length,
-        nextCursor: response.nextCursor,
-        hasMore: !!response.nextCursor,
-        firstEvent: response.events[0] ? {
-          id: response.events[0].id,
-          time: response.events[0].time
-        } : null,
-        lastEvent: response.events[response.events.length - 1] ? {
-          id: response.events[response.events.length - 1].id,
-          time: response.events[response.events.length - 1].time
-        } : null
-      });
+
 
       // Update cursor and hasMore state
       setHasMore(!!response.nextCursor);
@@ -197,12 +178,7 @@ const SavedEventsList: React.FC<{
           return !existingEventsMap.has(key);
         });
 
-        console.log('Adding new events:', {
-          newEventsCount: newEvents.length,
-          totalEventsCount: events.length + newEvents.length,
-          existingEventsCount: events.length,
-          duplicateEventsCount: response.events.length - newEvents.length
-        });
+
 
         setEvents(prev => [...prev, ...newEvents]);
       }
@@ -230,14 +206,7 @@ const SavedEventsList: React.FC<{
   }, [fetchEvents]);
 
   const handleLoadMore = useCallback(() => {
-    console.log('Load more triggered:', {
-      isFetchingMore,
-      isRefreshing,
-      hasMore,
-      cursor,
-      currentEventsCount: events.length,
-      timeSinceLastAttempt: Date.now() - lastLoadMoreAttempt
-    });
+
 
     // If we've reached the end (hasMore is false), throttle attempts to once every 20 seconds
     if (!hasMore) {
@@ -304,33 +273,12 @@ const DiscoveredEventsList: React.FC<{
         setIsFetchingMore(true);
       }
 
-      console.log('Fetching discovered events:', {
-        refresh,
-        cursor,
-        currentEventsCount: events.length,
-        hasMore,
-        isFetchingMore,
-        isRefreshing
-      });
-
       const response = await apiClient.getUserDiscoveredEvents({
         limit: pageSize,
         cursor: refresh ? undefined : cursor,
       });
 
-      console.log('Discovered events response:', {
-        eventsCount: response.events.length,
-        nextCursor: response.nextCursor,
-        hasMore: !!response.nextCursor,
-        firstEvent: response.events[0] ? {
-          id: response.events[0].id,
-          time: response.events[0].time
-        } : null,
-        lastEvent: response.events[response.events.length - 1] ? {
-          id: response.events[response.events.length - 1].id,
-          time: response.events[response.events.length - 1].time
-        } : null
-      });
+
 
       setHasMore(!!response.nextCursor);
       setCursor(response.nextCursor);
@@ -352,12 +300,7 @@ const DiscoveredEventsList: React.FC<{
           return !existingEventsMap.has(key);
         });
 
-        console.log('Adding new events:', {
-          newEventsCount: newEvents.length,
-          totalEventsCount: events.length + newEvents.length,
-          existingEventsCount: events.length,
-          duplicateEventsCount: response.events.length - newEvents.length
-        });
+
 
         setEvents(prev => [...prev, ...newEvents]);
       }
@@ -385,27 +328,18 @@ const DiscoveredEventsList: React.FC<{
   }, [fetchEvents]);
 
   const handleLoadMore = useCallback(() => {
-    console.log('Load more triggered:', {
-      isFetchingMore,
-      isRefreshing,
-      hasMore,
-      cursor,
-      currentEventsCount: events.length,
-      timeSinceLastAttempt: Date.now() - lastLoadMoreAttempt
-    });
+
 
     // If we've reached the end (hasMore is false), throttle attempts to once every 20 seconds
     if (!hasMore) {
       const now = Date.now();
       if (now - lastLoadMoreAttempt < 20000) {
-        console.log('Throttling load more attempt - too soon after last attempt');
         return;
       }
       setLastLoadMoreAttempt(now);
     }
 
     if (!isFetchingMore && !isRefreshing && hasMore && cursor) {
-      console.log('Conditions met to load more events with cursor:', cursor);
       fetchEvents();
     } else {
       console.log('Skipping load more due to:', {
@@ -483,14 +417,7 @@ const EventsList = ({
   });
 
   const handleEndReached = useCallback(() => {
-    console.log('FlatList onEndReached triggered:', {
-      isFetchingMore,
-      isRefreshing,
-      eventsCount: events.length,
-      hasMore,
-      cursor,
-      timestamp: new Date().toISOString()
-    });
+
 
     // Only load more if we have scrolled and aren't already loading
     if (!isFetchingMore && !isRefreshing && hasMore && scrollY.value > 0) {
