@@ -385,7 +385,12 @@ const SearchView = () => {
             autoCorrect={false}
             autoFocus={true}
           />
-          {searchQuery !== "" && (
+          {isLoading && searchQuery !== "" && (
+            <View style={styles.searchSpinnerContainer}>
+              <ActivityIndicator size="small" color="#4dabf7" />
+            </View>
+          )}
+          {searchQuery !== "" && !isLoading && (
             <TouchableOpacity
               onPress={handleClearSearch}
               style={styles.clearButton}
@@ -747,8 +752,14 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
 
-  searchSpinner: {
-    marginRight: 8,
+  searchSpinnerContainer: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(73, 171, 247, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 4,
   },
 
   clearButton: {
