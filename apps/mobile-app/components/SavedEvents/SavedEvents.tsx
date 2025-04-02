@@ -371,13 +371,13 @@ const DiscoveredEventsList: React.FC<{
       setIsRefreshing(false);
       setIsFetchingMore(false);
     }
-  }, [cursor]);
+  }, [cursor, events.length, isLoading, pageSize]);
 
   useEffect(() => {
     setCursor(undefined);
     setHasMore(true);
     fetchEvents();
-  }, [fetchEvents]);
+  }, []); // Only run once on mount
 
   const handleRefresh = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -492,17 +492,19 @@ const EventsList = ({
       timestamp: new Date().toISOString()
     });
 
-    if (!isFetchingMore && !isRefreshing && hasMore) {
+    // Only load more if we have scrolled and aren't already loading
+    if (!isFetchingMore && !isRefreshing && hasMore && scrollY.value > 0) {
       console.log('Conditions met to load more events');
       onLoadMore();
     } else {
       console.log('Skipping load more due to:', {
         isFetchingMore,
         isRefreshing,
-        hasMore
+        hasMore,
+        scrollY: scrollY.value
       });
     }
-  }, [isFetchingMore, isRefreshing, events.length, hasMore, cursor, onLoadMore]);
+  }, [isFetchingMore, isRefreshing, events.length, hasMore, cursor, onLoadMore, scrollY.value]);
 
   const getItemLayout = useCallback((data: any, index: number) => ({
     length: 74,
@@ -602,7 +604,7 @@ const EventsList = ({
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         onEndReached={handleEndReached}
-        onEndReachedThreshold={0.5}
+        onEndReachedThreshold={0.2}
         refreshing={isRefreshing}
         onRefresh={onRefresh}
         ListHeaderComponent={ListHeaderComponent}
