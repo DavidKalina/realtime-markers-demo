@@ -1,14 +1,12 @@
 import apiClient from "@/services/ApiClient";
-import { useEventCacheStore } from "@/stores/useEventCacheStore";
 import { EventType } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Bookmark, Calendar, Heart, MapPin, Scan, Search } from "lucide-react-native";
+import { ArrowLeft, Bookmark, Calendar, Heart, MapPin, Scan } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  RefreshControl,
   SafeAreaView,
   StatusBar,
   StyleSheet,
@@ -18,7 +16,6 @@ import {
   ViewStyle
 } from "react-native";
 import Animated, {
-  FadeIn,
   FadeInDown,
   FadeOut,
   FadeOutUp,
