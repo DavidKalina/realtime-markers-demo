@@ -281,97 +281,146 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       try {
         const data = JSON.parse(event.data);
 
+        // Guard against invalid data
+        if (!data || typeof data !== 'object') {
+          console.warn('[useMapWebsocket] Received invalid message data');
+          return;
+        }
 
         switch (data.type) {
           case MessageTypes.CONNECTION_ESTABLISHED:
-            setClientId(data.clientId);
+            if (data.clientId) {
+              setClientId(data.clientId);
+            }
             break;
 
           // Handle complete replacement of all markers
           case MessageTypes.REPLACE_ALL:
           case MessageTypes.VIEWPORT_UPDATE: {
-            const newMarkers = data.events.map(convertEventToMarker);
-            setMarkers(newMarkers);
-            emitMarkersUpdated(newMarkers);
+            if (!Array.isArray(data.events)) {
+              console.warn('[useMapWebsocket] Invalid events array in REPLACE_ALL/VIEWPORT_UPDATE');
+              return;
+            }
 
-            // Signal that search is complete
-            eventBroker.emit<ViewportEvent & { searching: boolean }>(EventTypes.VIEWPORT_CHANGED, {
-              timestamp: Date.now(),
-              source: "useMapWebSocket",
-              viewport: currentViewportRef.current!,
-              markers: newMarkers,
-              searching: false, // Search is complete
-            });
+            try {
+              const newMarkers = data.events.map(convertEventToMarker);
+              setMarkers(newMarkers);
+              emitMarkersUpdated(newMarkers);
+
+              // Signal that search is complete
+              if (currentViewportRef.current) {
+                eventBroker.emit<ViewportEvent & { searching: boolean }>(EventTypes.VIEWPORT_CHANGED, {
+                  timestamp: Date.now(),
+                  source: "useMapWebSocket",
+                  viewport: currentViewportRef.current,
+                  markers: newMarkers,
+                  searching: false,
+                });
+              }
+            } catch (error) {
+              console.error('[useMapWebsocket] Error processing REPLACE_ALL/VIEWPORT_UPDATE:', error);
+            }
             break;
           }
 
           // Handle adding a new event
           case MessageTypes.ADD_EVENT: {
-            const newMarker = convertEventToMarker(data.event);
-            setMarkers((prev) => [...prev, newMarker]);
-            eventBroker.emit<MarkersEvent>(EventTypes.MARKER_ADDED, {
-              timestamp: Date.now(),
-              source: "useMapWebSocket",
-              markers: [newMarker],
-              count: 1,
-            });
+            if (!data.event) {
+              console.warn('[useMapWebsocket] Missing event data in ADD_EVENT');
+              return;
+            }
+
+            try {
+              const newMarker = convertEventToMarker(data.event);
+              setMarkers((prev) => [...prev, newMarker]);
+              eventBroker.emit<MarkersEvent>(EventTypes.MARKER_ADDED, {
+                timestamp: Date.now(),
+                source: "useMapWebSocket",
+                markers: [newMarker],
+                count: 1,
+              });
+            } catch (error) {
+              console.error('[useMapWebsocket] Error processing ADD_EVENT:', error);
+            }
             break;
           }
 
           // Handle updating an existing event
           case MessageTypes.UPDATE_EVENT: {
-            const updatedMarker = convertEventToMarker(data.event);
-            setMarkers((prev) =>
-              prev.map((marker) => (marker.id === updatedMarker.id ? updatedMarker : marker))
-            );
+            if (!data.event) {
+              console.warn('[useMapWebsocket] Missing event data in UPDATE_EVENT');
+              return;
+            }
+
+            try {
+              const updatedMarker = convertEventToMarker(data.event);
+              setMarkers((prev) =>
+                prev.map((marker) => (marker.id === updatedMarker.id ? updatedMarker : marker))
+              );
+            } catch (error) {
+              console.error('[useMapWebsocket] Error processing UPDATE_EVENT:', error);
+            }
             break;
           }
 
           // Handle deleting an event
           case MessageTypes.DELETE_EVENT: {
-            const deletedId = data.id;
-            // Handle marker deselection if needed
-            if (deletedId === selectedMarkerIdRef.current) {
-              selectMarker(null);
-              eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
-                timestamp: Date.now(),
-                source: "useMapWebSocket",
-              });
+            if (!data.id) {
+              console.warn('[useMapWebsocket] Missing id in DELETE_EVENT');
+              return;
             }
 
-            setMarkers((prev) => prev.filter((marker) => marker.id !== deletedId));
-            eventBroker.emit<MarkersEvent>(EventTypes.MARKER_REMOVED, {
-              timestamp: Date.now(),
-              source: "useMapWebSocket",
-              markers: [],
-              count: 1,
-            });
+            try {
+              const deletedId = data.id;
+              // Handle marker deselection if needed
+              if (deletedId === selectedMarkerIdRef.current) {
+                selectMarker(null);
+                eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
+                  timestamp: Date.now(),
+                  source: "useMapWebSocket",
+                });
+              }
+
+              setMarkers((prev) => prev.filter((marker) => marker.id !== deletedId));
+              eventBroker.emit<MarkersEvent>(EventTypes.MARKER_REMOVED, {
+                timestamp: Date.now(),
+                source: "useMapWebSocket",
+                markers: [],
+                count: 1,
+              });
+            } catch (error) {
+              console.error('[useMapWebsocket] Error processing DELETE_EVENT:', error);
+            }
             break;
           }
 
           // Handle discovered events
           case MessageTypes.EVENT_DISCOVERED: {
-
             if (!data.event) {
-              console.error("[useMapWebsocket] Discovery event missing event data");
-              break;
+              console.warn('[useMapWebsocket] Missing event data in EVENT_DISCOVERED');
+              return;
             }
 
-            eventBroker.emit<DiscoveryEvent>(EventTypes.EVENT_DISCOVERED, {
-              timestamp: Date.now(),
-              source: "useMapWebSocket",
-              event: data.event,
-            });
+            try {
+              eventBroker.emit<DiscoveryEvent>(EventTypes.EVENT_DISCOVERED, {
+                timestamp: Date.now(),
+                source: "useMapWebSocket",
+                event: data.event,
+              });
+            } catch (error) {
+              console.error('[useMapWebsocket] Error processing EVENT_DISCOVERED:', error);
+            }
             break;
           }
 
           // Fallback for other message types
           default: {
+            console.debug('[useMapWebsocket] Unhandled message type:', data.type);
             break;
           }
         }
       } catch (err) {
-        console.error("Error parsing WebSocket message:", err);
+        console.error("[useMapWebsocket] Error parsing WebSocket message:", err);
         const errorObj =
           err instanceof Error ? err : new Error("Unknown error parsing WebSocket message");
         setError(errorObj);
@@ -390,74 +439,92 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     try {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
 
+      // Clean up existing connection if any
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+
       wsRef.current = new WebSocket(url);
 
       wsRef.current.onopen = () => {
-        setIsConnected(true);
-        setError(null);
-        eventBroker.emit<BaseEvent>(EventTypes.WEBSOCKET_CONNECTED, {
-          timestamp: Date.now(),
-          source: "useMapWebSocket",
-        });
+        try {
+          setIsConnected(true);
+          setError(null);
+          eventBroker.emit<BaseEvent>(EventTypes.WEBSOCKET_CONNECTED, {
+            timestamp: Date.now(),
+            source: "useMapWebSocket",
+          });
 
-        // Send user identification if authenticated
-        if (isAuthenticated && user?.id) {
-          wsRef.current?.send(
-            JSON.stringify({
-              type: MessageTypes.CLIENT_IDENTIFICATION,
-              userId: user.id,
-            })
-          );
+          // Send user identification if authenticated
+          if (isAuthenticated && user?.id) {
+            wsRef.current?.send(
+              JSON.stringify({
+                type: MessageTypes.CLIENT_IDENTIFICATION,
+                userId: user.id,
+              })
+            );
 
-          console.log(`Identified WebSocket connection with user ID: ${user.id}`);
-        } else {
-          console.warn("Unable to identify WebSocket connection: user not authenticated");
+            console.log(`Identified WebSocket connection with user ID: ${user.id}`);
+          } else {
+            console.warn("Unable to identify WebSocket connection: user not authenticated");
+          }
+
+          // Send viewport update if available (force immediate send)
+          if (currentViewportRef.current) {
+            sendViewportUpdate(true);
+          }
+
+          // First connection is complete
+          isFirstConnectionRef.current = false;
+        } catch (error) {
+          console.error('[useMapWebsocket] Error in onopen handler:', error);
+          setError(error instanceof Error ? error : new Error('Unknown error in onopen handler'));
         }
-
-        // Send viewport update if available (force immediate send)
-        if (currentViewportRef.current) {
-          sendViewportUpdate(true);
-        }
-
-        // First connection is complete
-        isFirstConnectionRef.current = false;
       };
 
       wsRef.current.onmessage = handleWebSocketMessage;
 
       wsRef.current.onclose = (event) => {
-        setIsConnected(false);
-        setClientId(null);
-        eventBroker.emit<BaseEvent>(EventTypes.WEBSOCKET_DISCONNECTED, {
-          timestamp: Date.now(),
-          source: "useMapWebSocket",
-        });
+        try {
+          setIsConnected(false);
+          setClientId(null);
+          eventBroker.emit<BaseEvent>(EventTypes.WEBSOCKET_DISCONNECTED, {
+            timestamp: Date.now(),
+            source: "useMapWebSocket",
+          });
 
-        // Clear any existing reconnect timeout
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
-          reconnectTimeoutRef.current = null;
+          // Clear any existing reconnect timeout
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
+          }
+
+          // Set up reconnection with increasing backoff
+          const reconnectDelay = isFirstConnectionRef.current ? 1000 : 5000;
+
+          reconnectTimeoutRef.current = setTimeout(() => {
+            reconnectTimeoutRef.current = null;
+            connectWebSocket();
+          }, reconnectDelay);
+        } catch (error) {
+          console.error('[useMapWebsocket] Error in onclose handler:', error);
         }
-
-        // Set up reconnection with increasing backoff
-        // Start with 1s for first retry, then 5s for subsequent retries
-        const reconnectDelay = isFirstConnectionRef.current ? 1000 : 5000;
-
-        reconnectTimeoutRef.current = setTimeout(() => {
-          reconnectTimeoutRef.current = null;
-          connectWebSocket();
-        }, reconnectDelay);
       };
 
       wsRef.current.onerror = (event) => {
-        console.error("WebSocket error:", event);
-        const errorObj = new Error("WebSocket connection error");
-        setError(errorObj);
-        eventBroker.emit<BaseEvent & { error: Error }>(EventTypes.ERROR_OCCURRED, {
-          timestamp: Date.now(),
-          source: "useMapWebSocket",
-          error: errorObj,
-        });
+        try {
+          console.error("WebSocket error:", event);
+          const errorObj = new Error("WebSocket connection error");
+          setError(errorObj);
+          eventBroker.emit<BaseEvent & { error: Error }>(EventTypes.ERROR_OCCURRED, {
+            timestamp: Date.now(),
+            source: "useMapWebSocket",
+            error: errorObj,
+          });
+        } catch (error) {
+          console.error('[useMapWebsocket] Error in onerror handler:', error);
+        }
       };
     } catch (err) {
       console.error("Error creating WebSocket connection:", err);
