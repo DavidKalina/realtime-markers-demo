@@ -451,36 +451,77 @@ export class FilterProcessor {
       // 2. Apply strict date range filter if specified
       if (criteria.dateRange) {
         const { start, end } = criteria.dateRange;
-        const eventStartDate = new Date(event.eventDate);
-        const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
 
-        if (start && end) {
-          const filterStartDate = new Date(start);
-          const filterEndDate = new Date(end);
-
-          console.log('Date Filter Debug:', {
-            eventId: event.id,
-            eventTitle: event.title,
-            eventStartDate: eventStartDate.toISOString(),
-            eventEndDate: eventEndDate.toISOString(),
-            filterStartDate: filterStartDate.toISOString(),
-            filterEndDate: filterEndDate.toISOString(),
-            isRejected: eventStartDate > filterEndDate || eventEndDate < filterStartDate,
-            rejectionReason: eventStartDate > filterEndDate ? 'start after filter end' :
-              eventEndDate < filterStartDate ? 'end before filter start' : 'none'
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Raw Date Values:', {
+            eventDate: event.eventDate,
+            eventEndDate: event.endDate,
+            filterStart: start,
+            filterEnd: end
           });
+        }
 
+        // Safely parse dates with error handling
+        let eventStartDate: Date;
+        let eventEndDate: Date;
+        let filterStartDate: Date;
+        let filterEndDate: Date;
 
-          // If event is completely outside the date range, reject immediately
-          if (eventEndDate < filterStartDate || eventStartDate > filterEndDate) {
+        try {
+          // Ensure we have valid date strings before parsing
+          if (!event.eventDate) {
+            console.error('Missing event date');
             return false;
           }
-        } else if (start) {
-          const filterStartDate = new Date(start);
-          if (eventEndDate < filterStartDate) return false;
-        } else if (end) {
-          const filterEndDate = new Date(end);
-          if (eventStartDate > filterEndDate) return false;
+          if (!start || !end) {
+            console.error('Missing filter date range');
+            return false;
+          }
+
+          eventStartDate = new Date(event.eventDate);
+          eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
+          filterStartDate = new Date(start);
+          filterEndDate = new Date(end);
+
+          // Validate dates
+          if (isNaN(eventStartDate.getTime())) {
+            console.error('Invalid event start date:', event.eventDate);
+            return false;
+          }
+          if (isNaN(eventEndDate.getTime())) {
+            console.error('Invalid event end date:', event.endDate);
+            return false;
+          }
+          if (isNaN(filterStartDate.getTime())) {
+            console.error('Invalid filter start date:', start);
+            return false;
+          }
+          if (isNaN(filterEndDate.getTime())) {
+            console.error('Invalid filter end date:', end);
+            return false;
+          }
+
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('Parsed Date Values:', {
+              eventId: event.id,
+              eventTitle: event.title,
+              eventStartDate: eventStartDate.toISOString(),
+              eventEndDate: eventEndDate.toISOString(),
+              filterStartDate: filterStartDate.toISOString(),
+              filterEndDate: filterEndDate.toISOString(),
+              isRejected: eventStartDate > filterEndDate || eventEndDate < filterStartDate,
+              rejectionReason: eventStartDate > filterEndDate ? 'start after filter end' :
+                eventEndDate < filterStartDate ? 'end before filter start' : 'none'
+            });
+          }
+
+          // Include events that overlap with the date range
+          if (eventStartDate > filterEndDate || eventEndDate < filterStartDate) {
+            return false;
+          }
+        } catch (error) {
+          console.error('Error parsing dates:', error);
+          return false;
         }
       }
 
