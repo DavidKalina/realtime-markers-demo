@@ -458,8 +458,25 @@ export class FilterProcessor {
           const filterStartDate = new Date(start);
           const filterEndDate = new Date(end);
 
-          // If event is completely outside the date range, reject immediately
-          if (eventEndDate < filterStartDate || eventStartDate > filterEndDate) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('Date Filter Debug:', {
+              eventId: event.id,
+              eventTitle: event.title,
+              eventStartDate: eventStartDate.toISOString(),
+              eventEndDate: eventEndDate.toISOString(),
+              filterStartDate: filterStartDate.toISOString(),
+              filterEndDate: filterEndDate.toISOString(),
+              isRejected: eventStartDate > filterEndDate || eventEndDate < filterStartDate,
+              rejectionReason: eventStartDate > filterEndDate ? 'start after filter end' :
+                eventEndDate < filterStartDate ? 'end before filter start' : 'none'
+            });
+          }
+
+          // Include events that overlap with the date range
+          // An event is included if:
+          // 1. Event start is before or equal to filter end AND
+          // 2. Event end is after or equal to filter start
+          if (eventStartDate > filterEndDate || eventEndDate < filterStartDate) {
             return false;
           }
         } else if (start) {
