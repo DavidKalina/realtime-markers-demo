@@ -2,25 +2,23 @@ import { AuthWrapper } from "@/components/AuthWrapper";
 import { ConnectionIndicator } from "@/components/ConnectionIndicator/ConnectionIndicator";
 import EventAssistant from "@/components/EventAssistant/EventAssistant";
 import FilterIndicator from "@/components/FilterIndicator/FilterIndicator";
-import DiscoveryIndicator from "@/components/DiscoveryIndicator/DiscoveryIndicator";
 import { styles } from "@/components/homeScreenStyles";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import QueueIndicator from "@/components/QueueIndicator/QueueIndicator";
+import RightIndicatorsContainer from "@/components/RightIndicatorsContainer";
 import { useUserLocation } from "@/contexts/LocationContext";
+import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useGravitationalCamera } from "@/hooks/useGravitationalCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
-import { useMapStyle } from "@/contexts/MapStyleContext";
 import {
   BaseEvent,
   EventTypes,
-  MapItemEvent,
-  MarkerItem,
-  ClusterItem,
+  MapItemEvent
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import MapboxGL from "@rnmapbox/maps";
-import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Platform, Text, View } from "react-native";
 
 // Initialize MapboxGL only once, outside the component
@@ -279,7 +277,7 @@ function HomeScreen() {
         />
         <QueueIndicator position="top-left" />
         <FilterIndicator position="top-left" />
-        <DiscoveryIndicator position="top-right" />
+        <RightIndicatorsContainer />
       </>
     );
   }, [shouldRenderUI, isConnected, selectedItem]);
