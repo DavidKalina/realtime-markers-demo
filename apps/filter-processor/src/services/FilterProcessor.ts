@@ -468,36 +468,42 @@ export class FilterProcessor {
         let filterEndDate: Date;
 
         try {
-          // Ensure we have valid date strings before parsing
-          if (!event.eventDate) {
-            console.error('Missing event date');
-            return false;
-          }
+          // Parse filter dates first
           if (!start || !end) {
             console.error('Missing filter date range');
             return false;
           }
 
-          eventStartDate = new Date(event.eventDate);
-          eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
           filterStartDate = new Date(start);
           filterEndDate = new Date(end);
 
-          // Validate dates
-          if (isNaN(eventStartDate.getTime())) {
-            console.error('Invalid event start date:', event.eventDate);
-            return false;
-          }
-          if (isNaN(eventEndDate.getTime())) {
-            console.error('Invalid event end date:', event.endDate);
-            return false;
-          }
+          // Validate filter dates
           if (isNaN(filterStartDate.getTime())) {
             console.error('Invalid filter start date:', start);
             return false;
           }
           if (isNaN(filterEndDate.getTime())) {
             console.error('Invalid filter end date:', end);
+            return false;
+          }
+
+          // Parse event dates
+          if (!event.eventDate) {
+            console.error('Missing event date');
+            return false;
+          }
+
+          // For single-day events (endDate is null), use eventDate for both start and end
+          eventStartDate = new Date(event.eventDate);
+          eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
+
+          // Validate event dates
+          if (isNaN(eventStartDate.getTime())) {
+            console.error('Invalid event start date:', event.eventDate);
+            return false;
+          }
+          if (isNaN(eventEndDate.getTime())) {
+            console.error('Invalid event end date:', event.endDate);
             return false;
           }
 
