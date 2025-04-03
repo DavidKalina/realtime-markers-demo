@@ -458,6 +458,19 @@ export class FilterProcessor {
           const filterStartDate = new Date(start);
           const filterEndDate = new Date(end);
 
+          console.log('Date Filter Debug:', {
+            eventId: event.id,
+            eventTitle: event.title,
+            eventStartDate: eventStartDate.toISOString(),
+            eventEndDate: eventEndDate.toISOString(),
+            filterStartDate: filterStartDate.toISOString(),
+            filterEndDate: filterEndDate.toISOString(),
+            isRejected: eventStartDate > filterEndDate || eventEndDate < filterStartDate,
+            rejectionReason: eventStartDate > filterEndDate ? 'start after filter end' :
+              eventEndDate < filterStartDate ? 'end before filter start' : 'none'
+          });
+
+
           // If event is completely outside the date range, reject immediately
           if (eventEndDate < filterStartDate || eventStartDate > filterEndDate) {
             return false;
