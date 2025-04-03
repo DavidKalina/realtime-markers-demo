@@ -28,7 +28,7 @@ const RightIndicatorsContainer: React.FC<RightIndicatorsContainerProps> = ({
 
                 {showDiscoveryIndicator && (
                     <Animated.View
-                        style={styles.indicatorContainer}
+                        style={styles.discoveryContainer}
                         layout={LinearTransition.springify()}
                     >
                         <DiscoveryIndicator position="custom" />
@@ -45,13 +45,13 @@ const styles = StyleSheet.create({
         top: 0,
         right: 0,
         bottom: 0,
-        width: 180, // Slightly wider than the discovery indicator (160)
+        width: 180,
         pointerEvents: 'box-none',
         zIndex: 1000,
     },
     indicatorsWrapper: {
         position: 'absolute',
-        top: 50, // Match the top padding from other indicators
+        top: 50,
         right: 16,
         flexDirection: 'column',
         alignItems: 'flex-end',
@@ -59,6 +59,11 @@ const styles = StyleSheet.create({
     },
     indicatorContainer: {
         alignItems: 'flex-end',
+        zIndex: 1,
+    },
+    discoveryContainer: {
+        alignItems: 'flex-end',
+        zIndex: 0,
     },
 });
 
