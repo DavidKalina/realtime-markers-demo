@@ -451,7 +451,7 @@ export class FilterProcessor {
         }
       }
 
-      // 2. Apply strict date range filter if specified
+      // 2. Apply date range filter if specified
       if (criteria.dateRange) {
         const { start, end } = criteria.dateRange;
 
@@ -535,6 +535,11 @@ export class FilterProcessor {
           if (eventStartDate > filterEndDate || eventEndDate < filterStartDate) {
             return false;
           }
+
+          // If this is a date-only filter, return true if the date matches
+          if (!criteria.location && !filter.embedding) {
+            return true;
+          }
         } catch (error) {
           console.error('Error parsing dates:', error);
           return false;
@@ -615,7 +620,12 @@ export class FilterProcessor {
         }
       }
 
-      // Calculate final score
+      // If we only have date criteria and no other criteria, return true if we got this far
+      if (criteria.dateRange && !criteria.location && !filter.embedding) {
+        return true;
+      }
+
+      // Calculate final score for semantic filters
       const finalScore = totalWeight > 0 ? compositeScore / totalWeight : 0;
 
       // Keep threshold low to ensure we catch relevant matches
