@@ -550,34 +550,48 @@ export class FilterProcessor {
             eventEmbedding
           );
 
-          // Base semantic similarity weight
-          compositeScore += similarityScore;
-          totalWeight += 0.4;
+          // Base semantic similarity weight (reduced from 0.4)
+          compositeScore += similarityScore * 0.3;
+          totalWeight += 0.3;
 
           // Additional text matching for better natural language understanding
           if (filter.semanticQuery) {
             const query = filter.semanticQuery.toLowerCase();
+            const eventTitle = event.title.toLowerCase();
+            const eventDesc = event.description?.toLowerCase() || '';
 
-            // Title match (highest weight)
-            if (event.title.toLowerCase().includes(query)) {
+            // Title exact match (highest weight)
+            if (eventTitle === query) {
+              compositeScore += 0.8;
+              totalWeight += 0.3;
+            }
+            // Title contains query
+            else if (eventTitle.includes(query)) {
+              compositeScore += 0.6;
+              totalWeight += 0.2;
+            }
+            // Description contains query
+            else if (eventDesc.includes(query)) {
+              compositeScore += 0.4;
+              totalWeight += 0.1;
+            }
+
+            // Category matching (if available)
+            if (event.categories?.some(cat =>
+              cat.name.toLowerCase().includes(query)
+            )) {
               compositeScore += 0.5;
               totalWeight += 0.2;
             }
 
-            // Description match
-            if (event.description?.toLowerCase().includes(query)) {
-              compositeScore += 0.3;
-              totalWeight += 0.1;
-            }
-
-            // Location-related matches (higher weight when no location filter)
+            // Location-related matches (only if no location filter)
             if (!criteria.location) {
               if (event.address?.toLowerCase().includes(query)) {
-                compositeScore += 0.4;
+                compositeScore += 0.3;
                 totalWeight += 0.1;
               }
               if (event.locationNotes?.toLowerCase().includes(query)) {
-                compositeScore += 0.4;
+                compositeScore += 0.3;
                 totalWeight += 0.1;
               }
             }
@@ -606,11 +620,15 @@ export class FilterProcessor {
         const finalScore = totalWeight > 0 ? compositeScore / totalWeight : 0;
 
         // Dynamic threshold based on filter combination
-        let threshold = 0.7; // Default threshold
+        let threshold = 0.65; // Increased default threshold
 
-        // Lower threshold when relying on semantic matching (no location/date)
+        // Adjust threshold based on filter combination
         if (!criteria.location && !criteria.dateRange) {
-          threshold = 0.5;
+          // When only using semantic matching, be more strict
+          threshold = 0.6;
+        } else if (criteria.location || criteria.dateRange) {
+          // When combining with other filters, be more lenient
+          threshold = 0.55;
         }
 
         // Lower threshold if we have strong text matches
@@ -620,11 +638,21 @@ export class FilterProcessor {
 
         if (process.env.NODE_ENV !== 'production') {
           console.log(
-            `Filter Debug: Event ${event.id} final score: ${finalScore.toFixed(2)} (threshold: ${threshold.toFixed(2)})`
+            `Filter Debug: Event ${event.id} "${event.title}"\n` +
+            `  - Final Score: ${finalScore.toFixed(2)}\n` +
+            `  - Threshold: ${threshold.toFixed(2)}\n` +
+            `  - Passes: ${finalScore >= threshold}\n` +
+            `  - Filter Type: ${!criteria.location && !criteria.dateRange ? 'Semantic Only' : 'Combined'}\n` +
+            `  - Has Text Match: ${filter.semanticQuery ? event.title.toLowerCase().includes(filter.semanticQuery.toLowerCase()) : false}`
           );
         }
 
         return finalScore >= threshold;
+      }
+
+      // If we get here and have a semantic query but no embedding match, return false
+      if (filter.semanticQuery && !hasSemanticQuery) {
+        return false;
       }
 
       // If we get here, we've passed all the non-semantic criteria
@@ -804,3 +832,4 @@ export class FilterProcessor {
     }
   }
 }
+
