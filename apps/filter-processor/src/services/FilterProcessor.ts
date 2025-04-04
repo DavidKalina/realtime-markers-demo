@@ -572,17 +572,6 @@ export class FilterProcessor {
               totalWeight += 0.1;
             }
 
-            // Category matching (second highest weight)
-            if (event.categories?.length) {
-              const categoryMatches = event.categories.filter(cat =>
-                cat.name.toLowerCase().includes(query)
-              );
-              if (categoryMatches.length > 0) {
-                compositeScore += 0.6;
-                totalWeight += 0.2;
-              }
-            }
-
             // Location-related matches (higher weight when no location filter)
             if (!criteria.location) {
               if (event.address?.toLowerCase().includes(query)) {
@@ -604,10 +593,7 @@ export class FilterProcessor {
               similarityScore: similarityScore.toFixed(2),
               compositeScore: compositeScore.toFixed(2),
               totalWeight: totalWeight.toFixed(2),
-              finalScore: (totalWeight > 0 ? compositeScore / totalWeight : 0).toFixed(2),
-              categoryMatches: event.categories?.filter(cat =>
-                cat.name.toLowerCase().includes(filter.semanticQuery?.toLowerCase() || '')
-              ).map(cat => cat.name)
+              finalScore: (totalWeight > 0 ? compositeScore / totalWeight : 0).toFixed(2)
             });
           }
         } catch (error) {
@@ -628,10 +614,7 @@ export class FilterProcessor {
       }
 
       // Lower threshold if we have strong text matches
-      if (filter.semanticQuery && (
-        event.title.toLowerCase().includes(filter.semanticQuery.toLowerCase()) ||
-        event.categories?.some(cat => cat.name.toLowerCase().includes(filter.semanticQuery.toLowerCase()))
-      )) {
+      if (filter.semanticQuery && event.title.toLowerCase().includes(filter.semanticQuery.toLowerCase())) {
         threshold = 0.5;
       }
 
@@ -641,8 +624,7 @@ export class FilterProcessor {
           `  - Final Score: ${finalScore.toFixed(2)}\n` +
           `  - Threshold: ${threshold.toFixed(2)}\n` +
           `  - Passes: ${finalScore >= threshold}\n` +
-          `  - Filter Type: ${!criteria.location && !criteria.dateRange ? 'Semantic Only' : 'Combined'}\n` +
-          `  - Has Category Match: ${filter.semanticQuery ? event.categories?.some(cat => cat.name.toLowerCase().includes(filter.semanticQuery.toLowerCase())) : false}`
+          `  - Filter Type: ${!criteria.location && !criteria.dateRange ? 'Semantic Only' : 'Combined'}`
         );
       }
 
