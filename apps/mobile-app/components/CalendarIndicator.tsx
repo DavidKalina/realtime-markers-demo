@@ -79,8 +79,14 @@ const CalendarIndicator: React.FC = () => {
 
   const handleDateRangeSelect = useCallback(
     (startDate: string | null, endDate: string | null) => {
-      // Get either the active filter or fall back to the first filter
-      const targetFilter = filters.find((f) => activeFilterIds.includes(f.id)) || filters[0];
+      // Get either the active filter or fall back to the oldest filter
+      const targetFilter =
+        filters.find((f) => activeFilterIds.includes(f.id)) ||
+        (filters.length > 0
+          ? filters.reduce((oldest, current) => {
+              return new Date(current.createdAt) < new Date(oldest.createdAt) ? current : oldest;
+            })
+          : null);
 
       if (!targetFilter) {
         console.error("No filter available to update");
