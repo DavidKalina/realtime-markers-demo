@@ -39,6 +39,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
     // Handle date selection
     const handleDayPress = useCallback((date: Date) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // Format the date in UTC to avoid timezone issues
         const dateString = format(date, 'yyyy-MM-dd');
 
         if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
@@ -47,8 +48,8 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
             setSelectedEndDate(undefined);
         } else {
             // Complete selection
-            const start = new Date(selectedStartDate);
-            const end = new Date(dateString);
+            const start = new Date(selectedStartDate + 'T00:00:00.000Z');
+            const end = new Date(dateString + 'T00:00:00.000Z');
 
             if (end < start) {
                 // If end date is before start date, swap them
@@ -100,7 +101,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
         const dateString = format(date, 'yyyy-MM-dd');
         const isSelected = dateString === selectedStartDate || dateString === selectedEndDate;
         const isInRange = selectedStartDate && selectedEndDate &&
-            date > new Date(selectedStartDate) && date < new Date(selectedEndDate);
+            date > new Date(selectedStartDate + 'T00:00:00.000Z') && date < new Date(selectedEndDate + 'T00:00:00.000Z');
         const isStart = dateString === selectedStartDate;
         const isEnd = dateString === selectedEndDate;
 
@@ -193,7 +194,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                         style={styles.dateRangeInfo}
                     >
                         <Text style={styles.dateRangeText}>
-                            {format(new Date(selectedStartDate), 'MMM d')} - {format(new Date(selectedEndDate), 'MMM d')}
+                            {format(new Date(selectedStartDate + 'T00:00:00.000Z'), 'MMM d')} - {format(new Date(selectedEndDate + 'T00:00:00.000Z'), 'MMM d')}
                         </Text>
                         <Text style={styles.dateRangeDuration}>{dateRangeText}</Text>
                     </Animated.View>

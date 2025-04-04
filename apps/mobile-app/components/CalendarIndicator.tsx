@@ -67,9 +67,10 @@ const CalendarIndicator: React.FC = () => {
                     criteria: restCriteria
                 });
             } else if (startDate && endDate) {
-                // Format dates for the filter
+                // Format dates for the filter - ensure they're in UTC
                 const formatDate = (date: string) => {
-                    return new Date(date).toISOString().split('T')[0];
+                    // Add time component to ensure consistent UTC handling
+                    return new Date(date + 'T00:00:00.000Z').toISOString().split('T')[0];
                 };
 
                 const formattedStartDate = formatDate(startDate);
@@ -86,16 +87,16 @@ const CalendarIndicator: React.FC = () => {
         } else if (startDate && endDate) {
             // Format the date range for the name
             const formatDisplayDate = (date: string) => {
-                return new Date(date).toLocaleDateString('en-US', {
+                return new Date(date + 'T00:00:00.000Z').toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric'
                 });
             };
             const name = `${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`;
 
-            // Format dates for the filter
+            // Format dates for the filter - ensure they're in UTC
             const formatDate = (date: string) => {
-                return new Date(date).toISOString().split('T')[0];
+                return new Date(date + 'T00:00:00.000Z').toISOString().split('T')[0];
             };
 
             const formattedStartDate = formatDate(startDate);
