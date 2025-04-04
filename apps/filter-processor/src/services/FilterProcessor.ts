@@ -554,43 +554,43 @@ export class FilterProcessor {
           );
 
           // Base semantic similarity weight (higher weight since we know the embedding is well-structured)
-          compositeScore += similarityScore * 0.6;
-          totalWeight += 0.6;
+          compositeScore += similarityScore * 0.5;
+          totalWeight += 0.5;
 
           // Additional text matching for better natural language understanding
           if (filter.semanticQuery) {
-            // Title match (highest weight, matches the 3x title emphasis in embedding)
+            // Title match (still significant weight)
             if (event.title.toLowerCase().includes(semanticQuery)) {
-              compositeScore += 0.8;
-              totalWeight += 0.2;
+              compositeScore += 0.6;
+              totalWeight += 0.15;
             }
 
-            // Category matching (second highest weight, matches embedding structure)
+            // Category matching (highest weight)
             if (event.categories?.length) {
               const categoryMatches = event.categories.filter(cat =>
                 cat.name.toLowerCase().includes(semanticQuery)
               );
               if (categoryMatches.length > 0) {
-                compositeScore += 0.7;
-                totalWeight += 0.15;
+                compositeScore += 0.8;
+                totalWeight += 0.2;
               }
             }
 
-            // Description match (lower weight)
+            // Description match (second highest weight)
             if (event.description?.toLowerCase().includes(semanticQuery)) {
-              compositeScore += 0.4;
-              totalWeight += 0.05;
+              compositeScore += 0.7;
+              totalWeight += 0.15;
             }
 
-            // Location-related matches (lowest weight, only when no location filter)
+            // Location-related matches (higher weight)
             if (!criteria.location) {
               if (event.address?.toLowerCase().includes(semanticQuery)) {
-                compositeScore += 0.3;
-                totalWeight += 0.05;
+                compositeScore += 0.5;
+                totalWeight += 0.1;
               }
               if (event.locationNotes?.toLowerCase().includes(semanticQuery)) {
-                compositeScore += 0.3;
-                totalWeight += 0.05;
+                compositeScore += 0.6;
+                totalWeight += 0.1;
               }
             }
           }
