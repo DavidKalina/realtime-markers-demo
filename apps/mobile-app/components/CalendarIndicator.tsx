@@ -79,46 +79,44 @@ const CalendarIndicator: React.FC = () => {
 
   const handleDateRangeSelect = useCallback(
     (startDate: string | null, endDate: string | null) => {
-      // Find the date filter (we know it exists from user registration)
-      const dateFilter = filters.find(
-        (filter) => filter.criteria.dateRange || Object.keys(filter.criteria).length === 0
-      );
+      // Get either the active filter or fall back to the first filter
+      const targetFilter = filters.find((f) => activeFilterIds.includes(f.id)) || filters[0];
 
-      if (!dateFilter) {
-        console.error("Expected date filter not found");
+      if (!targetFilter) {
+        console.error("No filter available to update");
         return;
       }
 
       if (startDate === null && endDate === null) {
         // Clear the date range while preserving other criteria
-        const { dateRange, ...restCriteria } = dateFilter.criteria;
+        const { dateRange, ...restCriteria } = targetFilter.criteria;
         const updatedFilter = {
-          ...dateFilter,
+          ...targetFilter,
           criteria: restCriteria,
         };
         // Update the filter and clear active filters
-        updateFilter(dateFilter.id, updatedFilter).then(() => {
+        updateFilter(targetFilter.id, updatedFilter).then(() => {
           clearFilters();
         });
       } else if (startDate && endDate) {
-        // Update the filter with new date range
+        // Update the filter with new date range while preserving other criteria
         const updatedFilter = {
-          ...dateFilter,
+          ...targetFilter,
           name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
           criteria: {
-            ...dateFilter.criteria,
+            ...targetFilter.criteria,
             dateRange: { start: startDate, end: endDate },
           },
         };
-        updateFilter(dateFilter.id, updatedFilter).then(() => {
-          applyFilters([dateFilter.id]);
+        updateFilter(targetFilter.id, updatedFilter).then(() => {
+          applyFilters([targetFilter.id]);
         });
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowCalendar(false);
     },
-    [filters, updateFilter, applyFilters, clearFilters]
+    [filters, activeFilterIds, updateFilter, applyFilters, clearFilters]
   );
 
   return (
