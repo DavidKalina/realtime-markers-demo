@@ -618,11 +618,14 @@ export class FilterProcessor {
           threshold = 0.5;
         }
 
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(
-            `Filter Debug: Event ${event.id} final score: ${finalScore.toFixed(2)} (threshold: ${threshold.toFixed(2)})`
-          );
-        }
+        console.log(
+          `Filter Debug: Event ${event.id} "${event.title}"\n` +
+          `  - Final Score: ${finalScore.toFixed(2)}\n` +
+          `  - Threshold: ${threshold.toFixed(2)}\n` +
+          `  - Passes: ${finalScore >= threshold}\n` +
+          `  - Filter Type: ${!criteria.location && !criteria.dateRange ? 'Semantic Only' : 'Mixed'}\n` +
+          `  - Has Text Match: ${filter.semanticQuery && event.title.toLowerCase().includes(filter.semanticQuery.toLowerCase())}`
+        );
 
         return finalScore >= threshold;
       }
