@@ -8,7 +8,7 @@ import DateRangeCalendar from './DateRangeCalendar';
 import { format, parseISO } from 'date-fns';
 
 const CalendarIndicator: React.FC = () => {
-    const { filters, activeFilterIds, updateFilter, createFilter, applyFilters } = useFilterStore();
+    const { filters, activeFilterIds, updateFilter, createFilter, applyFilters, clearFilters } = useFilterStore();
     const [showCalendar, setShowCalendar] = useState(false);
 
     // Get active filters with date ranges
@@ -49,13 +49,20 @@ const CalendarIndicator: React.FC = () => {
     const handleDateRangeSelect = useCallback((startDate: string | null, endDate: string | null) => {
         if (activeDateFilters.length > 0) {
             const filter = activeDateFilters[0];
+            const isDateExclusive = Object.keys(filter.criteria).length === 1 && filter.criteria.dateRange;
 
-            // If both dates are null, remove the dateRange from criteria
+            // Handle reset case (both dates are null)
             if (startDate === null && endDate === null) {
-                const { dateRange, ...restCriteria } = filter.criteria;
-                updateFilter(filter.id, {
-                    criteria: restCriteria
-                });
+                if (isDateExclusive) {
+                    // If it's a date-exclusive filter, just clear all filters
+                    clearFilters();
+                } else {
+                    // If it's not date-exclusive, just remove the date range criteria
+                    const { dateRange, ...restCriteria } = filter.criteria;
+                    updateFilter(filter.id, {
+                        criteria: restCriteria
+                    });
+                }
             } else if (startDate && endDate) {
                 // Update the filter with the new date range while preserving other criteria
                 const updatedCriteria = { ...filter.criteria };
@@ -74,21 +81,29 @@ const CalendarIndicator: React.FC = () => {
             // Format the date range for the name
             const name = `${format(parseISO(startDate), 'MMM d')} - ${format(parseISO(endDate), 'MMM d')}`;
 
-            // Create a new filter with the date range
+            // Create a new filter with ONLY date range criteria
             const newFilter = {
                 name,
                 criteria: {
                     dateRange: { start: startDate, end: endDate }
                 }
             };
+
+            // Create the filter and apply it
             createFilter(newFilter).then((createdFilter) => {
-                // Immediately apply the newly created filter
                 applyFilters([createdFilter.id]);
+            });
+        } else if (startDate === null && endDate === null && filters.length > 0) {
+            // If clearing date range and we have filters, update the first filter
+            const filter = filters[0];
+            const { dateRange, ...restCriteria } = filter.criteria;
+            updateFilter(filter.id, {
+                criteria: restCriteria
             });
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setShowCalendar(false);
-    }, [activeDateFilters, updateFilter, createFilter, applyFilters]);
+    }, [activeDateFilters, filters, updateFilter, createFilter, applyFilters, clearFilters]);
 
     return (
         <>
