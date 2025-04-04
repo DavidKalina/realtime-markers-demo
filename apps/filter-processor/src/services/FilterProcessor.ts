@@ -546,41 +546,51 @@ export class FilterProcessor {
         try {
           const filterEmbedding = this.vectorService.parseSqlEmbedding(filter.embedding);
           const eventEmbedding = this.vectorService.parseSqlEmbedding(event.embedding);
+          const semanticQuery = filter.semanticQuery?.toLowerCase() || '';
 
           const similarityScore = this.vectorService.calculateSimilarity(
             filterEmbedding,
             eventEmbedding
           );
 
-          // Base semantic similarity weight
-          compositeScore += similarityScore;
-          totalWeight += 0.4;
+          // Base semantic similarity weight (higher weight since we know the embedding is well-structured)
+          compositeScore += similarityScore * 0.6;
+          totalWeight += 0.6;
 
           // Additional text matching for better natural language understanding
           if (filter.semanticQuery) {
-            const query = filter.semanticQuery.toLowerCase();
-
-            // Title match (highest weight)
-            if (event.title.toLowerCase().includes(query)) {
-              compositeScore += 0.5;
+            // Title match (highest weight, matches the 3x title emphasis in embedding)
+            if (event.title.toLowerCase().includes(semanticQuery)) {
+              compositeScore += 0.8;
               totalWeight += 0.2;
             }
 
-            // Description match
-            if (event.description?.toLowerCase().includes(query)) {
-              compositeScore += 0.3;
-              totalWeight += 0.1;
+            // Category matching (second highest weight, matches embedding structure)
+            if (event.categories?.length) {
+              const categoryMatches = event.categories.filter(cat =>
+                cat.name.toLowerCase().includes(semanticQuery)
+              );
+              if (categoryMatches.length > 0) {
+                compositeScore += 0.7;
+                totalWeight += 0.15;
+              }
             }
 
-            // Location-related matches (higher weight when no location filter)
+            // Description match (lower weight)
+            if (event.description?.toLowerCase().includes(semanticQuery)) {
+              compositeScore += 0.4;
+              totalWeight += 0.05;
+            }
+
+            // Location-related matches (lowest weight, only when no location filter)
             if (!criteria.location) {
-              if (event.address?.toLowerCase().includes(query)) {
-                compositeScore += 0.4;
-                totalWeight += 0.1;
+              if (event.address?.toLowerCase().includes(semanticQuery)) {
+                compositeScore += 0.3;
+                totalWeight += 0.05;
               }
-              if (event.locationNotes?.toLowerCase().includes(query)) {
-                compositeScore += 0.4;
-                totalWeight += 0.1;
+              if (event.locationNotes?.toLowerCase().includes(semanticQuery)) {
+                compositeScore += 0.3;
+                totalWeight += 0.05;
               }
             }
           }
@@ -593,7 +603,10 @@ export class FilterProcessor {
               similarityScore: similarityScore.toFixed(2),
               compositeScore: compositeScore.toFixed(2),
               totalWeight: totalWeight.toFixed(2),
-              finalScore: (totalWeight > 0 ? compositeScore / totalWeight : 0).toFixed(2)
+              finalScore: (totalWeight > 0 ? compositeScore / totalWeight : 0).toFixed(2),
+              categoryMatches: event.categories?.filter(cat =>
+                cat.name.toLowerCase().includes(semanticQuery)
+              ).map(cat => cat.name)
             });
           }
         } catch (error) {
@@ -605,17 +618,12 @@ export class FilterProcessor {
       // Calculate final score
       const finalScore = totalWeight > 0 ? compositeScore / totalWeight : 0;
 
-      // Dynamic threshold based on filter combination
-      let threshold = 0.7; // Default threshold
+      // Keep threshold high to ensure relevance
+      let threshold = 0.75; // Increased default threshold
 
-      // Lower threshold when relying on semantic matching (no location/date)
-      if (!criteria.location && !criteria.dateRange) {
-        threshold = 0.5;
-      }
-
-      // Lower threshold if we have strong text matches
-      if (filter.semanticQuery && event.title.toLowerCase().includes(filter.semanticQuery.toLowerCase())) {
-        threshold = 0.5;
+      // Only slightly lower threshold when combining with other filters
+      if (criteria.location || criteria.dateRange) {
+        threshold = 0.7;
       }
 
       if (process.env.NODE_ENV !== 'production') {
@@ -624,7 +632,8 @@ export class FilterProcessor {
           `  - Final Score: ${finalScore.toFixed(2)}\n` +
           `  - Threshold: ${threshold.toFixed(2)}\n` +
           `  - Passes: ${finalScore >= threshold}\n` +
-          `  - Filter Type: ${!criteria.location && !criteria.dateRange ? 'Semantic Only' : 'Combined'}`
+          `  - Filter Type: ${!criteria.location && !criteria.dateRange ? 'Semantic Only' : 'Combined'}\n` +
+          `  - Has Category Match: ${event.categories?.some(cat => cat.name.toLowerCase().includes(filter.semanticQuery!.toLowerCase())) || false}`
         );
       }
 
