@@ -1,6 +1,13 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View, Modal } from 'react-native';
-import Animated, { BounceIn, LinearTransition } from 'react-native-reanimated';
+import Animated, {
+    BounceIn,
+    LinearTransition,
+    useSharedValue,
+    cancelAnimation,
+    FadeIn,
+    FadeOut
+} from 'react-native-reanimated';
 import { Calendar } from 'lucide-react-native';
 import { useFilterStore } from '@/stores/useFilterStore';
 import * as Haptics from 'expo-haptics';
@@ -10,6 +17,29 @@ import { format, parseISO } from 'date-fns';
 const CalendarIndicator: React.FC = () => {
     const { filters, activeFilterIds, updateFilter, createFilter, applyFilters, clearFilters } = useFilterStore();
     const [showCalendar, setShowCalendar] = useState(false);
+    const isMounted = useRef(true);
+    const modalAnim = useSharedValue(0);
+
+    // Cleanup animations
+    const cleanupAnimations = useCallback(() => {
+        if (!isMounted.current) return;
+        cancelAnimation(modalAnim);
+        modalAnim.value = 0;
+    }, [modalAnim]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            isMounted.current = false;
+            cleanupAnimations();
+        };
+    }, [cleanupAnimations]);
+
+    // Handle modal close with cleanup
+    const handleCloseModal = useCallback(() => {
+        cleanupAnimations();
+        setShowCalendar(false);
+    }, [cleanupAnimations]);
 
     // Get active filters with date ranges
     const activeDateFilters = useMemo(() => {
@@ -162,16 +192,20 @@ const CalendarIndicator: React.FC = () => {
                 visible={showCalendar}
                 transparent={true}
                 animationType="fade"
-                onRequestClose={() => setShowCalendar(false)}
+                onRequestClose={handleCloseModal}
             >
-                <View style={styles.modalOverlay}>
+                <Animated.View
+                    style={styles.modalOverlay}
+                    entering={FadeIn.duration(200)}
+                    exiting={FadeOut.duration(200)}
+                >
                     <DateRangeCalendar
                         startDate={activeDateFilters[0]?.criteria.dateRange?.start}
                         endDate={activeDateFilters[0]?.criteria.dateRange?.end}
                         onDateRangeSelect={handleDateRangeSelect}
-                        onClose={() => setShowCalendar(false)}
+                        onClose={handleCloseModal}
                     />
-                </View>
+                </Animated.View>
             </Modal>
         </>
     );

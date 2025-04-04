@@ -1,9 +1,16 @@
 import { addMonths, eachDayOfInterval, endOfMonth, format, isSameMonth, isToday, parseISO, startOfMonth, subMonths } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import Animated, {
+    SlideInDown,
+    SlideOutDown,
+    useSharedValue,
+    withTiming,
+    runOnJS,
+    cancelAnimation
+} from 'react-native-reanimated';
 
 interface DateRangeCalendarProps {
     startDate?: string;
@@ -21,6 +28,32 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
     const [selectedStartDate, setSelectedStartDate] = useState<string | undefined>(startDate);
     const [selectedEndDate, setSelectedEndDate] = useState<string | undefined>(endDate);
     const [currentMonth, setCurrentMonth] = useState(new Date());
+    const isMounted = useRef(true);
+    const slideAnim = useSharedValue(0);
+    const containerAnim = useSharedValue(0);
+
+    // Cleanup animations
+    const cleanupAnimations = useCallback(() => {
+        if (!isMounted.current) return;
+        cancelAnimation(slideAnim);
+        cancelAnimation(containerAnim);
+        slideAnim.value = 0;
+        containerAnim.value = 0;
+    }, [slideAnim, containerAnim]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            isMounted.current = false;
+            cleanupAnimations();
+        };
+    }, [cleanupAnimations]);
+
+    // Handle close with animation cleanup
+    const handleClose = useCallback(() => {
+        cleanupAnimations();
+        onClose();
+    }, [onClose, cleanupAnimations]);
 
     // Check if we can navigate to previous month
     const canGoBack = useMemo(() => {
@@ -126,10 +159,14 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
         <Animated.View
             style={styles.container}
             entering={SlideInDown.springify().damping(15).stiffness(100)}
-            exiting={SlideOutDown.springify().damping(15).stiffness(100)}
+            exiting={SlideOutDown.springify().damping(15).stiffness(100).withCallback((finished) => {
+                if (finished) {
+                    runOnJS(cleanupAnimations)();
+                }
+            })}
         >
             <View style={styles.header}>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                     <X size={20} color="#f8f9fa" />
                 </TouchableOpacity>
                 <Text style={styles.title}>Select Date Range</Text>

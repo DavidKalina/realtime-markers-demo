@@ -244,11 +244,32 @@ const FiltersView: React.FC = () => {
     Keyboard.dismiss();
   };
 
-  // Close modal
-  const handleCloseModal = () => {
+  // Add modal animation cleanup
+  const modalAnimationProgress = useSharedValue(0);
+  const modalContentAnimationProgress = useSharedValue(0);
+
+  // Cleanup modal animations
+  const cleanupModalAnimations = useCallback(() => {
+    if (!isMounted.current) return;
+    modalAnimationProgress.value = 0;
+    modalContentAnimationProgress.value = 0;
+  }, []);
+
+  // Handle modal close with cleanup
+  const handleCloseModal = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    cleanupModalAnimations();
     setModalVisible(false);
-  };
+    setEditingFilter(null);
+    setFilterName("");
+    setSemanticQuery("");
+    setIsActive(true);
+    setStartDate("");
+    setEndDate("");
+    setRadius(undefined);
+    setLocation(null);
+    setIsLocationEnabled(false);
+  }, [cleanupModalAnimations]);
 
   // Delete a filter
   const handleDeleteFilter = (filterId: string) => {
@@ -662,6 +683,7 @@ const FiltersView: React.FC = () => {
         transparent={true}
         visible={modalVisible}
         onRequestClose={handleCloseModal}
+        onDismiss={cleanupModalAnimations}
       >
         <Animated.View
           style={[styles.modalContainer]}
@@ -669,7 +691,7 @@ const FiltersView: React.FC = () => {
           exiting={FadeOut.duration(150)}
           onLayout={() => {
             if (!isMounted.current) {
-              cancelAnimation(scrollY);
+              cleanupModalAnimations();
             }
           }}
         >
@@ -679,7 +701,11 @@ const FiltersView: React.FC = () => {
               .damping(12)
               .stiffness(100)
               .withInitialValues({ transform: [{ translateY: 50 }, { scale: 0.9 }] })}
-            exiting={SlideOutDown.duration(150)}
+            exiting={SlideOutDown.duration(150).withCallback((finished) => {
+              if (finished) {
+                cleanupModalAnimations();
+              }
+            })}
             layout={Layout.springify().damping(12).stiffness(100)}
           >
             <View style={styles.modalHeader}>
