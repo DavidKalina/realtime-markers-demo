@@ -81,26 +81,7 @@ export class EventService {
     };
   }
 
-  private async generateEmbedding(text: string): Promise<number[]> {
-    const cachedEmbedding = CacheService.getCachedEmbedding(text);
-    if (cachedEmbedding) {
-      return cachedEmbedding;
-    }
 
-    // If not in cache, generate new embedding
-    const openai = OpenAIService.getInstance();
-    const response = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: text,
-      encoding_format: "float",
-    });
-
-    const embedding = response.data[0].embedding;
-    // Save to cache
-    CacheService.setCachedEmbedding(text, embedding);
-
-    return embedding;
-  }
 
   async getEvents(options: { limit?: number; offset?: number } = {}) {
     const { limit = 10, offset = 0 } = options;
