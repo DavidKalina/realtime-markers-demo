@@ -15,6 +15,8 @@ import {
 } from "react-native";
 import Animated, {
   BounceIn,
+  FadeInDown,
+  FadeOut,
   LinearTransition,
   SlideOutRight,
   cancelAnimation,
@@ -401,11 +403,13 @@ const FiltersView: React.FC = () => {
           <Animated.FlatList
             ref={listRef}
             data={filters}
-            renderItem={({ item }) => (
+            renderItem={({ index, item }) => (
               <Animated.View
-                entering={BounceIn}
-                exiting={SlideOutRight.duration(400)}
-                layout={LinearTransition.springify()}
+                entering={FadeInDown.duration(600)
+                  .delay(index * 100)
+                  .springify()}
+                exiting={FadeOut.duration(200)}
+                layout={LinearTransition.duration(300)}
               >
                 <FilterListItem
                   item={item}
