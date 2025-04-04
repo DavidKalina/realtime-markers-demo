@@ -53,36 +53,70 @@ const CalendarIndicator: React.FC = () => {
         if (activeFilter) {
             // If we have an active filter, update its criteria
             if (startDate === null && endDate === null) {
-                // If clearing date range, remove it from criteria
+                // First remove date range from criteria while preserving other criteria
                 const { dateRange, ...restCriteria } = activeFilter.criteria;
-                updateFilter(activeFilter.id, {
+                const updatedFilter = {
+                    ...activeFilter,
                     criteria: restCriteria
+                };
+                // Update the filter first
+                updateFilter(activeFilter.id, updatedFilter).then(() => {
+                    // Then clear all active filters
+                    clearFilters();
                 });
             } else if (startDate && endDate) {
                 // Update the filter with the new date range while preserving other criteria
-                updateFilter(activeFilter.id, {
+                const updatedFilter = {
+                    ...activeFilter,
                     criteria: {
                         ...activeFilter.criteria,
                         dateRange: { start: startDate, end: endDate }
                     }
-                });
+                };
+                updateFilter(activeFilter.id, updatedFilter);
             }
         } else if (startDate && endDate) {
-            // Only create a new filter if there are no active filters
-            const name = `${format(parseISO(startDate), 'MMM d')} - ${format(parseISO(endDate), 'MMM d')}`;
-            const newFilter = {
-                name,
-                criteria: {
-                    dateRange: { start: startDate, end: endDate }
-                }
-            };
-            createFilter(newFilter).then((createdFilter) => {
-                applyFilters([createdFilter.id]);
+            // Check if there's an existing date-only filter
+            const existingDateOnlyFilter = filters.find(filter => {
+                const criteria = filter.criteria;
+                return (
+                    criteria.dateRange && // Has date range
+                    !criteria.location && // No location
+                    !filter.semanticQuery && // No semantic query
+                    Object.keys(criteria).length === 1 // Only has date range criteria
+                );
             });
+
+            if (existingDateOnlyFilter) {
+                // Update the existing date-only filter
+                const updatedFilter = {
+                    ...existingDateOnlyFilter,
+                    name: `${format(parseISO(startDate), 'MMM d')} - ${format(parseISO(endDate), 'MMM d')}`,
+                    criteria: {
+                        dateRange: { start: startDate, end: endDate }
+                    }
+                };
+                updateFilter(existingDateOnlyFilter.id, updatedFilter).then(() => {
+                    // Apply the updated filter
+                    applyFilters([existingDateOnlyFilter.id]);
+                });
+            } else {
+                // Create a new filter if no existing date-only filter found
+                const name = `${format(parseISO(startDate), 'MMM d')} - ${format(parseISO(endDate), 'MMM d')}`;
+                const newFilter = {
+                    name,
+                    criteria: {
+                        dateRange: { start: startDate, end: endDate }
+                    }
+                };
+                createFilter(newFilter).then((createdFilter) => {
+                    applyFilters([createdFilter.id]);
+                });
+            }
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setShowCalendar(false);
-    }, [filters, activeFilterIds, updateFilter, createFilter, applyFilters]);
+    }, [filters, activeFilterIds, updateFilter, createFilter, applyFilters, clearFilters]);
 
     return (
         <>

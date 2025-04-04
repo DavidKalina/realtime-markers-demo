@@ -1,9 +1,9 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, parseISO } from 'date-fns';
-import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
+import { addMonths, eachDayOfInterval, endOfMonth, format, isSameMonth, isToday, parseISO, startOfMonth, subMonths } from 'date-fns';
 import * as Haptics from 'expo-haptics';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
 
 interface DateRangeCalendarProps {
     startDate?: string;
