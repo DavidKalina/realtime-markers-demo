@@ -316,10 +316,13 @@ const FiltersView: React.FC = () => {
       name: filterName.trim(),
       semanticQuery: semanticQuery.trim(),
       criteria: {
-        dateRange: {
-          start: startDate || undefined,
-          end: endDate || undefined,
-        },
+        // Only include dateRange if we have valid dates
+        ...(startDate && endDate ? {
+          dateRange: {
+            start: startDate,
+            end: endDate,
+          }
+        } : {}),
         // Only include location if enabled and we have both location and radius
         ...(isLocationEnabled && location && radius ? {
           location: {

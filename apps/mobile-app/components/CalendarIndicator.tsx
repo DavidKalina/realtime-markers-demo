@@ -57,10 +57,15 @@ const CalendarIndicator: React.FC = () => {
                     criteria: restCriteria
                 });
             } else if (startDate && endDate) {
-                // Update the filter with the new date range
+                // Update the filter with the new date range while preserving other criteria
+                const updatedCriteria = { ...filter.criteria };
+                if (Object.keys(updatedCriteria.dateRange || {}).length === 0) {
+                    // If dateRange is empty, remove it before adding the new one
+                    delete updatedCriteria.dateRange;
+                }
                 updateFilter(filter.id, {
                     criteria: {
-                        ...filter.criteria,
+                        ...updatedCriteria,
                         dateRange: { start: startDate, end: endDate }
                     }
                 });
