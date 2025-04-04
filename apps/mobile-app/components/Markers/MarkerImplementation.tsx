@@ -13,7 +13,7 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
 import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useMemo, useRef } from "react";
-import Animated, { BounceIn, Layout, LinearTransition } from "react-native-reanimated";
+import Animated, { BounceIn, BounceOut, Layout, LinearTransition } from "react-native-reanimated";
 import { ClusterMarker } from "./ClusterMarker";
 import { MysteryEmojiMarker } from "./CustomMapMarker";
 
@@ -73,6 +73,7 @@ const SingleMarkerView = React.memo(
       >
         <Animated.View
           entering={BounceIn.duration(500).springify().damping(15).stiffness(200).delay(index * 300)}
+          exiting={BounceOut.duration(500).springify().damping(15).stiffness(200).delay(index * 300)}
           layout={LinearTransition.springify()}
         >
           <MysteryEmojiMarker
