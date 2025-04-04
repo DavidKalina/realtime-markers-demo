@@ -5,6 +5,7 @@ import { Calendar } from 'lucide-react-native';
 import { useFilterStore } from '@/stores/useFilterStore';
 import * as Haptics from 'expo-haptics';
 import DateRangeCalendar from './DateRangeCalendar';
+import { format, parseISO } from 'date-fns';
 
 const CalendarIndicator: React.FC = () => {
     const { filters, activeFilterIds, updateFilter, createFilter, applyFilters } = useFilterStore();
@@ -27,26 +28,15 @@ const CalendarIndicator: React.FC = () => {
 
         if (!start && !end) return null;
 
-        const startDate = start ? new Date(start) : null;
-        const endDate = end ? new Date(end) : null;
-
-        if (startDate && endDate) {
-            // Format dates to be more readable
-            const formatDate = (date: Date) => {
-                return date.toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric'
-                });
-            };
-
-            return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+        if (start && end) {
+            return `${format(parseISO(start), 'MMM d')} - ${format(parseISO(end), 'MMM d')}`;
         }
 
         if (start) {
-            return `From ${new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+            return `From ${format(parseISO(start), 'MMM d')}`;
         }
         if (end) {
-            return `Until ${new Date(end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+            return `Until ${format(parseISO(end), 'MMM d')}`;
         }
         return null;
     }, [activeDateFilters]);
@@ -67,46 +57,23 @@ const CalendarIndicator: React.FC = () => {
                     criteria: restCriteria
                 });
             } else if (startDate && endDate) {
-                // Format dates for the filter - ensure they're in UTC
-                const formatDate = (date: string) => {
-                    // Add time component to ensure consistent UTC handling
-                    return new Date(date + 'T00:00:00.000Z').toISOString().split('T')[0];
-                };
-
-                const formattedStartDate = formatDate(startDate);
-                const formattedEndDate = formatDate(endDate);
-
                 // Update the filter with the new date range
                 updateFilter(filter.id, {
                     criteria: {
                         ...filter.criteria,
-                        dateRange: { start: formattedStartDate, end: formattedEndDate }
+                        dateRange: { start: startDate, end: endDate }
                     }
                 });
             }
         } else if (startDate && endDate) {
             // Format the date range for the name
-            const formatDisplayDate = (date: string) => {
-                return new Date(date + 'T00:00:00.000Z').toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric'
-                });
-            };
-            const name = `${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`;
-
-            // Format dates for the filter - ensure they're in UTC
-            const formatDate = (date: string) => {
-                return new Date(date + 'T00:00:00.000Z').toISOString().split('T')[0];
-            };
-
-            const formattedStartDate = formatDate(startDate);
-            const formattedEndDate = formatDate(endDate);
+            const name = `${format(parseISO(startDate), 'MMM d')} - ${format(parseISO(endDate), 'MMM d')}`;
 
             // Create a new filter with the date range
             const newFilter = {
                 name,
                 criteria: {
-                    dateRange: { start: formattedStartDate, end: formattedEndDate }
+                    dateRange: { start: startDate, end: endDate }
                 }
             };
             createFilter(newFilter).then((createdFilter) => {

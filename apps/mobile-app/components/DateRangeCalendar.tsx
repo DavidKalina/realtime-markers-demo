@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay } from 'date-fns';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, parseISO } from 'date-fns';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -48,8 +48,8 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
             setSelectedEndDate(undefined);
         } else {
             // Complete selection
-            const start = new Date(selectedStartDate + 'T00:00:00.000Z');
-            const end = new Date(dateString + 'T00:00:00.000Z');
+            const start = parseISO(selectedStartDate);
+            const end = parseISO(dateString);
 
             if (end < start) {
                 // If end date is before start date, swap them
@@ -85,8 +85,8 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
     const dateRangeText = useMemo(() => {
         if (!selectedStartDate || !selectedEndDate) return '';
 
-        const start = new Date(selectedStartDate);
-        const end = new Date(selectedEndDate);
+        const start = parseISO(selectedStartDate);
+        const end = parseISO(selectedEndDate);
         const diffTime = Math.abs(end.getTime() - start.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -101,7 +101,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
         const dateString = format(date, 'yyyy-MM-dd');
         const isSelected = dateString === selectedStartDate || dateString === selectedEndDate;
         const isInRange = selectedStartDate && selectedEndDate &&
-            date > new Date(selectedStartDate + 'T00:00:00.000Z') && date < new Date(selectedEndDate + 'T00:00:00.000Z');
+            date > parseISO(selectedStartDate) && date < parseISO(selectedEndDate);
         const isStart = dateString === selectedStartDate;
         const isEnd = dateString === selectedEndDate;
 
@@ -133,7 +133,6 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                     <X size={20} color="#f8f9fa" />
                 </TouchableOpacity>
                 <Text style={styles.title}>Select Date Range</Text>
-                <View style={styles.closeButton} />
             </View>
 
             <View style={styles.calendarContainer}>
@@ -187,18 +186,20 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
             </View>
 
             <View style={styles.footer}>
-                {selectedStartDate && selectedEndDate && (
-                    <Animated.View
-                        entering={FadeIn}
-                        exiting={FadeOut}
-                        style={styles.dateRangeInfo}
-                    >
-                        <Text style={styles.dateRangeText}>
-                            {format(new Date(selectedStartDate + 'T00:00:00.000Z'), 'MMM d')} - {format(new Date(selectedEndDate + 'T00:00:00.000Z'), 'MMM d')}
-                        </Text>
-                        <Text style={styles.dateRangeDuration}>{dateRangeText}</Text>
-                    </Animated.View>
-                )}
+                <Animated.View
+                    style={styles.dateRangeInfo}
+                >
+                    {selectedStartDate && selectedEndDate ? (
+                        <>
+                            <Text style={styles.dateRangeText}>
+                                {format(parseISO(selectedStartDate), 'MMM d')} - {format(parseISO(selectedEndDate), 'MMM d')}
+                            </Text>
+                            <Text style={styles.dateRangeDuration}>{dateRangeText}</Text>
+                        </>
+                    ) : (
+                        <Text style={styles.placeholderText}>Select a date range</Text>
+                    )}
+                </Animated.View>
 
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity
@@ -236,8 +237,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#3a3a3a',
         borderRadius: 16,
         overflow: 'hidden',
-        width: '100%',
-        maxHeight: '85%',
+        width: '90%',
+        maxHeight: '75%',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
@@ -255,10 +256,13 @@ const styles = StyleSheet.create({
         borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     },
     title: {
+        flex: 1,
+        textAlign: 'center',
         fontSize: 18,
         fontWeight: '600',
         color: '#f8f9fa',
         fontFamily: 'SpaceMono',
+        marginRight: 36,
     },
     closeButton: {
         width: 36,
@@ -357,7 +361,8 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     dateRangeInfo: {
-        marginBottom: 16,
+        height: 60,
+        justifyContent: 'center',
         alignItems: 'center',
     },
     dateRangeText: {
@@ -410,6 +415,11 @@ const styles = StyleSheet.create({
         color: '#ffffff',
         fontSize: 15,
         fontWeight: '600',
+        fontFamily: 'SpaceMono',
+    },
+    placeholderText: {
+        fontSize: 14,
+        color: '#adb5bd',
         fontFamily: 'SpaceMono',
     },
 });
