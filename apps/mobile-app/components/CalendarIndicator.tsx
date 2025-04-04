@@ -76,16 +76,27 @@ const CalendarIndicator: React.FC = () => {
                 updateFilter(activeFilter.id, updatedFilter);
             }
         } else if (startDate && endDate) {
-            // Check if there's an existing date-only filter
+            // Always check for existing date-only filters before creating a new one
             const existingDateOnlyFilter = filters.find(filter => {
-                const criteria = filter.criteria;
-                return (
-                    criteria.dateRange && // Has date range
-                    !criteria.location && // No location
-                    !filter.semanticQuery && // No semantic query
-                    Object.keys(criteria).length === 1 // Only has date range criteria
-                );
+                // Check if this is a date-only filter or has empty criteria
+                const isDateOnly =
+                    (filter.criteria.dateRange && // Has date range
+                        !filter.criteria.location && // No location
+                        !filter.semanticQuery && // No semantic query
+                        Object.keys(filter.criteria).length === 1) || // Only has date range criteria
+                    Object.keys(filter.criteria).length === 0; // Or has empty criteria
+
+                console.log('Checking filter:', {
+                    id: filter.id,
+                    name: filter.name,
+                    criteria: filter.criteria,
+                    isDateOnly
+                });
+
+                return isDateOnly;
             });
+
+            console.log('Found existing date-only filter:', existingDateOnlyFilter);
 
             if (existingDateOnlyFilter) {
                 // Update the existing date-only filter
@@ -96,11 +107,13 @@ const CalendarIndicator: React.FC = () => {
                         dateRange: { start: startDate, end: endDate }
                     }
                 };
+                console.log('Updating existing filter:', updatedFilter);
                 updateFilter(existingDateOnlyFilter.id, updatedFilter).then(() => {
                     // Apply the updated filter
                     applyFilters([existingDateOnlyFilter.id]);
                 });
             } else {
+                console.log('No existing date-only filter found, creating new one');
                 // Create a new filter if no existing date-only filter found
                 const name = `${format(parseISO(startDate), 'MMM d')} - ${format(parseISO(endDate), 'MMM d')}`;
                 const newFilter = {
