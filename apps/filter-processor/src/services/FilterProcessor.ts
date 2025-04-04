@@ -431,6 +431,7 @@ export class FilterProcessor {
       const criteria = filter.criteria;
       let compositeScore = 0;
       let totalWeight = 0;
+      let hasSemanticQuery = false;
 
       // 1. Apply strict location filter if specified
       if (criteria.location?.latitude && criteria.location?.longitude && criteria.location?.radius) {
@@ -444,6 +445,9 @@ export class FilterProcessor {
 
         // If event is outside the radius, reject immediately
         if (distance > criteria.location.radius) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`Location Filter Rejection: Event ${event.id} is ${distance.toFixed(0)}m from filter center (radius: ${criteria.location.radius}m)`);
+          }
           return false;
         }
       }
@@ -452,49 +456,25 @@ export class FilterProcessor {
       if (criteria.dateRange) {
         const { start, end } = criteria.dateRange;
 
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('Raw Date Values:', {
-            eventDate: event.eventDate,
-            eventEndDate: event.endDate,
-            filterStart: start,
-            filterEnd: end
-          });
-        }
-
-        // Ensure we have valid date strings before parsing
-        if (!event.eventDate && !event.endDate) {
-          console.error('Missing both event date and end date');
-          return false;
-        }
-
-        // If we only have endDate, use it as both start and end
-        if (!event.eventDate && event.endDate) {
-          event.eventDate = event.endDate;
-        }
-
-        // Parse dates
-        let eventStartDate: Date;
-        let eventEndDate: Date;
-        let filterStartDate: Date;
-        let filterEndDate: Date;
+        console.log('Raw Date Values:', {
+          eventDate: event.eventDate,
+          eventEndDate: event.endDate,
+          filterStart: start,
+          filterEnd: end
+        });
 
         try {
-          eventStartDate = new Date(event.eventDate);
-          eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
-
-          // Normalize filter dates to start/end of day
-          filterStartDate = new Date(start + 'T00:00:00.000Z');
-          filterEndDate = new Date(end + 'T23:59:59.999Z');
-
-          // Validate dates
-          if (isNaN(eventStartDate.getTime())) {
-            console.error('Invalid event start date:', event.eventDate);
+          // Parse filter dates first
+          if (!start || !end) {
+            console.error('Missing filter date range');
             return false;
           }
-          if (isNaN(eventEndDate.getTime())) {
-            console.error('Invalid event end date:', event.endDate);
-            return false;
-          }
+
+          // Normalize filter dates to cover the full day
+          const filterStartDate = new Date(start + 'T00:00:00.000Z');
+          const filterEndDate = new Date(end + 'T23:59:59.999Z');
+
+          // Validate filter dates
           if (isNaN(filterStartDate.getTime())) {
             console.error('Invalid filter start date:', start);
             return false;
@@ -504,19 +484,49 @@ export class FilterProcessor {
             return false;
           }
 
-          if (process.env.NODE_ENV !== 'production') {
-            console.log('Parsed Date Values:', {
-              eventId: event.id,
-              eventTitle: event.title,
-              eventStartDate: eventStartDate.toISOString(),
-              eventEndDate: eventEndDate.toISOString(),
-              filterStartDate: filterStartDate.toISOString(),
-              filterEndDate: filterEndDate.toISOString(),
-              isRejected: eventStartDate > filterEndDate || eventEndDate < filterStartDate,
-              rejectionReason: eventStartDate > filterEndDate ? 'start after filter end' :
-                eventEndDate < filterStartDate ? 'end before filter start' : 'none'
-            });
+          // Parse event dates
+          if (!event.eventDate) {
+            console.error('Missing event date');
+            return false;
           }
+
+          // For single-day events (endDate is null), use eventDate for both start and end
+          const eventStartDate = new Date(event.eventDate);
+          const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
+
+          // Validate event dates
+          if (isNaN(eventStartDate.getTime())) {
+            console.error('Invalid event start date:', event.eventDate);
+            return false;
+          }
+          if (isNaN(eventEndDate.getTime())) {
+            console.error('Invalid event end date:', event.endDate);
+            return false;
+          }
+
+          // Validate event date range
+          if (eventEndDate < eventStartDate) {
+            console.error('Invalid event date range: end date is before start date', {
+              eventId: event.id,
+              eventStartDate: eventStartDate.toISOString(),
+              eventEndDate: eventEndDate.toISOString()
+            });
+            return false;
+          }
+
+          console.log('Date Range Analysis:', {
+            eventId: event.id,
+            eventTitle: event.title,
+            eventStartDate: eventStartDate.toISOString(),
+            eventEndDate: eventEndDate.toISOString(),
+            filterStartDate: filterStartDate.toISOString(),
+            filterEndDate: filterEndDate.toISOString(),
+            isMultiDay: event.endDate !== null,
+            timezone: event.timezone || 'UTC',
+            isRejected: eventStartDate > filterEndDate || eventEndDate < filterStartDate,
+            rejectionReason: eventStartDate > filterEndDate ? 'start after filter end' :
+              eventEndDate < filterStartDate ? 'end before filter start' : 'none'
+          });
 
           // Include events that overlap with the date range
           if (eventStartDate > filterEndDate || eventEndDate < filterStartDate) {
@@ -531,6 +541,7 @@ export class FilterProcessor {
       // 3. If we have a semantic query, calculate weighted similarity score
       if (filter.embedding && event.embedding) {
         try {
+          hasSemanticQuery = true;
           const filterEmbedding = this.vectorService.parseSqlEmbedding(filter.embedding);
           const eventEmbedding = this.vectorService.parseSqlEmbedding(event.embedding);
 
@@ -571,35 +582,53 @@ export class FilterProcessor {
               }
             }
           }
+
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('Semantic Analysis:', {
+              eventId: event.id,
+              eventTitle: event.title,
+              filterQuery: filter.semanticQuery,
+              similarityScore: similarityScore.toFixed(2),
+              compositeScore: compositeScore.toFixed(2),
+              totalWeight: totalWeight.toFixed(2),
+              finalScore: (totalWeight > 0 ? compositeScore / totalWeight : 0).toFixed(2)
+            });
+          }
         } catch (error) {
           console.error(`Error calculating semantic similarity:`, error);
           return false;
         }
       }
 
-      // Calculate final score
-      const finalScore = totalWeight > 0 ? compositeScore / totalWeight : 0;
+      // If we have a semantic query, apply the threshold
+      if (hasSemanticQuery) {
+        // Calculate final score
+        const finalScore = totalWeight > 0 ? compositeScore / totalWeight : 0;
 
-      // Dynamic threshold based on filter combination
-      let threshold = 0.7; // Default threshold
+        // Dynamic threshold based on filter combination
+        let threshold = 0.7; // Default threshold
 
-      // Lower threshold when relying on semantic matching (no location/date)
-      if (!criteria.location && !criteria.dateRange) {
-        threshold = 0.5;
+        // Lower threshold when relying on semantic matching (no location/date)
+        if (!criteria.location && !criteria.dateRange) {
+          threshold = 0.5;
+        }
+
+        // Lower threshold if we have strong text matches
+        if (filter.semanticQuery && event.title.toLowerCase().includes(filter.semanticQuery.toLowerCase())) {
+          threshold = 0.5;
+        }
+
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(
+            `Filter Debug: Event ${event.id} final score: ${finalScore.toFixed(2)} (threshold: ${threshold.toFixed(2)})`
+          );
+        }
+
+        return finalScore >= threshold;
       }
 
-      // Lower threshold if we have strong text matches
-      if (filter.semanticQuery && event.title.toLowerCase().includes(filter.semanticQuery.toLowerCase())) {
-        threshold = 0.5;
-      }
-
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(
-          `Filter Debug: Event ${event.id} final score: ${finalScore.toFixed(2)} (threshold: ${threshold.toFixed(2)})`
-        );
-      }
-
-      return finalScore >= threshold;
+      // If we get here, we've passed all the non-semantic criteria
+      return true;
     });
   }
 
