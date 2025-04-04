@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { Repository } from "typeorm";
 import { User } from "../entities/User";
+import { UserPreferencesService } from "./UserPreferences";
 
 export interface UserRegistrationData {
   email: string;
@@ -22,9 +23,11 @@ export class AuthService {
   private refreshSecret: string;
   private accessTokenExpiry: SignOptions["expiresIn"];
   private refreshTokenExpiry: SignOptions["expiresIn"];
+  private userPreferencesService: UserPreferencesService;
 
-  constructor(userRepository: Repository<User>) {
+  constructor(userRepository: Repository<User>, userPreferencesService: UserPreferencesService) {
     this.userRepository = userRepository;
+    this.userPreferencesService = userPreferencesService;
     this.jwtSecret = process.env.JWT_SECRET!;
     if (!this.jwtSecret) {
       throw new Error("JWT_SECRET environment variable must be set");
@@ -62,7 +65,29 @@ export class AuthService {
       isVerified: false, // Set to false by default - would need email verification process
     });
 
-    return this.userRepository.save(newUser);
+    const savedUser = await this.userRepository.save(newUser);
+
+    // Create default two-week filter
+    const now = new Date();
+    const twoWeeksFromNow = new Date(now);
+    twoWeeksFromNow.setDate(now.getDate() + 14);
+
+    const defaultFilter = await this.userPreferencesService.createFilter(savedUser.id, {
+      name: "First Two Weeks",
+      isActive: true,
+      semanticQuery: "Show me everything in my first two weeks",
+      criteria: {
+        dateRange: {
+          start: now.toISOString(),
+          end: twoWeeksFromNow.toISOString(),
+        },
+      },
+    });
+
+    // Apply the filter
+    await this.userPreferencesService.applyFilters(savedUser.id, [defaultFilter.id]);
+
+    return savedUser;
   }
 
   /**
@@ -212,8 +237,8 @@ export class AuthService {
         "bio",
         "createdAt",
         "scanCount",
-        "saveCount"
-      ]
+        "saveCount",
+      ],
     });
 
     if (user) {

@@ -5,10 +5,16 @@ import type { AppContext } from "../types/context";
 import dataSource from "../data-source";
 import { User } from "../entities/User";
 import { AuthService } from "../services/AuthService";
+import { UserPreferencesService } from "../services/UserPreferences";
+import Redis from "ioredis";
 
-// Create an instance of AuthService using the user repository
+// Initialize Redis client
+const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
+
+// Create instances of required services
 const userRepository = dataSource.getRepository(User);
-const authService = new AuthService(userRepository);
+const userPreferencesService = new UserPreferencesService(dataSource, redis);
+const authService = new AuthService(userRepository, userPreferencesService);
 
 export type AuthHandler = (c: Context<AppContext>) => Promise<Response> | Response;
 
