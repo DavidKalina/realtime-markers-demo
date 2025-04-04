@@ -431,6 +431,7 @@ export class FilterProcessor {
       const criteria = filter.criteria;
       let compositeScore = 0;
       let totalWeight = 0;
+      let hasSemanticQuery = false;
 
       // 1. Apply strict location filter if specified
       if (criteria.location?.latitude && criteria.location?.longitude && criteria.location?.radius) {
@@ -444,6 +445,9 @@ export class FilterProcessor {
 
         // If event is outside the radius, reject immediately
         if (distance > criteria.location.radius) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`Location Filter Rejection: Event ${event.id} is ${distance.toFixed(0)}m from filter center (radius: ${criteria.location.radius}m)`);
+          }
           return false;
         }
       }
@@ -537,6 +541,7 @@ export class FilterProcessor {
       // 3. If we have a semantic query, calculate weighted similarity score
       if (filter.embedding && event.embedding) {
         try {
+          hasSemanticQuery = true;
           const filterEmbedding = this.vectorService.parseSqlEmbedding(filter.embedding);
           const eventEmbedding = this.vectorService.parseSqlEmbedding(event.embedding);
 
@@ -577,35 +582,53 @@ export class FilterProcessor {
               }
             }
           }
+
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('Semantic Analysis:', {
+              eventId: event.id,
+              eventTitle: event.title,
+              filterQuery: filter.semanticQuery,
+              similarityScore: similarityScore.toFixed(2),
+              compositeScore: compositeScore.toFixed(2),
+              totalWeight: totalWeight.toFixed(2),
+              finalScore: (totalWeight > 0 ? compositeScore / totalWeight : 0).toFixed(2)
+            });
+          }
         } catch (error) {
           console.error(`Error calculating semantic similarity:`, error);
           return false;
         }
       }
 
-      // Calculate final score
-      const finalScore = totalWeight > 0 ? compositeScore / totalWeight : 0;
+      // If we have a semantic query, apply the threshold
+      if (hasSemanticQuery) {
+        // Calculate final score
+        const finalScore = totalWeight > 0 ? compositeScore / totalWeight : 0;
 
-      // Dynamic threshold based on filter combination
-      let threshold = 0.7; // Default threshold
+        // Dynamic threshold based on filter combination
+        let threshold = 0.7; // Default threshold
 
-      // Lower threshold when relying on semantic matching (no location/date)
-      if (!criteria.location && !criteria.dateRange) {
-        threshold = 0.5;
+        // Lower threshold when relying on semantic matching (no location/date)
+        if (!criteria.location && !criteria.dateRange) {
+          threshold = 0.5;
+        }
+
+        // Lower threshold if we have strong text matches
+        if (filter.semanticQuery && event.title.toLowerCase().includes(filter.semanticQuery.toLowerCase())) {
+          threshold = 0.5;
+        }
+
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(
+            `Filter Debug: Event ${event.id} final score: ${finalScore.toFixed(2)} (threshold: ${threshold.toFixed(2)})`
+          );
+        }
+
+        return finalScore >= threshold;
       }
 
-      // Lower threshold if we have strong text matches
-      if (filter.semanticQuery && event.title.toLowerCase().includes(filter.semanticQuery.toLowerCase())) {
-        threshold = 0.5;
-      }
-
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(
-          `Filter Debug: Event ${event.id} final score: ${finalScore.toFixed(2)} (threshold: ${threshold.toFixed(2)})`
-        );
-      }
-
-      return finalScore >= threshold;
+      // If we get here, we've passed all the non-semantic criteria
+      return true;
     });
   }
 
