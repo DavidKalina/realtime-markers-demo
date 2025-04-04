@@ -99,6 +99,18 @@ const FiltersView: React.FC = () => {
   const scrollViewRef = useRef<ScrollView>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
+  // Add modal animation cleanup
+  const modalAnimationProgress = useSharedValue(0);
+  const modalContentAnimationProgress = useSharedValue(0);
+
+  // Cleanup modal animations
+  const cleanupModalAnimations = useCallback(() => {
+    'worklet';
+    if (!isMounted.current) return;
+    modalAnimationProgress.value = 0;
+    modalContentAnimationProgress.value = 0;
+  }, []);
+
   // Animation for header shadow
   const headerAnimatedStyle = useAnimatedStyle(() => {
     const shadowOpacity = interpolate(
@@ -148,21 +160,30 @@ const FiltersView: React.FC = () => {
     }
   });
 
-  // Cleanup function for animations
-  const cleanupAnimations = useCallback(() => {
-    'worklet';
+  // Comprehensive cleanup function for all animations
+  const cleanupAllAnimations = useCallback(() => {
     if (!isMounted.current) return;
+
+    // Clean up modal animations
+    cleanupModalAnimations();
+
+    // Clean up any other animations
     cancelAnimation(scrollY);
     scrollY.value = 0;
-  }, [scrollY]);
+
+    // Reset any other animation values
+    if (listRef.current) {
+      listRef.current.scrollToOffset({ offset: 0, animated: false });
+    }
+  }, [cleanupModalAnimations, scrollY]);
 
   // Set isMounted to false when component unmounts
   useEffect(() => {
     return () => {
       isMounted.current = false;
-      cleanupAnimations();
+      cleanupAllAnimations();
     };
-  }, [cleanupAnimations]);
+  }, [cleanupAllAnimations]);
 
   const router = useRouter();
 
@@ -205,11 +226,20 @@ const FiltersView: React.FC = () => {
     fetchFilters();
   }, []);
 
-  // Handle back button
-  const handleBack = () => {
+  // Enhanced back button handler with proper cleanup
+  const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
-  };
+
+    // Clean up all animations before navigation
+    cleanupAllAnimations();
+
+    // Ensure cleanup is complete before navigation
+    Promise.resolve().then(() => {
+      if (isMounted.current) {
+        router.back();
+      }
+    });
+  }, [cleanupAllAnimations, router]);
 
   // Open modal to create a new filter
   const handleCreateFilter = () => {
@@ -255,22 +285,10 @@ const FiltersView: React.FC = () => {
     Keyboard.dismiss();
   };
 
-  // Add modal animation cleanup
-  const modalAnimationProgress = useSharedValue(0);
-  const modalContentAnimationProgress = useSharedValue(0);
-
-  // Cleanup modal animations
-  const cleanupModalAnimations = useCallback(() => {
-    'worklet';
-    if (!isMounted.current) return;
-    modalAnimationProgress.value = 0;
-    modalContentAnimationProgress.value = 0;
-  }, []);
-
-  // Handle modal close with cleanup
+  // Enhanced modal close handler
   const handleCloseModal = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    cleanupModalAnimations();
+    cleanupAllAnimations();
     setModalVisible(false);
     setEditingFilter(null);
     setFilterName("");
@@ -281,7 +299,7 @@ const FiltersView: React.FC = () => {
     setRadius(undefined);
     setLocation(null);
     setIsLocationEnabled(false);
-  }, [cleanupModalAnimations]);
+  }, [cleanupAllAnimations]);
 
   // Delete a filter
   const handleDeleteFilter = (filterId: string) => {
@@ -319,9 +337,13 @@ const FiltersView: React.FC = () => {
     }
   };
 
-  // Clear all active filters
-  const handleClearFilters = async () => {
+  // Enhanced clear filters handler with proper cleanup
+  const handleClearFilters = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Clean up animations before clearing filters
+    cleanupAllAnimations();
+
     try {
       await clearFilters();
       router.back();
@@ -329,10 +351,10 @@ const FiltersView: React.FC = () => {
       console.error("Error clearing filters:", err);
       Alert.alert("Error", "Failed to clear filters");
     }
-  };
+  }, [cleanupAllAnimations, clearFilters, router]);
 
-  // Save a filter (create or update)
-  const handleSaveFilter = async () => {
+  // Enhanced save filter handler with proper cleanup
+  const handleSaveFilter = useCallback(async () => {
     if (!filterName.trim()) {
       Alert.alert("Error", "Filter name is required");
       return;
@@ -349,19 +371,17 @@ const FiltersView: React.FC = () => {
       name: filterName.trim(),
       semanticQuery: semanticQuery.trim(),
       criteria: {
-        // Only include dateRange if we have valid dates
         ...(startDate && endDate ? {
           dateRange: {
             start: startDate,
             end: endDate,
           }
         } : {}),
-        // Only include location if enabled and we have both location and radius
         ...(isLocationEnabled && location && radius ? {
           location: {
             latitude: location.latitude,
             longitude: location.longitude,
-            radius: radius * 1000, // Convert km to meters
+            radius: radius * 1000,
           }
         } : {}),
       },
@@ -370,25 +390,24 @@ const FiltersView: React.FC = () => {
     try {
       let savedFilter;
       if (editingFilter) {
-        // Update existing filter
         savedFilter = await updateFilter(editingFilter.id, filterData);
       } else {
-        // Create new filter
         savedFilter = await createFilter(filterData);
       }
 
-      // If the filter is active, apply it
       if (isActive) {
         await applyFilters([savedFilter.id]);
       }
 
+      // Clean up animations before closing modal
+      cleanupAllAnimations();
       setModalVisible(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error("Error saving filter:", err);
       Alert.alert("Error", "Failed to save filter");
     }
-  };
+  }, [cleanupAllAnimations, filterName, semanticQuery, startDate, endDate, isLocationEnabled, location, radius, editingFilter, isActive, updateFilter, createFilter, applyFilters]);
 
   // Render a single filter item
   const renderFilterItem = ({ item, index }: { item: FilterType; index: number }) => {

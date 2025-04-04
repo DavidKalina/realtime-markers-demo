@@ -532,10 +532,10 @@ export class FilterProcessor {
           }
 
           // Check if event overlaps with filter date range
-          // Event must start on or after the filter start date AND end before or on the filter end date
-          const eventStartsOnOrAfterFilterStart = eventStartDate >= filterStartDate;
-          const eventEndsOnOrBeforeFilterEnd = eventEndDate <= filterEndDate;
-          const isInRange = eventStartsOnOrAfterFilterStart && eventEndsOnOrBeforeFilterEnd;
+          // Event must overlap with the filter date range
+          const eventStartsBeforeFilterEnd = eventStartDate <= filterEndDate;
+          const eventEndsAfterFilterStart = eventEndDate >= filterStartDate;
+          const isInRange = eventStartsBeforeFilterEnd && eventEndsAfterFilterStart;
 
           if (!isInRange) {
             if (process.env.NODE_ENV !== 'production') {
@@ -546,7 +546,7 @@ export class FilterProcessor {
                 eventEndDate: eventEndDate.toISOString(),
                 filterStartDate: filterStartDate.toISOString(),
                 filterEndDate: filterEndDate.toISOString(),
-                reason: !eventStartsOnOrAfterFilterStart ? 'starts before filter start' : 'ends after filter end'
+                reason: !eventStartsBeforeFilterEnd ? 'starts after filter end' : 'ends before filter start'
               });
             }
             return false;
