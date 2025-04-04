@@ -24,7 +24,6 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
     const [discoveries, setDiscoveries] = useState<DiscoveryItem[]>([]);
     const { subscribe, publish } = useEventBroker();
 
-    // Get position styles based on position prop
     const positionStyle = useMemo(() => {
         const baseSpacing = 50; // Base spacing from the edge
         const itemSpacing = 8; // Spacing between items
@@ -120,42 +119,80 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
     };
 
     return (
-        <View style={[styles.container, positionStyle]}>
-            <Animated.View style={styles.wrapper}>
-                {discoveries && discoveries.map((item, index) => (
-                    <Animated.View
-                        key={item.id}
-                        style={[
-                            styles.itemContainer,
-                            index > 0 && { marginTop: 8 }
-                        ]}
-                        entering={BounceIn}
-                        exiting={SlideOutRight.duration(400)}
-                        layout={LinearTransition.springify()}
-                    >
-                        <Pressable
-                            onPress={() => handlePress(item)}
-                            style={styles.pressable}
+        <View style={[styles.container, position === "custom" ? null : positionStyle]}>
+            {position === "custom" ? (
+                <View style={styles.wrapper}>
+                    {discoveries && discoveries.map((item, index) => (
+                        <Animated.View
+                            key={item.id}
+                            style={[
+                                styles.itemContainer,
+                                index > 0 && { marginTop: 8 }
+                            ]}
+                            entering={BounceIn}
+                            exiting={SlideOutRight.duration(400)}
+                            layout={LinearTransition.springify()}
                         >
-                            <View style={styles.indicator}>
-                                <View style={styles.iconContainer}>
-                                    <Text style={styles.emojiText}>{item.event?.emoji || "🎉"}</Text>
-                                </View>
+                            <Pressable
+                                onPress={() => handlePress(item)}
+                                style={styles.pressable}
+                            >
+                                <View style={styles.indicator}>
+                                    <View style={styles.iconContainer}>
+                                        <Text style={styles.emojiText}>{item.event?.emoji || "🎉"}</Text>
+                                    </View>
 
-                                <View style={{ flex: 1, justifyContent: 'center' }}>
-                                    <Text style={styles.titleText} numberOfLines={1}>
-                                        New Discovery
-                                    </Text>
-                                </View>
+                                    <View style={{ flex: 1, justifyContent: 'center' }}>
+                                        <Text style={styles.titleText} numberOfLines={1}>
+                                            New Discovery
+                                        </Text>
+                                    </View>
 
-                                <View style={styles.tapIndicator}>
-                                    <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.6)" />
+                                    <View style={styles.tapIndicator}>
+                                        <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.6)" />
+                                    </View>
                                 </View>
-                            </View>
-                        </Pressable>
-                    </Animated.View>
-                ))}
-            </Animated.View>
+                            </Pressable>
+                        </Animated.View>
+                    ))}
+                </View>
+            ) : (
+                <Animated.View style={styles.wrapper}>
+                    {discoveries && discoveries.map((item, index) => (
+                        <Animated.View
+                            key={item.id}
+                            style={[
+                                styles.itemContainer,
+                                index > 0 && { marginTop: 8 }
+                            ]}
+                            entering={BounceIn}
+                            exiting={SlideOutRight.duration(400)}
+                            layout={LinearTransition.springify()}
+                        >
+                            <Pressable
+                                onPress={() => handlePress(item)}
+                                style={styles.pressable}
+                            >
+                                <View style={styles.indicator}>
+                                    <View style={styles.iconContainer}>
+                                        <Text style={styles.emojiText}>{item.event?.emoji || "🎉"}</Text>
+                                    </View>
+
+                                    <View style={{ flex: 1, justifyContent: 'center' }}>
+                                        <Text style={styles.titleText} numberOfLines={1}>
+                                            New Discovery
+                                        </Text>
+                                    </View>
+
+                                    <View style={styles.tapIndicator}>
+                                        <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.6)" />
+                                    </View>
+                                </View>
+                            </Pressable>
+                        </Animated.View>
+                    ))}
+                </Animated.View>
+            )}
         </View>
     );
 };
