@@ -36,6 +36,8 @@ import {
   View,
   ViewStyle,
   TextStyle,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import Animated, {
   FadeIn,
@@ -93,6 +95,8 @@ const FiltersView: React.FC = () => {
   const scrollY = useSharedValue(0);
   const listRef = useAnimatedRef<FlatList>();
   const isMounted = useRef(true);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Animation for header shadow
   const headerAnimatedStyle = useAnimatedStyle(() => {
@@ -312,10 +316,13 @@ const FiltersView: React.FC = () => {
       name: filterName.trim(),
       semanticQuery: semanticQuery.trim(),
       criteria: {
-        dateRange: {
-          start: startDate || undefined,
-          end: endDate || undefined,
-        },
+        // Only include dateRange if we have valid dates
+        ...(startDate && endDate ? {
+          dateRange: {
+            start: startDate,
+            end: endDate,
+          }
+        } : {}),
         // Only include location if enabled and we have both location and radius
         ...(isLocationEnabled && location && radius ? {
           location: {
@@ -503,6 +510,44 @@ const FiltersView: React.FC = () => {
     );
   };
 
+  useEffect(() => {
+    const keyboardWillShow = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+
+    const keyboardWillHide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
+  }, []);
+
+  const scrollToInput = (reactNode: any) => {
+    if (scrollViewRef.current) {
+      reactNode.measureLayout(
+        scrollViewRef.current.getInnerViewNode(),
+        (x: number, y: number) => {
+          scrollViewRef.current?.scrollTo({
+            y: y - 100, // Scroll to 100px above the input
+            animated: true,
+          });
+        },
+        () => {
+          console.log('measurement failed');
+        }
+      );
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#333" />
@@ -623,7 +668,6 @@ const FiltersView: React.FC = () => {
           entering={FadeIn.duration(200)}
           exiting={FadeOut.duration(150)}
           onLayout={() => {
-            // Cleanup any running animations when modal layout changes
             if (!isMounted.current) {
               cancelAnimation(scrollY);
             }
@@ -655,6 +699,8 @@ const FiltersView: React.FC = () => {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.modalScrollContent}
               keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets={true}
+              keyboardDismissMode="on-drag"
             >
               {/* Filter Name - Most important, goes first */}
               <View style={styles.formGroup}>
@@ -666,6 +712,7 @@ const FiltersView: React.FC = () => {
                   placeholder="Enter filter name"
                   placeholderTextColor="#adb5bd"
                   returnKeyType="next"
+                  onFocus={(e) => scrollToInput(e.target)}
                 />
               </View>
 
@@ -776,13 +823,14 @@ const FiltersView: React.FC = () => {
                   <View style={styles.radiusInput}>
                     <Text style={styles.locationLabel}>Radius (km)</Text>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { height: 80, textAlignVertical: "top" }]}
                       value={radius ? radius.toString() : ''}
                       onChangeText={(value) => setRadius(value ? parseInt(value) : undefined)}
                       placeholder="5"
                       placeholderTextColor="#adb5bd"
                       keyboardType="numeric"
                       returnKeyType="done"
+                      onFocus={(e) => scrollToInput(e.target)}
                     />
                   </View>
                 )}
@@ -800,6 +848,7 @@ const FiltersView: React.FC = () => {
                   multiline={true}
                   numberOfLines={3}
                   returnKeyType="next"
+                  onFocus={(e) => scrollToInput(e.target)}
                 />
                 <Text style={styles.helperText}>
                   Examples: "Tech events in downtown", "Family activities this weekend", "Music
@@ -1230,18 +1279,17 @@ const styles = StyleSheet.create({
   // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0)',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    padding: 16,
-    backdropFilter: 'blur(10px)',
+    padding: 0,
   },
 
   modalContent: {
     backgroundColor: "#3a3a3a",
     borderRadius: 16,
     width: "100%",
-    maxHeight: "85%",
+    maxHeight: "90%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -1278,6 +1326,7 @@ const styles = StyleSheet.create({
 
   modalScrollContent: {
     padding: 16,
+    paddingBottom: 100, // Extra padding at the bottom for keyboard
   },
 
   modalFooter: {

@@ -12,11 +12,18 @@ import { EventType } from '@/types/types';
  * - Map interactions
  */
 export const useEventAnalytics = () => {
-    const posthog = usePostHog();
+    // Only use PostHog in production
+    const posthog = __DEV__ ? null : usePostHog();
 
     // Safely capture an event with error handling
     const safeCapture = (eventName: string, properties: Record<string, any>) => {
         try {
+            if (__DEV__) {
+                // In development, just log to console
+                console.log(`[Analytics] ${eventName}:`, properties);
+                return;
+            }
+
             if (!posthog) return;
 
             // Filter out any undefined or null values to prevent crashes

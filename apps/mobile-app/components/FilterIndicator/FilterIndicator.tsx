@@ -90,13 +90,23 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(({ position =
       };
     } else {
       const filter = activeFilters[0];
-      return {
-        icon: FilterX,
-        text: `${filter.name} filter`,
-        isActive: true,
-        useIcon: false,
-        emoji: filter.emoji || "🔍",
-      };
+      // Only show details if there's a semantic query
+      if (filter.semanticQuery) {
+        return {
+          icon: FilterX,
+          text: `${filter.name} filter`,
+          isActive: true,
+          useIcon: false,
+          emoji: filter.emoji || "🔍",
+        };
+      } else {
+        return {
+          icon: Filter,
+          text: "Filtered",
+          isActive: true,
+          useIcon: true,
+        };
+      }
     }
   }, [activeFilters, isLoading]);
 
