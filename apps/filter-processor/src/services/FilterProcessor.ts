@@ -459,13 +459,6 @@ export class FilterProcessor {
           filterEnd: end
         });
 
-
-        // Safely parse dates with error handling
-        let eventStartDate: Date;
-        let eventEndDate: Date;
-        let filterStartDate: Date;
-        let filterEndDate: Date;
-
         try {
           // Parse filter dates first
           if (!start || !end) {
@@ -473,8 +466,9 @@ export class FilterProcessor {
             return false;
           }
 
-          filterStartDate = new Date(start);
-          filterEndDate = new Date(end);
+          // Normalize filter dates to cover the full day
+          const filterStartDate = new Date(start + 'T00:00:00.000Z');
+          const filterEndDate = new Date(end + 'T23:59:59.999Z');
 
           // Validate filter dates
           if (isNaN(filterStartDate.getTime())) {
@@ -493,8 +487,8 @@ export class FilterProcessor {
           }
 
           // For single-day events (endDate is null), use eventDate for both start and end
-          eventStartDate = new Date(event.eventDate);
-          eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
+          const eventStartDate = new Date(event.eventDate);
+          const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
 
           // Validate event dates
           if (isNaN(eventStartDate.getTime())) {
@@ -529,7 +523,6 @@ export class FilterProcessor {
             rejectionReason: eventStartDate > filterEndDate ? 'start after filter end' :
               eventEndDate < filterStartDate ? 'end before filter start' : 'none'
           });
-
 
           // Include events that overlap with the date range
           if (eventStartDate > filterEndDate || eventEndDate < filterStartDate) {
