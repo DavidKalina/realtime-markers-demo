@@ -461,27 +461,30 @@ export class FilterProcessor {
           });
         }
 
-        // Safely parse dates with error handling
+        // Ensure we have valid date strings before parsing
+        if (!event.eventDate && !event.endDate) {
+          console.error('Missing both event date and end date');
+          return false;
+        }
+
+        // If we only have endDate, use it as both start and end
+        if (!event.eventDate && event.endDate) {
+          event.eventDate = event.endDate;
+        }
+
+        // Parse dates
         let eventStartDate: Date;
         let eventEndDate: Date;
         let filterStartDate: Date;
         let filterEndDate: Date;
 
         try {
-          // Ensure we have valid date strings before parsing
-          if (!event.eventDate) {
-            console.error('Missing event date');
-            return false;
-          }
-          if (!start || !end) {
-            console.error('Missing filter date range');
-            return false;
-          }
-
           eventStartDate = new Date(event.eventDate);
           eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
-          filterStartDate = new Date(start);
-          filterEndDate = new Date(end);
+
+          // Normalize filter dates to start/end of day
+          filterStartDate = new Date(start + 'T00:00:00.000Z');
+          filterEndDate = new Date(end + 'T23:59:59.999Z');
 
           // Validate dates
           if (isNaN(eventStartDate.getTime())) {
@@ -730,8 +733,8 @@ export class FilterProcessor {
               title: event.title,
               description: event.description,
               location: event.location,
-              startDate: event.start_date || event.startDate,
-              endDate: event.end_date || event.endDate,
+              eventDate: event.eventDate || event.start_date || event.startDate,
+              endDate: event.endDate || event.end_date,
               createdAt: event.created_at || event.createdAt,
               updatedAt: event.updated_at || event.updatedAt,
               categories: event.categories || [],
