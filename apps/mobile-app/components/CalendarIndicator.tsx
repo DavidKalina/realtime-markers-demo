@@ -77,12 +77,13 @@ const CalendarIndicator: React.FC = () => {
                 }
             };
             createFilter(newFilter).then((createdFilter) => {
-                applyFilters([...activeFilterIds, createdFilter.id]);
+                // Immediately apply the newly created filter
+                applyFilters([createdFilter.id]);
             });
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setShowCalendar(false);
-    }, [activeDateFilters, updateFilter, activeFilterIds, createFilter, applyFilters]);
+    }, [activeDateFilters, updateFilter, createFilter, applyFilters]);
 
     return (
         <>
