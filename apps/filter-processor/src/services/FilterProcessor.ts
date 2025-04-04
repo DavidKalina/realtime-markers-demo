@@ -531,8 +531,24 @@ export class FilterProcessor {
             });
           }
 
-          // Include events that overlap with the date range
-          if (eventStartDate > filterEndDate || eventEndDate < filterStartDate) {
+          // Check if event overlaps with filter date range
+          // Event must start on or after the filter start date AND end before or on the filter end date
+          const eventStartsOnOrAfterFilterStart = eventStartDate >= filterStartDate;
+          const eventEndsOnOrBeforeFilterEnd = eventEndDate <= filterEndDate;
+          const isInRange = eventStartsOnOrAfterFilterStart && eventEndsOnOrBeforeFilterEnd;
+
+          if (!isInRange) {
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('Date Range Rejection:', {
+                eventId: event.id,
+                eventTitle: event.title,
+                eventStartDate: eventStartDate.toISOString(),
+                eventEndDate: eventEndDate.toISOString(),
+                filterStartDate: filterStartDate.toISOString(),
+                filterEndDate: filterEndDate.toISOString(),
+                reason: !eventStartsOnOrAfterFilterStart ? 'starts before filter start' : 'ends after filter end'
+              });
+            }
             return false;
           }
 
