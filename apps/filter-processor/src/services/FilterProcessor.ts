@@ -452,14 +452,13 @@ export class FilterProcessor {
       if (criteria.dateRange) {
         const { start, end } = criteria.dateRange;
 
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('Raw Date Values:', {
-            eventDate: event.eventDate,
-            eventEndDate: event.endDate,
-            filterStart: start,
-            filterEnd: end
-          });
-        }
+        console.log('Raw Date Values:', {
+          eventDate: event.eventDate,
+          eventEndDate: event.endDate,
+          filterStart: start,
+          filterEnd: end
+        });
+
 
         // Safely parse dates with error handling
         let eventStartDate: Date;
@@ -507,19 +506,30 @@ export class FilterProcessor {
             return false;
           }
 
-          if (process.env.NODE_ENV !== 'production') {
-            console.log('Parsed Date Values:', {
+          // Validate event date range
+          if (eventEndDate < eventStartDate) {
+            console.error('Invalid event date range: end date is before start date', {
               eventId: event.id,
-              eventTitle: event.title,
               eventStartDate: eventStartDate.toISOString(),
-              eventEndDate: eventEndDate.toISOString(),
-              filterStartDate: filterStartDate.toISOString(),
-              filterEndDate: filterEndDate.toISOString(),
-              isRejected: eventStartDate > filterEndDate || eventEndDate < filterStartDate,
-              rejectionReason: eventStartDate > filterEndDate ? 'start after filter end' :
-                eventEndDate < filterStartDate ? 'end before filter start' : 'none'
+              eventEndDate: eventEndDate.toISOString()
             });
+            return false;
           }
+
+          console.log('Date Range Analysis:', {
+            eventId: event.id,
+            eventTitle: event.title,
+            eventStartDate: eventStartDate.toISOString(),
+            eventEndDate: eventEndDate.toISOString(),
+            filterStartDate: filterStartDate.toISOString(),
+            filterEndDate: filterEndDate.toISOString(),
+            isMultiDay: event.endDate !== null,
+            timezone: event.timezone || 'UTC',
+            isRejected: eventStartDate > filterEndDate || eventEndDate < filterStartDate,
+            rejectionReason: eventStartDate > filterEndDate ? 'start after filter end' :
+              eventEndDate < filterStartDate ? 'end before filter start' : 'none'
+          });
+
 
           // Include events that overlap with the date range
           if (eventStartDate > filterEndDate || eventEndDate < filterStartDate) {
