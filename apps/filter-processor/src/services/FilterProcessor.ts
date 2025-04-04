@@ -618,12 +618,12 @@ export class FilterProcessor {
       // Calculate final score
       const finalScore = totalWeight > 0 ? compositeScore / totalWeight : 0;
 
-      // Keep threshold high to ensure relevance
-      let threshold = 0.75; // Increased default threshold
+      // Keep threshold low to ensure we catch relevant matches
+      let threshold = 0.31; // Lowered threshold for more lenient matching
 
       // Only slightly lower threshold when combining with other filters
       if (criteria.location || criteria.dateRange) {
-        threshold = 0.7;
+        threshold = 0.25;
       }
 
       if (process.env.NODE_ENV !== 'production') {
