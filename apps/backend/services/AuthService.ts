@@ -5,6 +5,7 @@ import jwt, { type SignOptions } from "jsonwebtoken";
 import { Repository } from "typeorm";
 import { User } from "../entities/User";
 import { UserPreferencesService } from "./UserPreferences";
+import { addDays, format } from "date-fns";
 
 export interface UserRegistrationData {
   email: string;
@@ -67,10 +68,9 @@ export class AuthService {
 
     const savedUser = await this.userRepository.save(newUser);
 
-    // Create default two-week filter
+    // Create default two-week filter using date-fns for consistency with frontend
     const now = new Date();
-    const twoWeeksFromNow = new Date(now);
-    twoWeeksFromNow.setDate(now.getDate() + 14);
+    const twoWeeksFromNow = addDays(now, 14);
 
     const defaultFilter = await this.userPreferencesService.createFilter(savedUser.id, {
       name: "First Two Weeks",
@@ -78,8 +78,8 @@ export class AuthService {
       semanticQuery: "Show me everything in my first two weeks",
       criteria: {
         dateRange: {
-          start: now.toISOString(),
-          end: twoWeeksFromNow.toISOString(),
+          start: format(now, "yyyy-MM-dd"),
+          end: format(twoWeeksFromNow, "yyyy-MM-dd"),
         },
       },
     });
