@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { initializeDatabase } from "../data-source";
+import AppDataSource from "../data-source";
 import { AddEmojiDescription1710000000000 } from "../migrations/AddEmojiDescription1710000000000";
 
 // Ensure all entities are imported
@@ -12,14 +12,14 @@ import "../entities/Filter";
 
 async function runMigration() {
     try {
-        const dataSource = await initializeDatabase();
+        await AppDataSource.initialize();
         console.log("Database connection established");
 
         const migration = new AddEmojiDescription1710000000000();
-        await migration.up(dataSource.createQueryRunner());
+        await migration.up(AppDataSource.createQueryRunner());
         console.log("Migration completed successfully");
 
-        await dataSource.destroy();
+        await AppDataSource.destroy();
         console.log("Database connection closed");
     } catch (error) {
         console.error("Error running migration:", error);
