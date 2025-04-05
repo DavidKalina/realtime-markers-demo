@@ -307,6 +307,7 @@ export class EventService {
     // Check if we have the embedding cached
     const normalizedQuery = `
     TITLE: ${query}
+    EMOJI_DESCRIPTION: ${query}
     CATEGORIES: ${query}
     DESCRIPTION: ${query}
     LOCATION: ${query}
@@ -357,6 +358,8 @@ export class EventService {
           WHEN LOWER(event.address) LIKE LOWER(:partialQuery) THEN 0.3
           WHEN LOWER(event.locationNotes) LIKE LOWER(:exactQuery) THEN 0.5
           WHEN LOWER(event.locationNotes) LIKE LOWER(:partialQuery) THEN 0.3
+          WHEN LOWER(event.emoji_description) LIKE LOWER(:exactQuery) THEN 0.8
+          WHEN LOWER(event.emoji_description) LIKE LOWER(:partialQuery) THEN 0.6
           ELSE 0
         END
       ) * 0.35 +
@@ -409,6 +412,9 @@ export class EventService {
             partialQuery: `%${query.toLowerCase()}%`,
           })
           .orWhere("LOWER(event.locationNotes) LIKE LOWER(:partialQuery)", {
+            partialQuery: `%${query.toLowerCase()}%`,
+          })
+          .orWhere("LOWER(event.emoji_description) LIKE LOWER(:partialQuery)", {
             partialQuery: `%${query.toLowerCase()}%`,
           })
           .orWhere(
