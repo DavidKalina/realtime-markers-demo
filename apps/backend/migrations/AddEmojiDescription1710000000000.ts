@@ -67,12 +67,42 @@ export class AddEmojiDescription1710000000000 implements MigrationInterface {
                     const emojiDescription = response.choices[0]?.message.content?.trim();
 
                     if (emojiDescription) {
-                        console.log(`Updating event ${event.id} with description: ${emojiDescription}`);
-                        await queryRunner.query(`
+                        console.log(`Attempting to update event ${event.id} with description: ${emojiDescription}`);
+
+                        // Try direct query first
+                        const updateQuery = `
                             UPDATE events 
-                            SET emoji_description = $1 
-                            WHERE id = $2
-                        `, [emojiDescription, event.id]);
+                            SET emoji_description = '${emojiDescription.replace(/'/g, "''")}' 
+                            WHERE id = '${event.id}';
+                        `;
+                        console.log("Executing update query:", updateQuery);
+                        await queryRunner.query(updateQuery);
+
+                        // Verify the update
+                        const verifyResult = await queryRunner.query(`
+                            SELECT emoji_description 
+                            FROM events 
+                            WHERE id = '${event.id}';
+                        `);
+                        console.log("Verification result:", verifyResult);
+
+                        if (!verifyResult?.[0]?.emoji_description) {
+                            console.error(`Update failed for event ${event.id}. Trying alternative method...`);
+
+                            // Try alternative update method
+                            await queryRunner.query(
+                                "UPDATE events SET emoji_description = $1 WHERE id = $2",
+                                [emojiDescription, event.id]
+                            );
+
+                            // Verify again
+                            const secondVerifyResult = await queryRunner.query(`
+                                SELECT emoji_description 
+                                FROM events 
+                                WHERE id = '${event.id}';
+                            `);
+                            console.log("Second verification result:", secondVerifyResult);
+                        }
                     } else {
                         console.warn(`No description generated for event ${event.id} emoji: ${event.emoji}`);
                     }
@@ -86,6 +116,14 @@ export class AddEmojiDescription1710000000000 implements MigrationInterface {
 
             console.log(`Completed batch ${Math.floor(i / batchSize) + 1}`);
         }
+
+        // Final verification
+        const finalCheck = await queryRunner.query(`
+            SELECT COUNT(*) as count 
+            FROM events 
+            WHERE emoji_description IS NOT NULL;
+        `);
+        console.log("Final verification - Events with descriptions:", finalCheck);
 
         console.log("Migration completed successfully");
     }
