@@ -27,6 +27,10 @@ if (Platform.OS === "android") {
   MapboxGL.setTelemetryEnabled(false);
 }
 
+// Initialize location module
+MapboxGL.locationManager.start();
+MapboxGL.setWellKnownTileServer('Mapbox');
+
 // Memoized UI components
 const LoadingOverlay = React.memo(() => (
   <View style={styles.loadingOverlay}>

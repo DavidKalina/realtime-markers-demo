@@ -11,6 +11,7 @@ import { Alert } from "react-native";
 import * as Location from "expo-location";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes, BaseEvent } from "@/services/EventBroker";
+import MapboxGL from "@rnmapbox/maps";
 
 // Define the event types
 interface UserLocationEvent extends BaseEvent {
@@ -97,23 +98,47 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
         setTimeout(() => reject(new Error("Location request timed out")), 15000);
       });
 
-      // Race the location request against the timeout
-      const location: any = await Promise.race([
-        Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        }),
-        timeoutPromise,
-      ]);
+      try {
+        // First try Expo Location
+        const location: any = await Promise.race([
+          Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          }),
+          timeoutPromise,
+        ]);
 
-      const userCoords: [number, number] = [location.coords.longitude, location.coords.latitude];
-      setUserLocation(userCoords);
+        const userCoords: [number, number] = [location.coords.longitude, location.coords.latitude];
+        setUserLocation(userCoords);
 
-      publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
-        timestamp: Date.now(),
-        source: "LocationContext",
-        coordinates: userCoords,
-      });
+        publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
+          timestamp: Date.now(),
+          source: "LocationContext",
+          coordinates: userCoords,
+        });
+      } catch (expoError) {
+        console.warn("Expo location failed, trying Mapbox:", expoError);
 
+        // Fallback to Mapbox location
+        try {
+          const mapboxLocation = await MapboxGL.locationManager.getLastKnownLocation();
+
+          if (mapboxLocation) {
+            const userCoords: [number, number] = [mapboxLocation.coords.longitude, mapboxLocation.coords.latitude];
+            setUserLocation(userCoords);
+
+            publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
+              timestamp: Date.now(),
+              source: "LocationContext",
+              coordinates: userCoords,
+            });
+          } else {
+            throw new Error("No location available from Mapbox");
+          }
+        } catch (mapboxError) {
+          console.error("Both location services failed:", { expoError, mapboxError });
+          throw new Error("Failed to get location from both services");
+        }
+      }
     } catch (error) {
       console.error("Error getting location:", error);
 
@@ -129,13 +154,12 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
       publish<BaseEvent & { error: string }>(EventTypes.ERROR_OCCURRED, {
         timestamp: Date.now(),
         source: "LocationContext",
-        error: `Failed to get user location: ${error instanceof Error ? error.message : "unknown error"
-          }`,
+        error: `Failed to get user location: ${error instanceof Error ? error.message : "unknown error"}`,
       });
     } finally {
       setIsLoadingLocation(false);
     }
-  }, [publish]); // Only depends on publish which should be stable
+  }, [publish]);
 
   // Function to start foreground location tracking - using useCallback
   const startLocationTracking = useCallback(async () => {
@@ -188,8 +212,7 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
       publish<BaseEvent & { error: string }>(EventTypes.ERROR_OCCURRED, {
         timestamp: Date.now(),
         source: "LocationContext",
-        error: `Failed to start location tracking: ${error instanceof Error ? error.message : "unknown error"
-          }`,
+        error: `Failed to start location tracking: ${error instanceof Error ? error.message : "unknown error"}`,
       });
     }
   }, [locationSubscription, locationPermissionGranted, getUserLocation, publish]);
