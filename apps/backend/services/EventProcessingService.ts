@@ -24,6 +24,7 @@ interface LocationContext {
 
 interface EventDetails {
   emoji: string;
+  emojiDescription?: string;
   title: string;
   date: string;
   endDate?: string;
@@ -190,6 +191,7 @@ export class EventProcessingService {
     // Use the same format as EventService
     const textForEmbedding = `
       TITLE: ${eventDetails.title} ${eventDetails.title} ${eventDetails.title}
+      EMOJI: ${eventDetails.emoji} - ${eventDetails.emojiDescription || ""}
       CATEGORIES: ${eventDetails.categories?.map(c => c.name).join(", ") || ""}
       DESCRIPTION: ${eventDetails.description || ""}
       LOCATION: ${eventDetails.address || ""}

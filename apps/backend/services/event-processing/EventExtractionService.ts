@@ -98,6 +98,7 @@ export class EventExtractionService implements IEventExtractionService {
           role: "user",
           content: `Extract the following details from this text in a JSON format:
            - emoji: The most relevant emoji
+           - emojiDescription: A brief text description of what the emoji represents (e.g. "party popper" for 🎉)
            - title: The event title
            - date: The event start date and time in ISO-8601 format
            - endDate: The event end date and time in ISO-8601 format (if available)
@@ -157,6 +158,7 @@ export class EventExtractionService implements IEventExtractionService {
 
     const eventDetails = {
       emoji: parsedDetails.emoji || this.defaultEmoji,
+      emojiDescription: parsedDetails.emojiDescription || "",
       title: parsedDetails.title || "",
       date: eventDate,
       endDate: eventEndDate,

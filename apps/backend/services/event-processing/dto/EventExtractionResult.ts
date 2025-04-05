@@ -24,6 +24,11 @@ export interface EventExtractionResult {
     emoji: string;
 
     /**
+     * Text description of what the emoji represents
+     */
+    emojiDescription?: string;
+
+    /**
      * Event title
      */
     title: string;

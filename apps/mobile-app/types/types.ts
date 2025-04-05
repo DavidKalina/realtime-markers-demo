@@ -25,6 +25,7 @@ export interface EventType {
   locationNotes?: string; // Additional location context like building, room, etc.
   distance: string;
   emoji: string;
+  emojiDescription?: string;
   categories: string[];
   creator?: UserType;
   scanCount: number;
