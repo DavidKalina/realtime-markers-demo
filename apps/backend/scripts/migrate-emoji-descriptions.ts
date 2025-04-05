@@ -1,25 +1,31 @@
 import "reflect-metadata";
-import AppDataSource from "../data-source";
+import { DataSource } from "typeorm";
+import { Event } from "../entities/Event";
+import { Category } from "../entities/Category";
+import { User } from "../entities/User";
+import { UserEventDiscovery } from "../entities/UserEventDiscovery";
+import { UserEventSave } from "../entities/UserEventSave";
+import { Filter } from "../entities/Filter";
 import { AddEmojiDescription1710000000000 } from "../migrations/AddEmojiDescription1710000000000";
 
-// Ensure all entities are imported
-import "../entities/User";
-import "../entities/Event";
-import "../entities/Category";
-import "../entities/UserEventDiscovery";
-import "../entities/UserEventSave";
-import "../entities/Filter";
-
 async function runMigration() {
+    const dataSource = new DataSource({
+        type: "postgres",
+        url: process.env.DATABASE_URL,
+        entities: [Event, Category, User, UserEventDiscovery, UserEventSave, Filter],
+        synchronize: false, // Disable auto-sync for safety
+        logging: ["error"],
+    });
+
     try {
-        await AppDataSource.initialize();
+        await dataSource.initialize();
         console.log("Database connection established");
 
         const migration = new AddEmojiDescription1710000000000();
-        await migration.up(AppDataSource.createQueryRunner());
+        await migration.up(dataSource.createQueryRunner());
         console.log("Migration completed successfully");
 
-        await AppDataSource.destroy();
+        await dataSource.destroy();
         console.log("Database connection closed");
     } catch (error) {
         console.error("Error running migration:", error);
