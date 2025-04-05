@@ -44,6 +44,7 @@ export interface Point {
 export interface Event {
   id: string;
   emoji?: string;
+  emojiDescription?: string;
   title: string;
   description?: string;
   eventDate: Date | string;

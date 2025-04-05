@@ -19,6 +19,7 @@ interface SearchResult {
 
 interface CreateEventInput {
   emoji: string;
+  emojiDescription?: string;
   title: string;
   description?: string;
   eventDate: Date;
@@ -198,6 +199,7 @@ export class EventService {
     // Create base event data without relations
     const eventData: DeepPartial<Event> = {
       emoji: input.emoji,
+      emojiDescription: input.emojiDescription,
       title: input.title,
       description: input.description,
       confidenceScore: input.confidenceScore,

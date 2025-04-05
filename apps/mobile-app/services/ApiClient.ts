@@ -70,6 +70,7 @@ export interface ApiEvent {
   createdAt: string;
   updatedAt: string;
   emoji?: string;
+  emojiDescription?: string;
   creator?: UserType;
   creatorId?: string;
   scanCount?: number;
