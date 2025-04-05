@@ -161,7 +161,7 @@ export default function ScanScreen() {
   const performFullCleanup = useCallback(() => {
     if (!isMounted.current) return;
 
-    // Clear all intervals
+    // Clear all intervals and timers
     clearDetectionInterval();
 
     // Clear navigation timer
@@ -177,10 +177,15 @@ export default function ScanScreen() {
     setCapturedImage(null);
     setImageSource(null);
     setUploadProgress(0);
+    uploadRetryCount.current = 0;
 
-    // Clean up animations
-    scannerOverlayRef.current?.cleanup();
-    scannerAnimationRef.current?.cleanup();
+    // Clean up animations and refs
+    if (scannerOverlayRef.current?.cleanup) {
+      scannerOverlayRef.current.cleanup();
+    }
+    if (scannerAnimationRef.current?.cleanup) {
+      scannerAnimationRef.current.cleanup();
+    }
 
     // Release camera resources
     releaseCamera();

@@ -4,7 +4,7 @@ import apiClient from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { ChevronDown, ChevronUp, Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -80,9 +80,19 @@ const Login: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
+  const isMounted = useRef(true);
 
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
+
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      // Ensure modal is closed on unmount
+      setIsDropdownOpen(false);
+    };
+  }, []);
 
   const handleSelectProfile = (profile: Profile) => {
     Haptics.selectionAsync();

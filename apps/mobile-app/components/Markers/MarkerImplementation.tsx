@@ -73,7 +73,7 @@ const SingleMarkerView = React.memo(
       >
         <Animated.View
           entering={BounceIn.duration(500).springify().damping(15).stiffness(200).delay(index * 300)}
-          exiting={BounceOut.duration(500).springify().damping(15).stiffness(200).delay(index * 300)}
+          exiting={BounceOut.duration(500).springify().damping(15).stiffness(200)}
           layout={LinearTransition.springify()}
         >
           <MysteryEmojiMarker
@@ -119,7 +119,7 @@ const ClusterView = React.memo(
       >
         <Animated.View
           entering={BounceIn.duration(500).springify().damping(15).stiffness(200).delay(index * 50)}
-          layout={Layout.springify()}
+          layout={LinearTransition.springify()}
         >
           <ClusterMarker
             count={cluster.count}

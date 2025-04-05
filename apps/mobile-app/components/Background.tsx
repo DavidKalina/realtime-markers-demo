@@ -80,7 +80,14 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
     // Start the animation at high framerate
     animationIntervalRef.current = setInterval(() => {
       // Skip animation updates if component is unmounting
-      if (!isMountedRef.current || !cameraRef.current) return;
+      if (!isMountedRef.current || !cameraRef.current) {
+        // If not mounted, clear the interval immediately
+        if (animationIntervalRef.current) {
+          clearInterval(animationIntervalRef.current);
+          animationIntervalRef.current = null;
+        }
+        return;
+      }
 
       // Increment time reference
       timeRef.current += CAMERA_UPDATE_INTERVAL;
@@ -124,9 +131,9 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
           // Interpolate between locations
           const newCenter: [number, number] = [
             prevLocation.center[0] +
-              (currentLocation.center[0] - prevLocation.center[0]) * transitionProgress,
+            (currentLocation.center[0] - prevLocation.center[0]) * transitionProgress,
             prevLocation.center[1] +
-              (currentLocation.center[1] - prevLocation.center[1]) * transitionProgress,
+            (currentLocation.center[1] - prevLocation.center[1]) * transitionProgress,
           ];
 
           // Update center reference
@@ -169,35 +176,26 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
       });
     }, CAMERA_UPDATE_INTERVAL);
 
-    // Cleanup for this specific effect
+    // Enhanced cleanup function
     return () => {
-      if (animationIntervalRef.current) {
-        clearInterval(animationIntervalRef.current);
-        animationIntervalRef.current = null;
-      }
-    };
-  }, []); // Empty dependency array ensures this runs only once
-
-  // Single cleanup effect when component unmounts
-  useEffect(() => {
-    // Set mounted flag to true initially
-    isMountedRef.current = true;
-
-    // Return cleanup function
-    return () => {
-      // Set mounted flag to false to prevent memory leaks
       isMountedRef.current = false;
 
-      // Handle any Mapbox-specific cleanup if needed
-      if (mapRef.current) {
-        // Any Mapbox-specific cleanup could be done here if needed
-      }
-
-      // Ensure interval is cleared
+      // Clear animation interval
       if (animationIntervalRef.current) {
         clearInterval(animationIntervalRef.current);
         animationIntervalRef.current = null;
       }
+
+      // Reset all animation values
+      timeRef.current = 0;
+      transitioningRef.current = false;
+      currentLocationIndexRef.current = 0;
+
+      // Reset camera values to defaults
+      zoomRef.current = BASE_ZOOM;
+      pitchRef.current = BASE_PITCH;
+      bearingRef.current = BASE_BEARING;
+      centerRef.current = LOCATIONS[0].center;
     };
   }, []);
 

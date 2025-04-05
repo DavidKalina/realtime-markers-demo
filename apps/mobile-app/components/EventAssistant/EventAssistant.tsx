@@ -157,14 +157,20 @@ const EventAssistant: React.FC = () => {
       // Clear any pending navigation timers
       clearNavigationTimer();
 
-      // Hide the assistant since we're navigating away
-      animationControls.hideAssistant();
-
-      // Small delay before navigation to allow animation to start
-      setTimeout(() => {
-        // Execute the navigation function
-        navigateFn();
-      }, 100);
+      // Hide the assistant and cleanup animations
+      Promise.all([
+        new Promise(resolve => {
+          animationControls.hideAssistant();
+          // Give animations time to complete
+          setTimeout(resolve, 150);
+        })
+      ]).then(() => {
+        // Only proceed if still mounted
+        if (isMountedRef.current) {
+          // Execute the navigation function
+          navigateFn();
+        }
+      });
     },
     [animationControls, clearNavigationTimer]
   );
@@ -440,6 +446,24 @@ const EventAssistant: React.FC = () => {
     ),
     [handleActionPress, selectedItem, animationStyles.actionBar]
   );
+
+  // Enhanced cleanup effect
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+
+      // Clear navigation timer
+      clearNavigationTimer();
+
+      // Hide assistant if we're not navigating (normal unmount)
+      if (!isNavigatingRef.current) {
+        animationControls.hideAssistant();
+      }
+
+      // Reset refs
+      isNavigatingRef.current = false;
+    };
+  }, [clearNavigationTimer, animationControls]);
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>

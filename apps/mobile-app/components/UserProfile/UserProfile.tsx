@@ -1,11 +1,15 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { useMapStyle } from "@/contexts/MapStyleContext";
+import { useMapStyle, MapStyleType } from "@/contexts/MapStyleContext";
 import { apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Calendar, LogOut, Mail, MapPin, Moon, Shield, Trash2, User } from "lucide-react-native";
+import { ArrowLeft, Calendar, LogOut, Mail, Moon, Shield, Trash2, User } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   SafeAreaView,
   StatusBar,
   StyleSheet,
@@ -13,22 +17,17 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import Animated, {
+  Extrapolation,
   FadeIn,
   FadeOut,
+  interpolate,
   LinearTransition,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
-  interpolate,
-  Extrapolate,
-  Extrapolation
+  withSpring
 } from "react-native-reanimated";
 
 interface UserProfileProps {
@@ -38,7 +37,7 @@ interface UserProfileProps {
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { isDarkMode, toggleMapStyle } = useMapStyle();
+  const { currentStyle, setMapStyle } = useMapStyle();
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState<any>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -48,7 +47,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
   // Animation values
   const scrollY = useSharedValue(0);
-  const togglePosition = useSharedValue(isDarkMode ? 20 : 0);
 
   // Scroll handler
   const scrollHandler = useAnimatedScrollHandler({
@@ -78,17 +76,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       borderBottomColor: `rgba(58, 58, 58, ${borderOpacity})`,
     };
   });
-
-  const toggleStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: togglePosition.value }],
-    };
-  });
-
-  // Effect for dark mode toggle animation
-  useEffect(() => {
-    togglePosition.value = withSpring(isDarkMode ? 20 : 0);
-  }, [isDarkMode]);
 
   // Fetch user profile data
   useEffect(() => {
@@ -165,10 +152,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     }
   };
 
-  // Handle dark mode toggle
-  const handleDarkModeToggle = async () => {
+  // Handle map style change
+  const handleMapStyleChange = async (style: MapStyleType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await toggleMapStyle();
+    await setMapStyle(style);
   };
 
   return (
@@ -307,31 +294,57 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   </Animated.View>
                 )}
 
-                {/* Dark Map Toggle */}
+                {/* Map Style */}
                 <Animated.View
                   entering={FadeIn.duration(400).delay(1000)}
                   style={styles.detailItem}
                 >
-                  <TouchableOpacity
-                    style={{ flexDirection: 'row', flex: 1 }}
-                    onPress={handleDarkModeToggle}
-                  >
-                    <View style={styles.detailIconContainer}>
-                      <Moon size={18} color="#93c5fd" />
+                  <View style={styles.detailIconContainer}>
+                    <Moon size={18} color="#93c5fd" />
+                  </View>
+                  <View style={[styles.detailContent, { gap: 8 }]}>
+                    <Text style={styles.detailLabel}>Map Style</Text>
+                    <View style={styles.mapStyleButtons}>
+                      <TouchableOpacity
+                        style={[
+                          styles.mapStyleButton,
+                          currentStyle === 'light' && styles.mapStyleButtonActive
+                        ]}
+                        onPress={() => handleMapStyleChange('light')}
+                      >
+                        <Text style={[
+                          styles.mapStyleButtonText,
+                          currentStyle === 'light' && styles.mapStyleButtonTextActive
+                        ]}>Light</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.mapStyleButton,
+                          currentStyle === 'dark' && styles.mapStyleButtonActive
+                        ]}
+                        onPress={() => handleMapStyleChange('dark')}
+                      >
+                        <Text style={[
+                          styles.mapStyleButtonText,
+                          currentStyle === 'dark' && styles.mapStyleButtonTextActive
+                        ]}>Dark</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.mapStyleButton,
+                          currentStyle === 'street' && styles.mapStyleButtonActive
+                        ]}
+                        onPress={() => handleMapStyleChange('street')}
+                      >
+                        <Text style={[
+                          styles.mapStyleButtonText,
+                          currentStyle === 'street' && styles.mapStyleButtonTextActive
+                        ]}>Street</Text>
+                      </TouchableOpacity>
                     </View>
-                    <View style={[styles.detailContent, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-                      <View>
-                        <Text style={styles.detailLabel}>Dark Map</Text>
-                        <Text style={styles.detailValue}>{isDarkMode ? 'Enabled' : 'Disabled'}</Text>
-                      </View>
-                      <View style={[
-                        styles.toggleSwitch,
-                        { backgroundColor: isDarkMode ? '#93c5fd' : 'rgba(147, 197, 253, 0.2)' }
-                      ]}>
-                        <Animated.View style={[styles.toggleKnob, toggleStyle]} />
-                      </View>
-                    </View>
-                  </TouchableOpacity>
+                  </View>
                 </Animated.View>
               </Animated.View>
             )}
@@ -841,17 +854,32 @@ const styles = StyleSheet.create({
     fontFamily: 'SpaceMono',
   },
 
-  toggleSwitch: {
-    width: 44,
-    height: 24,
-    borderRadius: 12,
-    padding: 2,
+  mapStyleButtons: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  toggleKnob: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#fff',
+  mapStyleButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(147, 197, 253, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(147, 197, 253, 0.2)',
+    alignItems: 'center',
+  },
+  mapStyleButtonActive: {
+    backgroundColor: '#93c5fd',
+    borderColor: '#93c5fd',
+  },
+  mapStyleButtonText: {
+    color: '#93c5fd',
+    fontSize: 14,
+    fontFamily: 'SpaceMono',
+    fontWeight: '600',
+  },
+  mapStyleButtonTextActive: {
+    color: '#333',
   },
 });
 
