@@ -251,60 +251,80 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
   // Clean up on unmount
   useEffect(() => {
     return () => {
-      // Set mounted flag to false first to prevent any new operations
+      // Prevent any new operations first
       isMountedRef.current = false;
 
-      // Clear all timers and intervals
+      // Safely clear timers
       if (animationIntervalRef.current) {
-        clearInterval(animationIntervalRef.current);
+        try {
+          clearInterval(animationIntervalRef.current);
+        } catch (e) {
+          console.warn('Failed to clear animation interval:', e);
+        }
         animationIntervalRef.current = null;
       }
 
       if (initializationTimerRef.current) {
-        clearTimeout(initializationTimerRef.current);
+        try {
+          clearTimeout(initializationTimerRef.current);
+        } catch (e) {
+          console.warn('Failed to clear initialization timer:', e);
+        }
         initializationTimerRef.current = null;
       }
 
-      // Reset all animation and state refs
-      timeRef.current = 0;
-      frameCountRef.current = 0;
-      lastUpdateTimeRef.current = 0;
-      transitioningRef.current = false;
-      isPerformingUpdateRef.current = false;
-      currentLocationIndexRef.current = 0;
+      // Safely reset all refs
+      try {
+        // Reset animation and state refs
+        timeRef.current = 0;
+        frameCountRef.current = 0;
+        lastUpdateTimeRef.current = 0;
+        transitioningRef.current = false;
+        isPerformingUpdateRef.current = false;
+        currentLocationIndexRef.current = 0;
 
-      // Reset camera values
-      zoomRef.current = BASE_ZOOM;
-      pitchRef.current = BASE_PITCH;
-      centerRef.current = LOCATIONS[0].center;
+        // Reset camera values
+        zoomRef.current = BASE_ZOOM;
+        pitchRef.current = BASE_PITCH;
+        centerRef.current = LOCATIONS[0].center;
+      } catch (e) {
+        console.warn('Failed to reset refs:', e);
+      }
 
-      // Reset camera to initial position with no animation
+      // Safely reset camera
       if (cameraRef.current) {
         try {
-          cameraRef.current.setCamera({
-            centerCoordinate: LOCATIONS[0].center,
-            zoomLevel: BASE_ZOOM,
-            pitch: BASE_PITCH,
-            animationDuration: 0,
-          });
+          // Check if the camera methods are still available
+          if (typeof cameraRef.current.setCamera === 'function') {
+            cameraRef.current.setCamera({
+              centerCoordinate: LOCATIONS[0].center,
+              zoomLevel: BASE_ZOOM,
+              pitch: BASE_PITCH,
+              animationDuration: 0,
+            });
+          }
         } catch (error) {
-          console.warn('Final camera reset failed:', error);
+          console.warn('Camera reset failed, this is normal during unmount:', error);
         }
       }
 
-      // Clean up map resources
+      // Safely clean up map
       if (mapRef.current) {
         try {
-          // Remove any listeners or custom layers if they exist
-          mapRef.current.setCamera = () => { }; // Nullify the function to prevent late calls
+          // Let the natural cleanup process handle the map disposal
+          // We don't manually modify the map instance to avoid potential crashes
         } catch (error) {
-          console.warn('Map cleanup failed:', error);
+          console.warn('Map cleanup failed, this is normal during unmount:', error);
         }
       }
 
-      // Force a state reset
-      setIsMapReady(false);
-      setIsInitialized(false);
+      // Safely reset state
+      try {
+        setIsMapReady(false);
+        setIsInitialized(false);
+      } catch (e) {
+        console.warn('State cleanup failed, this is normal during unmount:', e);
+      }
     };
   }, []);
 
