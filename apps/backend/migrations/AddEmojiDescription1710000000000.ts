@@ -47,6 +47,8 @@ export class AddEmojiDescription1710000000000 implements MigrationInterface {
 
                     const emojiDescription = response.choices[0]?.message.content?.trim();
 
+                    console.log(`Emoji description: ${emojiDescription}`);
+
                     if (emojiDescription) {
                         await queryRunner.query(`
                             UPDATE events 
