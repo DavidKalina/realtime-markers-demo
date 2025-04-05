@@ -1,30 +1,28 @@
+import AnimatedMapBackground from "@/components/Background";
+import { useMapStyle } from "@/contexts/MapStyleContext";
 import apiClient from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { Eye, EyeOff, Lock, Mail, ChevronDown, ChevronUp, User } from "lucide-react-native";
+import { ChevronDown, ChevronUp, Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  Modal,
-  FlatList,
-  Animated,
-  StyleSheet,
 } from "react-native";
-import { AuthWrapper } from "../AuthWrapper";
+import Animated, { FadeIn, FadeOut, Layout, LinearTransition } from "react-native-reanimated";
 import MapMojiHeader from "../AnimationHeader";
-import { useAuth } from "@/contexts/AuthContext";
-import { useMapStyle } from "@/contexts/MapStyleContext";
-import AnimatedMapBackground from "@/components/Background";
+import { AuthWrapper } from "../AuthWrapper";
 
 // Define types for our data
 interface Profile {
@@ -85,16 +83,6 @@ const Login: React.FC = () => {
 
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  React.useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-      delay: 300,
-    }).start();
-  }, []);
 
   const handleSelectProfile = (profile: Profile) => {
     Haptics.selectionAsync();
@@ -189,9 +177,12 @@ const Login: React.FC = () => {
         <AnimatedMapBackground settings={{ styleURL: mapStyle }} />
         <StatusBar barStyle="light-content" backgroundColor="#333" />
 
-        <View style={styles.headerContainer}>
+        <Animated.View
+          entering={FadeIn.duration(800).delay(300)}
+          style={styles.headerContainer}
+        >
           <MapMojiHeader />
-        </View>
+        </Animated.View>
 
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -201,23 +192,35 @@ const Login: React.FC = () => {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <Animated.View style={[styles.formContainer, { opacity: fadeAnim }]}>
-              <View style={styles.formCard}>
+            <Animated.View
+              entering={FadeIn.duration(800).delay(500)}
+              style={styles.formContainer}
+            >
+              <Animated.View
+                layout={LinearTransition.springify()}
+                style={styles.formCard}
+              >
                 <TouchableOpacity style={styles.profileSelectorContainer} onPress={toggleDropdown}>
                   {selectedProfile ? (
-                    <View style={styles.selectedProfileContainer}>
+                    <Animated.View
+                      layout={LinearTransition.springify()}
+                      style={styles.selectedProfileContainer}
+                    >
                       <View style={styles.selectedProfileEmojiContainer}>
                         <Text style={styles.profileEmojiLarge}>{selectedProfile.emoji}</Text>
                       </View>
                       <Text style={styles.selectedProfileName}>{selectedProfile.name}</Text>
-                    </View>
+                    </Animated.View>
                   ) : (
-                    <View style={styles.noProfileContainer}>
+                    <Animated.View
+                      layout={LinearTransition.springify()}
+                      style={styles.noProfileContainer}
+                    >
                       <View style={styles.placeholderAvatar}>
                         <User size={14} color="#93c5fd" />
                       </View>
                       <Text style={styles.selectProfileText}>Select a profile</Text>
-                    </View>
+                    </Animated.View>
                   )}
 
                   <TouchableOpacity
@@ -233,84 +236,113 @@ const Login: React.FC = () => {
                   </TouchableOpacity>
                 </TouchableOpacity>
                 {error && (
-                  <View style={styles.errorContainer}>
+                  <Animated.View
+                    entering={FadeIn.duration(300)}
+                    exiting={FadeOut.duration(300)}
+                    layout={LinearTransition.springify()}
+                    style={styles.errorContainer}
+                  >
                     <Text style={styles.errorText}>{error}</Text>
-                  </View>
+                  </Animated.View>
                 )}
-                <View style={styles.inputContainer}>
-                  <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
-                  <TextInput
-                    ref={emailInputRef}
-                    style={styles.input}
-                    placeholder="Email address"
-                    placeholderTextColor="#808080"
-                    value={email}
-                    onChangeText={setEmail}
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    autoCorrect={false}
-                    keyboardType="email-address"
-                    returnKeyType="next"
-                    onSubmitEditing={() => passwordInputRef.current?.focus()}
-                    editable={!selectedProfile}
-                  />
-                </View>
-                <View style={styles.inputContainer}>
-                  <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
-                  <TextInput
-                    ref={passwordInputRef}
-                    style={styles.input}
-                    placeholder="Password"
-                    placeholderTextColor="#808080"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    returnKeyType="done"
-                    onSubmitEditing={handleLogin}
-                    editable={!selectedProfile}
-                  />
-                  <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
-                    {showPassword ? (
-                      <EyeOff size={18} color="#93c5fd" />
+                {!selectedProfile && (
+                  <Animated.View
+                    layout={LinearTransition.springify()}
+                    style={{ gap: 16 }}
+                  >
+                    <Animated.View
+                      entering={FadeIn.duration(400)}
+                      style={styles.inputContainer}
+                    >
+                      <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
+                      <TextInput
+                        ref={emailInputRef}
+                        style={styles.input}
+                        placeholder="Email address"
+                        placeholderTextColor="#808080"
+                        value={email}
+                        onChangeText={setEmail}
+                        autoCapitalize="none"
+                        autoComplete="email"
+                        autoCorrect={false}
+                        keyboardType="email-address"
+                        returnKeyType="next"
+                        onSubmitEditing={() => passwordInputRef.current?.focus()}
+                      />
+                    </Animated.View>
+                    <Animated.View
+                      entering={FadeIn.duration(400).delay(100)}
+                      style={styles.inputContainer}
+                    >
+                      <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
+                      <TextInput
+                        ref={passwordInputRef}
+                        style={styles.input}
+                        placeholder="Password"
+                        placeholderTextColor="#808080"
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry={!showPassword}
+                        returnKeyType="done"
+                        onSubmitEditing={handleLogin}
+                      />
+                      <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
+                        {showPassword ? (
+                          <EyeOff size={18} color="#93c5fd" />
+                        ) : (
+                          <Eye size={18} color="#93c5fd" />
+                        )}
+                      </TouchableOpacity>
+                    </Animated.View>
+                  </Animated.View>
+                )}
+                <Animated.View
+                  entering={FadeIn.duration(400).delay(200)}
+                  layout={LinearTransition.springify()}
+                >
+                  <TouchableOpacity
+                    style={styles.loginButton}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      handleLogin();
+                    }}
+                    disabled={isLoading}
+                    activeOpacity={0.8}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#000" />
                     ) : (
-                      <Eye size={18} color="#93c5fd" />
+                      <Text style={styles.loginButtonText}>Login</Text>
                     )}
                   </TouchableOpacity>
-                </View>
-                <TouchableOpacity
-                  style={styles.loginButton}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    handleLogin();
-                  }}
-                  disabled={isLoading}
-                  activeOpacity={0.8}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator size="small" color="#000" />
-                  ) : (
-                    <Text style={styles.loginButtonText}>Login</Text>
-                  )}
-                </TouchableOpacity>
+                </Animated.View>
                 {selectedProfile && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      setSelectedProfile(null);
-                      setEmail("");
-                      setPassword("");
-                    }}
-                    style={styles.toggleManualButton}
+                  <Animated.View
+                    entering={FadeIn.duration(300)}
+                    layout={LinearTransition.springify()}
                   >
-                    <Text style={styles.toggleManualText}>Use different credentials</Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedProfile(null);
+                        setEmail("");
+                        setPassword("");
+                      }}
+                      style={styles.toggleManualButton}
+                    >
+                      <Text style={styles.toggleManualText}>Use different credentials</Text>
+                    </TouchableOpacity>
+                  </Animated.View>
                 )}
-                <View style={styles.createAccountContainer}>
+                <Animated.View
+                  entering={FadeIn.duration(400).delay(300)}
+                  style={styles.createAccountContainer}
+                >
                   <Text style={styles.createAccountText}>Don't have an account? </Text>
                   <TouchableOpacity onPress={handleCreateAccount}>
                     <Text style={styles.createAccountLink}>Create one</Text>
                   </TouchableOpacity>
-                </View>
-              </View>
+                </Animated.View>
+              </Animated.View>
             </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -326,15 +358,21 @@ const Login: React.FC = () => {
             activeOpacity={1}
             onPress={() => setIsDropdownOpen(false)}
           >
-            <View style={styles.dropdownContainer}>
-              <FlatList
+            <Animated.View
+              entering={FadeIn.duration(300)}
+              layout={LinearTransition.springify()}
+              style={styles.dropdownContainer}
+            >
+              <Animated.FlatList
                 data={TEST_PROFILES}
                 renderItem={renderProfileItem}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
                 style={styles.profileList}
+                layout={LinearTransition.springify()}
+                itemLayoutAnimation={LinearTransition.springify()}
               />
-            </View>
+            </Animated.View>
           </TouchableOpacity>
         </Modal>
       </SafeAreaView>

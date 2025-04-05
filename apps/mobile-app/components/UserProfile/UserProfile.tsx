@@ -4,9 +4,8 @@ import { apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Calendar, LogOut, Mail, MapPin, Moon, Shield, Trash2, User } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Animated,
   SafeAreaView,
   StatusBar,
   StyleSheet,
@@ -19,6 +18,18 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  interpolate,
+  Extrapolate,
+  Extrapolation
+} from "react-native-reanimated";
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -30,11 +41,54 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { isDarkMode, toggleMapStyle } = useMapStyle();
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState<any>(null);
-  const scrollY = useRef(new Animated.Value(0)).current;
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [password, setPassword] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Animation values
+  const scrollY = useSharedValue(0);
+  const togglePosition = useSharedValue(isDarkMode ? 20 : 0);
+
+  // Scroll handler
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
+  // Animated styles
+  const headerStyle = useAnimatedStyle(() => {
+    const shadowOpacity = interpolate(
+      scrollY.value,
+      [0, 50],
+      [0, 0.2],
+      Extrapolation.CLAMP
+    );
+
+    const borderOpacity = interpolate(
+      scrollY.value,
+      [0, 50],
+      [0, 1],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      shadowOpacity,
+      borderBottomColor: `rgba(58, 58, 58, ${borderOpacity})`,
+    };
+  });
+
+  const toggleStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: togglePosition.value }],
+    };
+  });
+
+  // Effect for dark mode toggle animation
+  useEffect(() => {
+    togglePosition.value = withSpring(isDarkMode ? 20 : 0);
+  }, [isDarkMode]);
 
   // Fetch user profile data
   useEffect(() => {
@@ -59,13 +113,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       year: 'numeric'
     });
   };
-
-  // Animation for header shadow
-  const headerShadowOpacity = scrollY.interpolate({
-    inputRange: [0, 50],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
 
   // Handle back button
   const handleBack = () => {
@@ -129,18 +176,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       <StatusBar barStyle="light-content" backgroundColor="#333" />
 
       {/* Animated Header */}
-      <Animated.View
-        style={[
-          styles.header,
-          {
-            shadowOpacity: headerShadowOpacity,
-            borderBottomColor: headerShadowOpacity.interpolate({
-              inputRange: [0, 1],
-              outputRange: ["transparent", "#3a3a3a"],
-            }),
-          },
-        ]}
-      >
+      <Animated.View style={[styles.header, headerStyle]}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
           <ArrowLeft size={22} color="#f8f9fa" />
         </TouchableOpacity>
@@ -152,33 +188,39 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         <Animated.ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-            useNativeDriver: false,
-          })}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
         >
           {/* User Header with Avatar */}
-          <View style={styles.profileHeaderCard}>
+          <Animated.View
+            entering={FadeIn.duration(600).delay(300)}
+            layout={LinearTransition.springify()}
+            style={styles.profileHeaderCard}
+          >
             <View style={styles.profileHeader}>
-              {/* Avatar */}
               <View style={styles.avatarOuterContainer}>
                 <Text style={styles.avatarText}>{getUserInitials()}</Text>
               </View>
 
-              {/* User Info */}
               <View style={styles.userInfoContainer}>
                 <Text style={styles.userName}>{user?.displayName || user?.email}</Text>
 
                 {user?.isVerified && (
-                  <View style={styles.verifiedBadge}>
+                  <Animated.View
+                    entering={FadeIn.duration(400).delay(600)}
+                    style={styles.verifiedBadge}
+                  >
                     <Shield size={12} color="#40c057" />
                     <Text style={styles.verifiedText}>VERIFIED</Text>
-                  </View>
+                  </Animated.View>
                 )}
               </View>
             </View>
 
-            {/* Quick Stats */}
-            <View style={[styles.statsContainer, { justifyContent: 'center', gap: 32 }]}>
+            <Animated.View
+              entering={FadeIn.duration(400).delay(450)}
+              style={[styles.statsContainer, { justifyContent: 'center', gap: 32 }]}
+            >
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{profileData?.scanCount || 0}</Text>
                 <Text style={styles.statLabel}>Scans</Text>
@@ -190,19 +232,26 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 <Text style={styles.statValue}>{profileData?.saveCount || 0}</Text>
                 <Text style={styles.statLabel}>Saved</Text>
               </View>
-            </View>
-          </View>
+            </Animated.View>
+          </Animated.View>
 
           {/* User Details Card */}
-          <View style={styles.detailsCard}>
+          <Animated.View
+            entering={FadeIn.duration(600).delay(450)}
+            layout={LinearTransition.springify()}
+            style={styles.detailsCard}
+          >
             <Text style={styles.sectionTitle}>Account Information</Text>
 
             {loading ? (
               <ActivityIndicator size="large" color="#93c5fd" style={{ marginVertical: 20 }} />
             ) : (
-              <>
+              <Animated.View layout={LinearTransition.springify()}>
                 {/* Email Detail */}
-                <View style={styles.detailItem}>
+                <Animated.View
+                  entering={FadeIn.duration(400).delay(600)}
+                  style={styles.detailItem}
+                >
                   <View style={styles.detailIconContainer}>
                     <Mail size={18} color="#93c5fd" />
                   </View>
@@ -210,10 +259,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                     <Text style={styles.detailLabel}>Email</Text>
                     <Text style={styles.detailValue}>{profileData?.email || user?.email}</Text>
                   </View>
-                </View>
+                </Animated.View>
 
                 {/* Role Detail */}
-                <View style={styles.detailItem}>
+                <Animated.View
+                  entering={FadeIn.duration(400).delay(700)}
+                  style={styles.detailItem}
+                >
                   <View style={styles.detailIconContainer}>
                     <User size={18} color="#93c5fd" />
                   </View>
@@ -221,10 +273,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                     <Text style={styles.detailLabel}>Role</Text>
                     <Text style={styles.detailValue}>{profileData?.role || user?.role || 'User'}</Text>
                   </View>
-                </View>
+                </Animated.View>
 
                 {/* Member Since */}
-                <View style={styles.detailItem}>
+                <Animated.View
+                  entering={FadeIn.duration(400).delay(800)}
+                  style={styles.detailItem}
+                >
                   <View style={styles.detailIconContainer}>
                     <Calendar size={18} color="#93c5fd" />
                   </View>
@@ -234,11 +289,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                       {profileData?.createdAt ? formatMemberSince(profileData.createdAt) : 'Loading...'}
                     </Text>
                   </View>
-                </View>
+                </Animated.View>
 
                 {/* Bio - if available */}
                 {profileData?.bio && (
-                  <View style={styles.detailItem}>
+                  <Animated.View
+                    entering={FadeIn.duration(400).delay(900)}
+                    style={styles.detailItem}
+                  >
                     <View style={styles.detailIconContainer}>
                       <User size={18} color="#93c5fd" />
                     </View>
@@ -246,36 +304,44 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                       <Text style={styles.detailLabel}>Bio</Text>
                       <Text style={styles.detailValue}>{profileData.bio}</Text>
                     </View>
-                  </View>
+                  </Animated.View>
                 )}
 
                 {/* Dark Map Toggle */}
-                <TouchableOpacity style={styles.detailItem} onPress={handleDarkModeToggle}>
-                  <View style={styles.detailIconContainer}>
-                    <Moon size={18} color="#93c5fd" />
-                  </View>
-                  <View style={[styles.detailContent, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-                    <View>
-                      <Text style={styles.detailLabel}>Dark Map</Text>
-                      <Text style={styles.detailValue}>{isDarkMode ? 'Enabled' : 'Disabled'}</Text>
+                <Animated.View
+                  entering={FadeIn.duration(400).delay(1000)}
+                  style={styles.detailItem}
+                >
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', flex: 1 }}
+                    onPress={handleDarkModeToggle}
+                  >
+                    <View style={styles.detailIconContainer}>
+                      <Moon size={18} color="#93c5fd" />
                     </View>
-                    <View style={[
-                      styles.toggleSwitch,
-                      { backgroundColor: isDarkMode ? '#93c5fd' : 'rgba(147, 197, 253, 0.2)' }
-                    ]}>
+                    <View style={[styles.detailContent, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+                      <View>
+                        <Text style={styles.detailLabel}>Dark Map</Text>
+                        <Text style={styles.detailValue}>{isDarkMode ? 'Enabled' : 'Disabled'}</Text>
+                      </View>
                       <View style={[
-                        styles.toggleKnob,
-                        { transform: [{ translateX: isDarkMode ? 20 : 0 }] }
-                      ]} />
+                        styles.toggleSwitch,
+                        { backgroundColor: isDarkMode ? '#93c5fd' : 'rgba(147, 197, 253, 0.2)' }
+                      ]}>
+                        <Animated.View style={[styles.toggleKnob, toggleStyle]} />
+                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              </>
+                  </TouchableOpacity>
+                </Animated.View>
+              </Animated.View>
             )}
-          </View>
+          </Animated.View>
 
           {/* Logout and Delete Section */}
-          <View style={styles.actionsSection}>
+          <Animated.View
+            entering={FadeIn.duration(600).delay(600)}
+            style={styles.actionsSection}
+          >
             <TouchableOpacity
               style={styles.logoutButton}
               onPress={handleLogout}
@@ -296,12 +362,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               <Trash2 size={18} color="#dc2626" style={{ marginRight: 8 }} />
               <Text style={styles.deleteText}>Delete Account</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
 
           {/* App Version */}
-          <View style={styles.versionContainer}>
+          <Animated.View
+            entering={FadeIn.duration(400).delay(750)}
+            style={styles.versionContainer}
+          >
             <Text style={styles.versionText}>App Version 1.0.0</Text>
-          </View>
+          </Animated.View>
         </Animated.ScrollView>
       </View>
 
@@ -316,11 +385,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           setDeleteError("");
         }}
       >
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.modalContainer}
         >
-          <View style={styles.modalContent}>
+          <Animated.View
+            entering={FadeIn.duration(300)}
+            layout={LinearTransition.springify()}
+            style={styles.modalContent}
+          >
             <Text style={styles.modalTitle}>Delete Account</Text>
             <Text style={styles.dialogText}>
               Are you sure you want to delete your account? This action cannot be undone.
@@ -336,8 +409,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               value={password}
               onChangeText={setPassword}
             />
-            {deleteError ? <Text style={styles.errorText}>{deleteError}</Text> : null}
-            
+            {deleteError ? (
+              <Animated.View
+                entering={FadeIn.duration(300)}
+                exiting={FadeOut.duration(300)}
+              >
+                <Text style={styles.errorText}>{deleteError}</Text>
+              </Animated.View>
+            ) : null}
+
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={styles.cancelButton}
@@ -350,7 +430,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[
                   styles.deleteModalButton,
@@ -366,7 +446,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 )}
               </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
