@@ -268,6 +268,7 @@ async function initializeWorker() {
 
           const newEvent = await eventService.createEvent({
             emoji: eventDetails.emoji,
+            emojiDescription: eventDetails.emojiDescription,
             title: eventDetails.title,
             eventDate: new Date(eventDetails.date),
             endDate: eventDetails.endDate ? new Date(eventDetails.endDate) : undefined,
