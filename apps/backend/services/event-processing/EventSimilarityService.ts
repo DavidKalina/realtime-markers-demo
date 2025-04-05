@@ -15,6 +15,7 @@ export class EventSimilarityService implements IEventSimilarityService {
   // Default thresholds from configuration
   private readonly DUPLICATE_SIMILARITY_THRESHOLD: number;
   private readonly SAME_LOCATION_THRESHOLD: number;
+  private readonly TITLE_SIMILARITY_THRESHOLD: number;
 
   /**
    * Creates a new EventSimilarityService
@@ -22,10 +23,13 @@ export class EventSimilarityService implements IEventSimilarityService {
    * @param configService Optional configuration service
    */
   constructor(private eventRepository: Repository<Event>, configService?: ConfigService) {
-    // Get thresholds from config or use defaults
+    // Lower thresholds to catch more potential duplicates
     this.DUPLICATE_SIMILARITY_THRESHOLD =
-      configService?.get("eventProcessing.similarityThreshold") || 0.65;
-    this.SAME_LOCATION_THRESHOLD = configService?.get("eventProcessing.locationThreshold") || 0.55;
+      configService?.get("eventProcessing.similarityThreshold") || 0.55; // Reduced from 0.65
+    this.SAME_LOCATION_THRESHOLD =
+      configService?.get("eventProcessing.locationThreshold") || 0.45; // Reduced from 0.55
+    this.TITLE_SIMILARITY_THRESHOLD =
+      configService?.get("eventProcessing.titleThreshold") || 0.8;
   }
 
   /**
@@ -41,6 +45,7 @@ export class EventSimilarityService implements IEventSimilarityService {
       address?: string;
       description?: string;
       locationNotes?: string;
+      emoji?: string;
     }
   ): Promise<SimilarityResult> {
     try {
@@ -67,28 +72,30 @@ export class EventSimilarityService implements IEventSimilarityService {
         // Combine vector similarity with text matching score
         .addSelect(`
           (
-            -- Vector similarity (40% weight)
-            (1 - (embedding <-> :embedding)::float) * 0.4 +
+            -- Vector similarity (35% weight)
+            (1 - (embedding <-> :embedding)::float) * 0.35 +
             
-            -- Title match (30% weight)
+            -- Title match (35% weight)
             CASE 
-              WHEN LOWER(event.title) = LOWER(:exactTitle) THEN 0.3
-              WHEN LOWER(event.title) LIKE LOWER(:titlePattern) THEN 0.2
+              WHEN LOWER(event.title) = LOWER(:exactTitle) THEN 0.35
+              WHEN similarity(LOWER(event.title), LOWER(:exactTitle)) > 0.8 THEN 0.25
+              WHEN LOWER(event.title) LIKE LOWER(:titlePattern) THEN 0.15
               ELSE 0
             END +
             
             -- Location match (20% weight)
             CASE 
-              WHEN LOWER(event.address) = LOWER(:exactAddress) THEN 0.1
-              WHEN LOWER(event.location_notes) = LOWER(:exactLocationNotes) THEN 0.1
-              WHEN LOWER(event.address) LIKE LOWER(:addressPattern) THEN 0.05
+              WHEN LOWER(event.address) = LOWER(:exactAddress) THEN 0.2
+              WHEN LOWER(event.location_notes) = LOWER(:exactLocationNotes) THEN 0.15
+              WHEN LOWER(event.address) LIKE LOWER(:addressPattern) THEN 0.1
               WHEN LOWER(event.location_notes) LIKE LOWER(:locationNotesPattern) THEN 0.05
               ELSE 0
             END +
             
-            -- Description match (10% weight)
+            -- Description and emoji match (10% weight)
             CASE 
-              WHEN LOWER(event.description) LIKE LOWER(:descPattern) THEN 0.1
+              WHEN event.emoji = :emoji THEN 0.05
+              WHEN LOWER(event.description) LIKE LOWER(:descPattern) THEN 0.05
               ELSE 0
             END
           )`, 'similarity_score'
@@ -117,24 +124,34 @@ export class EventSimilarityService implements IEventSimilarityService {
         pgvector.fromSql(bestMatch.embedding)
       );
 
-      // Simplified match reason based on our core fields
+      // Enhanced match reason logic
       let matchReason = "";
-      if (embeddingScore > 0.85) {
+      const titleSimilarity = this.calculateStringSimilarity(
+        bestMatch.title.toLowerCase(),
+        eventData.title.toLowerCase()
+      );
+
+      if (embeddingScore > 0.8) {
         matchReason = "Very similar content";
-      } else if (
-        bestMatch.title.toLowerCase() === eventData.title.toLowerCase() &&
-        bestMatch.address?.toLowerCase() === eventData.address?.toLowerCase()
-      ) {
-        matchReason = "Same title at same location";
-      } else if (embeddingScore > 0.75) {
+      } else if (titleSimilarity > this.TITLE_SIMILARITY_THRESHOLD &&
+        bestMatch.address?.toLowerCase() === eventData.address?.toLowerCase()) {
+        matchReason = "Similar title at same location";
+      } else if (embeddingScore > 0.65) {
         matchReason = "Similar content";
+      } else if (titleSimilarity > this.TITLE_SIMILARITY_THRESHOLD) {
+        matchReason = "Similar title";
+      } else if (bestMatch.address?.toLowerCase() === eventData.address?.toLowerCase() &&
+        bestMatch.emoji === eventData.emoji) {
+        matchReason = "Same location and event type";
       }
 
       const matchDetails = {
         embeddingScore: embeddingScore.toFixed(2),
+        titleSimilarity: titleSimilarity.toFixed(2),
         titleMatch: bestMatch.title.toLowerCase() === eventData.title.toLowerCase(),
         addressMatch: bestMatch.address?.toLowerCase() === eventData.address?.toLowerCase(),
-        locationNotesMatch: bestMatch.locationNotes?.toLowerCase() === eventData.locationNotes?.toLowerCase()
+        locationNotesMatch: bestMatch.locationNotes?.toLowerCase() === eventData.locationNotes?.toLowerCase(),
+        emojiMatch: bestMatch.emoji === eventData.emoji
       };
 
       const isDuplicate = this.isDuplicate({
@@ -167,15 +184,26 @@ export class EventSimilarityService implements IEventSimilarityService {
     // Use provided threshold or default
     const duplicateThreshold = threshold || this.DUPLICATE_SIMILARITY_THRESHOLD;
 
-    // Consider it a duplicate if:
-    // 1. High embedding similarity (>0.85) OR
-    // 2. Good composite score (>threshold) with high location similarity (>0.8)
+    // Enhanced duplicate detection logic
+    // Consider it a duplicate if ANY of these conditions are met:
     return !!(
+      // 1. Very high embedding similarity
       (similarityResult.matchDetails?.embeddingScore &&
-        parseFloat(similarityResult.matchDetails.embeddingScore) > 0.85) ||
+        parseFloat(similarityResult.matchDetails.embeddingScore) > 0.8) ||
+
+      // 2. Good composite score with location match
       (similarityResult.score > duplicateThreshold &&
-        similarityResult.matchDetails?.locationSimilarity &&
-        parseFloat(similarityResult.matchDetails.locationSimilarity) > 0.8)
+        similarityResult.matchDetails?.addressMatch) ||
+
+      // 3. Very similar title with same location
+      (similarityResult.matchDetails?.titleSimilarity &&
+        parseFloat(similarityResult.matchDetails.titleSimilarity) > this.TITLE_SIMILARITY_THRESHOLD &&
+        similarityResult.matchDetails?.addressMatch) ||
+
+      // 4. Same location, same emoji, and moderate similarity
+      (similarityResult.matchDetails?.addressMatch &&
+        similarityResult.matchDetails?.emojiMatch &&
+        similarityResult.score > this.SAME_LOCATION_THRESHOLD)
     );
   }
 
@@ -268,5 +296,40 @@ export class EventSimilarityService implements IEventSimilarityService {
     if (magnitudeA === 0 || magnitudeB === 0) return 0;
 
     return dotProduct / (magnitudeA * magnitudeB);
+  }
+
+  // New helper method to calculate string similarity using Levenshtein distance
+  private calculateStringSimilarity(str1: string, str2: string): number {
+    const maxLength = Math.max(str1.length, str2.length);
+    if (maxLength === 0) return 1.0;
+
+    const distance = this.levenshteinDistance(str1, str2);
+    return 1 - distance / maxLength;
+  }
+
+  // Helper method to calculate Levenshtein distance
+  private levenshteinDistance(str1: string, str2: string): number {
+    const m = str1.length;
+    const n = str2.length;
+    const dp: number[][] = Array(m + 1).fill(0).map(() => Array(n + 1).fill(0));
+
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (str1[i - 1] === str2[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1];
+        } else {
+          dp[i][j] = 1 + Math.min(
+            dp[i - 1][j],     // deletion
+            dp[i][j - 1],     // insertion
+            dp[i - 1][j - 1]  // substitution
+          );
+        }
+      }
+    }
+
+    return dp[m][n];
   }
 }
