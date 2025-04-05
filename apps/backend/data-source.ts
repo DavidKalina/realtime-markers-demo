@@ -7,13 +7,17 @@ import { User } from "./entities/User";
 import { UserEventDiscovery } from "./entities/UserEventDiscovery";
 import { UserEventSave } from "./entities/UserEventSave";
 import { Filter } from "./entities/Filter";
+import path from "path";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
   type: "postgres",
   url: process.env.DATABASE_URL,
   entities: [Event, Category, User, UserEventDiscovery, UserEventSave, Filter],
-  synchronize: true, // This auto-creates the tables
+  migrations: [path.join(__dirname, "migrations", "*.{js,ts}")],
+  migrationsTableName: "migrations",
+  migrationsRun: process.env.NODE_ENV === "production", // Auto-run migrations in production
+  synchronize: process.env.NODE_ENV !== "production", // Only auto-sync in development
   logging: ["query", "error", "schema"], // More detailed logging
   ssl: false,
   poolSize: 20,

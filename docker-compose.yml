@@ -220,7 +220,28 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
-  # Removed the nginx container since we're using the host's nginx
+  migrations:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-markersdb}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-markersdb}
+      - NODE_ENV=production
+    networks:
+      - marker-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: npm run migration:run
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"  # Don't restart on failure
+
+# Removed the nginx container since we're using the host's nginx
 
 networks:
   marker-network:

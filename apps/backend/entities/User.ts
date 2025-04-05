@@ -59,6 +59,12 @@ export class User {
   @Column({ name: "save_count", type: "integer", default: 0 })
   saveCount!: number;
 
+  @Column({ name: "is_onboarded", type: "boolean", default: false })
+  isOnboarded!: boolean;
+
+  @Column({ name: "onboarding_completed_at", type: "timestamptz", nullable: true })
+  onboardingCompletedAt?: Date;
+
   @OneToMany(() => UserEventDiscovery, (discovery) => discovery.user)
   discoveries!: UserEventDiscovery[];
 
