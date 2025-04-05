@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, memo } from "react";
+import React, { useEffect, useRef, memo, useState } from "react";
 import { View, StyleSheet, Dimensions, Platform } from "react-native";
 import Mapbox from "@rnmapbox/maps";
 
@@ -8,6 +8,11 @@ const ANIMATION_BATCH_SIZE = 3; // Number of frames to skip between major update
 const BASE_PITCH = 60;
 const BASE_ZOOM = 15;
 const BASE_BEARING = 45;
+
+// Animation timing constants
+const INITIAL_DELAY = 1000; // Wait 1 second before starting animations
+const LOCATION_DURATION = 30000;
+const TRANSITION_DURATION = 10000;
 
 // Default locations for camera to move between
 const LOCATIONS = [
@@ -36,6 +41,10 @@ interface AnimatedMapBackgroundProps {
 const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
   settings = DEFAULT_SETTINGS,
 }) => {
+  // Component state
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
   // Refs
   const mapRef = useRef<Mapbox.MapView>(null);
   const cameraRef = useRef<Mapbox.Camera>(null);
@@ -44,6 +53,7 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
 
   // Animation control refs
   const animationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const initializationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timeRef = useRef(0);
   const currentLocationIndexRef = useRef(0);
   const transitioningRef = useRef(false);
@@ -61,9 +71,15 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
   // Store initial settings in a ref to avoid dependency changes
   const initialSettingsRef = useRef(settings);
 
+  // Handle map ready state
+  const handleMapReady = () => {
+    if (!isMountedRef.current) return;
+    setIsMapReady(true);
+  };
+
   // Throttled camera update function
   const updateCamera = (force = false) => {
-    if (!isMountedRef.current || !cameraRef.current || isPerformingUpdateRef.current) {
+    if (!isMountedRef.current || !cameraRef.current || isPerformingUpdateRef.current || !isInitialized) {
       return;
     }
 
@@ -94,15 +110,43 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
     }
   };
 
-  // Set up 3D map animation
+  // Initialize map and camera
   useEffect(() => {
-    if (!isMountedRef.current) return;
+    if (!isMapReady || !isMountedRef.current) return;
 
-    // First update to establish initial position
-    updateCamera(true);
+    // Set initial camera position
+    if (cameraRef.current) {
+      try {
+        cameraRef.current.setCamera({
+          centerCoordinate: LOCATIONS[0].center,
+          zoomLevel: BASE_ZOOM,
+          pitch: BASE_PITCH,
+          animationDuration: 0,
+        });
+      } catch (error) {
+        console.warn('Initial camera setup failed:', error);
+      }
+    }
 
-    const LOCATION_DURATION = 30000;
-    const TRANSITION_DURATION = 10000;
+    // Wait for initial delay before starting animations
+    initializationTimerRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        setIsInitialized(true);
+      }
+    }, INITIAL_DELAY);
+
+    return () => {
+      if (initializationTimerRef.current) {
+        clearTimeout(initializationTimerRef.current);
+        initializationTimerRef.current = null;
+      }
+    };
+  }, [isMapReady]);
+
+  // Set up animation loop
+  useEffect(() => {
+    if (!isInitialized || !isMountedRef.current) return;
+
     let lastLocationChange = 0;
 
     animationIntervalRef.current = setInterval(() => {
@@ -169,6 +213,11 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
         animationIntervalRef.current = null;
       }
 
+      if (initializationTimerRef.current) {
+        clearTimeout(initializationTimerRef.current);
+        initializationTimerRef.current = null;
+      }
+
       // Reset all refs
       timeRef.current = 0;
       frameCountRef.current = 0;
@@ -197,6 +246,66 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
         }
       }
     };
+  }, [isInitialized]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      // Set mounted flag to false first to prevent any new operations
+      isMountedRef.current = false;
+
+      // Clear all timers and intervals
+      if (animationIntervalRef.current) {
+        clearInterval(animationIntervalRef.current);
+        animationIntervalRef.current = null;
+      }
+
+      if (initializationTimerRef.current) {
+        clearTimeout(initializationTimerRef.current);
+        initializationTimerRef.current = null;
+      }
+
+      // Reset all animation and state refs
+      timeRef.current = 0;
+      frameCountRef.current = 0;
+      lastUpdateTimeRef.current = 0;
+      transitioningRef.current = false;
+      isPerformingUpdateRef.current = false;
+      currentLocationIndexRef.current = 0;
+
+      // Reset camera values
+      zoomRef.current = BASE_ZOOM;
+      pitchRef.current = BASE_PITCH;
+      centerRef.current = LOCATIONS[0].center;
+
+      // Reset camera to initial position with no animation
+      if (cameraRef.current) {
+        try {
+          cameraRef.current.setCamera({
+            centerCoordinate: LOCATIONS[0].center,
+            zoomLevel: BASE_ZOOM,
+            pitch: BASE_PITCH,
+            animationDuration: 0,
+          });
+        } catch (error) {
+          console.warn('Final camera reset failed:', error);
+        }
+      }
+
+      // Clean up map resources
+      if (mapRef.current) {
+        try {
+          // Remove any listeners or custom layers if they exist
+          mapRef.current.setCamera = () => { }; // Nullify the function to prevent late calls
+        } catch (error) {
+          console.warn('Map cleanup failed:', error);
+        }
+      }
+
+      // Force a state reset
+      setIsMapReady(false);
+      setIsInitialized(false);
+    };
   }, []);
 
   const currentSettings = initialSettingsRef.current;
@@ -215,6 +324,7 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
         zoomEnabled={false}
         rotateEnabled={false}
         pitchEnabled={false}
+        onDidFinishLoadingMap={handleMapReady}
       >
         <Mapbox.Camera
           ref={cameraRef}
