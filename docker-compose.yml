@@ -9,6 +9,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-markersdb}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./deploy.sh:/deploy.sh:ro
+      - ./backups:/backups
     ports:
       - "127.0.0.1:5432:5432" # Only accessible from the host machine
     networks:
@@ -93,6 +95,8 @@ services:
     networks:
       - marker-network
     depends_on:
+      migrations:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -100,6 +104,9 @@ services:
     volumes:
       - backend_node_modules:/app/node_modules
       - backend_app_node_modules:/app/apps/backend/node_modules
+      - ./apps/backend/docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
+    entrypoint: ["/app/docker-entrypoint.sh"]
+    command: ["npm", "start"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 60s
@@ -236,10 +243,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: npm run migration:run
+    volumes:
+      - ./deploy.sh:/deploy.sh:ro
+      - ./backups:/backups
+    command: sh -c "chmod +x /deploy.sh && /deploy.sh"
     security_opt:
       - no-new-privileges:true
-    restart: "no"  # Don't restart on failure
+    restart: "no"
 
 # Removed the nginx container since we're using the host's nginx
 
