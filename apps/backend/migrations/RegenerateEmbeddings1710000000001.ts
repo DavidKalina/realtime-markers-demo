@@ -11,7 +11,7 @@ export class RegenerateEmbeddings1710000000001 implements MigrationInterface {
         // Get all events
         console.log("Fetching events...");
         const events = await queryRunner.query(`
-            SELECT id, title, description, emoji, emoji_description, address, location_notes,
+            SELECT e.id, e.title, e.description, e.emoji, e.emoji_description, e.address, e.location_notes,
                    array_agg(c.name) as category_names
             FROM events e
             LEFT JOIN event_categories ec ON e.id = ec.event_id
