@@ -34,7 +34,7 @@ export class Event {
   @Column({ type: "varchar", default: "📍" })
   emoji?: string;
 
-  @Column({ type: "varchar", nullable: true })
+  @Column({ type: "varchar", nullable: true, name: "emoji_description" })
   emojiDescription?: string;
 
   @Column({ type: "varchar" })
