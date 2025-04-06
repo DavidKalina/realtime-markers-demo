@@ -73,7 +73,7 @@ const GRAVITATIONAL_CAMERA_CONFIG = {
 const DEFAULT_CAMERA_SETTINGS = {
   zoomLevel: 14,
   animationDuration: 800,
-  animationMode: "easeTo" as const,
+  animationMode: "flyTo" as const,
 };
 
 function HomeScreen() {

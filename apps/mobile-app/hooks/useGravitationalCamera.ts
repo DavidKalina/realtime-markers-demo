@@ -437,7 +437,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
           centerCoordinate: centroid,
           zoomLevel: zoomLevel,
           animationDuration: animationDuration,
-          animationMode: "easeTo",
+          animationMode: "flyTo",
         });
 
         // Reset pull state after animation completes
@@ -607,9 +607,31 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
 
         cameraRef.current.setCamera({
           centerCoordinate: coordinates,
-          zoomLevel: zoom || gravitationConfig.gravityZoomLevel,
           animationDuration: duration,
-          animationMode: "easeTo",
+          animationMode: "flyTo",
+        });
+
+        // Reset animating state after animation completes
+        setTimeout(() => {
+          isAnimatingRef.current = false;
+        }, duration + 50);
+      }
+    },
+    [gravitationConfig.gravityZoomLevel]
+  );
+
+  const animateToLocationWithZoom = useCallback(
+    (coordinates: [number, number], duration = 3000, targetZoom?: number) => {
+      if (cameraRef.current) {
+        // Set animating state
+        isAnimatingRef.current = true;
+
+        // Center on the marker with a safe zoom level
+        cameraRef.current.setCamera({
+          centerCoordinate: coordinates,
+          zoomLevel: Math.min(targetZoom ?? gravitationConfig.gravityZoomLevel, 14), // Safe zoom level
+          animationDuration: duration,
+          animationMode: "flyTo",
         });
 
         // Reset animating state after animation completes
@@ -664,7 +686,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
         const zoomLevel = event.zoomLevel || gravitationConfig.gravityZoomLevel;
 
         // Animate to the requested location
-        animateToLocation(event.coordinates, duration, zoomLevel);
+        animateToLocationWithZoom(event.coordinates, duration, zoomLevel);
       }
     );
 
@@ -709,6 +731,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       toggleGravitation,
       handleViewportChange,
       animateToLocation,
+      animateToLocationWithZoom,
       animateToBounds,
       visibleMarkers: visibleMarkersRef.current,
       updateConfig: (newConfig: Partial<GravitationConfig>) => {
@@ -722,6 +745,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       toggleGravitation,
       handleViewportChange,
       animateToLocation,
+      animateToLocationWithZoom,
       animateToBounds,
     ]
   );

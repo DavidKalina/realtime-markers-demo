@@ -18,12 +18,6 @@ interface UserLocationEvent extends BaseEvent {
   coordinates: [number, number];
 }
 
-interface CameraAnimateToLocationEvent extends BaseEvent {
-  coordinates: [number, number];
-  duration: number;
-  zoomLevel: number;
-}
-
 // Define the context type
 type LocationContextType = {
   // User location state
