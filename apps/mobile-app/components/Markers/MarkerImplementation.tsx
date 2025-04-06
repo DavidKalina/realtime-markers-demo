@@ -43,16 +43,7 @@ interface ClusteredMapMarkersProps {
   viewport: MapboxViewport;
 }
 
-// Update the ClusterFeature type to include stableId
-interface ClusterProperties {
-  cluster: boolean;
-  cluster_id: number;
-  point_count: number;
-  point_count_abbreviated: string;
-  stableId: string;
-}
 
-// Component for rendering an individual marker - memoized
 const SingleMarkerView = React.memo(
   ({
     marker,
@@ -316,11 +307,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
     // This is a simple implementation - you may want to add a buffer zone
     const visibleItems = useMemo(() => {
       return processedClusters.filter((item) => {
-        // Always include the selected item, even if it's outside the viewport
-        if (selectedItem?.id === item.item.id) {
-          return true;
-        }
-
         const [lng, lat] = item.item.coordinates;
         return (
           lng >= viewport.west &&
@@ -329,7 +315,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           lat <= viewport.north
         );
       });
-    }, [processedClusters, viewport, selectedItem?.id]);
+    }, [processedClusters, viewport]);
 
     // Memoize the render functions to prevent recreation
     const renderCluster = useCallback(
