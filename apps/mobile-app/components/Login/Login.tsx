@@ -20,7 +20,22 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Animated, { FadeIn, FadeOut, Layout, LinearTransition } from "react-native-reanimated";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  Layout,
+  LinearTransition,
+  BounceIn,
+  SlideOutRight,
+  SlideInRight,
+  ZoomIn,
+  ZoomOut,
+  useAnimatedStyle,
+  withSpring,
+  useSharedValue,
+  withSequence,
+  withDelay
+} from "react-native-reanimated";
 import MapMojiHeader from "../AnimationHeader";
 import { AuthWrapper } from "../AuthWrapper";
 
@@ -84,6 +99,13 @@ const Login: React.FC = () => {
 
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
+  const buttonScale = useSharedValue(1);
+
+  const buttonAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: buttonScale.value }],
+    };
+  });
 
   // Cleanup effect
   useEffect(() => {
@@ -181,6 +203,25 @@ const Login: React.FC = () => {
     );
   };
 
+  const handleLoginPress = async () => {
+    if (isLoading) return;
+
+    // Trigger haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Animate button press
+    buttonScale.value = withSequence(
+      withSpring(0.95, { damping: 15, stiffness: 200 }),
+      withSpring(1, { damping: 15, stiffness: 200 })
+    );
+
+    // Delay the login action until after animation
+    setTimeout(() => {
+      Keyboard.dismiss();
+      handleLogin();
+    }, 150);
+  };
+
   return (
     <AuthWrapper requireAuth={false}>
       <SafeAreaView style={styles.container}>
@@ -188,7 +229,7 @@ const Login: React.FC = () => {
         <StatusBar barStyle="light-content" backgroundColor="#333" />
 
         <Animated.View
-          entering={FadeIn.duration(800).delay(300)}
+          entering={FadeIn.duration(800).delay(300).springify()}
           style={styles.headerContainer}
         >
           <MapMojiHeader />
@@ -203,7 +244,7 @@ const Login: React.FC = () => {
             keyboardShouldPersistTaps="handled"
           >
             <Animated.View
-              entering={FadeIn.duration(800).delay(500)}
+              entering={FadeIn.duration(800).delay(500).springify()}
               style={styles.formContainer}
             >
               <Animated.View
@@ -213,6 +254,7 @@ const Login: React.FC = () => {
                 <TouchableOpacity style={styles.profileSelectorContainer} onPress={toggleDropdown}>
                   {selectedProfile ? (
                     <Animated.View
+                      entering={BounceIn.duration(600)}
                       layout={LinearTransition.springify()}
                       style={styles.selectedProfileContainer}
                     >
@@ -223,6 +265,7 @@ const Login: React.FC = () => {
                     </Animated.View>
                   ) : (
                     <Animated.View
+                      entering={ZoomIn.duration(400)}
                       layout={LinearTransition.springify()}
                       style={styles.noProfileContainer}
                     >
@@ -247,8 +290,8 @@ const Login: React.FC = () => {
                 </TouchableOpacity>
                 {error && (
                   <Animated.View
-                    entering={FadeIn.duration(300)}
-                    exiting={FadeOut.duration(300)}
+                    entering={FadeIn.duration(300).springify()}
+                    exiting={FadeOut.duration(200)}
                     layout={LinearTransition.springify()}
                     style={styles.errorContainer}
                   >
@@ -261,7 +304,7 @@ const Login: React.FC = () => {
                     style={{ gap: 16 }}
                   >
                     <Animated.View
-                      entering={FadeIn.duration(400)}
+                      entering={SlideInRight.duration(400).springify()}
                       style={styles.inputContainer}
                     >
                       <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
@@ -281,7 +324,7 @@ const Login: React.FC = () => {
                       />
                     </Animated.View>
                     <Animated.View
-                      entering={FadeIn.duration(400).delay(100)}
+                      entering={SlideInRight.duration(400).delay(100).springify()}
                       style={styles.inputContainer}
                     >
                       <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
@@ -307,28 +350,27 @@ const Login: React.FC = () => {
                   </Animated.View>
                 )}
                 <Animated.View
-                  entering={FadeIn.duration(400).delay(200)}
+                  entering={FadeIn.duration(400).delay(200).springify()}
                   layout={LinearTransition.springify()}
                 >
-                  <TouchableOpacity
-                    style={styles.loginButton}
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      handleLogin();
-                    }}
-                    disabled={isLoading}
-                    activeOpacity={0.8}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator size="small" color="#000" />
-                    ) : (
-                      <Text style={styles.loginButtonText}>Login</Text>
-                    )}
-                  </TouchableOpacity>
+                  <Animated.View style={[styles.loginButton, buttonAnimatedStyle]}>
+                    <TouchableOpacity
+                      onPress={handleLoginPress}
+                      disabled={isLoading}
+                      activeOpacity={1}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator size="small" color="#000" />
+                      ) : (
+                        <Text style={styles.loginButtonText}>Login</Text>
+                      )}
+                    </TouchableOpacity>
+                  </Animated.View>
                 </Animated.View>
                 {selectedProfile && (
                   <Animated.View
                     entering={FadeIn.duration(300)}
+                    exiting={FadeOut.duration(200)}
                     layout={LinearTransition.springify()}
                   >
                     <TouchableOpacity
@@ -344,7 +386,7 @@ const Login: React.FC = () => {
                   </Animated.View>
                 )}
                 <Animated.View
-                  entering={FadeIn.duration(400).delay(300)}
+                  entering={FadeIn.duration(400).delay(300).springify()}
                   style={styles.createAccountContainer}
                 >
                   <Text style={styles.createAccountText}>Don't have an account? </Text>
@@ -369,18 +411,24 @@ const Login: React.FC = () => {
             onPress={() => setIsDropdownOpen(false)}
           >
             <Animated.View
-              entering={FadeIn.duration(300)}
+              entering={FadeIn.duration(300).springify()}
               layout={LinearTransition.springify()}
               style={styles.dropdownContainer}
             >
               <Animated.FlatList
                 data={TEST_PROFILES}
-                renderItem={renderProfileItem}
+                renderItem={({ item, index }) => (
+                  <Animated.View
+                    entering={BounceIn.duration(600).delay(index * 100)}
+                    exiting={SlideOutRight.duration(400)}
+                    layout={LinearTransition.springify()}
+                  >
+                    {renderProfileItem({ item })}
+                  </Animated.View>
+                )}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
                 style={styles.profileList}
-                layout={LinearTransition.springify()}
-                itemLayoutAnimation={LinearTransition.springify()}
               />
             </Animated.View>
           </TouchableOpacity>

@@ -11,7 +11,6 @@ import {
   StatusBar,
   SafeAreaView,
   ScrollView,
-  Animated,
   StyleSheet,
 } from "react-native";
 import { Lock, Mail, Eye, EyeOff, ArrowLeft, User } from "lucide-react-native";
@@ -22,6 +21,22 @@ import { AuthWrapper } from "@/components/AuthWrapper";
 import MapMojiHeader from "@/components/AnimationHeader";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import AnimatedMapBackground from "@/components/Background";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  Layout,
+  LinearTransition,
+  BounceIn,
+  SlideOutRight,
+  SlideInRight,
+  ZoomIn,
+  ZoomOut,
+  useAnimatedStyle,
+  withSpring,
+  useSharedValue,
+  withSequence,
+  withDelay
+} from "react-native-reanimated";
 
 const RegisterScreen: React.FC = () => {
   const router = useRouter();
@@ -39,21 +54,19 @@ const RegisterScreen: React.FC = () => {
   const displayNameInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const buttonScale = useSharedValue(1);
+
+  const buttonAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: buttonScale.value }],
+    };
+  });
 
   useEffect(() => {
     // Auto-focus the display name input when the screen loads
     setTimeout(() => {
       displayNameInputRef.current?.focus();
     }, 500);
-
-    // Start fade animation
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-      delay: 300,
-    }).start();
   }, []);
 
   const togglePasswordVisibility = () => {
@@ -64,6 +77,24 @@ const RegisterScreen: React.FC = () => {
   const toggleConfirmPasswordVisibility = () => {
     Haptics.selectionAsync();
     setShowConfirmPassword(!showConfirmPassword);
+  };
+
+  const handleRegisterPress = async () => {
+    if (isLoading) return;
+
+    // Trigger haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Animate button press
+    buttonScale.value = withSequence(
+      withSpring(0.95, { damping: 15, stiffness: 200 }),
+      withSpring(1, { damping: 15, stiffness: 200 })
+    );
+
+    // Delay the register action until after animation
+    setTimeout(() => {
+      handleRegister();
+    }, 150);
   };
 
   const handleRegister = async () => {
@@ -101,7 +132,6 @@ const RegisterScreen: React.FC = () => {
     setError(null);
     setIsLoading(true);
     Keyboard.dismiss();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
       await apiClient.register(email, password, displayName);
@@ -126,9 +156,12 @@ const RegisterScreen: React.FC = () => {
         <AnimatedMapBackground settings={{ styleURL: mapStyle }} />
         <StatusBar barStyle="light-content" backgroundColor="#333" />
 
-        <View style={styles.headerContainer}>
+        <Animated.View
+          entering={FadeIn.duration(800).delay(300).springify()}
+          style={styles.headerContainer}
+        >
           <MapMojiHeader />
-        </View>
+        </Animated.View>
 
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -138,15 +171,29 @@ const RegisterScreen: React.FC = () => {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <Animated.View style={[styles.formContainer, { opacity: fadeAnim }]}>
-              <View style={styles.formCard}>
+            <Animated.View
+              entering={FadeIn.duration(800).delay(500).springify()}
+              style={styles.formContainer}
+            >
+              <Animated.View
+                layout={LinearTransition.springify()}
+                style={styles.formCard}
+              >
                 {error && (
-                  <View style={styles.errorContainer}>
+                  <Animated.View
+                    entering={FadeIn.duration(300).springify()}
+                    exiting={FadeOut.duration(200)}
+                    layout={LinearTransition.springify()}
+                    style={styles.errorContainer}
+                  >
                     <Text style={styles.errorText}>{error}</Text>
-                  </View>
+                  </Animated.View>
                 )}
 
-                <View style={styles.inputContainer}>
+                <Animated.View
+                  entering={SlideInRight.duration(400).springify()}
+                  style={styles.inputContainer}
+                >
                   <User size={18} color="#93c5fd" style={styles.inputIcon} />
                   <TextInput
                     ref={displayNameInputRef}
@@ -160,9 +207,12 @@ const RegisterScreen: React.FC = () => {
                     returnKeyType="next"
                     onSubmitEditing={() => emailInputRef.current?.focus()}
                   />
-                </View>
+                </Animated.View>
 
-                <View style={styles.inputContainer}>
+                <Animated.View
+                  entering={SlideInRight.duration(400).delay(100).springify()}
+                  style={styles.inputContainer}
+                >
                   <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
                   <TextInput
                     ref={emailInputRef}
@@ -178,9 +228,12 @@ const RegisterScreen: React.FC = () => {
                     returnKeyType="next"
                     onSubmitEditing={() => passwordInputRef.current?.focus()}
                   />
-                </View>
+                </Animated.View>
 
-                <View style={styles.inputContainer}>
+                <Animated.View
+                  entering={SlideInRight.duration(400).delay(200).springify()}
+                  style={styles.inputContainer}
+                >
                   <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
                   <TextInput
                     ref={passwordInputRef}
@@ -200,9 +253,12 @@ const RegisterScreen: React.FC = () => {
                       <Eye size={18} color="#93c5fd" />
                     )}
                   </TouchableOpacity>
-                </View>
+                </Animated.View>
 
-                <View style={styles.inputContainer}>
+                <Animated.View
+                  entering={SlideInRight.duration(400).delay(300).springify()}
+                  style={styles.inputContainer}
+                >
                   <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
                   <TextInput
                     ref={confirmPasswordInputRef}
@@ -213,7 +269,7 @@ const RegisterScreen: React.FC = () => {
                     onChangeText={setConfirmPassword}
                     secureTextEntry={!showConfirmPassword}
                     returnKeyType="done"
-                    onSubmitEditing={handleRegister}
+                    onSubmitEditing={handleRegisterPress}
                   />
                   <TouchableOpacity
                     onPress={toggleConfirmPasswordVisibility}
@@ -225,27 +281,37 @@ const RegisterScreen: React.FC = () => {
                       <Eye size={18} color="#93c5fd" />
                     )}
                   </TouchableOpacity>
-                </View>
+                </Animated.View>
 
-                <TouchableOpacity
-                  style={styles.loginButton}
-                  onPress={handleRegister}
-                  disabled={isLoading}
+                <Animated.View
+                  entering={FadeIn.duration(400).delay(400).springify()}
+                  layout={LinearTransition.springify()}
                 >
-                  {isLoading ? (
-                    <ActivityIndicator size="small" color="#000" />
-                  ) : (
-                    <Text style={styles.loginButtonText}>Create Account</Text>
-                  )}
-                </TouchableOpacity>
+                  <Animated.View style={[styles.loginButton, buttonAnimatedStyle]}>
+                    <TouchableOpacity
+                      onPress={handleRegisterPress}
+                      disabled={isLoading}
+                      activeOpacity={1}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator size="small" color="#000" />
+                      ) : (
+                        <Text style={styles.loginButtonText}>Create Account</Text>
+                      )}
+                    </TouchableOpacity>
+                  </Animated.View>
+                </Animated.View>
 
-                <View style={styles.createAccountContainer}>
+                <Animated.View
+                  entering={FadeIn.duration(400).delay(500).springify()}
+                  style={styles.createAccountContainer}
+                >
                   <Text style={styles.createAccountText}>Already have an account? </Text>
                   <TouchableOpacity onPress={() => router.push("/login")}>
                     <Text style={styles.createAccountLink}>Login</Text>
                   </TouchableOpacity>
-                </View>
-              </View>
+                </Animated.View>
+              </Animated.View>
             </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
