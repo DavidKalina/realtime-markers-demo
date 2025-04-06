@@ -169,7 +169,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                 <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                     <X size={20} color="#f8f9fa" />
                 </TouchableOpacity>
-                <Text style={styles.title}>Select Date Range</Text>
+                <Text style={styles.title}>Calendar</Text>
             </View>
 
             <View style={styles.calendarContainer}>
