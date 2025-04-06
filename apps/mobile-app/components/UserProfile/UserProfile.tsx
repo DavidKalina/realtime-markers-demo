@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { useMapStyle, MapStyleType } from "@/contexts/MapStyleContext";
+import { MapStyleType, useMapStyle } from "@/contexts/MapStyleContext";
 import { apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -19,15 +19,15 @@ import {
   View,
 } from "react-native";
 import Animated, {
+  BounceIn,
+  BounceOut,
   Extrapolation,
-  FadeIn,
-  FadeOut,
   interpolate,
   LinearTransition,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  withSpring
+  FadeInDown
 } from "react-native-reanimated";
 
 interface UserProfileProps {
@@ -180,7 +180,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         >
           {/* User Header with Avatar */}
           <Animated.View
-            entering={FadeIn.duration(600).delay(300)}
+            entering={FadeInDown.duration(600).delay(100).springify()}
             layout={LinearTransition.springify()}
             style={styles.profileHeaderCard}
           >
@@ -194,7 +194,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
                 {user?.isVerified && (
                   <Animated.View
-                    entering={FadeIn.duration(400).delay(600)}
+                    entering={FadeInDown.duration(600).delay(200).springify()}
                     style={styles.verifiedBadge}
                   >
                     <Shield size={12} color="#40c057" />
@@ -205,7 +205,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             </View>
 
             <Animated.View
-              entering={FadeIn.duration(400).delay(450)}
+              entering={FadeInDown.duration(600).delay(300).springify()}
               style={[styles.statsContainer, { justifyContent: 'center', gap: 32 }]}
             >
               <View style={styles.statItem}>
@@ -224,7 +224,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
           {/* User Details Card */}
           <Animated.View
-            entering={FadeIn.duration(600).delay(450)}
+            entering={FadeInDown.duration(600).delay(400).springify()}
             layout={LinearTransition.springify()}
             style={styles.detailsCard}
           >
@@ -236,7 +236,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               <Animated.View layout={LinearTransition.springify()}>
                 {/* Email Detail */}
                 <Animated.View
-                  entering={FadeIn.duration(400).delay(600)}
+                  entering={FadeInDown.duration(600).delay(500).springify()}
                   style={styles.detailItem}
                 >
                   <View style={styles.detailIconContainer}>
@@ -250,7 +250,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
                 {/* Role Detail */}
                 <Animated.View
-                  entering={FadeIn.duration(400).delay(700)}
+                  entering={FadeInDown.duration(600).delay(600).springify()}
                   style={styles.detailItem}
                 >
                   <View style={styles.detailIconContainer}>
@@ -264,7 +264,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
                 {/* Member Since */}
                 <Animated.View
-                  entering={FadeIn.duration(400).delay(800)}
+                  entering={FadeInDown.duration(600).delay(700).springify()}
                   style={styles.detailItem}
                 >
                   <View style={styles.detailIconContainer}>
@@ -281,7 +281,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 {/* Bio - if available */}
                 {profileData?.bio && (
                   <Animated.View
-                    entering={FadeIn.duration(400).delay(900)}
+                    entering={FadeInDown.duration(600).delay(800).springify()}
                     style={styles.detailItem}
                   >
                     <View style={styles.detailIconContainer}>
@@ -296,7 +296,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
                 {/* Map Style */}
                 <Animated.View
-                  entering={FadeIn.duration(400).delay(1000)}
+                  entering={FadeInDown.duration(600).delay(900).springify()}
                   style={styles.detailItem}
                 >
                   <View style={styles.detailIconContainer}>
@@ -352,7 +352,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
           {/* Logout and Delete Section */}
           <Animated.View
-            entering={FadeIn.duration(600).delay(600)}
+            entering={FadeInDown.duration(600).delay(1000).springify()}
             style={styles.actionsSection}
           >
             <TouchableOpacity
@@ -379,7 +379,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
           {/* App Version */}
           <Animated.View
-            entering={FadeIn.duration(400).delay(750)}
+            entering={FadeInDown.duration(600).delay(1100).springify()}
             style={styles.versionContainer}
           >
             <Text style={styles.versionText}>App Version 1.0.0</Text>
@@ -403,7 +403,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           style={styles.modalContainer}
         >
           <Animated.View
-            entering={FadeIn.duration(300)}
+            entering={BounceIn.duration(500).springify().damping(15).stiffness(200)}
             layout={LinearTransition.springify()}
             style={styles.modalContent}
           >
@@ -424,8 +424,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             />
             {deleteError ? (
               <Animated.View
-                entering={FadeIn.duration(300)}
-                exiting={FadeOut.duration(300)}
+                entering={BounceIn.duration(500).springify().damping(15).stiffness(200)}
+                exiting={BounceOut.duration(300)}
               >
                 <Text style={styles.errorText}>{deleteError}</Text>
               </Animated.View>
