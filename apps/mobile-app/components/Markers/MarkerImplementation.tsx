@@ -174,14 +174,25 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           // Select the item in the store
           selectMapItem(item);
 
-          // Zoom to the item's location
+          // First, ensure the marker is in view with a wider zoom level
           publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
             timestamp: Date.now(),
             source: "ClusteredMapMarkers",
             coordinates: item.coordinates,
-            duration: 500,
-            zoomLevel: currentZoom + (item.type === "cluster" ? 2 : 0), // Zoom in 2 levels for clusters
+            duration: 400,
+            zoomLevel: currentZoom - 2, // Zoom out slightly to ensure marker is in view
           });
+
+          // Then, after a short delay, zoom in smoothly
+          setTimeout(() => {
+            publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
+              timestamp: Date.now(),
+              source: "ClusteredMapMarkers",
+              coordinates: item.coordinates,
+              duration: 600, // Longer duration for the zoom-in
+              zoomLevel: currentZoom + (item.type === "cluster" ? 2 : 0), // Zoom in 2 levels for clusters
+            });
+          }, 450); // Start the zoom-in just before the first animation completes
 
           // Convert to the EventBroker's expected format
           if (item.type === "marker") {
@@ -301,6 +312,11 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
     // This is a simple implementation - you may want to add a buffer zone
     const visibleItems = useMemo(() => {
       return processedClusters.filter((item) => {
+        // Always include the selected item, even if it's outside the viewport
+        if (selectedItem?.id === item.item.id) {
+          return true;
+        }
+
         const [lng, lat] = item.item.coordinates;
         return (
           lng >= viewport.west &&
@@ -309,7 +325,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           lat <= viewport.north
         );
       });
-    }, [processedClusters, viewport]);
+    }, [processedClusters, viewport, selectedItem?.id]);
 
     // Memoize the render functions to prevent recreation
     const renderCluster = useCallback(

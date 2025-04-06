@@ -49,8 +49,8 @@ interface ViewportSample {
 
 const DEFAULT_CONFIG: GravitationConfig = {
   minMarkersForPull: 1,
-  animationDuration: 650,
-  highVelocityAnimationDuration: 450,
+  animationDuration: 800,
+  highVelocityAnimationDuration: 600,
   cooldownPeriod: 2000,
   gravityZoomLevel: 14,
   highVelocityZoomLevel: 14.5,
@@ -258,7 +258,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
 
         const distance = Math.sqrt(
           Math.pow(targetCoordinates[0] - marker.coordinates[0], 2) +
-            Math.pow(targetCoordinates[1] - marker.coordinates[1], 2)
+          Math.pow(targetCoordinates[1] - marker.coordinates[1], 2)
         );
 
         return Math.max(maxDist, distance);
@@ -305,7 +305,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       // Calculate distance between viewport center and markers centroid
       const distance = Math.sqrt(
         Math.pow(viewportCenter.longitude - markersCentroid[0], 2) +
-          Math.pow(viewportCenter.latitude - markersCentroid[1], 2)
+        Math.pow(viewportCenter.latitude - markersCentroid[1], 2)
       );
 
       // Only center if the distance is greater than our threshold
@@ -432,7 +432,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       if (cameraRef.current) {
         // Set animating state
         isAnimatingRef.current = true;
-        
+
         cameraRef.current.setCamera({
           centerCoordinate: centroid,
           zoomLevel: zoomLevel,
@@ -604,7 +604,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       if (cameraRef.current) {
         // Set animating state
         isAnimatingRef.current = true;
-        
+
         cameraRef.current.setCamera({
           centerCoordinate: coordinates,
           zoomLevel: zoom || gravitationConfig.gravityZoomLevel,

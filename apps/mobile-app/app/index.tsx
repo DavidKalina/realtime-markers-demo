@@ -72,7 +72,7 @@ const GRAVITATIONAL_CAMERA_CONFIG = {
 // Default camera settings
 const DEFAULT_CAMERA_SETTINGS = {
   zoomLevel: 14,
-  animationDuration: 1000,
+  animationDuration: 800,
   animationMode: "easeTo" as const,
 };
 
