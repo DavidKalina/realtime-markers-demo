@@ -43,6 +43,32 @@ const redisPub = new Redis({
   host: process.env.REDIS_HOST || "localhost",
   port: parseInt(process.env.REDIS_PORT || "6379"),
   password: process.env.REDIS_PASSWORD || undefined,
+  retryStrategy: (times) => {
+    // Exponential backoff with max 10s
+    return Math.min(times * 100, 10000);
+  },
+  maxRetriesPerRequest: 3,
+});
+
+// Add error handling for Redis
+redisPub.on('error', (error) => {
+  console.error('Redis connection error:', error);
+});
+
+redisPub.on('connect', () => {
+  console.log('Redis connected successfully');
+});
+
+redisPub.on('ready', () => {
+  console.log('Redis is ready to accept commands');
+});
+
+redisPub.on('close', () => {
+  console.log('Redis connection closed');
+});
+
+redisPub.on('reconnecting', () => {
+  console.log('Redis reconnecting...');
 });
 
 // Apply global middlewares
