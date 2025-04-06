@@ -65,15 +65,6 @@ const SingleMarkerView = React.memo(
     onPress: () => void;
     index: number;
   }) => {
-    const wasVisible = useRef(false);
-
-    // Update wasVisible when marker becomes visible
-    useEffect(() => {
-      if (isSelected) {
-        wasVisible.current = true;
-      }
-    }, [isSelected]);
-
     return (
       <MapboxGL.MarkerView
         key={`marker-${marker.id}`}
@@ -81,15 +72,11 @@ const SingleMarkerView = React.memo(
         anchor={{ x: 0.5, y: 1.0 }}
       >
         <Animated.View
-          entering={
-            !wasVisible.current
-              ? BounceIn.duration(500)
-                  .springify()
-                  .damping(15)
-                  .stiffness(200)
-                  .delay(index * 300)
-              : undefined
-          }
+          entering={BounceIn.duration(500)
+            .springify()
+            .damping(15)
+            .stiffness(200)
+            .delay(index * 300)}
           exiting={BounceOut.duration(500).springify().damping(15).stiffness(200)}
           layout={LinearTransition.springify()}
         >
