@@ -17,8 +17,7 @@ const FADE_IN = FadeIn.duration(200);
 const FADE_OUT = FadeOut.duration(200);
 
 const CalendarIndicator: React.FC = React.memo(() => {
-  const { filters, activeFilterIds, updateFilter, applyFilters, clearFilters } =
-    useFilterStore();
+  const { filters, activeFilterIds, updateFilter, applyFilters, clearFilters } = useFilterStore();
   const [showCalendar, setShowCalendar] = useState(false);
   const isMounted = useRef(true);
   const modalAnim = useSharedValue(0);
@@ -100,8 +99,8 @@ const CalendarIndicator: React.FC = React.memo(() => {
         filters.find((f) => activeFilterIds.includes(f.id)) ||
         (filters.length > 0
           ? filters.reduce((oldest, current) => {
-            return new Date(current.createdAt) < new Date(oldest.createdAt) ? current : oldest;
-          })
+              return new Date(current.createdAt) < new Date(oldest.createdAt) ? current : oldest;
+            })
           : null);
 
       if (!targetFilter) {
@@ -130,7 +129,9 @@ const CalendarIndicator: React.FC = React.memo(() => {
             dateRange: { start: startDate, end: endDate },
           },
         };
+        // First update the filter
         updateFilter(targetFilter.id, updatedFilter).then(() => {
+          // Then ensure it's the only active filter
           applyFilters([targetFilter.id]);
         });
       }
@@ -170,11 +171,7 @@ const CalendarIndicator: React.FC = React.memo(() => {
         animationType="fade"
         onRequestClose={handleCloseModal}
       >
-        <Animated.View
-          style={styles.modalOverlay}
-          entering={FADE_IN}
-          exiting={FADE_OUT}
-        >
+        <Animated.View style={styles.modalOverlay} entering={FADE_IN} exiting={FADE_OUT}>
           <DateRangeCalendar
             startDate={activeDateFilters[0]?.criteria.dateRange?.start}
             endDate={activeDateFilters[0]?.criteria.dateRange?.end}
