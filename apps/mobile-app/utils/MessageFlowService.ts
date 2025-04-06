@@ -130,7 +130,6 @@ export class MessageFlowService {
    * @returns Array of action-specific messages
    */
   static getActionFlow(action: string, options: MessageFlowOptions = {}): string[] {
-    const { userName, userLocation } = options;
 
     // Set appropriate messages based on the action
     switch (action) {
@@ -143,7 +142,7 @@ export class MessageFlowService {
       case "scan":
         return ["Scanner activated!"];
       case "locate":
-        return [`Returning to ${userLocation?.join(", ") || "your location"}`];
+        return [`Returning to your location`];
       case "next":
         return ["Let me show you the next event on your itinerary."];
       case "previous":
