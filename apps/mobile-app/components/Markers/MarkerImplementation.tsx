@@ -72,7 +72,11 @@ const SingleMarkerView = React.memo(
         anchor={{ x: 0.5, y: 1.0 }}
       >
         <Animated.View
-          entering={BounceIn.duration(500).springify().damping(15).stiffness(200).delay(index * 300)}
+          entering={BounceIn.duration(500)
+            .springify()
+            .damping(15)
+            .stiffness(200)
+            .delay(index * 300)}
           exiting={BounceOut.duration(500).springify().damping(15).stiffness(200)}
           layout={LinearTransition.springify()}
         >
@@ -118,7 +122,11 @@ const ClusterView = React.memo(
         anchor={{ x: 0.5, y: 0.5 }}
       >
         <Animated.View
-          entering={BounceIn.duration(500).springify().damping(15).stiffness(200).delay(index * 50)}
+          entering={BounceIn.duration(500)
+            .springify()
+            .damping(15)
+            .stiffness(200)
+            .delay(index * 50)}
           layout={LinearTransition.springify()}
         >
           <ClusterMarker
@@ -174,25 +182,26 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           // Select the item in the store
           selectMapItem(item);
 
-          // First, ensure the marker is in view with a wider zoom level
+          // First, pan to the marker location without changing zoom
           publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
             timestamp: Date.now(),
             source: "ClusteredMapMarkers",
             coordinates: item.coordinates,
-            duration: 400,
-            zoomLevel: currentZoom - 2, // Zoom out slightly to ensure marker is in view
+            duration: 400, // Shorter duration for panning
+            zoomLevel: currentZoom, // Keep current zoom level
           });
 
-          // Then, after a short delay, zoom in smoothly
+          // Then, after the pan completes, zoom in
           setTimeout(() => {
+            const targetZoomLevel = currentZoom + (item.type === "cluster" ? 2 : 1);
             publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
               timestamp: Date.now(),
               source: "ClusteredMapMarkers",
               coordinates: item.coordinates,
-              duration: 600, // Longer duration for the zoom-in
-              zoomLevel: currentZoom + (item.type === "cluster" ? 2 : 0), // Zoom in 2 levels for clusters
+              duration: 400, // Shorter duration for zooming
+              zoomLevel: targetZoomLevel,
             });
-          }, 450); // Start the zoom-in just before the first animation completes
+          }, 400); // Start zooming after pan completes
 
           // Convert to the EventBroker's expected format
           if (item.type === "marker") {
@@ -252,53 +261,57 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
     );
 
     // Memoize the cluster processing function with stable references
-    const processCluster = useCallback((feature: ClusterFeature | PointFeature) => {
-      if (feature.properties.cluster) {
-        const clusterFeature = feature as ClusterFeature;
-        const coordinates = clusterFeature.geometry.coordinates;
-        const count = clusterFeature.properties.point_count;
-        const clusterId = clusterFeature.properties.stableId || `cluster-${clusterFeature.properties.cluster_id}`;
+    const processCluster = useCallback(
+      (feature: ClusterFeature | PointFeature) => {
+        if (feature.properties.cluster) {
+          const clusterFeature = feature as ClusterFeature;
+          const coordinates = clusterFeature.geometry.coordinates;
+          const count = clusterFeature.properties.point_count;
+          const clusterId =
+            clusterFeature.properties.stableId || `cluster-${clusterFeature.properties.cluster_id}`;
 
-        return {
-          type: "cluster" as const,
-          item: {
-            id: clusterId,
+          return {
             type: "cluster" as const,
-            coordinates: coordinates as [number, number],
-            count,
-          },
-          isSelected: isItemSelected(clusterId),
-          onPress: createMapItemPressHandler({
-            id: clusterId,
-            type: "cluster" as const,
-            coordinates: coordinates as [number, number],
-            count,
-          }),
-        };
-      } else {
-        const pointFeature = feature as PointFeature;
-        const markerId = pointFeature.properties.id;
-        const coordinates = pointFeature.geometry.coordinates;
-        const data = pointFeature.properties.data;
+            item: {
+              id: clusterId,
+              type: "cluster" as const,
+              coordinates: coordinates as [number, number],
+              count,
+            },
+            isSelected: isItemSelected(clusterId),
+            onPress: createMapItemPressHandler({
+              id: clusterId,
+              type: "cluster" as const,
+              coordinates: coordinates as [number, number],
+              count,
+            }),
+          };
+        } else {
+          const pointFeature = feature as PointFeature;
+          const markerId = pointFeature.properties.id;
+          const coordinates = pointFeature.geometry.coordinates;
+          const data = pointFeature.properties.data;
 
-        return {
-          type: "marker" as const,
-          item: {
-            id: markerId,
+          return {
             type: "marker" as const,
-            coordinates: coordinates as [number, number],
-            data,
-          },
-          isSelected: isItemSelected(markerId),
-          onPress: createMapItemPressHandler({
-            id: markerId,
-            type: "marker" as const,
-            coordinates: coordinates as [number, number],
-            data,
-          }),
-        };
-      }
-    }, [createMapItemPressHandler, isItemSelected]);
+            item: {
+              id: markerId,
+              type: "marker" as const,
+              coordinates: coordinates as [number, number],
+              data,
+            },
+            isSelected: isItemSelected(markerId),
+            onPress: createMapItemPressHandler({
+              id: markerId,
+              type: "marker" as const,
+              coordinates: coordinates as [number, number],
+              data,
+            }),
+          };
+        }
+      },
+      [createMapItemPressHandler, isItemSelected]
+    );
 
     // Process and memoize clusters for rendering with stable references
     const processedClusters = useMemo(() => {
@@ -329,7 +342,13 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
 
     // Memoize the render functions to prevent recreation
     const renderCluster = useCallback(
-      (processed: { type: "cluster"; item: ClusterItem; isSelected: boolean; onPress: () => void; index: number }) => (
+      (processed: {
+        type: "cluster";
+        item: ClusterItem;
+        isSelected: boolean;
+        onPress: () => void;
+        index: number;
+      }) => (
         <ClusterView
           key={processed.item.id}
           cluster={processed.item}
@@ -342,7 +361,13 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
     );
 
     const renderMarker = useCallback(
-      (processed: { type: "marker"; item: MarkerItem; isSelected: boolean; onPress: () => void; index: number }) => (
+      (processed: {
+        type: "marker";
+        item: MarkerItem;
+        isSelected: boolean;
+        onPress: () => void;
+        index: number;
+      }) => (
         <SingleMarkerView
           key={processed.item.id}
           marker={processed.item}

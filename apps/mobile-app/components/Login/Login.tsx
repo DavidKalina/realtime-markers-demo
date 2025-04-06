@@ -34,7 +34,7 @@ import Animated, {
   withSpring,
   useSharedValue,
   withSequence,
-  withDelay
+  withDelay,
 } from "react-native-reanimated";
 import MapMojiHeader from "../AnimationHeader";
 import { AuthWrapper } from "../AuthWrapper";
@@ -247,33 +247,22 @@ const Login: React.FC = () => {
               entering={FadeIn.duration(800).delay(500).springify()}
               style={styles.formContainer}
             >
-              <Animated.View
-                layout={LinearTransition.springify()}
-                style={styles.formCard}
-              >
+              <Animated.View layout={LinearTransition.springify()} style={styles.formCard}>
                 <TouchableOpacity style={styles.profileSelectorContainer} onPress={toggleDropdown}>
                   {selectedProfile ? (
-                    <Animated.View
-                      entering={BounceIn.duration(600)}
-                      layout={LinearTransition.springify()}
-                      style={styles.selectedProfileContainer}
-                    >
+                    <View style={styles.selectedProfileContainer}>
                       <View style={styles.selectedProfileEmojiContainer}>
                         <Text style={styles.profileEmojiLarge}>{selectedProfile.emoji}</Text>
                       </View>
                       <Text style={styles.selectedProfileName}>{selectedProfile.name}</Text>
-                    </Animated.View>
+                    </View>
                   ) : (
-                    <Animated.View
-                      entering={ZoomIn.duration(400)}
-                      layout={LinearTransition.springify()}
-                      style={styles.noProfileContainer}
-                    >
+                    <View style={styles.noProfileContainer}>
                       <View style={styles.placeholderAvatar}>
                         <User size={14} color="#93c5fd" />
                       </View>
                       <Text style={styles.selectProfileText}>Select a profile</Text>
-                    </Animated.View>
+                    </View>
                   )}
 
                   <TouchableOpacity
@@ -289,24 +278,13 @@ const Login: React.FC = () => {
                   </TouchableOpacity>
                 </TouchableOpacity>
                 {error && (
-                  <Animated.View
-                    entering={FadeIn.duration(300).springify()}
-                    exiting={FadeOut.duration(200)}
-                    layout={LinearTransition.springify()}
-                    style={styles.errorContainer}
-                  >
+                  <View style={styles.errorContainer}>
                     <Text style={styles.errorText}>{error}</Text>
-                  </Animated.View>
+                  </View>
                 )}
                 {!selectedProfile && (
-                  <Animated.View
-                    layout={LinearTransition.springify()}
-                    style={{ gap: 16 }}
-                  >
-                    <Animated.View
-                      entering={SlideInRight.duration(400).springify()}
-                      style={styles.inputContainer}
-                    >
+                  <View style={{ gap: 16 }}>
+                    <View style={styles.inputContainer}>
                       <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
                       <TextInput
                         ref={emailInputRef}
@@ -322,11 +300,8 @@ const Login: React.FC = () => {
                         returnKeyType="next"
                         onSubmitEditing={() => passwordInputRef.current?.focus()}
                       />
-                    </Animated.View>
-                    <Animated.View
-                      entering={SlideInRight.duration(400).delay(100).springify()}
-                      style={styles.inputContainer}
-                    >
+                    </View>
+                    <View style={styles.inputContainer}>
                       <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
                       <TextInput
                         ref={passwordInputRef}
@@ -346,54 +321,34 @@ const Login: React.FC = () => {
                           <Eye size={18} color="#93c5fd" />
                         )}
                       </TouchableOpacity>
-                    </Animated.View>
-                  </Animated.View>
+                    </View>
+                  </View>
                 )}
-                <Animated.View
-                  entering={FadeIn.duration(400).delay(200).springify()}
-                  layout={LinearTransition.springify()}
-                >
-                  <Animated.View style={[styles.loginButton, buttonAnimatedStyle]}>
-                    <TouchableOpacity
-                      onPress={handleLoginPress}
-                      disabled={isLoading}
-                      activeOpacity={1}
-                    >
-                      {isLoading ? (
-                        <ActivityIndicator size="small" color="#000" />
-                      ) : (
-                        <Text style={styles.loginButtonText}>Login</Text>
-                      )}
-                    </TouchableOpacity>
-                  </Animated.View>
-                </Animated.View>
-                {selectedProfile && (
-                  <Animated.View
-                    entering={FadeIn.duration(300)}
-                    exiting={FadeOut.duration(200)}
-                    layout={LinearTransition.springify()}
+                <View>
+                  <TouchableOpacity
+                    onPress={handleLoginPress}
+                    disabled={isLoading}
+                    activeOpacity={0.7}
+                    style={[styles.loginButton, buttonAnimatedStyle]}
                   >
-                    <TouchableOpacity
-                      onPress={() => {
-                        setSelectedProfile(null);
-                        setEmail("");
-                        setPassword("");
-                      }}
-                      style={styles.toggleManualButton}
-                    >
-                      <Text style={styles.toggleManualText}>Use different credentials</Text>
-                    </TouchableOpacity>
-                  </Animated.View>
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#000" />
+                    ) : (
+                      <Text style={styles.loginButtonText}>Login</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+                {selectedProfile && (
+                  <View style={styles.toggleManualButton}>
+                    <Text style={styles.toggleManualText}>Use different credentials</Text>
+                  </View>
                 )}
-                <Animated.View
-                  entering={FadeIn.duration(400).delay(300).springify()}
-                  style={styles.createAccountContainer}
-                >
+                <View style={styles.createAccountContainer}>
                   <Text style={styles.createAccountText}>Don't have an account? </Text>
                   <TouchableOpacity onPress={handleCreateAccount}>
                     <Text style={styles.createAccountLink}>Create one</Text>
                   </TouchableOpacity>
-                </Animated.View>
+                </View>
               </Animated.View>
             </Animated.View>
           </ScrollView>
