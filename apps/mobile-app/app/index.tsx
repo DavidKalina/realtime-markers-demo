@@ -29,7 +29,7 @@ if (Platform.OS === "android") {
 
 // Initialize location module
 MapboxGL.locationManager.start();
-MapboxGL.setWellKnownTileServer('Mapbox');
+MapboxGL.setWellKnownTileServer('mapbox');
 
 // Memoized UI components
 const LoadingOverlay = React.memo(() => (
