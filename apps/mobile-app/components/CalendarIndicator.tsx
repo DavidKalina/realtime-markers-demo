@@ -17,7 +17,7 @@ const FADE_IN = FadeIn.duration(200);
 const FADE_OUT = FadeOut.duration(200);
 
 const CalendarIndicator: React.FC = React.memo(() => {
-  const { filters, activeFilterIds, updateFilter, applyFilters, clearFilters } =
+  const { filters, activeFilterIds, updateFilter, applyFilters, clearFilters, createFilter } =
     useFilterStore();
   const [showCalendar, setShowCalendar] = useState(false);
   const isMounted = useRef(true);
@@ -94,9 +94,9 @@ const CalendarIndicator: React.FC = React.memo(() => {
   }, []);
 
   const handleDateRangeSelect = useCallback(
-    (startDate: string | null, endDate: string | null) => {
+    async (startDate: string | null, endDate: string | null) => {
       // Get either the active filter or fall back to the oldest filter
-      const targetFilter =
+      let targetFilter =
         filters.find((f) => activeFilterIds.includes(f.id)) ||
         (filters.length > 0
           ? filters.reduce((oldest, current) => {
@@ -104,9 +104,12 @@ const CalendarIndicator: React.FC = React.memo(() => {
           })
           : null);
 
+      // If no filter exists, create a new one
       if (!targetFilter) {
-        console.error("No filter available to update");
-        return;
+        targetFilter = await createFilter({
+          name: "Date Range Filter",
+          criteria: {},
+        });
       }
 
       if (startDate === null && endDate === null) {
@@ -138,7 +141,7 @@ const CalendarIndicator: React.FC = React.memo(() => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowCalendar(false);
     },
-    [filters, activeFilterIds, updateFilter, applyFilters, clearFilters]
+    [filters, activeFilterIds, updateFilter, applyFilters, clearFilters, createFilter]
   );
 
   return (
