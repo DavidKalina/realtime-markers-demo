@@ -15,7 +15,7 @@ interface MapStyleContextType {
 const MapStyleContext = createContext<MapStyleContextType | undefined>(undefined);
 
 export const MapStyleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentStyle, setCurrentStyle] = useState<MapStyleType>('light');
+  const [currentStyle, setCurrentStyle] = useState<MapStyleType>('street');
 
   useEffect(() => {
     // Load saved preference on mount
@@ -49,8 +49,9 @@ export const MapStyleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       case 'street':
         return MapboxGL.StyleURL.Street;
       case 'light':
-      default:
         return MapboxGL.StyleURL.Light;
+      default:
+        return MapboxGL.StyleURL.Street;
     }
   };
 
