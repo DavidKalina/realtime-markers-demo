@@ -35,7 +35,8 @@ import Animated, {
   withSpring,
   useSharedValue,
   withSequence,
-  withDelay
+  withDelay,
+  FadeInDown
 } from "react-native-reanimated";
 
 const RegisterScreen: React.FC = () => {
@@ -156,13 +157,6 @@ const RegisterScreen: React.FC = () => {
         <AnimatedMapBackground settings={{ styleURL: mapStyle }} />
         <StatusBar barStyle="light-content" backgroundColor="#333" />
 
-        <Animated.View
-          entering={FadeIn.duration(800).delay(300).springify()}
-          style={styles.headerContainer}
-        >
-          <MapMojiHeader />
-        </Animated.View>
-
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingView}
@@ -172,126 +166,110 @@ const RegisterScreen: React.FC = () => {
             keyboardShouldPersistTaps="handled"
           >
             <Animated.View
-              entering={FadeIn.duration(800).delay(500).springify()}
-              style={styles.formContainer}
+              entering={FadeInDown.duration(600).delay(100).springify()}
+              style={styles.contentContainer}
             >
+              <MapMojiHeader />
+
               <Animated.View
+                entering={FadeInDown.duration(600).delay(300).springify()}
                 layout={LinearTransition.springify()}
-                style={styles.formCard}
+                style={styles.formContainer}
               >
-                {error && (
-                  <Animated.View
-                    entering={FadeIn.duration(300).springify()}
-                    exiting={FadeOut.duration(200)}
-                    layout={LinearTransition.springify()}
-                    style={styles.errorContainer}
-                  >
-                    <Text style={styles.errorText}>{error}</Text>
-                  </Animated.View>
-                )}
+                <Animated.View layout={LinearTransition.springify()} style={styles.formCard}>
+                  {error && (
+                    <View style={styles.errorContainer}>
+                      <Text style={styles.errorText}>{error}</Text>
+                    </View>
+                  )}
 
-                <Animated.View
-                  entering={SlideInRight.duration(400).springify()}
-                  style={styles.inputContainer}
-                >
-                  <User size={18} color="#93c5fd" style={styles.inputIcon} />
-                  <TextInput
-                    ref={displayNameInputRef}
-                    style={styles.input}
-                    placeholder="Display name"
-                    placeholderTextColor="#808080"
-                    value={displayName}
-                    onChangeText={setDisplayName}
-                    autoCapitalize="words"
-                    autoCorrect={false}
-                    returnKeyType="next"
-                    onSubmitEditing={() => emailInputRef.current?.focus()}
-                  />
-                </Animated.View>
+                  <View style={styles.inputContainer}>
+                    <User size={18} color="#93c5fd" style={styles.inputIcon} />
+                    <TextInput
+                      ref={displayNameInputRef}
+                      style={styles.input}
+                      placeholder="Display name"
+                      placeholderTextColor="#808080"
+                      value={displayName}
+                      onChangeText={setDisplayName}
+                      autoCapitalize="words"
+                      autoCorrect={false}
+                      returnKeyType="next"
+                      onSubmitEditing={() => emailInputRef.current?.focus()}
+                    />
+                  </View>
 
-                <Animated.View
-                  entering={SlideInRight.duration(400).delay(100).springify()}
-                  style={styles.inputContainer}
-                >
-                  <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
-                  <TextInput
-                    ref={emailInputRef}
-                    style={styles.input}
-                    placeholder="Email address"
-                    placeholderTextColor="#808080"
-                    value={email}
-                    onChangeText={setEmail}
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    autoCorrect={false}
-                    keyboardType="email-address"
-                    returnKeyType="next"
-                    onSubmitEditing={() => passwordInputRef.current?.focus()}
-                  />
-                </Animated.View>
+                  <View style={styles.inputContainer}>
+                    <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
+                    <TextInput
+                      ref={emailInputRef}
+                      style={styles.input}
+                      placeholder="Email address"
+                      placeholderTextColor="#808080"
+                      value={email}
+                      onChangeText={setEmail}
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      autoCorrect={false}
+                      keyboardType="email-address"
+                      returnKeyType="next"
+                      onSubmitEditing={() => passwordInputRef.current?.focus()}
+                    />
+                  </View>
 
-                <Animated.View
-                  entering={SlideInRight.duration(400).delay(200).springify()}
-                  style={styles.inputContainer}
-                >
-                  <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
-                  <TextInput
-                    ref={passwordInputRef}
-                    style={styles.input}
-                    placeholder="Password"
-                    placeholderTextColor="#808080"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    returnKeyType="next"
-                    onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
-                  />
-                  <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
-                    {showPassword ? (
-                      <EyeOff size={18} color="#93c5fd" />
-                    ) : (
-                      <Eye size={18} color="#93c5fd" />
-                    )}
-                  </TouchableOpacity>
-                </Animated.View>
+                  <View style={styles.inputContainer}>
+                    <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
+                    <TextInput
+                      ref={passwordInputRef}
+                      style={styles.input}
+                      placeholder="Password"
+                      placeholderTextColor="#808080"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                      returnKeyType="next"
+                      onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
+                    />
+                    <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
+                      {showPassword ? (
+                        <EyeOff size={18} color="#93c5fd" />
+                      ) : (
+                        <Eye size={18} color="#93c5fd" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
 
-                <Animated.View
-                  entering={SlideInRight.duration(400).delay(300).springify()}
-                  style={styles.inputContainer}
-                >
-                  <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
-                  <TextInput
-                    ref={confirmPasswordInputRef}
-                    style={styles.input}
-                    placeholder="Confirm password"
-                    placeholderTextColor="#808080"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showConfirmPassword}
-                    returnKeyType="done"
-                    onSubmitEditing={handleRegisterPress}
-                  />
-                  <TouchableOpacity
-                    onPress={toggleConfirmPasswordVisibility}
-                    style={styles.eyeIcon}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff size={18} color="#93c5fd" />
-                    ) : (
-                      <Eye size={18} color="#93c5fd" />
-                    )}
-                  </TouchableOpacity>
-                </Animated.View>
+                  <View style={styles.inputContainer}>
+                    <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
+                    <TextInput
+                      ref={confirmPasswordInputRef}
+                      style={styles.input}
+                      placeholder="Confirm password"
+                      placeholderTextColor="#808080"
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry={!showConfirmPassword}
+                      returnKeyType="done"
+                      onSubmitEditing={handleRegisterPress}
+                    />
+                    <TouchableOpacity
+                      onPress={toggleConfirmPasswordVisibility}
+                      style={styles.eyeIcon}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff size={18} color="#93c5fd" />
+                      ) : (
+                        <Eye size={18} color="#93c5fd" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
 
-                <Animated.View
-                  entering={FadeIn.duration(400).delay(400).springify()}
-                  layout={LinearTransition.springify()}
-                >
-                  <Animated.View style={[styles.loginButton, buttonAnimatedStyle]}>
+                  <View style={styles.loginButtonContainer}>
                     <TouchableOpacity
                       onPress={handleRegisterPress}
                       disabled={isLoading}
-                      activeOpacity={1}
+                      activeOpacity={0.7}
+                      style={[styles.loginButton, buttonAnimatedStyle]}
                     >
                       {isLoading ? (
                         <ActivityIndicator size="small" color="#000" />
@@ -299,17 +277,14 @@ const RegisterScreen: React.FC = () => {
                         <Text style={styles.loginButtonText}>Create Account</Text>
                       )}
                     </TouchableOpacity>
-                  </Animated.View>
-                </Animated.View>
+                  </View>
 
-                <Animated.View
-                  entering={FadeIn.duration(400).delay(500).springify()}
-                  style={styles.createAccountContainer}
-                >
-                  <Text style={styles.createAccountText}>Already have an account? </Text>
-                  <TouchableOpacity onPress={() => router.push("/login")}>
-                    <Text style={styles.createAccountLink}>Login</Text>
-                  </TouchableOpacity>
+                  <View style={styles.createAccountContainer}>
+                    <Text style={styles.createAccountText}>Already have an account? </Text>
+                    <TouchableOpacity onPress={() => router.push("/login")}>
+                      <Text style={styles.createAccountLink}>Login</Text>
+                    </TouchableOpacity>
+                  </View>
                 </Animated.View>
               </Animated.View>
             </Animated.View>
@@ -325,12 +300,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "transparent",
   },
-  headerContainer: {
-    paddingTop: 10,
-    paddingBottom: 10,
+  contentContainer: {
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2,
+    gap: 20,
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -338,16 +311,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "flex-start",
+    justifyContent: "center",
     paddingHorizontal: 20,
-    paddingTop: 0,
-    paddingBottom: 20,
+    paddingVertical: 10,
   },
   formContainer: {
     width: "100%",
     maxWidth: 400,
     alignSelf: "center",
-    marginTop: 10,
     zIndex: 2,
   },
   formCard: {
@@ -406,6 +377,20 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     padding: 8,
+  },
+  loginButtonContainer: {
+    borderRadius: 12,
+    height: 55,
+    justifyContent: "center",
+    alignItems: "center",
+    marginVertical: 20,
+    shadowColor: "#4dabf7",
+    backgroundColor: "#4dabf7",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+    overflow: "hidden",
   },
   loginButton: {
     borderRadius: 12,

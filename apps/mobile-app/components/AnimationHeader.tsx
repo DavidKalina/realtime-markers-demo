@@ -7,13 +7,13 @@ const MapMojiHeader = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.text}>MapMoji</Text>
+      <Text style={styles.subtext}>Scan. Discover. Attend.</Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    height: 200,
     width: width,
     justifyContent: "center",
     alignItems: "center",
@@ -32,6 +32,12 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 12,
     fontWeight: "bold",
+  },
+  subtext: {
+    fontSize: 16,
+    fontFamily: "SpaceMono",
+    color: "#fff",
+    zIndex: 10,
   },
 });
 

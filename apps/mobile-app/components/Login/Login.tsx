@@ -4,9 +4,10 @@ import apiClient from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { ChevronDown, ChevronUp, Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
-import React, { useRef, useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -19,23 +20,15 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  FlatList,
 } from "react-native";
 import Animated, {
   FadeIn,
-  FadeOut,
-  Layout,
   LinearTransition,
-  BounceIn,
-  SlideOutRight,
-  SlideInRight,
-  ZoomIn,
-  ZoomOut,
   useAnimatedStyle,
-  withSpring,
   useSharedValue,
   withSequence,
-  withDelay,
+  withSpring,
+  FadeInDown
 } from "react-native-reanimated";
 import MapMojiHeader from "../AnimationHeader";
 import { AuthWrapper } from "../AuthWrapper";
@@ -229,13 +222,6 @@ const Login: React.FC = () => {
         <AnimatedMapBackground settings={{ styleURL: mapStyle }} />
         <StatusBar barStyle="light-content" backgroundColor="#333" />
 
-        <Animated.View
-          entering={FadeIn.duration(800).delay(300).springify()}
-          style={styles.headerContainer}
-        >
-          <MapMojiHeader />
-        </Animated.View>
-
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingView}
@@ -245,104 +231,117 @@ const Login: React.FC = () => {
             keyboardShouldPersistTaps="handled"
           >
             <Animated.View
-              entering={FadeIn.duration(800).delay(500).springify()}
-              style={styles.formContainer}
+              entering={FadeInDown.duration(600).delay(100).springify()}
+              style={styles.contentContainer}
             >
-              <Animated.View layout={LinearTransition.springify()} style={styles.formCard}>
-                <TouchableOpacity style={styles.profileSelectorContainer} onPress={toggleDropdown}>
-                  {selectedProfile ? (
-                    <View style={styles.selectedProfileContainer}>
-                      <View style={styles.selectedProfileEmojiContainer}>
-                        <Text style={styles.profileEmojiLarge}>{selectedProfile.emoji}</Text>
-                      </View>
-                      <Text style={styles.selectedProfileName}>{selectedProfile.name}</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.noProfileContainer}>
-                      <View style={styles.placeholderAvatar}>
-                        <User size={14} color="#93c5fd" />
-                      </View>
-                      <Text style={styles.selectProfileText}>Select a profile</Text>
-                    </View>
-                  )}
+              <MapMojiHeader />
 
+              <Animated.View
+                entering={FadeInDown.duration(600).delay(300).springify()}
+                layout={LinearTransition.springify()}
+                style={styles.formContainer}
+              >
+                <Animated.View layout={LinearTransition.springify()} style={styles.formCard}>
                   <TouchableOpacity
-                    style={styles.dropdownTrigger}
+                    style={styles.profileSelectorContainer}
                     onPress={toggleDropdown}
                     activeOpacity={0.7}
                   >
-                    {isDropdownOpen ? (
-                      <ChevronUp size={14} color="#93c5fd" />
+                    {selectedProfile ? (
+                      <View style={styles.selectedProfileContainer}>
+                        <View style={styles.selectedProfileEmojiContainer}>
+                          <Text style={styles.profileEmojiLarge}>{selectedProfile.emoji}</Text>
+                        </View>
+                        <Text style={styles.selectedProfileName}>{selectedProfile.name}</Text>
+                      </View>
                     ) : (
-                      <ChevronDown size={14} color="#93c5fd" />
+                      <View style={styles.noProfileContainer}>
+                        <View style={styles.placeholderAvatar}>
+                          <User size={14} color="#93c5fd" />
+                        </View>
+                        <Text style={styles.selectProfileText}>Select a profile</Text>
+                      </View>
                     )}
-                  </TouchableOpacity>
-                </TouchableOpacity>
-                {error && (
-                  <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{error}</Text>
-                  </View>
-                )}
-                <View style={{ gap: 16 }}>
-                  <View style={styles.inputContainer}>
-                    <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
-                    <TextInput
-                      ref={emailInputRef}
-                      style={styles.input}
-                      placeholder="Email address"
-                      placeholderTextColor="#808080"
-                      value={email}
-                      onChangeText={setEmail}
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      autoCorrect={false}
-                      keyboardType="email-address"
-                      returnKeyType="next"
-                      onSubmitEditing={() => passwordInputRef.current?.focus()}
-                    />
-                  </View>
-                  <View style={styles.inputContainer}>
-                    <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
-                    <TextInput
-                      ref={passwordInputRef}
-                      style={styles.input}
-                      placeholder="Password"
-                      placeholderTextColor="#808080"
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry={!showPassword}
-                      returnKeyType="done"
-                      onSubmitEditing={handleLogin}
-                    />
-                    <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
-                      {showPassword ? (
-                        <EyeOff size={18} color="#93c5fd" />
+
+                    <View style={styles.dropdownTrigger}>
+                      {isDropdownOpen ? (
+                        <ChevronUp size={14} color="#93c5fd" />
                       ) : (
-                        <Eye size={18} color="#93c5fd" />
+                        <ChevronDown size={14} color="#93c5fd" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+
+                  {error && (
+                    <View style={styles.errorContainer}>
+                      <Text style={styles.errorText}>{error}</Text>
+                    </View>
+                  )}
+
+                  <View style={{ gap: 16 }}>
+                    <View style={styles.inputContainer}>
+                      <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
+                      <TextInput
+                        ref={emailInputRef}
+                        style={styles.input}
+                        placeholder="Email address"
+                        placeholderTextColor="#808080"
+                        value={email}
+                        onChangeText={setEmail}
+                        autoCapitalize="none"
+                        autoComplete="email"
+                        autoCorrect={false}
+                        keyboardType="email-address"
+                        returnKeyType="next"
+                        onSubmitEditing={() => passwordInputRef.current?.focus()}
+                      />
+                    </View>
+
+                    <View style={styles.inputContainer}>
+                      <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
+                      <TextInput
+                        ref={passwordInputRef}
+                        style={styles.input}
+                        placeholder="Password"
+                        placeholderTextColor="#808080"
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry={!showPassword}
+                        returnKeyType="done"
+                        onSubmitEditing={handleLogin}
+                      />
+                      <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
+                        {showPassword ? (
+                          <EyeOff size={18} color="#93c5fd" />
+                        ) : (
+                          <Eye size={18} color="#93c5fd" />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View style={styles.loginButtonContainer}>
+                    <TouchableOpacity
+                      onPress={handleLoginPress}
+                      disabled={isLoading}
+                      activeOpacity={0.7}
+                      style={[styles.loginButton, buttonAnimatedStyle]}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator size="small" color="#000" />
+                      ) : (
+                        <Text style={styles.loginButtonText}>Login</Text>
                       )}
                     </TouchableOpacity>
                   </View>
-                </View>
-                <View>
-                  <TouchableOpacity
-                    onPress={handleLoginPress}
-                    disabled={isLoading}
-                    activeOpacity={0.7}
-                    style={[styles.loginButton, buttonAnimatedStyle]}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator size="small" color="#000" />
-                    ) : (
-                      <Text style={styles.loginButtonText}>Login</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.createAccountContainer}>
-                  <Text style={styles.createAccountText}>Don't have an account? </Text>
-                  <TouchableOpacity onPress={handleCreateAccount}>
-                    <Text style={styles.createAccountLink}>Create one</Text>
-                  </TouchableOpacity>
-                </View>
+
+                  <View style={styles.createAccountContainer}>
+                    <Text style={styles.createAccountText}>Don't have an account? </Text>
+                    <TouchableOpacity onPress={handleCreateAccount}>
+                      <Text style={styles.createAccountLink}>Create one</Text>
+                    </TouchableOpacity>
+                  </View>
+                </Animated.View>
               </Animated.View>
             </Animated.View>
           </ScrollView>
@@ -381,14 +380,6 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
 
-  headerContainer: {
-    paddingTop: 10,
-    paddingBottom: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 2,
-  },
-
   keyboardAvoidingView: {
     flex: 1,
     zIndex: 2,
@@ -396,16 +387,21 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "flex-start",
+    justifyContent: "center",
     paddingHorizontal: 20,
     paddingVertical: 10,
+  },
+
+  contentContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 20,
   },
 
   formContainer: {
     width: "100%",
     maxWidth: 400,
     alignSelf: "center",
-    marginTop: 20,
     zIndex: 2,
   },
 
@@ -681,6 +677,10 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontWeight: "600",
     textTransform: "uppercase",
+  },
+
+  loginButtonContainer: {
+    marginTop: 20,
   },
 });
 
