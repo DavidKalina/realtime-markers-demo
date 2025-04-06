@@ -19,6 +19,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  FlatList,
 } from "react-native";
 import Animated, {
   FadeIn,
@@ -282,48 +283,46 @@ const Login: React.FC = () => {
                     <Text style={styles.errorText}>{error}</Text>
                   </View>
                 )}
-                {!selectedProfile && (
-                  <View style={{ gap: 16 }}>
-                    <View style={styles.inputContainer}>
-                      <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
-                      <TextInput
-                        ref={emailInputRef}
-                        style={styles.input}
-                        placeholder="Email address"
-                        placeholderTextColor="#808080"
-                        value={email}
-                        onChangeText={setEmail}
-                        autoCapitalize="none"
-                        autoComplete="email"
-                        autoCorrect={false}
-                        keyboardType="email-address"
-                        returnKeyType="next"
-                        onSubmitEditing={() => passwordInputRef.current?.focus()}
-                      />
-                    </View>
-                    <View style={styles.inputContainer}>
-                      <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
-                      <TextInput
-                        ref={passwordInputRef}
-                        style={styles.input}
-                        placeholder="Password"
-                        placeholderTextColor="#808080"
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry={!showPassword}
-                        returnKeyType="done"
-                        onSubmitEditing={handleLogin}
-                      />
-                      <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
-                        {showPassword ? (
-                          <EyeOff size={18} color="#93c5fd" />
-                        ) : (
-                          <Eye size={18} color="#93c5fd" />
-                        )}
-                      </TouchableOpacity>
-                    </View>
+                <View style={{ gap: 16 }}>
+                  <View style={styles.inputContainer}>
+                    <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
+                    <TextInput
+                      ref={emailInputRef}
+                      style={styles.input}
+                      placeholder="Email address"
+                      placeholderTextColor="#808080"
+                      value={email}
+                      onChangeText={setEmail}
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      autoCorrect={false}
+                      keyboardType="email-address"
+                      returnKeyType="next"
+                      onSubmitEditing={() => passwordInputRef.current?.focus()}
+                    />
                   </View>
-                )}
+                  <View style={styles.inputContainer}>
+                    <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
+                    <TextInput
+                      ref={passwordInputRef}
+                      style={styles.input}
+                      placeholder="Password"
+                      placeholderTextColor="#808080"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                      returnKeyType="done"
+                      onSubmitEditing={handleLogin}
+                    />
+                    <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
+                      {showPassword ? (
+                        <EyeOff size={18} color="#93c5fd" />
+                      ) : (
+                        <Eye size={18} color="#93c5fd" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
                 <View>
                   <TouchableOpacity
                     onPress={handleLoginPress}
@@ -338,11 +337,6 @@ const Login: React.FC = () => {
                     )}
                   </TouchableOpacity>
                 </View>
-                {selectedProfile && (
-                  <View style={styles.toggleManualButton}>
-                    <Text style={styles.toggleManualText}>Use different credentials</Text>
-                  </View>
-                )}
                 <View style={styles.createAccountContainer}>
                   <Text style={styles.createAccountText}>Don't have an account? </Text>
                   <TouchableOpacity onPress={handleCreateAccount}>
@@ -365,27 +359,15 @@ const Login: React.FC = () => {
             activeOpacity={1}
             onPress={() => setIsDropdownOpen(false)}
           >
-            <Animated.View
-              entering={FadeIn.duration(300).springify()}
-              layout={LinearTransition.springify()}
-              style={styles.dropdownContainer}
-            >
-              <Animated.FlatList
+            <View style={styles.dropdownContainer}>
+              <FlatList
                 data={TEST_PROFILES}
-                renderItem={({ item, index }) => (
-                  <Animated.View
-                    entering={BounceIn.duration(600).delay(index * 100)}
-                    exiting={SlideOutRight.duration(400)}
-                    layout={LinearTransition.springify()}
-                  >
-                    {renderProfileItem({ item })}
-                  </Animated.View>
-                )}
+                renderItem={renderProfileItem}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
                 style={styles.profileList}
               />
-            </Animated.View>
+            </View>
           </TouchableOpacity>
         </Modal>
       </SafeAreaView>

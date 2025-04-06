@@ -182,26 +182,17 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           // Select the item in the store
           selectMapItem(item);
 
-          // First, pan to the marker location without changing zoom
+          // Calculate target zoom level based on item type
+          const targetZoomLevel = currentZoom + (item.type === "cluster" ? 2 : 1);
+
+          // Single camera animation that combines pan and zoom
           publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
             timestamp: Date.now(),
             source: "ClusteredMapMarkers",
             coordinates: item.coordinates,
-            duration: 400, // Shorter duration for panning
-            zoomLevel: currentZoom, // Keep current zoom level
+            duration: 400,
+            zoomLevel: targetZoomLevel,
           });
-
-          // Then, after the pan completes, zoom in
-          setTimeout(() => {
-            const targetZoomLevel = currentZoom + (item.type === "cluster" ? 2 : 1);
-            publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
-              timestamp: Date.now(),
-              source: "ClusteredMapMarkers",
-              coordinates: item.coordinates,
-              duration: 400, // Shorter duration for zooming
-              zoomLevel: targetZoomLevel,
-            });
-          }, 400); // Start zooming after pan completes
 
           // Convert to the EventBroker's expected format
           if (item.type === "marker") {
