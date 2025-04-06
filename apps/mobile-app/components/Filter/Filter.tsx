@@ -315,9 +315,19 @@ const FiltersView: React.FC = () => {
       return;
     }
 
-    if (!semanticQuery.trim()) {
-      Alert.alert("Error", "Search query is required");
-      return;
+    // Check if this is the first filter
+    const isFirstFilter = filters.length === 0;
+
+    if (isFirstFilter) {
+      if (!startDate || !endDate) {
+        Alert.alert("Error", "Date range is required for the first filter");
+        return;
+      }
+    } else {
+      if (!semanticQuery.trim()) {
+        Alert.alert("Error", "Search query is required");
+        return;
+      }
     }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -380,6 +390,7 @@ const FiltersView: React.FC = () => {
     updateFilter,
     createFilter,
     applyFilters,
+    filters,
   ]);
 
   return (

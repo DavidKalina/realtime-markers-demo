@@ -84,21 +84,31 @@ export const createFilterHandler: FilterHandler = async (c) => {
       return c.json({ error: "Filter name is required" }, 400);
     }
 
-    // Ensure we have either semanticQuery or criteria
-    if (
-      !filterData.semanticQuery &&
-      (!filterData.criteria || Object.keys(filterData.criteria).length === 0)
-    ) {
-      return c.json({ error: "Either semanticQuery or criteria must be provided" }, 400);
+    // Get the user preferences service
+    const userPreferencesService = c.get("userPreferencesService");
+
+    // Check if user has any existing filters
+    const existingFilters = await userPreferencesService.getUserFilters(user.userId);
+
+    // If there are no existing filters, allow creating a date/time only filter
+    if (existingFilters.length === 0) {
+      if (!filterData.criteria || !filterData.criteria.dateRange) {
+        return c.json({ error: "Date range is required for the first filter" }, 400);
+      }
+    } else {
+      // For subsequent filters, require either semanticQuery or criteria
+      if (
+        !filterData.semanticQuery &&
+        (!filterData.criteria || Object.keys(filterData.criteria).length === 0)
+      ) {
+        return c.json({ error: "Either semanticQuery or criteria must be provided" }, 400);
+      }
     }
 
     // Initialize criteria object if it doesn't exist
     if (!filterData.criteria) {
       filterData.criteria = {};
     }
-
-    // Get the user preferences service
-    const userPreferencesService = c.get("userPreferencesService");
 
     // Create the filter
     const filter = await userPreferencesService.createFilter(user.userId, filterData);

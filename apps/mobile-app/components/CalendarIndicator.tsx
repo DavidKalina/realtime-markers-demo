@@ -133,7 +133,9 @@ const CalendarIndicator: React.FC = React.memo(() => {
             dateRange: { start: startDate, end: endDate },
           },
         };
+        // First update the filter
         updateFilter(targetFilter.id, updatedFilter).then(() => {
+          // Then ensure it's the only active filter
           applyFilters([targetFilter.id]);
         });
       }
@@ -173,11 +175,7 @@ const CalendarIndicator: React.FC = React.memo(() => {
         animationType="fade"
         onRequestClose={handleCloseModal}
       >
-        <Animated.View
-          style={styles.modalOverlay}
-          entering={FADE_IN}
-          exiting={FADE_OUT}
-        >
+        <Animated.View style={styles.modalOverlay} entering={FADE_IN} exiting={FADE_OUT}>
           <DateRangeCalendar
             startDate={activeDateFilters[0]?.criteria.dateRange?.start}
             endDate={activeDateFilters[0]?.criteria.dateRange?.end}
