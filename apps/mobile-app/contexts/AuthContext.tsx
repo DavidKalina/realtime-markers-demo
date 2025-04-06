@@ -189,10 +189,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       // First register the user
-      await apiClient.register(email, password, displayName);
+      const user = await apiClient.register(email, password, displayName);
 
-      // Then log them in separately
-      await login(email, password);
+      // Then log them in
+      await apiClient.login(email, password);
+
+      // Update the auth state
+      setUser(apiClient.getCurrentUser());
+      setIsAuthenticated(true);
     } catch (error) {
       console.error("Registration error:", error);
       throw error;
