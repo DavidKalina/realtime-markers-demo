@@ -48,11 +48,21 @@ const redisPub = new Redis({
     return Math.min(times * 100, 10000);
   },
   maxRetriesPerRequest: 3,
+  enableOfflineQueue: false, // Disable offline queue to prevent memory leaks
+  connectTimeout: 10000, // 10 seconds
+  commandTimeout: 5000, // 5 seconds
 });
 
 // Add error handling for Redis
-redisPub.on('error', (error) => {
-  console.error('Redis connection error:', error);
+redisPub.on('error', (error: Error & { code?: string }) => {
+  console.error('Redis connection error:', {
+    message: error.message,
+    code: error.code,
+    stack: error.stack,
+    host: process.env.REDIS_HOST,
+    port: process.env.REDIS_PORT,
+    hasPassword: !!process.env.REDIS_PASSWORD,
+  });
 });
 
 redisPub.on('connect', () => {
@@ -67,8 +77,8 @@ redisPub.on('close', () => {
   console.log('Redis connection closed');
 });
 
-redisPub.on('reconnecting', () => {
-  console.log('Redis reconnecting...');
+redisPub.on('reconnecting', (times: number) => {
+  console.log(`Redis reconnecting... Attempt ${times}`);
 });
 
 // Apply global middlewares
