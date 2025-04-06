@@ -341,7 +341,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                         <Text style={[
                           styles.mapStyleButtonText,
                           currentStyle === 'street' && styles.mapStyleButtonTextActive
-                        ]}>Street</Text>
+                        ]}>Colorful</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: "transparent",
     backgroundColor: "#333",
@@ -518,8 +518,8 @@ const styles = StyleSheet.create({
   profileHeaderCard: {
     backgroundColor: "#3a3a3a",
     borderRadius: 16,
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: 12,
+    marginBottom: 12,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
@@ -856,30 +856,33 @@ const styles = StyleSheet.create({
 
   mapStyleButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 4,
+    marginTop: 4,
   },
   mapStyleButton: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(147, 197, 253, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(147, 197, 253, 0.2)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 24,
+    borderWidth: 1,
+    backgroundColor: 'rgba(147, 197, 253, 0.1)',
+    borderColor: 'rgba(147, 197, 253, 0.2)',
   },
   mapStyleButtonActive: {
-    backgroundColor: '#93c5fd',
-    borderColor: '#93c5fd',
+    backgroundColor: 'rgba(147, 197, 253, 0.2)',
+    borderColor: 'rgba(147, 197, 253, 0.3)',
   },
   mapStyleButtonText: {
-    color: '#93c5fd',
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'SpaceMono',
     fontWeight: '600',
+    color: '#f8f9fa',
   },
   mapStyleButtonTextActive: {
-    color: '#333',
+    fontWeight: '700',
   },
 });
 
