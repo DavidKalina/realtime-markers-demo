@@ -61,6 +61,9 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
       opacity: scaleValue.value === 0.9 ? 0.9 : 1, // Less dramatic opacity change
     }));
 
+    // Memoize the icon color based on active state
+    const iconColor = useMemo(() => isActive ? "#93c5fd" : "#fff", [isActive]);
+
     // Handle button press with animation
     const handlePress = useCallback(() => {
       // Provide haptic feedback on button press
@@ -83,7 +86,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
     // Compute button style only when active state changes
     const buttonStyle = useMemo(
       () => [styles.actionButton, styles.labeledActionButton, disabled && { opacity: 0.5 }],
-      [isActive, disabled]
+      [disabled]
     );
 
     // Compute label style based on active state
@@ -96,12 +99,12 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
     const iconWithWrapper = useMemo(() => {
       // Clone the icon element to add color prop if active
       const iconElement = React.cloneElement(icon as React.ReactElement, {
-        color: isActive ? "#93c5fd" : "#fff", // Change color based on active state
+        color: iconColor,
         size: 20, // Consistent size
       });
 
       return <View style={styles.actionButtonIcon}>{iconElement}</View>;
-    }, [icon, isActive]);
+    }, [icon, iconColor]);
 
     return (
       <Animated.View style={animatedStyle} entering={ENTER_ANIMATION} exiting={EXIT_ANIMATION}>
@@ -125,8 +128,8 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
     return (
       prevProps.isActive === nextProps.isActive &&
       prevProps.disabled === nextProps.disabled &&
-      prevProps.actionKey === nextProps.actionKey
-      // We don't compare onPress, icon, or label as they should be stable references
+      prevProps.actionKey === nextProps.actionKey &&
+      prevProps.label === nextProps.label
     );
   }
 );
@@ -165,6 +168,18 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     const insets = useSafeAreaInsets();
     const { userLocation } = useUserLocation();
 
+    // Memoize the camera animation event to prevent recreation
+    const cameraAnimationEvent = useMemo(() => {
+      if (!userLocation) return null;
+      return {
+        timestamp: Date.now(),
+        source: "ActionBar",
+        coordinates: userLocation,
+        duration: 1000,
+        zoomLevel: 15,
+      };
+    }, [userLocation]);
+
     // Handle action press with proper memoization
     const handlePress = useCallback(
       (action: string) => {
@@ -185,15 +200,9 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
         setActiveAction(action);
 
         // Special handling for locate action
-        if (action === "locate" && userLocation) {
+        if (action === "locate" && cameraAnimationEvent) {
           // Emit event to animate camera to user location
-          publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
-            timestamp: Date.now(),
-            source: "ActionBar",
-            coordinates: userLocation,
-            duration: 1000,
-            zoomLevel: 15, // Zoom in a bit more for user location
-          });
+          publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, cameraAnimationEvent);
         }
 
         // Use a ref to track and clean up the timeout
@@ -205,20 +214,17 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
         // Call the callback
         onActionPress(action);
       },
-      [publish, userLocation, onActionPress]
+      [publish, cameraAnimationEvent, onActionPress]
     );
 
     // Create individual action handlers with proper memoization to avoid recreating functions
     const actionHandlers = useMemo(() => {
       const handlers: Record<string, () => void> = {};
-
-      // This creates a stable function reference for each action key
-      DEFAULT_AVAILABLE_ACTIONS.forEach((key) => {
+      availableActions.forEach((key) => {
         handlers[key] = () => handlePress(key);
       });
-
       return handlers;
-    }, [handlePress]);
+    }, [handlePress, availableActions]);
 
     // Define all possible actions - only recreate when userLocation changes
     const allPossibleActions = useMemo(
@@ -240,7 +246,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           label: LABEL_MAP.locate,
           icon: ICON_MAP.locate,
           action: actionHandlers.locate,
-          disabled: !userLocation, // Disable if no user location is available
+          disabled: !userLocation,
         },
         {
           key: "saved",
@@ -248,7 +254,6 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           icon: ICON_MAP.saved,
           action: actionHandlers.saved,
         },
-
         {
           key: "user",
           label: LABEL_MAP.user,
@@ -256,7 +261,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           action: actionHandlers.user,
         },
       ],
-      [userLocation, actionHandlers] // Re-create only when userLocation or actionHandlers changes
+      [userLocation, actionHandlers]
     );
 
     // Clean up timeouts when component unmounts
@@ -271,7 +276,6 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
 
     // Filter actions based on the availableActions prop - only recalculate when dependencies change
     const scrollableActions = useMemo(() => {
-      // Use a Set for O(1) lookup of available actions
       const availableActionsSet = new Set(availableActions);
       return allPossibleActions.filter((action) => availableActionsSet.has(action.key));
     }, [allPossibleActions, availableActions]);
@@ -308,8 +312,8 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           showsHorizontalScrollIndicator={false}
           style={globalStyles.scrollViewContainer}
           contentContainerStyle={contentContainerStyle as any}
-          removeClippedSubviews={true} // Optimize offscreen rendering
-          keyboardShouldPersistTaps="handled" // Better keyboard handling
+          removeClippedSubviews={true}
+          keyboardShouldPersistTaps="handled"
           accessibilityRole="menubar"
         >
           {scrollableActions.map((action) => (
@@ -329,14 +333,12 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
   },
   // Custom equality function to prevent unnecessary re-renders
   (prevProps, nextProps) => {
-    // Only re-render if these specific props change
-    const propsEqual =
+    return (
       prevProps.isStandalone === nextProps.isStandalone &&
       prevProps.animatedStyle === nextProps.animatedStyle &&
-      // For arrays, we need to check if they're equal in content
+      prevProps.onActionPress === nextProps.onActionPress &&
       ((!prevProps.availableActions && !nextProps.availableActions) ||
-        prevProps.availableActions?.join(",") === nextProps.availableActions?.join(","));
-
-    return propsEqual;
+        prevProps.availableActions?.join(",") === nextProps.availableActions?.join(","))
+    );
   }
 );
