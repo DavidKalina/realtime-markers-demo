@@ -12,7 +12,7 @@ import {
 import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
 import MapboxGL from "@rnmapbox/maps";
-import React, { useCallback, useMemo, useRef } from "react";
+import React, { useCallback, useMemo, useRef, useEffect } from "react";
 import Animated, { BounceIn, BounceOut, Layout, LinearTransition } from "react-native-reanimated";
 import { ClusterMarker } from "./ClusterMarker";
 import { MysteryEmojiMarker } from "./CustomMapMarker";
@@ -65,6 +65,15 @@ const SingleMarkerView = React.memo(
     onPress: () => void;
     index: number;
   }) => {
+    const wasVisible = useRef(false);
+
+    // Update wasVisible when marker becomes visible
+    useEffect(() => {
+      if (isSelected) {
+        wasVisible.current = true;
+      }
+    }, [isSelected]);
+
     return (
       <MapboxGL.MarkerView
         key={`marker-${marker.id}`}
@@ -72,11 +81,15 @@ const SingleMarkerView = React.memo(
         anchor={{ x: 0.5, y: 1.0 }}
       >
         <Animated.View
-          entering={BounceIn.duration(500)
-            .springify()
-            .damping(15)
-            .stiffness(200)
-            .delay(index * 300)}
+          entering={
+            !wasVisible.current
+              ? BounceIn.duration(500)
+                  .springify()
+                  .damping(15)
+                  .stiffness(200)
+                  .delay(index * 300)
+              : undefined
+          }
           exiting={BounceOut.duration(500).springify().damping(15).stiffness(200)}
           layout={LinearTransition.springify()}
         >
