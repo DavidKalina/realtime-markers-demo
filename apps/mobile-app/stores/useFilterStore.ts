@@ -35,7 +35,7 @@ export const useFilterStore = create<FilterState>((set, get) => ({
     try {
       // First fetch the filters from the API
       const userFilters = await apiClient.getUserFilters();
-      
+
       // Then load active filters from storage
       const storedFilters = await AsyncStorage.getItem(ACTIVE_FILTERS_KEY);
       let activeIds: string[] = [];
@@ -43,11 +43,24 @@ export const useFilterStore = create<FilterState>((set, get) => ({
         activeIds = JSON.parse(storedFilters);
       }
 
+      // If no active filters and we have filters available, apply the oldest one
+      if (activeIds.length === 0 && userFilters.length > 0) {
+        // Sort filters by creation date and get the oldest one
+        const oldestFilter = userFilters.sort((a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        )[0];
+
+        // Apply the oldest filter
+        await apiClient.applyFilters([oldestFilter.id]);
+        activeIds = [oldestFilter.id];
+        await AsyncStorage.setItem(ACTIVE_FILTERS_KEY, JSON.stringify(activeIds));
+      }
+
       // Update state with both filters and active IDs
       set({
         filters: userFilters,
         // Only keep active filter IDs that still exist in the fetched filters
-        activeFilterIds: activeIds.filter(id => 
+        activeFilterIds: activeIds.filter(id =>
           userFilters.some(filter => filter.id === id)
         )
       });
