@@ -64,10 +64,12 @@ const RegisterScreen: React.FC = () => {
   });
 
   useEffect(() => {
-    // Auto-focus the display name input when the screen loads
-    setTimeout(() => {
+    // Delay the auto-focus until after animations complete
+    const timer = setTimeout(() => {
       displayNameInputRef.current?.focus();
-    }, 500);
+    }, 1000); // 1000ms delay to allow animations to complete
+
+    return () => clearTimeout(timer);
   }, []);
 
   const togglePasswordVisibility = () => {
