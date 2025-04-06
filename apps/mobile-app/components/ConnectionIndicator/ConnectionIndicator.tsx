@@ -88,6 +88,9 @@ const StatusIcon = React.memo(({ isConnected, networkState, style }: { isConnect
   }, [isConnected]);
 
   return <Animated.View style={style}>{icon}</Animated.View>;
+}, (prevProps, nextProps) => {
+  return prevProps.isConnected === nextProps.isConnected &&
+    prevProps.networkState.strength === nextProps.networkState.strength;
 });
 
 // Create a memoized status text component
@@ -133,6 +136,12 @@ const StatusText = React.memo(
         {statusText}
       </Animated.Text>
     );
+  },
+  (prevProps, nextProps) => {
+    return prevProps.isConnected === nextProps.isConnected &&
+      prevProps.hasConnectionEverBeenEstablished === nextProps.hasConnectionEverBeenEstablished &&
+      prevProps.networkState.strength === nextProps.networkState.strength &&
+      prevProps.networkState.type === nextProps.networkState.type;
   }
 );
 
@@ -149,6 +158,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
     const [isVisible, setIsVisible] = useState(true);
     const isMounted = useRef(true);
     const animationCleanupRef = useRef<(() => void) | null>(null);
+    const lastNetworkStrength = useRef<number | null>(null);
 
     // Get network quality state
     const networkState = useNetworkQuality();
@@ -204,6 +214,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
         isMounted.current = false;
         if (animationCleanupRef.current) {
           animationCleanupRef.current();
+          animationCleanupRef.current = null;
         }
       };
     }, []);
@@ -297,7 +308,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
           transform: [{ scale: 1 }],
         };
       }
-    });
+    }, [scale.value]);
 
     const statusIconStyle = useAnimatedStyle(() => {
       try {
@@ -310,7 +321,7 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
           opacity: 1,
         };
       }
-    });
+    }, [iconOpacity.value]);
 
     // Get position styles based on position prop
     const positionStyle = useMemo(() => {
@@ -386,6 +397,11 @@ export const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = React.mem
         </View>
       </Animated.View>
     );
+  },
+  (prevProps, nextProps) => {
+    return prevProps.initialConnectionState === nextProps.initialConnectionState &&
+      prevProps.position === nextProps.position &&
+      prevProps.showAnimation === nextProps.showAnimation;
   }
 );
 

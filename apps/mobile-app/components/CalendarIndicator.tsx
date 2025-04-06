@@ -1,8 +1,6 @@
 import React, { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { Pressable, StyleSheet, Text, View, Modal } from "react-native";
 import Animated, {
-  BounceIn,
-  LinearTransition,
   useSharedValue,
   cancelAnimation,
   FadeIn,
@@ -14,12 +12,18 @@ import * as Haptics from "expo-haptics";
 import DateRangeCalendar from "./DateRangeCalendar";
 import { format, parseISO } from "date-fns";
 
-const CalendarIndicator: React.FC = () => {
-  const { filters, activeFilterIds, updateFilter, createFilter, applyFilters, clearFilters } =
+// Pre-define animations to avoid recreation
+const FADE_IN = FadeIn.duration(200);
+const FADE_OUT = FadeOut.duration(200);
+
+const CalendarIndicator: React.FC = React.memo(() => {
+  const { filters, activeFilterIds, updateFilter, applyFilters, clearFilters } =
     useFilterStore();
   const [showCalendar, setShowCalendar] = useState(false);
   const isMounted = useRef(true);
   const modalAnim = useSharedValue(0);
+  const lastActiveFilterIds = useRef<string[]>([]);
+  const lastFilters = useRef<any[]>([]);
 
   // Cleanup animations
   const cleanupAnimations = useCallback(() => {
@@ -44,6 +48,18 @@ const CalendarIndicator: React.FC = () => {
 
   // Get active filters with date ranges
   const activeDateFilters = useMemo(() => {
+    // Check if filters or activeFilterIds have changed
+    const filtersChanged = lastFilters.current !== filters;
+    const activeIdsChanged = lastActiveFilterIds.current !== activeFilterIds;
+
+    if (!filtersChanged && !activeIdsChanged) {
+      return lastFilters.current;
+    }
+
+    // Update refs
+    lastFilters.current = filters;
+    lastActiveFilterIds.current = activeFilterIds;
+
     // First get all active filters based on activeFilterIds
     const activeFilters = filters.filter((f) => activeFilterIds.includes(f.id));
     // Then filter for those with date ranges
@@ -84,8 +100,8 @@ const CalendarIndicator: React.FC = () => {
         filters.find((f) => activeFilterIds.includes(f.id)) ||
         (filters.length > 0
           ? filters.reduce((oldest, current) => {
-              return new Date(current.createdAt) < new Date(oldest.createdAt) ? current : oldest;
-            })
+            return new Date(current.createdAt) < new Date(oldest.createdAt) ? current : oldest;
+          })
           : null);
 
       if (!targetFilter) {
@@ -127,7 +143,7 @@ const CalendarIndicator: React.FC = () => {
 
   return (
     <>
-      <Animated.View entering={BounceIn} layout={LinearTransition.springify()}>
+      <View>
         <Pressable onPress={handlePress} style={styles.pressable}>
           <View style={[styles.indicator, activeDateFilters.length > 0 && styles.indicatorActive]}>
             <View
@@ -146,7 +162,7 @@ const CalendarIndicator: React.FC = () => {
             )}
           </View>
         </Pressable>
-      </Animated.View>
+      </View>
 
       <Modal
         visible={showCalendar}
@@ -156,8 +172,8 @@ const CalendarIndicator: React.FC = () => {
       >
         <Animated.View
           style={styles.modalOverlay}
-          entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(200)}
+          entering={FADE_IN}
+          exiting={FADE_OUT}
         >
           <DateRangeCalendar
             startDate={activeDateFilters[0]?.criteria.dateRange?.start}
@@ -169,7 +185,7 @@ const CalendarIndicator: React.FC = () => {
       </Modal>
     </>
   );
-};
+});
 
 const styles = StyleSheet.create({
   pressable: {
