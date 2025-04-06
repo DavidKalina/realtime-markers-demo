@@ -67,7 +67,7 @@ const StatusIcon = React.memo(({ style, status, checkmarkScale, floatValue }: { 
   <Animated.View style={style}>
     {status === "completed" ? (
       <Animated.Text style={[styles.emojiText]}>
-        👍
+        ✅
       </Animated.Text>
     ) : (
       <AlertTriangle size={16} color="rgba(255, 255, 255, 0.9)" />
