@@ -145,7 +145,7 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
           );
 
           // Scale up
-          scale.value = withTiming(1.2, ANIMATIONS.SCALE_UP_CONFIG);
+          scale.value = withTiming(1.4, ANIMATIONS.SCALE_UP_CONFIG);
         } else {
           // Stop pulse animation
           pulseOpacity.value = withTiming(0, ANIMATIONS.FADE_CONFIG);
@@ -191,7 +191,7 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
       // Scale animation for press feedback
       scale.value = withSequence(
         withTiming(0.9, ANIMATIONS.SCALE_PRESS),
-        withTiming(isSelected ? 1.2 : 1, ANIMATIONS.SCALE_RELEASE)
+        withTiming(isSelected ? 1.4 : 1, ANIMATIONS.SCALE_RELEASE)
       );
 
       // Call the parent's onPress handler
