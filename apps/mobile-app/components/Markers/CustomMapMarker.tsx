@@ -63,6 +63,31 @@ const createAnimationCleanup = (animations: Animated.SharedValue<number>[]) => {
   };
 };
 
+// Memoize the animation configurations
+const getAnimationConfigs = (isSelected: boolean) => ({
+  float: isSelected ? {
+    value: withRepeat(
+      withSequence(
+        withTiming(1, ANIMATIONS.FLOAT_CONFIG),
+        withTiming(-1, ANIMATIONS.FLOAT_CONFIG)
+      ),
+      -1,
+      true
+    ),
+    rotation: withRepeat(
+      withSequence(
+        withTiming(0.02, { ...ANIMATIONS.FLOAT_CONFIG, duration: 2000 }),
+        withTiming(-0.02, { ...ANIMATIONS.FLOAT_CONFIG, duration: 2000 })
+      ),
+      -1,
+      true
+    )
+  } : {
+    value: 0,
+    rotation: 0
+  }
+});
+
 // Styled components to reduce re-renders and improve readability
 const PulseRing = React.memo(({ style }: { style: any }) => <Animated.View style={style} />);
 
@@ -85,42 +110,20 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
     const pulseScale = useSharedValue(1);
     const pulseOpacity = useSharedValue(0);
 
-    // Collected animations for cleanup
-    const animations = useMemo(() => [scale, floatY, rotation, pulseScale, pulseOpacity], []);
-
     // Component state
     const prevSelectedRef = useRef(isSelected);
     const prevHighlightedRef = useRef(isHighlighted);
 
+    // Memoize animation configurations
+    const animationConfigs = useMemo(() => getAnimationConfigs(isSelected), [isSelected]);
+
     // Add subtle float animation
     useEffect(() => {
-      if (isSelected) {
-        floatY.value = withRepeat(
-          withSequence(
-            withTiming(1, ANIMATIONS.FLOAT_CONFIG),
-            withTiming(-1, ANIMATIONS.FLOAT_CONFIG)
-          ),
-          -1, // Infinite repeats
-          true // Reverse
-        );
-
-        // Add subtle rotation
-        rotation.value = withRepeat(
-          withSequence(
-            withTiming(0.02, { ...ANIMATIONS.FLOAT_CONFIG, duration: 2000 }),
-            withTiming(-0.02, { ...ANIMATIONS.FLOAT_CONFIG, duration: 2000 })
-          ),
-          -1, // Infinite repeats
-          true // Reverse
-        );
-      } else {
-        // Reset animations when not selected
-        floatY.value = 0;
-        rotation.value = 0;
-      }
+      floatY.value = animationConfigs.float.value;
+      rotation.value = animationConfigs.float.rotation;
 
       return createAnimationCleanup([floatY, rotation]);
-    }, [isSelected]); // Now depends on isSelected
+    }, [animationConfigs]);
 
     // Handle selection state changes
     useEffect(() => {
@@ -129,19 +132,16 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
 
         if (isSelected) {
           // Start pulse animation
-          pulseScale.value = 1;
-          pulseOpacity.value = 0.7;
-
           pulseScale.value = withRepeat(
             withTiming(1.8, ANIMATIONS.PULSE_CONFIG),
-            -1, // Infinite repeats
-            false // Don't reverse
+            -1,
+            false
           );
 
           pulseOpacity.value = withRepeat(
             withTiming(0, ANIMATIONS.PULSE_CONFIG),
-            -1, // Infinite repeats
-            false // Don't reverse
+            -1,
+            false
           );
 
           // Scale up
@@ -149,22 +149,18 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
         } else {
           // Stop pulse animation
           pulseOpacity.value = withTiming(0, ANIMATIONS.FADE_CONFIG);
-
-          // Scale down and reset other animations
           scale.value = withTiming(1, ANIMATIONS.SCALE_UP_CONFIG);
         }
       }
 
-      // Return cleanup for selection changes
       return createAnimationCleanup([pulseScale, pulseOpacity]);
-    }, [isSelected]); // Only depend on isSelected
+    }, [isSelected]);
 
-    // Handle highlight state changes - but only when selected
+    // Handle highlight state changes
     useEffect(() => {
       if (isSelected && isHighlighted !== prevHighlightedRef.current) {
         prevHighlightedRef.current = isHighlighted;
 
-        // Highlight effect - only when selected and state changes
         if (isHighlighted) {
           scale.value = withSequence(
             withTiming(1.1, ANIMATIONS.HIGHLIGHT_CONFIG),
@@ -172,50 +168,45 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
           );
         }
       }
-
-      // No cleanup needed for highlight effect as it's self-contained
     }, [isHighlighted, isSelected]);
 
     // Handle press with haptic feedback - memoized
     const handlePress = useCallback(() => {
-      // Only trigger haptics on real devices
       if (Platform.OS !== "web") {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
-          // Silently handle haptic errors
-        });
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
       }
 
-      // Cancel any ongoing scale animations before starting new ones
       cancelAnimation(scale);
 
-      // Scale animation for press feedback
       scale.value = withSequence(
         withTiming(0.9, ANIMATIONS.SCALE_PRESS),
         withTiming(isSelected ? 1.4 : 1, ANIMATIONS.SCALE_RELEASE)
       );
 
-      // Call the parent's onPress handler
       onPress();
     }, [isSelected, onPress, scale]);
 
-    // Global cleanup on unmount
-    useEffect(() => {
-      return createAnimationCleanup(animations);
-    }, [animations]);
-
-    // Animation styles - memoized with useAnimatedStyle
+    // Memoize animation styles
     const containerStyle = useAnimatedStyle(() => ({
       transform: [
         { scale: scale.value },
         { translateY: floatY.value },
         { rotate: `${rotation.value}rad` },
       ],
-    }));
+    }), []);
 
     const pulseStyle = useAnimatedStyle(() => ({
       opacity: pulseOpacity.value,
       transform: [{ scale: pulseScale.value }],
-    }));
+    }), []);
+
+    // Memoize the main content
+    const markerContent = useMemo(() => (
+      <View style={styles.outerCircle}>
+        <EmojiContent emoji={event.emoji} />
+        {event.isVerified && <VerifiedBadge />}
+      </View>
+    ), [event.emoji, event.isVerified]);
 
     return (
       <TouchableOpacity
@@ -226,30 +217,19 @@ export const MysteryEmojiMarker: React.FC<MysteryEmojiMarkerProps> = React.memo(
         accessibilityLabel={`${event.title} marker`}
         accessibilityState={{ selected: isSelected }}
       >
-        {/* Pulsating ring - Only render when selected */}
         {isSelected && <PulseRing style={[styles.pulseRing, pulseStyle]} />}
-
-        {/* Main container */}
         <Animated.View style={[styles.container, containerStyle]}>
-          <View style={styles.outerCircle}>
-            <EmojiContent emoji={event.emoji} />
-
-            {/* Verified badge if applicable */}
-            {event.isVerified && <VerifiedBadge />}
-          </View>
+          {markerContent}
         </Animated.View>
       </TouchableOpacity>
     );
   },
-  // Enhanced comparison function
   (prevProps, nextProps) => {
-    // Only re-render if these specific props change
     return (
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.isHighlighted === nextProps.isHighlighted &&
       prevProps.event.emoji === nextProps.event.emoji &&
       prevProps.event.isVerified === nextProps.event.isVerified &&
-      // Also check onPress identity if we're being extra careful
       prevProps.onPress === nextProps.onPress
     );
   }

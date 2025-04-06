@@ -1,5 +1,5 @@
 import { useFilterStore } from "@/stores/useFilterStore";
-import React, { useMemo, useEffect } from "react";
+import React, { useMemo, useEffect, useCallback } from "react";
 import { StyleSheet, View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Filter, FilterX } from "lucide-react-native";
@@ -44,7 +44,7 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(({ position =
   // Fetch filters on mount
   useEffect(() => {
     fetchFilters();
-  }, []);
+  }, [fetchFilters]);
 
   // Memoize position style
   const positionStyle = useMemo(() => {
@@ -131,9 +131,39 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(({ position =
     borderRadius: 16,
   }));
 
+  // Memoize the press handler
+  const handlePress = useCallback(() => {
+    router.push("/filter");
+  }, [router]);
+
+  // Memoize the icon component
+  const IconComponent = useMemo(() => {
+    if (!displayContent.useIcon) return null;
+    return React.createElement(displayContent.icon, {
+      size: 16,
+      color: "rgba(255, 255, 255, 0.7)",
+    });
+  }, [displayContent.useIcon, displayContent.icon]);
+
+  // Memoize the emoji text
+  const EmojiText = useMemo(() => {
+    if (displayContent.useIcon) return null;
+    return <Text style={styles.emojiText}>{displayContent.emoji}</Text>;
+  }, [displayContent.useIcon, displayContent.emoji]);
+
+  // Memoize the filter text
+  const FilterText = useMemo(() => (
+    <Animated.Text
+      style={[styles.filterText, !displayContent.isActive && styles.inactiveText]}
+      numberOfLines={1}
+    >
+      {displayContent.text}
+    </Animated.Text>
+  ), [displayContent.text, displayContent.isActive]);
+
   return (
     <Pressable
-      onPress={() => router.push("/filter")}
+      onPress={handlePress}
       style={({ pressed }) => [styles.container, positionStyle, pressed && styles.pressedContainer]}
     >
       <Animated.View
@@ -143,27 +173,18 @@ const FilterIndicator: React.FC<FilterIndicatorProps> = React.memo(({ position =
         exiting={SLIDE_OUT}
       >
         <View style={styles.iconContainer}>
-          {displayContent.useIcon ? (
-            React.createElement(displayContent.icon, {
-              size: 16,
-              color: "rgba(255, 255, 255, 0.7)",
-            })
-          ) : (
-            <Text style={styles.emojiText}>{displayContent.emoji}</Text>
-          )}
+          {IconComponent}
+          {EmojiText}
         </View>
 
         <Animated.View style={styles.contentContainer} entering={FADE_IN} exiting={FadeOut}>
-          <Animated.Text
-            style={[styles.filterText, !displayContent.isActive && styles.inactiveText]}
-            numberOfLines={1}
-          >
-            {displayContent.text}
-          </Animated.Text>
+          {FilterText}
         </Animated.View>
       </Animated.View>
     </Pressable>
   );
+}, (prevProps, nextProps) => {
+  return prevProps.position === nextProps.position;
 });
 
 const styles = StyleSheet.create({
