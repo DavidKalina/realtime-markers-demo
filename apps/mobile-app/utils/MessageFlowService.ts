@@ -140,7 +140,7 @@ export class MessageFlowService {
         return ["Let's share this place with your friends!"];
       case "search":
         return ["Looking for something specific?"];
-      case "camera":
+      case "scan":
         return ["Scanner activated!"];
       case "locate":
         return [`Returning to ${userLocation?.join(", ") || "your location"}`];

@@ -135,12 +135,12 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 );
 
 // Default set of actions if none provided
-const DEFAULT_AVAILABLE_ACTIONS = ["search", "camera", "locate", "user", "saved"];
+const DEFAULT_AVAILABLE_ACTIONS = ["search", "scan", "locate", "user", "saved"];
 
 // Icons memo - created once outside the component to avoid recreation
 const ICON_MAP = {
   search: <SearchIcon size={20} color="#fff" />,
-  camera: <Camera size={20} color="#fff" />,
+  scan: <Camera size={20} color="#fff" />,
   locate: <Navigation size={20} color="#fff" />,
   saved: <BookMarkedIcon size={20} color="#fff" />,
   user: <User size={20} color="#fff" />,
@@ -149,7 +149,7 @@ const ICON_MAP = {
 // Label map - created once outside the component
 const LABEL_MAP = {
   search: "Search",
-  camera: "Scan",
+  scan: "Scan",
   locate: "Locate",
   saved: "Saved",
   user: "Me",
@@ -236,10 +236,10 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           action: actionHandlers.search,
         },
         {
-          key: "camera",
-          label: LABEL_MAP.camera,
-          icon: ICON_MAP.camera,
-          action: actionHandlers.camera,
+          key: "scan",
+          label: LABEL_MAP.scan,
+          icon: ICON_MAP.scan,
+          action: actionHandlers.scan,
         },
         {
           key: "locate",
