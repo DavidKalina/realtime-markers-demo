@@ -52,6 +52,7 @@ const FiltersView: React.FC = () => {
     clearFilters,
     activeFilterIds,
     setActiveFilterIds,
+    isClearing,
   } = useFilterStore();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -444,7 +445,7 @@ const FiltersView: React.FC = () => {
         )}
       </View>
 
-      {filters.length > 0 && <BottomActionBar onClearFilters={handleClearFilters} />}
+      {filters.length > 0 && <BottomActionBar onClearFilters={handleClearFilters} isClearing={isClearing} />}
 
       <FilterFormModal
         visible={modalVisible}

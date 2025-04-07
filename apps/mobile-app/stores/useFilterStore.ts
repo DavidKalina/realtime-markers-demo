@@ -10,6 +10,7 @@ interface FilterState {
   filters: Filter[];
   activeFilterIds: string[];
   isLoading: boolean;
+  isClearing: boolean;
   error: string | null;
 
   // Actions
@@ -27,6 +28,7 @@ export const useFilterStore = create<FilterState>((set, get) => ({
   filters: [],
   activeFilterIds: [],
   isLoading: false,
+  isClearing: false,
   error: null,
 
   // Actions
@@ -148,42 +150,22 @@ export const useFilterStore = create<FilterState>((set, get) => ({
   },
 
   clearFilters: async () => {
+    set({ isClearing: true, error: null });
     try {
-      const { activeFilterIds, filters } = get();
+      // Call the API to clear all filters
+      await apiClient.clearFilters();
 
-      if (activeFilterIds.length === 0) {
-        throw new Error("No active filter to update");
-      }
+      // Clear active filters in local state
+      set({ activeFilterIds: [] });
 
-      const activeFilterId = activeFilterIds[0];
-      const activeFilter = filters.find(f => f.id === activeFilterId);
-
-      if (!activeFilter) {
-        throw new Error("Active filter not found");
-      }
-
-      // Calculate default 2-week date range (from today to 2 weeks ahead)
-      const startDate = new Date();
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 14); // 2 weeks ahead
-
-      // Update the existing filter with 2-week date range
-      await apiClient.updateFilter(activeFilterId, {
-        ...activeFilter,
-        criteria: {
-          ...activeFilter.criteria,
-          dateRange: {
-            start: startDate.toISOString(),
-            end: endDate.toISOString()
-          }
-        }
-      });
-
-      // Refresh the filters to get the updated one
-      await get().fetchFilters();
+      // Remove from AsyncStorage
+      await AsyncStorage.removeItem(ACTIVE_FILTERS_KEY);
     } catch (err) {
       console.error("Error clearing filters:", err);
+      set({ error: `Failed to clear filters: ${err instanceof Error ? err.message : "Unknown error"}` });
       throw err;
+    } finally {
+      set({ isClearing: false });
     }
   },
 

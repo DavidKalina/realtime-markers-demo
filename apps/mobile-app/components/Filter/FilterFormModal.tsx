@@ -74,6 +74,16 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
     cleanupModalAnimations,
   }) => {
     const scrollViewRef = useRef<ScrollView>(null);
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSave = async () => {
+      setIsSaving(true);
+      try {
+        await onSave();
+      } finally {
+        setIsSaving(false);
+      }
+    };
 
     return (
       <Modal
@@ -243,9 +253,16 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
             </ScrollView>
 
             <View style={styles.modalFooter}>
-              <TouchableOpacity style={styles.saveButton} onPress={onSave} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+                onPress={handleSave}
+                activeOpacity={0.7}
+                disabled={isSaving}
+              >
                 <Save size={18} color="#f8f9fa" style={{ marginRight: 8 }} />
-                <Text style={styles.saveButtonText}>Save Filter</Text>
+                <Text style={styles.saveButtonText}>
+                  {isSaving ? "Saving..." : "Save Filter"}
+                </Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
