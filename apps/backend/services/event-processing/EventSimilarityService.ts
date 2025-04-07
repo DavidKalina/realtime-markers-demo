@@ -73,7 +73,7 @@ export class EventSimilarityService implements IEventSimilarityService {
         .addSelect(
           `(
             -- Vector similarity (35% weight)
-            (1 - (embedding <-> $1)::float) * 0.35 +
+            (1 - (embedding <-> $1::vector)::float) * 0.35 +
             
             -- Title match (35% weight)
             CASE 
