@@ -148,7 +148,10 @@ const CalendarIndicator: React.FC = React.memo(() => {
         // Update the filter with new date range while preserving other criteria
         const updatedFilter = {
           ...targetFilter,
-          name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
+          // Only update the name if there's no semantic query
+          ...(targetFilter.semanticQuery ? {} : {
+            name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
+          }),
           criteria: {
             ...targetFilter.criteria,
             dateRange: { start: startDate, end: endDate },
