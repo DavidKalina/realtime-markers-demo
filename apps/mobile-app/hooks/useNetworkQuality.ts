@@ -74,7 +74,6 @@ export const useNetworkQuality = () => {
         if (!isMounted.current) return;
 
         try {
-            console.log('Raw NetInfo state:', state);
 
             // Get the current network type
             const networkType = state.type || 'none';
@@ -127,7 +126,6 @@ export const useNetworkQuality = () => {
             try {
                 // Get initial state
                 const initialState = await NetInfo.fetch();
-                console.log('Initial network state:', initialState);
 
                 if (isSubscribed && isMounted.current) {
                     handleNetworkStateChange(initialState);
@@ -137,7 +135,6 @@ export const useNetworkQuality = () => {
                 netInfoUnsubscribe = NetInfo.addEventListener((state) => {
                     if (!isSubscribed || !isMounted.current) return;
                     try {
-                        console.log('Network state change detected:', state);
                         handleNetworkStateChange(state);
                     } catch (error) {
                         console.error('Error handling network state change:', error);
