@@ -249,8 +249,9 @@ async function initializeWorker() {
           console.log(`[Worker] Confidence too low (${scanResult.confidence}) to proceed with event processing`);
           await jobQueue.updateJobStatus(jobId, {
             status: "completed",
+            progress: 1, // Set to 100% when completed
             result: {
-              message: "Confidence too low to process event",
+              message: "The image quality or content was not clear enough to reliably extract event information. Please try again with a clearer image.",
               confidence: scanResult.confidence,
               threshold: 0.75,
             },
@@ -274,6 +275,7 @@ async function initializeWorker() {
             // Mark as completed with duplicate information
             await jobQueue.updateJobStatus(jobId, {
               status: "completed",
+              progress: 1, // Set to 100% when completed
               eventId: existingEvent.id,
               result: {
                 eventId: existingEvent.id,
@@ -281,6 +283,7 @@ async function initializeWorker() {
                 coordinates: existingEvent.location.coordinates,
                 isDuplicate: true,
                 similarityScore: scanResult.similarity.score,
+                message: "This event appears to be very similar to an existing event in our database. We've linked you to the existing event instead.",
               },
               completed: new Date().toISOString(),
             });
@@ -291,7 +294,9 @@ async function initializeWorker() {
             );
             await jobQueue.updateJobStatus(jobId, {
               status: "failed",
+              progress: 1, // Set to 100% when completed
               error: "Duplicate event reference not found",
+              message: "We encountered an error while processing this event. Please try again.",
               completed: new Date().toISOString(),
             });
           }
@@ -313,6 +318,7 @@ async function initializeWorker() {
             // Mark as completed with info about invalid date
             await jobQueue.updateJobStatus(jobId, {
               status: "completed",
+              progress: 1, // Set to 100% when completed
               result: {
                 message: dateValidation.reason,
                 daysFromNow: dateValidation.daysFromNow,
@@ -393,11 +399,13 @@ async function initializeWorker() {
           // Mark as completed with success
           await jobQueue.updateJobStatus(jobId, {
             status: "completed",
+            progress: 1, // Set to 100% when completed
             eventId: newEvent.id,
             result: {
               eventId: newEvent.id,
               title: eventDetails.title,
               coordinates: newEvent.location.coordinates,
+              message: "Event successfully processed and added to the database!",
             },
             completed: new Date().toISOString(),
           });
@@ -406,6 +414,7 @@ async function initializeWorker() {
           // Mark as completed with info about low confidence
           await jobQueue.updateJobStatus(jobId, {
             status: "completed",
+            progress: 1, // Set to 100% when completed
             result: {
               message: "Confidence too low to create event",
               confidence: scanResult.confidence,
@@ -432,7 +441,9 @@ async function initializeWorker() {
       // Update job with error
       await jobQueue.updateJobStatus(jobId, {
         status: "failed",
+        progress: 1, // Set to 100% when completed
         error: error.message,
+        message: "We encountered an error while processing your event. Please try again with a different image or contact support if the issue persists.",
         completed: new Date().toISOString(),
       });
     } finally {

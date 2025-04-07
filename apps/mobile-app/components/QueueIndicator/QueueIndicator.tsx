@@ -16,6 +16,9 @@ import Animated, {
   SlideOutLeft,
 } from "react-native-reanimated";
 
+// Import Job type from store
+import type { Job } from "@/stores/useJobSessionStore";
+
 interface QueueIndicatorProps {
   position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
   autoDismissDelay?: number; // Time in ms to auto-dismiss after all jobs are complete/failed
@@ -63,28 +66,70 @@ const ProcessingIcon = React.memo(({ style }: { style: any }) => (
 ));
 
 // Component for the completion status icon
-const StatusIcon = React.memo(({ style, status, checkmarkScale, floatValue }: { style: any; status: string; checkmarkScale: any; floatValue: any }) => (
-  <Animated.View style={style}>
-    {status === "completed" ? (
+const StatusIcon = React.memo(({ style, status, checkmarkScale, floatValue, message }: {
+  style: any;
+  status: string;
+  checkmarkScale: any;
+  floatValue: any;
+  message?: string;
+}) => {
+  // Determine status emoji based on message
+  const getStatusEmoji = () => {
+    if (!message) return "🔄";
+
+    const msg = message.toLowerCase();
+    if (msg.includes("successfully processed")) return "✅";
+    if (msg.includes("similar to an existing event")) return "🔄";
+    if (msg.includes("image quality") || msg.includes("not clear enough")) return "⚠️";
+    if (msg.includes("error") || msg.includes("failed")) return "❌";
+    return "🔄";
+  };
+
+  return (
+    <Animated.View style={style}>
       <Animated.Text style={[styles.emojiText]}>
-        ✅
+        {getStatusEmoji()}
       </Animated.Text>
-    ) : (
-      <AlertTriangle size={16} color="rgba(255, 255, 255, 0.9)" />
-    )}
-  </Animated.View>
-));
+    </Animated.View>
+  );
+});
 
 // Component for the job count text
-const JobCountText = React.memo(({ count, status }: { count: number; status: string }) => (
-  <Animated.Text style={styles.countText} entering={FADE_IN} layout={SPRING_LAYOUT}>
-    {status === "completed"
-      ? "Scan Complete!"
-      : status === "failed"
-        ? "Scan Failed."
-        : `${count} job${count !== 1 ? "s" : ""}`}
-  </Animated.Text>
-));
+const JobCountText = React.memo(({ count, status, activeJob }: {
+  count: number;
+  status: string;
+  activeJob?: Job;
+}) => {
+  // Determine condensed message
+  const getCondensedMessage = () => {
+    if (!activeJob?.result?.message) {
+      return `${count} job${count !== 1 ? "s" : ""}`;
+    }
+
+    const msg = activeJob.result.message.toLowerCase();
+    if (msg.includes("successfully processed")) return "Success";
+    if (msg.includes("similar to an existing event")) return "Duplicate";
+    if (msg.includes("image quality") || msg.includes("not clear enough")) return "Low Quality";
+    if (msg.includes("error") || msg.includes("failed")) return "Failed";
+    return `${count} job${count !== 1 ? "s" : ""}`;
+  };
+
+  const text = getCondensedMessage();
+  const isProcessing = status === "processing";
+
+  return (
+    <Animated.Text
+      style={[
+        styles.countText,
+        !isProcessing && styles.statusText
+      ]}
+      entering={FADE_IN}
+      layout={SPRING_LAYOUT}
+    >
+      {text}
+    </Animated.Text>
+  );
+});
 
 const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
   ({
@@ -97,6 +142,15 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
     const jobs = useJobSessionStore((state) => state.jobs);
     const clearAllJobs = useJobSessionStore((state) => state.clearAllJobs);
 
+    // Get the active job
+    const activeJob = useMemo(() => {
+      return jobs.find(job =>
+        job.status === "processing" ||
+        job.status === "completed" ||
+        job.status === "failed"
+      );
+    }, [jobs]);
+
     // Refs for cleanup
     const clearJobsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const animationCleanupRef = useRef(false);
@@ -105,7 +159,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
     const [shouldRender, setShouldRender] = useState(false);
 
     // Memoize derived values to prevent unnecessary recalculations
-    const { activeJobs, completedJobs, failedJobs, totalJobs, activeJob, progressPercentage } =
+    const { activeJobs, completedJobs, failedJobs, totalJobs, activeJob: derivedActiveJob, progressPercentage } =
       useMemo(() => {
         if (!isMounted.current) return {
           activeJobs: [],
@@ -448,25 +502,30 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
           {/* Rotating cog for processing */}
           {status === "processing" && <ProcessingIcon style={rotationAnimatedStyle} />}
 
-          {/* Thumbs up or error icon that appears when complete */}
+          {/* Status icon for completed/failed */}
           {(status === "completed" || status === "failed") && (
             <StatusIcon
               style={[checkmarkAnimatedStyle, status === "completed" && floatAnimatedStyle]}
               status={status}
               checkmarkScale={checkmarkScale}
               floatValue={floatValue}
+              message={activeJob?.result?.message}
             />
           )}
         </Animated.View>
 
         <View style={styles.contentContainer}>
-          {/* Progress bar - only render when processing */}
+          {/* Progress bar - only show when processing */}
           {status === "processing" && (
             <ProgressBar percentage={progressPercentage} color={statusColor} />
           )}
 
-          {/* Job count text - only render when there are jobs */}
-          {totalJobs > 0 && <JobCountText count={totalJobs} status={status} />}
+          {/* Always show text - either job count or status message */}
+          <JobCountText
+            count={totalJobs}
+            status={status}
+            activeJob={activeJob}
+          />
         </View>
       </Animated.View>
     );
@@ -510,12 +569,20 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexDirection: "column",
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   countText: {
     color: "rgba(255, 255, 255, 0.9)",
     fontSize: 10,
     fontFamily: "SpaceMono",
     fontWeight: "600",
+  },
+  statusText: {
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 4,
+    opacity: 1,
   },
   progressBarContainer: {
     height: 2,
