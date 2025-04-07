@@ -67,39 +67,19 @@ export class EventSimilarityService implements IEventSimilarityService {
         .where("event.embedding IS NOT NULL")
         .andWhere(
           new Brackets(qb => {
-            qb.where("LOWER(event.title) LIKE LOWER($2)")
-              .orWhere("LOWER(event.description) LIKE LOWER($9)")
-              .orWhere("LOWER(event.address) LIKE LOWER($6)")
-              .orWhere("LOWER(event.location_notes) LIKE LOWER($7)");
+            qb.where("LOWER(event.title) LIKE LOWER($2)");
           })
         )
         // Combine vector similarity with text matching score
         .addSelect(
           `(
-            -- Vector similarity (35% weight)
-            (1 - (embedding <-> $1::vector)::float) * 0.35 +
+            -- Vector similarity (70% weight)
+            (1 - (embedding <-> $1::vector)::float) * 0.7 +
             
-            -- Title match (35% weight)
+            -- Title match (30% weight)
             CASE 
-              WHEN LOWER(event.title) = LOWER($2) THEN 0.35
-              WHEN LOWER(event.title) LIKE LOWER($3) THEN 0.25
-              WHEN LOWER(event.title) LIKE LOWER($4) THEN 0.15
-              ELSE 0
-            END +
-            
-            -- Location match (20% weight)
-            CASE 
-              WHEN LOWER(event.address) = LOWER($5) THEN 0.2
-              WHEN LOWER(event.location_notes) = LOWER($6) THEN 0.15
-              WHEN LOWER(event.address) LIKE LOWER($7) THEN 0.1
-              WHEN LOWER(event.location_notes) LIKE LOWER($8) THEN 0.05
-              ELSE 0
-            END +
-            
-            -- Description and emoji match (10% weight)
-            CASE 
-              WHEN event.emoji = $9 THEN 0.05
-              WHEN LOWER(event.description) LIKE LOWER($10) THEN 0.05
+              WHEN LOWER(event.title) = LOWER($2) THEN 0.3
+              WHEN LOWER(event.title) LIKE LOWER($3) THEN 0.15
               ELSE 0
             END
           )`, 'similarity_score'
@@ -108,14 +88,7 @@ export class EventSimilarityService implements IEventSimilarityService {
         .setParameters([
           pgvector.toSql(embedding),  // $1: embedding vector
           eventData.title.toLowerCase(),  // $2: exact title match
-          `%${eventData.title.toLowerCase()}%`,  // $3: contains title
-          `%${eventData.title.toLowerCase()}%`,  // $4: contains title (looser match)
-          eventData.address?.toLowerCase() || '',  // $5: exact address
-          eventData.locationNotes?.toLowerCase() || '',  // $6: exact location notes
-          `%${eventData.address?.toLowerCase() || ''}%`,  // $7: contains address
-          `%${eventData.locationNotes?.toLowerCase() || ''}%`,  // $8: contains location notes
-          eventData.emoji || '',  // $9: emoji
-          `%${eventData.description?.toLowerCase() || ''}%`  // $10: contains description
+          `%${eventData.title.toLowerCase()}%`  // $3: contains title
         ])
         .limit(5)
         .getMany();
