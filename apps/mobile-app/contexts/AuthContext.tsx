@@ -166,17 +166,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  // Reset loading state when auth state changes
   useEffect(() => {
-    console.log("Checking navigation:", { user: user?.id, isAuthenticated, isLoading });
-
-    if (!isLoading) {
-      if (user?.id && isAuthenticated) {
-        router.replace("/");
-      } else {
-        router.replace("/login");
-      }
+    if (user?.id && isAuthenticated) {
+      // Give the main screen time to load before clearing loading state
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 1000);
+      return () => clearTimeout(timer);
     }
-  }, [user?.id, isAuthenticated, isLoading, router]);
+  }, [user?.id, isAuthenticated]);
 
   // New method to manually refresh authentication
   const refreshAuth = async (): Promise<boolean> => {
@@ -216,8 +215,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await apiClient.login(email, password);
       setUser(apiClient.getCurrentUser());
       setIsAuthenticated(true);
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      console.error("Login error:", error);
+      throw error;
     }
   };
 

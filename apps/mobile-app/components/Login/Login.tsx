@@ -151,7 +151,8 @@ const Login: React.FC = () => {
 
     try {
       await login(email, password);
-      router.replace("/");
+      // Keep loading state until navigation completes
+      // The AuthWrapper will handle the navigation
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error("Login error:", error);
@@ -160,7 +161,6 @@ const Login: React.FC = () => {
           ? String(error.message)
           : "Failed to login. Please check your credentials and try again."
       );
-    } finally {
       setIsLoading(false);
     }
   };
