@@ -115,13 +115,16 @@ redisSub.on('error', (error: Error & { code?: string }) => {
 
 redisSub.on('connect', () => {
   console.log('Redis subscriber connected successfully');
-  redisSub.psubscribe("discovered_events");
+  redisSub.subscribe("discovered_events");
+  console.log('Subscribed to discovered_events channel');
 });
 
-redisSub.on("pmessage", (pattern, channel, message) => {
+redisSub.on("message", (channel, message) => {
+  console.log(`Received message on channel ${channel}:`, message);
   if (channel === "discovered_events") {
     try {
       const data = JSON.parse(message);
+      console.log('Processing discovered event for creator:', data.event.creatorId);
       // Format the message properly before sending to clients
       const formattedMessage = JSON.stringify({
         type: MessageTypes.EVENT_DISCOVERED,
@@ -133,11 +136,13 @@ redisSub.on("pmessage", (pattern, channel, message) => {
       const creatorId = data.event.creatorId;
       if (creatorId) {
         const creatorClients = userToClients.get(creatorId);
+        console.log(`Found ${creatorClients?.size || 0} clients for user ${creatorId}`);
         if (creatorClients) {
           for (const clientId of creatorClients) {
             const client = clients.get(clientId);
             if (client) {
               try {
+                console.log(`Sending discovery event to client ${clientId}`);
                 client.send(formattedMessage);
               } catch (error) {
                 console.error(`Error sending discovery event to client ${clientId}:`, error);
@@ -445,6 +450,7 @@ const server = {
           }
 
           const userId = data.userId;
+          console.log(`Client ${ws.data.clientId} identified as user ${userId}`);
 
           // Associate client with user
           ws.data.userId = userId;
@@ -454,10 +460,10 @@ const server = {
             userToClients.set(userId, new Set());
           }
           userToClients.get(userId)!.add(ws.data.clientId);
+          console.log(`User ${userId} now has ${userToClients.get(userId)!.size} connected clients`);
 
           // Ensure we have a Redis subscriber for this user
           getRedisSubscriberForUser(userId);
-
 
           // Fetch user's filters from backend and publish to filter-changes
           fetchUserFiltersAndPublish(userId);
