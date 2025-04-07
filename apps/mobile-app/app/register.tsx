@@ -16,11 +16,12 @@ import {
 import { Lock, Mail, Eye, EyeOff, ArrowLeft, User } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import apiClient from "@/services/ApiClient";
+import { useAuth } from "@/contexts/AuthContext";
 import { AuthWrapper } from "@/components/AuthWrapper";
 import MapMojiHeader from "@/components/AnimationHeader";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import AnimatedMapBackground from "@/components/Background";
+import { useFilterStore } from "@/stores/useFilterStore";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -42,6 +43,8 @@ import Animated, {
 const RegisterScreen: React.FC = () => {
   const router = useRouter();
   const { mapStyle } = useMapStyle();
+  const { register } = useAuth();
+  const { fetchFilters } = useFilterStore();
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
@@ -137,9 +140,10 @@ const RegisterScreen: React.FC = () => {
     Keyboard.dismiss();
 
     try {
-      await apiClient.register(email, password, displayName);
-      // Navigate to the main app screen on successful registration and login
-      router.replace("/");
+      await register(email, password, displayName);
+      // Fetch and apply filters after successful registration
+      await fetchFilters();
+      // The AuthContext will handle the navigation to "/" after successful registration
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error("Registration error:", error);

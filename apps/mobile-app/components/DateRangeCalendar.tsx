@@ -34,6 +34,13 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
     const slideAnim = useSharedValue(0);
     const containerAnim = useSharedValue(0);
 
+    // Helper function to check if a date is in the past
+    const isPastDate = useCallback((date: Date) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return date < today;
+    }, []);
+
     // Cleanup animations
     const cleanupAnimations = useCallback(() => {
         if (!isMounted.current) return;
@@ -73,6 +80,8 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
 
     // Handle date selection
     const handleDayPress = useCallback((date: Date) => {
+        if (isPastDate(date)) return;
+
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         // Format the date in UTC to avoid timezone issues
         const dateString = format(date, 'yyyy-MM-dd');
@@ -94,7 +103,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                 setSelectedEndDate(dateString);
             }
         }
-    }, [selectedStartDate, selectedEndDate]);
+    }, [selectedStartDate, selectedEndDate, isPastDate]);
 
     // Handle month navigation
     const handlePrevMonth = useCallback(() => {
@@ -140,6 +149,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
             date > parseISO(selectedStartDate) && date < parseISO(selectedEndDate);
         const isStart = dateString === selectedStartDate;
         const isEnd = dateString === selectedEndDate;
+        const isDisabled = isPastDate(date);
 
         return {
             container: [
@@ -148,15 +158,17 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                 isInRange && styles.rangeDay,
                 isStart && styles.startDay,
                 isEnd && styles.endDay,
+                isDisabled && styles.disabledDay,
             ],
             text: [
                 styles.dayText,
                 isSelected && styles.selectedDayText,
                 !isSameMonth(date, currentMonth) && styles.otherMonthDay,
                 isToday(date) && styles.todayText,
+                isDisabled && styles.disabledDayText,
             ],
         };
-    }, [selectedStartDate, selectedEndDate, currentMonth]);
+    }, [selectedStartDate, selectedEndDate, currentMonth, isPastDate]);
 
     return (
         <Animated.View
@@ -470,6 +482,12 @@ const styles = StyleSheet.create({
     },
     confirmButtonLoading: {
         opacity: 0.7,
+    },
+    disabledDay: {
+        opacity: 0.3,
+    },
+    disabledDayText: {
+        color: '#666666',
     },
 });
 

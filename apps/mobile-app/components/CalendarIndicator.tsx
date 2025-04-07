@@ -204,12 +204,31 @@ const CalendarIndicator: React.FC = React.memo(() => {
             </View>
 
             <View style={styles.textContainer}>
-              <Text style={[
-                styles.dateText,
-                { color: activeDateFilters.length > 0 ? "#93c5fd" : "#f8f9fa" }
-              ]}>
-                {dateRangeText}
-              </Text>
+              {dateRangeText === 'Select dates' ? (
+                <Animated.Text
+                  key="default"
+                  entering={FADE_IN}
+                  exiting={FADE_OUT}
+                  style={[
+                    styles.dateText,
+                    { color: "#93c5fd" }
+                  ]}
+                >
+                  {dateRangeText}
+                </Animated.Text>
+              ) : (
+                <Animated.Text
+                  key="date-range"
+                  entering={FADE_IN}
+                  exiting={FADE_OUT}
+                  style={[
+                    styles.dateText,
+                    { color: "#93c5fd" }
+                  ]}
+                >
+                  {dateRangeText}
+                </Animated.Text>
+              )}
             </View>
           </View>
         </Pressable>
@@ -246,7 +265,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 8,
     height: 40,
-    width: 160,
+    width: 180,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
     shadowColor: "#000",
@@ -279,6 +298,7 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    opacity: 1,
   },
   loaderWrapper: {
     position: 'absolute',
@@ -286,6 +306,7 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    opacity: 0,
   },
   activityIndicator: {
     opacity: 1,
