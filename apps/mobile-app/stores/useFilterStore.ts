@@ -76,13 +76,13 @@ export const useFilterStore = create<FilterState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const newFilter = await apiClient.createFilter(filter);
+
       set((state) => ({
         filters: [...state.filters, newFilter],
         isLoading: false
       }));
       return newFilter;
     } catch (err) {
-      console.log("filter", filter);
       console.error("Error creating filter:", err);
       set({
         error: `Failed to create filter: ${err instanceof Error ? err.message : "Unknown error"}`,
@@ -96,6 +96,7 @@ export const useFilterStore = create<FilterState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const updatedFilter = await apiClient.updateFilter(id, filter);
+
       set((state) => ({
         filters: state.filters.map((f) => (f.id === updatedFilter.id ? updatedFilter : f)),
         isLoading: false
@@ -148,10 +149,38 @@ export const useFilterStore = create<FilterState>((set, get) => ({
 
   clearFilters: async () => {
     try {
-      await apiClient.clearFilters();
-      set({ activeFilterIds: [] });
-      // Remove from AsyncStorage
-      await AsyncStorage.removeItem(ACTIVE_FILTERS_KEY);
+      const { activeFilterIds, filters } = get();
+
+      if (activeFilterIds.length === 0) {
+        throw new Error("No active filter to update");
+      }
+
+      const activeFilterId = activeFilterIds[0];
+      const activeFilter = filters.find(f => f.id === activeFilterId);
+
+      if (!activeFilter) {
+        throw new Error("Active filter not found");
+      }
+
+      // Calculate default 2-week date range (from today to 2 weeks ahead)
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + 14); // 2 weeks ahead
+
+      // Update the existing filter with 2-week date range
+      await apiClient.updateFilter(activeFilterId, {
+        ...activeFilter,
+        criteria: {
+          ...activeFilter.criteria,
+          dateRange: {
+            start: startDate.toISOString(),
+            end: endDate.toISOString()
+          }
+        }
+      });
+
+      // Refresh the filters to get the updated one
+      await get().fetchFilters();
     } catch (err) {
       console.error("Error clearing filters:", err);
       throw err;

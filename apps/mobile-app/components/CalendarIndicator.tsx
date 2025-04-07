@@ -39,22 +39,19 @@ const CalendarIndicator: React.FC = React.memo(() => {
 
   // Get active filters with date ranges
   const activeDateFilters = useMemo(() => {
-    // Check if filters or activeFilterIds have changed
-    const filtersChanged = lastFilters.current !== filters;
-    const activeIdsChanged = lastActiveFilterIds.current !== activeFilterIds;
-
-    if (!filtersChanged && !activeIdsChanged) {
-      return lastFilters.current;
-    }
-
-    // Update refs
-    lastFilters.current = filters;
-    lastActiveFilterIds.current = activeFilterIds;
-
     // First get all active filters based on activeFilterIds
     const activeFilters = filters.filter((f) => activeFilterIds.includes(f.id));
+
     // Then filter for those with date ranges
-    return activeFilters.filter((f) => f.criteria?.dateRange);
+    const dateFilters = activeFilters.filter((f) => {
+      // Check if the filter has a dateRange in its criteria
+      const hasDateRange = f.criteria?.dateRange && (
+        f.criteria.dateRange.start ||
+        f.criteria.dateRange.end
+      );
+      return hasDateRange;
+    });
+    return dateFilters;
   }, [filters, activeFilterIds]);
 
   // Format date range for display
