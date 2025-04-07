@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   Modal,
+  Keyboard,
 } from "react-native";
 import { X, Save } from "lucide-react-native";
 import Animated, {
@@ -74,13 +75,6 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
   }) => {
     const scrollViewRef = useRef<ScrollView>(null);
 
-    const scrollToInput = useCallback((target: any) => {
-      if (scrollViewRef.current && target) {
-        const inputY = target.getBoundingClientRect().top;
-        scrollViewRef.current?.scrollTo({ y: inputY - 100, animated: true });
-      }
-    }, []);
-
     return (
       <Modal
         animationType="none"
@@ -140,7 +134,6 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                   placeholder="Enter filter name"
                   placeholderTextColor="#adb5bd"
                   returnKeyType="next"
-                  onFocus={(e) => scrollToInput(e.target)}
                 />
               </View>
 
@@ -167,13 +160,11 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                   placeholderTextColor="#adb5bd"
                   multiline
                   numberOfLines={3}
-                  onFocus={(e) => scrollToInput(e.target)}
                 />
                 <Text style={styles.helperText}>
                   Example: "Events about AI and machine learning in the last month"
                 </Text>
               </View>
-
 
               {/* Date Range - Optional filter */}
               <View style={styles.formGroup}>
@@ -185,7 +176,6 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                     onChangeText={setStartDate}
                     placeholder="Start (YYYY-MM-DD)"
                     placeholderTextColor="#adb5bd"
-                    onFocus={(e) => scrollToInput(e.target)}
                   />
                   <Text style={styles.dateRangeSeparator}>to</Text>
                   <TextInput
@@ -194,7 +184,6 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                     onChangeText={setEndDate}
                     placeholder="End (YYYY-MM-DD)"
                     placeholderTextColor="#adb5bd"
-                    onFocus={(e) => scrollToInput(e.target)}
                   />
                 </View>
               </View>
@@ -219,7 +208,6 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                       placeholder="Radius in kilometers"
                       placeholderTextColor="#adb5bd"
                       keyboardType="numeric"
-                      onFocus={(e) => scrollToInput(e.target)}
                     />
                     <TouchableOpacity
                       style={styles.locationButton}

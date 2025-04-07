@@ -294,11 +294,13 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   dateText: {
     fontSize: 12,
     fontFamily: "SpaceMono",
     fontWeight: "600",
+    lineHeight: 24,
   },
   modalOverlay: {
     flex: 1,
