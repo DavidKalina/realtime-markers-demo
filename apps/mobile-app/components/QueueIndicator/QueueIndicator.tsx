@@ -82,6 +82,7 @@ const StatusIcon = React.memo(({ style, status, checkmarkScale, floatValue, mess
     if (msg.includes("similar to an existing event")) return "🔄";
     if (msg.includes("image quality") || msg.includes("not clear enough")) return "⚠️";
     if (msg.includes("error") || msg.includes("failed")) return "❌";
+    if (msg.includes("in the past") || msg.includes("expired")) return "⏰";
     return "🔄";
   };
 
@@ -111,6 +112,7 @@ const JobCountText = React.memo(({ count, status, activeJob }: {
     if (msg.includes("similar to an existing event")) return "Duplicate";
     if (msg.includes("image quality") || msg.includes("not clear enough")) return "Low Quality";
     if (msg.includes("error") || msg.includes("failed")) return "Failed";
+    if (msg.includes("in the past") || msg.includes("expired")) return "Expired";
     return `${count} job${count !== 1 ? "s" : ""}`;
   };
 
@@ -170,7 +172,6 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
           progressPercentage: 0
         };
 
-
         const activeJobs = jobs.filter(
           (job) => job.status === "pending" || job.status === "processing"
         );
@@ -185,8 +186,26 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
             )
             : null;
 
-
-        const progressPercentage = activeJob ? activeJob.progress : 0;
+        // Calculate progress percentage
+        let progressPercentage = 0;
+        if (activeJob) {
+          // If job is completed or failed, show 100%
+          if (activeJob.status === "completed" || activeJob.status === "failed") {
+            progressPercentage = 100;
+          } else {
+            // Use the job's progress value, defaulting to 0 if not set
+            progressPercentage = Math.min(100, Math.max(0, activeJob.progress || 0));
+          }
+        } else if (completedJobs.length > 0 || failedJobs.length > 0) {
+          // Only show 100% if all jobs are completed/failed
+          if (activeJobs.length === 0) {
+            progressPercentage = 100;
+          } else {
+            // Keep showing progress until all jobs are done
+            const currentActiveJob = activeJobs[0];
+            progressPercentage = Math.min(99, Math.max(0, currentActiveJob?.progress || 0));
+          }
+        }
 
         return { activeJobs, completedJobs, failedJobs, totalJobs, activeJob, progressPercentage };
       }, [jobs]);
@@ -249,11 +268,11 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
         return "failed";
       } else if (activeJobs.length > 0) {
         return "processing";
-      } else if (completedJobs.length > 0 && activeJobs.length === 0) {
+      } else if (completedJobs.length > 0 && activeJobs.length === 0 && progressPercentage === 100) {
         return "completed";
       }
       return "idle";
-    }, [activeJobs.length, completedJobs.length, failedJobs.length]);
+    }, [activeJobs.length, completedJobs.length, failedJobs.length, progressPercentage]);
 
     // Update status only when newStatus changes
     useEffect(() => {
@@ -570,18 +589,19 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     flex: 1,
     justifyContent: "center",
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   countText: {
     color: "rgba(255, 255, 255, 0.9)",
     fontSize: 10,
     fontFamily: "SpaceMono",
     fontWeight: "600",
+    textAlign: "left",
   },
   statusText: {
     fontSize: 12,
-    textAlign: "center",
-    marginTop: 4,
+    textAlign: "left",
+    marginTop: 0,
     opacity: 1,
   },
   progressBarContainer: {

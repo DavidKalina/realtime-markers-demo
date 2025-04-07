@@ -18,7 +18,6 @@ import {
   MapItemEvent
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
-import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Platform, Text, View } from "react-native";
@@ -77,7 +76,6 @@ function HomeScreen() {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const { publish } = useEventBroker();
   const { mapStyle } = useMapStyle();
-  const { connect } = useJobSessionStore();
 
   // Store references
   const { selectMapItem, setZoomLevel } = useLocationStore();
@@ -91,11 +89,6 @@ function HomeScreen() {
   const { markers, isConnected, updateViewport, currentViewport } = useMapWebSocket(
     process.env.EXPO_PUBLIC_WEB_SOCKET_URL!
   );
-
-  // Initialize WebSocket connection
-  useEffect(() => {
-    connect();
-  }, [connect]);
 
   // Gravitational camera hook with memoized config
   const {

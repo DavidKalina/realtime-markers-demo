@@ -318,9 +318,11 @@ async function initializeWorker() {
             // Mark as completed with info about invalid date
             await jobQueue.updateJobStatus(jobId, {
               status: "completed",
-              progress: 1, // Set to 100% when completed
+              progress: 1,
               result: {
-                message: dateValidation.reason,
+                message: dateValidation.daysFromNow !== undefined && dateValidation.daysFromNow < 0
+                  ? "This event appears to be in the past. We only process upcoming events."
+                  : dateValidation.reason,
                 daysFromNow: dateValidation.daysFromNow,
                 date: eventDate.toISOString(),
                 confidence: scanResult.confidence,
