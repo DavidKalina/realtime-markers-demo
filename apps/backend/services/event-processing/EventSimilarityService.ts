@@ -49,24 +49,28 @@ export class EventSimilarityService implements IEventSimilarityService {
     }
   ): Promise<SimilarityResult> {
     try {
+      // Early return for invalid events
+      if (!embedding || embedding.length === 0) {
+        return { score: 0 };
+      }
+
+      // Check for black image or invalid event cases
+      if (eventData.description?.toLowerCase().includes('black') ||
+        eventData.description?.toLowerCase().includes('invalid') ||
+        eventData.description?.toLowerCase().includes('cannot extract')) {
+        return { score: 0 };
+      }
+
       // Use vector search with text-based pre-filtering
       const similarEvents = await this.eventRepository
         .createQueryBuilder("event")
         .where("event.embedding IS NOT NULL")
         .andWhere(
           new Brackets(qb => {
-            qb.where("LOWER(event.title) LIKE LOWER(:titlePattern)", {
-              titlePattern: `%${eventData.title.toLowerCase()}%`
-            })
-              .orWhere("LOWER(event.description) LIKE LOWER(:descPattern)", {
-                descPattern: `%${eventData.description?.toLowerCase() || ''}%`
-              })
-              .orWhere("LOWER(event.address) LIKE LOWER(:addressPattern)", {
-                addressPattern: `%${eventData.address?.toLowerCase() || ''}%`
-              })
-              .orWhere("LOWER(event.location_notes) LIKE LOWER(:locationNotesPattern)", {
-                locationNotesPattern: `%${eventData.locationNotes?.toLowerCase() || ''}%`
-              });
+            qb.where("LOWER(event.title) LIKE LOWER($2)")
+              .orWhere("LOWER(event.description) LIKE LOWER($9)")
+              .orWhere("LOWER(event.address) LIKE LOWER($6)")
+              .orWhere("LOWER(event.location_notes) LIKE LOWER($7)");
           })
         )
         // Combine vector similarity with text matching score
@@ -78,24 +82,24 @@ export class EventSimilarityService implements IEventSimilarityService {
             -- Title match (35% weight)
             CASE 
               WHEN LOWER(event.title) = LOWER($2) THEN 0.35
-              WHEN LOWER(event.title) LIKE LOWER($2) THEN 0.25
-              WHEN LOWER(event.title) LIKE LOWER($3) THEN 0.15
+              WHEN LOWER(event.title) LIKE LOWER($3) THEN 0.25
+              WHEN LOWER(event.title) LIKE LOWER($4) THEN 0.15
               ELSE 0
             END +
             
             -- Location match (20% weight)
             CASE 
-              WHEN LOWER(event.address) = LOWER($4) THEN 0.2
-              WHEN LOWER(event.location_notes) = LOWER($5) THEN 0.15
-              WHEN LOWER(event.address) LIKE LOWER($6) THEN 0.1
-              WHEN LOWER(event.location_notes) LIKE LOWER($7) THEN 0.05
+              WHEN LOWER(event.address) = LOWER($5) THEN 0.2
+              WHEN LOWER(event.location_notes) = LOWER($6) THEN 0.15
+              WHEN LOWER(event.address) LIKE LOWER($7) THEN 0.1
+              WHEN LOWER(event.location_notes) LIKE LOWER($8) THEN 0.05
               ELSE 0
             END +
             
             -- Description and emoji match (10% weight)
             CASE 
-              WHEN event.emoji = $8 THEN 0.05
-              WHEN LOWER(event.description) LIKE LOWER($9) THEN 0.05
+              WHEN event.emoji = $9 THEN 0.05
+              WHEN LOWER(event.description) LIKE LOWER($10) THEN 0.05
               ELSE 0
             END
           )`, 'similarity_score'
@@ -103,14 +107,15 @@ export class EventSimilarityService implements IEventSimilarityService {
         .orderBy('similarity_score', 'DESC')
         .setParameters([
           pgvector.toSql(embedding),
-          eventData.title.toLowerCase(),
-          `%${eventData.title.toLowerCase()}%`,
-          eventData.address?.toLowerCase() || '',
-          eventData.locationNotes?.toLowerCase() || '',
-          `%${eventData.address?.toLowerCase() || ''}%`,
-          `%${eventData.locationNotes?.toLowerCase() || ''}%`,
-          eventData.emoji || '',
-          `%${eventData.description?.toLowerCase() || ''}%`
+          eventData.title.toLowerCase(),  // $2: exact title match
+          `%${eventData.title.toLowerCase()}%`,  // $3: contains title
+          `%${eventData.title.toLowerCase()}%`,  // $4: contains title (looser match)
+          eventData.address?.toLowerCase() || '',  // $5: exact address
+          eventData.locationNotes?.toLowerCase() || '',  // $6: exact location notes
+          `%${eventData.address?.toLowerCase() || ''}%`,  // $7: contains address
+          `%${eventData.locationNotes?.toLowerCase() || ''}%`,  // $8: contains location notes
+          eventData.emoji || '',  // $9: emoji
+          `%${eventData.description?.toLowerCase() || ''}%`  // $10: contains description
         ])
         .limit(5)
         .getMany();
