@@ -78,7 +78,7 @@ export class EventSimilarityService implements IEventSimilarityService {
             -- Title match (35% weight)
             CASE 
               WHEN LOWER(event.title) = LOWER(:exactTitle) THEN 0.35
-              WHEN similarity(LOWER(event.title), LOWER(:exactTitle)) > 0.8 THEN 0.25
+              WHEN LOWER(event.title) LIKE LOWER(:exactTitle) THEN 0.25
               WHEN LOWER(event.title) LIKE LOWER(:titlePattern) THEN 0.15
               ELSE 0
             END +
