@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import apiClient, { User } from "../services/ApiClient";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFilterStore } from "@/stores/useFilterStore";
 
 interface AuthContextType {
   user: User | null;
@@ -25,6 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(apiClient.isAuthenticated());
   const router = useRouter();
+  const { fetchFilters, applyFilters } = useFilterStore();
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -48,6 +50,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               await AsyncStorage.setItem("user", JSON.stringify(userProfile));
               setUser(userProfile);
               setIsAuthenticated(true);
+
+              // Sync filters and active filter IDs
+              await fetchFilters();
+              const storedFilters = await AsyncStorage.getItem("@active_filters");
+              if (storedFilters) {
+                const activeIds = JSON.parse(storedFilters);
+                // Ensure the filters are properly applied
+                await applyFilters(activeIds);
+              } else {
+                // If no stored filters, fetch and apply the oldest filter
+                const filters = await apiClient.getUserFilters();
+                if (filters.length > 0) {
+                  const oldestFilter = filters.sort((a, b) =>
+                    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                  )[0];
+                  await applyFilters([oldestFilter.id]);
+                }
+              }
             }
           } catch (profileError: any) {
             // Only attempt token refresh if we have a refresh token
@@ -61,6 +81,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   await AsyncStorage.setItem("user", JSON.stringify(userProfile));
                   setUser(userProfile);
                   setIsAuthenticated(true);
+
+                  // Sync filters and active filter IDs
+                  await fetchFilters();
+                  const storedFilters = await AsyncStorage.getItem("@active_filters");
+                  if (storedFilters) {
+                    const activeIds = JSON.parse(storedFilters);
+                    // Ensure the filters are properly applied
+                    await applyFilters(activeIds);
+                  } else {
+                    // If no stored filters, fetch and apply the oldest filter
+                    const filters = await apiClient.getUserFilters();
+                    if (filters.length > 0) {
+                      const oldestFilter = filters.sort((a, b) =>
+                        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                      )[0];
+                      await applyFilters([oldestFilter.id]);
+                    }
+                  }
                 } catch (secondProfileError) {
                   console.error(
                     "Failed to get user profile after token refresh:",

@@ -104,13 +104,6 @@ const RegisterScreen: React.FC = () => {
   };
 
   const handleRegister = async () => {
-    // Basic validation
-    if (!displayName.trim()) {
-      setError("Display name is required");
-      displayNameInputRef.current?.focus();
-      return;
-    }
-
     if (!email.trim()) {
       setError("Email is required");
       emailInputRef.current?.focus();
@@ -123,9 +116,9 @@ const RegisterScreen: React.FC = () => {
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
-      passwordInputRef.current?.focus();
+    if (!confirmPassword) {
+      setError("Please confirm your password");
+      confirmPasswordInputRef.current?.focus();
       return;
     }
 
@@ -138,13 +131,12 @@ const RegisterScreen: React.FC = () => {
     setError(null);
     setIsLoading(true);
     Keyboard.dismiss();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
       await register(email, password, displayName);
-      // Fetch and apply filters after successful registration
-      await fetchFilters();
-      // The AuthContext will handle the navigation to "/" after successful registration
-    } catch (error) {
+      router.replace("/");
+    } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error("Registration error:", error);
       setError(

@@ -6,6 +6,8 @@ import Animated, {
   cancelAnimation,
   FadeIn,
   FadeOut,
+  Easing,
+  Layout,
 } from "react-native-reanimated";
 import { Calendar } from "lucide-react-native";
 import { useFilterStore } from "@/stores/useFilterStore";
@@ -16,6 +18,13 @@ import { format, parseISO } from "date-fns";
 // Pre-define animations to avoid recreation
 const FADE_IN = FadeIn.duration(200);
 const FADE_OUT = FadeOut.duration(200);
+const LAYOUT_CONFIG = {
+  duration: 200,
+  damping: 20,
+  mass: 0.5,
+  stiffness: 200,
+  overshootClamping: true,
+};
 
 const CalendarIndicator: React.FC = React.memo(() => {
   const { filters, activeFilterIds, updateFilter, applyFilters, clearFilters, createFilter, isLoading } =
@@ -73,11 +82,11 @@ const CalendarIndicator: React.FC = React.memo(() => {
   // Update animations when loading state changes
   useEffect(() => {
     if (isLoading) {
-      iconOpacity.value = withTiming(0, { duration: 150 });
-      loaderOpacity.value = withTiming(1, { duration: 150 });
+      iconOpacity.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.ease) });
+      loaderOpacity.value = withTiming(1, { duration: 200, easing: Easing.in(Easing.ease) });
     } else {
-      iconOpacity.value = withTiming(1, { duration: 150 });
-      loaderOpacity.value = withTiming(0, { duration: 150 });
+      iconOpacity.value = withTiming(1, { duration: 200, easing: Easing.in(Easing.ease) });
+      loaderOpacity.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.ease) });
     }
   }, [isLoading]);
 
@@ -173,14 +182,26 @@ const CalendarIndicator: React.FC = React.memo(() => {
   return (
     <>
       <View>
-        <Pressable onPress={handlePress} style={styles.pressable} disabled={isLoading}>
-          <View style={[
-            styles.indicator,
-            activeDateFilters.length > 0 && styles.indicatorActive,
-            isLoading && styles.indicatorLoading
-          ]}>
+        <Pressable
+          onPress={handlePress}
+          style={({ pressed }) => [
+            styles.pressable,
+            pressed && { opacity: 0.8 }
+          ]}
+          disabled={isLoading}
+        >
+          <Animated.View
+            style={[
+              styles.indicator,
+              activeDateFilters.length > 0 && styles.indicatorExpanded,
+              activeDateFilters.length > 0 && styles.indicatorActive,
+              isLoading && styles.indicatorLoading
+            ]}
+            layout={Layout.springify().damping(20).mass(0.5).stiffness(200)}
+          >
             <View style={[
               styles.iconContainer,
+              activeDateFilters.length > 0 && styles.iconContainerExpanded,
               activeDateFilters.length > 0 && styles.iconContainerActive
             ]}>
               <Animated.View
@@ -189,7 +210,7 @@ const CalendarIndicator: React.FC = React.memo(() => {
                   { opacity: iconOpacity }
                 ]}
               >
-                <Calendar size={14} color={activeDateFilters.length > 0 ? "#93c5fd" : "#f8f9fa"} />
+                <Calendar size={14} color="#93c5fd" />
               </Animated.View>
               <Animated.View
                 style={[
@@ -203,16 +224,19 @@ const CalendarIndicator: React.FC = React.memo(() => {
               </Animated.View>
             </View>
 
-            <View style={styles.textContainer}>
+            <Animated.View
+              style={[
+                styles.textContainer,
+                activeDateFilters.length > 0 && styles.textContainerExpanded
+              ]}
+              layout={Layout.springify().damping(20).mass(0.5).stiffness(200)}
+            >
               {dateRangeText === 'Select dates' ? (
                 <Animated.Text
                   key="default"
                   entering={FADE_IN}
                   exiting={FADE_OUT}
-                  style={[
-                    styles.dateText,
-                    { color: "#93c5fd" }
-                  ]}
+                  style={styles.dateText}
                 >
                   {dateRangeText}
                 </Animated.Text>
@@ -221,16 +245,13 @@ const CalendarIndicator: React.FC = React.memo(() => {
                   key="date-range"
                   entering={FADE_IN}
                   exiting={FADE_OUT}
-                  style={[
-                    styles.dateText,
-                    { color: "#93c5fd" }
-                  ]}
+                  style={styles.dateText}
                 >
                   {dateRangeText}
                 </Animated.Text>
               )}
-            </View>
-          </View>
+            </Animated.View>
+          </Animated.View>
         </Pressable>
       </View>
 
@@ -261,11 +282,12 @@ const styles = StyleSheet.create({
   indicator: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "rgba(51, 51, 51, 0.92)",
     borderRadius: 16,
     padding: 8,
     height: 40,
-    width: 180,
+    width: 40,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
     shadowColor: "#000",
@@ -274,12 +296,17 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 8,
   },
+  indicatorExpanded: {
+    width: 180,
+    paddingRight: 8,
+    justifyContent: "flex-start",
+  },
   indicatorActive: {
     backgroundColor: "rgba(51, 51, 51, 0.95)",
     borderColor: "rgba(147, 197, 253, 0.3)",
   },
   indicatorLoading: {
-    opacity: 1,
+    opacity: 0.9,
   },
   iconContainer: {
     width: 24,
@@ -288,6 +315,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  iconContainerExpanded: {
+    marginRight: 8,
   },
   iconContainerActive: {
     backgroundColor: "rgba(147, 197, 253, 0.15)",
@@ -312,16 +342,22 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   textContainer: {
-    marginLeft: 8,
     flex: 1,
     justifyContent: 'center',
     alignItems: 'flex-start',
+    minHeight: 24,
+    opacity: 0,
+  },
+  textContainerExpanded: {
+    opacity: 1,
   },
   dateText: {
     fontSize: 12,
     fontFamily: "SpaceMono",
     fontWeight: "600",
-    lineHeight: 24,
+    lineHeight: 16,
+    color: "#93c5fd",
+    letterSpacing: 0.2,
   },
   modalOverlay: {
     flex: 1,
