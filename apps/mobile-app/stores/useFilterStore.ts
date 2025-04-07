@@ -73,38 +73,59 @@ export const useFilterStore = create<FilterState>((set, get) => ({
   },
 
   createFilter: async (filter: Partial<Filter>) => {
+    set({ isLoading: true, error: null });
     try {
       const newFilter = await apiClient.createFilter(filter);
-      set((state) => ({ filters: [...state.filters, newFilter] }));
+      set((state) => ({
+        filters: [...state.filters, newFilter],
+        isLoading: false
+      }));
       return newFilter;
     } catch (err) {
+      console.log("filter", filter);
       console.error("Error creating filter:", err);
+      set({
+        error: `Failed to create filter: ${err instanceof Error ? err.message : "Unknown error"}`,
+        isLoading: false
+      });
       throw err;
     }
   },
 
   updateFilter: async (id: string, filter: Partial<Filter>) => {
+    set({ isLoading: true, error: null });
     try {
       const updatedFilter = await apiClient.updateFilter(id, filter);
       set((state) => ({
         filters: state.filters.map((f) => (f.id === updatedFilter.id ? updatedFilter : f)),
+        isLoading: false
       }));
       return updatedFilter;
     } catch (err) {
       console.error("Error updating filter:", err);
+      set({
+        error: `Failed to update filter: ${err instanceof Error ? err.message : "Unknown error"}`,
+        isLoading: false
+      });
       throw err;
     }
   },
 
   deleteFilter: async (id: string) => {
+    set({ isLoading: true, error: null });
     try {
       await apiClient.deleteFilter(id);
       set((state) => ({
         filters: state.filters.filter((f) => f.id !== id),
         activeFilterIds: state.activeFilterIds.filter((filterId) => filterId !== id),
+        isLoading: false
       }));
     } catch (err) {
       console.error("Error deleting filter:", err);
+      set({
+        error: `Failed to delete filter: ${err instanceof Error ? err.message : "Unknown error"}`,
+        isLoading: false
+      });
       throw err;
     }
   },

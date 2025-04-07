@@ -73,21 +73,7 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
     cleanupModalAnimations,
   }) => {
     const scrollViewRef = useRef<ScrollView>(null);
-    const [isFirstFilter, setIsFirstFilter] = useState(false);
 
-    // Check if this is the first filter
-    useEffect(() => {
-      const checkFirstFilter = async () => {
-        try {
-          const response = await fetch("/api/filters");
-          const filters = await response.json();
-          setIsFirstFilter(filters.length === 0);
-        } catch (error) {
-          console.error("Error checking filters:", error);
-        }
-      };
-      checkFirstFilter();
-    }, []);
 
     const scrollToInput = useCallback((target: any) => {
       if (scrollViewRef.current && target) {
@@ -96,7 +82,7 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
           (_: number, y: number) => {
             scrollViewRef.current?.scrollTo({ y: y - 100, animated: true });
           },
-          () => {}
+          () => { }
         );
       }
     }, []);
@@ -177,25 +163,7 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                 </View>
               </View>
 
-              {/* Semantic Query - Core functionality */}
-              {!isFirstFilter && (
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Search Query</Text>
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    value={semanticQuery}
-                    onChangeText={setSemanticQuery}
-                    placeholder="Enter your search query in natural language"
-                    placeholderTextColor="#adb5bd"
-                    multiline
-                    numberOfLines={3}
-                    onFocus={(e) => scrollToInput(e.target)}
-                  />
-                  <Text style={styles.helperText}>
-                    Example: "Events about AI and machine learning in the last month"
-                  </Text>
-                </View>
-              )}
+
 
               {/* Date Range - Optional filter */}
               <View style={styles.formGroup}>

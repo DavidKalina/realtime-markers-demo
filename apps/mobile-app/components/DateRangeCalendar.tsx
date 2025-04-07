@@ -2,7 +2,7 @@ import { addMonths, eachDayOfInterval, endOfMonth, format, isSameMonth, isToday,
 import * as Haptics from 'expo-haptics';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import Animated, {
     SlideInDown,
     SlideOutDown,
@@ -17,6 +17,7 @@ interface DateRangeCalendarProps {
     endDate?: string;
     onDateRangeSelect: (startDate: string | null, endDate: string | null) => void;
     onClose: () => void;
+    isLoading?: boolean;
 }
 
 const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
@@ -24,6 +25,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
     endDate,
     onDateRangeSelect,
     onClose,
+    isLoading = false,
 }) => {
     const [selectedStartDate, setSelectedStartDate] = useState<string | undefined>(startDate);
     const [selectedEndDate, setSelectedEndDate] = useState<string | undefined>(endDate);
@@ -247,6 +249,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                             onDateRangeSelect(null, null);
                         }}
                         activeOpacity={0.7}
+                        disabled={isLoading}
                     >
                         <Text style={styles.resetButtonText}>Reset</Text>
                     </TouchableOpacity>
@@ -256,12 +259,17 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                             styles.button,
                             styles.confirmButton,
                             (!selectedStartDate || !selectedEndDate) && styles.confirmButtonDisabled,
+                            isLoading && styles.confirmButtonLoading,
                         ]}
                         onPress={handleConfirmSelection}
-                        disabled={!selectedStartDate || !selectedEndDate}
+                        disabled={!selectedStartDate || !selectedEndDate || isLoading}
                         activeOpacity={0.7}
                     >
-                        <Text style={styles.confirmButtonText}>Confirm</Text>
+                        {isLoading ? (
+                            <ActivityIndicator size="small" color="#ffffff" />
+                        ) : (
+                            <Text style={styles.confirmButtonText}>Confirm</Text>
+                        )}
                     </TouchableOpacity>
                 </View>
             </View>
@@ -458,6 +466,9 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#adb5bd',
         fontFamily: 'SpaceMono',
+    },
+    confirmButtonLoading: {
+        opacity: 0.7,
     },
 });
 

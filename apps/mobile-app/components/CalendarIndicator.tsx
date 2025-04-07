@@ -1,7 +1,8 @@
 import React, { useCallback, useMemo, useState, useRef, useEffect } from "react";
-import { Pressable, StyleSheet, Text, View, Modal } from "react-native";
+import { Pressable, StyleSheet, Text, View, Modal, ActivityIndicator } from "react-native";
 import Animated, {
   useSharedValue,
+  withTiming,
   cancelAnimation,
   FadeIn,
   FadeOut,
@@ -17,34 +18,16 @@ const FADE_IN = FadeIn.duration(200);
 const FADE_OUT = FadeOut.duration(200);
 
 const CalendarIndicator: React.FC = React.memo(() => {
-  const { filters, activeFilterIds, updateFilter, applyFilters, clearFilters, createFilter } =
+  const { filters, activeFilterIds, updateFilter, applyFilters, clearFilters, createFilter, isLoading } =
     useFilterStore();
   const [showCalendar, setShowCalendar] = useState(false);
   const isMounted = useRef(true);
   const modalAnim = useSharedValue(0);
   const lastActiveFilterIds = useRef<string[]>([]);
   const lastFilters = useRef<any[]>([]);
-
-  // Cleanup animations
-  const cleanupAnimations = useCallback(() => {
-    if (!isMounted.current) return;
-    cancelAnimation(modalAnim);
-    modalAnim.value = 0;
-  }, [modalAnim]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-      cleanupAnimations();
-    };
-  }, [cleanupAnimations]);
-
-  // Handle modal close with cleanup
-  const handleCloseModal = useCallback(() => {
-    cleanupAnimations();
-    setShowCalendar(false);
-  }, [cleanupAnimations]);
+  const iconOpacity = useSharedValue(1);
+  const loaderOpacity = useSharedValue(0);
+  const textOpacity = useSharedValue(0);
 
   // Get active filters with date ranges
   const activeDateFilters = useMemo(() => {
@@ -88,6 +71,47 @@ const CalendarIndicator: React.FC = React.memo(() => {
     return null;
   }, [activeDateFilters]);
 
+  // Update animations when loading state changes
+  useEffect(() => {
+    if (isLoading) {
+      iconOpacity.value = withTiming(0, { duration: 150 });
+      loaderOpacity.value = withTiming(1, { duration: 150 });
+    } else {
+      iconOpacity.value = withTiming(1, { duration: 150 });
+      loaderOpacity.value = withTiming(0, { duration: 150 });
+    }
+  }, [isLoading]);
+
+  // Update text opacity when date range changes
+  useEffect(() => {
+    if (dateRangeText) {
+      textOpacity.value = withTiming(1, { duration: 150 });
+    } else {
+      textOpacity.value = withTiming(0, { duration: 150 });
+    }
+  }, [dateRangeText]);
+
+  // Cleanup animations
+  const cleanupAnimations = useCallback(() => {
+    if (!isMounted.current) return;
+    cancelAnimation(modalAnim);
+    modalAnim.value = 0;
+  }, [modalAnim]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      cleanupAnimations();
+    };
+  }, [cleanupAnimations]);
+
+  // Handle modal close with cleanup
+  const handleCloseModal = useCallback(() => {
+    cleanupAnimations();
+    setShowCalendar(false);
+  }, [cleanupAnimations]);
+
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowCalendar(true);
@@ -106,10 +130,17 @@ const CalendarIndicator: React.FC = React.memo(() => {
 
       // If no filter exists, create a new one
       if (!targetFilter) {
-        targetFilter = await createFilter({
-          name: "Date Range Filter",
-          criteria: {},
-        });
+        if (startDate && endDate) {
+          targetFilter = await createFilter({
+            name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
+            criteria: {
+              dateRange: { start: startDate, end: endDate }
+            },
+          });
+        } else {
+          // If no date range is provided, we can't create a filter
+          throw new Error("Date range is required for the first filter");
+        }
       }
 
       if (startDate === null && endDate === null) {
@@ -149,21 +180,46 @@ const CalendarIndicator: React.FC = React.memo(() => {
   return (
     <>
       <View>
-        <Pressable onPress={handlePress} style={styles.pressable}>
-          <View style={[styles.indicator, activeDateFilters.length > 0 && styles.indicatorActive]}>
-            <View
-              style={[
-                styles.iconContainer,
-                activeDateFilters.length > 0 && styles.iconContainerActive,
-              ]}
-            >
-              <Calendar size={14} color={activeDateFilters.length > 0 ? "#93c5fd" : "#f8f9fa"} />
+        <Pressable onPress={handlePress} style={styles.pressable} disabled={isLoading}>
+          <View style={[
+            styles.indicator,
+            activeDateFilters.length > 0 && styles.indicatorActive,
+            isLoading && styles.indicatorLoading,
+            !dateRangeText && styles.indicatorNoText
+          ]}>
+            <View style={[
+              styles.iconContainer,
+              activeDateFilters.length > 0 && styles.iconContainerActive
+            ]}>
+              <Animated.View
+                style={[
+                  styles.iconWrapper,
+                  { opacity: iconOpacity }
+                ]}
+              >
+                <Calendar size={14} color={activeDateFilters.length > 0 ? "#93c5fd" : "#f8f9fa"} />
+              </Animated.View>
+              <Animated.View
+                style={[
+                  styles.loaderWrapper,
+                  { opacity: loaderOpacity }
+                ]}
+              >
+                <View style={styles.activityIndicator}>
+                  <ActivityIndicator size="small" color="#93c5fd" />
+                </View>
+              </Animated.View>
             </View>
 
             {dateRangeText && (
-              <View style={styles.textContainer}>
+              <Animated.View
+                style={[
+                  styles.textContainer,
+                  { opacity: textOpacity }
+                ]}
+              >
                 <Text style={styles.dateText}>{dateRangeText}</Text>
-              </View>
+              </Animated.View>
             )}
           </View>
         </Pressable>
@@ -181,6 +237,7 @@ const CalendarIndicator: React.FC = React.memo(() => {
             endDate={activeDateFilters[0]?.criteria.dateRange?.end}
             onDateRangeSelect={handleDateRangeSelect}
             onClose={handleCloseModal}
+            isLoading={isLoading}
           />
         </Animated.View>
       </Modal>
@@ -211,6 +268,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(51, 51, 51, 0.95)",
     borderColor: "rgba(147, 197, 253, 0.3)",
   },
+  indicatorLoading: {
+    opacity: 1,
+  },
+  indicatorNoText: {
+    paddingRight: 8,
+  },
   iconContainer: {
     width: 24,
     height: 24,
@@ -221,6 +284,23 @@ const styles = StyleSheet.create({
   },
   iconContainerActive: {
     backgroundColor: "rgba(147, 197, 253, 0.15)",
+  },
+  iconWrapper: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loaderWrapper: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activityIndicator: {
+    opacity: 1,
   },
   textContainer: {
     marginLeft: 8,
