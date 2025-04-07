@@ -106,7 +106,7 @@ export class EventSimilarityService implements IEventSimilarityService {
         )
         .orderBy('similarity_score', 'DESC')
         .setParameters([
-          pgvector.toSql(embedding),
+          pgvector.toSql(embedding),  // $1: embedding vector
           eventData.title.toLowerCase(),  // $2: exact title match
           `%${eventData.title.toLowerCase()}%`,  // $3: contains title
           `%${eventData.title.toLowerCase()}%`,  // $4: contains title (looser match)
