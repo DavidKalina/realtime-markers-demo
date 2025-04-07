@@ -70,8 +70,8 @@ export class EventSimilarityService implements IEventSimilarityService {
           })
         )
         // Combine vector similarity with text matching score
-        .addSelect(`
-          (
+        .addSelect(
+          `(
             -- Vector similarity (35% weight)
             (1 - (embedding <-> :embedding)::float) * 0.35 +
             
