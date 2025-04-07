@@ -73,44 +73,45 @@ export class EventSimilarityService implements IEventSimilarityService {
         .addSelect(
           `(
             -- Vector similarity (35% weight)
-            (1 - (embedding <-> :embedding)::float) * 0.35 +
+            (1 - (embedding <-> $1)::float) * 0.35 +
             
             -- Title match (35% weight)
             CASE 
-              WHEN LOWER(event.title) = LOWER(:exactTitle) THEN 0.35
-              WHEN LOWER(event.title) LIKE LOWER(:exactTitle) THEN 0.25
-              WHEN LOWER(event.title) LIKE LOWER(:titlePattern) THEN 0.15
+              WHEN LOWER(event.title) = LOWER($2) THEN 0.35
+              WHEN LOWER(event.title) LIKE LOWER($2) THEN 0.25
+              WHEN LOWER(event.title) LIKE LOWER($3) THEN 0.15
               ELSE 0
             END +
             
             -- Location match (20% weight)
             CASE 
-              WHEN LOWER(event.address) = LOWER(:exactAddress) THEN 0.2
-              WHEN LOWER(event.location_notes) = LOWER(:exactLocationNotes) THEN 0.15
-              WHEN LOWER(event.address) LIKE LOWER(:addressPattern) THEN 0.1
-              WHEN LOWER(event.location_notes) LIKE LOWER(:locationNotesPattern) THEN 0.05
+              WHEN LOWER(event.address) = LOWER($4) THEN 0.2
+              WHEN LOWER(event.location_notes) = LOWER($5) THEN 0.15
+              WHEN LOWER(event.address) LIKE LOWER($6) THEN 0.1
+              WHEN LOWER(event.location_notes) LIKE LOWER($7) THEN 0.05
               ELSE 0
             END +
             
             -- Description and emoji match (10% weight)
             CASE 
-              WHEN event.emoji = :emoji THEN 0.05
-              WHEN LOWER(event.description) LIKE LOWER(:descPattern) THEN 0.05
+              WHEN event.emoji = $8 THEN 0.05
+              WHEN LOWER(event.description) LIKE LOWER($9) THEN 0.05
               ELSE 0
             END
           )`, 'similarity_score'
         )
         .orderBy('similarity_score', 'DESC')
-        .setParameters({
-          embedding: pgvector.toSql(embedding),
-          exactTitle: eventData.title.toLowerCase(),
-          titlePattern: `%${eventData.title.toLowerCase()}%`,
-          exactAddress: eventData.address?.toLowerCase() || '',
-          exactLocationNotes: eventData.locationNotes?.toLowerCase() || '',
-          addressPattern: `%${eventData.address?.toLowerCase() || ''}%`,
-          locationNotesPattern: `%${eventData.locationNotes?.toLowerCase() || ''}%`,
-          descPattern: `%${eventData.description?.toLowerCase() || ''}%`
-        })
+        .setParameters([
+          pgvector.toSql(embedding),
+          eventData.title.toLowerCase(),
+          `%${eventData.title.toLowerCase()}%`,
+          eventData.address?.toLowerCase() || '',
+          eventData.locationNotes?.toLowerCase() || '',
+          `%${eventData.address?.toLowerCase() || ''}%`,
+          `%${eventData.locationNotes?.toLowerCase() || ''}%`,
+          eventData.emoji || '',
+          `%${eventData.description?.toLowerCase() || ''}%`
+        ])
         .limit(5)
         .getMany();
 
