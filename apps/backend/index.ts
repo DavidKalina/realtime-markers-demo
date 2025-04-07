@@ -239,7 +239,6 @@ OpenAIService.initRedis({
   password: process.env.REDIS_PASSWORD || undefined,
 });
 
-const openai = OpenAIService.getInstance();
 
 const jobQueue = new JobQueue(redisPub);
 

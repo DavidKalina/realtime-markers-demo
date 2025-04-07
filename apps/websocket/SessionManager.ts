@@ -102,19 +102,19 @@ export class SessionManager {
 
     this.redisSub.on('ready', () => {
       console.log('Redis subscriber is ready to accept commands');
-      // Subscribe to job updates
+      // Subscribe to all job updates
       this.redisSub.psubscribe("job:*:updates", (err, count) => {
         if (err) {
           console.error('Error subscribing to job updates:', err);
         } else {
-          console.log(`Subscribed to ${count} channels`);
+          console.log(`Subscribed to job updates pattern, count: ${count}`);
         }
       });
     });
 
     // Handle messages from Redis
     this.redisSub.on('pmessage', (pattern, channel, message) => {
-      console.log(`Received Redis message on pattern ${pattern}, channel ${channel}`);
+      console.log(`[SessionManager] Received Redis message on pattern ${pattern}, channel ${channel}:`, message);
       this.handleRedisMessage(channel, message).catch(err => {
         console.error('Error handling Redis message:', err);
       });
@@ -339,7 +339,7 @@ export class SessionManager {
     }
 
     try {
-      console.log(`[SessionManager] Received Redis message on channel ${channel}:`, message);
+      console.log(`[SessionManager] Processing job update from channel ${channel}`);
       const jobUpdate = JSON.parse(message);
       const jobId = jobUpdate.id;
 
@@ -355,7 +355,7 @@ export class SessionManager {
         const jobIndex = session.jobs.findIndex((job) => job.id === jobId);
 
         if (jobIndex !== -1) {
-          console.log(`[SessionManager] Updating job ${jobId} in session ${sessionKey}`);
+          console.log(`[SessionManager] Updating job ${jobId} in session ${sessionKey} with:`, jobUpdate);
           // Update job in session
           session.jobs[jobIndex] = {
             ...session.jobs[jobIndex],
