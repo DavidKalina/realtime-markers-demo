@@ -115,8 +115,13 @@ redisSub.on('error', (error: Error & { code?: string }) => {
 
 redisSub.on('connect', () => {
   console.log('Redis subscriber connected successfully');
-  redisSub.subscribe("discovered_events");
-  console.log('Subscribed to discovered_events channel');
+  redisSub.subscribe("discovered_events", (err, count) => {
+    if (err) {
+      console.error('Error subscribing to discovered_events:', err);
+    } else {
+      console.log(`Successfully subscribed to discovered_events. Active subscriptions: ${count}`);
+    }
+  });
 });
 
 redisSub.on("message", (channel, message) => {
@@ -155,6 +160,15 @@ redisSub.on("message", (channel, message) => {
       console.error("Error processing discovery event:", error);
     }
   }
+});
+
+// Add subscription status logging
+redisSub.on('subscribe', (channel, count) => {
+  console.log(`Subscribed to channel ${channel}. Total subscriptions: ${count}`);
+});
+
+redisSub.on('unsubscribe', (channel, count) => {
+  console.log(`Unsubscribed from channel ${channel}. Total subscriptions: ${count}`);
 });
 
 // System health state
