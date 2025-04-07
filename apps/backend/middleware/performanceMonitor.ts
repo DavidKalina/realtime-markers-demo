@@ -47,8 +47,13 @@ export const performanceMonitor = (redisClient: Redis) => {
 
         // Store metrics in Redis for analysis
         try {
-            const key = `perf:${Date.now()}`;
-            await redisClient.setex(key, 86400, JSON.stringify(metrics)); // Store for 24 hours
+            // Only try to store if Redis is ready
+            if (redisClient.status === 'ready') {
+                const key = `perf:${Date.now()}`;
+                await redisClient.setex(key, 86400, JSON.stringify(metrics)); // Store for 24 hours
+            } else {
+                console.log('Redis not ready, skipping performance metrics storage');
+            }
         } catch (error) {
             console.error("Error storing performance metrics:", error);
         }

@@ -18,6 +18,7 @@ import { isEventTemporalyRelevant } from "./utils/isEventTemporalyRelevant";
 import { StorageService } from "./services/shared/StorageService";
 import { User } from "./entities/User";
 import { GoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
+import { CacheService } from "./services/shared/CacheService";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -30,10 +31,50 @@ async function initializeWorker() {
   // Initialize data sources
   await AppDataSource.initialize();
 
-  const redisClient = new Redis({
-    host: process.env.REDIS_HOST || "localhost",
+  // Initialize Redis client with proper configuration
+  const redisConfig = {
+    host: process.env.REDIS_HOST || "redis",
     port: parseInt(process.env.REDIS_PORT || "6379"),
-    password: process.env.REDIS_PASSWORD || undefined,
+    password: process.env.REDIS_PASSWORD,
+    maxRetriesPerRequest: 3,
+    retryStrategy: (times: number) => {
+      const delay = Math.min(times * 50, 2000);
+      console.log(`Redis retry attempt ${times} with delay ${delay}ms`);
+      return delay;
+    },
+    reconnectOnError: (err: Error) => {
+      console.log('Redis reconnectOnError triggered:', {
+        message: err.message,
+        stack: err.stack,
+        name: err.name
+      });
+      return true;
+    },
+    enableOfflineQueue: true,
+    connectTimeout: 10000,
+    commandTimeout: 5000,
+    lazyConnect: true,
+    authRetry: true,
+    enableReadyCheck: true
+  };
+
+  const redisClient = new Redis(redisConfig);
+
+  // Add error handling for Redis
+  redisClient.on('error', (error: Error & { code?: string }) => {
+    console.error('Redis connection error:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+  });
+
+  redisClient.on('connect', () => {
+    console.log('Redis connected successfully');
+  });
+
+  redisClient.on('ready', () => {
+    console.log('Redis is ready to accept commands');
   });
 
   // Initialize OpenAI service

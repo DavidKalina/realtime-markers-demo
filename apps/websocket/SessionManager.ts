@@ -48,6 +48,33 @@ const MessageTypes = {
   ERROR: "error",
 };
 
+// Redis configuration
+const redisConfig = {
+  host: process.env.REDIS_HOST || "redis",
+  port: parseInt(process.env.REDIS_PORT || "6379"),
+  password: process.env.REDIS_PASSWORD,
+  maxRetriesPerRequest: 3,
+  retryStrategy: (times: number) => {
+    const delay = Math.min(times * 50, 2000);
+    console.log(`Redis retry attempt ${times} with delay ${delay}ms`);
+    return delay;
+  },
+  reconnectOnError: (err: Error) => {
+    console.log('Redis reconnectOnError triggered:', {
+      message: err.message,
+      stack: err.stack,
+      name: err.name
+    });
+    return true;
+  },
+  enableOfflineQueue: true,
+  connectTimeout: 10000,
+  commandTimeout: 5000,
+  lazyConnect: true,
+  authRetry: true,
+  enableReadyCheck: true
+};
+
 export class SessionManager {
   private redis: Redis;
   private clients: Map<string, ServerWebSocket<WebSocketClientData>> = new Map();
@@ -57,22 +84,39 @@ export class SessionManager {
   constructor(redis: Redis) {
     this.redis = redis;
 
-    // Create a separate Redis client for pub/sub
-    this.redisSub = new Redis({
-      host: process.env.REDIS_HOST || "localhost",
-      port: parseInt(process.env.REDIS_PORT || "6379"),
-      password: process.env.REDIS_PASSWORD,
+    // Create a separate Redis client for pub/sub with proper configuration
+    this.redisSub = new Redis(redisConfig);
+
+    // Add error handling for subscriber
+    this.redisSub.on('error', (error: Error & { code?: string }) => {
+      console.error('Redis subscriber error:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
     });
 
-    // Subscribe to job updates
-    // In your SessionManager constructor:
-    this.redisSub.psubscribe("job:*:updates", (err, count) => {
-      if (err) {
-        console.error("Failed to psubscribe:", err);
-      }
+    this.redisSub.on('connect', () => {
+      console.log('Redis subscriber connected successfully');
     });
-    this.redisSub.on("pmessage", (pattern, channel, message) => {
-      this.handleRedisMessage(channel, message);
+
+    this.redisSub.on('ready', () => {
+      console.log('Redis subscriber is ready to accept commands');
+      // Subscribe to job updates
+      this.redisSub.psubscribe("job:*:updates", (err, count) => {
+        if (err) {
+          console.error('Error subscribing to job updates:', err);
+        } else {
+          console.log(`Subscribed to ${count} channels`);
+        }
+      });
+    });
+
+    // Handle messages from Redis
+    this.redisSub.on('pmessage', (pattern, channel, message) => {
+      this.handleRedisMessage(channel, message).catch(err => {
+        console.error('Error handling Redis message:', err);
+      });
     });
   }
 

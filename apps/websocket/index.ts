@@ -49,21 +49,70 @@ const userSubscribers = new Map<string, Redis>();
 
 // --- Redis Client Configuration ---
 const redisConfig = {
-  host: process.env.REDIS_HOST || "localhost",
+  host: process.env.REDIS_HOST || "redis",
   port: parseInt(process.env.REDIS_PORT || "6379"),
   password: process.env.REDIS_PASSWORD,
+  maxRetriesPerRequest: 3,
   retryStrategy: (times: number) => {
-    // Exponential backoff with max 10s
-    return Math.min(times * 100, 10000);
+    const delay = Math.min(times * 50, 2000);
+    console.log(`Redis retry attempt ${times} with delay ${delay}ms`);
+    return delay;
   },
+  reconnectOnError: (err: Error) => {
+    console.log('Redis reconnectOnError triggered:', {
+      message: err.message,
+      stack: err.stack,
+      name: err.name
+    });
+    return true;
+  },
+  enableOfflineQueue: true,
+  connectTimeout: 10000,
+  commandTimeout: 5000,
+  lazyConnect: true,
+  authRetry: true,
+  enableReadyCheck: true
 };
 
 // Main Redis client for publishing
 const redisPub = new Redis(redisConfig);
 
+// Add error handling for Redis
+redisPub.on('error', (error: Error & { code?: string }) => {
+  console.error('Redis connection error:', {
+    message: error.message,
+    code: error.code,
+    stack: error.stack,
+    host: process.env.REDIS_HOST,
+    port: process.env.REDIS_PORT,
+    hasPassword: !!process.env.REDIS_PASSWORD
+  });
+});
+
+redisPub.on('connect', () => {
+  console.log('Redis connected successfully');
+});
+
+redisPub.on('ready', () => {
+  console.log('Redis is ready to accept commands');
+});
+
 // Subscribe to discovered events
 const redisSub = new Redis(redisConfig);
-redisSub.subscribe("discovered_events");
+
+// Add error handling for subscriber
+redisSub.on('error', (error: Error & { code?: string }) => {
+  console.error('Redis subscriber error:', {
+    message: error.message,
+    code: error.code,
+    stack: error.stack
+  });
+});
+
+redisSub.on('connect', () => {
+  console.log('Redis subscriber connected successfully');
+  redisSub.subscribe("discovered_events");
+});
 
 redisSub.on("message", (channel, message) => {
   if (channel === "discovered_events") {
