@@ -1,6 +1,6 @@
 // store/useJobSessionStore.ts
 import { create } from "zustand";
-import * as Crypto from "expo-crypto";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Types
 export interface Job {
@@ -52,11 +52,9 @@ const MessageTypes = {
 };
 
 export const useJobSessionStore = create<JobSessionStore>((set, get) => {
-  // Generate a clientId asynchronously using expo-crypto
-  (async () => {
-    const id = await Crypto.randomUUID();
-    set({ clientId: id });
-  })();
+  // Get the user's ID from AuthContext
+  const { user } = useAuth();
+  const clientId = user?.id || "";
 
   return {
     // Initial state
@@ -65,7 +63,7 @@ export const useJobSessionStore = create<JobSessionStore>((set, get) => {
     isConnecting: false,
     error: null,
     jobs: [],
-    clientId: "", // will be updated asynchronously
+    clientId,
 
     // Connect to the WebSocket server
     connect: (existingSessionId?: string) => {

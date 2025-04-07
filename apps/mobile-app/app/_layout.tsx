@@ -1,19 +1,18 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
-import { PostHogProvider } from 'posthog-react-native'
+import { PostHogProvider } from 'posthog-react-native';
 
+import * as Sentry from "@sentry/react-native";
 import { useFonts } from "expo-font";
 import { Stack, useNavigationContainerRef } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
-import * as Sentry from "@sentry/react-native";
 
-import { useColorScheme } from "@/hooks/useColorScheme";
-import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
+import { useColorScheme } from "@/hooks/useColorScheme";
 import { isRunningInExpoGo } from "expo";
 
 const navigationIntegration = Sentry.reactNavigationIntegration({
@@ -42,10 +41,6 @@ function RootLayout() {
     }
   }, [ref]);
 
-  useEffect(() => {
-    // Establish the connection on app startup
-    useJobSessionStore.getState().connect();
-  }, []);
 
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
