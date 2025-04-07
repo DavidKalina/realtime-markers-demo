@@ -77,6 +77,10 @@ const redisConfig = {
 // Main Redis client for publishing
 const redisPub = new Redis(redisConfig);
 
+// Initialize session manager
+const sessionManager = new SessionManager(redisPub);
+console.log('SessionManager initialized');
+
 // Add error handling for Redis
 redisPub.on('error', (error: Error & { code?: string }) => {
   console.error('Redis connection error:', {
@@ -147,9 +151,6 @@ redisSub.on("message", (channel, message) => {
     }
   }
 });
-
-// Initialize session manager
-const sessionManager = new SessionManager(redisPub);
 
 // System health state
 const systemHealth = {

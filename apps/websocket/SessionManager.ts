@@ -114,6 +114,7 @@ export class SessionManager {
 
     // Handle messages from Redis
     this.redisSub.on('pmessage', (pattern, channel, message) => {
+      console.log(`Received Redis message on pattern ${pattern}, channel ${channel}`);
       this.handleRedisMessage(channel, message).catch(err => {
         console.error('Error handling Redis message:', err);
       });
