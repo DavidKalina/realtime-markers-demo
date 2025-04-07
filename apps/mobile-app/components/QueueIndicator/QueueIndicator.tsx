@@ -116,7 +116,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
           progressPercentage: 0
         };
 
-        // Only process jobs that have changed
+
         const activeJobs = jobs.filter(
           (job) => job.status === "pending" || job.status === "processing"
         );
@@ -124,14 +124,14 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
         const failedJobs = jobs.filter((job) => job.status === "failed");
         const totalJobs = jobs.length;
 
-        // Only find active job if there are active jobs
-        const activeJob = activeJobs.length > 0
-          ? activeJobs.reduce((prev, current) =>
-            new Date(prev.updatedAt) > new Date(current.updatedAt) ? prev : current
-          )
-          : null;
+        const activeJob =
+          activeJobs.length > 0
+            ? activeJobs.reduce((prev, current) =>
+              new Date(prev.updatedAt) > new Date(current.updatedAt) ? prev : current
+            )
+            : null;
 
-        // Only calculate progress if there's an active job
+
         const progressPercentage = activeJob ? activeJob.progress : 0;
 
         return { activeJobs, completedJobs, failedJobs, totalJobs, activeJob, progressPercentage };
@@ -188,7 +188,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
       }
     }, [totalJobs]);
 
-    // Derive status from job data with memoization
+    // Derive status from job data
     const newStatus = useMemo(() => {
       if (!isMounted.current) return "idle";
       if (failedJobs.length > 0) {
@@ -209,7 +209,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
       }
     }, [newStatus, status]);
 
-    // Auto-dismiss logic with optimized cleanup
+    // Auto-dismiss logic
     const handleAutoDismiss = useCallback(() => {
       if (!isMounted.current) return;
 
@@ -242,12 +242,12 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
       return undefined;
     }, [activeJobs.length, completedJobs.length, failedJobs.length, clearAllJobs, autoDismissDelay]);
 
-    // Apply auto-dismiss effect with cleanup
+    // Apply auto-dismiss effect
     useEffect(() => {
       const cleanup = handleAutoDismiss();
-      return () => {
-        if (cleanup) cleanup();
-      };
+      return cleanup;
+
+
     }, [handleAutoDismiss]);
 
     // Handle animations based on status
@@ -266,7 +266,7 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
         }
       };
 
-      // Only setup new animations if status actually changed
+
       if (status === "processing") {
         cleanupAnimations();
         try {
@@ -286,29 +286,37 @@ const QueueIndicator: React.FC<QueueIndicatorProps> = React.memo(
           console.error('Error setting up processing animation:', error);
         }
       } else if (status === "completed" || status === "failed") {
-        // Only animate if we're transitioning from processing
-        if (animationCleanupRef.current) {
-          cleanupAnimations();
-          try {
-            iconOpacity.value = withTiming(0, ANIMATION_CONFIG.fadeOut, () => {
-              "worklet";
-              checkmarkScale.value = withSpring(1, {
-                damping: 12,
-                stiffness: 100,
-                mass: 0.8,
-              });
+        cleanupAnimations();
+        try {
+          iconOpacity.value = withTiming(0, ANIMATION_CONFIG.fadeOut, () => {
+            "worklet";
+            checkmarkScale.value = withSpring(1, {
+              damping: 12,
+              stiffness: 100,
+              mass: 0.8,
 
-              if (status === "completed") {
-                floatValue.value = withRepeat(
-                  withTiming(1, { duration: 1000, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
-                  -1,
-                  true
-                );
-              }
+
+
+
+
+
+
+
+
+
+
             });
-          } catch (error) {
-            console.error('Error setting up completion animation:', error);
-          }
+
+            if (status === "completed") {
+              floatValue.value = withRepeat(
+                withTiming(1, { duration: 1000, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
+                -1,
+                true
+              );
+            }
+          });
+        } catch (error) {
+          console.error('Error setting up completion animation:', error);
         }
       }
 
