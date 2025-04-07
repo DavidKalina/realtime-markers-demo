@@ -115,6 +115,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const handleLogout = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     logout();
+    router.replace("/login");
   };
 
   // Get user initials for avatar

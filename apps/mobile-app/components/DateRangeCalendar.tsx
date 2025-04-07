@@ -1,4 +1,4 @@
-import { addMonths, eachDayOfInterval, endOfMonth, format, isSameMonth, isToday, parseISO, startOfMonth, subMonths } from 'date-fns';
+import { addMonths, eachDayOfInterval, endOfMonth, format, isSameMonth, isToday, parseISO, startOfMonth, subMonths, addDays } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
@@ -33,6 +33,16 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
     const isMounted = useRef(true);
     const slideAnim = useSharedValue(0);
     const containerAnim = useSharedValue(0);
+
+    // Initialize with default 2-week range if no dates are provided
+    useEffect(() => {
+        if (!selectedStartDate || !selectedEndDate) {
+            const today = new Date();
+            const twoWeeksFromNow = addDays(today, 14);
+            setSelectedStartDate(format(today, 'yyyy-MM-dd'));
+            setSelectedEndDate(format(twoWeeksFromNow, 'yyyy-MM-dd'));
+        }
+    }, []);
 
     // Helper function to check if a date is in the past
     const isPastDate = useCallback((date: Date) => {
@@ -124,6 +134,15 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
             onClose();
         }
     }, [selectedStartDate, selectedEndDate, onDateRangeSelect, onClose]);
+
+    // Handle reset - set to default 2-week range
+    const handleReset = useCallback(() => {
+        const today = new Date();
+        const twoWeeksFromNow = addDays(today, 14);
+        setSelectedStartDate(format(today, 'yyyy-MM-dd'));
+        setSelectedEndDate(format(twoWeeksFromNow, 'yyyy-MM-dd'));
+        onDateRangeSelect(format(today, 'yyyy-MM-dd'), format(twoWeeksFromNow, 'yyyy-MM-dd'));
+    }, [onDateRangeSelect]);
 
     // Format date range text
     const dateRangeText = useMemo(() => {
@@ -256,26 +275,21 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity
                         style={[styles.button, styles.resetButton]}
-                        onPress={() => {
-                            setSelectedStartDate(undefined);
-                            setSelectedEndDate(undefined);
-                            onDateRangeSelect(null, null);
-                        }}
+                        onPress={handleReset}
                         activeOpacity={0.7}
                         disabled={isLoading}
                     >
-                        <Text style={styles.resetButtonText}>Reset</Text>
+                        <Text style={styles.resetButtonText}>Reset to 2 Weeks</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                         style={[
                             styles.button,
                             styles.confirmButton,
-                            (!selectedStartDate || !selectedEndDate) && styles.confirmButtonDisabled,
                             isLoading && styles.confirmButtonLoading,
                         ]}
                         onPress={handleConfirmSelection}
-                        disabled={!selectedStartDate || !selectedEndDate || isLoading}
+                        disabled={isLoading}
                         activeOpacity={0.7}
                     >
                         {isLoading ? (

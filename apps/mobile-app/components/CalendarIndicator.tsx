@@ -13,7 +13,7 @@ import { Calendar } from "lucide-react-native";
 import { useFilterStore } from "@/stores/useFilterStore";
 import * as Haptics from "expo-haptics";
 import DateRangeCalendar from "./DateRangeCalendar";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, addDays } from "date-fns";
 
 // Pre-define animations to avoid recreation
 const FADE_IN = FadeIn.duration(200);
@@ -56,24 +56,24 @@ const CalendarIndicator: React.FC = React.memo(() => {
 
   // Format date range for display
   const dateRangeText = useMemo(() => {
-    if (activeDateFilters.length === 0) return 'Select dates';
+    if (activeDateFilters.length === 0) {
+      // Default to 2 weeks from today
+      const today = new Date();
+      const twoWeeksFromNow = addDays(today, 14);
+      return `${format(today, "MMM d")} - ${format(twoWeeksFromNow, "MMM d")}`;
+    }
 
     const filter = activeDateFilters[0]; // Take the first active filter with date range
     const { start, end } = filter.criteria.dateRange || {};
 
-    if (!start && !end) return 'Select dates';
-
-    if (start && end) {
-      return `${format(parseISO(start), "MMM d")} - ${format(parseISO(end), "MMM d")}`;
+    if (!start || !end) {
+      // Default to 2 weeks from today if no range is set
+      const today = new Date();
+      const twoWeeksFromNow = addDays(today, 14);
+      return `${format(today, "MMM d")} - ${format(twoWeeksFromNow, "MMM d")}`;
     }
 
-    if (start) {
-      return `From ${format(parseISO(start), "MMM d")}`;
-    }
-    if (end) {
-      return `Until ${format(parseISO(end), "MMM d")}`;
-    }
-    return 'Select dates';
+    return `${format(parseISO(start), "MMM d")} - ${format(parseISO(end), "MMM d")}`;
   }, [activeDateFilters]);
 
   // Update animations when loading state changes
@@ -115,6 +115,14 @@ const CalendarIndicator: React.FC = React.memo(() => {
 
   const handleDateRangeSelect = useCallback(
     async (startDate: string | null, endDate: string | null) => {
+      // If no dates are provided, default to 2 weeks from today
+      if (!startDate || !endDate) {
+        const today = new Date();
+        const twoWeeksFromNow = addDays(today, 14);
+        startDate = format(today, 'yyyy-MM-dd');
+        endDate = format(twoWeeksFromNow, 'yyyy-MM-dd');
+      }
+
       // Get either the active filter or fall back to the oldest filter
       let targetFilter =
         filters.find((f) => activeFilterIds.includes(f.id)) ||
@@ -126,31 +134,13 @@ const CalendarIndicator: React.FC = React.memo(() => {
 
       // If no filter exists, create a new one
       if (!targetFilter) {
-        if (startDate && endDate) {
-          targetFilter = await createFilter({
-            name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
-            criteria: {
-              dateRange: { start: startDate, end: endDate }
-            },
-          });
-        } else {
-          // If no date range is provided, we can't create a filter
-          throw new Error("Date range is required for the first filter");
-        }
-      }
-
-      if (startDate === null && endDate === null) {
-        // Clear the date range while preserving other criteria
-        const { dateRange, ...restCriteria } = targetFilter.criteria;
-        const updatedFilter = {
-          ...targetFilter,
-          criteria: restCriteria,
-        };
-        // Update the filter and clear active filters
-        updateFilter(targetFilter.id, updatedFilter).then(() => {
-          clearFilters();
+        targetFilter = await createFilter({
+          name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
+          criteria: {
+            dateRange: { start: startDate, end: endDate }
+          },
         });
-      } else if (startDate && endDate) {
+      } else {
         // Update the filter with new date range while preserving other criteria
         const updatedFilter = {
           ...targetFilter,
@@ -164,10 +154,9 @@ const CalendarIndicator: React.FC = React.memo(() => {
           },
         };
         // First update the filter
-        updateFilter(targetFilter.id, updatedFilter).then(() => {
-          // Then ensure it's the only active filter
-          applyFilters([targetFilter.id]);
-        });
+        await updateFilter(targetFilter.id, updatedFilter);
+        // Then ensure it's the only active filter
+        await applyFilters([targetFilter.id]);
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
