@@ -252,9 +252,7 @@ function forwardMessageToUserClients(userId: string, message: string): void {
   let parsedMessage;
   try {
     parsedMessage = JSON.parse(message);
-    console.log(
-      `Forwarding message type ${parsedMessage.type} to ${clientIds.size} clients of user ${userId}`
-    );
+
   } catch (error) {
     console.error(`Error parsing message for user ${userId}:`, error);
     return;
@@ -279,7 +277,6 @@ function releaseRedisSubscriber(userId: string): void {
     subscriber.unsubscribe();
     subscriber.quit();
     userSubscribers.delete(userId);
-    console.log(`Released Redis subscriber for user ${userId}`);
   }
 }
 
@@ -431,7 +428,6 @@ const server = {
         })
       );
 
-      console.log(`Client ${clientId} connected`);
       updateHealthStats();
     },
 
@@ -462,7 +458,6 @@ const server = {
           // Ensure we have a Redis subscriber for this user
           getRedisSubscriberForUser(userId);
 
-          console.log(`Client ${ws.data.clientId} identified as user ${userId}`);
 
           // Fetch user's filters from backend and publish to filter-changes
           fetchUserFiltersAndPublish(userId);
@@ -503,7 +498,6 @@ const server = {
             })
           );
 
-          console.log(`Published viewport update for user ${userId}`);
         }
 
         // Handle session management messages
@@ -534,7 +528,6 @@ const server = {
       try {
         const { clientId, userId } = ws.data;
 
-        console.log(`Client ${clientId} disconnected`);
 
         // Clean up session management
         sessionManager.unregisterClient(clientId);
@@ -577,7 +570,6 @@ async function startServer() {
 
     // Start WebSocket server
     Bun.serve(server);
-    console.log(`WebSocket server started on port ${server.port}`);
   } catch (error) {
     console.error("Failed to start WebSocket server:", error);
     process.exit(1);

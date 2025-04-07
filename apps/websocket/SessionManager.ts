@@ -83,11 +83,9 @@ export class SessionManager {
 
   constructor(redis: Redis) {
     this.redis = redis;
-    console.log('[SessionManager] Initializing SessionManager');
 
     // Create a separate Redis client for pub/sub with proper configuration
     this.redisSub = new Redis(redisConfig);
-    console.log('[SessionManager] Created Redis subscriber client');
 
     // Add error handling for subscriber
     this.redisSub.on('error', (error: Error & { code?: string }) => {
@@ -103,20 +101,16 @@ export class SessionManager {
     });
 
     this.redisSub.on('ready', () => {
-      console.log('[SessionManager] Redis subscriber is ready to accept commands');
       // Subscribe to all job updates
       this.redisSub.psubscribe("job:*:updates", (err, count) => {
         if (err) {
           console.error('[SessionManager] Error subscribing to job updates:', err);
-        } else {
-          console.log(`[SessionManager] Subscribed to job updates pattern, count: ${count}`);
         }
       });
     });
 
     // Handle messages from Redis
     this.redisSub.on('pmessage', (pattern, channel, message) => {
-      console.log(`[SessionManager] Received Redis message on pattern ${pattern}, channel ${channel}:`, message);
       this.handleRedisMessage(channel, message).catch(err => {
         console.error('[SessionManager] Error handling Redis message:', err);
       });
@@ -126,14 +120,11 @@ export class SessionManager {
     this.redisSub.subscribe("job:updates", (err, count) => {
       if (err) {
         console.error('[SessionManager] Error subscribing to job:updates:', err);
-      } else {
-        console.log(`[SessionManager] Subscribed to job:updates, count: ${count}`);
       }
     });
 
     // Handle messages from the specific channel
     this.redisSub.on('message', (channel, message) => {
-      console.log(`[SessionManager] Received Redis message on channel ${channel}:`, message);
       this.handleRedisMessage(channel, message).catch(err => {
         console.error('[SessionManager] Error handling Redis message:', err);
       });
@@ -316,7 +307,6 @@ export class SessionManager {
   private async sendSessionUpdate(sessionId: string): Promise<void> {
     const sessionData = await this.redis.get(`session:${sessionId}`);
     if (!sessionData) {
-      console.log(`[SessionManager] No session data found for session ${sessionId}`);
       return;
     }
 
@@ -324,7 +314,6 @@ export class SessionManager {
     const clients = this.sessionsToClients.get(sessionId);
 
     if (!clients) {
-      console.log(`[SessionManager] No clients found for session ${sessionId}`);
       return;
     }
 
@@ -337,7 +326,6 @@ export class SessionManager {
       },
     });
 
-    console.log(`[SessionManager] Sending session update to ${clients.size} clients in session ${sessionId}:`, message);
 
     // Send to all connected clients in this session
     for (const clientId of clients) {
@@ -345,12 +333,9 @@ export class SessionManager {
       if (client) {
         try {
           client.send(message);
-          console.log(`[SessionManager] Successfully sent update to client ${clientId}`);
         } catch (error) {
           console.error(`[SessionManager] Failed to send session update to client ${clientId}:`, error);
         }
-      } else {
-        console.log(`[SessionManager] Client ${clientId} not found in clients map`);
       }
     }
   }
@@ -361,12 +346,10 @@ export class SessionManager {
   private async handleRedisMessage(channel: string, message: string): Promise<void> {
     // Handle both job:*:updates and job:updates channels
     if (!channel.startsWith("job:") || (!channel.endsWith(":updates") && channel !== "job:updates")) {
-      console.log(`[SessionManager] Ignoring non-job update message on channel: ${channel}`);
       return;
     }
 
     try {
-      console.log(`[SessionManager] Processing job update from channel ${channel}:`, message);
       const jobUpdate = JSON.parse(message);
       const jobId = jobUpdate.id;
 
@@ -377,12 +360,10 @@ export class SessionManager {
 
       // Find all sessions containing this job
       const allSessions = await this.redis.keys("session:*");
-      console.log(`[SessionManager] Found ${allSessions.length} sessions to check for job ${jobId}`);
 
       for (const sessionKey of allSessions) {
         const sessionData = await this.redis.get(sessionKey);
         if (!sessionData) {
-          console.log(`[SessionManager] No session data found for key: ${sessionKey}`);
           continue;
         }
 
@@ -390,7 +371,6 @@ export class SessionManager {
         const jobIndex = session.jobs.findIndex((job) => job.id === jobId);
 
         if (jobIndex !== -1) {
-          console.log(`[SessionManager] Updating job ${jobId} in session ${sessionKey} with:`, jobUpdate);
           // Update job in session
           session.jobs[jobIndex] = {
             ...session.jobs[jobIndex],
@@ -406,11 +386,9 @@ export class SessionManager {
 
           // Update session in Redis
           await this.redis.set(sessionKey, JSON.stringify(session));
-          console.log(`[SessionManager] Updated session ${sessionKey} in Redis`);
 
           // Send update to all clients in the session
           const sessionId = sessionKey.replace("session:", "");
-          console.log(`[SessionManager] Sending update to clients in session ${sessionId}`);
           await this.sendSessionUpdate(sessionId);
         }
       }
@@ -443,13 +421,10 @@ export class SessionManager {
   async handleMessage(ws: ServerWebSocket<WebSocketClientData>, message: string): Promise<void> {
     try {
       const data = JSON.parse(message);
-      console.log(`[SessionManager] Received message type: ${data.type} from client ${ws.data.clientId}`);
 
       switch (data.type) {
         case MessageTypes.CREATE_SESSION:
-          console.log(`[SessionManager] Creating new session for client ${ws.data.clientId}`);
           const sessionId = await this.createSession(ws.data.clientId);
-          console.log(`[SessionManager] Created session ${sessionId} for client ${ws.data.clientId}`);
           ws.send(
             JSON.stringify({
               type: MessageTypes.SESSION_CREATED,
@@ -459,10 +434,8 @@ export class SessionManager {
           break;
 
         case MessageTypes.JOIN_SESSION:
-          console.log(`[SessionManager] Client ${ws.data.clientId} attempting to join session ${data.sessionId}`);
           const joined = await this.joinSession(ws.data.clientId, data.sessionId);
           if (joined) {
-            console.log(`[SessionManager] Client ${ws.data.clientId} successfully joined session ${data.sessionId}`);
             ws.send(
               JSON.stringify({
                 type: MessageTypes.SESSION_JOINED,
@@ -470,7 +443,6 @@ export class SessionManager {
               })
             );
           } else {
-            console.log(`[SessionManager] Failed to join session ${data.sessionId} for client ${ws.data.clientId}`);
             ws.send(
               JSON.stringify({
                 type: MessageTypes.ERROR,
@@ -482,7 +454,6 @@ export class SessionManager {
 
         case MessageTypes.ADD_JOB:
           if (!ws.data.sessionId) {
-            console.log(`[SessionManager] Client ${ws.data.clientId} attempted to add job without active session`);
             ws.send(
               JSON.stringify({
                 type: MessageTypes.ERROR,
@@ -492,24 +463,19 @@ export class SessionManager {
             break;
           }
 
-          console.log(`[SessionManager] Adding job ${data.jobId} to session ${ws.data.sessionId}`);
           const added = await this.addJobToSession(ws.data.sessionId, data.jobId);
           if (!added) {
-            console.log(`[SessionManager] Failed to add job ${data.jobId} to session ${ws.data.sessionId}`);
             ws.send(
               JSON.stringify({
                 type: MessageTypes.ERROR,
                 data: { message: "Failed to add job" },
               })
             );
-          } else {
-            console.log(`[SessionManager] Successfully added job ${data.jobId} to session ${ws.data.sessionId}`);
           }
           break;
 
         case MessageTypes.CANCEL_JOB:
           if (!ws.data.sessionId) {
-            console.log(`[SessionManager] Client ${ws.data.clientId} attempted to cancel job without active session`);
             ws.send(
               JSON.stringify({
                 type: MessageTypes.ERROR,
@@ -519,13 +485,11 @@ export class SessionManager {
             break;
           }
 
-          console.log(`[SessionManager] Cancelling job ${data.jobId} in session ${ws.data.sessionId}`);
           await this.cancelJob(ws.data.sessionId, data.jobId);
           break;
 
         case MessageTypes.CLEAR_SESSION:
           if (!ws.data.sessionId) {
-            console.log(`[SessionManager] Client ${ws.data.clientId} attempted to clear session without active session`);
             ws.send(
               JSON.stringify({
                 type: MessageTypes.ERROR,
@@ -535,7 +499,6 @@ export class SessionManager {
             break;
           }
 
-          console.log(`[SessionManager] Clearing session ${ws.data.sessionId}`);
           await this.clearSession(ws.data.sessionId);
           break;
 
