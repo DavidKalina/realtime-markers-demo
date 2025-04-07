@@ -338,11 +338,13 @@ export class SessionManager {
     }
 
     try {
+      console.log(`[SessionManager] Received Redis message on channel ${channel}:`, message);
       const jobUpdate = JSON.parse(message);
       const jobId = jobUpdate.id;
 
       // Find all sessions containing this job
       const allSessions = await this.redis.keys("session:*");
+      console.log(`[SessionManager] Found ${allSessions.length} sessions to check for job ${jobId}`);
 
       for (const sessionKey of allSessions) {
         const sessionData = await this.redis.get(sessionKey);
@@ -352,6 +354,7 @@ export class SessionManager {
         const jobIndex = session.jobs.findIndex((job) => job.id === jobId);
 
         if (jobIndex !== -1) {
+          console.log(`[SessionManager] Updating job ${jobId} in session ${sessionKey}`);
           // Update job in session
           session.jobs[jobIndex] = {
             ...session.jobs[jobIndex],
@@ -370,11 +373,12 @@ export class SessionManager {
 
           // Send update to all clients in the session
           const sessionId = sessionKey.replace("session:", "");
+          console.log(`[SessionManager] Sending update to clients in session ${sessionId}`);
           this.sendSessionUpdate(sessionId);
         }
       }
     } catch (error) {
-      console.error("Error handling Redis message:", error);
+      console.error("[SessionManager] Error handling Redis message:", error);
     }
   }
 

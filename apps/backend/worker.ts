@@ -180,10 +180,12 @@ async function initializeWorker() {
     try {
       // Get job data
       const job = JSON.parse(jobData);
+      console.log(`[Worker] Processing job ${jobId} of type ${job.type}`);
 
       // In worker.ts processJobs function, add a new job type handler
       if (job.type === "cleanup_outdated_events") {
         const batchSize = job.data.batchSize || 100;
+        console.log(`[Worker] Updating job ${jobId} progress: Cleaning up outdated events`);
         await jobQueue.updateJobStatus(jobId, {
           progress: `Cleaning up outdated events (batch size: ${batchSize})`,
         });
