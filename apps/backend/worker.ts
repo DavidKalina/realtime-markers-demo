@@ -242,6 +242,21 @@ async function initializeWorker() {
           jobId
         );
 
+        // Check confidence score first
+        if (scanResult.confidence < 0.75) {
+          console.log(`[Worker] Confidence too low (${scanResult.confidence}) to proceed with event processing`);
+          await jobQueue.updateJobStatus(jobId, {
+            status: "completed",
+            result: {
+              message: "Confidence too low to process event",
+              confidence: scanResult.confidence,
+              threshold: 0.75,
+            },
+            completed: new Date().toISOString(),
+          });
+          return;
+        }
+
         // Now check if this is a duplicate event
         if (scanResult.isDuplicate && scanResult.similarity.matchingEventId) {
           console.log(
