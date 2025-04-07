@@ -361,7 +361,7 @@ export class SessionManager {
             ...session.jobs[jobIndex],
             status: jobUpdate.status || session.jobs[jobIndex].status,
             progress: this.calculateProgressPercentage(jobUpdate),
-            progressStep: jobUpdate.progress || session.jobs[jobIndex].progressStep,
+            progressStep: jobUpdate.progressMessage || session.jobs[jobIndex].progressStep,
             result: jobUpdate.result || session.jobs[jobIndex].result,
             error: jobUpdate.error || session.jobs[jobIndex].error,
             updatedAt: new Date().toISOString(),
