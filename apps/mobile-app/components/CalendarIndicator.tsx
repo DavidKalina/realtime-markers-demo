@@ -27,7 +27,6 @@ const CalendarIndicator: React.FC = React.memo(() => {
   const lastFilters = useRef<any[]>([]);
   const iconOpacity = useSharedValue(1);
   const loaderOpacity = useSharedValue(0);
-  const textOpacity = useSharedValue(0);
 
   // Get active filters with date ranges
   const activeDateFilters = useMemo(() => {
@@ -51,12 +50,12 @@ const CalendarIndicator: React.FC = React.memo(() => {
 
   // Format date range for display
   const dateRangeText = useMemo(() => {
-    if (activeDateFilters.length === 0) return null;
+    if (activeDateFilters.length === 0) return 'Select dates';
 
     const filter = activeDateFilters[0]; // Take the first active filter with date range
     const { start, end } = filter.criteria.dateRange || {};
 
-    if (!start && !end) return null;
+    if (!start && !end) return 'Select dates';
 
     if (start && end) {
       return `${format(parseISO(start), "MMM d")} - ${format(parseISO(end), "MMM d")}`;
@@ -68,7 +67,7 @@ const CalendarIndicator: React.FC = React.memo(() => {
     if (end) {
       return `Until ${format(parseISO(end), "MMM d")}`;
     }
-    return null;
+    return 'Select dates';
   }, [activeDateFilters]);
 
   // Update animations when loading state changes
@@ -81,15 +80,6 @@ const CalendarIndicator: React.FC = React.memo(() => {
       loaderOpacity.value = withTiming(0, { duration: 150 });
     }
   }, [isLoading]);
-
-  // Update text opacity when date range changes
-  useEffect(() => {
-    if (dateRangeText) {
-      textOpacity.value = withTiming(1, { duration: 150 });
-    } else {
-      textOpacity.value = withTiming(0, { duration: 150 });
-    }
-  }, [dateRangeText]);
 
   // Cleanup animations
   const cleanupAnimations = useCallback(() => {
@@ -184,8 +174,7 @@ const CalendarIndicator: React.FC = React.memo(() => {
           <View style={[
             styles.indicator,
             activeDateFilters.length > 0 && styles.indicatorActive,
-            isLoading && styles.indicatorLoading,
-            !dateRangeText && styles.indicatorNoText
+            isLoading && styles.indicatorLoading
           ]}>
             <View style={[
               styles.iconContainer,
@@ -211,16 +200,14 @@ const CalendarIndicator: React.FC = React.memo(() => {
               </Animated.View>
             </View>
 
-            {dateRangeText && (
-              <Animated.View
-                style={[
-                  styles.textContainer,
-                  { opacity: textOpacity }
-                ]}
-              >
-                <Text style={styles.dateText}>{dateRangeText}</Text>
-              </Animated.View>
-            )}
+            <View style={styles.textContainer}>
+              <Text style={[
+                styles.dateText,
+                { color: activeDateFilters.length > 0 ? "#93c5fd" : "#f8f9fa" }
+              ]}>
+                {dateRangeText}
+              </Text>
+            </View>
           </View>
         </Pressable>
       </View>
@@ -256,6 +243,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 8,
     height: 40,
+    width: 160,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
     shadowColor: "#000",
@@ -270,9 +258,6 @@ const styles = StyleSheet.create({
   },
   indicatorLoading: {
     opacity: 1,
-  },
-  indicatorNoText: {
-    paddingRight: 8,
   },
   iconContainer: {
     width: 24,
@@ -304,10 +289,10 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     marginLeft: 8,
-    paddingRight: 4,
+    flex: 1,
+    justifyContent: 'center',
   },
   dateText: {
-    color: "#93c5fd",
     fontSize: 12,
     fontFamily: "SpaceMono",
     fontWeight: "600",

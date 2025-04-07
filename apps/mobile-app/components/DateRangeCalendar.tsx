@@ -125,6 +125,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
         const diffTime = Math.abs(end.getTime() - start.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+        if (diffDays === 0) return '1 day';
         if (diffDays === 1) return '1 day';
         if (diffDays < 7) return `${diffDays} days`;
         if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks`;

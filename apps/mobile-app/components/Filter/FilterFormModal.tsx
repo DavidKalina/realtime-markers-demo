@@ -74,16 +74,10 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
   }) => {
     const scrollViewRef = useRef<ScrollView>(null);
 
-
     const scrollToInput = useCallback((target: any) => {
       if (scrollViewRef.current && target) {
-        target.measureLayout(
-          scrollViewRef.current.getInnerViewNode(),
-          (_: number, y: number) => {
-            scrollViewRef.current?.scrollTo({ y: y - 100, animated: true });
-          },
-          () => { }
-        );
+        const inputY = target.getBoundingClientRect().top;
+        scrollViewRef.current?.scrollTo({ y: inputY - 100, animated: true });
       }
     }, []);
 
@@ -163,6 +157,22 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                 </View>
               </View>
 
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Search Query</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={semanticQuery}
+                  onChangeText={setSemanticQuery}
+                  placeholder="Enter your search query in natural language"
+                  placeholderTextColor="#adb5bd"
+                  multiline
+                  numberOfLines={3}
+                  onFocus={(e) => scrollToInput(e.target)}
+                />
+                <Text style={styles.helperText}>
+                  Example: "Events about AI and machine learning in the last month"
+                </Text>
+              </View>
 
 
               {/* Date Range - Optional filter */}
