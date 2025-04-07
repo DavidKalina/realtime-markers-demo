@@ -115,10 +115,10 @@ redisSub.on('error', (error: Error & { code?: string }) => {
 
 redisSub.on('connect', () => {
   console.log('Redis subscriber connected successfully');
-  redisSub.subscribe("discovered_events");
+  redisSub.psubscribe("discovered_events");
 });
 
-redisSub.on("message", (channel, message) => {
+redisSub.on("pmessage", (pattern, channel, message) => {
   if (channel === "discovered_events") {
     try {
       const data = JSON.parse(message);
