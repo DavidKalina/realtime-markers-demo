@@ -67,29 +67,29 @@ export class EventSimilarityService implements IEventSimilarityService {
         .where("event.embedding IS NOT NULL")
         .andWhere(
           new Brackets(qb => {
-            qb.where("LOWER(event.title) LIKE LOWER($2)");
+            qb.where("LOWER(event.title) LIKE LOWER(:title)");
           })
         )
         // Combine vector similarity with text matching score
         .addSelect(
           `(
             -- Vector similarity (70% weight)
-            (1 - (embedding <-> $1::vector)::float) * 0.7 +
+            (1 - (embedding <-> :embedding::vector)::float) * 0.7 +
             
             -- Title match (30% weight)
             CASE 
-              WHEN LOWER(event.title) = LOWER($2) THEN 0.3
-              WHEN LOWER(event.title) LIKE LOWER($3) THEN 0.15
+              WHEN LOWER(event.title) = LOWER(:title) THEN 0.3
+              WHEN LOWER(event.title) LIKE LOWER(:titleLike) THEN 0.15
               ELSE 0
             END
           )`, 'similarity_score'
         )
         .orderBy('similarity_score', 'DESC')
-        .setParameters([
-          pgvector.toSql(embedding),  // $1: embedding vector
-          eventData.title.toLowerCase(),  // $2: exact title match
-          `%${eventData.title.toLowerCase()}%`  // $3: contains title
-        ])
+        .setParameters({
+          embedding: pgvector.toSql(embedding),
+          title: eventData.title.toLowerCase(),
+          titleLike: `%${eventData.title.toLowerCase()}%`
+        })
         .limit(5)
         .getMany();
 
