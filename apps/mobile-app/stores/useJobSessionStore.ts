@@ -100,16 +100,20 @@ export const useJobSessionStore = create<JobSessionStore>((set, get) => {
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            console.log('WebSocket message received:', data);
 
             switch (data.type) {
               case MessageTypes.SESSION_CREATED:
               case MessageTypes.SESSION_JOINED:
+                console.log('Session created/joined:', data.data.sessionId);
                 set({ sessionId: data.data.sessionId });
                 break;
               case MessageTypes.SESSION_UPDATE:
+                console.log('Session update - jobs:', data.data.jobs);
                 set({ jobs: data.data.jobs });
                 break;
               case MessageTypes.ERROR:
+                console.error('WebSocket error:', data.data.message);
                 set({ error: data.data.message });
                 break;
               default:
@@ -144,8 +148,10 @@ export const useJobSessionStore = create<JobSessionStore>((set, get) => {
     addJob: (jobId: string) => {
       const { sessionId } = get();
       if (!sessionId || !ws || ws.readyState !== WebSocket.OPEN) {
+        console.warn('Cannot add job - WebSocket not ready:', { sessionId, wsState: ws?.readyState });
         return false;
       }
+      console.log('Adding job:', jobId);
       ws.send(
         JSON.stringify({
           type: MessageTypes.ADD_JOB,
