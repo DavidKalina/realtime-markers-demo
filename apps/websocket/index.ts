@@ -49,87 +49,26 @@ const userSubscribers = new Map<string, Redis>();
 
 // --- Redis Client Configuration ---
 const redisConfig = {
-  host: process.env.REDIS_HOST || "redis",
+  host: process.env.REDIS_HOST || "localhost",
   port: parseInt(process.env.REDIS_PORT || "6379"),
   password: process.env.REDIS_PASSWORD,
-  maxRetriesPerRequest: 3,
   retryStrategy: (times: number) => {
-    const delay = Math.min(times * 50, 2000);
-    console.log(`Redis retry attempt ${times} with delay ${delay}ms`);
-    return delay;
+    // Exponential backoff with max 10s
+    return Math.min(times * 100, 10000);
   },
-  reconnectOnError: (err: Error) => {
-    console.log('Redis reconnectOnError triggered:', {
-      message: err.message,
-      stack: err.stack,
-      name: err.name
-    });
-    return true;
-  },
-  enableOfflineQueue: true,
-  connectTimeout: 10000,
-  commandTimeout: 5000,
-  lazyConnect: true,
-  authRetry: true,
-  enableReadyCheck: true
 };
 
 // Main Redis client for publishing
 const redisPub = new Redis(redisConfig);
 
-// Initialize session manager
-const sessionManager = new SessionManager(redisPub);
-console.log('SessionManager initialized');
-
-// Add error handling for Redis
-redisPub.on('error', (error: Error & { code?: string }) => {
-  console.error('Redis connection error:', {
-    message: error.message,
-    code: error.code,
-    stack: error.stack,
-    host: process.env.REDIS_HOST,
-    port: process.env.REDIS_PORT,
-    hasPassword: !!process.env.REDIS_PASSWORD
-  });
-});
-
-redisPub.on('connect', () => {
-  console.log('Redis connected successfully');
-});
-
-redisPub.on('ready', () => {
-  console.log('Redis is ready to accept commands');
-});
-
 // Subscribe to discovered events
 const redisSub = new Redis(redisConfig);
-
-// Add error handling for subscriber
-redisSub.on('error', (error: Error & { code?: string }) => {
-  console.error('Redis subscriber error:', {
-    message: error.message,
-    code: error.code,
-    stack: error.stack
-  });
-});
-
-redisSub.on('connect', () => {
-  console.log('Redis subscriber connected successfully');
-  redisSub.subscribe("discovered_events", (err, count) => {
-    if (err) {
-      console.error('Error subscribing to discovered_events:', err);
-    } else {
-      console.log(`Successfully subscribed to discovered_events. Active subscriptions: ${count}`);
-    }
-  });
-});
+redisSub.subscribe("discovered_events");
 
 redisSub.on("message", (channel, message) => {
-  console.log(`Received message on channel ${channel}:`, message);
   if (channel === "discovered_events") {
     try {
       const data = JSON.parse(message);
-      console.log('Processing discovered event for creator:', data.event.creatorId);
       // Format the message properly before sending to clients
       const formattedMessage = JSON.stringify({
         type: MessageTypes.EVENT_DISCOVERED,
@@ -137,23 +76,21 @@ redisSub.on("message", (channel, message) => {
         timestamp: new Date().toISOString()
       });
 
-      // Only send to the creator of the event
-      const creatorId = data.event.creatorId;
-      if (creatorId) {
-        const creatorClients = userToClients.get(creatorId);
-        console.log(`Found ${creatorClients?.size || 0} clients for user ${creatorId}`);
-        if (creatorClients) {
-          for (const clientId of creatorClients) {
-            const client = clients.get(clientId);
-            if (client) {
-              try {
-                console.log(`Sending discovery event to client ${clientId}`);
-                client.send(formattedMessage);
-              } catch (error) {
-                console.error(`Error sending discovery event to client ${clientId}:`, error);
-              }
-            }
-          }
+      // Broadcast to all connected clients
+      for (const [clientId, client] of clients.entries()) {
+        try {
+          client.send(formattedMessage);
+        } catch (error) {
+          console.error(`Error sending discovery event to client ${clientId}:`, error);
+
+
+
+
+
+
+
+
+
         }
       }
     } catch (error) {
@@ -162,14 +99,8 @@ redisSub.on("message", (channel, message) => {
   }
 });
 
-// Add subscription status logging
-redisSub.on('subscribe', (channel, count) => {
-  console.log(`Subscribed to channel ${channel}. Total subscriptions: ${count}`);
-});
-
-redisSub.on('unsubscribe', (channel, count) => {
-  console.log(`Unsubscribed from channel ${channel}. Total subscriptions: ${count}`);
-});
+// Initialize session manager
+const sessionManager = new SessionManager(redisPub);
 
 // System health state
 const systemHealth = {
@@ -220,8 +151,13 @@ async function fetchUserFiltersAndPublish(userId: string): Promise<void> {
 
     const filters = await response.json();
 
+    console.log("FILTERS", filters);
+
+    console.log(`📊 Fetched ${filters.length} filters for user ${userId}`);
+
     // Get only active filters
     const activeFilters = filters.filter((filter: any) => filter.isActive);
+    console.log(`📊 User ${userId} has ${activeFilters.length} active filters`);
 
     // Publish to filter-changes
     redisPub.publish(
@@ -233,7 +169,9 @@ async function fetchUserFiltersAndPublish(userId: string): Promise<void> {
       })
     );
 
-
+    console.log(
+      `📤 Published filter update for user ${userId} with ${activeFilters.length} active filters`
+    );
   } catch (error) {
     console.error(`Error fetching filters for user ${userId}:`, error);
     // Default to empty filter set (match all) on error
@@ -244,6 +182,7 @@ async function fetchUserFiltersAndPublish(userId: string): Promise<void> {
 // Function to get or create a Redis subscriber for a user
 function getRedisSubscriberForUser(userId: string): Redis {
   if (!userSubscribers.has(userId)) {
+    console.log(`Creating new Redis subscriber for user ${userId}`);
 
     const subscriber = new Redis(redisConfig);
     userSubscribers.set(userId, subscriber);
@@ -271,7 +210,9 @@ function forwardMessageToUserClients(userId: string, message: string): void {
   let parsedMessage;
   try {
     parsedMessage = JSON.parse(message);
-
+    console.log(
+      `Forwarding message type ${parsedMessage.type} to ${clientIds.size} clients of user ${userId}`
+    );
   } catch (error) {
     console.error(`Error parsing message for user ${userId}:`, error);
     return;
@@ -296,6 +237,7 @@ function releaseRedisSubscriber(userId: string): void {
     subscriber.unsubscribe();
     subscriber.quit();
     userSubscribers.delete(userId);
+    console.log(`Released Redis subscriber for user ${userId}`);
   }
 }
 
@@ -447,6 +389,7 @@ const server = {
         })
       );
 
+      console.log(`Client ${clientId} connected`);
       updateHealthStats();
     },
 
@@ -464,7 +407,6 @@ const server = {
           }
 
           const userId = data.userId;
-          console.log(`Client ${ws.data.clientId} identified as user ${userId}`);
 
           // Associate client with user
           ws.data.userId = userId;
@@ -474,10 +416,11 @@ const server = {
             userToClients.set(userId, new Set());
           }
           userToClients.get(userId)!.add(ws.data.clientId);
-          console.log(`User ${userId} now has ${userToClients.get(userId)!.size} connected clients`);
 
           // Ensure we have a Redis subscriber for this user
           getRedisSubscriberForUser(userId);
+
+          console.log(`Client ${ws.data.clientId} identified as user ${userId}`);
 
           // Fetch user's filters from backend and publish to filter-changes
           fetchUserFiltersAndPublish(userId);
@@ -518,6 +461,7 @@ const server = {
             })
           );
 
+          console.log(`Published viewport update for user ${userId}`);
         }
 
         // Handle session management messages
@@ -548,6 +492,7 @@ const server = {
       try {
         const { clientId, userId } = ws.data;
 
+        console.log(`Client ${clientId} disconnected`);
 
         // Clean up session management
         sessionManager.unregisterClient(clientId);
@@ -590,6 +535,7 @@ async function startServer() {
 
     // Start WebSocket server
     Bun.serve(server);
+    console.log(`WebSocket server started on port ${server.port}`);
   } catch (error) {
     console.error("Failed to start WebSocket server:", error);
     process.exit(1);
