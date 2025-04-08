@@ -146,10 +146,10 @@ export const useEnhancedTextStreaming = () => {
       }
 
       // Configure timing options
-      const wordDelay = options?.wordDelayMs ?? 100;
-      const messageDelay = options?.messageDelayMs ?? 1000;
-      const pauseAfter = options?.pauseAfterMs ?? 2000;
-      const characterDelay = options?.characterDelayMs ?? 30; // Default 30ms between characters
+      const wordDelay = options?.wordDelayMs ?? 50;
+      const messageDelay = options?.messageDelayMs ?? 500;
+      const pauseAfter = options?.pauseAfterMs ?? 0;
+      const characterDelay = options?.characterDelayMs ?? 5; // Default 30ms between characters
 
       // Create a new abort controller for this streaming session
       const controller = new AbortController();
