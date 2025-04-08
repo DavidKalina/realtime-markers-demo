@@ -4,6 +4,8 @@ import Animated, {
   useSharedValue,
   withTiming,
   cancelAnimation,
+  withRepeat,
+  withSequence,
   FadeIn,
   FadeOut,
   Easing,
@@ -14,6 +16,42 @@ import { useFilterStore } from "@/stores/useFilterStore";
 import * as Haptics from "expo-haptics";
 import DateRangeCalendar from "./DateRangeCalendar";
 import { format, parseISO, addDays } from "date-fns";
+
+// Unified color theme (from EventDetailsHeader)
+const COLORS = {
+  background: "#2a2a2a",
+  cardBackground: "#3a3a3a",
+  textPrimary: "#f8f9fa",
+  textSecondary: "#93c5fd", // Blue
+  accent: "#93c5fd", // Blue
+
+  divider: "rgba(147, 197, 253, 0.12)",
+  buttonBackground: "rgba(147, 197, 253, 0.1)",
+  buttonBorder: "rgba(147, 197, 253, 0.15)",
+
+  success: "#40c057",
+  successBackground: "rgba(64, 192, 87, 0.12)",
+  successBorder: "rgba(64, 192, 87, 0.2)",
+
+  iconUser: "#ff922b", // Orange
+  iconEngagement: "#a5d8ff", // Light Blue
+  iconVerified: "#69db7c", // Green
+  iconDateTime: "#ffd43b", // Yellow
+  iconLocation: "#ff8787", // Red
+  iconCategories: "#da77f2", // Purple
+  iconDefault: "#93c5fd", // Default blue
+};
+
+// Helper to generate icon background color (from EventDetailsHeader)
+const getIconBackgroundColor = (color: string) => {
+  if (color.startsWith('#') && color.length === 7) {
+    const r = parseInt(color.slice(1, 3), 16);
+    const g = parseInt(color.slice(3, 5), 16);
+    const b = parseInt(color.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, 0.15)`;
+  }
+  return 'rgba(147, 197, 253, 0.15)'; // Fallback
+};
 
 // Pre-define animations to avoid recreation
 const FADE_IN = FadeIn.duration(200);
@@ -36,6 +74,7 @@ const CalendarIndicator: React.FC = React.memo(() => {
   const lastFilters = useRef<any[]>([]);
   const iconOpacity = useSharedValue(1);
   const loaderOpacity = useSharedValue(0);
+  const pulseScale = useSharedValue(1);
 
   // Get active filters with date ranges
   const activeDateFilters = useMemo(() => {
@@ -81,9 +120,19 @@ const CalendarIndicator: React.FC = React.memo(() => {
     if (isLoading) {
       iconOpacity.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.ease) });
       loaderOpacity.value = withTiming(1, { duration: 200, easing: Easing.in(Easing.ease) });
+      pulseScale.value = withRepeat(
+        withSequence(
+          withTiming(1.05, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1, // Infinite loop
+        true // Reverse direction on repeat
+      );
     } else {
       iconOpacity.value = withTiming(1, { duration: 200, easing: Easing.in(Easing.ease) });
       loaderOpacity.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.ease) });
+      cancelAnimation(pulseScale);
+      pulseScale.value = withTiming(1, { duration: 200 });
     }
   }, [isLoading]);
 
@@ -92,7 +141,8 @@ const CalendarIndicator: React.FC = React.memo(() => {
     if (!isMounted.current) return;
     cancelAnimation(modalAnim);
     modalAnim.value = 0;
-  }, [modalAnim]);
+    cancelAnimation(pulseScale);
+  }, [modalAnim, pulseScale]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -178,6 +228,7 @@ const CalendarIndicator: React.FC = React.memo(() => {
         >
           <Animated.View
             style={[
+              { transform: [{ scale: pulseScale }] },
               styles.indicator,
               activeDateFilters.length > 0 && styles.indicatorExpanded,
               activeDateFilters.length > 0 && styles.indicatorActive,
@@ -187,6 +238,7 @@ const CalendarIndicator: React.FC = React.memo(() => {
           >
             <View style={[
               styles.iconContainer,
+              !isLoading && { backgroundColor: getIconBackgroundColor(COLORS.accent) },
               activeDateFilters.length > 0 && styles.iconContainerExpanded,
               activeDateFilters.length > 0 && styles.iconContainerActive
             ]}>
@@ -196,7 +248,7 @@ const CalendarIndicator: React.FC = React.memo(() => {
                   { opacity: iconOpacity }
                 ]}
               >
-                <Calendar size={14} color="#93c5fd" />
+                <Calendar size={14} color={COLORS.accent} />
               </Animated.View>
               <Animated.View
                 style={[
@@ -205,7 +257,7 @@ const CalendarIndicator: React.FC = React.memo(() => {
                 ]}
               >
                 <View style={styles.activityIndicator}>
-                  <ActivityIndicator size="small" color="#93c5fd" />
+                  <ActivityIndicator size="small" color={COLORS.accent} />
                 </View>
               </Animated.View>
             </View>
@@ -239,7 +291,7 @@ const CalendarIndicator: React.FC = React.memo(() => {
             </Animated.View>
           </Animated.View>
         </Pressable>
-      </View>
+      </View >
 
       <Modal
         visible={showCalendar}
@@ -269,30 +321,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(51, 51, 51, 0.92)",
-    borderRadius: 16,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 12,
     padding: 8,
     height: 40,
     width: 40,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: COLORS.buttonBorder,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   indicatorExpanded: {
     width: 180,
-    paddingRight: 8,
+    paddingRight: 12,
     justifyContent: "flex-start",
   },
   indicatorActive: {
-    backgroundColor: "rgba(51, 51, 51, 0.95)",
-    borderColor: "rgba(147, 197, 253, 0.3)",
+    borderColor: `rgba(${parseInt(COLORS.accent.slice(1, 3), 16)}, ${parseInt(COLORS.accent.slice(3, 5), 16)}, ${parseInt(COLORS.accent.slice(5, 7), 16)}, 0.4)`,
   },
   indicatorLoading: {
-    opacity: 0.9,
+    justifyContent: "center",
+    alignItems: "center",
   },
   iconContainer: {
     width: 24,
@@ -300,13 +352,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   iconContainerExpanded: {
     marginRight: 8,
   },
   iconContainerActive: {
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
   },
   iconWrapper: {
     position: 'absolute',
@@ -342,12 +392,12 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontWeight: "600",
     lineHeight: 16,
-    color: "#93c5fd",
+    color: COLORS.accent,
     letterSpacing: 0.2,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(42, 42, 42, 0.8)",
     justifyContent: "center",
     alignItems: "center",
   },
