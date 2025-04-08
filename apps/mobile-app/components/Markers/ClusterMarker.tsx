@@ -1,6 +1,7 @@
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Svg, { Path, Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -9,6 +10,8 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  withSpring,
+  withDelay,
 } from "react-native-reanimated";
 
 interface ClusterMarkerProps {
@@ -17,56 +20,96 @@ interface ClusterMarkerProps {
   onPress: () => void;
   isSelected?: boolean;
   isHighlighted?: boolean;
+  index?: number; // For staggered animations
 }
 
-// Pre-defined color schemes for different cluster sizes
+// Pre-define constants
+const MARKER_WIDTH = 48;
+const MARKER_HEIGHT = 64;
+const SHADOW_OFFSET = { x: 3, y: 3 };
+
+// Color schemes with teardrop design
 const COLOR_SCHEMES = {
   small: {
-    gradient: ["#4dabf7", "#3793dd"],
-    accent: "rgba(77, 171, 247, 0.8)",
-    pulse: "rgba(77, 171, 247, 0.3)",
+    fill: "#333333",
+    stroke: "#FFFFFF",
+    text: "#FFFFFF"
   },
   medium: {
-    gradient: ["#ff9f43", "#ee8130"],
-    accent: "rgba(255, 159, 67, 0.8)",
-    pulse: "rgba(255, 159, 67, 0.3)",
+    fill: "#333333",
+    stroke: "#FFFFFF",
+    text: "#FFFFFF"
   },
   large: {
-    gradient: ["#fd79a8", "#e84393"],
-    accent: "rgba(253, 121, 168, 0.8)",
-    pulse: "rgba(253, 121, 168, 0.3)",
+    fill: "#333333",
+    stroke: "#FFFFFF",
+    text: "#FFFFFF"
   },
 };
 
-// Styled sub-components to reduce re-renders
-const PulseRing = React.memo(({ style }: { style: any }) => <Animated.View style={style} />);
+// Animation configurations
+const ANIMATIONS = {
+  DROP_IN: {
+    stiffness: 300,
+    damping: 15,
+    mass: 1,
+  },
+  BOUNCE: {
+    duration: 600,
+    easing: Easing.inOut(Easing.sin),
+  },
+  SCALE_PRESS: {
+    duration: 100,
+  },
+  SCALE_RELEASE: {
+    stiffness: 200,
+    damping: 12,
+  },
+  RIPPLE: {
+    duration: 800,
+  },
+  SHADOW: {
+    duration: 300,
+  },
+  FAN_OUT: {
+    duration: 800,
+    easing: Easing.out(Easing.back(1.2)),
+  },
+  FAN_IN: {
+    duration: 600,
+    easing: Easing.in(Easing.back(1.2)),
+  },
+};
 
-const ClusterText = React.memo(({ text, style }: { text: string; style: any }) => (
-  <Text style={style}>{text}</Text>
+// Helper to create animation cleanup
+const createAnimationCleanup = (animations: Animated.SharedValue<number>[]) => {
+  return () => {
+    animations.forEach((anim) => cancelAnimation(anim));
+  };
+};
+
+// Styled sub-components to reduce re-renders
+const ClusterText = React.memo(({ text }: { text: string }) => (
+  <Text style={styles.clusterText}>{text}</Text>
 ));
 
 export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
-  ({ count, onPress, isSelected = false, isHighlighted = false }) => {
-    // Animation values
-    const scale = useSharedValue(1);
-    const floatY = useSharedValue(0);
-    const rotation = useSharedValue(0);
-    const pulseScale = useSharedValue(1);
-    const pulseOpacity = useSharedValue(0);
-
+  ({ count, onPress, isSelected = false, isHighlighted = false, index = 0 }) => {
     // Component state
-    const [wasSelected, setWasSelected] = useState(false);
+    const [isDropComplete, setIsDropComplete] = useState(false);
     const prevSelectedRef = useRef(isSelected);
     const prevHighlightedRef = useRef(isHighlighted);
 
-    // Memoize size calculations
-    const { baseSize, innerSize } = useMemo(() => {
-      const base = count < 10 ? 40 : count < 50 ? 45 : 50;
-      return {
-        baseSize: base,
-        innerSize: base * 0.7,
-      };
-    }, [count]);
+    // Animation values
+    const dropY = useSharedValue(-300);
+    const scale = useSharedValue(0.5);
+    const rotation = useSharedValue(-0.1);
+    const shadowOpacity = useSharedValue(0);
+    const rippleScale = useSharedValue(0);
+    const rippleOpacity = useSharedValue(0.8);
+    const bounceY = useSharedValue(0);
+    const fanRotation = useSharedValue(0);
+    const fanScale = useSharedValue(1);
 
     // Memoize color scheme based on count
     const colorScheme = useMemo(() => {
@@ -78,176 +121,233 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     // Memoize formatted count
     const formattedCount = useMemo(() => (count > 99 ? "99+" : count.toString()), [count]);
 
-    // Initialize animations
+    // Set up drop-in animation on mount
     useEffect(() => {
-      floatY.value = withRepeat(
-        withSequence(
-          withTiming(2, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
-          withTiming(-2, { duration: 1500, easing: Easing.inOut(Easing.sin) })
-        ),
-        -1,
-        true
+      // Delay based on index for staggered entrance
+      const startDelay = index * 200;
+
+      // Drop animation sequence
+      dropY.value = withDelay(
+        startDelay,
+        withSpring(0, ANIMATIONS.DROP_IN)
       );
 
-      rotation.value = withRepeat(
-        withSequence(
-          withTiming(0.03, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
-          withTiming(-0.03, { duration: 2000, easing: Easing.inOut(Easing.sin) })
-        ),
-        -1,
-        true
+      // Scale and rotation
+      scale.value = withDelay(
+        startDelay,
+        withSpring(1, ANIMATIONS.DROP_IN)
       );
+
+      rotation.value = withDelay(
+        startDelay,
+        withSpring(0, ANIMATIONS.DROP_IN)
+      );
+
+      // After drop is complete
+      const dropCompleteTimer = setTimeout(() => {
+        setIsDropComplete(true);
+
+        // Show shadow
+        shadowOpacity.value = withTiming(0.3, ANIMATIONS.SHADOW);
+
+        // Show ripple effect
+        rippleScale.value = withTiming(5, ANIMATIONS.RIPPLE);
+        rippleOpacity.value = withTiming(0, ANIMATIONS.RIPPLE);
+
+        // Periodic gentle bounce
+        const bounceTimer = setTimeout(() => {
+          startPeriodicBounce();
+        }, 300);
+
+        return () => clearTimeout(bounceTimer);
+      }, startDelay + 1200);
 
       return () => {
-        cancelAnimation(floatY);
-        cancelAnimation(rotation);
+        clearTimeout(dropCompleteTimer);
+        createAnimationCleanup([dropY, scale, rotation, shadowOpacity, rippleScale, rippleOpacity])();
       };
+    }, [index]);
+
+    // Start periodic bounce animation
+    const startPeriodicBounce = useCallback(() => {
+      bounceY.value = withSequence(
+        withTiming(-5, ANIMATIONS.BOUNCE),
+        withTiming(0, ANIMATIONS.BOUNCE)
+      );
+
+      // Set up periodic repeating
+      const timer = setTimeout(() => {
+        startPeriodicBounce();
+      }, 6000);
+
+      return () => clearTimeout(timer);
     }, []);
 
-    // Handle selected state and pulse animation
+    // Handle selection state changes
     useEffect(() => {
       if (isSelected !== prevSelectedRef.current) {
         prevSelectedRef.current = isSelected;
 
         if (isSelected) {
-          scale.value = withTiming(1.2, { duration: 300, easing: Easing.out(Easing.back(1.2)) });
-
-          pulseScale.value = withRepeat(
-            withTiming(1.6, { duration: 1500, easing: Easing.out(Easing.ease) }),
-            -1,
-            false
-          );
-
-          pulseOpacity.value = withRepeat(
-            withTiming(0, { duration: 1500, easing: Easing.in(Easing.ease) }),
-            -1,
-            false
-          );
-
-          setWasSelected(true);
+          scale.value = withSpring(1.15, ANIMATIONS.SCALE_RELEASE);
         } else {
-          if (wasSelected) {
-            scale.value = withTiming(1, { duration: 300 });
-            setWasSelected(false);
-          }
-          pulseOpacity.value = withTiming(0, { duration: 300 });
+          scale.value = withSpring(1, ANIMATIONS.SCALE_RELEASE);
         }
       }
-
-      return () => {
-        cancelAnimation(pulseScale);
-        cancelAnimation(pulseOpacity);
-      };
-    }, [isSelected, wasSelected]);
-
-    // Handle highlight effect
-    useEffect(() => {
-      if (isHighlighted !== prevHighlightedRef.current) {
-        prevHighlightedRef.current = isHighlighted;
-
-        if (isHighlighted) {
-          scale.value = withSequence(
-            withTiming(1.1, { duration: 150 }),
-            withTiming(isSelected ? 1.2 : 1, { duration: 150 })
-          );
-        }
-      }
-    }, [isHighlighted, isSelected]);
+    }, [isSelected]);
 
     // Handle press with haptic feedback
     const handlePress = useCallback(() => {
-      Haptics.impactAsync(
-        isSelected ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
-      );
-
-      cancelAnimation(scale);
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(
+          isSelected ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
+        ).catch(() => { });
+      }
 
       scale.value = withSequence(
-        withTiming(0.9, { duration: 100 }),
-        withTiming(isSelected ? 1 : 1.2, { duration: 200, easing: Easing.out(Easing.back(1.2)) })
+        withTiming(0.9, ANIMATIONS.SCALE_PRESS),
+        withSpring(isSelected ? 1 : 1.15, ANIMATIONS.SCALE_RELEASE)
       );
 
       onPress();
-    }, [isSelected, onPress, scale]);
+    }, [isSelected, onPress]);
 
-    // Memoize animation styles
-    const containerStyle = useAnimatedStyle(() => ({
+    // Add fanning animation effect
+    useEffect(() => {
+      if (isDropComplete) {
+        // Fan out and in sequence
+        fanRotation.value = withSequence(
+          withTiming(0.2, ANIMATIONS.FAN_OUT),
+          withTiming(-0.2, ANIMATIONS.FAN_OUT),
+          withTiming(0, ANIMATIONS.FAN_IN)
+        );
+
+        fanScale.value = withSequence(
+          withTiming(1.1, ANIMATIONS.FAN_OUT),
+          withTiming(1.1, { duration: 200 }),
+          withTiming(1, ANIMATIONS.FAN_IN)
+        );
+
+        // Repeat the fanning animation every 4 seconds
+        const fanTimer = setInterval(() => {
+          fanRotation.value = withSequence(
+            withTiming(0.2, ANIMATIONS.FAN_OUT),
+            withTiming(-0.2, ANIMATIONS.FAN_OUT),
+            withTiming(0, ANIMATIONS.FAN_IN)
+          );
+
+          fanScale.value = withSequence(
+            withTiming(1.1, ANIMATIONS.FAN_OUT),
+            withTiming(1.1, { duration: 200 }),
+            withTiming(1, ANIMATIONS.FAN_IN)
+          );
+        }, 4000);
+
+        return () => clearInterval(fanTimer);
+      }
+    }, [isDropComplete]);
+
+    // Animated styles
+    const markerStyle = useAnimatedStyle(() => ({
       transform: [
-        { scale: scale.value },
-        { translateY: floatY.value },
-        { rotate: `${rotation.value}rad` },
+        { translateY: dropY.value + bounceY.value },
+        { scale: scale.value * fanScale.value },
+        { rotate: `${rotation.value + fanRotation.value}rad` },
       ],
-    }), []);
+    }));
 
-    const pulseStyle = useAnimatedStyle(() => ({
-      opacity: pulseOpacity.value,
-      transform: [{ scale: pulseScale.value }],
-    }), []);
-
-    // Memoize component styles
-    const styles = useClusterStyles();
-    const outerCircleStyle = useMemo(
-      () => [
-        styles.outerCircle,
-        {
-          width: baseSize,
-          height: baseSize,
-          borderRadius: baseSize / 2,
-          borderColor: colorScheme.accent,
-        },
+    const shadowStyle = useAnimatedStyle(() => ({
+      opacity: shadowOpacity.value,
+      transform: [
+        { translateX: SHADOW_OFFSET.x },
+        { translateY: SHADOW_OFFSET.y },
       ],
-      [baseSize, colorScheme.accent, styles.outerCircle]
-    );
+    }));
 
-    const innerCircleStyle = useMemo(
-      () => [
-        styles.innerCircle,
-        {
-          width: innerSize,
-          height: innerSize,
-          borderRadius: innerSize / 2,
-        },
-      ],
-      [innerSize, styles.innerCircle]
-    );
+    const rippleStyle = useAnimatedStyle(() => ({
+      opacity: rippleOpacity.value,
+      transform: [{ scale: rippleScale.value }],
+    }));
 
-    const textStyle = useMemo(
-      () => [styles.text, isSelected && styles.selectedText],
-      [isSelected, styles.text, styles.selectedText]
-    );
+    // SVG components - memoized for performance
+    const ShadowSvg = useMemo(() => (
+      <Svg width={MARKER_WIDTH} height={MARKER_HEIGHT} viewBox="0 0 48 64">
+        <Path
+          d="M24 4C13.5 4 6 12.1 6 22C6 28.5 9 34.4 13.5 39.6C17.5 44.2 24 52 24 52C24 52 30.5 44.2 34.5 39.6C39 34.4 42 28.5 42 22C42 12.1 34.5 4 24 4Z"
+          fill="black"
+          fillOpacity="0.3"
+        />
+      </Svg>
+    ), []);
 
-    const pulseRingStyle = useMemo(
-      () => [
-        styles.pulseRing,
-        pulseStyle,
-        {
-          width: baseSize,
-          height: baseSize,
-          borderRadius: baseSize / 2,
-          borderColor: colorScheme.accent,
-          backgroundColor: colorScheme.pulse,
-        },
-      ],
-      [baseSize, colorScheme.accent, colorScheme.pulse, pulseStyle, styles.pulseRing]
-    );
+    const MarkerSvg = useMemo(() => (
+      <Svg width={MARKER_WIDTH} height={MARKER_HEIGHT} viewBox="0 0 48 64">
+        {/* Teardrop marker */}
+        <Path
+          d="M24 4C13.5 4 6 12.1 6 22C6 28.5 9 34.4 13.5 39.6C17.5 44.2 24 52 24 52C24 52 30.5 44.2 34.5 39.6C39 34.4 42 28.5 42 22C42 12.1 34.5 4 24 4Z"
+          fill={colorScheme.fill}
+          stroke={colorScheme.stroke}
+          strokeWidth="3"
+          strokeLinejoin="round"
+        />
 
-    // Memoize the main content
-    const markerContent = useMemo(() => (
-      <View style={outerCircleStyle}>
-        <ClusterText text={formattedCount} style={textStyle} />
-      </View>
-    ), [outerCircleStyle, formattedCount, textStyle]);
+        {/* Nintendo-style highlight */}
+        <Path
+          d="M16 12C16 12 19 9 24 9C29 9 32 12 32 12"
+          stroke="rgba(255, 255, 255, 0.7)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+
+        {/* Count background circle */}
+        <Circle
+          cx="24"
+          cy="22"
+          r="12"
+          fill="#FFFFFF"
+          stroke="#E2E8F0"
+          strokeWidth="1"
+        />
+      </Svg>
+    ), [colorScheme]);
 
     return (
-      <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={styles.touchableArea}>
-        {isSelected && <PulseRing style={pulseRingStyle} />}
-        <Animated.View style={[styles.container, containerStyle]}>
-          {markerContent}
+      <View style={styles.container}>
+        {/* Marker Shadow */}
+        <Animated.View style={[styles.shadowContainer, shadowStyle]}>
+          {ShadowSvg}
         </Animated.View>
-      </TouchableOpacity>
+
+        {/* Marker */}
+        <TouchableOpacity
+          onPress={handlePress}
+          activeOpacity={0.7}
+          style={styles.touchableArea}
+        >
+          <Animated.View style={[styles.markerContainer, markerStyle]}>
+            {MarkerSvg}
+
+            {/* Cluster Count Text */}
+            <View style={styles.countContainer}>
+              <Text style={[
+                styles.countText,
+                { fontSize: count > 99 ? 14 : count > 9 ? 16 : 18 }
+              ]}>
+                {formattedCount}
+              </Text>
+            </View>
+
+            {/* Impact ripple effect that appears after drop */}
+            {isDropComplete && (
+              <Animated.View style={[styles.rippleEffect, rippleStyle]} />
+            )}
+          </Animated.View>
+        </TouchableOpacity>
+      </View>
     );
   },
   (prevProps, nextProps) => {
+    // Optimize re-renders
     return (
       prevProps.count === nextProps.count &&
       prevProps.isSelected === nextProps.isSelected &&
@@ -258,72 +358,73 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
   }
 );
 
-// Extract styles to a hook for better organization
-const useClusterStyles = () => {
-  return StyleSheet.create({
-    touchableArea: {
-      width: 60,
-      height: 60,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    container: {
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    outerCircle: {
-      backgroundColor: "rgba(58, 58, 58, 0.85)",
-      borderWidth: 1.5,
-      alignItems: "center",
-      justifyContent: "center",
-      ...Platform.select({
-        ios: {
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: 0.3,
-          shadowRadius: 4,
-        },
-        android: {
-          elevation: 5,
-        },
-      }),
-    },
-    innerCircle: {
-      alignItems: "center",
-      justifyContent: "center",
-      ...Platform.select({
-        ios: {
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.2,
-          shadowRadius: 2,
-        },
-        android: {
-          elevation: 3,
-        },
-      }),
-    },
-    text: {
-      color: "#FFFFFF",
-      fontWeight: "bold",
-      fontFamily: "SpaceMono",
-      fontSize: 16,
-      textAlign: "center",
-      ...Platform.select({
-        ios: {
-          shadowColor: "rgba(0, 0, 0, 0.5)",
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.5,
-          shadowRadius: 1,
-        },
-      }),
-    },
-    selectedText: {
-      fontSize: 18,
-    },
-    pulseRing: {
-      position: "absolute",
-      borderWidth: 2,
-    },
-  });
-};
+const styles = StyleSheet.create({
+  container: {
+    width: MARKER_WIDTH,
+    height: MARKER_HEIGHT,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  touchableArea: {
+    width: MARKER_WIDTH,
+    height: MARKER_HEIGHT,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  markerContainer: {
+    width: MARKER_WIDTH,
+    height: MARKER_HEIGHT,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shadowContainer: {
+    position: "absolute",
+    bottom: 0,
+    zIndex: -1,
+  },
+  countContainer: {
+    position: "absolute",
+    top: 12,
+    width: MARKER_WIDTH,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  countText: {
+    fontWeight: "bold",
+    color: "#222222",
+    fontFamily: "SpaceMono",
+    textAlign: "center",
+    lineHeight: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: "rgba(0, 0, 0, 0.2)",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.5,
+        shadowRadius: 1,
+      },
+      android: {
+        textShadowColor: "rgba(0,0,0,0.2)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 1,
+      },
+    }),
+  },
+  clusterText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#000000",
+  },
+  rippleEffect: {
+    position: "absolute",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "transparent",
+    borderWidth: 2,
+    borderColor: "white",
+    opacity: 0.7,
+    bottom: 12,
+  },
+});
