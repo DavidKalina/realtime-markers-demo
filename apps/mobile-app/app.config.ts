@@ -5,7 +5,7 @@ export default {
   expo: {
     name: "MapMoji",
     slug: "mobile-app",
-    version: "1.8.5",
+    version: "1.8.6",
     orientation: "portrait",
     icon: "./assets/images/logo.png",
     scheme: "myapp",
