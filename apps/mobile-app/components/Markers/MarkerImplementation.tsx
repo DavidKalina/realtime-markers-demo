@@ -15,7 +15,7 @@ import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useMemo, useRef, useEffect } from "react";
 import Animated, { BounceIn, BounceOut, Layout, LinearTransition } from "react-native-reanimated";
 import { ClusterMarker } from "./ClusterMarker";
-import { MysteryEmojiMarker } from "./CustomMapMarker";
+import { EmojiMapMarker } from "./CustomMapMarker";
 
 // Define the map item types from the store (ideally these would be imported from a types file)
 interface BaseMapItem {
@@ -71,7 +71,7 @@ const SingleMarkerView = React.memo(
           exiting={BounceOut.duration(500).springify().damping(15).stiffness(200)}
           layout={LinearTransition.springify()}
         >
-          <MysteryEmojiMarker
+          <EmojiMapMarker
             event={{
               title: marker.data.title || "Unnamed Event",
               emoji: marker.data.emoji || "📍",
