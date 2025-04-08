@@ -4,14 +4,12 @@ import { SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } fro
 import Animated, { FadeIn } from "react-native-reanimated";
 import { ErrorEventDetails } from "./ErrorEventDetails";
 import EventDetailsHeader from "./EventDetailsHeader";
-import EventDetailsMainSection from "./EventDetailsMainSection";
 import LoadingEventDetails from "./LoadingEventDetails";
 import NoEventDetailsAvailable from "./NoEventDetailsAvailable";
 import SaveCount from "./SaveCount";
 import ShareEvent from "./ShareEvent";
 import { styles } from "./styles";
 import { useEventDetails } from "./useEventDetails";
-import EventQRCodeSection from "./EventQRCodeSection";
 import AdminOriginalImageViewer from "../AdminOriginalImageViewer/AdminOriginalImageViewer";
 
 interface EventDetailsProps {
@@ -74,15 +72,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
               {saveCount > 0 && <SaveCount saveCount={saveCount} />}
 
-              <EventDetailsMainSection
-                event={event}
-                distanceInfo={distanceInfo}
-                isLoadingLocation={isLoadingLocation}
-                isAdmin={isAdmin}
-                userLocation={userLocation}
-                handleOpenMaps={handleOpenMaps}
-                handleGetDirections={handleGetDirections}
-              />
+
               {isAdmin && <AdminOriginalImageViewer eventId={event.id!} isAdmin={isAdmin} />}
             </ScrollView>
 

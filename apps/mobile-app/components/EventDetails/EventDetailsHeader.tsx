@@ -1,12 +1,19 @@
 import { formatDate } from "@/utils/dateTimeFormatting";
 import { BookmarkIcon, Calendar, CheckCircle, Eye, Info, Map, MapPin, Navigation, User } from "lucide-react-native";
-import React, { useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useMemo, useEffect } from "react";
+import { StyleSheet, Text, TouchableOpacity, View, Pressable } from "react-native";
 import Animated, {
   FadeInDown,
   FadeInUp,
   Layout,
-  LinearTransition
+  LinearTransition,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  withSpring,
+  Easing
 } from "react-native-reanimated";
 import EventQRCodeSection from "./EventQRCodeSection";
 import SaveButton from "./SaveButton";
@@ -25,12 +32,34 @@ const COLORS = {
   divider: "rgba(147, 197, 253, 0.12)",
   buttonBackground: "rgba(147, 197, 253, 0.1)",
   buttonBorder: "rgba(147, 197, 253, 0.15)",
-  iconBackground: "rgba(147, 197, 253, 0.15)",
+  // Removed iconBackground - will derive from iconColor
+  // iconBackground: "rgba(147, 197, 253, 0.15)",
 
   // Status colors
   success: "#40c057",
   successBackground: "rgba(64, 192, 87, 0.12)",
   successBorder: "rgba(64, 192, 87, 0.2)",
+
+  // Vibrant Icon Colors
+  iconUser: "#ff922b", // Orange
+  iconEngagement: "#a5d8ff", // Light Blue
+  iconVerified: "#69db7c", // Green
+  iconDateTime: "#ffd43b", // Yellow
+  iconLocation: "#ff8787", // Red
+  iconCategories: "#da77f2", // Purple
+  iconDefault: "#93c5fd", // Default blue
+};
+
+// Helper to generate icon background color from primary color
+const getIconBackgroundColor = (color: string) => {
+  // Basic hex to rgba conversion assuming hex is #RRGGBB
+  if (color.startsWith('#') && color.length === 7) {
+    const r = parseInt(color.slice(1, 3), 16);
+    const g = parseInt(color.slice(3, 5), 16);
+    const b = parseInt(color.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, 0.15)`;
+  }
+  return 'rgba(147, 197, 253, 0.15)'; // Fallback
 };
 
 const styles = StyleSheet.create({
@@ -67,7 +96,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.iconBackground,
+    backgroundColor: getIconBackgroundColor(COLORS.iconDefault),
     marginRight: 16,
   },
 
@@ -120,13 +149,14 @@ const styles = StyleSheet.create({
     gap: 16,
   },
 
+  // Updated infoIcon style - background is now dynamic
   infoIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.iconBackground,
+    // backgroundColor removed, will be applied dynamically
   },
 
   infoContent: {
@@ -353,33 +383,72 @@ const styles = StyleSheet.create({
 });
 
 // Memoized Header Component
-const EventHeader = React.memo(({ event, titleFontSize, isSaved, savingState, handleToggleSave }: any) => (
-  <Animated.View
-    entering={FadeInDown.duration(600).springify()}
-    layout={LinearTransition.duration(300)}
-    style={styles.topRow}
-  >
-    <View style={styles.emojiContainer}>
-      <Text style={styles.resultEmoji}>{event.emoji || "📍"}</Text>
-    </View>
+const EventHeader = React.memo(({ event, titleFontSize, isSaved, savingState, handleToggleSave }: any) => {
+  // Shared values for animation
+  const translateY = useSharedValue(0);
+  const scale = useSharedValue(1);
 
-    <View style={styles.eventTitleWrapper}>
-      <Text
-        style={[styles.resultTitle, { fontSize: titleFontSize }]}
-        numberOfLines={2}
-        ellipsizeMode="tail"
-      >
-        {event.title}
-      </Text>
-    </View>
+  // Start animation on mount
+  useEffect(() => {
+    translateY.value = withRepeat(
+      withSequence(
+        withTiming(-5, { duration: 800, easing: Easing.inOut(Easing.quad) }),
+        withTiming(5, { duration: 800, easing: Easing.inOut(Easing.quad) })
+      ),
+      -1, // Infinite repeat
+      true // Reverse animation smoothly
+    );
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.1, { duration: 700, easing: Easing.inOut(Easing.quad) }),
+        withTiming(1, { duration: 700, easing: Easing.inOut(Easing.quad) })
+      ),
+      -1,
+      true
+    );
+  }, [translateY, scale]);
 
-    <SaveButton
-      isSaved={isSaved}
-      savingState={savingState}
-      onSave={handleToggleSave}
-    />
-  </Animated.View>
-));
+  // Animated style for the emoji container
+  const animatedEmojiContainerStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateY: translateY.value },
+        { scale: scale.value },
+      ],
+    };
+  });
+
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(600).springify()}
+      layout={LinearTransition.duration(300)}
+      style={styles.topRow}
+    >
+      {/* Wrap emoji container with Animated.View and apply style */}
+      <Animated.View style={animatedEmojiContainerStyle}>
+        <View style={styles.emojiContainer}>
+          <Text style={styles.resultEmoji}>{event.emoji || "📍"}</Text>
+        </View>
+      </Animated.View>
+
+      <View style={styles.eventTitleWrapper}>
+        <Text
+          style={[styles.resultTitle, { fontSize: titleFontSize }]}
+          numberOfLines={2}
+          ellipsizeMode="tail"
+        >
+          {event.title}
+        </Text>
+      </View>
+
+      <SaveButton
+        isSaved={isSaved}
+        savingState={savingState}
+        onSave={handleToggleSave}
+      />
+    </Animated.View>
+  );
+});
 
 // Memoized Description Component
 const EventDescription = React.memo(({ description }: { description: string }) => (
@@ -399,27 +468,66 @@ const EventInfoSection = React.memo(({
   icon: Icon,
   label,
   children,
-  delay = 0
+  delay = 0,
+  iconColor = COLORS.iconDefault,
 }: {
   icon: any;
   label: string;
   children: React.ReactNode;
   delay?: number;
-}) => (
-  <Animated.View
-    entering={FadeInUp.duration(600).delay(delay).springify()}
-    layout={Layout.duration(300)}
-    style={styles.infoSection}
-  >
-    <View style={styles.infoIcon}>
-      <Icon size={18} color={COLORS.accent} />
-    </View>
-    <View style={styles.infoContent}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      {children}
-    </View>
-  </Animated.View>
-));
+  iconColor?: string;
+}) => {
+  // Shared value for background pulse animation
+  const backgroundOpacity = useSharedValue(0.15); // Initial opacity from getIconBackgroundColor
+
+  // Start pulse animation on mount
+  useEffect(() => {
+    backgroundOpacity.value = withRepeat(
+      withSequence(
+        // Fade slightly more opaque
+        withTiming(0.25, { duration: 1200, easing: Easing.inOut(Easing.quad) }),
+        // Fade back to base opacity
+        withTiming(0.15, { duration: 1200, easing: Easing.inOut(Easing.quad) })
+      ),
+      -1, // Infinite repeat
+      true // Reverse smoothly
+    );
+  }, [backgroundOpacity]);
+
+  // Animated style for the icon background pulse
+  const animatedIconBackgroundStyle = useAnimatedStyle(() => {
+    // Recalculate RGBA based on pulsing opacity
+    if (iconColor.startsWith('#') && iconColor.length === 7) {
+      const r = parseInt(iconColor.slice(1, 3), 16);
+      const g = parseInt(iconColor.slice(3, 5), 16);
+      const b = parseInt(iconColor.slice(5, 7), 16);
+      return {
+        backgroundColor: `rgba(${r}, ${g}, ${b}, ${backgroundOpacity.value})`,
+      };
+    }
+    // Fallback for default color if needed (though should always get a hex)
+    return {
+      backgroundColor: `rgba(147, 197, 253, ${backgroundOpacity.value})`,
+    };
+  });
+
+  return (
+    <Animated.View
+      entering={FadeInUp.duration(600).delay(delay).springify()}
+      layout={Layout.duration(300)}
+      style={styles.infoSection}
+    >
+      {/* Apply dynamic animated background color */}
+      <Animated.View style={[styles.infoIcon, animatedIconBackgroundStyle]}>
+        <Icon size={18} color={iconColor} />
+      </Animated.View>
+      <View style={styles.infoContent}>
+        <Text style={styles.infoLabel}>{label}</Text>
+        {children}
+      </View>
+    </Animated.View>
+  );
+});
 
 // Memoized Stats Component
 const EventStats = React.memo(({ event }: { event: any }) => (
@@ -445,20 +553,55 @@ const LocationActions = React.memo(({
   handleGetDirections,
   userLocation,
   event
-}: any) => (
-  <View style={styles.locationActions}>
-    <TouchableOpacity style={styles.actionButton} onPress={handleOpenMaps}>
-      <Map size={14} color={COLORS.accent} />
-      <Text style={styles.actionButtonText}>View Map</Text>
-    </TouchableOpacity>
-    {userLocation && event.coordinates && (
-      <TouchableOpacity style={styles.actionButton} onPress={handleGetDirections}>
-        <Navigation size={14} color={COLORS.accent} />
-        <Text style={styles.actionButtonText}>Directions</Text>
-      </TouchableOpacity>
-    )}
-  </View>
-));
+}: any) => {
+  // Shared values for animations
+  const mapScale = useSharedValue(1);
+  const directionsScale = useSharedValue(1);
+
+  // Animated styles
+  const mapAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: mapScale.value }],
+  }));
+  const directionsAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: directionsScale.value }],
+  }));
+
+  // Press handlers
+  const handleMapPressIn = () => { mapScale.value = withSpring(0.95); };
+  const handleMapPressOut = () => { mapScale.value = withSpring(1); };
+  const handleDirectionsPressIn = () => { directionsScale.value = withSpring(0.95); };
+  const handleDirectionsPressOut = () => { directionsScale.value = withSpring(1); };
+
+  return (
+    <View style={styles.locationActions}>
+      {/* Map Button */}
+      <Pressable
+        onPress={handleOpenMaps}
+        onPressIn={handleMapPressIn}
+        onPressOut={handleMapPressOut}
+      >
+        <Animated.View style={[styles.actionButton, mapAnimatedStyle]}>
+          <Map size={14} color={COLORS.accent} />
+          <Text style={styles.actionButtonText}>View Map</Text>
+        </Animated.View>
+      </Pressable>
+
+      {/* Directions Button (Conditional) */}
+      {userLocation && event.coordinates && (
+        <Pressable
+          onPress={handleGetDirections}
+          onPressIn={handleDirectionsPressIn}
+          onPressOut={handleDirectionsPressOut}
+        >
+          <Animated.View style={[styles.actionButton, directionsAnimatedStyle]}>
+            <Navigation size={14} color={COLORS.accent} />
+            <Text style={styles.actionButtonText}>Directions</Text>
+          </Animated.View>
+        </Pressable>
+      )}
+    </View>
+  );
+});
 
 // Memoized Categories Component
 const EventCategories = React.memo(({ categories }: { categories: any[] }) => (
@@ -542,6 +685,7 @@ const EventDetailsHeader = ({
               icon={User}
               label="Scanned By"
               delay={300}
+              iconColor={COLORS.iconUser} // Assign specific color
             >
               <Text style={styles.infoValue}>
                 {event.creator.displayName || event.creator.email}
@@ -552,7 +696,8 @@ const EventDetailsHeader = ({
           <EventInfoSection
             icon={BookmarkIcon}
             label="Engagement"
-            delay={400}
+            delay={350} // Stagger delay
+            iconColor={COLORS.iconEngagement} // Assign specific color
           >
             <EventStats event={event} />
           </EventInfoSection>
@@ -561,7 +706,8 @@ const EventDetailsHeader = ({
             <EventInfoSection
               icon={CheckCircle}
               label="Verification"
-              delay={500}
+              delay={400} // Stagger delay
+              iconColor={COLORS.iconVerified} // Assign specific color
             >
               <View style={styles.statusBadge}>
                 <Text style={styles.statusText}>VERIFIED EVENT</Text>
@@ -572,7 +718,8 @@ const EventDetailsHeader = ({
           <EventInfoSection
             icon={Calendar}
             label="Date & Time"
-            delay={600}
+            delay={450} // Stagger delay
+            iconColor={COLORS.iconDateTime} // Assign specific color
           >
             <Text style={styles.infoValue}>
               {formatDate(event.eventDate, event.timezone)}
@@ -586,7 +733,8 @@ const EventDetailsHeader = ({
           <EventInfoSection
             icon={MapPin}
             label="Location"
-            delay={700}
+            delay={500} // Stagger delay
+            iconColor={COLORS.iconLocation} // Assign specific color
           >
             <Text style={styles.infoValue}>{event.location}</Text>
             {event.locationNotes && event.locationNotes !== "No additional location context provided" && (
@@ -606,7 +754,8 @@ const EventDetailsHeader = ({
             <EventInfoSection
               icon={Info}
               label="Categories"
-              delay={800}
+              delay={550} // Stagger delay
+              iconColor={COLORS.iconCategories} // Assign specific color
             >
               <EventCategories categories={event.categories} />
             </EventInfoSection>
