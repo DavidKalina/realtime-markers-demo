@@ -21,7 +21,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, Animated, Platform, Text, View } from "react-native";
 import { DEFAULT_CAMERA_SETTINGS, createCameraSettings } from "@/config/cameraConfig";
 import { StatusBar } from "@/components/StatusBar/StatusBar";
-import { MapControls } from "@/components/MapControls/MapControls";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -359,7 +358,6 @@ function HomeScreen() {
 
         {mapOverlays}
         {assistantOverlay}
-        {!isLoadingLocation && <MapControls />}
       </View>
     </AuthWrapper>
   );

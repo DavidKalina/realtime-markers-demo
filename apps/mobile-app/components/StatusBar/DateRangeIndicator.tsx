@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StyleSheet, Text, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, Text, Pressable, Modal } from 'react-native';
 import Animated, {
     useAnimatedStyle,
     withSpring,
@@ -12,9 +12,11 @@ import { Calendar } from 'lucide-react-native';
 import * as Haptics from "expo-haptics";
 import { useFilterStore } from "@/stores/useFilterStore";
 import { format, parseISO, addDays } from "date-fns";
+import DateRangeCalendar from "@/components/DateRangeCalendar";
 
 export const DateRangeIndicator: React.FC = () => {
-    const { filters, activeFilterIds } = useFilterStore();
+    const [showCalendar, setShowCalendar] = useState(false);
+    const { filters, activeFilterIds, updateFilter, applyFilters, createFilter } = useFilterStore();
     const scale = useSharedValue(1);
     const rotation = useSharedValue(0);
 
@@ -61,6 +63,56 @@ export const DateRangeIndicator: React.FC = () => {
             withTiming(5, { duration: 100, easing: Easing.inOut(Easing.ease) }),
             withTiming(0, { duration: 100, easing: Easing.inOut(Easing.ease) })
         );
+        setShowCalendar(true);
+    };
+
+    const handleDateRangeSelect = async (startDate: string | null, endDate: string | null) => {
+        // If no dates are provided, default to 2 weeks from today
+        if (!startDate || !endDate) {
+            const today = new Date();
+            const twoWeeksFromNow = addDays(today, 14);
+            startDate = format(today, 'yyyy-MM-dd');
+            endDate = format(twoWeeksFromNow, 'yyyy-MM-dd');
+        }
+
+        // Get either the active filter or fall back to the oldest filter
+        let targetFilter =
+            filters.find((f) => activeFilterIds.includes(f.id)) ||
+            (filters.length > 0
+                ? filters.reduce((oldest, current) => {
+                    return new Date(current.createdAt) < new Date(oldest.createdAt) ? current : oldest;
+                })
+                : null);
+
+        // If no filter exists, create a new one
+        if (!targetFilter) {
+            targetFilter = await createFilter({
+                name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
+                criteria: {
+                    dateRange: { start: startDate, end: endDate }
+                },
+            });
+        } else {
+            // Update the filter with new date range while preserving other criteria
+            const updatedFilter = {
+                ...targetFilter,
+                // Only update the name if there's no semantic query
+                ...(targetFilter.semanticQuery ? {} : {
+                    name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
+                }),
+                criteria: {
+                    ...targetFilter.criteria,
+                    dateRange: { start: startDate, end: endDate },
+                },
+            };
+            // First update the filter
+            await updateFilter(targetFilter.id, updatedFilter);
+            // Then ensure it's the only active filter
+            await applyFilters([targetFilter.id]);
+        }
+
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setShowCalendar(false);
     };
 
     const animatedStyle = useAnimatedStyle(() => ({
@@ -71,14 +123,32 @@ export const DateRangeIndicator: React.FC = () => {
     }));
 
     return (
-        <Pressable onPress={handlePress}>
-            <Animated.View style={[styles.container, animatedStyle]}>
-                <View style={styles.iconContainer}>
-                    <Calendar size={12} color="#3B82F6" />
+        <>
+            <Pressable onPress={handlePress}>
+                <Animated.View style={[styles.container, animatedStyle]}>
+                    <View style={styles.iconContainer}>
+                        <Calendar size={12} color="#60A5FA" />
+                    </View>
+                    <Text style={styles.text}>{dateRangeText}</Text>
+                </Animated.View>
+            </Pressable>
+
+            <Modal
+                visible={showCalendar}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowCalendar(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <DateRangeCalendar
+                        startDate={filters.find(f => activeFilterIds.includes(f.id))?.criteria.dateRange?.start}
+                        endDate={filters.find(f => activeFilterIds.includes(f.id))?.criteria.dateRange?.end}
+                        onDateRangeSelect={handleDateRangeSelect}
+                        onClose={() => setShowCalendar(false)}
+                    />
                 </View>
-                <Text style={styles.text}>{dateRangeText}</Text>
-            </Animated.View>
-        </Pressable>
+            </Modal>
+        </>
     );
 };
 
@@ -92,7 +162,7 @@ const styles = StyleSheet.create({
         width: 20,
         height: 20,
         borderRadius: 10,
-        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+        backgroundColor: 'rgba(96, 165, 250, 0.2)',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -100,7 +170,13 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontFamily: "SpaceMono",
         fontWeight: "600",
-        color: '#3B82F6',
+        color: '#60A5FA',
         letterSpacing: 0.2,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 }); 

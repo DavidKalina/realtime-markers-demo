@@ -55,54 +55,7 @@ export const JobIndicator: React.FC = () => {
         return Math.round((totalProgress / activeJobs.length));
     }, [activeJobs]);
 
-    // Test function to simulate discovery
-    const simulateDiscovery = () => {
-        const mockDiscovery: DiscoveredEventData = {
-            id: 'test-discovery',
-            emoji: '✨',
-            title: 'Test Discovery',
-            eventDate: new Date().toISOString(),
-            confidenceScore: 0.95,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            location: {
-                coordinates: [-122.4194, 37.7749],
-                type: 'Point'
-            }
-        };
 
-        setDiscoveryData(mockDiscovery);
-        setState('discovered');
-
-        // Pulse animation for the entire container
-        bounceValue.value = withRepeat(
-            withSequence(
-                withSpring(1.12, { damping: 8, stiffness: 100 }), // Increased scale for more impact
-                withSpring(0.95, { damping: 8, stiffness: 100 }), // Added undershoot
-                withSpring(1.12, { damping: 8, stiffness: 100 }),
-                withSpring(1, { damping: 8, stiffness: 100 })
-            ),
-            -1,
-            true
-        );
-
-        // Auto-reset after 10 seconds
-        setTimeout(() => {
-            setState('idle');
-            setDiscoveryData(null);
-        }, 10000);
-    };
-
-    // Auto-simulate discovery after 5 seconds
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (state === 'idle') {
-                simulateDiscovery();
-            }
-        }, 5000);
-
-        return () => clearTimeout(timer);
-    }, [state]);
 
     // Subscribe to discovery events
     useEffect(() => {
