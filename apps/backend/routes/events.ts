@@ -43,8 +43,5 @@ eventsRouter.post("/:id/save", handlers.toggleSaveEventHandler);
 eventsRouter.get("/:id/saved", handlers.isEventSavedHandler);
 eventsRouter.get("/:id", handlers.getEventByIdHandler);
 
-// Add new cluster hub endpoint - changed to POST to accept event IDs
-eventsRouter.post("/cluster/hub", handlers.getClusterHubDataHandler);
-
 // Root path should be last to avoid catching other routes
 eventsRouter.get("/", handlers.getAllEventsHandler);
