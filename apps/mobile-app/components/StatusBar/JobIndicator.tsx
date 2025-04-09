@@ -162,30 +162,24 @@ export const JobIndicator = () => {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
             <Animated.View style={[styles.container, animatedStyle]}>
-                <View style={[styles.iconContainer, styles.placeholderContainer]}>
-                    {(state === 'processing' || state === 'discovered' || state === 'jobMessage') && (
-                        <Animated.View
-                            entering={SlideInRight
-                                .duration(300)
-                                .springify()
-                                .damping(15)
-                                .stiffness(200)}
-                            exiting={FadeOut
-                                .duration(300)
-                                .springify()
-                                .damping(15)
-                                .stiffness(200)}
-                            style={styles.indicatorWrapper}
-                        >
-                            {state === 'processing' && <CircularProgress progress={progress} />}
-                            <Animated.View style={[
-                                styles.iconContainer,
-                                (state === 'discovered' || state === 'jobMessage') && styles.discoveryContainer
-                            ]}>
-                                <Animated.View style={[
-                                    state === 'processing' ? spinAnimatedStyle : undefined
-                                ]}>
-                                    {state === 'processing' && (
+                {state === 'processing' ? (
+                    <CircularProgress progress={progress}>
+                        <View style={styles.placeholderContainer}>
+                            <Animated.View
+                                entering={SlideInRight
+                                    .duration(300)
+                                    .springify()
+                                    .damping(15)
+                                    .stiffness(200)}
+                                exiting={FadeOut
+                                    .duration(300)
+                                    .springify()
+                                    .damping(15)
+                                    .stiffness(200)}
+                                style={styles.indicatorWrapper}
+                            >
+                                <Animated.View>
+                                    <Animated.View style={spinAnimatedStyle}>
                                         <Animated.View
                                             entering={ZoomIn
                                                 .duration(300)
@@ -200,51 +194,58 @@ export const JobIndicator = () => {
                                         >
                                             <Cog size={10} color="#FF6B00" />
                                         </Animated.View>
-                                    )}
-                                    {(state === 'discovered' || state === 'jobMessage') && (
-                                        <Animated.View
-                                            entering={ZoomIn
-                                                .duration(300)
-                                                .springify()
-                                                .damping(15)
-                                                .stiffness(200)}
-                                            exiting={FadeOut
-                                                .duration(300)
-                                                .springify()
-                                                .damping(15)
-                                                .stiffness(200)}
-                                            style={styles.discoveryContent}
-                                        >
-                                            <Animated.Text
-                                                entering={FadeIn
-                                                    .duration(500)
-                                                    .springify()
-                                                    .damping(15)
-                                                    .stiffness(200)}
-                                                exiting={FadeOut.duration(300)}
-                                                style={styles.emojiText}
-                                            >
-                                                {state === 'discovered' ? (discoveryData?.emoji || "✨") : (jobMessage?.emoji || "✨")}
-                                            </Animated.Text>
-                                            <Animated.View
-                                                entering={FadeIn
-                                                    .delay(200)
-                                                    .duration(300)
-                                                    .springify()
-                                                    .damping(15)
-                                                    .stiffness(200)}
-                                                exiting={FadeOut.duration(200)}
-                                                style={styles.exclamationContainer}
-                                            >
-                                                <Text style={styles.exclamationText}>!</Text>
-                                            </Animated.View>
-                                        </Animated.View>
-                                    )}
+                                    </Animated.View>
                                 </Animated.View>
                             </Animated.View>
-                        </Animated.View>
-                    )}
-                </View>
+                        </View>
+                    </CircularProgress>
+                ) : (
+                    <View style={styles.placeholderContainer}>
+                        {(state === 'discovered' || state === 'jobMessage') && (
+                            <Animated.View
+                                entering={SlideInRight
+                                    .duration(300)
+                                    .springify()
+                                    .damping(15)
+                                    .stiffness(200)}
+                                exiting={FadeOut
+                                    .duration(300)
+                                    .springify()
+                                    .damping(15)
+                                    .stiffness(200)}
+                                style={styles.indicatorWrapper}
+                            >
+                                <Animated.View style={styles.discoveryContainer}>
+                                    <Animated.View style={styles.discoveryContent}>
+                                        <Animated.Text
+                                            entering={FadeIn
+                                                .duration(500)
+                                                .springify()
+                                                .damping(15)
+                                                .stiffness(200)}
+                                            exiting={FadeOut.duration(300)}
+                                            style={styles.emojiText}
+                                        >
+                                            {state === 'discovered' ? (discoveryData?.emoji || "✨") : (jobMessage?.emoji || "✨")}
+                                        </Animated.Text>
+                                        <Animated.View
+                                            entering={FadeIn
+                                                .delay(200)
+                                                .duration(300)
+                                                .springify()
+                                                .damping(15)
+                                                .stiffness(200)}
+                                            exiting={FadeOut.duration(200)}
+                                            style={styles.exclamationContainer}
+                                        >
+                                            <Text style={styles.exclamationText}>!</Text>
+                                        </Animated.View>
+                                    </Animated.View>
+                                </Animated.View>
+                            </Animated.View>
+                        )}
+                    </View>
+                )}
             </Animated.View>
         </Pressable>
     );
@@ -257,14 +258,7 @@ const styles = StyleSheet.create({
         gap: 4,
         padding: 8,
         margin: -8,
-    },
-    iconContainer: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        backgroundColor: 'rgba(255, 107, 0, 0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
+        position: 'relative',
     },
     placeholderContainer: {
         width: 20,
@@ -273,6 +267,12 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    indicatorWrapper: {
+        width: '100%',
+        height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -286,18 +286,10 @@ const styles = StyleSheet.create({
         shadowRadius: 3,
         elevation: 3,
     },
-    text: {
-        fontSize: 10,
-        fontFamily: "SpaceMono",
-        fontWeight: "600",
-        color: '#FF6B00',
-        letterSpacing: 0.2,
-    },
     discoveryContent: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        position: 'relative',
     },
     emojiText: {
         fontSize: 12,
@@ -315,11 +307,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 1,
         borderColor: 'rgba(0, 0, 0, 0.2)',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 1,
-        elevation: 2,
     },
     exclamationText: {
         fontSize: 7,
@@ -327,12 +314,5 @@ const styles = StyleSheet.create({
         color: '#000000',
         textAlign: 'center',
         lineHeight: 10,
-    },
-    indicatorWrapper: {
-        position: 'relative',
-        width: 20,
-        height: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
     },
 });

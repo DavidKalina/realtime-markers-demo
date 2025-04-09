@@ -1,72 +1,100 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, {
     useAnimatedProps,
-    withTiming,
+    useAnimatedStyle,
     useSharedValue,
+    withTiming,
     Easing,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+interface CircularProgressProps {
+    progress: number;
+    children?: React.ReactNode;
+}
 
-const CircularProgress = ({ progress }: { progress: number }) => {
-    const progressValue = useSharedValue(0);
-    const CIRCLE_LENGTH = 2 * Math.PI * 9; // 2πr where radius is 9 (slightly smaller than container)
-    const BACKGROUND_CIRCLE_LENGTH = 2 * Math.PI * 9;
+const CircularProgress: React.FC<CircularProgressProps> = ({ progress, children }) => {
+    const animatedProgress = useSharedValue(0);
+    const previousProgress = useRef(0);
 
     useEffect(() => {
-        console.log('CircularProgress: Updating progress to', progress);
-        progressValue.value = withTiming(progress / 100, {
-            duration: 500, // Adjust this duration to control animation speed
-            easing: Easing.linear,
-        });
+        // If progress is 0 and we had a previous non-zero value, it means the job completed
+        if (progress === 0 && previousProgress.current > 0) {
+            animatedProgress.value = withTiming(100, {
+                duration: 500,
+                easing: Easing.linear,
+            });
+        } else {
+            animatedProgress.value = withTiming(progress, {
+                duration: 500,
+                easing: Easing.linear,
+            });
+        }
+        previousProgress.current = progress;
     }, [progress]);
+
+    const animatedStyle = useAnimatedStyle(() => {
+        return {
+            opacity: animatedProgress.value > 0 ? 1 : 0,
+        };
+    });
 
     const animatedProps = useAnimatedProps(() => {
         return {
-            strokeDashoffset: CIRCLE_LENGTH * (1 - progressValue.value),
+            strokeDashoffset: 88 - (88 * animatedProgress.value) / 100,
         };
     });
 
     return (
-        <View style={styles.progressContainer}>
-            <Svg width={24} height={24}>
-                {/* Background Circle */}
-                <Circle
-                    cx={12}
-                    cy={12}
-                    r={9}
-                    stroke="rgba(255, 107, 0, 0.2)"
-                    strokeWidth={2}
-                    fill="transparent"
-                />
-                {/* Progress Circle */}
-                <AnimatedCircle
-                    cx={12}
-                    cy={12}
-                    r={9}
-                    stroke="#FF6B00"
-                    strokeWidth={2}
-                    fill="transparent"
-                    strokeDasharray={CIRCLE_LENGTH}
-                    animatedProps={animatedProps}
-                    strokeLinecap="round"
-                    // Start from the top (12 o'clock position)
-                    rotation="-90"
-                    originX="12"
-                    originY="12"
-                />
-            </Svg>
+        <View style={styles.container}>
+            <Animated.View style={[styles.svgContainer, animatedStyle]}>
+                <Svg width="24" height="24" viewBox="0 0 24 24">
+                    <Circle
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="rgba(255, 107, 0, 0.2)"
+                        strokeWidth="2"
+                        fill="none"
+                    />
+                    <AnimatedCircle
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="#FF6B00"
+                        strokeWidth="2"
+                        fill="none"
+                        strokeDasharray="88"
+                        animatedProps={animatedProps}
+                    />
+                </Svg>
+            </Animated.View>
+            <View style={styles.contentContainer}>
+                {children}
+            </View>
         </View>
     );
 };
 
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
 const styles = StyleSheet.create({
-    progressContainer: {
-        position: 'absolute',
+    container: {
         width: 24,
         height: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
+    },
+    svgContainer: {
+        position: 'absolute',
+        width: '100%',
+        height: '100%',
+    },
+    contentContainer: {
+        width: '100%',
+        height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
     },
