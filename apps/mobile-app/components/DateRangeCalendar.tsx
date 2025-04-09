@@ -15,7 +15,7 @@ import Animated, {
 // Unified color theme (from EventDetailsHeader)
 const COLORS = {
     background: "#2a2a2a",
-    cardBackground: "#3a3a3a",
+    cardBackground: "#2C3333",
     textPrimary: "#f8f9fa",
     textSecondary: "#93c5fd", // Blue
     accent: "#93c5fd", // Blue

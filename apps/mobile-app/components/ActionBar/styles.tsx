@@ -100,7 +100,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 10, // Slightly more refined corners
-    backgroundColor: "#3a3a3a", // Lighter than the base background
+    backgroundColor: '#2C3333',
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
     ...Platform.select({

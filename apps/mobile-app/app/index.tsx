@@ -1,7 +1,5 @@
 import { AuthWrapper } from "@/components/AuthWrapper";
-import { ConnectionIndicator } from "@/components/ConnectionIndicator/ConnectionIndicator";
 import EventAssistant from "@/components/EventAssistant/EventAssistant";
-import FilterIndicator from "@/components/FilterIndicator/FilterIndicator";
 import { styles } from "@/components/homeScreenStyles";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import QueueIndicator from "@/components/QueueIndicator/QueueIndicator";
@@ -22,6 +20,8 @@ import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Platform, Text, View } from "react-native";
 import { DEFAULT_CAMERA_SETTINGS, createCameraSettings } from "@/config/cameraConfig";
+import { StatusBar } from "@/components/StatusBar/StatusBar";
+import { MapControls } from "@/components/MapControls/MapControls";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -283,20 +283,8 @@ function HomeScreen() {
   // Memoize UI elements to prevent unnecessary rerenders
   const mapOverlays = useMemo(() => {
     if (!shouldRenderUI) return null;
-
-    return (
-      <>
-        <ConnectionIndicator
-          initialConnectionState={isConnected}
-          position="top-left"
-          showAnimation={!selectedItem}
-        />
-        <QueueIndicator position="top-left" />
-        <FilterIndicator position="top-left" />
-        <RightIndicatorsContainer />
-      </>
-    );
-  }, [shouldRenderUI, isConnected, selectedItem]);
+    return null; // Removed all indicators
+  }, [shouldRenderUI]);
 
   const assistantOverlay = useMemo(() => {
     if (!shouldRenderUI) return null;
@@ -332,6 +320,13 @@ function HomeScreen() {
       <View style={styles.container}>
         {isLoadingLocation && <LoadingOverlay />}
 
+        {!isLoadingLocation && (
+          <StatusBar>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            </View>
+          </StatusBar>
+        )}
+
         <MapboxGL.MapView
           onTouchStart={handleUserPan}
           onPress={handleMapPress}
@@ -353,7 +348,6 @@ function HomeScreen() {
             animationDuration={0}
           />
 
-
           {/* Map Markers */}
           {markersComponent}
 
@@ -365,6 +359,7 @@ function HomeScreen() {
 
         {mapOverlays}
         {assistantOverlay}
+        {!isLoadingLocation && <MapControls />}
       </View>
     </AuthWrapper>
   );
