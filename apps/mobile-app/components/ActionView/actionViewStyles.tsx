@@ -17,7 +17,7 @@ export const actionView = StyleSheet.create({
     bottom: 200,
     margin: "auto",
     alignSelf: "center",
-    backgroundColor: "#333",
+    backgroundColor: "#2a2a2a",
     borderRadius: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -69,6 +69,6 @@ export const actionView = StyleSheet.create({
     borderTopColor: "#3a3a3a",
     flexDirection: "row",
     justifyContent: "space-between",
-    backgroundColor: "#333",
+    backgroundColor: "#2a2a2a",
   },
 });

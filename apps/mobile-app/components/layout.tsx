@@ -14,7 +14,7 @@ export const layout = StyleSheet.create({
     zIndex: 10000000,
   },
   card: {
-    backgroundColor: "#333",
+    backgroundColor: "#2C3333",
     borderRadius: 0, // Remove the border radius at top
     borderBottomRightRadius: 0,
     borderBottomLeftRadius: 0,

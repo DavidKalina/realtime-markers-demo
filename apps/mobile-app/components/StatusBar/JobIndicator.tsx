@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, Text, Pressable } from 'react-native';
 import Animated, {
     useAnimatedStyle,
@@ -11,27 +11,28 @@ import Animated, {
     FadeIn,
     FadeOut,
     SlideInRight,
-    withDelay,
     ZoomIn,
     ZoomOut,
+    runOnJS,
+    SlideOutLeft,
 } from 'react-native-reanimated';
-import { Cog, ArrowRight, AlertCircle } from 'lucide-react-native';
+import { Cog, AlertCircle } from 'lucide-react-native';
 import * as Haptics from "expo-haptics";
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { CameraAnimateToLocationEvent, DiscoveredEventData, DiscoveryEvent, EventTypes } from "@/services/EventBroker";
+import CircularProgress from './CircularProgress'; // Import the SVG-based circular progress
 
 type IndicatorState = 'idle' | 'processing' | 'discovered';
 
-export const JobIndicator: React.FC = () => {
+export const JobIndicator = () => {
     const jobs = useJobSessionStore((state) => state.jobs);
     const { subscribe, publish } = useEventBroker();
     const scale = useSharedValue(1);
     const rotation = useSharedValue(0);
     const spinRotation = useSharedValue(0);
-    const bounceValue = useSharedValue(0);
-    const [state, setState] = React.useState<IndicatorState>('idle');
-    const [discoveryData, setDiscoveryData] = React.useState<DiscoveredEventData | null>(null);
+    const [state, setState] = useState<IndicatorState>('idle');
+    const [discoveryData, setDiscoveryData] = useState<DiscoveredEventData | null>(null);
 
     // Get active jobs
     const activeJobs = useMemo(() => {
@@ -55,40 +56,30 @@ export const JobIndicator: React.FC = () => {
         return Math.round((totalProgress / activeJobs.length));
     }, [activeJobs]);
 
-
-
     // Subscribe to discovery events
     useEffect(() => {
+        console.log('Setting up discovery event subscription...');
         const unsubscribe = subscribe(EventTypes.EVENT_DISCOVERED, (event: DiscoveryEvent) => {
+            console.log('Discovery event received:', event);
             setDiscoveryData(event.event);
             setState('discovered');
 
-            // Animate the bounce
-            bounceValue.value = withSequence(
-                withSpring(1.2, { damping: 8, stiffness: 200 }),
-                withSpring(1, { damping: 8, stiffness: 200 })
-            );
+            // Add haptic feedback
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-            // Auto-reset after 10 seconds
+            // Auto-reset after 15 seconds
             setTimeout(() => {
+                console.log('Resetting from discovered state...');
                 setState('idle');
                 setDiscoveryData(null);
-            }, 10000);
+            }, 15000);
         });
 
-        return () => unsubscribe();
+        return () => {
+            console.log('Cleaning up discovery event subscription...');
+            unsubscribe();
+        };
     }, [subscribe]);
-
-    // Update state based on jobs
-    useEffect(() => {
-        if (state === 'discovered') return; // Don't override discovery state
-
-        if (activeJobs.length > 0) {
-            setState('processing');
-        } else {
-            setState('idle');
-        }
-    }, [activeJobs.length, state]);
 
     // Setup continuous spinning animation
     useEffect(() => {
@@ -109,30 +100,19 @@ export const JobIndicator: React.FC = () => {
     const handlePress = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
+        // Animate press compression
+        scale.value = withSequence(
+            withSpring(0.9, { damping: 10, stiffness: 200 }),
+            withSpring(1, { damping: 10, stiffness: 200 })
+        );
+
+        // Handle camera movement after animation completes
         if (state === 'discovered' && discoveryData?.location?.coordinates) {
-            // Fly to discovered location
             publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
                 coordinates: discoveryData.location.coordinates,
                 timestamp: Date.now(),
                 source: "job_indicator"
             });
-
-            // Reset state after flying
-            setTimeout(() => {
-                setState('idle');
-                setDiscoveryData(null);
-            }, 1000);
-        } else {
-            // Regular press animation
-            scale.value = withSequence(
-                withSpring(0.95, { damping: 10, stiffness: 200 }),
-                withSpring(1, { damping: 10, stiffness: 200 })
-            );
-            rotation.value = withSequence(
-                withTiming(-5, { duration: 100, easing: Easing.inOut(Easing.ease) }),
-                withTiming(5, { duration: 100, easing: Easing.inOut(Easing.ease) }),
-                withTiming(0, { duration: 100, easing: Easing.inOut(Easing.ease) })
-            );
         }
     };
 
@@ -149,63 +129,98 @@ export const JobIndicator: React.FC = () => {
         ],
     }));
 
-    const bounceAnimatedStyle = useAnimatedStyle(() => ({
-        transform: [
-            { scale: bounceValue.value }
-        ],
-    }));
-
-    // Don't render in idle state
-    if (state === 'idle') return null;
-
     return (
-        <Animated.View
-            entering={SlideInRight.springify().damping(15).mass(1).stiffness(200)}
-            style={styles.container}
+        <Pressable
+            onPress={handlePress}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-            <Pressable onPress={handlePress}>
-                <Animated.View style={[
-                    styles.iconContainer,
-                    state === 'discovered' && styles.discoveryContainer,
-                    state === 'discovered' && bounceAnimatedStyle
-                ]}>
-                    <Animated.View style={[
-                        animatedStyle,
-                        state === 'processing' ? spinAnimatedStyle : undefined
-                    ]}>
-                        {state === 'processing' ? (
-                            <Cog size={12} color="#FF6B00" />
-                        ) : state === 'discovered' ? (
-                            <Animated.View
-                                entering={FadeIn.duration(300).springify()}
-                                exiting={FadeOut.duration(200)}
-                                style={styles.discoveryContent}
-                            >
-                                <Animated.Text
-                                    entering={ZoomIn.springify().damping(15).mass(1).stiffness(200)}
-                                    exiting={ZoomOut.duration(200)}
-                                    style={styles.emojiText}
-                                >
-                                    {discoveryData?.emoji || "✨"}
-                                </Animated.Text>
-                                <Animated.View
-                                    entering={FadeIn.delay(100).duration(200)}
-                                    exiting={FadeOut.duration(150)}
-                                    style={styles.exclamationContainer}
-                                >
-                                    <Text style={styles.exclamationText}>!</Text>
-                                </Animated.View>
+            <Animated.View style={[styles.container, animatedStyle]}>
+                {state === 'idle' && (
+                    <View style={[styles.iconContainer, styles.placeholderContainer]} />
+                )}
+                {(state === 'processing' || state === 'discovered') && (
+                    <Animated.View
+                        entering={SlideInRight
+                            .duration(300)
+                            .springify()
+                            .damping(15)
+                            .stiffness(200)}
+                        exiting={SlideOutLeft
+                            .duration(300)
+                            .springify()
+                            .damping(15)
+                            .stiffness(200)}
+                        style={styles.indicatorWrapper}
+                    >
+                        {state === 'processing' && <CircularProgress progress={progress} />}
+                        <Animated.View style={[
+                            styles.iconContainer,
+                            state === 'discovered' && styles.discoveryContainer
+                        ]}>
+                            <Animated.View style={[
+                                state === 'processing' ? spinAnimatedStyle : undefined
+                            ]}>
+                                {state === 'processing' && (
+                                    <Animated.View
+                                        entering={ZoomIn
+                                            .duration(300)
+                                            .springify()
+                                            .damping(15)
+                                            .stiffness(200)}
+                                        exiting={ZoomOut
+                                            .duration(300)
+                                            .springify()
+                                            .damping(15)
+                                            .stiffness(200)}
+                                    >
+                                        <Cog size={10} color="#FF6B00" />
+                                    </Animated.View>
+                                )}
+                                {state === 'discovered' && (
+                                    <Animated.View
+                                        entering={ZoomIn
+                                            .duration(300)
+                                            .springify()
+                                            .damping(15)
+                                            .stiffness(200)}
+                                        exiting={ZoomOut
+                                            .duration(300)
+                                            .springify()
+                                            .damping(15)
+                                            .stiffness(200)}
+                                        style={styles.discoveryContent}
+                                    >
+                                        <Animated.Text
+                                            entering={FadeIn
+                                                .duration(500)
+                                                .springify()
+                                                .damping(15)
+                                                .stiffness(200)}
+                                            exiting={FadeOut.duration(300)}
+                                            style={styles.emojiText}
+                                        >
+                                            {discoveryData?.emoji || "✨"}
+                                        </Animated.Text>
+                                        <Animated.View
+                                            entering={FadeIn
+                                                .delay(200)
+                                                .duration(300)
+                                                .springify()
+                                                .damping(15)
+                                                .stiffness(200)}
+                                            exiting={FadeOut.duration(200)}
+                                            style={styles.exclamationContainer}
+                                        >
+                                            <Text style={styles.exclamationText}>!</Text>
+                                        </Animated.View>
+                                    </Animated.View>
+                                )}
                             </Animated.View>
-                        ) : null}
+                        </Animated.View>
                     </Animated.View>
-                </Animated.View>
-            </Pressable>
-            {state === 'processing' && (
-                <Text style={styles.text}>
-                    {progress}%
-                </Text>
-            )}
-        </Animated.View>
+                )}
+            </Animated.View>
+        </Pressable>
     );
 };
 
@@ -214,12 +229,24 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
+        padding: 8,
+        margin: -8,
     },
     iconContainer: {
-        width: 24, // Increased from 20
-        height: 24, // Increased from 20
-        borderRadius: 12, // Adjusted for new size
+        width: 20,
+        height: 20,
+        borderRadius: 10,
         backgroundColor: 'rgba(255, 107, 0, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    placeholderContainer: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -228,10 +255,10 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(107, 114, 128, 0.5)',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 2,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 3,
+        elevation: 3,
     },
     text: {
         fontSize: 10,
@@ -247,7 +274,7 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     emojiText: {
-        fontSize: 14, // Increased from 12
+        fontSize: 12,
         color: '#FFFFFF',
     },
     exclamationContainer: {
@@ -257,11 +284,11 @@ const styles = StyleSheet.create({
         width: 10,
         height: 10,
         borderRadius: 5,
-        backgroundColor: '#FCD34D', // Bright yellow background
+        backgroundColor: '#FCD34D',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(0, 0, 0, 0.2)', // Subtle black border
+        borderColor: 'rgba(0, 0, 0, 0.2)',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.2,
@@ -270,9 +297,16 @@ const styles = StyleSheet.create({
     },
     exclamationText: {
         fontSize: 7,
-        fontWeight: '900', // Made bolder
-        color: '#000000', // Pure black
+        fontWeight: '900',
+        color: '#000000',
         textAlign: 'center',
         lineHeight: 10,
     },
-}); 
+    indicatorWrapper: {
+        position: 'relative',
+        width: 20,
+        height: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+});

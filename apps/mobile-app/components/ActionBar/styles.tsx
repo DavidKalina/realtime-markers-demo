@@ -4,7 +4,7 @@ import { Platform, StyleSheet } from "react-native";
 export const styles = StyleSheet.create({
   bottomBar: {
     height: 75, // Slightly taller for better touch targets
-    backgroundColor: "#333", // Match event details dark background
+    backgroundColor: "#2C3333",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

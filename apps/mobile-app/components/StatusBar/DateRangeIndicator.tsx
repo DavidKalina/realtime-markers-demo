@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
         fontFamily: "SpaceMono",
         fontWeight: "600",
         color: '#60A5FA',
-        letterSpacing: 0.2,
+        letterSpacing: 0.1,
     },
     modalOverlay: {
         flex: 1,

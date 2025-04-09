@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
         paddingBottom: 6,
     },
     title: {
-        fontSize: 16,
+        fontSize: 15,
         fontFamily: 'SpaceMono',
         fontWeight: '700',
         color: '#FFFFFF',
