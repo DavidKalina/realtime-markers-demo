@@ -17,7 +17,7 @@ import { ArrowLeft, Calendar, MapPin, Tag, Star, TrendingUp, ChevronRight } from
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { useSharedValue, useAnimatedScrollHandler, interpolate, useAnimatedStyle } from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedScrollHandler, interpolate, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from "react-native-reanimated";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   featuredImageContainer: {
     width: "100%",
     height: 200,
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
+    backgroundColor: COLORS.cardBackground,
     overflow: "hidden",
   },
   featuredImage: {
@@ -171,31 +171,26 @@ const styles = StyleSheet.create({
     height: "100%",
     resizeMode: "cover",
   },
-  gradientOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-  },
   featuredTag: {
     position: "absolute",
     top: 16,
     left: 16,
-    backgroundColor: "rgba(147, 197, 253, 0.8)",
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
     flexDirection: "row",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
   },
   featuredTagText: {
-    color: "#000",
+    color: COLORS.accent,
     fontSize: 12,
     fontFamily: "SpaceMono",
     fontWeight: "700",
     marginLeft: 4,
+    letterSpacing: 0.5,
   },
   featuredEventContent: {
     padding: 24,
@@ -219,7 +214,7 @@ const styles = StyleSheet.create({
   featuredEventDetails: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 16,
+    gap: 12,
   },
   featuredEventDetail: {
     flexDirection: "row",
@@ -278,13 +273,8 @@ const styles = StyleSheet.create({
   eventsListContainer: {
     width: "100%",
     minHeight: 200,
-    borderRadius: 16,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   eventsListInner: {
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
     flex: 1,
   },
   listHeader: {
@@ -315,7 +305,7 @@ const styles = StyleSheet.create({
   eventCard: {
     backgroundColor: COLORS.cardBackgroundAlt,
     padding: 12,
-    marginHorizontal: 12,
+    marginHorizontal: 0,
     marginVertical: 6,
     borderRadius: 12,
     flexDirection: "row",
@@ -576,101 +566,144 @@ const HighlightCard: React.FC<{
 const FeaturedEvent: React.FC<{
   event: EventType;
   onPress: () => void;
-}> = ({ event, onPress }) => (
-  <TouchableOpacity
-    style={styles.featuredEvent}
-    onPress={onPress}
-    activeOpacity={0.8}
-  >
-    <View style={styles.featuredImageContainer}>
-      {event.imageUrl ? (
-        <Image source={{ uri: event.imageUrl }} style={styles.featuredImage} />
-      ) : (
-        <View style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: 'rgba(0, 0, 0, 0.3)'
-        }}>
-          <Text style={{ fontSize: 48 }}>{event.emoji || "🎉"}</Text>
-        </View>
-      )}
-      <View style={styles.gradientOverlay} />
-      <View style={styles.featuredTag}>
-        <Star size={12} color="#000" />
-        <Text style={styles.featuredTagText}>FEATURED</Text>
-      </View>
-    </View>
+}> = ({ event, onPress }) => {
+  const emojiScale = useSharedValue(1);
+  const emojiOffset = useSharedValue(0);
 
-    <View style={styles.featuredEventContent}>
-      <Text style={styles.featuredEventTitle} numberOfLines={2}>
-        {event.title}
-      </Text>
-      {event.description && (
-        <Text style={styles.featuredEventDescription} numberOfLines={3}>
-          {event.description}
-        </Text>
-      )}
-      <View style={styles.featuredEventDetails}>
-        <View style={styles.featuredEventDetail}>
-          <Calendar size={16} color={COLORS.textSecondary} />
-          <Text style={styles.featuredEventDetailText}>
-            {new Date(event.eventDate).toLocaleDateString()}
-          </Text>
-        </View>
-        <View style={styles.featuredEventDetail}>
-          <MapPin size={16} color={COLORS.textSecondary} />
-          <Text style={styles.featuredEventDetailText} numberOfLines={1}>
-            {event.location}
-          </Text>
-        </View>
-        {event.category && (
-          <View style={styles.featuredEventDetail}>
-            <Tag size={16} color={COLORS.textSecondary} />
-            <Text style={styles.featuredEventDetailText}>
-              {event.category.name}
-            </Text>
+  useEffect(() => {
+    emojiScale.value = withRepeat(
+      withSequence(
+        withTiming(1.1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    emojiOffset.value = withRepeat(
+      withSequence(
+        withTiming(-5, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const emojiAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { scale: emojiScale.value },
+        { translateY: emojiOffset.value }
+      ]
+    };
+  });
+
+  return (
+    <TouchableOpacity
+      style={styles.featuredEvent}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <View style={styles.featuredImageContainer}>
+        {event.imageUrl ? (
+          <Image source={{ uri: event.imageUrl }} style={styles.featuredImage} />
+        ) : (
+          <View style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: COLORS.cardBackground
+          }}>
+            <Animated.View style={emojiAnimatedStyle}>
+              <Text style={{ fontSize: 48 }}>{event.emoji || "🎉"}</Text>
+            </Animated.View>
           </View>
         )}
+        <View style={styles.featuredTag}>
+          <Star size={12} color={COLORS.accent} />
+          <Text style={styles.featuredTagText}>FEATURED</Text>
+        </View>
       </View>
-    </View>
-  </TouchableOpacity>
-);
+
+      <View style={styles.featuredEventContent}>
+        <Text style={styles.featuredEventTitle} numberOfLines={2}>
+          {event.title}
+        </Text>
+        {event.description && (
+          <Text style={styles.featuredEventDescription} numberOfLines={3}>
+            {event.description}
+          </Text>
+        )}
+        <View style={styles.featuredEventDetails}>
+          <View style={styles.featuredEventDetail}>
+            <Calendar size={16} color={COLORS.textSecondary} />
+            <Text style={styles.featuredEventDetailText}>
+              {new Date(event.eventDate).toLocaleDateString()}
+            </Text>
+          </View>
+          <View style={styles.featuredEventDetail}>
+            <MapPin size={16} color={COLORS.textSecondary} />
+            <Text style={styles.featuredEventDetailText} numberOfLines={1}>
+              {event.location}
+            </Text>
+          </View>
+          {event.category && (
+            <View style={styles.featuredEventDetail}>
+              <Tag size={16} color={COLORS.textSecondary} />
+              <Text style={styles.featuredEventDetailText}>
+                {event.category.name}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 const EventsListSection: React.FC<{
   title: string;
   icon: React.ElementType;
   events: EventType[];
   onEventPress: (event: EventType) => void;
-}> = ({ title, icon: Icon, events, onEventPress }) => (
-  <View style={styles.eventsListContainer}>
-    <View style={styles.eventsListInner}>
-      <View style={styles.listHeader}>
-        <Icon size={16} color={COLORS.textPrimary} />
-        <Text style={styles.listHeaderText}>{title}</Text>
-      </View>
+  onPageChange?: (index: number) => void;
+  currentPage?: number;
+}> = ({ title, icon: Icon, events, onEventPress, onPageChange, currentPage }) => {
+  const flatListRef = useRef<FlatList>(null);
 
-      {events.length === 0 ? (
-        <View style={styles.emptyListContainer}>
-          <Text style={styles.emptyListText}>No events found</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={events}
-          renderItem={({ item }) => (
-            <EventCard event={item} onPress={() => onEventPress(item)} />
-          )}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          ListFooterComponent={<View style={{ height: 12 }} />}
-          ListHeaderComponent={<View style={{ height: 12 }} />}
-          scrollEnabled={false}
-          nestedScrollEnabled={true}
-        />
-      )}
+  useEffect(() => {
+    if (currentPage !== undefined && flatListRef.current) {
+      flatListRef.current.scrollToIndex({
+        index: currentPage,
+        animated: true,
+      });
+    }
+  }, [currentPage]);
+
+  return (
+    <View style={styles.eventsListContainer}>
+      <View style={styles.eventsListInner}>
+        {events.length === 0 ? (
+          <View style={styles.emptyListContainer}>
+            <Text style={styles.emptyListText}>No events found</Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={events}
+            renderItem={({ item }) => (
+              <EventCard event={item} onPress={() => onEventPress(item)} />
+            )}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={false}
+            nestedScrollEnabled={true}
+          />
+        )}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 // Main component
 const ClusterEventsView: React.FC = () => {
@@ -812,28 +845,64 @@ const ClusterEventsView: React.FC = () => {
       case "categories":
         return (
           <>
-            {hubData.eventsByCategory.length > 0 && (
-              <EventsListSection
-                title={hubData.eventsByCategory[currentCategoryIndex]?.category.name || "Category"}
-                icon={Tag}
-                events={hubData.eventsByCategory[currentCategoryIndex]?.events || []}
-                onEventPress={handleEventPress}
-              />
-            )}
+            <FlatList
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              data={hubData.eventsByCategory}
+              keyExtractor={(item) => item.category.id}
+              onMomentumScrollEnd={(event) => {
+                const newIndex = Math.round(
+                  event.nativeEvent.contentOffset.x / SCREEN_WIDTH
+                );
+                if (newIndex !== currentCategoryIndex) {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setCurrentCategoryIndex(newIndex);
+                }
+              }}
+              renderItem={({ item }) => (
+                <View style={{ width: SCREEN_WIDTH - 32 }}>
+                  <EventsListSection
+                    title={item.category.name}
+                    icon={Tag}
+                    events={item.events}
+                    onEventPress={handleEventPress}
+                  />
+                </View>
+              )}
+            />
             {renderCategoryPageIndicator()}
           </>
         );
       case "locations":
         return (
           <>
-            {hubData.eventsByLocation.length > 0 && (
-              <EventsListSection
-                title={hubData.eventsByLocation[currentLocationIndex]?.location || "Location"}
-                icon={MapPin}
-                events={hubData.eventsByLocation[currentLocationIndex]?.events || []}
-                onEventPress={handleEventPress}
-              />
-            )}
+            <FlatList
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              data={hubData.eventsByLocation}
+              keyExtractor={(item) => item.location}
+              onMomentumScrollEnd={(event) => {
+                const newIndex = Math.round(
+                  event.nativeEvent.contentOffset.x / SCREEN_WIDTH
+                );
+                if (newIndex !== currentLocationIndex) {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setCurrentLocationIndex(newIndex);
+                }
+              }}
+              renderItem={({ item }) => (
+                <View style={{ width: SCREEN_WIDTH - 32 }}>
+                  <EventsListSection
+                    title={item.location}
+                    icon={MapPin}
+                    events={item.events}
+                    onEventPress={handleEventPress}
+                  />
+                </View>
+              )}
+            />
             {renderLocationPageIndicator()}
           </>
         );
