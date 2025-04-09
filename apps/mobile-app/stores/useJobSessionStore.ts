@@ -7,6 +7,10 @@ export interface Job {
   status: "pending" | "processing" | "completed" | "failed";
   progress: number; // 0-100
   progressStep: string;
+  message?: {
+    emoji: string;
+    text: string;
+  };
   result?: any;
   error?: string;
   createdAt: string;

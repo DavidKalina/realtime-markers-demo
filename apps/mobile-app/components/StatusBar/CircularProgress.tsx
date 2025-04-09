@@ -18,8 +18,8 @@ const CircularProgress = ({ progress }: { progress: number }) => {
     useEffect(() => {
         console.log('CircularProgress: Updating progress to', progress);
         progressValue.value = withTiming(progress / 100, {
-            duration: 300,
-            easing: Easing.inOut(Easing.ease)
+            duration: 500, // Adjust this duration to control animation speed
+            easing: Easing.linear,
         });
     }, [progress]);
 

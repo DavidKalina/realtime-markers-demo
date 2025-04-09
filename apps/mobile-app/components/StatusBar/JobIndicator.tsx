@@ -21,9 +21,9 @@ import * as Haptics from "expo-haptics";
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { CameraAnimateToLocationEvent, DiscoveredEventData, DiscoveryEvent, EventTypes } from "@/services/EventBroker";
-import CircularProgress from './CircularProgress'; // Import the SVG-based circular progress
+import CircularProgress from './CircularProgress';
 
-type IndicatorState = 'idle' | 'processing' | 'discovered';
+type IndicatorState = 'idle' | 'processing' | 'discovered' | 'jobMessage';
 
 export const JobIndicator = () => {
     const jobs = useJobSessionStore((state) => state.jobs);
@@ -33,6 +33,7 @@ export const JobIndicator = () => {
     const spinRotation = useSharedValue(0);
     const [state, setState] = useState<IndicatorState>('idle');
     const [discoveryData, setDiscoveryData] = useState<DiscoveredEventData | null>(null);
+    const [jobMessage, setJobMessage] = useState<{ emoji: string; message: string } | null>(null);
 
     // Get active jobs
     const activeJobs = useMemo(() => {
@@ -55,6 +56,32 @@ export const JobIndicator = () => {
 
         return Math.round((totalProgress / activeJobs.length));
     }, [activeJobs]);
+
+    // Update state based on active jobs and messages
+    useEffect(() => {
+        const activeJob = activeJobs[0]; // Get the first active job
+        if (activeJob?.message) {
+            setJobMessage({
+                emoji: activeJob.message.emoji || "✨",
+                message: activeJob.message.text || ""
+            });
+            setState('jobMessage');
+
+            // Auto-reset after 3 seconds
+            setTimeout(() => {
+                if (activeJobs.length > 0) {
+                    setState('processing');
+                } else {
+                    setState('idle');
+                }
+                setJobMessage(null);
+            }, 3000);
+        } else if (activeJobs.length > 0) {
+            setState('processing');
+        } else if (state === 'processing' || state === 'jobMessage') {
+            setState('idle');
+        }
+    }, [activeJobs, state]);
 
     // Subscribe to discovery events
     useEffect(() => {
@@ -135,90 +162,89 @@ export const JobIndicator = () => {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
             <Animated.View style={[styles.container, animatedStyle]}>
-                {state === 'idle' && (
-                    <View style={[styles.iconContainer, styles.placeholderContainer]} />
-                )}
-                {(state === 'processing' || state === 'discovered') && (
-                    <Animated.View
-                        entering={SlideInRight
-                            .duration(300)
-                            .springify()
-                            .damping(15)
-                            .stiffness(200)}
-                        exiting={SlideOutLeft
-                            .duration(300)
-                            .springify()
-                            .damping(15)
-                            .stiffness(200)}
-                        style={styles.indicatorWrapper}
-                    >
-                        {state === 'processing' && <CircularProgress progress={progress} />}
-                        <Animated.View style={[
-                            styles.iconContainer,
-                            state === 'discovered' && styles.discoveryContainer
-                        ]}>
+                <View style={[styles.iconContainer, styles.placeholderContainer]}>
+                    {(state === 'processing' || state === 'discovered' || state === 'jobMessage') && (
+                        <Animated.View
+                            entering={SlideInRight
+                                .duration(300)
+                                .springify()
+                                .damping(15)
+                                .stiffness(200)}
+                            exiting={FadeOut
+                                .duration(300)
+                                .springify()
+                                .damping(15)
+                                .stiffness(200)}
+                            style={styles.indicatorWrapper}
+                        >
+                            {state === 'processing' && <CircularProgress progress={progress} />}
                             <Animated.View style={[
-                                state === 'processing' ? spinAnimatedStyle : undefined
+                                styles.iconContainer,
+                                (state === 'discovered' || state === 'jobMessage') && styles.discoveryContainer
                             ]}>
-                                {state === 'processing' && (
-                                    <Animated.View
-                                        entering={ZoomIn
-                                            .duration(300)
-                                            .springify()
-                                            .damping(15)
-                                            .stiffness(200)}
-                                        exiting={ZoomOut
-                                            .duration(300)
-                                            .springify()
-                                            .damping(15)
-                                            .stiffness(200)}
-                                    >
-                                        <Cog size={10} color="#FF6B00" />
-                                    </Animated.View>
-                                )}
-                                {state === 'discovered' && (
-                                    <Animated.View
-                                        entering={ZoomIn
-                                            .duration(300)
-                                            .springify()
-                                            .damping(15)
-                                            .stiffness(200)}
-                                        exiting={ZoomOut
-                                            .duration(300)
-                                            .springify()
-                                            .damping(15)
-                                            .stiffness(200)}
-                                        style={styles.discoveryContent}
-                                    >
-                                        <Animated.Text
-                                            entering={FadeIn
-                                                .duration(500)
-                                                .springify()
-                                                .damping(15)
-                                                .stiffness(200)}
-                                            exiting={FadeOut.duration(300)}
-                                            style={styles.emojiText}
-                                        >
-                                            {discoveryData?.emoji || "✨"}
-                                        </Animated.Text>
+                                <Animated.View style={[
+                                    state === 'processing' ? spinAnimatedStyle : undefined
+                                ]}>
+                                    {state === 'processing' && (
                                         <Animated.View
-                                            entering={FadeIn
-                                                .delay(200)
+                                            entering={ZoomIn
                                                 .duration(300)
                                                 .springify()
                                                 .damping(15)
                                                 .stiffness(200)}
-                                            exiting={FadeOut.duration(200)}
-                                            style={styles.exclamationContainer}
+                                            exiting={FadeOut
+                                                .duration(300)
+                                                .springify()
+                                                .damping(15)
+                                                .stiffness(200)}
                                         >
-                                            <Text style={styles.exclamationText}>!</Text>
+                                            <Cog size={10} color="#FF6B00" />
                                         </Animated.View>
-                                    </Animated.View>
-                                )}
+                                    )}
+                                    {(state === 'discovered' || state === 'jobMessage') && (
+                                        <Animated.View
+                                            entering={ZoomIn
+                                                .duration(300)
+                                                .springify()
+                                                .damping(15)
+                                                .stiffness(200)}
+                                            exiting={FadeOut
+                                                .duration(300)
+                                                .springify()
+                                                .damping(15)
+                                                .stiffness(200)}
+                                            style={styles.discoveryContent}
+                                        >
+                                            <Animated.Text
+                                                entering={FadeIn
+                                                    .duration(500)
+                                                    .springify()
+                                                    .damping(15)
+                                                    .stiffness(200)}
+                                                exiting={FadeOut.duration(300)}
+                                                style={styles.emojiText}
+                                            >
+                                                {state === 'discovered' ? (discoveryData?.emoji || "✨") : (jobMessage?.emoji || "✨")}
+                                            </Animated.Text>
+                                            <Animated.View
+                                                entering={FadeIn
+                                                    .delay(200)
+                                                    .duration(300)
+                                                    .springify()
+                                                    .damping(15)
+                                                    .stiffness(200)}
+                                                exiting={FadeOut.duration(200)}
+                                                style={styles.exclamationContainer}
+                                            >
+                                                <Text style={styles.exclamationText}>!</Text>
+                                            </Animated.View>
+                                        </Animated.View>
+                                    )}
+                                </Animated.View>
                             </Animated.View>
                         </Animated.View>
-                    </Animated.View>
-                )}
+                    )}
+                </View>
             </Animated.View>
         </Pressable>
     );
