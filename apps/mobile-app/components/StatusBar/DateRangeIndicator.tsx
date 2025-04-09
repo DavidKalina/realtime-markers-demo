@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, Pressable, Modal } from 'react-native';
 import Animated, {
     useAnimatedStyle,
@@ -19,6 +19,14 @@ export const DateRangeIndicator: React.FC = () => {
     const { filters, activeFilterIds, updateFilter, applyFilters, createFilter } = useFilterStore();
     const scale = useSharedValue(1);
     const rotation = useSharedValue(0);
+
+    // Sync date range on mount
+    useEffect(() => {
+        // If there are no active filters but we have filters, activate the first one
+        if (activeFilterIds.length === 0 && filters.length > 0) {
+            applyFilters([filters[0].id]);
+        }
+    }, []);
 
     // Get active filters with date ranges
     const activeDateFilters = React.useMemo(() => {

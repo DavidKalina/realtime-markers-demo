@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, Text, Pressable } from 'react-native';
 import Animated, {
     useAnimatedStyle,
@@ -14,9 +14,17 @@ import { useFilterStore } from "@/stores/useFilterStore";
 
 export const EmojiIndicator: React.FC = () => {
     const router = useRouter();
-    const { filters, activeFilterIds } = useFilterStore();
+    const { filters, activeFilterIds, applyFilters } = useFilterStore();
     const scale = useSharedValue(1);
     const rotation = useSharedValue(0);
+
+    // Sync emoji on mount
+    useEffect(() => {
+        // If there are no active filters but we have filters, activate the first one
+        if (activeFilterIds.length === 0 && filters.length > 0) {
+            applyFilters([filters[0].id]);
+        }
+    }, []);
 
     // Get active filters with emoji
     const activeEmojiFilters = React.useMemo(() => {
