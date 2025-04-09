@@ -11,6 +11,7 @@ import Animated, {
 import { ConnectionIndicator } from './ConnectionIndicator';
 import { DateRangeIndicator } from './DateRangeIndicator';
 import { EmojiIndicator } from './EmojiIndicator';
+import { JobIndicator } from './JobIndicator';
 
 interface StatusBarProps {
     backgroundColor?: string;
@@ -26,7 +27,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     const indicators = [
         <ConnectionIndicator key="connection" />,
         <EmojiIndicator key="emoji" />,
-        <DateRangeIndicator key="date" />
+        <DateRangeIndicator key="date" />,
+        <JobIndicator key="job" />
     ];
 
     return (

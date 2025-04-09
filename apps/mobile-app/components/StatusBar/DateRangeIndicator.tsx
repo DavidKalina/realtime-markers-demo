@@ -35,7 +35,7 @@ export const DateRangeIndicator: React.FC = () => {
         if (activeDateFilters.length === 0) {
             const today = new Date();
             const twoWeeksFromNow = addDays(today, 14);
-            return `${format(today, "M/d")} - ${format(twoWeeksFromNow, "M/d")}`;
+            return `${format(today, "M/d")} – ${format(twoWeeksFromNow, "M/d")}`;
         }
 
         const filter = activeDateFilters[0];
@@ -44,10 +44,10 @@ export const DateRangeIndicator: React.FC = () => {
         if (!start || !end) {
             const today = new Date();
             const twoWeeksFromNow = addDays(today, 14);
-            return `${format(today, "M/d")} - ${format(twoWeeksFromNow, "M/d")}`;
+            return `${format(today, "M/d")} – ${format(twoWeeksFromNow, "M/d")}`;
         }
 
-        return `${format(parseISO(start), "M/d")} - ${format(parseISO(end), "M/d")}`;
+        return `${format(parseISO(start), "M/d")} – ${format(parseISO(end), "M/d")}`;
     }, [activeDateFilters]);
 
     const handlePress = () => {
@@ -74,7 +74,7 @@ export const DateRangeIndicator: React.FC = () => {
         <Pressable onPress={handlePress}>
             <Animated.View style={[styles.container, animatedStyle]}>
                 <View style={styles.iconContainer}>
-                    <Calendar size={12} color="#60A5FA" />
+                    <Calendar size={12} color="#3B82F6" />
                 </View>
                 <Text style={styles.text}>{dateRangeText}</Text>
             </Animated.View>
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
         width: 20,
         height: 20,
         borderRadius: 10,
-        backgroundColor: 'rgba(96, 165, 250, 0.2)',
+        backgroundColor: 'rgba(59, 130, 246, 0.2)',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontFamily: "SpaceMono",
         fontWeight: "600",
-        color: '#60A5FA',
+        color: '#3B82F6',
         letterSpacing: 0.2,
     },
 }); 
