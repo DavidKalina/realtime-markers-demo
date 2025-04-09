@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    backgroundColor: COLORS.background,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
@@ -170,6 +170,15 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     resizeMode: "cover",
+  },
+  featuredEmojiContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   featuredTag: {
     position: "absolute",
@@ -598,6 +607,10 @@ const FeaturedEvent: React.FC<{
     };
   });
 
+  const eventDate = new Date(event.eventDate);
+  const isToday = eventDate.toDateString() === new Date().toDateString();
+  const isTomorrow = new Date(eventDate.setDate(eventDate.getDate() - 1)).toDateString() === new Date().toDateString();
+
   return (
     <TouchableOpacity
       style={styles.featuredEvent}
@@ -608,12 +621,7 @@ const FeaturedEvent: React.FC<{
         {event.imageUrl ? (
           <Image source={{ uri: event.imageUrl }} style={styles.featuredImage} />
         ) : (
-          <View style={{
-            flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-            backgroundColor: COLORS.cardBackground
-          }}>
+          <View style={styles.featuredEmojiContainer}>
             <Animated.View style={emojiAnimatedStyle}>
               <Text style={{ fontSize: 48 }}>{event.emoji || "🎉"}</Text>
             </Animated.View>
@@ -622,6 +630,32 @@ const FeaturedEvent: React.FC<{
         <View style={styles.featuredTag}>
           <Star size={12} color={COLORS.accent} />
           <Text style={styles.featuredTagText}>FEATURED</Text>
+        </View>
+        {event.category && (
+          <View style={[styles.featuredTag, {
+            top: 16,
+            right: 16,
+            left: 'auto',
+            backgroundColor: "rgba(255, 255, 255, 0.15)",
+            borderColor: "rgba(255, 255, 255, 0.3)",
+          }]}>
+            <Tag size={12} color={COLORS.textPrimary} />
+            <Text style={[styles.featuredTagText, { color: COLORS.textPrimary }]}>
+              {event.category.name}
+            </Text>
+          </View>
+        )}
+        <View style={[styles.featuredTag, {
+          top: 16,
+          right: event.category ? 120 : 16,
+          left: 'auto',
+          backgroundColor: "rgba(255, 255, 255, 0.15)",
+          borderColor: "rgba(255, 255, 255, 0.3)",
+        }]}>
+          <Calendar size={12} color={COLORS.textPrimary} />
+          <Text style={[styles.featuredTagText, { color: COLORS.textPrimary }]}>
+            {isToday ? 'Today' : isTomorrow ? 'Tomorrow' : eventDate.toLocaleDateString()}
+          </Text>
         </View>
       </View>
 
@@ -638,7 +672,7 @@ const FeaturedEvent: React.FC<{
           <View style={styles.featuredEventDetail}>
             <Calendar size={16} color={COLORS.textSecondary} />
             <Text style={styles.featuredEventDetailText}>
-              {new Date(event.eventDate).toLocaleDateString()}
+              {eventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </View>
           <View style={styles.featuredEventDetail}>
@@ -647,14 +681,6 @@ const FeaturedEvent: React.FC<{
               {event.location}
             </Text>
           </View>
-          {event.category && (
-            <View style={styles.featuredEventDetail}>
-              <Tag size={16} color={COLORS.textSecondary} />
-              <Text style={styles.featuredEventDetailText}>
-                {event.category.name}
-              </Text>
-            </View>
-          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -723,15 +749,15 @@ const ClusterEventsView: React.FC = () => {
     return {
       opacity: interpolate(
         scrollY.value,
-        [0, 100],
-        [1, 0.95]
+        [0, 50],
+        [1, 0.98]
       ),
       transform: [
         {
           translateY: interpolate(
             scrollY.value,
-            [0, 100],
-            [0, -5]
+            [0, 50],
+            [0, -2]
           ),
         },
       ],
@@ -923,7 +949,11 @@ const ClusterEventsView: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <Animated.View style={[styles.header, headerAnimatedStyle]}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBack}
+          activeOpacity={0.7}
+        >
           <ArrowLeft size={20} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Discover Events</Text>
@@ -939,12 +969,6 @@ const ClusterEventsView: React.FC = () => {
       >
         {/* Featured Event Section */}
         <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionLabel}>
-              <Text style={styles.sectionLabelText}>Featured Event</Text>
-            </View>
-          </View>
-
           {hubData?.featuredEvent ? (
             <FeaturedEvent
               event={hubData.featuredEvent}
