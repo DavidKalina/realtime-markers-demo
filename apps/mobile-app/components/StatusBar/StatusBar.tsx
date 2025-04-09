@@ -3,7 +3,7 @@ import { View, StyleSheet, Platform, StatusBar as RNStatusBar, Text } from 'reac
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
     LinearTransition,
-    SlideInDown,
+    SlideInUp,
     FadeIn,
     useAnimatedStyle,
     withDelay,
@@ -30,28 +30,27 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     ];
 
     return (
-        <Animated.View
-            entering={SlideInDown.springify()
-                .damping(15)
-                .mass(1)
-                .stiffness(200)
-                .delay(100)}
-            style={[
-                styles.container,
-                {
-                    backgroundColor,
-                    paddingTop: insets.top,
-                }
-            ]}
-        >
+        <View style={[
+            styles.container,
+            {
+                backgroundColor,
+                paddingTop: insets.top,
+            }
+        ]}>
             <RNStatusBar
                 barStyle="light-content"
                 backgroundColor={backgroundColor}
                 translucent
             />
-            <View style={styles.content}>
+            <Animated.View
+                entering={SlideInUp.springify()
+                    .damping(15)
+                    .mass(1)
+                    .stiffness(200)}
+                style={styles.content}
+            >
                 <Animated.Text
-                    entering={FadeIn.delay(300).springify()}
+                    entering={FadeIn.delay(200).springify()}
                     style={styles.title}
                 >
                     MapMoji
@@ -64,7 +63,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                         <React.Fragment key={index}>
                             <Animated.View
                                 entering={FadeIn
-                                    .delay(400 + (index * 100))
+                                    .delay(300 + (index * 100))
                                     .springify()
                                     .damping(15)
                                     .mass(1)
@@ -75,7 +74,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                             {index < indicators.length - 1 && (
                                 <Animated.View
                                     entering={FadeIn
-                                        .delay(400 + (index * 100))
+                                        .delay(300 + (index * 100))
                                         .springify()
                                         .damping(15)
                                         .mass(1)
@@ -86,8 +85,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                         </React.Fragment>
                     ))}
                 </Animated.View>
-            </View>
-        </Animated.View>
+            </Animated.View>
+        </View>
     );
 };
 
