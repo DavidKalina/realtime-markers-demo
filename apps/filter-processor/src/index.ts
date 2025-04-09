@@ -16,16 +16,69 @@ const HEALTH_PORT = parseInt(process.env.HEALTH_PORT || "8082");
 
 // Configure Redis connection
 const redisConfig = {
-  host: process.env.REDIS_HOST || "localhost",
+  host: process.env.REDIS_HOST || "redis",
   port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD || undefined,
+  password: process.env.REDIS_PASSWORD,
   maxRetriesPerRequest: 3,
+  retryStrategy: (times: number) => {
+    const delay = Math.min(times * 50, 2000);
+    console.log(`Redis retry attempt ${times} with delay ${delay}ms`);
+    return delay;
+  },
+  reconnectOnError: (err: Error) => {
+    console.log('Redis reconnectOnError triggered:', {
+      message: err.message,
+      stack: err.stack,
+      name: err.name
+    });
+    return true;
+  },
+  enableOfflineQueue: true,
+  connectTimeout: 10000,
+  commandTimeout: 5000,
+  lazyConnect: true,
+  authRetry: true,
+  enableReadyCheck: true
 };
 
 // Initialize Redis clients for publishing and subscribing
 // console.log("Initializing Redis clients...");
 const redisPub = new Redis(redisConfig);
 const redisSub = new Redis(redisConfig);
+
+// Add error handling for Redis publisher
+redisPub.on('error', (error: Error & { code?: string }) => {
+  console.error('Redis publisher error:', {
+    message: error.message,
+    code: error.code,
+    stack: error.stack
+  });
+});
+
+redisPub.on('connect', () => {
+  console.log('Redis publisher connected successfully');
+});
+
+redisPub.on('ready', () => {
+  console.log('Redis publisher is ready to accept commands');
+});
+
+// Add error handling for Redis subscriber
+redisSub.on('error', (error: Error & { code?: string }) => {
+  console.error('Redis subscriber error:', {
+    message: error.message,
+    code: error.code,
+    stack: error.stack
+  });
+});
+
+redisSub.on('connect', () => {
+  console.log('Redis subscriber connected successfully');
+});
+
+redisSub.on('ready', () => {
+  console.log('Redis subscriber is ready to accept commands');
+});
 
 // Database connection string for future use
 const DATABASE_URL = `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}`;

@@ -49,53 +49,37 @@ export class EventSimilarityService implements IEventSimilarityService {
     }
   ): Promise<SimilarityResult> {
     try {
+      // Early return for invalid events
+      if (!embedding || embedding.length === 0) {
+        return { score: 0 };
+      }
+
+      // Check for black image or invalid event cases
+      if (eventData.description?.toLowerCase().includes('black') ||
+        eventData.description?.toLowerCase().includes('invalid') ||
+        eventData.description?.toLowerCase().includes('cannot extract')) {
+        return { score: 0 };
+      }
+
       // Use vector search with text-based pre-filtering
       const similarEvents = await this.eventRepository
         .createQueryBuilder("event")
         .where("event.embedding IS NOT NULL")
         .andWhere(
           new Brackets(qb => {
-            qb.where("LOWER(event.title) LIKE LOWER(:titlePattern)", {
-              titlePattern: `%${eventData.title.toLowerCase()}%`
-            })
-              .orWhere("LOWER(event.description) LIKE LOWER(:descPattern)", {
-                descPattern: `%${eventData.description?.toLowerCase() || ''}%`
-              })
-              .orWhere("LOWER(event.address) LIKE LOWER(:addressPattern)", {
-                addressPattern: `%${eventData.address?.toLowerCase() || ''}%`
-              })
-              .orWhere("LOWER(event.location_notes) LIKE LOWER(:locationNotesPattern)", {
-                locationNotesPattern: `%${eventData.locationNotes?.toLowerCase() || ''}%`
-              });
+            qb.where("LOWER(event.title) LIKE LOWER(:title)");
           })
         )
         // Combine vector similarity with text matching score
-        .addSelect(`
-          (
-            -- Vector similarity (35% weight)
-            (1 - (embedding <-> :embedding)::float) * 0.35 +
+        .addSelect(
+          `(
+            -- Vector similarity (70% weight)
+            (1 - (embedding <-> :embedding::vector)::float) * 0.7 +
             
-            -- Title match (35% weight)
+            -- Title match (30% weight)
             CASE 
-              WHEN LOWER(event.title) = LOWER(:exactTitle) THEN 0.35
-              WHEN similarity(LOWER(event.title), LOWER(:exactTitle)) > 0.8 THEN 0.25
-              WHEN LOWER(event.title) LIKE LOWER(:titlePattern) THEN 0.15
-              ELSE 0
-            END +
-            
-            -- Location match (20% weight)
-            CASE 
-              WHEN LOWER(event.address) = LOWER(:exactAddress) THEN 0.2
-              WHEN LOWER(event.location_notes) = LOWER(:exactLocationNotes) THEN 0.15
-              WHEN LOWER(event.address) LIKE LOWER(:addressPattern) THEN 0.1
-              WHEN LOWER(event.location_notes) LIKE LOWER(:locationNotesPattern) THEN 0.05
-              ELSE 0
-            END +
-            
-            -- Description and emoji match (10% weight)
-            CASE 
-              WHEN event.emoji = :emoji THEN 0.05
-              WHEN LOWER(event.description) LIKE LOWER(:descPattern) THEN 0.05
+              WHEN LOWER(event.title) = LOWER(:title) THEN 0.3
+              WHEN LOWER(event.title) LIKE LOWER(:titleLike) THEN 0.15
               ELSE 0
             END
           )`, 'similarity_score'
@@ -103,13 +87,8 @@ export class EventSimilarityService implements IEventSimilarityService {
         .orderBy('similarity_score', 'DESC')
         .setParameters({
           embedding: pgvector.toSql(embedding),
-          exactTitle: eventData.title.toLowerCase(),
-          titlePattern: `%${eventData.title.toLowerCase()}%`,
-          exactAddress: eventData.address?.toLowerCase() || '',
-          exactLocationNotes: eventData.locationNotes?.toLowerCase() || '',
-          addressPattern: `%${eventData.address?.toLowerCase() || ''}%`,
-          locationNotesPattern: `%${eventData.locationNotes?.toLowerCase() || ''}%`,
-          descPattern: `%${eventData.description?.toLowerCase() || ''}%`
+          title: eventData.title.toLowerCase(),
+          titleLike: `%${eventData.title.toLowerCase()}%`
         })
         .limit(5)
         .getMany();

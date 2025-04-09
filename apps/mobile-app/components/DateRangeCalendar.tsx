@@ -1,8 +1,8 @@
-import { addMonths, eachDayOfInterval, endOfMonth, format, isSameMonth, isToday, parseISO, startOfMonth, subMonths } from 'date-fns';
+import { addMonths, eachDayOfInterval, endOfMonth, format, isSameMonth, isToday, parseISO, startOfMonth, subMonths, addDays } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import Animated, {
     SlideInDown,
     SlideOutDown,
@@ -12,11 +12,59 @@ import Animated, {
     cancelAnimation
 } from 'react-native-reanimated';
 
+// Unified color theme (from EventDetailsHeader)
+const COLORS = {
+    background: "#2a2a2a",
+    cardBackground: "#3a3a3a",
+    textPrimary: "#f8f9fa",
+    textSecondary: "#93c5fd", // Blue
+    accent: "#93c5fd", // Blue
+
+    divider: "rgba(147, 197, 253, 0.12)",
+    buttonBackground: "rgba(147, 197, 253, 0.1)",
+    buttonBorder: "rgba(147, 197, 253, 0.15)",
+
+    success: "#40c057",
+    successBackground: "rgba(64, 192, 87, 0.12)",
+    successBorder: "rgba(64, 192, 87, 0.2)",
+
+    iconUser: "#ff922b", // Orange
+    iconEngagement: "#a5d8ff", // Light Blue
+    iconVerified: "#69db7c", // Green
+    iconDateTime: "#ffd43b", // Yellow
+    iconLocation: "#ff8787", // Red
+    iconCategories: "#da77f2", // Purple
+    iconDefault: "#93c5fd", // Default blue
+};
+
+// Helper for dimmed text color
+const getDimmedTextColor = (baseColor: string, opacity: number = 0.5) => {
+    if (baseColor.startsWith('#') && baseColor.length === 7) {
+        const r = parseInt(baseColor.slice(1, 3), 16);
+        const g = parseInt(baseColor.slice(3, 5), 16);
+        const b = parseInt(baseColor.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    }
+    return `rgba(173, 181, 189, ${opacity})`; // Fallback grey
+};
+
+// Helper for RGBA background from hex
+const getRgbaBackground = (hexColor: string, opacity: number) => {
+    if (hexColor.startsWith('#') && hexColor.length === 7) {
+        const r = parseInt(hexColor.slice(1, 3), 16);
+        const g = parseInt(hexColor.slice(3, 5), 16);
+        const b = parseInt(hexColor.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    }
+    return `rgba(147, 197, 253, ${opacity})`; // Fallback accent
+};
+
 interface DateRangeCalendarProps {
     startDate?: string;
     endDate?: string;
     onDateRangeSelect: (startDate: string | null, endDate: string | null) => void;
     onClose: () => void;
+    isLoading?: boolean;
 }
 
 const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
@@ -24,6 +72,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
     endDate,
     onDateRangeSelect,
     onClose,
+    isLoading = false,
 }) => {
     const [selectedStartDate, setSelectedStartDate] = useState<string | undefined>(startDate);
     const [selectedEndDate, setSelectedEndDate] = useState<string | undefined>(endDate);
@@ -31,6 +80,23 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
     const isMounted = useRef(true);
     const slideAnim = useSharedValue(0);
     const containerAnim = useSharedValue(0);
+
+    // Initialize with default 2-week range if no dates are provided
+    useEffect(() => {
+        if (!selectedStartDate || !selectedEndDate) {
+            const today = new Date();
+            const twoWeeksFromNow = addDays(today, 14);
+            setSelectedStartDate(format(today, 'yyyy-MM-dd'));
+            setSelectedEndDate(format(twoWeeksFromNow, 'yyyy-MM-dd'));
+        }
+    }, []);
+
+    // Helper function to check if a date is in the past
+    const isPastDate = useCallback((date: Date) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return date < today;
+    }, []);
 
     // Cleanup animations
     const cleanupAnimations = useCallback(() => {
@@ -71,6 +137,8 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
 
     // Handle date selection
     const handleDayPress = useCallback((date: Date) => {
+        if (isPastDate(date)) return;
+
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         // Format the date in UTC to avoid timezone issues
         const dateString = format(date, 'yyyy-MM-dd');
@@ -92,7 +160,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                 setSelectedEndDate(dateString);
             }
         }
-    }, [selectedStartDate, selectedEndDate]);
+    }, [selectedStartDate, selectedEndDate, isPastDate]);
 
     // Handle month navigation
     const handlePrevMonth = useCallback(() => {
@@ -114,6 +182,15 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
         }
     }, [selectedStartDate, selectedEndDate, onDateRangeSelect, onClose]);
 
+    // Handle reset - set to default 2-week range
+    const handleReset = useCallback(() => {
+        const today = new Date();
+        const twoWeeksFromNow = addDays(today, 14);
+        setSelectedStartDate(format(today, 'yyyy-MM-dd'));
+        setSelectedEndDate(format(twoWeeksFromNow, 'yyyy-MM-dd'));
+        onDateRangeSelect(format(today, 'yyyy-MM-dd'), format(twoWeeksFromNow, 'yyyy-MM-dd'));
+    }, [onDateRangeSelect]);
+
     // Format date range text
     const dateRangeText = useMemo(() => {
         if (!selectedStartDate || !selectedEndDate) return '';
@@ -123,6 +200,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
         const diffTime = Math.abs(end.getTime() - start.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+        if (diffDays === 0) return '1 day';
         if (diffDays === 1) return '1 day';
         if (diffDays < 7) return `${diffDays} days`;
         if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks`;
@@ -137,6 +215,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
             date > parseISO(selectedStartDate) && date < parseISO(selectedEndDate);
         const isStart = dateString === selectedStartDate;
         const isEnd = dateString === selectedEndDate;
+        const isDisabled = isPastDate(date);
 
         return {
             container: [
@@ -145,15 +224,17 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                 isInRange && styles.rangeDay,
                 isStart && styles.startDay,
                 isEnd && styles.endDay,
+                isDisabled && styles.disabledDay,
             ],
             text: [
                 styles.dayText,
                 isSelected && styles.selectedDayText,
                 !isSameMonth(date, currentMonth) && styles.otherMonthDay,
                 isToday(date) && styles.todayText,
+                isDisabled && styles.disabledDayText,
             ],
         };
-    }, [selectedStartDate, selectedEndDate, currentMonth]);
+    }, [selectedStartDate, selectedEndDate, currentMonth, isPastDate]);
 
     return (
         <Animated.View
@@ -167,7 +248,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
         >
             <View style={styles.header}>
                 <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                    <X size={20} color="#f8f9fa" />
+                    <X size={20} color={COLORS.textPrimary} />
                 </TouchableOpacity>
                 <Text style={styles.title}>Calendar</Text>
             </View>
@@ -185,7 +266,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                     >
                         <ChevronLeft
                             size={20}
-                            color={canGoBack ? "#93c5fd" : "#666666"}
+                            color={canGoBack ? COLORS.accent : getDimmedTextColor(COLORS.textPrimary, 0.4)}
                         />
                     </TouchableOpacity>
                     <Text style={styles.monthText}>
@@ -196,7 +277,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                         style={styles.monthNavButton}
                         activeOpacity={0.7}
                     >
-                        <ChevronRight size={20} color="#93c5fd" />
+                        <ChevronRight size={20} color={COLORS.accent} />
                     </TouchableOpacity>
                 </View>
 
@@ -241,12 +322,9 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                 <View style={styles.buttonContainer}>
                     <TouchableOpacity
                         style={[styles.button, styles.resetButton]}
-                        onPress={() => {
-                            setSelectedStartDate(undefined);
-                            setSelectedEndDate(undefined);
-                            onDateRangeSelect(null, null);
-                        }}
+                        onPress={handleReset}
                         activeOpacity={0.7}
+                        disabled={isLoading}
                     >
                         <Text style={styles.resetButtonText}>Reset</Text>
                     </TouchableOpacity>
@@ -255,13 +333,17 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                         style={[
                             styles.button,
                             styles.confirmButton,
-                            (!selectedStartDate || !selectedEndDate) && styles.confirmButtonDisabled,
+                            isLoading && styles.confirmButtonLoading,
                         ]}
                         onPress={handleConfirmSelection}
-                        disabled={!selectedStartDate || !selectedEndDate}
+                        disabled={isLoading}
                         activeOpacity={0.7}
                     >
-                        <Text style={styles.confirmButtonText}>Confirm</Text>
+                        {isLoading ? (
+                            <ActivityIndicator size="small" color={COLORS.accent} />
+                        ) : (
+                            <Text style={styles.confirmButtonText}>Confirm</Text>
+                        )}
                     </TouchableOpacity>
                 </View>
             </View>
@@ -271,7 +353,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#3a3a3a',
+        backgroundColor: COLORS.cardBackground, // Themed background
         borderRadius: 16,
         overflow: 'hidden',
         width: '90%',
@@ -282,7 +364,7 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 8,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: COLORS.buttonBorder, // Themed border
     },
     header: {
         flexDirection: 'row',
@@ -290,14 +372,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 16,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+        borderBottomColor: COLORS.divider, // Themed divider
     },
     title: {
         flex: 1,
         textAlign: 'center',
         fontSize: 18,
         fontWeight: '600',
-        color: '#f8f9fa',
+        color: COLORS.textPrimary, // Themed text
         fontFamily: 'SpaceMono',
         marginRight: 36,
     },
@@ -305,7 +387,7 @@ const styles = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: getRgbaBackground(COLORS.textPrimary, 0.1), // Subtle background
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -321,19 +403,19 @@ const styles = StyleSheet.create({
     monthText: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#f8f9fa',
+        color: COLORS.textPrimary, // Themed text
         fontFamily: 'SpaceMono',
     },
     monthNavButton: {
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: 'rgba(147, 197, 253, 0.1)',
+        backgroundColor: COLORS.buttonBackground, // Themed button bg
         justifyContent: 'center',
         alignItems: 'center',
     },
     monthNavButtonDisabled: {
-        backgroundColor: 'rgba(147, 197, 253, 0.05)',
+        backgroundColor: getRgbaBackground(COLORS.buttonBackground, 0.5), // Dimmed background
         opacity: 0.5,
     },
     weekDays: {
@@ -345,7 +427,7 @@ const styles = StyleSheet.create({
         width: 40,
         textAlign: 'center',
         fontSize: 12,
-        color: '#adb5bd',
+        color: getDimmedTextColor(COLORS.textPrimary, 0.6), // Dimmed primary text
         fontFamily: 'SpaceMono',
     },
     daysGrid: {
@@ -363,18 +445,18 @@ const styles = StyleSheet.create({
     },
     dayText: {
         fontSize: 14,
-        color: '#f8f9fa',
+        color: COLORS.textPrimary, // Themed text
         fontFamily: 'SpaceMono',
     },
     selectedDay: {
-        backgroundColor: '#93c5fd',
+        backgroundColor: COLORS.accent, // Blue accent
     },
     selectedDayText: {
-        color: '#ffffff',
+        color: COLORS.textPrimary, // Primary text on blue bg
         fontWeight: '600',
     },
     rangeDay: {
-        backgroundColor: 'rgba(147, 197, 253, 0.2)',
+        backgroundColor: getRgbaBackground(COLORS.accent, 0.2), // Blue range bg
     },
     startDay: {
         borderTopLeftRadius: 20,
@@ -385,16 +467,16 @@ const styles = StyleSheet.create({
         borderBottomRightRadius: 20,
     },
     otherMonthDay: {
-        color: '#666666',
+        color: getDimmedTextColor(COLORS.textPrimary, 0.4), // Dimmed text
     },
     todayText: {
-        color: '#93c5fd',
+        color: COLORS.accent, // Blue accent for today
         fontWeight: '600',
     },
     footer: {
         padding: 16,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(255, 255, 255, 0.1)',
+        borderTopColor: COLORS.divider, // Themed divider
         gap: 16,
     },
     dateRangeInfo: {
@@ -405,13 +487,13 @@ const styles = StyleSheet.create({
     dateRangeText: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#f8f9fa',
+        color: COLORS.textPrimary, // Themed text
         fontFamily: 'SpaceMono',
         marginBottom: 4,
     },
     dateRangeDuration: {
         fontSize: 14,
-        color: '#93c5fd',
+        color: COLORS.accent, // Blue accent for duration text
         fontFamily: 'SpaceMono',
     },
     buttonContainer: {
@@ -432,32 +514,41 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     resetButton: {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        backgroundColor: getRgbaBackground(COLORS.accent, 0.1), // Blue themed bg
         borderWidth: 1,
-        borderColor: 'rgba(239, 68, 68, 0.2)',
+        borderColor: getRgbaBackground(COLORS.accent, 0.2), // Blue themed border
     },
     resetButtonText: {
-        color: '#ef4444',
+        color: COLORS.accent, // Blue themed text
         fontSize: 15,
         fontWeight: '600',
         fontFamily: 'SpaceMono',
     },
     confirmButton: {
-        backgroundColor: '#93c5fd',
+        backgroundColor: COLORS.accent, // Blue accent bg
     },
     confirmButtonDisabled: {
-        backgroundColor: 'rgba(147, 197, 253, 0.2)',
+        backgroundColor: getRgbaBackground(COLORS.accent, 0.2), // Blue disabled bg
     },
     confirmButtonText: {
-        color: '#ffffff',
+        color: COLORS.textPrimary, // Primary text on blue bg
         fontSize: 15,
         fontWeight: '600',
         fontFamily: 'SpaceMono',
     },
     placeholderText: {
         fontSize: 14,
-        color: '#adb5bd',
+        color: getDimmedTextColor(COLORS.textPrimary, 0.6), // Dimmed placeholder
         fontFamily: 'SpaceMono',
+    },
+    confirmButtonLoading: {
+        opacity: 0.7,
+    },
+    disabledDay: {
+        opacity: 0.4, // Dim more
+    },
+    disabledDayText: {
+        color: getDimmedTextColor(COLORS.textPrimary, 0.4), // Dimmed text
     },
 });
 

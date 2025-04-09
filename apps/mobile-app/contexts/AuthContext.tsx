@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import apiClient, { User } from "../services/ApiClient";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFilterStore } from "@/stores/useFilterStore";
 
 interface AuthContextType {
   user: User | null;
@@ -25,88 +26,123 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(apiClient.isAuthenticated());
   const router = useRouter();
+  const { fetchFilters, applyFilters } = useFilterStore();
 
-  // In AuthContext.tsx - Enhanced initAuth function
+  useEffect(() => {
+    const initializeAuth = async () => {
+      setIsLoading(true);
 
-  const initAuth = useCallback(async () => {
-    setIsLoading(true);
+      try {
+        // Sync tokens from storage
+        await apiClient.syncTokensWithStorage();
 
-    try {
-      // Sync tokens from storage
-      await apiClient.syncTokensWithStorage();
+        // Check if we have tokens to work with
+        const accessToken = await AsyncStorage.getItem("accessToken");
+        const refreshToken = await AsyncStorage.getItem("refreshToken");
 
-      // Check if we have tokens to work with
-      const accessToken = await AsyncStorage.getItem("accessToken");
-      const refreshToken = await AsyncStorage.getItem("refreshToken");
+        if (accessToken && refreshToken) {
+          try {
+            // Try to get user profile to validate token
+            const userProfile = await apiClient.getUserProfile();
 
-      if (accessToken && refreshToken) {
-        try {
-          // Try to get user profile to validate token
-          const userProfile = await apiClient.getUserProfile();
+            // Make sure we have the user object correctly set
+            if (userProfile) {
+              await AsyncStorage.setItem("user", JSON.stringify(userProfile));
+              setUser(userProfile);
+              setIsAuthenticated(true);
 
-          // Make sure we have the user object correctly set
-          if (userProfile) {
-            await AsyncStorage.setItem("user", JSON.stringify(userProfile));
-            setUser(userProfile);
-            setIsAuthenticated(true);
-          }
-        } catch (profileError: any) {
-          // Only attempt token refresh if we have a refresh token
-          if (refreshToken) {
-            const refreshed = await apiClient.refreshTokens();
+              // Sync filters and active filter IDs
+              await fetchFilters();
+              const storedFilters = await AsyncStorage.getItem("@active_filters");
+              if (storedFilters) {
+                const activeIds = JSON.parse(storedFilters);
+                // Ensure the filters are properly applied
+                await applyFilters(activeIds);
+              } else {
+                // If no stored filters, fetch and apply the oldest filter
+                const filters = await apiClient.getUserFilters();
+                if (filters.length > 0) {
+                  const oldestFilter = filters.sort((a, b) =>
+                    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                  )[0];
+                  await applyFilters([oldestFilter.id]);
+                }
+              }
+            }
+          } catch (profileError: any) {
+            // Only attempt token refresh if we have a refresh token
+            if (refreshToken) {
+              const refreshed = await apiClient.refreshTokens();
 
-            if (refreshed) {
-              try {
-                const userProfile = await apiClient.getUserProfile();
+              if (refreshed) {
+                try {
+                  const userProfile = await apiClient.getUserProfile();
 
-                await AsyncStorage.setItem("user", JSON.stringify(userProfile));
-                setUser(userProfile);
-                setIsAuthenticated(true);
-              } catch (secondProfileError) {
-                console.error(
-                  "Failed to get user profile after token refresh:",
-                  secondProfileError
-                );
+                  await AsyncStorage.setItem("user", JSON.stringify(userProfile));
+                  setUser(userProfile);
+                  setIsAuthenticated(true);
+
+                  // Sync filters and active filter IDs
+                  await fetchFilters();
+                  const storedFilters = await AsyncStorage.getItem("@active_filters");
+                  if (storedFilters) {
+                    const activeIds = JSON.parse(storedFilters);
+                    // Ensure the filters are properly applied
+                    await applyFilters(activeIds);
+                  } else {
+                    // If no stored filters, fetch and apply the oldest filter
+                    const filters = await apiClient.getUserFilters();
+                    if (filters.length > 0) {
+                      const oldestFilter = filters.sort((a, b) =>
+                        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                      )[0];
+                      await applyFilters([oldestFilter.id]);
+                    }
+                  }
+                } catch (secondProfileError) {
+                  console.error(
+                    "Failed to get user profile after token refresh:",
+                    secondProfileError
+                  );
+                  await apiClient.clearAuthState();
+                  setUser(null);
+                  setIsAuthenticated(false);
+                }
+              } else {
+                console.log("Token refresh failed, clearing auth state");
                 await apiClient.clearAuthState();
                 setUser(null);
                 setIsAuthenticated(false);
               }
             } else {
-              console.log("Token refresh failed, clearing auth state");
+              console.log("No refresh token available, clearing auth state");
               await apiClient.clearAuthState();
               setUser(null);
               setIsAuthenticated(false);
             }
-          } else {
-            console.log("No refresh token available, clearing auth state");
-            await apiClient.clearAuthState();
-            setUser(null);
-            setIsAuthenticated(false);
           }
+        } else {
+          console.log("No tokens found in storage, user is not authenticated");
+          setUser(null);
+          setIsAuthenticated(false);
         }
-      } else {
-        console.log("No tokens found in storage, user is not authenticated");
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+        // On any error during initialization, clear auth state and redirect to login
+        await apiClient.clearAuthState();
         setUser(null);
         setIsAuthenticated(false);
+      } finally {
+        console.log("Auth initialization complete:", {
+          isAuthenticated: apiClient.isAuthenticated(),
+          hasUser: !!apiClient.getCurrentUser(),
+        });
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Auth initialization error:", error);
-      // On any error during initialization, clear auth state and redirect to login
-      await apiClient.clearAuthState();
-      setUser(null);
-      setIsAuthenticated(false);
-    } finally {
-      console.log("Auth initialization complete:", {
-        isAuthenticated: apiClient.isAuthenticated(),
-        hasUser: !!apiClient.getCurrentUser(),
-      });
-      setIsLoading(false);
-    }
-  }, []);
+    };
 
-  useEffect(() => {
-    initAuth();
-  }, [initAuth]);
+    initializeAuth();
+  }, []);
 
   useEffect(() => {
     console.log("Auth state:", {
@@ -130,17 +166,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  // Reset loading state when auth state changes
   useEffect(() => {
-    console.log("Checking navigation:", { user: user?.id, isAuthenticated, isLoading });
-
-    if (!isLoading) {
-      if (user?.id && isAuthenticated) {
-        router.replace("/");
-      } else {
-        router.replace("/login");
-      }
+    if (user?.id && isAuthenticated) {
+      // Give the main screen time to load before clearing loading state
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 1000);
+      return () => clearTimeout(timer);
     }
-  }, [user?.id, isAuthenticated, isLoading, router]);
+  }, [user?.id, isAuthenticated]);
 
   // New method to manually refresh authentication
   const refreshAuth = async (): Promise<boolean> => {
@@ -180,8 +215,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await apiClient.login(email, password);
       setUser(apiClient.getCurrentUser());
       setIsAuthenticated(true);
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      console.error("Login error:", error);
+      throw error;
     }
   };
 
@@ -189,10 +225,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       // First register the user
-      await apiClient.register(email, password, displayName);
+      const user = await apiClient.register(email, password, displayName);
 
-      // Then log them in separately
-      await login(email, password);
+      // Then log them in
+      await apiClient.login(email, password);
+
+      // Update the auth state
+      setUser(apiClient.getCurrentUser());
+      setIsAuthenticated(true);
     } catch (error) {
       console.error("Registration error:", error);
       throw error;

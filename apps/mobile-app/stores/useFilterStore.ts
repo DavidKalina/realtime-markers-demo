@@ -10,6 +10,7 @@ interface FilterState {
   filters: Filter[];
   activeFilterIds: string[];
   isLoading: boolean;
+  isClearing: boolean;
   error: string | null;
 
   // Actions
@@ -27,6 +28,7 @@ export const useFilterStore = create<FilterState>((set, get) => ({
   filters: [],
   activeFilterIds: [],
   isLoading: false,
+  isClearing: false,
   error: null,
 
   // Actions
@@ -35,7 +37,7 @@ export const useFilterStore = create<FilterState>((set, get) => ({
     try {
       // First fetch the filters from the API
       const userFilters = await apiClient.getUserFilters();
-      
+
       // Then load active filters from storage
       const storedFilters = await AsyncStorage.getItem(ACTIVE_FILTERS_KEY);
       let activeIds: string[] = [];
@@ -43,11 +45,24 @@ export const useFilterStore = create<FilterState>((set, get) => ({
         activeIds = JSON.parse(storedFilters);
       }
 
+      // If no active filters and we have filters available, apply the oldest one
+      if (activeIds.length === 0 && userFilters.length > 0) {
+        // Sort filters by creation date and get the oldest one
+        const oldestFilter = userFilters.sort((a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        )[0];
+
+        // Apply the oldest filter
+        await apiClient.applyFilters([oldestFilter.id]);
+        activeIds = [oldestFilter.id];
+        await AsyncStorage.setItem(ACTIVE_FILTERS_KEY, JSON.stringify(activeIds));
+      }
+
       // Update state with both filters and active IDs
       set({
         filters: userFilters,
         // Only keep active filter IDs that still exist in the fetched filters
-        activeFilterIds: activeIds.filter(id => 
+        activeFilterIds: activeIds.filter(id =>
           userFilters.some(filter => filter.id === id)
         )
       });
@@ -60,38 +75,60 @@ export const useFilterStore = create<FilterState>((set, get) => ({
   },
 
   createFilter: async (filter: Partial<Filter>) => {
+    set({ isLoading: true, error: null });
     try {
       const newFilter = await apiClient.createFilter(filter);
-      set((state) => ({ filters: [...state.filters, newFilter] }));
+
+      set((state) => ({
+        filters: [...state.filters, newFilter],
+        isLoading: false
+      }));
       return newFilter;
     } catch (err) {
       console.error("Error creating filter:", err);
+      set({
+        error: `Failed to create filter: ${err instanceof Error ? err.message : "Unknown error"}`,
+        isLoading: false
+      });
       throw err;
     }
   },
 
   updateFilter: async (id: string, filter: Partial<Filter>) => {
+    set({ isLoading: true, error: null });
     try {
       const updatedFilter = await apiClient.updateFilter(id, filter);
+
       set((state) => ({
         filters: state.filters.map((f) => (f.id === updatedFilter.id ? updatedFilter : f)),
+        isLoading: false
       }));
       return updatedFilter;
     } catch (err) {
       console.error("Error updating filter:", err);
+      set({
+        error: `Failed to update filter: ${err instanceof Error ? err.message : "Unknown error"}`,
+        isLoading: false
+      });
       throw err;
     }
   },
 
   deleteFilter: async (id: string) => {
+    set({ isLoading: true, error: null });
     try {
       await apiClient.deleteFilter(id);
       set((state) => ({
         filters: state.filters.filter((f) => f.id !== id),
         activeFilterIds: state.activeFilterIds.filter((filterId) => filterId !== id),
+        isLoading: false
       }));
     } catch (err) {
       console.error("Error deleting filter:", err);
+      set({
+        error: `Failed to delete filter: ${err instanceof Error ? err.message : "Unknown error"}`,
+        isLoading: false
+      });
       throw err;
     }
   },
@@ -113,14 +150,22 @@ export const useFilterStore = create<FilterState>((set, get) => ({
   },
 
   clearFilters: async () => {
+    set({ isClearing: true, error: null });
     try {
+      // Call the API to clear all filters
       await apiClient.clearFilters();
+
+      // Clear active filters in local state
       set({ activeFilterIds: [] });
+
       // Remove from AsyncStorage
       await AsyncStorage.removeItem(ACTIVE_FILTERS_KEY);
     } catch (err) {
       console.error("Error clearing filters:", err);
+      set({ error: `Failed to clear filters: ${err instanceof Error ? err.message : "Unknown error"}` });
       throw err;
+    } finally {
+      set({ isClearing: false });
     }
   },
 

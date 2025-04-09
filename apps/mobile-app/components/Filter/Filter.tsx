@@ -52,6 +52,7 @@ const FiltersView: React.FC = () => {
     clearFilters,
     activeFilterIds,
     setActiveFilterIds,
+    isClearing,
   } = useFilterStore();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -230,9 +231,9 @@ const FiltersView: React.FC = () => {
       filter.criteria.location?.latitude !== undefined &&
         filter.criteria.location?.longitude !== undefined
         ? {
-            latitude: filter.criteria.location.latitude,
-            longitude: filter.criteria.location.longitude,
-          }
+          latitude: filter.criteria.location.latitude,
+          longitude: filter.criteria.location.longitude,
+        }
         : null
     );
     setModalVisible(true);
@@ -336,22 +337,26 @@ const FiltersView: React.FC = () => {
       name: filterName.trim(),
       semanticQuery: semanticQuery.trim(),
       criteria: {
+        // Preserve existing criteria if editing
+        ...(editingFilter?.criteria || {}),
+        // Update date range if provided
         ...(startDate && endDate
           ? {
-              dateRange: {
-                start: startDate,
-                end: endDate,
-              },
-            }
+            dateRange: {
+              start: startDate,
+              end: endDate,
+            },
+          }
           : {}),
+        // Update location if enabled
         ...(isLocationEnabled && location && radius
           ? {
-              location: {
-                latitude: location.latitude,
-                longitude: location.longitude,
-                radius: radius * 1000,
-              },
-            }
+            location: {
+              latitude: location.latitude,
+              longitude: location.longitude,
+              radius: radius * 1000,
+            },
+          }
           : {}),
       },
     };
@@ -440,7 +445,7 @@ const FiltersView: React.FC = () => {
         )}
       </View>
 
-      {filters.length > 0 && <BottomActionBar onClearFilters={handleClearFilters} />}
+      {filters.length > 0 && <BottomActionBar onClearFilters={handleClearFilters} isClearing={isClearing} />}
 
       <FilterFormModal
         visible={modalVisible}

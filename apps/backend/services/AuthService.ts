@@ -75,7 +75,6 @@ export class AuthService {
     const defaultFilter = await this.userPreferencesService.createFilter(savedUser.id, {
       name: "First Two Weeks",
       isActive: true,
-      semanticQuery: "Show me everything in my first two weeks",
       criteria: {
         dateRange: {
           start: format(now, "yyyy-MM-dd"),

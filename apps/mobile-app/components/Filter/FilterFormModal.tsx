@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   Modal,
+  Keyboard,
 } from "react-native";
 import { X, Save } from "lucide-react-native";
 import Animated, {
@@ -73,33 +74,16 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
     cleanupModalAnimations,
   }) => {
     const scrollViewRef = useRef<ScrollView>(null);
-    const [isFirstFilter, setIsFirstFilter] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
-    // Check if this is the first filter
-    useEffect(() => {
-      const checkFirstFilter = async () => {
-        try {
-          const response = await fetch("/api/filters");
-          const filters = await response.json();
-          setIsFirstFilter(filters.length === 0);
-        } catch (error) {
-          console.error("Error checking filters:", error);
-        }
-      };
-      checkFirstFilter();
-    }, []);
-
-    const scrollToInput = useCallback((target: any) => {
-      if (scrollViewRef.current && target) {
-        target.measureLayout(
-          scrollViewRef.current.getInnerViewNode(),
-          (_: number, y: number) => {
-            scrollViewRef.current?.scrollTo({ y: y - 100, animated: true });
-          },
-          () => {}
-        );
+    const handleSave = async () => {
+      setIsSaving(true);
+      try {
+        await onSave();
+      } finally {
+        setIsSaving(false);
       }
-    }, []);
+    };
 
     return (
       <Modal
@@ -160,7 +144,6 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                   placeholder="Enter filter name"
                   placeholderTextColor="#adb5bd"
                   returnKeyType="next"
-                  onFocus={(e) => scrollToInput(e.target)}
                 />
               </View>
 
@@ -177,25 +160,21 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                 </View>
               </View>
 
-              {/* Semantic Query - Core functionality */}
-              {!isFirstFilter && (
-                <View style={styles.formGroup}>
-                  <Text style={styles.formLabel}>Search Query</Text>
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    value={semanticQuery}
-                    onChangeText={setSemanticQuery}
-                    placeholder="Enter your search query in natural language"
-                    placeholderTextColor="#adb5bd"
-                    multiline
-                    numberOfLines={3}
-                    onFocus={(e) => scrollToInput(e.target)}
-                  />
-                  <Text style={styles.helperText}>
-                    Example: "Events about AI and machine learning in the last month"
-                  </Text>
-                </View>
-              )}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Search Query</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={semanticQuery}
+                  onChangeText={setSemanticQuery}
+                  placeholder="Enter your search query in natural language"
+                  placeholderTextColor="#adb5bd"
+                  multiline
+                  numberOfLines={3}
+                />
+                <Text style={styles.helperText}>
+                  Example: "Events about AI and machine learning in the last month"
+                </Text>
+              </View>
 
               {/* Date Range - Optional filter */}
               <View style={styles.formGroup}>
@@ -207,7 +186,6 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                     onChangeText={setStartDate}
                     placeholder="Start (YYYY-MM-DD)"
                     placeholderTextColor="#adb5bd"
-                    onFocus={(e) => scrollToInput(e.target)}
                   />
                   <Text style={styles.dateRangeSeparator}>to</Text>
                   <TextInput
@@ -216,7 +194,6 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                     onChangeText={setEndDate}
                     placeholder="End (YYYY-MM-DD)"
                     placeholderTextColor="#adb5bd"
-                    onFocus={(e) => scrollToInput(e.target)}
                   />
                 </View>
               </View>
@@ -241,7 +218,6 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                       placeholder="Radius in kilometers"
                       placeholderTextColor="#adb5bd"
                       keyboardType="numeric"
-                      onFocus={(e) => scrollToInput(e.target)}
                     />
                     <TouchableOpacity
                       style={styles.locationButton}
@@ -277,9 +253,16 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
             </ScrollView>
 
             <View style={styles.modalFooter}>
-              <TouchableOpacity style={styles.saveButton} onPress={onSave} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+                onPress={handleSave}
+                activeOpacity={0.7}
+                disabled={isSaving}
+              >
                 <Save size={18} color="#f8f9fa" style={{ marginRight: 8 }} />
-                <Text style={styles.saveButtonText}>Save Filter</Text>
+                <Text style={styles.saveButtonText}>
+                  {isSaving ? "Saving..." : "Save Filter"}
+                </Text>
               </TouchableOpacity>
             </View>
           </Animated.View>

@@ -18,6 +18,7 @@ import { isEventTemporalyRelevant } from "./utils/isEventTemporalyRelevant";
 import { StorageService } from "./services/shared/StorageService";
 import { User } from "./entities/User";
 import { GoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
+import { CacheService } from "./services/shared/CacheService";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -30,10 +31,50 @@ async function initializeWorker() {
   // Initialize data sources
   await AppDataSource.initialize();
 
-  const redisClient = new Redis({
-    host: process.env.REDIS_HOST || "localhost",
+  // Initialize Redis client with proper configuration
+  const redisConfig = {
+    host: process.env.REDIS_HOST || "redis",
     port: parseInt(process.env.REDIS_PORT || "6379"),
-    password: process.env.REDIS_PASSWORD || undefined,
+    password: process.env.REDIS_PASSWORD,
+    maxRetriesPerRequest: 3,
+    retryStrategy: (times: number) => {
+      const delay = Math.min(times * 50, 2000);
+      console.log(`Redis retry attempt ${times} with delay ${delay}ms`);
+      return delay;
+    },
+    reconnectOnError: (err: Error) => {
+      console.log('Redis reconnectOnError triggered:', {
+        message: err.message,
+        stack: err.stack,
+        name: err.name
+      });
+      return true;
+    },
+    enableOfflineQueue: true,
+    connectTimeout: 10000,
+    commandTimeout: 5000,
+    lazyConnect: true,
+    authRetry: true,
+    enableReadyCheck: true
+  };
+
+  const redisClient = new Redis(redisConfig);
+
+  // Add error handling for Redis
+  redisClient.on('error', (error: Error & { code?: string }) => {
+    console.error('Redis connection error:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+  });
+
+  redisClient.on('connect', () => {
+    console.log('Redis connected successfully');
+  });
+
+  redisClient.on('ready', () => {
+    console.log('Redis is ready to accept commands');
   });
 
   // Initialize OpenAI service
@@ -139,10 +180,12 @@ async function initializeWorker() {
     try {
       // Get job data
       const job = JSON.parse(jobData);
+      console.log(`[Worker] Processing job ${jobId} of type ${job.type}`);
 
       // In worker.ts processJobs function, add a new job type handler
       if (job.type === "cleanup_outdated_events") {
         const batchSize = job.data.batchSize || 100;
+        console.log(`[Worker] Updating job ${jobId} progress: Cleaning up outdated events`);
         await jobQueue.updateJobStatus(jobId, {
           progress: `Cleaning up outdated events (batch size: ${batchSize})`,
         });
@@ -201,6 +244,22 @@ async function initializeWorker() {
           jobId
         );
 
+        // Check confidence score first
+        if (scanResult.confidence < 0.75) {
+          console.log(`[Worker] Confidence too low (${scanResult.confidence}) to proceed with event processing`);
+          await jobQueue.updateJobStatus(jobId, {
+            status: "completed",
+            progress: 1, // Set to 100% when completed
+            result: {
+              message: "The image quality or content was not clear enough to reliably extract event information. Please try again with a clearer image.",
+              confidence: scanResult.confidence,
+              threshold: 0.75,
+            },
+            completed: new Date().toISOString(),
+          });
+          return;
+        }
+
         // Now check if this is a duplicate event
         if (scanResult.isDuplicate && scanResult.similarity.matchingEventId) {
           console.log(
@@ -216,6 +275,7 @@ async function initializeWorker() {
             // Mark as completed with duplicate information
             await jobQueue.updateJobStatus(jobId, {
               status: "completed",
+              progress: 1, // Set to 100% when completed
               eventId: existingEvent.id,
               result: {
                 eventId: existingEvent.id,
@@ -223,6 +283,7 @@ async function initializeWorker() {
                 coordinates: existingEvent.location.coordinates,
                 isDuplicate: true,
                 similarityScore: scanResult.similarity.score,
+                message: "This event appears to be very similar to an existing event in our database. We've linked you to the existing event instead.",
               },
               completed: new Date().toISOString(),
             });
@@ -233,7 +294,9 @@ async function initializeWorker() {
             );
             await jobQueue.updateJobStatus(jobId, {
               status: "failed",
+              progress: 1, // Set to 100% when completed
               error: "Duplicate event reference not found",
+              message: "We encountered an error while processing this event. Please try again.",
               completed: new Date().toISOString(),
             });
           }
@@ -255,8 +318,11 @@ async function initializeWorker() {
             // Mark as completed with info about invalid date
             await jobQueue.updateJobStatus(jobId, {
               status: "completed",
+              progress: 1,
               result: {
-                message: dateValidation.reason,
+                message: dateValidation.daysFromNow !== undefined && dateValidation.daysFromNow < 0
+                  ? "This event appears to be in the past. We only process upcoming events."
+                  : dateValidation.reason,
                 daysFromNow: dateValidation.daysFromNow,
                 date: eventDate.toISOString(),
                 confidence: scanResult.confidence,
@@ -335,11 +401,13 @@ async function initializeWorker() {
           // Mark as completed with success
           await jobQueue.updateJobStatus(jobId, {
             status: "completed",
+            progress: 1, // Set to 100% when completed
             eventId: newEvent.id,
             result: {
               eventId: newEvent.id,
               title: eventDetails.title,
               coordinates: newEvent.location.coordinates,
+              message: "Event successfully processed and added to the database!",
             },
             completed: new Date().toISOString(),
           });
@@ -348,6 +416,7 @@ async function initializeWorker() {
           // Mark as completed with info about low confidence
           await jobQueue.updateJobStatus(jobId, {
             status: "completed",
+            progress: 1, // Set to 100% when completed
             result: {
               message: "Confidence too low to create event",
               confidence: scanResult.confidence,
@@ -374,7 +443,9 @@ async function initializeWorker() {
       // Update job with error
       await jobQueue.updateJobStatus(jobId, {
         status: "failed",
+        progress: 1, // Set to 100% when completed
         error: error.message,
+        message: "We encountered an error while processing your event. Please try again with a different image or contact support if the issue persists.",
         completed: new Date().toISOString(),
       });
     } finally {

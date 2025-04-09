@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Bookmark, BookmarkCheck } from 'lucide-react-native';
 import Animated, {
     useAnimatedStyle,
@@ -32,13 +32,16 @@ const SaveButton: React.FC<SaveButtonProps> = ({ isSaved, savingState, onSave })
         }
     }, [isSaved, savingState]);
 
-    const handlePress = () => {
-        if (savingState === "loading") return;
+    const handlePressIn = () => {
+        scale.value = withSpring(0.9);
+    };
 
-        // Simple scale animation on press
-        scale.value = withSpring(0.95, { damping: 10 }, () => {
-            scale.value = withSpring(1, { damping: 10 });
-        });
+    const handlePressOut = () => {
+        scale.value = withSpring(1);
+    };
+
+    const handleSavePress = () => {
+        if (savingState === "loading") return;
 
         onSave();
     };
@@ -55,13 +58,14 @@ const SaveButton: React.FC<SaveButtonProps> = ({ isSaved, savingState, onSave })
     });
 
     return (
-        <Animated.View style={[styles.saveButton, animatedStyle]}>
-            <TouchableOpacity
-                style={[styles.button, savingState === "loading" && styles.loading]}
-                onPress={handlePress}
-                disabled={savingState === "loading"}
-                activeOpacity={0.7}
-            >
+        <Pressable
+            onPress={handleSavePress}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            disabled={savingState === "loading"}
+            style={({ pressed }) => [styles.saveButton, pressed && styles.saveButtonPressed]}
+        >
+            <Animated.View style={[StyleSheet.absoluteFill, styles.buttonContent, animatedStyle]}>
                 {savingState === "loading" ? (
                     <ActivityIndicator size="small" color={COLORS.accent} />
                 ) : isSaved ? (
@@ -69,8 +73,8 @@ const SaveButton: React.FC<SaveButtonProps> = ({ isSaved, savingState, onSave })
                 ) : (
                     <Bookmark size={24} color={COLORS.accent} />
                 )}
-            </TouchableOpacity>
-        </Animated.View>
+            </Animated.View>
+        </Pressable>
     );
 };
 
@@ -81,7 +85,7 @@ const styles = StyleSheet.create({
         right: 0,
         width: 40,
         height: 40,
-        borderRadius: 12,
+        borderRadius: 14,
         justifyContent: "center",
         alignItems: "center",
         shadowColor: "#000",
@@ -90,14 +94,18 @@ const styles = StyleSheet.create({
         shadowRadius: 3,
         elevation: 2,
     },
-    button: {
+    buttonContent: {
         width: '100%',
         height: '100%',
         justifyContent: "center",
         alignItems: "center",
+        borderRadius: 14,
     },
     loading: {
         opacity: 0.7,
+    },
+    saveButtonPressed: {
+        // Add any styles for pressed state if needed
     },
 });
 

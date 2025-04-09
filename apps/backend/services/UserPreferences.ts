@@ -301,15 +301,14 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
           timestamp: new Date().toISOString(),
         })
       );
-
     } catch (error) {
       console.error(`Error publishing filter change for user ${userId}:`, error);
+      // Don't throw the error - we want to continue even if Redis publishing fails
     }
   }
 
   async applyFilters(userId: string, filterIds: string[]): Promise<boolean> {
     try {
-
       // Get all user filters
       const userFilters = await this.getUserFilters(userId);
 
@@ -326,15 +325,19 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
       const activeFilters = updatedFilters.filter((filter) => filter.isActive);
 
       // Publish filter change event with the active filters
-      await this.redisClient.publish(
-        "filter-changes",
-        JSON.stringify({
-          userId,
-          filters: activeFilters,
-          timestamp: new Date().toISOString(),
-        })
-      );
-
+      try {
+        await this.redisClient.publish(
+          "filter-changes",
+          JSON.stringify({
+            userId,
+            filters: activeFilters,
+            timestamp: new Date().toISOString(),
+          })
+        );
+      } catch (redisError) {
+        console.error(`Error publishing filter change to Redis:`, redisError);
+        // Continue even if Redis publishing fails
+      }
 
       return true;
     } catch (error) {

@@ -69,14 +69,22 @@ export class JobQueue {
     const job = JSON.parse(jobData);
     const updatedJob = { ...job, ...updates, updated: new Date().toISOString() };
 
+    console.log(`[JobQueue] Updating job ${jobId} status:`, {
+      previousStatus: job.status,
+      newStatus: updates.status,
+      progress: updates.progress,
+      timestamp: updatedJob.updated
+    });
+
     await this.redis.set(`job:${jobId}`, JSON.stringify(updatedJob));
-    await this.redis.publish(
-      `job:${jobId}:updates`,
-      JSON.stringify({
-        id: jobId,
-        ...updates,
-        updated: updatedJob.updated,
-      })
-    );
+
+    const updateMessage = JSON.stringify({
+      id: jobId,
+      ...updates,
+      updated: updatedJob.updated,
+    });
+
+    console.log(`[JobQueue] Publishing job update to Redis channel job:${jobId}:updates:`, updateMessage);
+    await this.redis.publish(`job:${jobId}:updates`, updateMessage);
   }
 }

@@ -547,12 +547,16 @@ export const styles = StyleSheet.create({
     alignItems: "center",
   },
 
+
+  saveButtonDisabled: {
+    backgroundColor: "#3a3a3a",
+    opacity: 0.7,
+  },
   saveButtonText: {
     color: "#f8f9fa",
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
     fontFamily: "SpaceMono",
-    marginLeft: 8,
   },
   modalContainer: {
     flex: 1,

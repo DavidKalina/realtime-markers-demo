@@ -1,6 +1,5 @@
 // store/useJobSessionStore.ts
 import { create } from "zustand";
-import * as Crypto from "expo-crypto";
 
 // Types
 export interface Job {
@@ -28,6 +27,7 @@ export interface JobSessionActions {
   addJob: (jobId: string) => boolean;
   cancelJob: (jobId: string) => boolean;
   clearAllJobs: () => boolean;
+  setClientId: (clientId: string) => void;
 }
 
 export type JobSessionStore = JobSessionState & JobSessionActions;
@@ -51,137 +51,135 @@ const MessageTypes = {
   ERROR: "error",
 };
 
-export const useJobSessionStore = create<JobSessionStore>((set, get) => {
-  // Generate a clientId asynchronously using expo-crypto
-  (async () => {
-    const id = await Crypto.randomUUID();
-    set({ clientId: id });
-  })();
+export const useJobSessionStore = create<JobSessionStore>((set, get) => ({
+  // Initial state
+  sessionId: null,
+  isConnected: false,
+  isConnecting: false,
+  error: null,
+  jobs: [],
+  clientId: "",
 
-  return {
-    // Initial state
-    sessionId: null,
-    isConnected: false,
-    isConnecting: false,
-    error: null,
-    jobs: [],
-    clientId: "", // will be updated asynchronously
+  // Connect to the WebSocket server
+  connect: (existingSessionId?: string) => {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
 
-    // Connect to the WebSocket server
-    connect: (existingSessionId?: string) => {
-      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-        return;
-      }
+    set({ isConnecting: true, error: null });
 
-      set({ isConnecting: true, error: null });
+    try {
+      ws = new WebSocket(process.env.EXPO_PUBLIC_WEB_SOCKET_URL || "ws://localhost:8081");
 
-      try {
-        ws = new WebSocket(process.env.EXPO_PUBLIC_WEB_SOCKET_URL || "ws://localhost:8081");
+      ws.onopen = () => {
+        set({ isConnected: true, isConnecting: false });
+        // Join an existing session or create a new one
+        if (existingSessionId) {
+          ws?.send(
+            JSON.stringify({
+              type: MessageTypes.JOIN_SESSION,
+              sessionId: existingSessionId,
+            })
+          );
+        } else {
+          ws?.send(
+            JSON.stringify({
+              type: MessageTypes.CREATE_SESSION,
+            })
+          );
+        }
+      };
 
-        ws.onopen = () => {
-          set({ isConnected: true, isConnecting: false });
-          // Join an existing session or create a new one
-          if (existingSessionId) {
-            ws?.send(
-              JSON.stringify({
-                type: MessageTypes.JOIN_SESSION,
-                sessionId: existingSessionId,
-              })
-            );
-          } else {
-            ws?.send(
-              JSON.stringify({
-                type: MessageTypes.CREATE_SESSION,
-              })
-            );
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          switch (data.type) {
+            case MessageTypes.SESSION_CREATED:
+            case MessageTypes.SESSION_JOINED:
+              set({ sessionId: data.data.sessionId });
+              break;
+            case MessageTypes.SESSION_UPDATE:
+              set({ jobs: data.data.jobs });
+              break;
+            case MessageTypes.ERROR:
+              set({ error: data.data.message });
+              break;
+            default:
+              console.warn(`Unknown message type: ${data.type}`);
           }
-        };
+        } catch (error) {
+          console.error("Error parsing WebSocket message:", error);
+          set({ error: "Failed to parse server message" });
+        }
+      };
 
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-
-            switch (data.type) {
-              case MessageTypes.SESSION_CREATED:
-              case MessageTypes.SESSION_JOINED:
-                set({ sessionId: data.data.sessionId });
-                break;
-              case MessageTypes.SESSION_UPDATE:
-                set({ jobs: data.data.jobs });
-                break;
-              case MessageTypes.ERROR:
-                set({ error: data.data.message });
-                break;
-              default:
-                console.warn(`Unknown message type: ${data.type}`);
-            }
-          } catch (error) {
-            console.error("Error parsing WebSocket message:", error);
+      ws.onclose = () => {
+        set({ isConnected: false });
+        // Attempt to reconnect after a short delay
+        setTimeout(() => {
+          if (!ws || ws.readyState !== WebSocket.OPEN) {
+            get().connect(existingSessionId);
           }
-        };
+        }, 3000);
+      };
 
-        ws.onclose = () => {
-          set({ isConnected: false });
-          // Attempt to reconnect after a short delay
-          setTimeout(() => {
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-              get().connect(existingSessionId);
-            }
-          }, 3000);
-        };
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        set({ isConnected: false, error: "Connection error" });
+      };
+    } catch (error) {
+      console.error("Error connecting to WebSocket:", error);
+      set({ isConnecting: false, error: "Failed to connect to WebSocket server" });
+    }
+  },
 
-        ws.onerror = (error) => {
-          console.error("WebSocket error:", error);
-          set({ isConnected: false, error: "Connection error" });
-        };
-      } catch (error) {
-        console.error("Error connecting to WebSocket:", error);
-        set({ isConnecting: false, error: "Failed to connect" });
-      }
-    },
+  setClientId: (clientId: string) => {
+    set({ clientId });
+  },
 
-    // Add a job to the session
-    addJob: (jobId: string) => {
-      const { sessionId } = get();
-      if (!sessionId || !ws || ws.readyState !== WebSocket.OPEN) {
-        return false;
-      }
-      ws.send(
-        JSON.stringify({
-          type: MessageTypes.ADD_JOB,
-          jobId,
-        })
-      );
-      return true;
-    },
+  // Add a job to the session
+  addJob: (jobId: string) => {
+    const { sessionId } = get();
+    if (!sessionId || !ws || ws.readyState !== WebSocket.OPEN) {
+      console.warn('Cannot add job - WebSocket not ready:', { sessionId, wsState: ws?.readyState });
+      return false;
+    }
+    ws.send(
+      JSON.stringify({
+        type: MessageTypes.ADD_JOB,
+        jobId,
+      })
+    );
+    return true;
+  },
 
-    // Cancel a job
-    cancelJob: (jobId: string) => {
-      const { sessionId } = get();
-      if (!sessionId || !ws || ws.readyState !== WebSocket.OPEN) {
-        return false;
-      }
-      ws.send(
-        JSON.stringify({
-          type: MessageTypes.CANCEL_JOB,
-          jobId,
-        })
-      );
-      return true;
-    },
+  // Cancel a job
+  cancelJob: (jobId: string) => {
+    const { sessionId } = get();
+    if (!sessionId || !ws || ws.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+    ws.send(
+      JSON.stringify({
+        type: MessageTypes.CANCEL_JOB,
+        jobId,
+      })
+    );
+    return true;
+  },
 
-    // Clear all jobs in the session
-    clearAllJobs: () => {
-      const { sessionId } = get();
-      if (!sessionId || !ws || ws.readyState !== WebSocket.OPEN) {
-        return false;
-      }
-      ws.send(
-        JSON.stringify({
-          type: MessageTypes.CLEAR_SESSION,
-        })
-      );
-      return true;
-    },
-  };
-});
+  // Clear all jobs in the session
+  clearAllJobs: () => {
+    const { sessionId } = get();
+    if (!sessionId || !ws || ws.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+    ws.send(
+      JSON.stringify({
+        type: MessageTypes.CLEAR_SESSION,
+      })
+    );
+    return true;
+  },
+}));

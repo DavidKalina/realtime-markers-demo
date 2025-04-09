@@ -16,7 +16,8 @@ export const useEnhancedTextStreaming = () => {
     options?: {
       wordDelayMs?: number;
       messageDelayMs?: number;
-      pauseAfterMs?: number; // New option for pause after streaming
+      pauseAfterMs?: number;
+      characterDelayMs?: number; // New option for character delay
     };
   } | null>(null);
 
@@ -128,7 +129,8 @@ export const useEnhancedTextStreaming = () => {
       options?: {
         wordDelayMs?: number;
         messageDelayMs?: number;
-        pauseAfterMs?: number; // New option for pause after streaming
+        pauseAfterMs?: number;
+        characterDelayMs?: number;
       }
     ) => {
       // Cancel any ongoing streaming
@@ -144,9 +146,10 @@ export const useEnhancedTextStreaming = () => {
       }
 
       // Configure timing options
-      const wordDelay = options?.wordDelayMs ?? 100; // 100ms between words
-      const messageDelay = options?.messageDelayMs ?? 1000; // 1000ms between messages
-      const pauseAfter = options?.pauseAfterMs ?? 2000; // 2000ms pause after streaming completes
+      const wordDelay = options?.wordDelayMs ?? 50;
+      const messageDelay = options?.messageDelayMs ?? 500;
+      const pauseAfter = options?.pauseAfterMs ?? 0;
+      const characterDelay = options?.characterDelayMs ?? 5; // Default 30ms between characters
 
       // Create a new abort controller for this streaming session
       const controller = new AbortController();
@@ -188,11 +191,49 @@ export const useEnhancedTextStreaming = () => {
 
             const word = words[wordIndex];
 
-            // Add word to display text
-            displayText += (wordIndex > 0 ? " " : "") + word;
+            // Process each character in the word
+            for (let charIndex = 0; charIndex < word.length; charIndex++) {
+              // Add character to display text
+              displayText += word[charIndex];
+              setCurrentText(displayText);
 
-            // Update text display - only show the current message being streamed
-            setCurrentText(displayText);
+              // Light haptic feedback for each character
+              try {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              } catch (e) {
+                // Ignore haptic errors
+              }
+
+              // Wait between characters
+              await new Promise<void>((resolve, reject) => {
+                const timer = setTimeout(() => {
+                  resolve();
+                }, characterDelay);
+
+                // Add timer to active timers list
+                const timerId = timer as unknown as number;
+                activeTimersRef.current.push(timerId);
+
+                // Handle abort during wait
+                controller.signal.addEventListener(
+                  "abort",
+                  () => {
+                    clearTimeout(timer);
+                    activeTimersRef.current = activeTimersRef.current.filter(
+                      (id) => id !== timerId
+                    );
+                    reject(new Error("Streaming aborted during character delay"));
+                  },
+                  { once: true }
+                );
+              });
+            }
+
+            // Add space between words
+            if (wordIndex < words.length - 1) {
+              displayText += " ";
+              setCurrentText(displayText);
+            }
 
             // Wait between words
             if (wordIndex < words.length - 1) {
@@ -248,7 +289,7 @@ export const useEnhancedTextStreaming = () => {
 
         // Final haptic feedback
         try {
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         } catch (e) {
           // Ignore haptic errors
         }
@@ -331,7 +372,8 @@ export const useEnhancedTextStreaming = () => {
       options?: {
         wordDelayMs?: number;
         messageDelayMs?: number;
-        pauseAfterMs?: number; // New option for pause after streaming
+        pauseAfterMs?: number;
+        characterDelayMs?: number;
         markerId?: string;
         debounceMs?: number;
       }
@@ -382,7 +424,8 @@ export const useEnhancedTextStreaming = () => {
       options?: {
         wordDelayMs?: number;
         messageDelayMs?: number;
-        pauseAfterMs?: number; // New option for pause after streaming
+        pauseAfterMs?: number;
+        characterDelayMs?: number;
       }
     ) => {
       // Cancel all existing streams

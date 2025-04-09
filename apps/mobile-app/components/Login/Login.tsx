@@ -32,6 +32,7 @@ import Animated, {
 } from "react-native-reanimated";
 import MapMojiHeader from "../AnimationHeader";
 import { AuthWrapper } from "../AuthWrapper";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Define types for our data
 interface Profile {
@@ -82,6 +83,7 @@ const TEST_PROFILES: Profile[] = [
 const Login: React.FC = () => {
   const router = useRouter();
   const { mapStyle } = useMapStyle();
+  const { login } = useAuth();
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -148,8 +150,9 @@ const Login: React.FC = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      await apiClient.login(email, password);
-      router.replace("/");
+      await login(email, password);
+      // Keep loading state until navigation completes
+      // The AuthWrapper will handle the navigation
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error("Login error:", error);
@@ -158,7 +161,6 @@ const Login: React.FC = () => {
           ? String(error.message)
           : "Failed to login. Please check your credentials and try again."
       );
-    } finally {
       setIsLoading(false);
     }
   };

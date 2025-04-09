@@ -16,11 +16,12 @@ import {
 import { Lock, Mail, Eye, EyeOff, ArrowLeft, User } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import apiClient from "@/services/ApiClient";
+import { useAuth } from "@/contexts/AuthContext";
 import { AuthWrapper } from "@/components/AuthWrapper";
 import MapMojiHeader from "@/components/AnimationHeader";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import AnimatedMapBackground from "@/components/Background";
+import { useFilterStore } from "@/stores/useFilterStore";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -42,6 +43,8 @@ import Animated, {
 const RegisterScreen: React.FC = () => {
   const router = useRouter();
   const { mapStyle } = useMapStyle();
+  const { register } = useAuth();
+  const { fetchFilters } = useFilterStore();
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
@@ -101,13 +104,6 @@ const RegisterScreen: React.FC = () => {
   };
 
   const handleRegister = async () => {
-    // Basic validation
-    if (!displayName.trim()) {
-      setError("Display name is required");
-      displayNameInputRef.current?.focus();
-      return;
-    }
-
     if (!email.trim()) {
       setError("Email is required");
       emailInputRef.current?.focus();
@@ -120,9 +116,9 @@ const RegisterScreen: React.FC = () => {
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
-      passwordInputRef.current?.focus();
+    if (!confirmPassword) {
+      setError("Please confirm your password");
+      confirmPasswordInputRef.current?.focus();
       return;
     }
 
@@ -135,12 +131,12 @@ const RegisterScreen: React.FC = () => {
     setError(null);
     setIsLoading(true);
     Keyboard.dismiss();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      await apiClient.register(email, password, displayName);
-      // Navigate to the main app screen on successful registration and login
+      await register(email, password, displayName);
       router.replace("/");
-    } catch (error) {
+    } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error("Registration error:", error);
       setError(

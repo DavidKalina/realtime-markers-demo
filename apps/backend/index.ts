@@ -38,12 +38,113 @@ import type { AppContext } from "./types/context";
 // Create the app with proper typing
 const app = new Hono<AppContext>();
 
-// Initialize Redis clients
-const redisPub = new Redis({
-  host: process.env.REDIS_HOST || "localhost",
+const redisConfig = {
+  host: process.env.REDIS_HOST || "redis",
   port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD || undefined,
+  password: process.env.REDIS_PASSWORD,
+  maxRetriesPerRequest: 3,
+  retryStrategy: (times: number) => {
+    const delay = Math.min(times * 50, 2000);
+    console.log(`Redis retry attempt ${times} with delay ${delay}ms`);
+    return delay;
+  },
+  reconnectOnError: (err: Error) => {
+    console.log('Redis reconnectOnError triggered:', {
+      message: err.message,
+      stack: err.stack,
+      name: err.name
+    });
+    return true;
+  },
+  enableOfflineQueue: true,
+  connectTimeout: 10000,
+  commandTimeout: 5000,
+  lazyConnect: true,
+  authRetry: true,
+  enableReadyCheck: true
+};
+
+// Initialize Redis clients
+const redisPub = new Redis(redisConfig);
+
+// Add comprehensive error handling for Redis
+redisPub.on('error', (error: Error & { code?: string }) => {
+  console.error('Redis connection error:', {
+    message: error.message,
+    code: error.code,
+    stack: error.stack,
+    host: process.env.REDIS_HOST,
+    port: process.env.REDIS_PORT,
+    hasPassword: !!process.env.REDIS_PASSWORD,
+    env: {
+      REDIS_HOST: process.env.REDIS_HOST,
+      REDIS_PORT: process.env.REDIS_PORT,
+      REDIS_PASSWORD: process.env.REDIS_PASSWORD ? '***' : 'not set'
+    }
+  });
 });
+
+// Add authentication error handler
+redisPub.on('authError', (error: Error) => {
+  console.error('Redis authentication error:', {
+    message: error.message,
+    stack: error.stack,
+    hasPassword: !!process.env.REDIS_PASSWORD
+  });
+});
+
+redisPub.on('connect', () => {
+  console.log('Redis connected successfully');
+  // Test the connection with a PING
+  redisPub.ping().then(() => {
+    console.log('Redis PING successful');
+  }).catch(err => {
+    console.error('Redis PING failed:', err);
+  });
+});
+
+redisPub.on('ready', () => {
+  console.log('Redis is ready to accept commands');
+});
+
+redisPub.on('close', () => {
+  console.log('Redis connection closed');
+});
+
+redisPub.on('reconnecting', (times: number) => {
+  console.log(`Redis reconnecting... Attempt ${times}`);
+});
+
+redisPub.on('end', () => {
+  console.log('Redis connection ended');
+});
+
+// Add a global error handler for unhandled Redis errors
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+});
+
+// Add a connection test function
+async function testRedisConnection() {
+  try {
+    console.log('Testing Redis connection...');
+    const result = await redisPub.ping();
+    console.log('Redis connection test successful:', result);
+    return true;
+  } catch (error) {
+    console.error('Redis connection test failed:', error);
+    return false;
+  }
+}
+
+// Test connection after a short delay to allow for initialization
+setTimeout(() => {
+  testRedisConnection();
+}, 5000);
 
 // Apply global middlewares
 app.use("*", logger());
@@ -131,13 +232,6 @@ const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource
   throw new Error("Failed to initialize database after all retries");
 };
 
-const redisConfig = {
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD || undefined,
-  maxRetriesPerRequest: 3,
-};
-
 // Initialize OpenAI service with Redis for rate limiting
 OpenAIService.initRedis({
   host: process.env.REDIS_HOST || "localhost",
@@ -145,7 +239,6 @@ OpenAIService.initRedis({
   password: process.env.REDIS_PASSWORD || undefined,
 });
 
-const openai = OpenAIService.getInstance();
 
 const jobQueue = new JobQueue(redisPub);
 

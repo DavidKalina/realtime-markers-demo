@@ -48,6 +48,33 @@ const MessageTypes = {
   ERROR: "error",
 };
 
+// Redis configuration
+const redisConfig = {
+  host: process.env.REDIS_HOST || "redis",
+  port: parseInt(process.env.REDIS_PORT || "6379"),
+  password: process.env.REDIS_PASSWORD,
+  maxRetriesPerRequest: 3,
+  retryStrategy: (times: number) => {
+    const delay = Math.min(times * 50, 2000);
+    console.log(`Redis retry attempt ${times} with delay ${delay}ms`);
+    return delay;
+  },
+  reconnectOnError: (err: Error) => {
+    console.log('Redis reconnectOnError triggered:', {
+      message: err.message,
+      stack: err.stack,
+      name: err.name
+    });
+    return true;
+  },
+  enableOfflineQueue: true,
+  connectTimeout: 10000,
+  commandTimeout: 5000,
+  lazyConnect: true,
+  authRetry: true,
+  enableReadyCheck: true
+};
+
 export class SessionManager {
   private redis: Redis;
   private clients: Map<string, ServerWebSocket<WebSocketClientData>> = new Map();
@@ -57,22 +84,50 @@ export class SessionManager {
   constructor(redis: Redis) {
     this.redis = redis;
 
-    // Create a separate Redis client for pub/sub
-    this.redisSub = new Redis({
-      host: process.env.REDIS_HOST || "localhost",
-      port: parseInt(process.env.REDIS_PORT || "6379"),
-      password: process.env.REDIS_PASSWORD,
+    // Create a separate Redis client for pub/sub with proper configuration
+    this.redisSub = new Redis(redisConfig);
+
+    // Add error handling for subscriber
+    this.redisSub.on('error', (error: Error & { code?: string }) => {
+      console.error('[SessionManager] Redis subscriber error:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
     });
 
-    // Subscribe to job updates
-    // In your SessionManager constructor:
-    this.redisSub.psubscribe("job:*:updates", (err, count) => {
+    this.redisSub.on('connect', () => {
+      console.log('[SessionManager] Redis subscriber connected successfully');
+    });
+
+    this.redisSub.on('ready', () => {
+      // Subscribe to all job updates
+      this.redisSub.psubscribe("job:*:updates", (err, count) => {
+        if (err) {
+          console.error('[SessionManager] Error subscribing to job updates:', err);
+        }
+      });
+    });
+
+    // Handle messages from Redis
+    this.redisSub.on('pmessage', (pattern, channel, message) => {
+      this.handleRedisMessage(channel, message).catch(err => {
+        console.error('[SessionManager] Error handling Redis message:', err);
+      });
+    });
+
+    // Also subscribe to the specific job channel
+    this.redisSub.subscribe("job:updates", (err, count) => {
       if (err) {
-        console.error("Failed to psubscribe:", err);
+        console.error('[SessionManager] Error subscribing to job:updates:', err);
       }
     });
-    this.redisSub.on("pmessage", (pattern, channel, message) => {
-      this.handleRedisMessage(channel, message);
+
+    // Handle messages from the specific channel
+    this.redisSub.on('message', (channel, message) => {
+      this.handleRedisMessage(channel, message).catch(err => {
+        console.error('[SessionManager] Error handling Redis message:', err);
+      });
     });
   }
 
@@ -271,6 +326,7 @@ export class SessionManager {
       },
     });
 
+
     // Send to all connected clients in this session
     for (const clientId of clients) {
       const client = this.clients.get(clientId);
@@ -278,7 +334,7 @@ export class SessionManager {
         try {
           client.send(message);
         } catch (error) {
-          console.error(`Failed to send session update to client ${clientId}:`, error);
+          console.error(`[SessionManager] Failed to send session update to client ${clientId}:`, error);
         }
       }
     }
@@ -288,8 +344,8 @@ export class SessionManager {
    * Handle Redis messages for job updates
    */
   private async handleRedisMessage(channel: string, message: string): Promise<void> {
-    // Only handle job update messages
-    if (!channel.startsWith("job:") || !channel.endsWith(":updates")) {
+    // Handle both job:*:updates and job:updates channels
+    if (!channel.startsWith("job:") || (!channel.endsWith(":updates") && channel !== "job:updates")) {
       return;
     }
 
@@ -297,12 +353,19 @@ export class SessionManager {
       const jobUpdate = JSON.parse(message);
       const jobId = jobUpdate.id;
 
+      if (!jobId) {
+        console.error('[SessionManager] Job update missing jobId:', jobUpdate);
+        return;
+      }
+
       // Find all sessions containing this job
       const allSessions = await this.redis.keys("session:*");
 
       for (const sessionKey of allSessions) {
         const sessionData = await this.redis.get(sessionKey);
-        if (!sessionData) continue;
+        if (!sessionData) {
+          continue;
+        }
 
         const session: SessionData = JSON.parse(sessionData);
         const jobIndex = session.jobs.findIndex((job) => job.id === jobId);
@@ -313,7 +376,7 @@ export class SessionManager {
             ...session.jobs[jobIndex],
             status: jobUpdate.status || session.jobs[jobIndex].status,
             progress: this.calculateProgressPercentage(jobUpdate),
-            progressStep: jobUpdate.progress || session.jobs[jobIndex].progressStep,
+            progressStep: jobUpdate.progressMessage || session.jobs[jobIndex].progressStep,
             result: jobUpdate.result || session.jobs[jobIndex].result,
             error: jobUpdate.error || session.jobs[jobIndex].error,
             updatedAt: new Date().toISOString(),
@@ -326,11 +389,11 @@ export class SessionManager {
 
           // Send update to all clients in the session
           const sessionId = sessionKey.replace("session:", "");
-          this.sendSessionUpdate(sessionId);
+          await this.sendSessionUpdate(sessionId);
         }
       }
     } catch (error) {
-      console.error("Error handling Redis message:", error);
+      console.error("[SessionManager] Error handling Redis message:", error);
     }
   }
 
@@ -440,10 +503,10 @@ export class SessionManager {
           break;
 
         default:
-          console.warn(`Unknown message type: ${data.type}`);
+          console.warn(`[SessionManager] Unknown message type: ${data.type}`);
       }
     } catch (error) {
-      console.error("Error handling WebSocket message:", error);
+      console.error("[SessionManager] Error handling WebSocket message:", error);
 
       ws.send(
         JSON.stringify({
