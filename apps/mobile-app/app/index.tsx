@@ -76,7 +76,7 @@ function HomeScreen() {
   const { mapStyle } = useMapStyle();
 
   // Store references
-  const { selectMapItem, setZoomLevel } = useLocationStore();
+  const { selectMapItem, setZoomLevel, zoomLevel } = useLocationStore();
   const selectedItem = useLocationStore((state) => state.selectedItem);
 
   // User location hooks
@@ -297,8 +297,8 @@ function HomeScreen() {
   // Memoize markers component for better performance
   const markersComponent = useMemo(() => {
     if (!shouldRenderMarkers || !currentViewport) return null;
-    return <ClusteredMapMarkers markers={markers} viewport={currentViewport} />;
-  }, [shouldRenderMarkers, markers, currentViewport]);
+    return <ClusteredMapMarkers markers={markers} viewport={currentViewport} currentZoom={zoomLevel} />;
+  }, [shouldRenderMarkers, markers, currentViewport, zoomLevel]);
 
   // Memoize user location layer
   const userLocationLayer = useMemo(() => {

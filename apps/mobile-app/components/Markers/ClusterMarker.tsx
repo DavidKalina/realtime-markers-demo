@@ -36,15 +36,28 @@ const COLOR_SCHEMES = {
     text: "#FFFFFF"
   },
   medium: {
-    fill: "#333333",
+    fill: "#1a1a1a",
     stroke: "#FFFFFF",
     text: "#FFFFFF"
   },
   large: {
-    fill: "#333333",
-    stroke: "#FFFFFF",
+    fill: "#000000",
+    stroke: "#FFD700", // Gold stroke for large clusters
     text: "#FFFFFF"
   },
+};
+
+// Calculate marker size based on count
+const calculateMarkerSize = (count: number) => {
+  if (count < 5) return 1; // Keep small clusters at 1x scale
+
+  const baseSize = 1;
+  const maxSize = 5.0; // Increased to 5x
+  const growthRate = 0.2; // Increased growth rate for more dramatic scaling
+
+  // Logarithmic scaling to prevent too large sizes
+  const scale = Math.min(baseSize + (Math.log10(count) * growthRate), maxSize);
+  return scale;
 };
 
 // Animation configurations
@@ -100,6 +113,9 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     const prevSelectedRef = useRef(isSelected);
     const prevHighlightedRef = useRef(isHighlighted);
 
+    // Calculate base scale based on count
+    const baseScale = useMemo(() => calculateMarkerSize(count), [count]);
+
     // Animation values
     const dropY = useSharedValue(-300);
     const scale = useSharedValue(0.5);
@@ -110,11 +126,12 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     const bounceY = useSharedValue(0);
     const fanRotation = useSharedValue(0);
     const fanScale = useSharedValue(1);
+    const pulseScale = useSharedValue(1);
 
     // Memoize color scheme based on count
     const colorScheme = useMemo(() => {
-      if (count < 10) return COLOR_SCHEMES.small;
-      if (count < 30) return COLOR_SCHEMES.medium;
+      if (count < 5) return COLOR_SCHEMES.small;
+      if (count < 15) return COLOR_SCHEMES.medium;
       return COLOR_SCHEMES.large;
     }, [count]);
 
@@ -247,11 +264,52 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
       }
     }, [isDropComplete]);
 
+    // Add pulsing animation for larger clusters
+    useEffect(() => {
+      if (count > 15) { // Only for very large clusters
+        pulseScale.value = withRepeat(
+          withSequence(
+            withTiming(1.15, { duration: 300 }), // Faster, more intense pulse
+            withTiming(0.95, { duration: 300 }), // Quick shrink
+            withTiming(1.1, { duration: 200 }),  // Medium pulse
+            withTiming(1, { duration: 200 })     // Back to normal
+          ),
+          -1,
+          true
+        );
+      } else if (count > 5) {
+        // Keep the gentler pulse for medium clusters
+        pulseScale.value = withRepeat(
+          withSequence(
+            withTiming(1.08, { duration: 1000 }),
+            withTiming(1, { duration: 1000 })
+          ),
+          -1,
+          true
+        );
+      }
+    }, [count]);
+
+    // Add a secondary "burst" effect for very large clusters
+    const burstScale = useSharedValue(1);
+    useEffect(() => {
+      if (count > 15) {
+        burstScale.value = withRepeat(
+          withSequence(
+            withTiming(1.2, { duration: 400 }),  // Quick burst
+            withTiming(1, { duration: 400 })     // Quick return
+          ),
+          -1,
+          true
+        );
+      }
+    }, [count]);
+
     // Animated styles
     const markerStyle = useAnimatedStyle(() => ({
       transform: [
         { translateY: dropY.value + bounceY.value },
-        { scale: scale.value * fanScale.value },
+        { scale: scale.value * fanScale.value * baseScale * pulseScale.value * burstScale.value },
         { rotate: `${rotation.value + fanRotation.value}rad` },
       ],
     }));
@@ -282,34 +340,34 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
 
     const MarkerSvg = useMemo(() => (
       <Svg width={MARKER_WIDTH} height={MARKER_HEIGHT} viewBox="0 0 48 64">
-        {/* Teardrop marker */}
+        {/* Teardrop marker with dynamic stroke width */}
         <Path
           d="M24 4C13.5 4 6 12.1 6 22C6 28.5 9 34.4 13.5 39.6C17.5 44.2 24 52 24 52C24 52 30.5 44.2 34.5 39.6C39 34.4 42 28.5 42 22C42 12.1 34.5 4 24 4Z"
           fill={colorScheme.fill}
           stroke={colorScheme.stroke}
-          strokeWidth="3"
+          strokeWidth={count > 5 ? "4" : "3"} // Reduced threshold from 10 to 5
           strokeLinejoin="round"
         />
 
-        {/* Nintendo-style highlight */}
+        {/* Nintendo-style highlight with dynamic opacity */}
         <Path
           d="M16 12C16 12 19 9 24 9C29 9 32 12 32 12"
           stroke="rgba(255, 255, 255, 0.7)"
-          strokeWidth="2.5"
+          strokeWidth={count > 5 ? "3" : "2.5"} // Reduced threshold from 10 to 5
           strokeLinecap="round"
         />
 
-        {/* Count background circle */}
+        {/* Count background circle with dynamic size */}
         <Circle
           cx="24"
           cy="22"
-          r="12"
+          r={count > 5 ? "14" : "12"} // Reduced threshold from 10 to 5
           fill="#FFFFFF"
-          stroke="#E2E8F0"
-          strokeWidth="1"
+          stroke={count > 15 ? "#FFD700" : "#E2E8F0"} // Gold stroke for very large clusters
+          strokeWidth={count > 15 ? "2" : "1"} // Thicker stroke for very large clusters
         />
       </Svg>
-    ), [colorScheme]);
+    ), [colorScheme, count]);
 
     return (
       <View style={styles.container}>

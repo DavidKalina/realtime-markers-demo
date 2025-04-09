@@ -173,16 +173,13 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           // Select the item in the store
           selectMapItem(item);
 
-          // Calculate target zoom level based on item type
-          const targetZoomLevel = currentZoom + (item.type === "cluster" ? 2 : 1);
-
-          // Single camera animation that combines pan and zoom
+          // Center camera on the item without changing zoom
           publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
             timestamp: Date.now(),
             source: "ClusteredMapMarkers",
             coordinates: item.coordinates,
             duration: 400,
-            zoomLevel: targetZoomLevel,
+            zoomLevel: currentZoom, // Keep the same zoom level
           });
 
           // Convert to the EventBroker's expected format

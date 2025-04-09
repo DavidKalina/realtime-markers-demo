@@ -68,7 +68,7 @@ export const useMarkerClustering = (
   // Initialize supercluster only once
   if (!superclusterRef.current) {
     superclusterRef.current = new Supercluster({
-      radius: 40,
+      radius: 100,
       maxZoom: 16,
       minPoints: 2,
       map: (props) => ({
@@ -81,8 +81,8 @@ export const useMarkerClustering = (
   // Debounce zoom level changes
   useEffect(() => {
     const zoomDiff = Math.abs(currentZoom - lastZoomRef.current);
-    // Only update if zoom difference is significant (more than 0.5)
-    if (zoomDiff > 0.5) {
+    // Only update if zoom difference is significant (more than 0.1)
+    if (zoomDiff > 0.1) {
       debouncedZoomRef.current = currentZoom;
       lastZoomRef.current = currentZoom;
     }
