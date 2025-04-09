@@ -11,14 +11,17 @@ export const eventsRouter = new Hono<AppContext>();
 
 // Apply IP, rate limiting, and auth middleware to all routes in this router
 eventsRouter.use("*", ip());
-eventsRouter.use("*", rateLimit({
+eventsRouter.use(
+  "*",
+  rateLimit({
     maxRequests: 10, // 10 requests per minute for event routes
     windowMs: 60 * 1000,
     keyGenerator: (c) => {
-        const ipInfo = c.get("ip");
-        return `events:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
-    }
-}));
+      const ipInfo = c.get("ip");
+      return `events:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
+    },
+  })
+);
 eventsRouter.use("*", authMiddleware);
 
 // Static/specific paths should come before dynamic ones
@@ -38,6 +41,9 @@ eventsRouter.delete("/:id", handlers.deleteEventHandler);
 eventsRouter.post("/:id/save", handlers.toggleSaveEventHandler);
 eventsRouter.get("/:id/saved", handlers.isEventSavedHandler);
 eventsRouter.get("/:id", handlers.getEventByIdHandler);
+
+// Add new cluster hub endpoint - changed to POST to accept event IDs
+eventsRouter.post("/cluster/hub", handlers.getClusterHubHandler);
 
 // Root path should be last to avoid catching other routes
 eventsRouter.get("/", handlers.getAllEventsHandler);
