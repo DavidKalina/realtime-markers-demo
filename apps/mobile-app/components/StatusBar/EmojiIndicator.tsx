@@ -10,11 +10,28 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
+import { useFilterStore } from "@/stores/useFilterStore";
 
 export const EmojiIndicator: React.FC = () => {
     const router = useRouter();
+    const { filters, activeFilterIds } = useFilterStore();
     const scale = useSharedValue(1);
     const rotation = useSharedValue(0);
+
+    // Get active filters with emoji
+    const activeEmojiFilters = React.useMemo(() => {
+        const activeFilters = filters.filter((f) => activeFilterIds.includes(f.id));
+        return activeFilters.filter((f) => {
+            const hasEmoji = f?.emoji;
+            return hasEmoji;
+        });
+    }, [filters, activeFilterIds]);
+
+    // Get the first emoji from active filters, fallback to target
+    const emoji = React.useMemo(() => {
+        if (activeEmojiFilters.length === 0) return '🎯';
+        return activeEmojiFilters[0].emoji || '🎯';
+    }, [activeEmojiFilters]);
 
     const handlePress = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -41,7 +58,7 @@ export const EmojiIndicator: React.FC = () => {
         <Pressable onPress={handlePress}>
             <Animated.View style={[styles.container, animatedStyle]}>
                 <View style={styles.iconContainer}>
-                    <Text style={styles.emoji}>🎯</Text>
+                    <Text style={styles.emoji}>{emoji}</Text>
                 </View>
                 <Text style={styles.text}>Filters</Text>
             </Animated.View>
