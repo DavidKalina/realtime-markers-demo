@@ -125,9 +125,9 @@ export const processEventImageHandler: EventHandler = async (c) => {
     const userCoordinates =
       userLat && userLng
         ? {
-          lat: parseFloat(userLat.toString()),
-          lng: parseFloat(userLng.toString()),
-        }
+            lat: parseFloat(userLat.toString()),
+            lng: parseFloat(userLng.toString()),
+          }
         : null;
 
     if (!user || !user?.userId) {
@@ -501,6 +501,31 @@ export const getDiscoveredEventsHandler: EventHandler = async (c) => {
     return c.json(
       {
         error: "Failed to fetch discovered events",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
+export const getClusterHubDataHandler: EventHandler = async (c) => {
+  try {
+    const data = await c.req.json();
+    const { markerIds } = data;
+
+    if (!markerIds || !Array.isArray(markerIds)) {
+      return c.json({ error: "Missing or invalid markerIds array" }, 400);
+    }
+
+    const eventService = c.get("eventService");
+    const hubData = await eventService.getClusterHubData(markerIds);
+
+    return c.json(hubData);
+  } catch (error) {
+    console.error("Error fetching cluster hub data:", error);
+    return c.json(
+      {
+        error: "Failed to fetch cluster hub data",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       500

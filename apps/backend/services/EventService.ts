@@ -82,8 +82,6 @@ export class EventService {
     };
   }
 
-
-
   async getEvents(options: { limit?: number; offset?: number } = {}) {
     const { limit = 10, offset = 0 } = options;
 
@@ -457,20 +455,18 @@ export class EventService {
 
     // Execute query
     const events = await queryBuilder
-      .select('event')
-      .addSelect(`(${scoreExpression})`, 'score')
-      .orderBy('score', 'DESC')
-      .addOrderBy('event.id', 'ASC')
+      .select("event")
+      .addSelect(`(${scoreExpression})`, "score")
+      .orderBy("score", "DESC")
+      .addOrderBy("event.id", "ASC")
       .limit(limit + 1)
       .getMany();
 
     // Process results
-    const searchResults: SearchResult[] = events
-      .slice(0, limit)
-      .map(event => ({
-        event,
-        score: parseFloat((event as any).__score)
-      }));
+    const searchResults: SearchResult[] = events.slice(0, limit).map((event) => ({
+      event,
+      score: parseFloat((event as any).__score),
+    }));
 
     // Generate next cursor if we have more results
     let nextCursor: string | undefined;
@@ -480,7 +476,7 @@ export class EventService {
         id: lastResult.event.id,
         score: lastResult.score,
       };
-      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString('base64');
+      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString("base64");
     }
 
     // Store in cache
@@ -681,7 +677,7 @@ export class EventService {
     let cursorData: { savedAt: Date; eventId: string } | undefined;
     if (cursor) {
       try {
-        const jsonStr = Buffer.from(cursor, 'base64').toString('utf-8');
+        const jsonStr = Buffer.from(cursor, "base64").toString("utf-8");
         cursorData = JSON.parse(jsonStr);
       } catch (e) {
         console.error("Invalid cursor format:", e);
@@ -699,29 +695,28 @@ export class EventService {
 
     // Add cursor conditions if cursor is provided
     if (cursorData) {
-      console.log('Cursor data received:', {
+      console.log("Cursor data received:", {
         savedAt: cursorData.savedAt,
-        eventId: cursorData.eventId
+        eventId: cursorData.eventId,
       });
 
       queryBuilder = queryBuilder.andWhere(
-        new Brackets(qb => {
+        new Brackets((qb) => {
           qb.where("save.savedAt < :savedAt", {
-            savedAt: cursorData.savedAt
-          })
-            .orWhere(
-              new Brackets(qb2 => {
-                qb2.where("save.savedAt = :savedAt", {
-                  savedAt: cursorData.savedAt
+            savedAt: cursorData.savedAt,
+          }).orWhere(
+            new Brackets((qb2) => {
+              qb2
+                .where("save.savedAt = :savedAt", {
+                  savedAt: cursorData.savedAt,
                 })
-                  .andWhere("event.id < :eventId", {
-                    eventId: cursorData.eventId
-                  });
-              })
-            );
+                .andWhere("event.id < :eventId", {
+                  eventId: cursorData.eventId,
+                });
+            })
+          );
         })
       );
-
     }
 
     // Execute query
@@ -731,14 +726,12 @@ export class EventService {
       .take(limit + 1)
       .getMany();
 
-
-
     // Process results
     const hasMore = saves.length > limit;
     const results = saves.slice(0, limit);
 
     // Extract events from saves
-    const events = results.map(save => save.event);
+    const events = results.map((save) => save.event);
 
     // Generate next cursor if we have more results
     let nextCursor: string | undefined;
@@ -748,12 +741,12 @@ export class EventService {
         savedAt: lastResult.savedAt,
         eventId: lastResult.eventId,
       };
-      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString('base64');
+      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString("base64");
     }
 
     return {
       events,
-      nextCursor
+      nextCursor,
     };
   }
 
@@ -866,7 +859,7 @@ export class EventService {
     let cursorData: { discoveredAt: Date; eventId: string } | undefined;
     if (cursor) {
       try {
-        const jsonStr = Buffer.from(cursor, 'base64').toString('utf-8');
+        const jsonStr = Buffer.from(cursor, "base64").toString("utf-8");
         cursorData = JSON.parse(jsonStr);
       } catch (e) {
         console.error("Invalid cursor format:", e);
@@ -881,7 +874,7 @@ export class EventService {
       .leftJoinAndSelect("event.categories", "categories")
       .leftJoinAndSelect("event.creator", "creator")
       .where("discovery.userId = :userId", { userId })
-      .andWhere(qb => {
+      .andWhere((qb) => {
         const subQuery = qb
           .subQuery()
           .select("d2.id")
@@ -896,23 +889,21 @@ export class EventService {
 
     // Add cursor conditions if cursor is provided
     if (cursorData) {
-
-
       queryBuilder = queryBuilder.andWhere(
-        new Brackets(qb => {
+        new Brackets((qb) => {
           qb.where("discovery.discoveredAt < :discoveredAt", {
-            discoveredAt: cursorData.discoveredAt
-          })
-            .orWhere(
-              new Brackets(qb2 => {
-                qb2.where("discovery.discoveredAt = :discoveredAt", {
-                  discoveredAt: cursorData.discoveredAt
+            discoveredAt: cursorData.discoveredAt,
+          }).orWhere(
+            new Brackets((qb2) => {
+              qb2
+                .where("discovery.discoveredAt = :discoveredAt", {
+                  discoveredAt: cursorData.discoveredAt,
                 })
-                  .andWhere("event.id < :eventId", {
-                    eventId: cursorData.eventId
-                  });
-              })
-            );
+                .andWhere("event.id < :eventId", {
+                  eventId: cursorData.eventId,
+                });
+            })
+          );
         })
       );
 
@@ -931,7 +922,7 @@ export class EventService {
     const results = discoveries.slice(0, limit);
 
     // Extract events from discoveries
-    const events = results.map(discovery => discovery.event);
+    const events = results.map((discovery) => discovery.event);
 
     // Generate next cursor if we have more results
     let nextCursor: string | undefined;
@@ -941,12 +932,12 @@ export class EventService {
         discoveredAt: lastResult.discoveredAt,
         eventId: lastResult.eventId,
       };
-      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString('base64');
+      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString("base64");
     }
 
     return {
       events,
-      nextCursor
+      nextCursor,
     };
   }
 
@@ -974,14 +965,96 @@ export class EventService {
         .createQueryBuilder()
         .update(User)
         .set({
-          discoveryCount: () => "discovery_count + 1"
+          discoveryCount: () => "discovery_count + 1",
         })
         .where("id = :userId", { userId })
         .execute();
-
     } catch (error) {
       console.error(`Error creating discovery record for user ${userId}:`, error);
       // Don't throw the error - we don't want to fail the scan if discovery recording fails
     }
+  }
+
+  async getClusterHubData(markerIds: string[]): Promise<{
+    featuredEvent: Event | null;
+    eventsByCategory: { category: Category; events: Event[] }[];
+    eventsByLocation: { location: string; events: Event[] }[];
+    eventsToday: Event[];
+  }> {
+    // Get all events from the marker IDs
+    const events = await this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .where("event.id IN (:...markerIds)", { markerIds })
+      .getMany();
+
+    if (events.length === 0) {
+      return {
+        featuredEvent: null,
+        eventsByCategory: [],
+        eventsByLocation: [],
+        eventsToday: [],
+      };
+    }
+
+    // 1. Get featured event (oldest event for now)
+    const featuredEvent = events.reduce((oldest, current) => {
+      return oldest.eventDate < current.eventDate ? oldest : current;
+    });
+
+    // 2. Get events by category
+    const categoryMap = new Map<string, { category: Category; events: Event[] }>();
+    events.forEach((event) => {
+      event.categories.forEach((category) => {
+        if (!categoryMap.has(category.id)) {
+          categoryMap.set(category.id, { category, events: [] });
+        }
+        categoryMap.get(category.id)!.events.push(event);
+      });
+    });
+
+    // Sort categories by number of events and take top 4
+    const eventsByCategory = Array.from(categoryMap.values())
+      .sort((a, b) => b.events.length - a.events.length)
+      .slice(0, 4);
+
+    // 3. Get events by location
+    const locationMap = new Map<string, Event[]>();
+    events.forEach((event) => {
+      if (event.address) {
+        // Extract city and state from address
+        const locationMatch = event.address.match(/([^,]+),\s*([A-Z]{2})/);
+        if (locationMatch) {
+          const location = locationMatch[0]; // e.g., "Provo, UT"
+          if (!locationMap.has(location)) {
+            locationMap.set(location, []);
+          }
+          locationMap.get(location)!.push(event);
+        }
+      }
+    });
+
+    // Convert to array and sort by number of events
+    const eventsByLocation = Array.from(locationMap.entries())
+      .map(([location, events]) => ({ location, events }))
+      .sort((a, b) => b.events.length - a.events.length);
+
+    // 4. Get events happening today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const eventsToday = events.filter((event) => {
+      const eventDate = new Date(event.eventDate);
+      return eventDate >= today && eventDate < tomorrow;
+    });
+
+    return {
+      featuredEvent,
+      eventsByCategory,
+      eventsByLocation,
+      eventsToday,
+    };
   }
 }

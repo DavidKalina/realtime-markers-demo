@@ -11,14 +11,17 @@ export const eventsRouter = new Hono<AppContext>();
 
 // Apply IP, rate limiting, and auth middleware to all routes in this router
 eventsRouter.use("*", ip());
-eventsRouter.use("*", rateLimit({
+eventsRouter.use(
+  "*",
+  rateLimit({
     maxRequests: 10, // 10 requests per minute for event routes
     windowMs: 60 * 1000,
     keyGenerator: (c) => {
-        const ipInfo = c.get("ip");
-        return `events:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
-    }
-}));
+      const ipInfo = c.get("ip");
+      return `events:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
+    },
+  })
+);
 eventsRouter.use("*", authMiddleware);
 
 // Static/specific paths should come before dynamic ones
@@ -30,6 +33,7 @@ eventsRouter.get("/by-categories", handlers.getEventsByCategoriesHandler);
 eventsRouter.get("/search", handlers.searchEventsHandler);
 eventsRouter.post("/process", handlers.processEventImageHandler);
 eventsRouter.post("/clusters/names", handlers.generateClusterNamesHandler);
+eventsRouter.post("/cluster-hub", handlers.getClusterHubDataHandler);
 eventsRouter.get("/process/:jobId", handlers.getProcessingStatusHandler);
 eventsRouter.post("/", handlers.createEventHandler);
 
