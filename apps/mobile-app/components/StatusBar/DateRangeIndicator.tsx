@@ -16,7 +16,8 @@ import DateRangeCalendar from "@/components/DateRangeCalendar";
 
 export const DateRangeIndicator: React.FC = () => {
     const [showCalendar, setShowCalendar] = useState(false);
-    const { filters, activeFilterIds, updateFilter, applyFilters, createFilter } = useFilterStore();
+    const [isLocalLoading, setIsLocalLoading] = useState(false);
+    const { filters, activeFilterIds, updateFilter, applyFilters, createFilter, isLoading } = useFilterStore();
     const scale = useSharedValue(1);
     const rotation = useSharedValue(0);
 
@@ -27,6 +28,13 @@ export const DateRangeIndicator: React.FC = () => {
             applyFilters([filters[0].id]);
         }
     }, []);
+
+    // Reset local loading state when modal closes
+    useEffect(() => {
+        if (!showCalendar) {
+            setIsLocalLoading(false);
+        }
+    }, [showCalendar]);
 
     // Get active filters with date ranges
     const activeDateFilters = React.useMemo(() => {
@@ -42,23 +50,29 @@ export const DateRangeIndicator: React.FC = () => {
 
     // Format date range for display
     const dateRangeText = React.useMemo(() => {
-        if (activeDateFilters.length === 0) {
-            const today = new Date();
-            const twoWeeksFromNow = addDays(today, 14);
-            return `${format(today, "M/d")} – ${format(twoWeeksFromNow, "M/d")}`;
+        // If there are no filters at all, show "Set Range"
+        if (filters.length === 0) {
+            return "Set Range";
         }
 
-        const filter = activeDateFilters[0];
-        const { start, end } = filter.criteria.dateRange || {};
+        // If there are no active filters, show "Set Range"
+        if (activeFilterIds.length === 0) {
+            return "Set Range";
+        }
 
+        // Get the active filter with a date range
+        const activeFilter = filters.find(f => activeFilterIds.includes(f.id));
+        if (!activeFilter?.criteria?.dateRange) {
+            return "Set Range";
+        }
+
+        const { start, end } = activeFilter.criteria.dateRange;
         if (!start || !end) {
-            const today = new Date();
-            const twoWeeksFromNow = addDays(today, 14);
-            return `${format(today, "M/d")} – ${format(twoWeeksFromNow, "M/d")}`;
+            return "Set Range";
         }
 
         return `${format(parseISO(start), "M/d")} – ${format(parseISO(end), "M/d")}`;
-    }, [activeDateFilters]);
+    }, [filters, activeFilterIds]);
 
     const handlePress = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -75,6 +89,8 @@ export const DateRangeIndicator: React.FC = () => {
     };
 
     const handleDateRangeSelect = async (startDate: string | null, endDate: string | null) => {
+        setIsLocalLoading(true);
+
         // If no dates are provided, default to 2 weeks from today
         if (!startDate || !endDate) {
             const today = new Date();
@@ -92,35 +108,42 @@ export const DateRangeIndicator: React.FC = () => {
                 })
                 : null);
 
-        // If no filter exists, create a new one
-        if (!targetFilter) {
-            targetFilter = await createFilter({
-                name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
-                criteria: {
-                    dateRange: { start: startDate, end: endDate }
-                },
-            });
-        } else {
-            // Update the filter with new date range while preserving other criteria
-            const updatedFilter = {
-                ...targetFilter,
-                // Only update the name if there's no semantic query
-                ...(targetFilter.semanticQuery ? {} : {
+        try {
+            // If no filter exists, create a new one
+            if (!targetFilter) {
+                targetFilter = await createFilter({
                     name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
-                }),
-                criteria: {
-                    ...targetFilter.criteria,
-                    dateRange: { start: startDate, end: endDate },
-                },
-            };
-            // First update the filter
-            await updateFilter(targetFilter.id, updatedFilter);
-            // Then ensure it's the only active filter
-            await applyFilters([targetFilter.id]);
-        }
+                    criteria: {
+                        dateRange: { start: startDate, end: endDate }
+                    },
+                });
+            } else {
+                // Update the filter with new date range while preserving other criteria
+                const updatedFilter = {
+                    ...targetFilter,
+                    // Only update the name if there's no semantic query
+                    ...(targetFilter.semanticQuery ? {} : {
+                        name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
+                    }),
+                    criteria: {
+                        ...targetFilter.criteria,
+                        dateRange: { start: startDate, end: endDate },
+                    },
+                };
+                // First update the filter
+                await updateFilter(targetFilter.id, updatedFilter);
+                // Then ensure it's the only active filter
+                await applyFilters([targetFilter.id]);
+            }
 
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setShowCalendar(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch (error) {
+            console.error('Error updating date range:', error);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        } finally {
+            setIsLocalLoading(false);
+            setShowCalendar(false);
+        }
     };
 
     const animatedStyle = useAnimatedStyle(() => ({
@@ -153,6 +176,7 @@ export const DateRangeIndicator: React.FC = () => {
                         endDate={filters.find(f => activeFilterIds.includes(f.id))?.criteria.dateRange?.end}
                         onDateRangeSelect={handleDateRangeSelect}
                         onClose={() => setShowCalendar(false)}
+                        isLoading={isLocalLoading}
                     />
                 </View>
             </Modal>

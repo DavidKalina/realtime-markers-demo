@@ -326,7 +326,11 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                         activeOpacity={0.7}
                         disabled={isLoading}
                     >
-                        <Text style={styles.resetButtonText}>Reset</Text>
+                        {isLoading ? (
+                            <ActivityIndicator size="small" color={COLORS.accent} />
+                        ) : (
+                            <Text style={styles.resetButtonText}>Reset</Text>
+                        )}
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -340,7 +344,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
                         activeOpacity={0.7}
                     >
                         {isLoading ? (
-                            <ActivityIndicator size="small" color={COLORS.accent} />
+                            <ActivityIndicator size="small" color={COLORS.textPrimary} />
                         ) : (
                             <Text style={styles.confirmButtonText}>Confirm</Text>
                         )}
