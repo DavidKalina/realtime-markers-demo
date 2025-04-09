@@ -149,6 +149,7 @@ export interface CameraAnimateToLocationEvent extends BaseEvent {
   coordinates: [number, number]; // [longitude, latitude]
   duration?: number; // milliseconds
   zoomLevel?: number;
+  allowZoomChange?: boolean; // Whether to allow zoom level changes during animation
 }
 
 export interface CameraAnimateToBoundsEvent extends BaseEvent {

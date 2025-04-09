@@ -33,7 +33,7 @@ interface MarkerItem extends BaseMapItem {
 interface ClusterItem extends BaseMapItem {
   type: "cluster";
   count: number;
-  childrenIds?: string[];
+  childMarkers?: string[]; // Array of marker IDs in the cluster
 }
 
 
@@ -168,54 +168,122 @@ const ClusterEventsView: React.FC = () => {
     }, [localCluster, selectedItem, selectMapItem])
   );
 
+  // Function to calculate geographic distance between two points
+  const calculateGeographicDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }, []);
+
   // Function to fetch cluster events using the effective cluster data
   const fetchClusterEvents = useCallback(async () => {
     try {
       setIsLoading(true);
 
-      if (!clusterCoordinates && !markers.length) {
+      if (!effectiveCluster) {
         throw new Error("Could not determine cluster location");
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // Log detailed cluster information
+      console.log('ClusterEventsView - Detailed Cluster Info:', {
+        clusterId: effectiveCluster.id,
+        count: effectiveCluster.count,
+        childMarkersCount: effectiveCluster.childMarkers?.length,
+        childMarkers: effectiveCluster.childMarkers,
+        allMarkersCount: markers.length,
+        allMarkerIds: markers.map(m => m.id)
+      });
 
       let clusterEvents: EventType[] = [];
 
-      // If we have coordinates, filter markers by proximity
-      if (clusterCoordinates) {
-        const MAX_DISTANCE = 0.05; // Rough distance in degrees (~5km)
+      // Get markers that are part of this cluster
+      if (effectiveCluster.type === "cluster") {
+        // If we have childMarkers, use those directly
+        if (effectiveCluster.childMarkers && effectiveCluster.childMarkers.length > 0) {
+          clusterEvents = markers
+            .filter(marker => effectiveCluster.childMarkers?.includes(marker.id))
+            .map((marker) => ({
+              id: marker.id,
+              title: marker.data?.title || "Unnamed Event",
+              emoji: marker.data?.emoji || "📍",
+              eventDate: marker.data?.eventDate || new Date().toISOString(),
+              time: marker.data?.time || new Date().toLocaleTimeString(),
+              timezone: marker.data?.timezone || "UTC",
+              location: marker.data?.location || "Unknown location",
+              coordinates: marker.coordinates,
+              distance: marker.data?.distance || "0 mi",
+              description: marker.data?.description || "",
+              categories: marker.data?.categories || [],
+              isVerified: marker.data?.isVerified || false,
+              scanCount: marker.data?.scanCount || 0,
+              saveCount: marker.data?.saveCount || 0,
+            }));
 
-        // Use existing markers that are near the cluster
-        clusterEvents = markers
-          .filter((marker) => {
-            // Calculate rough distance to cluster
-            const markerLng = marker.coordinates[0];
-            const markerLat = marker.coordinates[1];
-            const clusterLng = clusterCoordinates[0];
-            const clusterLat = clusterCoordinates[1];
+          // Log the filtered events
+          console.log('ClusterEventsView - Filtered Events:', {
+            totalMarkers: markers.length,
+            filteredEvents: clusterEvents.length,
+            expectedCount: effectiveCluster.count,
+            filteredEventIds: clusterEvents.map(e => e.id)
+          });
+        } else {
+          // Fallback to distance-based filtering if no childMarkers
+          const MAX_DISTANCE_KM = 1000; // Increased to 1000 km to ensure all cluster markers are included
+          const [clusterLng, clusterLat] = effectiveCluster.coordinates;
 
-            const distance = Math.sqrt(
-              Math.pow(markerLng - clusterLng, 2) + Math.pow(markerLat - clusterLat, 2)
-            );
+          clusterEvents = markers
+            .filter((marker) => {
+              const [markerLng, markerLat] = marker.coordinates;
+              const distance = calculateGeographicDistance(
+                clusterLat,
+                clusterLng,
+                markerLat,
+                markerLng
+              );
+              return distance < MAX_DISTANCE_KM;
+            })
+            .slice(0, effectiveCluster.count) // Limit to cluster count
+            .map((marker) => ({
+              id: marker.id,
+              title: marker.data?.title || "Unnamed Event",
+              emoji: marker.data?.emoji || "📍",
+              eventDate: marker.data?.eventDate || new Date().toISOString(),
+              time: marker.data?.time || new Date().toLocaleTimeString(),
+              timezone: marker.data?.timezone || "UTC",
+              location: marker.data?.location || "Unknown location",
+              coordinates: marker.coordinates,
+              distance: marker.data?.distance || "0 mi",
+              description: marker.data?.description || "",
+              categories: marker.data?.categories || [],
+              isVerified: marker.data?.isVerified || false,
+              scanCount: marker.data?.scanCount || 0,
+              saveCount: marker.data?.saveCount || 0,
+            }));
+        }
 
-            return distance < MAX_DISTANCE;
-          })
-          .map((marker) => ({
-            id: marker.id,
-            title: marker.data?.title || "Unnamed Event",
-            emoji: marker.data?.emoji || "📍",
-            eventDate: marker.data?.eventDate || new Date().toISOString(),
-            time: marker.data?.time || new Date().toLocaleTimeString(),
-            timezone: marker.data?.timezone || "UTC",
-            location: marker.data?.location || "Unknown location",
-            coordinates: marker.coordinates,
-            distance: marker.data?.distance || "0 mi",
-            description: marker.data?.description || "",
-            categories: marker.data?.categories || [],
-            isVerified: marker.data?.isVerified || false,
-            scanCount: marker.data?.scanCount || 0,
-            saveCount: marker.data?.saveCount || 0,
-          }));
+        // Sort events by distance to cluster center
+        const [clusterLng, clusterLat] = effectiveCluster.coordinates;
+        clusterEvents.sort((a, b) => {
+          const distanceA = calculateGeographicDistance(
+            clusterLat,
+            clusterLng,
+            a.coordinates[1],
+            a.coordinates[0]
+          );
+          const distanceB = calculateGeographicDistance(
+            clusterLat,
+            clusterLng,
+            b.coordinates[1],
+            b.coordinates[0]
+          );
+          return distanceA - distanceB;
+        });
       }
 
       setEvents(clusterEvents);
@@ -226,7 +294,7 @@ const ClusterEventsView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [clusterCoordinates, markers]);
+  }, [effectiveCluster, markers, calculateGeographicDistance]);
 
   // Initial data loading
   useEffect(() => {
@@ -276,35 +344,75 @@ const ClusterEventsView: React.FC = () => {
     router.push(`/details?eventId=${event.id}` as never);
   };
 
-  // Handle loading more events
-  const handleLoadMore = () => {
-    if (isFetchingMore || events.length < 10) return;
+  // Handle loading more events with proper pagination
+  const handleLoadMore = useCallback(() => {
+    if (isFetchingMore || !effectiveCluster || !effectiveCluster.childMarkers) return;
 
     setIsFetchingMore(true);
 
-    // Simulate loading more events
-    setTimeout(() => {
-      const moreEvents: EventType[] = events.slice(0, 5).map(event => ({
-        ...event,
-        id: `event-more-${event.id}`,
-      }));
+    // Get the next batch of events from the API
+    const fetchMoreEvents = async () => {
+      try {
+        // Get all remaining markers that are part of this cluster
+        const remainingMarkers = markers.filter(marker =>
+          effectiveCluster.childMarkers?.includes(marker.id) &&
+          !events.some(event => event.id === marker.id)
+        );
 
-      setEvents((prev) => [...prev, ...moreEvents]);
-      setIsFetchingMore(false);
-    }, 1000);
-  };
+        if (remainingMarkers.length > 0) {
+          const newEvents = remainingMarkers
+            .slice(0, 20) // Load more events at once to show all markers
+            .map((marker) => ({
+              id: marker.id,
+              title: marker.data?.title || "Unnamed Event",
+              emoji: marker.data?.emoji || "📍",
+              eventDate: marker.data?.eventDate || new Date().toISOString(),
+              time: marker.data?.time || new Date().toLocaleTimeString(),
+              timezone: marker.data?.timezone || "UTC",
+              location: marker.data?.location || "Unknown location",
+              coordinates: marker.coordinates,
+              distance: marker.data?.distance || "0 mi",
+              description: marker.data?.description || "",
+              categories: marker.data?.categories || [],
+              isVerified: marker.data?.isVerified || false,
+              scanCount: marker.data?.scanCount || 0,
+              saveCount: marker.data?.saveCount || 0,
+            }));
 
-  // Render footer with loading indicator when fetching more
-  const renderFooter = () => {
-    if (!isFetchingMore) return null;
+          setEvents(prevEvents => [...prevEvents, ...newEvents]);
+        }
+
+        setIsFetchingMore(false);
+      } catch (error) {
+        console.error("Error loading more events:", error);
+        setIsFetchingMore(false);
+      }
+    };
+
+    fetchMoreEvents();
+  }, [events.length, isFetchingMore, effectiveCluster, markers]);
+
+  // Update the FlatList to show the load more button when there are more events to load
+  const renderFooter = useCallback(() => {
+    if (!effectiveCluster || !effectiveCluster.childMarkers) return null;
+
+    const remainingCount = effectiveCluster.childMarkers.length - events.length;
+    if (remainingCount <= 0) return null;
 
     return (
-      <View style={styles.loadingFooter}>
-        <ActivityIndicator size="small" color="#93c5fd" />
-        <Text style={styles.loadingFooterText}>Loading more events...</Text>
+      <View style={styles.loadMoreContainer}>
+        <TouchableOpacity
+          style={styles.loadMoreButton}
+          onPress={handleLoadMore}
+          disabled={isFetchingMore}
+        >
+          <Text style={styles.loadMoreText}>
+            {isFetchingMore ? "Loading..." : `Load ${remainingCount} more events`}
+          </Text>
+        </TouchableOpacity>
       </View>
     );
-  };
+  }, [effectiveCluster, events.length, isFetchingMore, handleLoadMore]);
 
   // Get the header title to display
   const getHeaderTitle = () => {
@@ -843,6 +951,20 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontWeight: "500",
     fontSize: 14,
+  },
+
+  loadMoreContainer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  loadMoreButton: {
+    backgroundColor: '#007AFF',
+    padding: 12,
+    borderRadius: 8,
+  },
+  loadMoreText: {
+    color: 'white',
+    fontWeight: '600',
   },
 });
 

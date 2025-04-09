@@ -180,6 +180,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
             coordinates: item.coordinates,
             duration: 400,
             zoomLevel: currentZoom, // Keep the same zoom level
+            allowZoomChange: false, // Explicitly prevent zoom changes
           });
 
           // Convert to the EventBroker's expected format
@@ -216,6 +217,14 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               childMarkers: item.childrenIds,
             };
 
+            // Log the cluster selection
+            console.log('Publishing Cluster Selection:', {
+              clusterId: item.id,
+              count: item.count,
+              childMarkers: item.childrenIds,
+              childMarkersCount: item.childrenIds?.length
+            });
+
             // Publish the unified MAP_ITEM_SELECTED event
             publish<MapItemEvent>(EventTypes.MAP_ITEM_SELECTED, {
               timestamp: Date.now(),
@@ -231,6 +240,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               clusterInfo: {
                 count: item.count,
                 coordinates: item.coordinates,
+                childMarkers: item.childrenIds, // Ensure childMarkers are included
               },
             });
           }
@@ -249,6 +259,14 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           const clusterId =
             clusterFeature.properties.stableId || `cluster-${clusterFeature.properties.cluster_id}`;
 
+          // Log cluster data for debugging
+          console.log('Processed Cluster:', {
+            clusterId,
+            count,
+            childMarkers: clusterFeature.properties.childMarkers,
+            pointCount: clusterFeature.properties.point_count
+          });
+
           return {
             type: "cluster" as const,
             item: {
@@ -256,6 +274,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               type: "cluster" as const,
               coordinates: coordinates as [number, number],
               count,
+              childrenIds: clusterFeature.properties.childMarkers || [], // Ensure we always have an array
             },
             isSelected: isItemSelected(clusterId),
             onPress: createMapItemPressHandler({
@@ -263,6 +282,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               type: "cluster" as const,
               coordinates: coordinates as [number, number],
               count,
+              childrenIds: clusterFeature.properties.childMarkers || [], // Ensure we always have an array
             }),
           };
         } else {

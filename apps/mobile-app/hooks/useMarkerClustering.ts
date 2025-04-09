@@ -11,6 +11,7 @@ interface ClusterProperties {
   point_count: number;
   point_count_abbreviated: string;
   stableId: string;
+  childMarkers: string[];
 }
 
 // Type for cluster feature
@@ -135,7 +136,7 @@ export const useMarkerClustering = (
       | PointFeature
     )[];
 
-    // Process clusters to add stable IDs
+    // Process clusters to add stable IDs and child markers
     return rawClusters.map(cluster => {
       if (cluster.properties.cluster) {
         // For clusters, get the leaf markers and generate a stable ID
@@ -147,11 +148,20 @@ export const useMarkerClustering = (
         const markerIds = leaves.map(leaf => (leaf as PointFeature).properties.id);
         const stableId = generateClusterId(markerIds.map(id => markers.find(m => m.id === id)!));
 
+        // Log cluster information
+        console.log('Cluster Processing:', {
+          clusterId: clusterFeature.properties.cluster_id,
+          pointCount: clusterFeature.properties.point_count,
+          markerIdsCount: markerIds.length,
+          markerIds: markerIds,
+        });
+
         return {
           ...clusterFeature,
           properties: {
             ...clusterFeature.properties,
             stableId,
+            childMarkers: markerIds,
           },
         };
       }

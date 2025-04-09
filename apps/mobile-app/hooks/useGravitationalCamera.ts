@@ -364,8 +364,25 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       EventTypes.CAMERA_ANIMATE_TO_LOCATION,
       (event) => {
         const duration = event.duration || 1000;
-        const zoomLevel = event.zoomLevel || gravitationConfig.gravityZoomLevel;
-        animateToLocationWithZoom(event.coordinates, duration, zoomLevel);
+        const cameraSettings: any = {
+          centerCoordinate: event.coordinates,
+          animationDuration: duration,
+          animationMode: "flyTo"
+        };
+
+        // Only include zoomLevel if zoom changes are allowed
+        if (event.allowZoomChange !== false) {
+          cameraSettings.zoomLevel = event.zoomLevel || gravitationConfig.gravityZoomLevel;
+        }
+
+        if (cameraRef.current) {
+          isAnimatingRef.current = true;
+          cameraRef.current.setCamera(cameraSettings);
+
+          setTimeout(() => {
+            isAnimatingRef.current = false;
+          }, duration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
+        }
       }
     );
 
