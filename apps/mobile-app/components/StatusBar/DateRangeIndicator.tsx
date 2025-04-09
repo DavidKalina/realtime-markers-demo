@@ -6,7 +6,8 @@ import Animated, {
     useSharedValue,
     withSequence,
     withTiming,
-    Easing
+    Easing,
+    cancelAnimation,
 } from 'react-native-reanimated';
 import { Calendar } from 'lucide-react-native';
 import * as Haptics from "expo-haptics";
@@ -77,6 +78,10 @@ const DateRangeIndicator: React.FC = () => {
     }, [filters, activeFilterIds]);
 
     const handlePress = useCallback(() => {
+        // Cancel any ongoing animations before starting new ones
+        cancelAnimation(scale);
+        cancelAnimation(rotation);
+
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         scale.value = withSequence(
             withSpring(0.95, ANIMATION_CONFIG),
@@ -128,6 +133,14 @@ const DateRangeIndicator: React.FC = () => {
             setShowCalendar(false);
         }
     }, [filters, activeFilterIds, createFilter, updateFilter, applyFilters]);
+
+    // Cleanup animations on unmount
+    useEffect(() => {
+        return () => {
+            cancelAnimation(scale);
+            cancelAnimation(rotation);
+        };
+    }, []);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [

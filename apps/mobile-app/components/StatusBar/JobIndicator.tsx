@@ -10,6 +10,7 @@ import Animated, {
     Easing,
     FadeIn,
     FadeOut,
+    cancelAnimation,
 } from 'react-native-reanimated';
 import { Cog, Check, X } from 'lucide-react-native';
 import * as Haptics from "expo-haptics";
@@ -36,6 +37,7 @@ const JobIndicator: React.FC = () => {
     const [state, setState] = useState<IndicatorState>('idle');
     const [jobMessage, setJobMessage] = useState<{ emoji: string; message: string } | null>(null);
     const previousProgress = useRef(0);
+    const timeoutRef = useRef<NodeJS.Timeout>();
 
     // Get active jobs
     const activeJobs = useMemo(() => {
@@ -73,7 +75,13 @@ const JobIndicator: React.FC = () => {
             });
             setState('jobMessage');
 
-            setTimeout(() => {
+            // Clear any existing timeout
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+
+            // Set new timeout
+            timeoutRef.current = setTimeout(() => {
                 setState('idle');
                 setJobMessage(null);
             }, 3000);
@@ -94,11 +102,28 @@ const JobIndicator: React.FC = () => {
     }, [state]);
 
     const handlePress = useMemo(() => () => {
+        // Cancel any ongoing animations before starting new ones
+        cancelAnimation(scale);
+        cancelAnimation(rotation);
+        cancelAnimation(spinRotation);
+
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         scale.value = withSequence(
             withSpring(0.9, ANIMATION_CONFIG),
             withSpring(1, ANIMATION_CONFIG)
         );
+    }, []);
+
+    // Cleanup animations and timeouts on unmount
+    useEffect(() => {
+        return () => {
+            cancelAnimation(scale);
+            cancelAnimation(rotation);
+            cancelAnimation(spinRotation);
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
     }, []);
 
     const animatedStyle = useAnimatedStyle(() => ({
