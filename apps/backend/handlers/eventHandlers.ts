@@ -508,16 +508,18 @@ export const getDiscoveredEventsHandler: EventHandler = async (c) => {
   }
 };
 
-export const getClusterHubHandler: EventHandler = async (c) => {
+export const getClusterHubDataHandler: EventHandler = async (c) => {
   try {
-    const { eventIds } = await c.req.json();
+    const data = await c.req.json();
+    const { markerIds } = data;
 
-    if (!eventIds || !Array.isArray(eventIds)) {
-      return c.json({ error: "Missing or invalid eventIds array" }, 400);
+    if (!markerIds || !Array.isArray(markerIds)) {
+      return c.json({ error: "Missing or invalid markerIds array" }, 400);
     }
 
     const eventService = c.get("eventService");
-    const hubData = await eventService.getClusterHubData(eventIds);
+    const hubData = await eventService.getClusterHubData(markerIds);
+
     return c.json(hubData);
   } catch (error) {
     console.error("Error fetching cluster hub data:", error);

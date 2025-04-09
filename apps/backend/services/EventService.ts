@@ -975,63 +975,86 @@ export class EventService {
     }
   }
 
-  async getClusterHubData(eventIds: string[]): Promise<{
+  async getClusterHubData(markerIds: string[]): Promise<{
     featuredEvent: Event | null;
-    eventsByCategory: { [key: string]: Event[] };
-    eventsByLocation: { [key: string]: Event[] };
-    upcomingEvents: Event[];
-    totalEvents: number;
+    eventsByCategory: { category: Category; events: Event[] }[];
+    eventsByLocation: { location: string; events: Event[] }[];
+    eventsToday: Event[];
   }> {
-    // Get all events by their IDs
+    // Get all events from the marker IDs
     const events = await this.eventRepository
       .createQueryBuilder("event")
       .leftJoinAndSelect("event.categories", "category")
-      .where("event.id IN (:...eventIds)", { eventIds })
+      .where("event.id IN (:...markerIds)", { markerIds })
       .getMany();
 
-    // Get featured event (most upcoming)
-    const featuredEvent =
-      events
-        .filter((event) => event.eventDate > new Date())
-        .sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime())[0] || null;
+    if (events.length === 0) {
+      return {
+        featuredEvent: null,
+        eventsByCategory: [],
+        eventsByLocation: [],
+        eventsToday: [],
+      };
+    }
 
-    // Group events by category
-    const eventsByCategory: { [key: string]: Event[] } = {};
+    // 1. Get featured event (oldest event for now)
+    const featuredEvent = events.reduce((oldest, current) => {
+      return oldest.eventDate < current.eventDate ? oldest : current;
+    });
+
+    // 2. Get events by category
+    const categoryMap = new Map<string, { category: Category; events: Event[] }>();
     events.forEach((event) => {
-      event.categories?.forEach((category) => {
-        if (!eventsByCategory[category.name]) {
-          eventsByCategory[category.name] = [];
+      event.categories.forEach((category) => {
+        if (!categoryMap.has(category.id)) {
+          categoryMap.set(category.id, { category, events: [] });
         }
-        eventsByCategory[category.name].push(event);
+        categoryMap.get(category.id)!.events.push(event);
       });
     });
 
-    // Group events by location (using address as key)
-    const eventsByLocation: { [key: string]: Event[] } = {};
+    // Sort categories by number of events and take top 4
+    const eventsByCategory = Array.from(categoryMap.values())
+      .sort((a, b) => b.events.length - a.events.length)
+      .slice(0, 4);
+
+    // 3. Get events by location
+    const locationMap = new Map<string, Event[]>();
     events.forEach((event) => {
-      const locationKey = event.address || "Unknown Location";
-      if (!eventsByLocation[locationKey]) {
-        eventsByLocation[locationKey] = [];
+      if (event.address) {
+        // Extract city and state from address
+        const locationMatch = event.address.match(/([^,]+),\s*([A-Z]{2})/);
+        if (locationMatch) {
+          const location = locationMatch[0]; // e.g., "Provo, UT"
+          if (!locationMap.has(location)) {
+            locationMap.set(location, []);
+          }
+          locationMap.get(location)!.push(event);
+        }
       }
-      eventsByLocation[locationKey].push(event);
     });
 
-    // Get upcoming events (next 7 days)
-    const upcomingEvents = events
-      .filter((event) => {
-        const eventDate = event.eventDate;
-        const now = new Date();
-        const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        return eventDate > now && eventDate <= sevenDaysFromNow;
-      })
-      .sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime());
+    // Convert to array and sort by number of events
+    const eventsByLocation = Array.from(locationMap.entries())
+      .map(([location, events]) => ({ location, events }))
+      .sort((a, b) => b.events.length - a.events.length);
+
+    // 4. Get events happening today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const eventsToday = events.filter((event) => {
+      const eventDate = new Date(event.eventDate);
+      return eventDate >= today && eventDate < tomorrow;
+    });
 
     return {
       featuredEvent,
       eventsByCategory,
       eventsByLocation,
-      upcomingEvents,
-      totalEvents: events.length,
+      eventsToday,
     };
   }
 }

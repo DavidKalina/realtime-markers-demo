@@ -137,6 +137,20 @@ interface EventOptions {
   endDate?: Date;
 }
 
+// Add this interface for cluster hub data
+interface ClusterHubData {
+  featuredEvent: ApiEvent | null;
+  eventsByCategory: {
+    category: { id: string; name: string };
+    events: ApiEvent[];
+  }[];
+  eventsByLocation: {
+    location: string;
+    events: ApiEvent[];
+  }[];
+  eventsToday: ApiEvent[];
+}
+
 class ApiClient {
   public baseUrl: string;
   private user: User | null = null;
@@ -615,7 +629,7 @@ class ApiClient {
 
     return {
       events: data.events.map(this.mapEventToEventType),
-      nextCursor: data.nextCursor
+      nextCursor: data.nextCursor,
     };
   }
 
@@ -703,7 +717,8 @@ class ApiClient {
 
       // Log pagination details for debugging
       console.log(
-        `Search query: "${query}" | Results: ${data.results.length} | Next cursor: ${data.nextCursor || "none"
+        `Search query: "${query}" | Results: ${data.results.length} | Next cursor: ${
+          data.nextCursor || "none"
         }`
       );
 
@@ -768,7 +783,7 @@ class ApiClient {
     // Map API events to frontend event type
     return {
       events: data.events.map(this.mapEventToEventType),
-      nextCursor: data.nextCursor
+      nextCursor: data.nextCursor,
     };
   }
 
@@ -1013,6 +1028,48 @@ class ApiClient {
 
     await this.handleResponse<{ message: string }>(response);
     return true;
+  }
+
+  // Add this method to fetch cluster hub data
+  async getClusterHubData(markerIds: string[]): Promise<{
+    featuredEvent: EventType | null;
+    eventsByCategory: {
+      category: { id: string; name: string };
+      events: EventType[];
+    }[];
+    eventsByLocation: {
+      location: string;
+      events: EventType[];
+    }[];
+    eventsToday: EventType[];
+  }> {
+    const url = `${this.baseUrl}/api/events/cluster-hub`;
+
+    try {
+      const response = await this.fetchWithAuth(url, {
+        method: "POST",
+        body: JSON.stringify({ markerIds }),
+      });
+
+      const data = await this.handleResponse<ClusterHubData>(response);
+
+      // Map all events to EventType
+      return {
+        featuredEvent: data.featuredEvent ? this.mapEventToEventType(data.featuredEvent) : null,
+        eventsByCategory: data.eventsByCategory.map((categoryGroup) => ({
+          category: categoryGroup.category,
+          events: categoryGroup.events.map(this.mapEventToEventType),
+        })),
+        eventsByLocation: data.eventsByLocation.map((locationGroup) => ({
+          location: locationGroup.location,
+          events: locationGroup.events.map(this.mapEventToEventType),
+        })),
+        eventsToday: data.eventsToday.map(this.mapEventToEventType),
+      };
+    } catch (error) {
+      console.error("Error fetching cluster hub data:", error);
+      throw error;
+    }
   }
 }
 
