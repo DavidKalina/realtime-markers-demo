@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -469,13 +469,13 @@ const styles = StyleSheet.create({
   },
 });
 
-// Components
-const TabButton: React.FC<{
+// Memoized TabButton
+const TabButton = React.memo<{
   icon: React.ElementType;
   label: string;
   isActive: boolean;
   onPress: () => void;
-}> = ({ icon: Icon, label, isActive, onPress }) => (
+}>(({ icon: Icon, label, isActive, onPress }) => (
   <TouchableOpacity
     style={[styles.tab, isActive && styles.activeTab]}
     onPress={onPress}
@@ -488,12 +488,13 @@ const TabButton: React.FC<{
     />
     <Text style={[styles.tabText, isActive && styles.activeTabText]}>{label}</Text>
   </TouchableOpacity>
-);
+));
 
-const EventCard: React.FC<{
+// Memoized EventCard
+const EventCard = React.memo<{
   event: EventType;
-  onPress: () => void
-}> = ({ event, onPress }) => (
+  onPress: () => void;
+}>(({ event, onPress }) => (
   <TouchableOpacity
     style={styles.eventCard}
     onPress={onPress}
@@ -527,55 +528,60 @@ const EventCard: React.FC<{
       </View>
     </View>
   </TouchableOpacity>
-);
+));
 
-const HighlightCard: React.FC<{
+// Memoized EventsListSection
+const EventsListSection = React.memo<{
+  title: string;
+  icon: React.ElementType;
+  events: EventType[];
+  onEventPress: (event: EventType) => void;
+  onPageChange?: (index: number) => void;
+  currentPage?: number;
+}>(({ title, icon: Icon, events, onEventPress, onPageChange, currentPage }) => {
+  const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    if (currentPage !== undefined && flatListRef.current) {
+      flatListRef.current.scrollToIndex({
+        index: currentPage,
+        animated: true,
+      });
+    }
+  }, [currentPage]);
+
+  const renderEventCard = useCallback(({ item }: { item: EventType }) => (
+    <EventCard event={item} onPress={() => onEventPress(item)} />
+  ), [onEventPress]);
+
+  return (
+    <View style={styles.eventsListContainer}>
+      <View style={styles.eventsListInner}>
+        {events.length === 0 ? (
+          <View style={styles.emptyListContainer}>
+            <Text style={styles.emptyListText}>No events found</Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={events}
+            renderItem={renderEventCard}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={false}
+            nestedScrollEnabled={true}
+          />
+        )}
+      </View>
+    </View>
+  );
+});
+
+// Memoized FeaturedEvent
+const FeaturedEvent = React.memo<{
   event: EventType;
   onPress: () => void;
-}> = ({ event, onPress }) => (
-  <TouchableOpacity
-    style={styles.highlightCard}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    <View style={styles.highlightImageContainer}>
-      {event.imageUrl ? (
-        <Image source={{ uri: event.imageUrl }} style={styles.highlightImage} />
-      ) : (
-        <View style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: COLORS.cardBackground
-        }}>
-          <Text style={styles.eventEmojiText}>{event.emoji || "🎉"}</Text>
-        </View>
-      )}
-    </View>
-    <View style={styles.highlightContent}>
-      <Text style={styles.highlightTitle} numberOfLines={2} ellipsizeMode="tail">
-        {event.title}
-      </Text>
-      <View style={styles.highlightInfoRow}>
-        <Calendar size={12} color={COLORS.textSecondary} />
-        <Text style={styles.highlightInfoText}>
-          {new Date(event.eventDate).toLocaleDateString()}
-        </Text>
-      </View>
-      <View style={styles.highlightInfoRow}>
-        <MapPin size={12} color={COLORS.textSecondary} />
-        <Text style={styles.highlightInfoText} numberOfLines={1}>
-          {event.location}
-        </Text>
-      </View>
-    </View>
-  </TouchableOpacity>
-);
-
-const FeaturedEvent: React.FC<{
-  event: EventType;
-  onPress: () => void;
-}> = ({ event, onPress }) => {
+}>(({ event, onPress }) => {
   const emojiScale = useSharedValue(1);
   const emojiOffset = useSharedValue(0);
 
@@ -607,9 +613,46 @@ const FeaturedEvent: React.FC<{
     };
   });
 
-  const eventDate = new Date(event.eventDate);
-  const isToday = eventDate.toDateString() === new Date().toDateString();
-  const isTomorrow = new Date(eventDate.setDate(eventDate.getDate() - 1)).toDateString() === new Date().toDateString();
+  const eventDate = useMemo(() => new Date(event.eventDate), [event.eventDate]);
+  const isToday = useMemo(() => eventDate.toDateString() === new Date().toDateString(), [eventDate]);
+  const isTomorrow = useMemo(() => {
+    const tomorrow = new Date(eventDate);
+    tomorrow.setDate(tomorrow.getDate() - 1);
+    return tomorrow.toDateString() === new Date().toDateString();
+  }, [eventDate]);
+
+  const renderCategoryTag = useMemo(() => {
+    if (!event.category) return null;
+    return (
+      <View style={[styles.featuredTag, {
+        top: 16,
+        right: 16,
+        left: 'auto',
+        backgroundColor: "rgba(255, 255, 255, 0.15)",
+        borderColor: "rgba(255, 255, 255, 0.3)",
+      }]}>
+        <Tag size={12} color={COLORS.textPrimary} />
+        <Text style={[styles.featuredTagText, { color: COLORS.textPrimary }]}>
+          {event.category.name}
+        </Text>
+      </View>
+    );
+  }, [event.category]);
+
+  const renderDateTag = useMemo(() => (
+    <View style={[styles.featuredTag, {
+      top: 16,
+      right: event.category ? 120 : 16,
+      left: 'auto',
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
+      borderColor: "rgba(255, 255, 255, 0.3)",
+    }]}>
+      <Calendar size={12} color={COLORS.textPrimary} />
+      <Text style={[styles.featuredTagText, { color: COLORS.textPrimary }]}>
+        {isToday ? 'Today' : isTomorrow ? 'Tomorrow' : eventDate.toLocaleDateString()}
+      </Text>
+    </View>
+  ), [event.category, eventDate, isToday, isTomorrow]);
 
   return (
     <TouchableOpacity
@@ -631,32 +674,8 @@ const FeaturedEvent: React.FC<{
           <Star size={12} color={COLORS.accent} />
           <Text style={styles.featuredTagText}>FEATURED</Text>
         </View>
-        {event.category && (
-          <View style={[styles.featuredTag, {
-            top: 16,
-            right: 16,
-            left: 'auto',
-            backgroundColor: "rgba(255, 255, 255, 0.15)",
-            borderColor: "rgba(255, 255, 255, 0.3)",
-          }]}>
-            <Tag size={12} color={COLORS.textPrimary} />
-            <Text style={[styles.featuredTagText, { color: COLORS.textPrimary }]}>
-              {event.category.name}
-            </Text>
-          </View>
-        )}
-        <View style={[styles.featuredTag, {
-          top: 16,
-          right: event.category ? 120 : 16,
-          left: 'auto',
-          backgroundColor: "rgba(255, 255, 255, 0.15)",
-          borderColor: "rgba(255, 255, 255, 0.3)",
-        }]}>
-          <Calendar size={12} color={COLORS.textPrimary} />
-          <Text style={[styles.featuredTagText, { color: COLORS.textPrimary }]}>
-            {isToday ? 'Today' : isTomorrow ? 'Tomorrow' : eventDate.toLocaleDateString()}
-          </Text>
-        </View>
+        {renderCategoryTag}
+        {renderDateTag}
       </View>
 
       <View style={styles.featuredEventContent}>
@@ -685,51 +704,7 @@ const FeaturedEvent: React.FC<{
       </View>
     </TouchableOpacity>
   );
-};
-
-const EventsListSection: React.FC<{
-  title: string;
-  icon: React.ElementType;
-  events: EventType[];
-  onEventPress: (event: EventType) => void;
-  onPageChange?: (index: number) => void;
-  currentPage?: number;
-}> = ({ title, icon: Icon, events, onEventPress, onPageChange, currentPage }) => {
-  const flatListRef = useRef<FlatList>(null);
-
-  useEffect(() => {
-    if (currentPage !== undefined && flatListRef.current) {
-      flatListRef.current.scrollToIndex({
-        index: currentPage,
-        animated: true,
-      });
-    }
-  }, [currentPage]);
-
-  return (
-    <View style={styles.eventsListContainer}>
-      <View style={styles.eventsListInner}>
-        {events.length === 0 ? (
-          <View style={styles.emptyListContainer}>
-            <Text style={styles.emptyListText}>No events found</Text>
-          </View>
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={events}
-            renderItem={({ item }) => (
-              <EventCard event={item} onPress={() => onEventPress(item)} />
-            )}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={false}
-            nestedScrollEnabled={true}
-          />
-        )}
-      </View>
-    </View>
-  );
-};
+});
 
 // Main component
 const ClusterEventsView: React.FC = () => {
@@ -743,6 +718,22 @@ const ClusterEventsView: React.FC = () => {
   const scrollY = useSharedValue(0);
   const markers = useLocationStore((state) => state.markers);
   const selectedItem = useLocationStore((state) => state.selectedItem);
+
+  // Memoized handlers
+  const handleBack = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.back();
+  }, [router]);
+
+  const handleTabPress = useCallback((tab: "categories" | "locations" | "today") => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveTab(tab);
+  }, []);
+
+  const handleEventPress = useCallback((event: EventType) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push(`/details?eventId=${event.id}` as never);
+  }, [router]);
 
   // Animation for header
   const headerAnimatedStyle = useAnimatedStyle(() => {
@@ -796,23 +787,8 @@ const ClusterEventsView: React.FC = () => {
     fetchClusterHubData();
   }, [fetchClusterHubData]);
 
-  // Handlers
-  const handleBack = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
-  };
-
-  const handleTabPress = (tab: "categories" | "locations" | "today") => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActiveTab(tab);
-  };
-
-  const handleEventPress = (event: EventType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push(`/details?eventId=${event.id}` as never);
-  };
-
-  const renderCategoryPageIndicator = () => {
+  // Memoized render functions
+  const renderCategoryPageIndicator = useMemo(() => {
     if (!hubData?.eventsByCategory.length) return null;
 
     return (
@@ -828,9 +804,9 @@ const ClusterEventsView: React.FC = () => {
         ))}
       </View>
     );
-  };
+  }, [hubData?.eventsByCategory, currentCategoryIndex]);
 
-  const renderLocationPageIndicator = () => {
+  const renderLocationPageIndicator = useMemo(() => {
     if (!hubData?.eventsByLocation.length) return null;
 
     return (
@@ -846,27 +822,10 @@ const ClusterEventsView: React.FC = () => {
         ))}
       </View>
     );
-  };
+  }, [hubData?.eventsByLocation, currentLocationIndex]);
 
-  // Render loading state
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
-          <Text style={styles.loadingText}>Loading events...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // If no data
-  if (!hubData) {
-    return null;
-  }
-
-  // Determine content based on active tab
-  const renderActiveTabContent = () => {
+  // Memoized tab content
+  const renderActiveTabContent = useMemo(() => {
     switch (activeTab) {
       case "categories":
         return (
@@ -875,7 +834,7 @@ const ClusterEventsView: React.FC = () => {
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
-              data={hubData.eventsByCategory}
+              data={hubData?.eventsByCategory || []}
               keyExtractor={(item) => item.category.id}
               onMomentumScrollEnd={(event) => {
                 const newIndex = Math.round(
@@ -897,7 +856,7 @@ const ClusterEventsView: React.FC = () => {
                 </View>
               )}
             />
-            {renderCategoryPageIndicator()}
+            {renderCategoryPageIndicator}
           </>
         );
       case "locations":
@@ -907,7 +866,7 @@ const ClusterEventsView: React.FC = () => {
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
-              data={hubData.eventsByLocation}
+              data={hubData?.eventsByLocation || []}
               keyExtractor={(item) => item.location}
               onMomentumScrollEnd={(event) => {
                 const newIndex = Math.round(
@@ -929,7 +888,7 @@ const ClusterEventsView: React.FC = () => {
                 </View>
               )}
             />
-            {renderLocationPageIndicator()}
+            {renderLocationPageIndicator}
           </>
         );
       case "today":
@@ -937,14 +896,31 @@ const ClusterEventsView: React.FC = () => {
           <EventsListSection
             title="Events Today"
             icon={Calendar}
-            events={hubData.eventsToday}
+            events={hubData?.eventsToday || []}
             onEventPress={handleEventPress}
           />
         );
       default:
         return null;
     }
-  };
+  }, [activeTab, hubData, currentCategoryIndex, currentLocationIndex, handleEventPress, renderCategoryPageIndicator, renderLocationPageIndicator]);
+
+  // Render loading state
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+          <Text style={styles.loadingText}>Loading events...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // If no data
+  if (!hubData) {
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -1006,106 +982,10 @@ const ClusterEventsView: React.FC = () => {
         </View>
 
         {/* Render content based on active tab */}
-        {renderActiveTabContent()}
-
-        {/* Category navigation for horizontal scrolling */}
-        {activeTab === "categories" && hubData.eventsByCategory.length > 1 && (
-          <View style={{ marginTop: 24 }}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 8 }}
-            >
-              {hubData.eventsByCategory.map((category, index) => (
-                <TouchableOpacity
-                  key={category.category.id}
-                  style={{
-                    paddingVertical: 8,
-                    paddingHorizontal: 16,
-                    marginHorizontal: 4,
-                    backgroundColor: index === currentCategoryIndex
-                      ? "rgba(147, 197, 253, 0.15)"
-                      : "rgba(255, 255, 255, 0.05)",
-                    borderRadius: 20,
-                    borderWidth: 1,
-                    borderColor: index === currentCategoryIndex
-                      ? "rgba(147, 197, 253, 0.3)"
-                      : "rgba(255, 255, 255, 0.08)",
-                  }}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setCurrentCategoryIndex(index);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={{
-                      color: index === currentCategoryIndex
-                        ? COLORS.accent
-                        : COLORS.textSecondary,
-                      fontSize: 13,
-                      fontFamily: "SpaceMono",
-                      fontWeight: index === currentCategoryIndex ? "600" : "400",
-                    }}
-                  >
-                    {category.category.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Location navigation for horizontal scrolling */}
-        {activeTab === "locations" && hubData.eventsByLocation.length > 1 && (
-          <View style={{ marginTop: 24 }}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 8 }}
-            >
-              {hubData.eventsByLocation.map((location, index) => (
-                <TouchableOpacity
-                  key={location.location}
-                  style={{
-                    paddingVertical: 8,
-                    paddingHorizontal: 16,
-                    marginHorizontal: 4,
-                    backgroundColor: index === currentLocationIndex
-                      ? "rgba(147, 197, 253, 0.15)"
-                      : "rgba(255, 255, 255, 0.05)",
-                    borderRadius: 20,
-                    borderWidth: 1,
-                    borderColor: index === currentLocationIndex
-                      ? "rgba(147, 197, 253, 0.3)"
-                      : "rgba(255, 255, 255, 0.08)",
-                  }}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setCurrentLocationIndex(index);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={{
-                      color: index === currentLocationIndex
-                        ? COLORS.accent
-                        : COLORS.textSecondary,
-                      fontSize: 13,
-                      fontFamily: "SpaceMono",
-                      fontWeight: index === currentLocationIndex ? "600" : "400",
-                    }}
-                  >
-                    {location.location}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+        {renderActiveTabContent}
       </Animated.ScrollView>
     </SafeAreaView>
   );
 };
 
-export default ClusterEventsView;
+export default React.memo(ClusterEventsView);
