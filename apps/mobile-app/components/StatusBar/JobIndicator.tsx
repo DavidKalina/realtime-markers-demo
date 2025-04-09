@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { View, StyleSheet, Text, Pressable } from 'react-native';
 import Animated, {
     useAnimatedStyle,
@@ -10,30 +10,32 @@ import Animated, {
     Easing,
     FadeIn,
     FadeOut,
-    SlideInRight,
-    ZoomIn,
-    ZoomOut,
-    runOnJS,
-    SlideOutLeft,
 } from 'react-native-reanimated';
-import { Cog, AlertCircle } from 'lucide-react-native';
+import { Cog, Check, X } from 'lucide-react-native';
 import * as Haptics from "expo-haptics";
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
-import { useEventBroker } from "@/hooks/useEventBroker";
-import { CameraAnimateToLocationEvent, DiscoveredEventData, DiscoveryEvent, EventTypes } from "@/services/EventBroker";
 import CircularProgress from './CircularProgress';
 
-type IndicatorState = 'idle' | 'processing' | 'discovered' | 'jobMessage';
+const ANIMATION_CONFIG = {
+    damping: 10,
+    stiffness: 200,
+};
 
-export const JobIndicator = () => {
+const SPIN_CONFIG = {
+    duration: 2000,
+    easing: Easing.linear,
+};
+
+type IndicatorState = 'idle' | 'processing' | 'jobMessage';
+
+const JobIndicator: React.FC = () => {
     const jobs = useJobSessionStore((state) => state.jobs);
-    const { subscribe, publish } = useEventBroker();
     const scale = useSharedValue(1);
     const rotation = useSharedValue(0);
     const spinRotation = useSharedValue(0);
     const [state, setState] = useState<IndicatorState>('idle');
-    const [discoveryData, setDiscoveryData] = useState<DiscoveredEventData | null>(null);
     const [jobMessage, setJobMessage] = useState<{ emoji: string; message: string } | null>(null);
+    const previousProgress = useRef(0);
 
     // Get active jobs
     const activeJobs = useMemo(() => {
@@ -57,65 +59,32 @@ export const JobIndicator = () => {
         return Math.round((totalProgress / activeJobs.length));
     }, [activeJobs]);
 
-    // Update state based on active jobs and messages
+    // Update state based on active jobs
     useEffect(() => {
-        const activeJob = activeJobs[0]; // Get the first active job
-        if (activeJob?.message) {
+        const activeJob = activeJobs[0];
+
+        if (activeJobs.length > 0) {
+            setState('processing');
+        } else if (state === 'processing') {
+            const isSuccess = activeJob?.status === 'completed';
             setJobMessage({
-                emoji: activeJob.message.emoji || "✨",
-                message: activeJob.message.text || ""
+                emoji: isSuccess ? "✅" : "❌",
+                message: isSuccess ? "Completed" : "Failed"
             });
             setState('jobMessage');
 
-            // Auto-reset after 3 seconds
             setTimeout(() => {
-                if (activeJobs.length > 0) {
-                    setState('processing');
-                } else {
-                    setState('idle');
-                }
+                setState('idle');
                 setJobMessage(null);
             }, 3000);
-        } else if (activeJobs.length > 0) {
-            setState('processing');
-        } else if (state === 'processing' || state === 'jobMessage') {
-            setState('idle');
         }
     }, [activeJobs, state]);
-
-    // Subscribe to discovery events
-    useEffect(() => {
-        console.log('Setting up discovery event subscription...');
-        const unsubscribe = subscribe(EventTypes.EVENT_DISCOVERED, (event: DiscoveryEvent) => {
-            console.log('Discovery event received:', event);
-            setDiscoveryData(event.event);
-            setState('discovered');
-
-            // Add haptic feedback
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-
-            // Auto-reset after 15 seconds
-            setTimeout(() => {
-                console.log('Resetting from discovered state...');
-                setState('idle');
-                setDiscoveryData(null);
-            }, 15000);
-        });
-
-        return () => {
-            console.log('Cleaning up discovery event subscription...');
-            unsubscribe();
-        };
-    }, [subscribe]);
 
     // Setup continuous spinning animation
     useEffect(() => {
         if (state === 'processing') {
             spinRotation.value = withRepeat(
-                withTiming(360, {
-                    duration: 2000,
-                    easing: Easing.linear,
-                }),
+                withTiming(360, SPIN_CONFIG),
                 -1,
                 false
             );
@@ -124,24 +93,13 @@ export const JobIndicator = () => {
         }
     }, [state]);
 
-    const handlePress = () => {
+    const handlePress = useMemo(() => () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-        // Animate press compression
         scale.value = withSequence(
-            withSpring(0.9, { damping: 10, stiffness: 200 }),
-            withSpring(1, { damping: 10, stiffness: 200 })
+            withSpring(0.9, ANIMATION_CONFIG),
+            withSpring(1, ANIMATION_CONFIG)
         );
-
-        // Handle camera movement after animation completes
-        if (state === 'discovered' && discoveryData?.location?.coordinates) {
-            publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
-                coordinates: discoveryData.location.coordinates,
-                timestamp: Date.now(),
-                source: "job_indicator"
-            });
-        }
-    };
+    }, []);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [
@@ -163,10 +121,16 @@ export const JobIndicator = () => {
         >
             <Animated.View style={[styles.container, animatedStyle]}>
                 {state === 'processing' ? (
-                    <CircularProgress progress={progress}>
+                    <CircularProgress
+                        progress={progress}
+                        message={jobMessage ? {
+                            emoji: jobMessage.emoji,
+                            text: jobMessage.message
+                        } : undefined}
+                    >
                         <View style={styles.placeholderContainer}>
                             <Animated.View
-                                entering={SlideInRight
+                                entering={FadeIn
                                     .duration(300)
                                     .springify()
                                     .damping(15)
@@ -181,7 +145,7 @@ export const JobIndicator = () => {
                                 <Animated.View>
                                     <Animated.View style={spinAnimatedStyle}>
                                         <Animated.View
-                                            entering={ZoomIn
+                                            entering={FadeIn
                                                 .duration(300)
                                                 .springify()
                                                 .damping(15)
@@ -201,9 +165,9 @@ export const JobIndicator = () => {
                     </CircularProgress>
                 ) : (
                     <View style={styles.placeholderContainer}>
-                        {(state === 'discovered' || state === 'jobMessage') && (
+                        {state === 'jobMessage' && (
                             <Animated.View
-                                entering={SlideInRight
+                                entering={FadeIn
                                     .duration(300)
                                     .springify()
                                     .damping(15)
@@ -215,33 +179,11 @@ export const JobIndicator = () => {
                                     .stiffness(200)}
                                 style={styles.indicatorWrapper}
                             >
-                                <Animated.View style={styles.discoveryContainer}>
-                                    <Animated.View style={styles.discoveryContent}>
-                                        <Animated.Text
-                                            entering={FadeIn
-                                                .duration(500)
-                                                .springify()
-                                                .damping(15)
-                                                .stiffness(200)}
-                                            exiting={FadeOut.duration(300)}
-                                            style={styles.emojiText}
-                                        >
-                                            {state === 'discovered' ? (discoveryData?.emoji || "✨") : (jobMessage?.emoji || "✨")}
-                                        </Animated.Text>
-                                        <Animated.View
-                                            entering={FadeIn
-                                                .delay(200)
-                                                .duration(300)
-                                                .springify()
-                                                .damping(15)
-                                                .stiffness(200)}
-                                            exiting={FadeOut.duration(200)}
-                                            style={styles.exclamationContainer}
-                                        >
-                                            <Text style={styles.exclamationText}>!</Text>
-                                        </Animated.View>
-                                    </Animated.View>
-                                </Animated.View>
+                                {jobMessage?.emoji === "✅" ? (
+                                    <Check size={10} color="#4CAF50" />
+                                ) : (
+                                    <X size={10} color="#F44336" />
+                                )}
                             </Animated.View>
                         )}
                     </View>
@@ -276,43 +218,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    discoveryContainer: {
-        backgroundColor: 'rgba(75, 85, 99, 0.9)',
-        borderWidth: 1,
-        borderColor: 'rgba(107, 114, 128, 0.5)',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 3,
-        elevation: 3,
-    },
-    discoveryContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    emojiText: {
-        fontSize: 12,
-        color: '#FFFFFF',
-    },
-    exclamationContainer: {
-        position: 'absolute',
-        top: -5,
-        right: -5,
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: '#FCD34D',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(0, 0, 0, 0.2)',
-    },
-    exclamationText: {
-        fontSize: 7,
-        fontWeight: '900',
-        color: '#000000',
-        textAlign: 'center',
-        lineHeight: 10,
-    },
 });
+
+export default React.memo(JobIndicator);

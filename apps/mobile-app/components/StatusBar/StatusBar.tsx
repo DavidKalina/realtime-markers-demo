@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, Platform, StatusBar as RNStatusBar, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -8,51 +8,72 @@ import Animated, {
     useAnimatedStyle,
     withDelay,
 } from 'react-native-reanimated';
-import { ConnectionIndicator } from './ConnectionIndicator';
-import { DateRangeIndicator } from './DateRangeIndicator';
-import { EmojiIndicator } from './EmojiIndicator';
-import { JobIndicator } from './JobIndicator';
+import ConnectionIndicator from './ConnectionIndicator';
+import DateRangeIndicator from './DateRangeIndicator';
+import EmojiIndicator from './EmojiIndicator';
+import JobIndicator from './JobIndicator';
 
 interface StatusBarProps {
     backgroundColor?: string;
     children?: React.ReactNode;
 }
 
-export const StatusBar: React.FC<StatusBarProps> = ({
+const ANIMATION_CONFIG = {
+    damping: 15,
+    mass: 1,
+    stiffness: 200,
+};
+
+const StatusBar: React.FC<StatusBarProps> = ({
     backgroundColor = '#2C3333', // Gun metal gray, fully opaque
     children
 }) => {
     const insets = useSafeAreaInsets();
 
-    const indicators = [
+    const indicators = useMemo(() => [
         <ConnectionIndicator key="connection" />,
         <EmojiIndicator key="emoji" />,
         <DateRangeIndicator key="date" />,
         <JobIndicator key="job" />
-    ];
+    ], []);
+
+    const containerStyle = useMemo(() => [
+        styles.container,
+        {
+            backgroundColor,
+            paddingTop: insets.top,
+        }
+    ], [backgroundColor, insets.top]);
+
+    const slideInConfig = useMemo(() =>
+        SlideInUp.springify()
+            .damping(ANIMATION_CONFIG.damping)
+            .mass(ANIMATION_CONFIG.mass)
+            .stiffness(ANIMATION_CONFIG.stiffness),
+        []
+    );
+
+    const fadeInConfig = useMemo(() =>
+        FadeIn.delay(200).springify()
+            .damping(ANIMATION_CONFIG.damping)
+            .mass(ANIMATION_CONFIG.mass)
+            .stiffness(ANIMATION_CONFIG.stiffness),
+        []
+    );
 
     return (
-        <View style={[
-            styles.container,
-            {
-                backgroundColor,
-                paddingTop: insets.top,
-            }
-        ]}>
+        <View style={containerStyle}>
             <RNStatusBar
                 barStyle="light-content"
                 backgroundColor={backgroundColor}
                 translucent
             />
             <Animated.View
-                entering={SlideInUp.springify()
-                    .damping(15)
-                    .mass(1)
-                    .stiffness(200)}
+                entering={slideInConfig}
                 style={styles.content}
             >
                 <Animated.Text
-                    entering={FadeIn.delay(200).springify()}
+                    entering={fadeInConfig}
                     style={styles.title}
                 >
                     MapMoji
@@ -67,9 +88,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                                 entering={FadeIn
                                     .delay(300 + (index * 100))
                                     .springify()
-                                    .damping(15)
-                                    .mass(1)
-                                    .stiffness(200)}
+                                    .damping(ANIMATION_CONFIG.damping)
+                                    .mass(ANIMATION_CONFIG.mass)
+                                    .stiffness(ANIMATION_CONFIG.stiffness)}
                             >
                                 {indicator}
                             </Animated.View>
@@ -78,9 +99,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({
                                     entering={FadeIn
                                         .delay(300 + (index * 100))
                                         .springify()
-                                        .damping(15)
-                                        .mass(1)
-                                        .stiffness(200)}
+                                        .damping(ANIMATION_CONFIG.damping)
+                                        .mass(ANIMATION_CONFIG.mass)
+                                        .stiffness(ANIMATION_CONFIG.stiffness)}
                                     style={styles.divider}
                                 />
                             )}
@@ -128,4 +149,6 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         marginHorizontal: 2,
     },
-}); 
+});
+
+export default React.memo(StatusBar); 

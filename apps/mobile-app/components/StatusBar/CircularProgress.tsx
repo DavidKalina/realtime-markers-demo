@@ -1,22 +1,29 @@
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, StyleSheet, Text } from 'react-native';
 import Animated, {
     useAnimatedProps,
     useAnimatedStyle,
     useSharedValue,
     withTiming,
     Easing,
+    FadeIn,
+    FadeOut,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 
 interface CircularProgressProps {
     progress: number;
     children?: React.ReactNode;
+    message?: {
+        emoji: string;
+        text: string;
+    };
 }
 
-const CircularProgress: React.FC<CircularProgressProps> = ({ progress, children }) => {
+const CircularProgress: React.FC<CircularProgressProps> = ({ progress, children, message }) => {
     const animatedProgress = useSharedValue(0);
     const previousProgress = useRef(0);
+    const [showCompletionEmoji, setShowCompletionEmoji] = useState(false);
 
     useEffect(() => {
         // If progress is 0 and we had a previous non-zero value, it means the job completed
@@ -25,11 +32,16 @@ const CircularProgress: React.FC<CircularProgressProps> = ({ progress, children 
                 duration: 500,
                 easing: Easing.linear,
             });
+            // After the progress animation completes, show the completion emoji
+            setTimeout(() => {
+                setShowCompletionEmoji(true);
+            }, 500);
         } else {
             animatedProgress.value = withTiming(progress, {
                 duration: 500,
                 easing: Easing.linear,
             });
+            setShowCompletionEmoji(false);
         }
         previousProgress.current = progress;
     }, [progress]);
@@ -71,7 +83,21 @@ const CircularProgress: React.FC<CircularProgressProps> = ({ progress, children 
                 </Svg>
             </Animated.View>
             <View style={styles.contentContainer}>
-                {children}
+                {showCompletionEmoji && message?.emoji ? (
+                    <Animated.Text
+                        entering={FadeIn
+                            .duration(300)
+                            .springify()
+                            .damping(15)
+                            .stiffness(200)}
+                        exiting={FadeOut.duration(300)}
+                        style={styles.emojiText}
+                    >
+                        {message.emoji}
+                    </Animated.Text>
+                ) : (
+                    children
+                )}
             </View>
         </View>
     );
@@ -97,6 +123,10 @@ const styles = StyleSheet.create({
         height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    emojiText: {
+        fontSize: 10,
+        color: '#FFFFFF',
     },
 });
 

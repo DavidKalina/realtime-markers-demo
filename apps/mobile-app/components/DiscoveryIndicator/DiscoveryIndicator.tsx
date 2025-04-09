@@ -6,7 +6,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
     BounceIn,
     LinearTransition,
-    SlideOutRight
+    ZoomIn,
+    ZoomOut
 } from "react-native-reanimated";
 
 interface DiscoveryIndicatorProps {
@@ -25,43 +26,144 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
     const { subscribe, publish } = useEventBroker();
 
     const positionStyle = useMemo(() => {
-        const baseSpacing = 50; // Base spacing from the edge
-        const itemSpacing = 8; // Spacing between items
-        const maxItems = 5; // Maximum number of items to show
+        const baseSpacing = 4; // Reduced from 50 to bring closer to edge
+        const itemSpacing = 8;
+        const maxItems = 5;
 
         switch (position) {
             case "top-left":
                 return {
-                    top: 150,
-                    left: 16,
+                    top: 90,
+                    left: baseSpacing,
                     maxHeight: maxItems * (40 + itemSpacing)
                 };
             case "bottom-right":
                 return {
                     bottom: baseSpacing,
-                    right: 16,
+                    right: baseSpacing,
                     maxHeight: maxItems * (40 + itemSpacing)
                 };
             case "bottom-left":
                 return {
                     bottom: baseSpacing,
-                    left: 16,
+                    left: baseSpacing,
                     maxHeight: maxItems * (40 + itemSpacing)
                 };
             case "top-right":
                 return {
                     top: baseSpacing,
-                    right: 16,
+                    right: baseSpacing,
                     maxHeight: maxItems * (40 + itemSpacing)
                 };
             default:
                 return {
                     top: 150,
-                    left: 16,
+                    left: baseSpacing,
                     maxHeight: maxItems * (40 + itemSpacing)
                 };
         }
     }, [position]);
+
+    // Add simulation effect
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const testEvents = [
+                {
+                    id: `test-${Date.now()}-1`,
+                    event: {
+                        id: `test-${Date.now()}-1`,
+                        emoji: "🎉",
+                        title: "Test Event 1",
+                        eventDate: new Date().toISOString(),
+                        confidenceScore: 0.95,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        location: {
+                            coordinates: [-122.4194, 37.7749] // San Francisco
+                        }
+                    },
+                    timestamp: Date.now()
+                },
+                {
+                    id: `test-${Date.now()}-2`,
+                    event: {
+                        id: `test-${Date.now()}-2`,
+                        emoji: "🎭",
+                        title: "Test Event 2",
+                        eventDate: new Date().toISOString(),
+                        confidenceScore: 0.85,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        location: {
+                            coordinates: [-73.935242, 40.730610] // New York
+                        }
+                    },
+                    timestamp: Date.now()
+                },
+                {
+                    id: `test-${Date.now()}-3`,
+                    event: {
+                        id: `test-${Date.now()}-3`,
+                        emoji: "🎨",
+                        title: "Test Event 3",
+                        eventDate: new Date().toISOString(),
+                        confidenceScore: 0.75,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        location: {
+                            coordinates: [-118.2437, 34.0522] // Los Angeles
+                        }
+                    },
+                    timestamp: Date.now()
+                },
+                {
+                    id: `test-${Date.now()}-4`,
+                    event: {
+                        id: `test-${Date.now()}-4`,
+                        emoji: "🎪",
+                        title: "Test Event 4",
+                        eventDate: new Date().toISOString(),
+                        confidenceScore: 0.90,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        location: {
+                            coordinates: [-87.6298, 41.8781] // Chicago
+                        }
+                    },
+                    timestamp: Date.now()
+                },
+                {
+                    id: `test-${Date.now()}-5`,
+                    event: {
+                        id: `test-${Date.now()}-5`,
+                        emoji: "🎡",
+                        title: "Test Event 5",
+                        eventDate: new Date().toISOString(),
+                        confidenceScore: 0.80,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        location: {
+                            coordinates: [-95.3698, 29.7604] // Houston
+                        }
+                    },
+                    timestamp: Date.now()
+                }
+            ];
+
+            // Fire off events with a small delay between each
+            testEvents.forEach((event, index) => {
+                setTimeout(() => {
+                    publish<DiscoveryEvent>(EventTypes.EVENT_DISCOVERED, {
+                        timestamp: Date.now(),
+                        source: "simulation",
+                        event: event.event
+                    });
+                }, index * 500); // 500ms delay between each event
+            });
+        }, 5000); // Wait 5 seconds before starting
+
+        return () => clearTimeout(timer);
+    }, []);
 
     // Subscribe to discovery events
     useEffect(() => {
@@ -129,8 +231,8 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
                                 styles.itemContainer,
                                 index > 0 && { marginTop: 8 }
                             ]}
-                            entering={BounceIn}
-                            exiting={SlideOutRight.duration(400)}
+                            entering={ZoomIn.springify().damping(15).mass(0.8)}
+                            exiting={ZoomOut.springify().damping(15).mass(0.8)}
                             layout={LinearTransition.springify()}
                         >
                             <Pressable
@@ -165,8 +267,8 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
                                 styles.itemContainer,
                                 index > 0 && { marginTop: 8 }
                             ]}
-                            entering={BounceIn}
-                            exiting={SlideOutRight.duration(400)}
+                            entering={ZoomIn.springify().damping(15).mass(0.8)}
+                            exiting={ZoomOut.springify().damping(15).mass(0.8)}
                             layout={LinearTransition.springify()}
                         >
                             <Pressable
@@ -214,38 +316,42 @@ const styles = StyleSheet.create({
     indicator: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "rgba(51, 51, 51, 0.92)",
-        borderRadius: 16,
-        padding: 8,
-        paddingRight: 8,
-        width: 160,
-        height: 40,
+        backgroundColor: "#2C3333",
+        borderRadius: 6,
+        padding: 6,
+        paddingRight: 6,
+        width: 140,
+        height: 36,
         borderWidth: 1,
         borderColor: "rgba(255, 255, 255, 0.1)",
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-        elevation: 8,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 4,
     },
     iconContainer: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
+        width: 20,
+        height: 20,
+        borderRadius: 3,
         justifyContent: "center",
         alignItems: "center",
-        marginRight: 8,
-        backgroundColor: "rgba(255, 215, 0, 0.2)",
+        marginRight: 6,
+        backgroundColor: "rgba(255, 255, 255, 0.03)",
+        borderWidth: 1,
+        borderColor: "rgba(255, 255, 255, 0.05)",
     },
     titleText: {
-        color: "#f8f9fa",
+        color: "rgba(255, 255, 255, 0.9)",
         fontSize: 10,
         fontFamily: "SpaceMono",
         fontWeight: "600",
+        letterSpacing: 0.5,
     },
     emojiText: {
-        fontSize: 14,
+        fontSize: 10,
         textAlign: "center",
+        color: "rgba(255, 255, 255, 0.9)",
     },
     tapIndicator: {
         marginLeft: 4,

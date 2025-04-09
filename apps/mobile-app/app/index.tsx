@@ -2,14 +2,14 @@ import { AuthWrapper } from "@/components/AuthWrapper";
 import EventAssistant from "@/components/EventAssistant/EventAssistant";
 import { styles } from "@/components/homeScreenStyles";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
-import QueueIndicator from "@/components/QueueIndicator/QueueIndicator";
-import RightIndicatorsContainer from "@/components/RightIndicatorsContainer";
+import DiscoveryIndicator from "@/components/DiscoveryIndicator/DiscoveryIndicator";
+import { DEFAULT_CAMERA_SETTINGS, createCameraSettings } from "@/config/cameraConfig";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useGravitationalCamera } from "@/hooks/useGravitationalCamera";
-import { useMapWebSocket } from "@/hooks/useMapWebsocket";
 import { useLocationCamera } from "@/hooks/useLocationCamera";
+import { useMapWebSocket } from "@/hooks/useMapWebsocket";
 import {
   BaseEvent,
   EventTypes,
@@ -19,8 +19,7 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Platform, Text, View } from "react-native";
-import { DEFAULT_CAMERA_SETTINGS, createCameraSettings } from "@/config/cameraConfig";
-import { StatusBar } from "@/components/StatusBar/StatusBar";
+import StatusBar from "@/components/StatusBar/StatusBar";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -320,10 +319,13 @@ function HomeScreen() {
         {isLoadingLocation && <LoadingOverlay />}
 
         {!isLoadingLocation && (
-          <StatusBar>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            </View>
-          </StatusBar>
+          <>
+            <StatusBar>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              </View>
+            </StatusBar>
+            <DiscoveryIndicator position="top-left" />
+          </>
         )}
 
         <MapboxGL.MapView

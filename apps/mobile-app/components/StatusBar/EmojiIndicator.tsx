@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { View, StyleSheet, Text, Pressable } from 'react-native';
 import Animated, {
     useAnimatedStyle,
@@ -12,7 +12,17 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useFilterStore } from "@/stores/useFilterStore";
 
-export const EmojiIndicator: React.FC = () => {
+const ANIMATION_CONFIG = {
+    damping: 10,
+    stiffness: 200,
+};
+
+const ROTATION_CONFIG = {
+    duration: 100,
+    easing: Easing.inOut(Easing.ease),
+};
+
+const EmojiIndicator: React.FC = () => {
     const router = useRouter();
     const { filters, activeFilterIds, applyFilters } = useFilterStore();
     const scale = useSharedValue(1);
@@ -20,40 +30,36 @@ export const EmojiIndicator: React.FC = () => {
 
     // Sync emoji on mount
     useEffect(() => {
-        // If there are no active filters but we have filters, activate the first one
         if (activeFilterIds.length === 0 && filters.length > 0) {
             applyFilters([filters[0].id]);
         }
     }, []);
 
     // Get active filters with emoji
-    const activeEmojiFilters = React.useMemo(() => {
+    const activeEmojiFilters = useMemo(() => {
         const activeFilters = filters.filter((f) => activeFilterIds.includes(f.id));
-        return activeFilters.filter((f) => {
-            const hasEmoji = f?.emoji;
-            return hasEmoji;
-        });
+        return activeFilters.filter((f) => f?.emoji);
     }, [filters, activeFilterIds]);
 
     // Get the first emoji from active filters, fallback to target
-    const emoji = React.useMemo(() => {
+    const emoji = useMemo(() => {
         if (activeEmojiFilters.length === 0) return '🎯';
         return activeEmojiFilters[0].emoji || '🎯';
     }, [activeEmojiFilters]);
 
-    const handlePress = () => {
+    const handlePress = useMemo(() => () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         scale.value = withSequence(
-            withSpring(0.95, { damping: 10, stiffness: 200 }),
-            withSpring(1, { damping: 10, stiffness: 200 })
+            withSpring(0.95, ANIMATION_CONFIG),
+            withSpring(1, ANIMATION_CONFIG)
         );
         rotation.value = withSequence(
-            withTiming(-5, { duration: 100, easing: Easing.inOut(Easing.ease) }),
-            withTiming(5, { duration: 100, easing: Easing.inOut(Easing.ease) }),
-            withTiming(0, { duration: 100, easing: Easing.inOut(Easing.ease) })
+            withTiming(-5, ROTATION_CONFIG),
+            withTiming(5, ROTATION_CONFIG),
+            withTiming(0, ROTATION_CONFIG)
         );
         router.push('/filter');
-    };
+    }, [router]);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [
@@ -98,4 +104,6 @@ const styles = StyleSheet.create({
         color: '#EC4899',
         letterSpacing: 0.2,
     },
-}); 
+});
+
+export default React.memo(EmojiIndicator); 
