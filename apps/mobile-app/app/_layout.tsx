@@ -1,5 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
-import { PostHogProvider } from 'posthog-react-native';
+import { PostHogProvider } from "posthog-react-native";
 
 import * as Sentry from "@sentry/react-native";
 import { useFonts } from "expo-font";
@@ -74,7 +74,7 @@ function RootLayout() {
     <PostHogProvider
       apiKey="phc_HCnuKRNZ6OzogwrVT3UkLfOI4wiGONDB2hLXNgdJxCd"
       options={{
-        host: "https://us.i.posthog.com"
+        host: "https://us.i.posthog.com",
       }}
     >
       <Providers>
@@ -83,8 +83,6 @@ function RootLayout() {
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="scan" options={{ headerShown: false }} />
-          <Stack.Screen name="upload" options={{ headerShown: false }} />
-          <Stack.Screen name="share" options={{ headerShown: false }} />
           <Stack.Screen name="user" options={{ headerShown: false }} />
           <Stack.Screen name="saved" options={{ headerShown: false }} />
           <Stack.Screen name="cluster" options={{ headerShown: false }} />
