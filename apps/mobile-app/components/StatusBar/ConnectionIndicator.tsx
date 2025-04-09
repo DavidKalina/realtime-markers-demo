@@ -4,6 +4,7 @@ import Animated, {
     useAnimatedStyle,
     withSpring,
     useSharedValue,
+    cancelAnimation,
 } from 'react-native-reanimated';
 import { Wifi } from 'lucide-react-native';
 import { useNetworkQuality } from '@/hooks/useNetworkQuality';
@@ -75,7 +76,16 @@ const ConnectionIndicator: React.FC = () => {
     }, [getQualityInfo]);
 
     const handlePress = useMemo(() => () => {
+        // Cancel any ongoing animation before starting a new one
+        cancelAnimation(scale);
         scale.value = withSpring(0.95, ANIMATION_CONFIG);
+    }, []);
+
+    // Cleanup animations on unmount
+    useEffect(() => {
+        return () => {
+            cancelAnimation(scale);
+        };
     }, []);
 
     const animatedStyle = useAnimatedStyle(() => ({

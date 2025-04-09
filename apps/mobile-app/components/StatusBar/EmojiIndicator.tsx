@@ -6,7 +6,8 @@ import Animated, {
     useSharedValue,
     withSequence,
     withTiming,
-    Easing
+    Easing,
+    cancelAnimation,
 } from 'react-native-reanimated';
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -48,6 +49,10 @@ const EmojiIndicator: React.FC = () => {
     }, [activeEmojiFilters]);
 
     const handlePress = useMemo(() => () => {
+        // Cancel any ongoing animations before starting new ones
+        cancelAnimation(scale);
+        cancelAnimation(rotation);
+
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         scale.value = withSequence(
             withSpring(0.95, ANIMATION_CONFIG),
@@ -60,6 +65,14 @@ const EmojiIndicator: React.FC = () => {
         );
         router.push('/filter');
     }, [router]);
+
+    // Cleanup animations on unmount
+    useEffect(() => {
+        return () => {
+            cancelAnimation(scale);
+            cancelAnimation(rotation);
+        };
+    }, []);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [
