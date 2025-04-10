@@ -3,7 +3,6 @@ import { View, StyleSheet, Platform, StatusBar as RNStatusBar } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
     LinearTransition,
-    SlideInUp,
     FadeIn,
     useAnimatedStyle,
     withDelay,
@@ -44,14 +43,6 @@ const StatusBar: React.FC<StatusBarProps> = ({
         }
     ], [backgroundColor, insets.top]);
 
-    const slideInConfig = useMemo(() =>
-        SlideInUp.springify()
-            .damping(ANIMATION_CONFIG.damping)
-            .mass(ANIMATION_CONFIG.mass)
-            .stiffness(ANIMATION_CONFIG.stiffness),
-        []
-    );
-
     return (
         <View style={containerStyle}>
             <RNStatusBar
@@ -59,10 +50,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
                 backgroundColor={backgroundColor}
                 translucent
             />
-            <Animated.View
-                entering={slideInConfig}
-                style={styles.content}
-            >
+            <View style={styles.content}>
                 <Animated.View
                     entering={FadeIn
                         .delay(300)
@@ -103,7 +91,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
                         </React.Fragment>
                     ))}
                 </Animated.View>
-            </Animated.View>
+            </View>
         </View>
     );
 };

@@ -1,10 +1,13 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import Animated, {
     useAnimatedStyle,
     withSpring,
     useSharedValue,
     cancelAnimation,
+    withRepeat,
+    withSequence,
+    withTiming,
 } from 'react-native-reanimated';
 import { Wifi } from 'lucide-react-native';
 import { useNetworkQuality } from '@/hooks/useNetworkQuality';
@@ -14,9 +17,14 @@ const ANIMATION_CONFIG = {
     stiffness: 200,
 };
 
+const PULSE_CONFIG = {
+    duration: 1500,
+    scale: 0.95,
+};
+
 const QUALITY_COLORS = {
-    offline: {
-        text: 'Offline',
+    connecting: {
+        text: 'Connecting',
         color: '#9CA3AF',
         bgColor: 'rgba(156, 163, 175, 0.2)'
     },
@@ -49,71 +57,87 @@ const QUALITY_COLORS = {
 
 const ConnectionIndicator: React.FC = () => {
     const { isConnected, strength, isLoading } = useNetworkQuality();
+    const [hasReceivedUpdate, setHasReceivedUpdate] = useState(false);
     const scale = useSharedValue(1);
-    const currentText = useSharedValue('');
-    const currentColor = useSharedValue('#9CA3AF');
-    const currentBgColor = useSharedValue('rgba(156, 163, 175, 0.2)');
+    const [currentState, setCurrentState] = useState(QUALITY_COLORS.connecting);
 
-    const getQualityInfo = useMemo(() => {
-        return () => {
-            if (isLoading) {
-                return {
-                    text: 'Checking...',
-                    color: '#9CA3AF',
-                    bgColor: 'rgba(156, 163, 175, 0.2)'
-                };
-            }
-            if (!isConnected) {
-                return QUALITY_COLORS.offline;
-            }
-            if (strength >= 80) return QUALITY_COLORS.excellent;
-            if (strength >= 60) return QUALITY_COLORS.good;
-            if (strength >= 40) return QUALITY_COLORS.fair;
-            if (strength >= 20) return QUALITY_COLORS.poor;
-            return QUALITY_COLORS.veryPoor;
-        };
-    }, [isConnected, strength, isLoading]);
-
+    // Start the pulsing animation immediately on mount
     useEffect(() => {
-        const newState = getQualityInfo();
-        currentText.value = newState.text;
-        currentColor.value = newState.color;
-        currentBgColor.value = newState.bgColor;
-    }, [getQualityInfo]);
+        scale.value = withRepeat(
+            withSequence(
+                withTiming(PULSE_CONFIG.scale, { duration: PULSE_CONFIG.duration / 2 }),
+                withTiming(1, { duration: PULSE_CONFIG.duration / 2 })
+            ),
+            -1,
+            true
+        );
 
-    const handlePress = useMemo(() => () => {
-        // Cancel any ongoing animation before starting a new one
-        cancelAnimation(scale);
-        scale.value = withSpring(0.95, ANIMATION_CONFIG);
-    }, []);
-
-    // Cleanup animations on unmount
-    useEffect(() => {
         return () => {
             cancelAnimation(scale);
         };
+    }, []);
+
+    useEffect(() => {
+        // Only update state if we've received our first update or if we're disconnected
+        if (!hasReceivedUpdate && !isLoading) {
+            setHasReceivedUpdate(true);
+        }
+
+        if (!hasReceivedUpdate) {
+            return;
+        }
+
+        if (!isConnected) {
+            setCurrentState(QUALITY_COLORS.connecting);
+            // Ensure pulsing animation is running when connecting
+            scale.value = withRepeat(
+                withSequence(
+                    withTiming(PULSE_CONFIG.scale, { duration: PULSE_CONFIG.duration / 2 }),
+                    withTiming(1, { duration: PULSE_CONFIG.duration / 2 })
+                ),
+                -1,
+                true
+            );
+        } else if (strength >= 80) {
+            setCurrentState(QUALITY_COLORS.excellent);
+            cancelAnimation(scale);
+            scale.value = 1;
+        } else if (strength >= 60) {
+            setCurrentState(QUALITY_COLORS.good);
+            cancelAnimation(scale);
+            scale.value = 1;
+        } else if (strength >= 40) {
+            setCurrentState(QUALITY_COLORS.fair);
+            cancelAnimation(scale);
+            scale.value = 1;
+        } else if (strength >= 20) {
+            setCurrentState(QUALITY_COLORS.poor);
+            cancelAnimation(scale);
+            scale.value = 1;
+        } else {
+            setCurrentState(QUALITY_COLORS.veryPoor);
+            cancelAnimation(scale);
+            scale.value = 1;
+        }
+    }, [isConnected, strength, isLoading, hasReceivedUpdate]);
+
+    const handlePress = useMemo(() => () => {
+        cancelAnimation(scale);
+        scale.value = withSpring(0.95, ANIMATION_CONFIG);
     }, []);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }]
     }));
 
-    const indicatorStyle = useAnimatedStyle(() => ({
-        backgroundColor: currentBgColor.value
-    }));
-
-    const textStyle = useAnimatedStyle(() => ({
-        color: currentColor.value
-    }));
-
     return (
         <Animated.View style={[styles.container, animatedStyle]}>
-            <Animated.View style={[styles.indicator, indicatorStyle]}>
-                <Wifi size={10} color={currentColor.value} />
-            </Animated.View>
-            <Animated.Text style={[styles.text, textStyle]}>
-                {currentText.value}
-            </Animated.Text>
+            <View style={[styles.indicator, { backgroundColor: currentState.bgColor }]}>
+                <Wifi size={10} color={currentState.color} />
+            </View>
+            <Text style={[styles.text, { color: currentState.color }]}>
+                {currentState.text}
+            </Text>
         </Animated.View>
     );
 };
