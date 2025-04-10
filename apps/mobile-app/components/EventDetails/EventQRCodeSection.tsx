@@ -15,6 +15,7 @@ const EventQRCodeSection: React.FC<EventQRCodeSection> = ({ event }) => {
 
   const handleOpenLink = () => {
     const url = event.qrCodeData || event.detectedQrData;
+
     if (url && url.startsWith("http")) {
       try {
         Linking.openURL(url);
@@ -72,7 +73,6 @@ const EventQRCodeSection: React.FC<EventQRCodeSection> = ({ event }) => {
 
 const styles = StyleSheet.create({
   qrCodeSection: {
-    backgroundColor: "#2a2a2a",
     borderRadius: 20,
     padding: 20,
     marginTop: 20,
@@ -81,8 +81,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
   cardHeader: {
@@ -119,11 +117,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderRadius: 16,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
   },
 
   qrCodeInner: {
