@@ -48,25 +48,31 @@ const QUALITY_COLORS = {
 };
 
 const ConnectionIndicator: React.FC = () => {
-    const networkState = useNetworkQuality();
+    const { isConnected, strength, isLoading } = useNetworkQuality();
     const scale = useSharedValue(1);
-    const currentText = useSharedValue('Offline');
+    const currentText = useSharedValue('');
     const currentColor = useSharedValue('#9CA3AF');
     const currentBgColor = useSharedValue('rgba(156, 163, 175, 0.2)');
 
     const getQualityInfo = useMemo(() => {
         return () => {
-            if (!networkState.isConnected) {
+            if (isLoading) {
+                return {
+                    text: 'Checking...',
+                    color: '#9CA3AF',
+                    bgColor: 'rgba(156, 163, 175, 0.2)'
+                };
+            }
+            if (!isConnected) {
                 return QUALITY_COLORS.offline;
             }
-            const strength = networkState.strength;
             if (strength >= 80) return QUALITY_COLORS.excellent;
             if (strength >= 60) return QUALITY_COLORS.good;
             if (strength >= 40) return QUALITY_COLORS.fair;
             if (strength >= 20) return QUALITY_COLORS.poor;
             return QUALITY_COLORS.veryPoor;
         };
-    }, [networkState.isConnected, networkState.strength]);
+    }, [isConnected, strength, isLoading]);
 
     useEffect(() => {
         const newState = getQualityInfo();

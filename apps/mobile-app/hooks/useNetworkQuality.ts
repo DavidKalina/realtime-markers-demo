@@ -29,10 +29,12 @@ const DEFAULT_STATE: NetworkQualityState = {
 
 export const useNetworkQuality = () => {
     const [networkState, setNetworkState] = useState<NetworkQualityState>(DEFAULT_STATE);
+    const [isLoading, setIsLoading] = useState(true);
     const [subscription, setSubscription] = useState<NetInfoSubscription | null>(null);
     const appState = useRef(AppState.currentState);
     const lastCheckTime = useRef(Date.now());
     const isMounted = useRef(true);
+    const initialFetchDone = useRef(false);
 
     // Calculate network strength based on available information
     const calculateStrength = useCallback((state: NetInfoState): number => {
@@ -74,7 +76,6 @@ export const useNetworkQuality = () => {
         if (!isMounted.current) return;
 
         try {
-
             // Get the current network type
             const networkType = state.type || 'none';
 
@@ -105,11 +106,13 @@ export const useNetworkQuality = () => {
             };
 
             setNetworkState(newState);
+            setIsLoading(false);
         } catch (error) {
             console.error('Error processing network state:', error);
             // Set a safe default state in case of error
             if (isMounted.current) {
                 setNetworkState(DEFAULT_STATE);
+                setIsLoading(false);
             }
         }
     }, [calculateStrength]);
@@ -124,11 +127,14 @@ export const useNetworkQuality = () => {
 
         const setupNetworkMonitoring = async () => {
             try {
-                // Get initial state
-                const initialState = await NetInfo.fetch();
-
-                if (isSubscribed && isMounted.current) {
-                    handleNetworkStateChange(initialState);
+                // Only do initial fetch if not already done
+                if (!initialFetchDone.current) {
+                    setIsLoading(true);
+                    const initialState = await NetInfo.fetch();
+                    if (isSubscribed && isMounted.current) {
+                        handleNetworkStateChange(initialState);
+                        initialFetchDone.current = true;
+                    }
                 }
 
                 // Subscribe to network state changes
@@ -187,6 +193,7 @@ export const useNetworkQuality = () => {
                 }
             } catch (error) {
                 console.error('Error setting up network monitoring:', error);
+                setIsLoading(false);
             }
         };
 
@@ -210,5 +217,5 @@ export const useNetworkQuality = () => {
         };
     }, [handleNetworkStateChange]);
 
-    return networkState;
+    return { ...networkState, isLoading };
 }; 

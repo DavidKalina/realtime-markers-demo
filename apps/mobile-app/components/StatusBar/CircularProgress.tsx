@@ -123,6 +123,7 @@ const styles = StyleSheet.create({
         height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
+        position: 'absolute',
     },
     emojiText: {
         fontSize: 10,

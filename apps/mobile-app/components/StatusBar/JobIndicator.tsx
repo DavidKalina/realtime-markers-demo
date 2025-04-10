@@ -145,29 +145,29 @@ const JobIndicator: React.FC = () => {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
             <Animated.View style={[styles.container, animatedStyle]}>
-                {state === 'processing' ? (
-                    <CircularProgress
-                        progress={progress}
-                        message={jobMessage ? {
-                            emoji: jobMessage.emoji,
-                            text: jobMessage.message
-                        } : undefined}
-                    >
-                        <View style={styles.placeholderContainer}>
-                            <Animated.View
-                                entering={FadeIn
-                                    .duration(300)
-                                    .springify()
-                                    .damping(15)
-                                    .stiffness(200)}
-                                exiting={FadeOut
-                                    .duration(300)
-                                    .springify()
-                                    .damping(15)
-                                    .stiffness(200)}
-                                style={styles.indicatorWrapper}
-                            >
-                                <Animated.View>
+                <View style={styles.fixedContainer}>
+                    {state === 'processing' ? (
+                        <CircularProgress
+                            progress={progress}
+                            message={jobMessage ? {
+                                emoji: jobMessage.emoji,
+                                text: jobMessage.message
+                            } : undefined}
+                        >
+                            <View style={styles.placeholderContainer}>
+                                <Animated.View
+                                    entering={FadeIn
+                                        .duration(300)
+                                        .springify()
+                                        .damping(15)
+                                        .stiffness(200)}
+                                    exiting={FadeOut
+                                        .duration(300)
+                                        .springify()
+                                        .damping(15)
+                                        .stiffness(200)}
+                                    style={styles.indicatorWrapper}
+                                >
                                     <Animated.View style={spinAnimatedStyle}>
                                         <Animated.View
                                             entering={FadeIn
@@ -185,34 +185,34 @@ const JobIndicator: React.FC = () => {
                                         </Animated.View>
                                     </Animated.View>
                                 </Animated.View>
-                            </Animated.View>
+                            </View>
+                        </CircularProgress>
+                    ) : (
+                        <View style={styles.placeholderContainer}>
+                            {state === 'jobMessage' && (
+                                <Animated.View
+                                    entering={FadeIn
+                                        .duration(300)
+                                        .springify()
+                                        .damping(15)
+                                        .stiffness(200)}
+                                    exiting={FadeOut
+                                        .duration(300)
+                                        .springify()
+                                        .damping(15)
+                                        .stiffness(200)}
+                                    style={styles.indicatorWrapper}
+                                >
+                                    {jobMessage?.emoji === "✅" ? (
+                                        <Check size={10} color="#4CAF50" />
+                                    ) : (
+                                        <X size={10} color="#F44336" />
+                                    )}
+                                </Animated.View>
+                            )}
                         </View>
-                    </CircularProgress>
-                ) : (
-                    <View style={styles.placeholderContainer}>
-                        {state === 'jobMessage' && (
-                            <Animated.View
-                                entering={FadeIn
-                                    .duration(300)
-                                    .springify()
-                                    .damping(15)
-                                    .stiffness(200)}
-                                exiting={FadeOut
-                                    .duration(300)
-                                    .springify()
-                                    .damping(15)
-                                    .stiffness(200)}
-                                style={styles.indicatorWrapper}
-                            >
-                                {jobMessage?.emoji === "✅" ? (
-                                    <Check size={10} color="#4CAF50" />
-                                ) : (
-                                    <X size={10} color="#F44336" />
-                                )}
-                            </Animated.View>
-                        )}
-                    </View>
-                )}
+                    )}
+                </View>
             </Animated.View>
         </Pressable>
     );
@@ -227,6 +227,11 @@ const styles = StyleSheet.create({
         margin: -8,
         position: 'relative',
     },
+    fixedContainer: {
+        width: 24,
+        height: 24,
+        position: 'relative',
+    },
     placeholderContainer: {
         width: 22,
         height: 22,
@@ -236,6 +241,9 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255, 255, 255, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
+        position: 'absolute',
+        top: 1,
+        left: 1,
     },
     indicatorWrapper: {
         width: '100%',
