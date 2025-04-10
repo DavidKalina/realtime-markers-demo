@@ -115,6 +115,12 @@ const DateRangeIndicator: React.FC = () => {
         setIsLocalLoading(true);
         let targetFilter = filters.find(f => activeFilterIds.includes(f.id));
 
+        // If no target filer, check for oldest filter that only has date/time criteria
+        if (!targetFilter) {
+            targetFilter = filters.find(f => !f.semanticQuery);
+        }
+
+
         try {
             if (!targetFilter) {
                 targetFilter = await createFilter({
