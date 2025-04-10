@@ -108,10 +108,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     emoji: {
-        fontSize: 13,
+        fontSize: 11,
     },
     text: {
-        fontSize: 11,
+        fontSize: 12,
         fontFamily: "SpaceMono",
         fontWeight: "600",
         color: '#EC4899',
