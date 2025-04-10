@@ -308,4 +308,38 @@ export class CacheService {
   static getRedisClient(): Redis | null {
     return this.redisClient;
   }
+
+  static async getCachedClusterHub(markerIds: string[]): Promise<any | null> {
+    if (!this.redisClient) return null;
+
+    const key = `cluster-hub:${markerIds.sort().join(',')}`;
+    const cached = await this.redisClient.get(key);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+    return null;
+  }
+
+  static async setCachedClusterHub(markerIds: string[], data: any, ttlSeconds: number = 300): Promise<void> {
+    if (!this.redisClient) return;
+
+    const key = `cluster-hub:${markerIds.sort().join(',')}`;
+    await this.redisClient.set(key, JSON.stringify(data), "EX", ttlSeconds);
+  }
+
+  static async invalidateClusterHubCache(markerIds: string[]): Promise<void> {
+    if (!this.redisClient) return;
+
+    const key = `cluster-hub:${markerIds.sort().join(',')}`;
+    await this.redisClient.del(key);
+  }
+
+  static async invalidateAllClusterHubCaches(): Promise<void> {
+    if (!this.redisClient) return;
+
+    const keys = await this.redisClient.keys("cluster-hub:*");
+    if (keys.length > 0) {
+      await this.redisClient.del(...keys);
+    }
+  }
 }

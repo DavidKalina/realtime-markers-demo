@@ -757,7 +757,7 @@ const EventsListSection = memo<EventsListSectionProps>(({
           </View>
         ) : useScrollView ? (
           <ScrollView
-            showsVerticalScrollIndicator={true}
+            showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 16 }}
           >
             {events.map((event, index) => (
@@ -775,7 +775,7 @@ const EventsListSection = memo<EventsListSectionProps>(({
             data={events}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
-            showsVerticalScrollIndicator={true}
+            showsVerticalScrollIndicator={false}
             scrollEnabled={true}
             nestedScrollEnabled={true}
             contentContainerStyle={{ paddingBottom: 16 }}

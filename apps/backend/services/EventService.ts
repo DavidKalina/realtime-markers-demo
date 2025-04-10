@@ -272,7 +272,13 @@ export class EventService {
       // Invalidate the cache for this event
       await CacheService.invalidateEventCache(id);
 
+      // Invalidate search cache since we updated an event
       await CacheService.invalidateSearchCache();
+
+      // Invalidate any cluster hub caches that might contain this event
+      // We don't know which clusters contain this event, so we'll need to invalidate all cluster hub caches
+      // This is a bit heavy-handed but ensures consistency
+      await CacheService.invalidateAllClusterHubCaches();
 
       return updatedEvent;
     } catch (error) {
@@ -495,6 +501,9 @@ export class EventService {
 
       // Invalidate search cache since we deleted an event
       await CacheService.invalidateSearchCache();
+
+      // Invalidate any cluster hub caches that might contain this event
+      await CacheService.invalidateAllClusterHubCaches();
 
       return result.affected ? result.affected > 0 : false;
     } catch (error) {
@@ -981,6 +990,12 @@ export class EventService {
     eventsByLocation: { location: string; events: Event[] }[];
     eventsToday: Event[];
   }> {
+    // Try to get from cache first
+    const cachedData = await CacheService.getCachedClusterHub(markerIds);
+    if (cachedData) {
+      return cachedData;
+    }
+
     // Get all events from the marker IDs
     const events = await this.eventRepository
       .createQueryBuilder("event")
@@ -1050,11 +1065,16 @@ export class EventService {
       return eventDate >= today && eventDate < tomorrow;
     });
 
-    return {
+    const result = {
       featuredEvent,
       eventsByCategory,
       eventsByLocation,
       eventsToday,
     };
+
+    // Cache the result for 5 minutes
+    await CacheService.setCachedClusterHub(markerIds, result);
+
+    return result;
   }
 }
