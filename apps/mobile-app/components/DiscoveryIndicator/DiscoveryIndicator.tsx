@@ -210,7 +210,9 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
                             exiting={FadeOutUp
                                 .springify()
                                 .damping(15)
-                                .mass(0.8)}
+                                .mass(0.8)
+                                .delay(index * 100)}
+
                             layout={LinearTransition.springify()}
                         >
                             <Pressable
