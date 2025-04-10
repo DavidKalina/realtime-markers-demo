@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback, useImperativeHandle } from "react";
-import { StyleSheet, View, Dimensions } from "react-native";
+import { StyleSheet, View, useWindowDimensions } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -38,12 +38,13 @@ export const SimplifiedScannerAnimation = React.forwardRef<
   SimplifiedScannerAnimationProps
 >((props, ref) => {
   const { isActive, color = "#4dabf7", speed = 2000 } = props;
+  const { height: windowHeight } = useWindowDimensions();
 
   // Track position of the scanning line
   const scanPosition = useSharedValue(0);
   const isMounted = useRef(true);
   const animationActive = useRef(false);
-  const windowHeight = Dimensions.get('window').height;
+  const containerHeight = useRef(0);
 
   // Cleanup function
   const cleanup = useCallback(() => {
@@ -75,21 +76,31 @@ export const SimplifiedScannerAnimation = React.forwardRef<
     // Calculate actual duration based on speed prop
     const duration = typeof speed === 'number' ? speed : ANIMATION_CONFIG.DURATION;
 
-    // Function to create one complete scan cycle
+    // Function to create one complete scan cycle (down and up)
     const createScanCycle = () => {
-      // Move from top to bottom
+      // Move from top to bottom and back
       scanPosition.value = withSequence(
         // Move down
         withTiming(1, {
-          duration,
+          duration: duration / 2,
           easing: ANIMATION_CONFIG.EASING
         }),
         // Brief pause at the bottom
         withDelay(
           ANIMATION_CONFIG.DELAY,
-          // Reset to top (instantly)
+          // Move up
           withTiming(0, {
-            duration: ANIMATION_CONFIG.RESET_DURATION,
+            duration: duration / 2,
+            easing: ANIMATION_CONFIG.EASING
+          })
+        ),
+        // Brief pause at the top
+        withDelay(
+          ANIMATION_CONFIG.DELAY,
+          withTiming(0, {
+            duration: 0,
+            easing: ANIMATION_CONFIG.EASING,
+            reduceMotion: undefined
           })
         )
       );
@@ -99,7 +110,7 @@ export const SimplifiedScannerAnimation = React.forwardRef<
         if (isMounted.current && isActive && animationActive.current) {
           createScanCycle();
         }
-      }, duration + ANIMATION_CONFIG.DELAY + ANIMATION_CONFIG.RESET_DURATION);
+      }, duration + (ANIMATION_CONFIG.DELAY * 2));
     };
 
     // Start the first cycle
@@ -143,9 +154,9 @@ export const SimplifiedScannerAnimation = React.forwardRef<
 
   // Animated style for the scanning line
   const scanLineStyle = useAnimatedStyle(() => {
-    // Calculate absolute position to move full container height
+    // Calculate position based on container height
     return {
-      transform: [{ translateY: scanPosition.value * windowHeight }],
+      transform: [{ translateY: scanPosition.value * containerHeight.current }],
     };
   });
 
@@ -153,13 +164,18 @@ export const SimplifiedScannerAnimation = React.forwardRef<
   const glowStyle = useAnimatedStyle(() => {
     return {
       transform: [
-        { translateY: scanPosition.value * windowHeight - ANIMATION_CONFIG.GLOW_HEIGHT / 2 + ANIMATION_CONFIG.LINE_HEIGHT / 2 }
+        { translateY: scanPosition.value * containerHeight.current - ANIMATION_CONFIG.GLOW_HEIGHT / 2 + ANIMATION_CONFIG.LINE_HEIGHT / 2 }
       ],
     };
   });
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      onLayout={(event) => {
+        containerHeight.current = event.nativeEvent.layout.height;
+      }}
+    >
       {/* The glow effect (slightly larger, positioned behind the line) */}
       <Animated.View
         style={[
@@ -198,17 +214,23 @@ const styles = StyleSheet.create({
     bottom: 0,
     overflow: "hidden",
     backgroundColor: "transparent",
+    margin: 0,
+    padding: 0,
   },
   scanLine: {
     position: "absolute",
     left: 0,
     right: 0,
     opacity: 0.8,
+    margin: 0,
+    padding: 0,
   },
   scanGlow: {
     position: "absolute",
     left: 0,
     right: 0,
-    borderRadius: 12, // Soft rounded edges for the glow
+    borderRadius: 12,
+    margin: 0,
+    padding: 0,
   }
 });

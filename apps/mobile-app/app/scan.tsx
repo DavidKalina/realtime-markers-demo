@@ -1,9 +1,8 @@
 // scan.tsx - Updated version with card-like UI styling
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
-import { ImageSelector } from "@/components/ImageSelector";
+import { SimplifiedScannerAnimationRef } from "@/components/ScannerAnimation";
 import { ScannerOverlay, ScannerOverlayRef } from "@/components/ScannerOverlay/ScannerOverlay";
-import { SimplifiedScannerAnimation, SimplifiedScannerAnimationRef } from "@/components/ScannerAnimation";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
 import { useEventBroker } from "@/hooks/useEventBroker";
@@ -19,14 +18,13 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Platform,
   SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import Animated, { FadeIn, SlideInDown, SlideInRight } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 type DetectionStatus = "none" | "detecting" | "aligned";
 type ImageSource = "camera" | "gallery" | null;
@@ -63,11 +61,9 @@ export default function ScanScreen() {
   const router = useRouter();
   const detectionIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [detectionStatus, setDetectionStatus] = useState<DetectionStatus>("none");
-  const [isFrameReady, setIsFrameReady] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [imageSource, setImageSource] = useState<ImageSource>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const isMounted = useRef(true);
 
   const { userLocation } = useUserLocation();
@@ -125,13 +121,10 @@ export default function ScanScreen() {
       // Simplified detection logic
       if (counter < 3) {
         setDetectionStatus("none");
-        setIsFrameReady(false);
       } else if (counter < 5) {
         setDetectionStatus("detecting");
-        setIsFrameReady(false);
       } else {
         setDetectionStatus("aligned");
-        setIsFrameReady(true);
       }
     }, 500);
 
@@ -184,11 +177,9 @@ export default function ScanScreen() {
 
     // Reset all state
     setDetectionStatus("none");
-    setIsFrameReady(false);
     setIsUploading(false);
     setCapturedImage(null);
     setImageSource(null);
-    setUploadProgress(0);
     uploadRetryCount.current = 0;
 
     // Clean up animations and refs
@@ -271,12 +262,10 @@ export default function ScanScreen() {
         throw new Error("Network connection is too weak for upload");
       }
 
-      setUploadProgress(10);
 
       // Process/compress the image before uploading
       const processedUri = await processImage(uri);
 
-      setUploadProgress(30);
 
       // Create imageFile object for apiClient
       const imageFile = {
@@ -294,12 +283,10 @@ export default function ScanScreen() {
       // Add source information to track analytics
       imageFile.source = imageSource || "unknown";
 
-      setUploadProgress(70);
 
       // Upload using API client
       const result = await apiClient.processEventImage(imageFile);
 
-      setUploadProgress(100);
 
       if (result.jobId && isMounted.current) {
         queueJobAndNavigateDelayed(result.jobId);
@@ -341,7 +328,6 @@ export default function ScanScreen() {
       throw error;
     } finally {
       if (isMounted.current) {
-        setUploadProgress(0);
         uploadRetryCount.current = 0;
       }
     }
@@ -603,7 +589,7 @@ export default function ScanScreen() {
                 ref={scannerOverlayRef}
                 detectionStatus={detectionStatus}
                 isCapturing={isCapturing || isUploading}
-                showScannerAnimation={false}
+                showScannerAnimation={true}
               />
 
               {/* Camera not ready indicator */}
@@ -636,12 +622,6 @@ export default function ScanScreen() {
   );
 }
 
-// Fix React Native warning about string percentages in styles
-const getProgressBarWidth = (progress: number) => {
-  return {
-    width: `${progress}%`,
-  };
-};
 
 const styles = StyleSheet.create({
   container: {
@@ -693,7 +673,7 @@ const styles = StyleSheet.create({
   },
   contentArea: {
     flex: 1,
-    padding: 16,
+    padding: 8,
   },
   cameraCard: {
     flex: 1,
@@ -705,7 +685,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
-    borderWidth: 1,
     borderColor: COLORS.divider,
   },
   camera: {
