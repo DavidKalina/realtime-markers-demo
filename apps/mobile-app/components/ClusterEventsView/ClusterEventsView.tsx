@@ -770,7 +770,7 @@ const EventsListSection: React.FC<{
             showsVerticalScrollIndicator={false}
             scrollEnabled={false}
             nestedScrollEnabled={true}
-            contentContainerStyle={{ paddingBottom: 0 }}
+            contentContainerStyle={{ paddingBottom: 0, maxHeight: 600 }}
           />
         )}
       </View>
