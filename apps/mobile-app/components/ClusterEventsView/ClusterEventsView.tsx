@@ -291,11 +291,12 @@ const styles = StyleSheet.create({
   // Events list styles
   eventsListContainer: {
     width: "100%",
-    minHeight: 200,
+    height: 450,
     marginBottom: 0,
   },
   eventsListInner: {
     flex: 1,
+    height: 450,
   },
   listHeader: {
     padding: 12,
@@ -303,10 +304,11 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255, 255, 255, 0.08)",
     flexDirection: "row",
     alignItems: "center",
+    marginBottom: 8,
   },
   listHeaderText: {
     color: COLORS.textPrimary,
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: "SpaceMono",
     fontWeight: "600",
     marginLeft: 8,
@@ -750,9 +752,13 @@ const EventsListSection: React.FC<{
 
   return (
     <View style={styles.eventsListContainer}>
+      <View style={styles.listHeader}>
+        <Icon size={18} color={COLORS.accent} />
+        <Text style={styles.listHeaderText}>{title}</Text>
+      </View>
       <View style={styles.eventsListInner}>
         {events.length === 0 ? (
-          <View style={styles.emptyListContainer}>
+          <View style={[styles.emptyListContainer, { height: 450 }]}>
             <Text style={styles.emptyListText}>No events found</Text>
           </View>
         ) : (
@@ -767,10 +773,10 @@ const EventsListSection: React.FC<{
               />
             )}
             keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={false}
+            showsVerticalScrollIndicator={true}
+            scrollEnabled={true}
             nestedScrollEnabled={true}
-            contentContainerStyle={{ paddingBottom: 0, maxHeight: 600 }}
+            contentContainerStyle={{ paddingBottom: 16 }}
           />
         )}
       </View>
@@ -993,27 +999,9 @@ const ClusterEventsView: React.FC = () => {
     }
   };
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <Animated.View style={[styles.header, headerAnimatedStyle]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBack}
-          activeOpacity={0.7}
-        >
-          <ArrowLeft size={20} color={COLORS.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Discover Events</Text>
-      </Animated.View>
-
-      <Animated.ScrollView
-        style={styles.mainScrollView}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        bounces={true}
-      >
+  const renderContent = () => {
+    return (
+      <>
         {/* Featured Event Section */}
         <View style={styles.sectionContainer}>
           {hubData?.featuredEvent ? (
@@ -1054,55 +1042,34 @@ const ClusterEventsView: React.FC = () => {
 
         {/* Render content based on active tab */}
         {renderActiveTabContent()}
+      </>
+    );
+  };
 
-        {/* Location navigation for horizontal scrolling */}
-        {activeTab === "locations" && hubData.eventsByLocation.length > 1 && (
-          <View style={{ marginTop: 24 }}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 8 }}
-            >
-              {hubData.eventsByLocation.map((location, index) => (
-                <TouchableOpacity
-                  key={location.location}
-                  style={{
-                    paddingVertical: 8,
-                    paddingHorizontal: 16,
-                    marginHorizontal: 4,
-                    backgroundColor: index === currentLocationIndex
-                      ? "rgba(147, 197, 253, 0.15)"
-                      : "rgba(255, 255, 255, 0.05)",
-                    borderRadius: 20,
-                    borderWidth: 1,
-                    borderColor: index === currentLocationIndex
-                      ? "rgba(147, 197, 253, 0.3)"
-                      : "rgba(255, 255, 255, 0.08)",
-                  }}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setCurrentLocationIndex(index);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={{
-                      color: index === currentLocationIndex
-                        ? COLORS.accent
-                        : COLORS.textSecondary,
-                      fontSize: 13,
-                      fontFamily: "SpaceMono",
-                      fontWeight: index === currentLocationIndex ? "600" : "400",
-                    }}
-                  >
-                    {location.location}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-      </Animated.ScrollView>
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <Animated.View style={[styles.header, headerAnimatedStyle]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBack}
+          activeOpacity={0.7}
+        >
+          <ArrowLeft size={20} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Discover Events</Text>
+      </Animated.View>
+
+      <Animated.FlatList
+        data={[renderContent()]}
+        renderItem={({ item }) => item}
+        keyExtractor={() => 'main-content'}
+        style={styles.mainScrollView}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        bounces={true}
+      />
     </SafeAreaView>
   );
 };

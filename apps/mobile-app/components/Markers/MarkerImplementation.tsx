@@ -259,14 +259,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           const clusterId =
             clusterFeature.properties.stableId || `cluster-${clusterFeature.properties.cluster_id}`;
 
-          // Log cluster data for debugging
-          console.log('Processed Cluster:', {
-            clusterId,
-            count,
-            childMarkers: clusterFeature.properties.childMarkers,
-            pointCount: clusterFeature.properties.point_count
-          });
-
           return {
             type: "cluster" as const,
             item: {
