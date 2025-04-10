@@ -569,6 +569,10 @@ export class FilterProcessor {
           const eventEmbedding = this.vectorService.parseSqlEmbedding(event.embedding);
           const semanticQuery = filter.semanticQuery?.toLowerCase() || '';
 
+          // Determine if query is short or long based on word count
+          const queryWordCount = semanticQuery.split(/\s+/).length;
+          const isShortQuery = queryWordCount <= 3;
+
           const similarityScore = this.vectorService.calculateSimilarity(
             filterEmbedding,
             eventEmbedding
@@ -578,40 +582,87 @@ export class FilterProcessor {
           compositeScore += similarityScore * 0.5;
           totalWeight += 0.5;
 
-          // Additional text matching for better natural language understanding
+          // Additional text matching with dynamic weights based on query length
           if (filter.semanticQuery) {
-            // Title match (still significant weight)
-            if (event.title.toLowerCase().includes(semanticQuery)) {
-              compositeScore += 0.6;
-              totalWeight += 0.15;
-            }
+            if (isShortQuery) {
+              // For short queries, emphasize exact matches in key fields
 
-            // Category matching (highest weight)
-            if (event.categories?.length) {
-              const categoryMatches = event.categories.filter(cat =>
-                cat.name.toLowerCase().includes(semanticQuery)
-              );
-              if (categoryMatches.length > 0) {
+              // Title match (highest weight for short queries)
+              if (event.title.toLowerCase().includes(semanticQuery)) {
                 compositeScore += 0.8;
                 totalWeight += 0.2;
               }
-            }
 
-            // Description match (second highest weight)
-            if (event.description?.toLowerCase().includes(semanticQuery)) {
-              compositeScore += 0.7;
-              totalWeight += 0.15;
-            }
-
-            // Location-related matches (higher weight)
-            if (!criteria.location) {
-              if (event.address?.toLowerCase().includes(semanticQuery)) {
-                compositeScore += 0.5;
-                totalWeight += 0.1;
+              // Category matching (second highest weight for short queries)
+              if (event.categories?.length) {
+                const categoryMatches = event.categories.filter(cat =>
+                  cat.name.toLowerCase().includes(semanticQuery)
+                );
+                if (categoryMatches.length > 0) {
+                  compositeScore += 0.7;
+                  totalWeight += 0.15;
+                }
               }
-              if (event.locationNotes?.toLowerCase().includes(semanticQuery)) {
+
+              // Emoji description match (added for short queries)
+              if (event.emoji?.toLowerCase().includes(semanticQuery)) {
                 compositeScore += 0.6;
                 totalWeight += 0.1;
+              }
+
+              // Location-related matches (higher weight for short queries)
+              if (!criteria.location) {
+                if (event.address?.toLowerCase().includes(semanticQuery)) {
+                  compositeScore += 0.5;
+                  totalWeight += 0.1;
+                }
+                if (event.locationNotes?.toLowerCase().includes(semanticQuery)) {
+                  compositeScore += 0.6;
+                  totalWeight += 0.1;
+                }
+              }
+
+              // Description match (lower weight for short queries)
+              if (event.description?.toLowerCase().includes(semanticQuery)) {
+                compositeScore += 0.4;
+                totalWeight += 0.1;
+              }
+            } else {
+              // For longer queries, emphasize description and semantic meaning
+
+              // Description match (highest weight for longer queries)
+              if (event.description?.toLowerCase().includes(semanticQuery)) {
+                compositeScore += 0.8;
+                totalWeight += 0.25;
+              }
+
+              // Title match (second highest weight for longer queries)
+              if (event.title.toLowerCase().includes(semanticQuery)) {
+                compositeScore += 0.7;
+                totalWeight += 0.2;
+              }
+
+              // Category matching (lower weight for longer queries)
+              if (event.categories?.length) {
+                const categoryMatches = event.categories.filter(cat =>
+                  cat.name.toLowerCase().includes(semanticQuery)
+                );
+                if (categoryMatches.length > 0) {
+                  compositeScore += 0.5;
+                  totalWeight += 0.15;
+                }
+              }
+
+              // Location-related matches (lower weight for longer queries)
+              if (!criteria.location) {
+                if (event.address?.toLowerCase().includes(semanticQuery)) {
+                  compositeScore += 0.4;
+                  totalWeight += 0.1;
+                }
+                if (event.locationNotes?.toLowerCase().includes(semanticQuery)) {
+                  compositeScore += 0.4;
+                  totalWeight += 0.1;
+                }
               }
             }
           }
@@ -621,6 +672,8 @@ export class FilterProcessor {
               eventId: event.id,
               eventTitle: event.title,
               filterQuery: filter.semanticQuery,
+              queryWordCount,
+              isShortQuery,
               similarityScore: similarityScore.toFixed(2),
               compositeScore: compositeScore.toFixed(2),
               totalWeight: totalWeight.toFixed(2),
