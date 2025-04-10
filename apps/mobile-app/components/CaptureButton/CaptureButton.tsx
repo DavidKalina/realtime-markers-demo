@@ -23,6 +23,18 @@ interface CaptureButtonProps {
   flashButtonPosition?: "left" | "right";
 }
 
+// Add unified color theme at the top
+const COLORS = {
+  background: "#1a1a1a",
+  cardBackground: "#2a2a2a",
+  textPrimary: "#f8f9fa",
+  textSecondary: "#a0a0a0",
+  accent: "#93c5fd",
+  divider: "rgba(255, 255, 255, 0.08)",
+  buttonBackground: "rgba(255, 255, 255, 0.05)",
+  buttonBorder: "rgba(255, 255, 255, 0.1)",
+};
+
 export const CaptureButton: React.FC<CaptureButtonProps> = ({
   onPress,
   isCapturing = false,
@@ -306,11 +318,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
   },
   innerCircle: {
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
   iconContainer: {
     justifyContent: "center",
@@ -324,15 +346,16 @@ const styles = StyleSheet.create({
   flashButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1.5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
+    borderColor: COLORS.buttonBorder,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });

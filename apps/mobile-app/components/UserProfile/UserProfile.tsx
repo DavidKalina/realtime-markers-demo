@@ -34,6 +34,28 @@ interface UserProfileProps {
   onBack?: () => void;
 }
 
+// Unified color theme matching ClusterEventsView
+const COLORS = {
+  background: "#1a1a1a",
+  cardBackground: "#2a2a2a",
+  textPrimary: "#f8f9fa",
+  textSecondary: "#a0a0a0",
+  accent: "#93c5fd",
+  divider: "rgba(255, 255, 255, 0.08)",
+  buttonBackground: "rgba(255, 255, 255, 0.05)",
+  buttonBorder: "rgba(255, 255, 255, 0.1)",
+  success: {
+    background: "rgba(64, 192, 87, 0.12)",
+    border: "rgba(64, 192, 87, 0.2)",
+    text: "#40c057"
+  },
+  error: {
+    background: "rgba(220, 38, 38, 0.1)",
+    border: "rgba(220, 38, 38, 0.3)",
+    text: "#dc2626"
+  }
+};
+
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -471,7 +493,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#333",
+    backgroundColor: COLORS.background,
   },
 
   // Header styles
@@ -479,30 +501,32 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "transparent",
-    backgroundColor: "#333",
+    borderBottomColor: COLORS.divider,
+    backgroundColor: COLORS.background,
     zIndex: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0,
-    shadowRadius: 3,
-    elevation: 0,
   },
 
   backButton: {
-    padding: 8,
-    borderRadius: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
     marginRight: 12,
   },
 
   headerTitle: {
     fontSize: 20,
-    fontWeight: "600",
-    color: "#f8f9fa",
+    fontWeight: "700",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
     flex: 1,
+    letterSpacing: 0.5,
   },
 
   // Content area
@@ -517,26 +541,18 @@ const styles = StyleSheet.create({
 
   // Profile header card
   profileHeaderCard: {
-    backgroundColor: "#3a3a3a",
-    borderRadius: 16,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 20,
     marginTop: 12,
     marginBottom: 12,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 6,
+    shadowRadius: 12,
+    elevation: 8,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
-  },
-
-  headerGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 120,
+    borderColor: COLORS.divider,
   },
 
   profileHeader: {
@@ -546,28 +562,20 @@ const styles = StyleSheet.create({
   },
 
   avatarOuterContainer: {
-    padding: 2,
-    borderRadius: 36,
-    width: 40,
-    height: 40,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-
-  avatarContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 
   avatarText: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
+    fontSize: 20,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
   },
 
@@ -577,28 +585,29 @@ const styles = StyleSheet.create({
   },
 
   userName: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#f8f9fa",
+    fontSize: 16,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
-    marginBottom: 6,
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
 
   verifiedBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(64, 192, 87, 0.2)",
+    backgroundColor: COLORS.success.background,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
     alignSelf: "flex-start",
     borderWidth: 1,
-    borderColor: "rgba(64, 192, 87, 0.3)",
+    borderColor: COLORS.success.border,
   },
 
   verifiedText: {
-    color: "#40c057",
-    fontSize: 10,
+    color: COLORS.success.text,
+    fontSize: 12,
     fontWeight: "600",
     fontFamily: "SpaceMono",
     marginLeft: 4,
@@ -610,7 +619,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
+    borderTopColor: COLORS.divider,
   },
 
   statItem: {
@@ -618,61 +627,64 @@ const styles = StyleSheet.create({
   },
 
   statValue: {
-    color: "#93c5fd",
+    color: COLORS.accent,
     fontFamily: "SpaceMono",
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: "700",
     marginBottom: 4,
   },
 
   statLabel: {
-    color: "#adb5bd",
+    color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
-    fontSize: 12,
+    fontSize: 13,
   },
 
   statDivider: {
     width: 1,
     height: "80%",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: COLORS.divider,
   },
 
   // Details card
   detailsCard: {
-    backgroundColor: "#3a3a3a",
-    borderRadius: 16,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 20,
     padding: 20,
     marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: COLORS.divider,
   },
 
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#93c5fd",
+    fontWeight: "700",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
-    marginBottom: 16,
+    marginBottom: 20,
+    letterSpacing: 0.5,
   },
 
   detailItem: {
     flexDirection: "row",
-    marginBottom: 16,
+    marginBottom: 20,
   },
 
   detailIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 
   detailContent: {
@@ -682,30 +694,67 @@ const styles = StyleSheet.create({
 
   detailLabel: {
     fontSize: 13,
-    color: "#adb5bd",
+    color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
     marginBottom: 4,
   },
 
   detailValue: {
-    fontSize: 15,
-    color: "#f8f9fa",
+    fontSize: 14,
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
+    lineHeight: 20,
   },
 
-  // Logout and Delete Section
-  actionsSection: {
-    backgroundColor: "#3a3a3a",
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
+  // Map style buttons
+  mapStyleButtons: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 6,
+  },
+
+  mapStyleButton: {
+    flex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.buttonBackground,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: COLORS.buttonBorder,
+    minHeight: 32,
+  },
+
+  mapStyleButtonActive: {
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    borderColor: "rgba(147, 197, 253, 0.3)",
+  },
+
+  mapStyleButtonText: {
+    fontSize: 12,
+    fontFamily: 'SpaceMono',
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+  },
+
+  mapStyleButtonTextActive: {
+    color: COLORS.accent,
+  },
+
+  // Actions section
+  actionsSection: {
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 24,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
     flexDirection: "row",
     gap: 12,
   },
@@ -715,16 +764,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
-    borderRadius: 10,
-    backgroundColor: "rgba(249, 117, 131, 0.1)",
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
     borderWidth: 1,
-    borderColor: "rgba(249, 117, 131, 0.3)",
+    borderColor: COLORS.buttonBorder,
   },
 
   logoutText: {
-    color: "#f97583",
-    fontSize: 16,
+    color: COLORS.textPrimary,
+    fontSize: 14,
     fontWeight: "600",
     fontFamily: "SpaceMono",
   },
@@ -734,17 +783,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    backgroundColor: "rgba(220, 38, 38, 0.1)",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: COLORS.error.background,
     borderWidth: 1,
-    borderColor: "rgba(220, 38, 38, 0.3)",
+    borderColor: COLORS.error.border,
   },
 
   deleteText: {
-    color: "#dc2626",
-    fontSize: 16,
+    color: COLORS.error.text,
+    fontSize: 14,
     fontWeight: "600",
     fontFamily: "SpaceMono",
   },
@@ -756,66 +805,75 @@ const styles = StyleSheet.create({
   },
 
   versionText: {
-    color: "#6c757d",
+    color: COLORS.textSecondary,
     fontSize: 12,
     fontFamily: "SpaceMono",
   },
 
-  dialogText: {
-    color: "#f8f9fa",
-    fontSize: 16,
-    marginBottom: 16,
-    fontFamily: "SpaceMono",
-  },
-
-  dialogSubText: {
-    color: "#adb5bd",
-    fontSize: 14,
-    marginBottom: 12,
-    fontFamily: "SpaceMono",
-  },
-
-  passwordInput: {
-    backgroundColor: "#333",
-    borderRadius: 8,
-    padding: 12,
-    color: "#f8f9fa",
-    fontFamily: "SpaceMono",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-
-  errorText: {
-    color: "#dc2626",
-    fontSize: 14,
-    marginTop: 8,
-    fontFamily: "SpaceMono",
-  },
-
+  // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
 
   modalContent: {
-    backgroundColor: '#3a3a3a',
-    borderRadius: 16,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 20,
     padding: 20,
     width: '100%',
     maxWidth: 400,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: COLORS.divider,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
 
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#f8f9fa',
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
     marginBottom: 16,
-    fontFamily: 'SpaceMono',
+    fontFamily: "SpaceMono",
+    letterSpacing: 0.5,
+  },
+
+  dialogText: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    marginBottom: 16,
+    fontFamily: "SpaceMono",
+    lineHeight: 20,
+  },
+
+  dialogSubText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    marginBottom: 12,
+    fontFamily: "SpaceMono",
+    lineHeight: 18,
+  },
+
+  passwordInput: {
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 12,
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+  },
+
+  errorText: {
+    color: COLORS.error.text,
+    fontSize: 13,
+    marginTop: 8,
+    fontFamily: "SpaceMono",
   },
 
   modalButtons: {
@@ -828,21 +886,26 @@ const styles = StyleSheet.create({
   cancelButton: {
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 
   cancelButtonText: {
-    color: '#f8f9fa',
-    fontSize: 16,
-    fontFamily: 'SpaceMono',
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
   },
 
   deleteModalButton: {
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#dc2626',
+    borderRadius: 12,
+    backgroundColor: COLORS.error.background,
+    borderWidth: 1,
+    borderColor: COLORS.error.border,
   },
 
   deleteModalButtonDisabled: {
@@ -850,40 +913,10 @@ const styles = StyleSheet.create({
   },
 
   deleteModalButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontFamily: 'SpaceMono',
-  },
-
-  mapStyleButtons: {
-    flexDirection: 'row',
-    gap: 4,
-    marginTop: 4,
-  },
-  mapStyleButton: {
-    flex: 1,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 24,
-    borderWidth: 1,
-    backgroundColor: 'rgba(147, 197, 253, 0.1)',
-    borderColor: 'rgba(147, 197, 253, 0.2)',
-  },
-  mapStyleButtonActive: {
-    backgroundColor: 'rgba(147, 197, 253, 0.2)',
-    borderColor: 'rgba(147, 197, 253, 0.3)',
-  },
-  mapStyleButtonText: {
-    fontSize: 12,
-    fontFamily: 'SpaceMono',
-    fontWeight: '600',
-    color: '#f8f9fa',
-  },
-  mapStyleButtonTextActive: {
-    fontWeight: '700',
+    color: COLORS.error.text,
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
   },
 });
 

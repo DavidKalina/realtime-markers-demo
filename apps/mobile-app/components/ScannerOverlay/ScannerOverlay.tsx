@@ -12,6 +12,18 @@ import Animated, {
 } from "react-native-reanimated";
 import { SimplifiedScannerAnimation } from "@/components/ScannerAnimation";
 
+// Add unified color theme at the top
+const COLORS = {
+  background: "#1a1a1a",
+  cardBackground: "#2a2a2a",
+  textPrimary: "#f8f9fa",
+  textSecondary: "#a0a0a0",
+  accent: "#93c5fd",
+  divider: "rgba(255, 255, 255, 0.08)",
+  buttonBackground: "rgba(255, 255, 255, 0.05)",
+  buttonBorder: "rgba(255, 255, 255, 0.1)",
+};
+
 // Animation configurations - defined outside component to prevent recreation
 const ANIMATIONS = {
   BORDER_PULSE: {
@@ -28,30 +40,30 @@ const ANIMATIONS = {
   },
 };
 
-// Status configurations for cleaner code
+// Update status configurations
 const STATUS_CONFIG = {
   none: {
     colorValue: 0,
     scaleValue: 1,
-    scanColor: "#93c5fd",
+    scanColor: COLORS.accent,
     overlayOpacity: 0.3,
   },
   detecting: {
     colorValue: 0.5,
     scaleValue: 1.02,
-    scanColor: "#93c5fd",
+    scanColor: COLORS.accent,
     overlayOpacity: 0.4,
   },
   aligned: {
     colorValue: 1,
     scaleValue: 1.02,
-    scanColor: "#93c5fd",
+    scanColor: COLORS.accent,
     overlayOpacity: 0.5,
   },
   capturing: {
     colorValue: 1,
     scaleValue: 1.05,
-    scanColor: "#93c5fd",
+    scanColor: COLORS.accent,
     overlayOpacity: 0.6,
   },
 };
@@ -95,7 +107,7 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
     const overlayOpacity = useSharedValue(0.3);
 
     // Status-dependent state
-    const [scanColor, setScanColor] = useState("#93c5fd");
+    const [scanColor, setScanColor] = useState(COLORS.accent);
 
     // Create unified cleanup function to cancel all animations
     const cleanupAnimations = useCallback(() => {
@@ -120,7 +132,7 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
       overlayOpacity.value = 0.3;
 
       // Reset scan color to initial state
-      setScanColor("#93c5fd");
+      setScanColor(COLORS.accent);
 
       // Clear animation refs
       animationRefs.current = {};
@@ -140,7 +152,7 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
       overlayOpacity.value = 0.3;
 
       // Reset scan color to initial state
-      setScanColor("#93c5fd");
+      setScanColor(COLORS.accent);
 
       // Clear animation refs
       animationRefs.current = {};
@@ -350,7 +362,7 @@ const overlayStyles = StyleSheet.create({
     height: "100%",
     position: "relative",
     overflow: "hidden",
-    borderRadius: 24,
+    borderRadius: 20,
   },
   boundary: {
     position: "absolute",
@@ -359,9 +371,9 @@ const overlayStyles = StyleSheet.create({
     right: "3%",
     bottom: "3%",
     borderWidth: 2,
-    borderColor: "rgba(147, 197, 253, 0.8)",
+    borderColor: `${COLORS.accent}80`,
     borderRadius: 20,
-    shadowColor: "#93c5fd",
+    shadowColor: COLORS.accent,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 8,
@@ -373,8 +385,8 @@ const overlayStyles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "#000",
-    borderRadius: 24,
+    backgroundColor: COLORS.background,
+    borderRadius: 20,
   },
   scannerContainer: {
     position: "absolute",

@@ -31,6 +31,18 @@ import Animated, { FadeIn, SlideInDown, SlideInRight } from "react-native-reanim
 type DetectionStatus = "none" | "detecting" | "aligned";
 type ImageSource = "camera" | "gallery" | null;
 
+// Unified color theme matching ClusterEventsView
+const COLORS = {
+  background: "#1a1a1a",
+  cardBackground: "#2a2a2a",
+  textPrimary: "#f8f9fa",
+  textSecondary: "#a0a0a0",
+  accent: "#93c5fd",
+  divider: "rgba(255, 255, 255, 0.08)",
+  buttonBackground: "rgba(255, 255, 255, 0.05)",
+  buttonBorder: "rgba(255, 255, 255, 0.1)",
+};
+
 export default function ScanScreen() {
   const {
     hasPermission,
@@ -634,7 +646,7 @@ const getProgressBarWidth = (progress: number) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#333",
+    backgroundColor: COLORS.background,
     display: "flex",
     flexDirection: "column",
   },
@@ -642,16 +654,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#3a3a3a",
-    backgroundColor: "#333",
+    borderBottomColor: COLORS.divider,
+    backgroundColor: COLORS.background,
     zIndex: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
   },
   backButton: {
     marginRight: 12,
@@ -659,105 +666,103 @@ const styles = StyleSheet.create({
   backButtonContainer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: "#3a3a3a",
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "600",
-    color: "#f8f9fa",
+    fontWeight: "700",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
     flex: 1,
+    letterSpacing: 0.5,
   },
   headerIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
   contentArea: {
-    flex: 1,
-    padding: 8, // Reduced padding to maximize space
-  },
-  flexContainer: {
     flex: 1,
     padding: 16,
   },
   cameraCard: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: "hidden",
-    backgroundColor: "#1a1a1a",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
+    backgroundColor: COLORS.cardBackground,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowRadius: 12,
     elevation: 8,
-    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
   },
   camera: {
     flex: 1,
   },
   cameraNotReadyOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
     justifyContent: "center",
     alignItems: "center",
   },
   cameraNotReadyText: {
-    color: "#ffffff",
+    color: COLORS.textPrimary,
     marginTop: 16,
     fontFamily: "SpaceMono",
+    fontSize: 14,
   },
   cameraPlaceholder: {
     flex: 1,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: COLORS.cardBackground,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 16,
+    borderRadius: 20,
   },
   cameraPlaceholderText: {
-    color: "#f8f9fa",
+    color: COLORS.textSecondary,
     marginTop: 16,
     fontFamily: "SpaceMono",
+    fontSize: 14,
   },
-
   previewImage: {
     flex: 1,
     width: "100%",
     height: "100%",
     resizeMode: "contain",
-    backgroundColor: "#1a1a1a",
+    backgroundColor: COLORS.cardBackground,
   },
   progressContainer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    padding: 16,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
   },
   controlsPlaceholder: {
-    height: 80, // Reduced height to match new controls height
+    height: 100,
   },
   progressBarContainer: {
     height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 2,
     overflow: "hidden",
   },
   progressBar: {
     height: "100%",
-    backgroundColor: "#93c5fd",
+    backgroundColor: COLORS.accent,
     borderRadius: 2,
   },
   loaderContainer: {
@@ -766,8 +771,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loaderText: {
-    color: "#f8f9fa",
+    color: COLORS.textSecondary,
     marginTop: 16,
     fontFamily: "SpaceMono",
+    fontSize: 14,
   },
 });
