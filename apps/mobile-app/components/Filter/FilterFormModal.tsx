@@ -10,6 +10,7 @@ import {
   Platform,
   Modal,
   Keyboard,
+  StyleSheet,
 } from "react-native";
 import { X, Save } from "lucide-react-native";
 import Animated, {
@@ -19,9 +20,20 @@ import Animated, {
   SlideOutDown,
   Layout,
 } from "react-native-reanimated";
-import { styles } from "./styles";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
+
+// Unified color theme matching ClusterEventsView
+const COLORS = {
+  background: "#1a1a1a",
+  cardBackground: "#2a2a2a",
+  textPrimary: "#f8f9fa",
+  textSecondary: "#a0a0a0",
+  accent: "#93c5fd",
+  divider: "rgba(255, 255, 255, 0.08)",
+  buttonBackground: "rgba(255, 255, 255, 0.05)",
+  buttonBorder: "rgba(255, 255, 255, 0.1)",
+};
 
 interface FilterFormModalProps {
   visible: boolean;
@@ -47,6 +59,148 @@ interface FilterFormModalProps {
   isMounted: React.RefObject<boolean>;
   cleanupModalAnimations: () => void;
 }
+
+const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    width: "100%",
+    maxWidth: 500,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
+    letterSpacing: 0.5,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+  },
+  modalScrollContent: {
+    padding: 20,
+  },
+  formGroup: {
+    marginBottom: 20,
+  },
+  formLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginBottom: 8,
+    fontFamily: "SpaceMono",
+  },
+  input: {
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+    padding: 12,
+    color: COLORS.textPrimary,
+    fontSize: 15,
+    fontFamily: "SpaceMono",
+  },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  helperText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: 8,
+    fontFamily: "SpaceMono",
+    fontStyle: "italic",
+  },
+  switchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  dateContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  dateInput: {
+    flex: 1,
+  },
+  dateRangeSeparator: {
+    color: COLORS.textSecondary,
+    fontFamily: "SpaceMono",
+  },
+  radiusInput: {
+    marginTop: 12,
+  },
+  locationButton: {
+    marginTop: 12,
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
+  },
+  locationButtonText: {
+    color: COLORS.accent,
+    fontSize: 14,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
+    letterSpacing: 0.5,
+  },
+  modalFooter: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+  },
+  saveButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
+  },
+  saveButtonDisabled: {
+    opacity: 0.5,
+  },
+  saveButtonText: {
+    color: COLORS.accent,
+    fontSize: 15,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
+    letterSpacing: 0.5,
+  },
+});
 
 export const FilterFormModal = React.memo<FilterFormModalProps>(
   ({

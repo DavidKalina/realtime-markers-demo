@@ -173,15 +173,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           // Select the item in the store
           selectMapItem(item);
 
-          // Center camera on the item without changing zoom
-          publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
-            timestamp: Date.now(),
-            source: "ClusteredMapMarkers",
-            coordinates: item.coordinates,
-            duration: 400,
-            zoomLevel: currentZoom, // Keep the same zoom level
-            allowZoomChange: false, // Explicitly prevent zoom changes
-          });
+
 
           // Convert to the EventBroker's expected format
           if (item.type === "marker") {
@@ -207,6 +199,18 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               markerId: item.id,
               markerData: item.data,
             });
+
+
+            // Center camera on the item without changing zoom
+            publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
+              timestamp: Date.now(),
+              source: "ClusteredMapMarkers",
+              coordinates: item.coordinates,
+              duration: 400,
+              zoomLevel: 16, // Use a higher zoom level for markers
+              allowZoomChange: true, // Allow zoom changes
+            });
+
           } else {
             // Create the cluster event item
             const clusterEventItem: EventClusterItem = {
@@ -232,6 +236,17 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
                 coordinates: item.coordinates,
                 childMarkers: item.childrenIds, // Ensure childMarkers are included
               },
+            });
+
+
+            // Center camera on the item without changing zoom
+            publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
+              timestamp: Date.now(),
+              source: "ClusteredMapMarkers",
+              coordinates: item.coordinates,
+              duration: 400,
+              zoomLevel: currentZoom, // Keep the same zoom level
+              allowZoomChange: false, // Explicitly prevent zoom changes
             });
           }
         };

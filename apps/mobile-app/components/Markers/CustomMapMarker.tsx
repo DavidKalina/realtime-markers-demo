@@ -213,7 +213,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
     const rippleStyle = useAnimatedStyle(() => ({
       opacity: rippleOpacity.value,
       transform: [{ scale: rippleScale.value }],
-      borderColor: "#333333", // Use consistent dark gray
+      borderColor: "#fff", // Use consistent dark gray
     }));
 
     // SVG components - memoized for performance

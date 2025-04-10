@@ -370,8 +370,8 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
           animationMode: "flyTo"
         };
 
-        // Only include zoomLevel if zoom changes are allowed
-        if (event.allowZoomChange !== false) {
+        // Only include zoomLevel if zoom changes are explicitly allowed
+        if (event.allowZoomChange === true) {
           cameraSettings.zoomLevel = event.zoomLevel || gravitationConfig.gravityZoomLevel;
         }
 
