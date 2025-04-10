@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, StyleSheet, Text, Pressable, Modal } from 'react-native';
 import Animated, {
     useAnimatedStyle,
@@ -31,6 +31,8 @@ const DateRangeIndicator: React.FC = () => {
     const { filters, activeFilterIds, updateFilter, applyFilters, createFilter, isLoading } = useFilterStore();
     const scale = useSharedValue(1);
     const rotation = useSharedValue(0);
+    const textOpacity = useSharedValue(1);
+    const prevDateRangeRef = useRef<string>("");
 
     // Sync date range on mount
     useEffect(() => {
@@ -76,6 +78,18 @@ const DateRangeIndicator: React.FC = () => {
 
         return `${format(parseISO(start), "M/d")} – ${format(parseISO(end), "M/d")}`;
     }, [filters, activeFilterIds]);
+
+    // Animate text opacity when date range changes
+    useEffect(() => {
+        if (prevDateRangeRef.current !== dateRangeText) {
+            cancelAnimation(textOpacity);
+            textOpacity.value = withSequence(
+                withTiming(0, { duration: 200 }),
+                withTiming(1, { duration: 200 })
+            );
+            prevDateRangeRef.current = dateRangeText;
+        }
+    }, [dateRangeText]);
 
     const handlePress = useCallback(() => {
         // Cancel any ongoing animations before starting new ones
@@ -141,6 +155,7 @@ const DateRangeIndicator: React.FC = () => {
         return () => {
             cancelAnimation(scale);
             cancelAnimation(rotation);
+            cancelAnimation(textOpacity);
         };
     }, []);
 
@@ -151,6 +166,10 @@ const DateRangeIndicator: React.FC = () => {
         ],
     }));
 
+    const textAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: textOpacity.value,
+    }));
+
     return (
         <>
             <Pressable onPress={handlePress}>
@@ -158,7 +177,9 @@ const DateRangeIndicator: React.FC = () => {
                     <View style={styles.iconContainer}>
                         <Calendar size={12} color="#60A5FA" />
                     </View>
-                    <Text style={styles.text}>{dateRangeText}</Text>
+                    <Animated.Text style={[styles.text, textAnimatedStyle]}>
+                        {dateRangeText}
+                    </Animated.Text>
                 </Animated.View>
             </Pressable>
 
