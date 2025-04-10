@@ -27,7 +27,8 @@ import Animated, {
   withSequence,
   Easing,
   FadeInDown,
-  Layout
+  Layout,
+  LinearTransition
 } from "react-native-reanimated";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -183,7 +184,7 @@ const styles = StyleSheet.create({
   },
   featuredImageContainer: {
     width: "100%",
-    height: 160,
+    height: 140,
     backgroundColor: COLORS.cardBackground,
     overflow: "hidden",
   },
@@ -223,23 +224,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   featuredEventContent: {
-    padding: 16,
+    padding: 14,
   },
   featuredEventTitle: {
     color: COLORS.textPrimary,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
     fontFamily: "SpaceMono",
     letterSpacing: -0.2,
-    marginBottom: 8,
-    lineHeight: 28,
+    marginBottom: 6,
+    lineHeight: 24,
   },
   featuredEventDescription: {
     color: COLORS.textSecondary,
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "SpaceMono",
-    lineHeight: 18,
-    marginBottom: 12,
+    lineHeight: 16,
+    marginBottom: 10,
   },
   featuredEventDetails: {
     flexDirection: "row",
@@ -613,6 +614,12 @@ const HighlightCard = memo<{
   </TouchableOpacity>
 ));
 
+// Replace the parseLocation function with this simpler truncate function
+const truncateText = (text: string, maxLength: number = 20): string => {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
+
 // Memoized FeaturedEvent component
 const FeaturedEvent = memo<{
   event: EventType;
@@ -661,7 +668,7 @@ const FeaturedEvent = memo<{
         ) : (
           <View style={styles.featuredEmojiContainer}>
             <Animated.View style={emojiAnimatedStyle}>
-              <Text style={{ fontSize: 48 }}>{event.emoji || "🎉"}</Text>
+              <Text style={{ fontSize: 40 }}>{event.emoji || "🎉"}</Text>
             </Animated.View>
           </View>
         )}
@@ -690,21 +697,21 @@ const FeaturedEvent = memo<{
           {event.title}
         </Text>
         {event.description && (
-          <Text style={styles.featuredEventDescription} numberOfLines={3}>
+          <Text style={styles.featuredEventDescription} numberOfLines={2}>
             {event.description}
           </Text>
         )}
         <View style={styles.featuredEventDetails}>
           <View style={styles.featuredEventDetail}>
-            <Calendar size={16} color={COLORS.textSecondary} />
+            <Calendar size={14} color={COLORS.textSecondary} />
             <Text style={styles.featuredEventDetailText}>
               {new Date(event.eventDate).toLocaleDateString()}
             </Text>
           </View>
           <View style={styles.featuredEventDetail}>
-            <MapPin size={16} color={COLORS.textSecondary} />
+            <MapPin size={14} color={COLORS.textSecondary} />
             <Text style={styles.featuredEventDetailText} numberOfLines={1}>
-              {event.location}
+              {truncateText(event.location)}
             </Text>
           </View>
         </View>
@@ -1029,7 +1036,11 @@ const ClusterEventsView: React.FC = () => {
 
     return (
       <>
-        <View style={styles.sectionContainer}>
+        <Animated.View
+          style={styles.sectionContainer}
+          entering={FadeInDown.duration(600).delay(100).springify()}
+          layout={LinearTransition.springify()}
+        >
           {hubData.featuredEvent ? (
             <FeaturedEvent
               event={hubData.featuredEvent}
@@ -1042,9 +1053,13 @@ const ClusterEventsView: React.FC = () => {
               </Text>
             </View>
           )}
-        </View>
+        </Animated.View>
 
-        <View style={styles.tabsContainer}>
+        <Animated.View
+          style={styles.tabsContainer}
+          entering={FadeInDown.duration(600).delay(200).springify()}
+          layout={LinearTransition.springify()}
+        >
           <TabButton
             icon={Tag}
             label="Categories"
@@ -1063,9 +1078,14 @@ const ClusterEventsView: React.FC = () => {
             isActive={activeTab === "today"}
             onPress={() => handleTabPress("today")}
           />
-        </View>
+        </Animated.View>
 
-        {renderActiveTabContent}
+        <Animated.View
+          entering={FadeInDown.duration(600).delay(300).springify()}
+          layout={LinearTransition.springify()}
+        >
+          {renderActiveTabContent}
+        </Animated.View>
       </>
     );
   }, [hubData, activeTab, handleTabPress, handleEventPress, renderActiveTabContent]);
@@ -1074,10 +1094,13 @@ const ClusterEventsView: React.FC = () => {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
+        <Animated.View
+          style={styles.loadingContainer}
+          entering={FadeInDown.duration(600).springify()}
+        >
           <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.loadingText}>Loading events...</Text>
-        </View>
+        </Animated.View>
       </SafeAreaView>
     );
   }

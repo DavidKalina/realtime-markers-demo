@@ -17,7 +17,7 @@ import Animated, {
 
 // Define marker colors
 const markerColors = [
-  "#333333", // Dark gray
+  "#1a1a1a", // Updated to match status bar color
 ];
 
 // Animation configurations
@@ -232,7 +232,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
         {/* Teardrop marker */}
         <Path
           d="M24 4C13.5 4 6 12.1 6 22C6 28.5 9 34.4 13.5 39.6C17.5 44.2 24 52 24 52C24 52 30.5 44.2 34.5 39.6C39 34.4 42 28.5 42 22C42 12.1 34.5 4 24 4Z"
-          fill="#333333"
+          fill="#1a1a1a"
           stroke="white"
           strokeWidth="3"
           strokeLinejoin="round"

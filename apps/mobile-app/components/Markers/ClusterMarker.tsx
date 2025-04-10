@@ -31,7 +31,7 @@ const SHADOW_OFFSET = { x: 3, y: 3 };
 // Color schemes with teardrop design
 const COLOR_SCHEMES = {
   small: {
-    fill: "#333333",
+    fill: "#1a1a1a",
     stroke: "#FFFFFF",
     text: "#FFFFFF"
   },
@@ -41,7 +41,7 @@ const COLOR_SCHEMES = {
     text: "#FFFFFF"
   },
   large: {
-    fill: "#000000",
+    fill: "#1a1a1a",
     stroke: "#FFD700", // Gold stroke for large clusters
     text: "#FFFFFF"
   },

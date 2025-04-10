@@ -1,12 +1,10 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, Platform, StatusBar as RNStatusBar } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar as RNStatusBar, StyleSheet, View } from 'react-native';
 import Animated, {
-    LinearTransition,
     FadeIn,
-    useAnimatedStyle,
-    withDelay,
+    LinearTransition
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConnectionIndicator from './ConnectionIndicator';
 import DateRangeIndicator from './DateRangeIndicator';
 import EmojiIndicator from './EmojiIndicator';

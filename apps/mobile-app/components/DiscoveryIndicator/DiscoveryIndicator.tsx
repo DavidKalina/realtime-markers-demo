@@ -7,7 +7,13 @@ import Animated, {
     BounceIn,
     LinearTransition,
     ZoomIn,
-    ZoomOut
+    ZoomOut,
+    FadeInDown,
+    FadeOutUp,
+    withSequence,
+    withTiming,
+    withDelay,
+    withSpring
 } from "react-native-reanimated";
 
 interface DiscoveryIndicatorProps {
@@ -24,6 +30,71 @@ interface DiscoveryItem {
 const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top-right" }) => {
     const [discoveries, setDiscoveries] = useState<DiscoveryItem[]>([]);
     const { subscribe, publish } = useEventBroker();
+
+    // Add dummy discoveries for testing
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const dummyDiscoveries: DiscoveryItem[] = [
+                {
+                    id: 'dummy1',
+                    event: {
+                        id: 'dummy1',
+                        title: 'Test Event 1',
+                        emoji: '🎉',
+                        location: {
+                            coordinates: [0, 0]
+                        },
+                        eventDate: new Date().toISOString(),
+                        confidenceScore: 0.8,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    },
+                    timestamp: Date.now()
+                },
+                {
+                    id: 'dummy2',
+                    event: {
+                        id: 'dummy2',
+                        title: 'Test Event 2',
+                        emoji: '🎭',
+                        location: {
+                            coordinates: [0, 0]
+                        },
+                        eventDate: new Date().toISOString(),
+                        confidenceScore: 0.8,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    },
+                    timestamp: Date.now()
+                },
+                {
+                    id: 'dummy3',
+                    event: {
+                        id: 'dummy3',
+                        title: 'Test Event 3',
+                        emoji: '🎨',
+                        location: {
+                            coordinates: [0, 0]
+                        },
+                        eventDate: new Date().toISOString(),
+                        confidenceScore: 0.8,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    },
+                    timestamp: Date.now()
+                }
+            ];
+
+            setDiscoveries(dummyDiscoveries);
+
+            // Auto-dismiss after 10 seconds
+            setTimeout(() => {
+                setDiscoveries([]);
+            }, 10000);
+        }, 3000);
+
+        return () => clearTimeout(timer);
+    }, []);
 
     const positionStyle = useMemo(() => {
         const baseSpacing = 4; // Reduced from 50 to bring closer to edge
@@ -131,8 +202,15 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
                                 styles.itemContainer,
                                 index > 0 && { marginTop: 8 }
                             ]}
-                            entering={ZoomIn.springify().damping(15).mass(0.8)}
-                            exiting={ZoomOut.springify().damping(15).mass(0.8)}
+                            entering={FadeInDown
+                                .springify()
+                                .damping(15)
+                                .mass(0.8)
+                                .delay(index * 100)}
+                            exiting={FadeOutUp
+                                .springify()
+                                .damping(15)
+                                .mass(0.8)}
                             layout={LinearTransition.springify()}
                         >
                             <Pressable
@@ -167,8 +245,15 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
                                 styles.itemContainer,
                                 index > 0 && { marginTop: 8 }
                             ]}
-                            entering={ZoomIn.springify().damping(15).mass(0.8)}
-                            exiting={ZoomOut.springify().damping(15).mass(0.8)}
+                            entering={FadeInDown
+                                .springify()
+                                .damping(15)
+                                .mass(0.8)
+                                .delay(index * 100)}
+                            exiting={FadeOutUp
+                                .springify()
+                                .damping(15)
+                                .mass(0.8)}
                             layout={LinearTransition.springify()}
                         >
                             <Pressable
@@ -205,10 +290,10 @@ const styles = StyleSheet.create({
         zIndex: 1000,
     },
     wrapper: {
-        width: 160,
+        width: 180,
     },
     itemContainer: {
-        width: 160,
+        width: 180,
     },
     pressable: {
         width: '100%',
@@ -216,40 +301,40 @@ const styles = StyleSheet.create({
     indicator: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#2C3333",
-        borderRadius: 6,
-        padding: 6,
-        paddingRight: 6,
-        width: 140,
-        height: 36,
+        backgroundColor: "#1a1a1a",
+        borderRadius: 12,
+        padding: 8,
+        paddingRight: 8,
+        width: 160,
+        height: 40,
         borderWidth: 1,
         borderColor: "rgba(255, 255, 255, 0.1)",
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.3,
         shadowRadius: 4,
         elevation: 4,
     },
     iconContainer: {
-        width: 20,
-        height: 20,
-        borderRadius: 3,
+        width: 24,
+        height: 24,
+        borderRadius: 8,
         justifyContent: "center",
         alignItems: "center",
-        marginRight: 6,
-        backgroundColor: "rgba(255, 255, 255, 0.03)",
+        marginRight: 8,
+        backgroundColor: "rgba(255, 255, 255, 0.05)",
         borderWidth: 1,
-        borderColor: "rgba(255, 255, 255, 0.05)",
+        borderColor: "rgba(255, 255, 255, 0.1)",
     },
     titleText: {
         color: "rgba(255, 255, 255, 0.9)",
-        fontSize: 10,
+        fontSize: 12,
         fontFamily: "SpaceMono",
         fontWeight: "600",
         letterSpacing: 0.5,
     },
     emojiText: {
-        fontSize: 10,
+        fontSize: 12,
         textAlign: "center",
         color: "rgba(255, 255, 255, 0.9)",
     },
