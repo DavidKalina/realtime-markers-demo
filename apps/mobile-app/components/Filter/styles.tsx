@@ -248,7 +248,6 @@ export const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingBottom: 40,
   },
 
   loadingText: {
@@ -316,7 +315,7 @@ export const styles = StyleSheet.create({
   },
 
   // Empty state
-  emptyContainer: {
+  emptyStateContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
@@ -324,7 +323,7 @@ export const styles = StyleSheet.create({
     paddingBottom: 50,
   },
 
-  emptyIconContainer: {
+  emptyStateIconContainer: {
     width: 80,
     height: 80,
     borderRadius: 20,
@@ -336,7 +335,7 @@ export const styles = StyleSheet.create({
     borderColor: "rgba(147, 197, 253, 0.3)",
   },
 
-  emptyTitle: {
+  emptyStateTitle: {
     fontSize: 18,
     fontWeight: "700",
     color: COLORS.textPrimary,
@@ -346,7 +345,7 @@ export const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  emptyText: {
+  emptyStateDescription: {
     fontSize: 14,
     color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
@@ -355,19 +354,21 @@ export const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  createButton: {
+  createFilterButton: {
     backgroundColor: "rgba(147, 197, 253, 0.15)",
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(147, 197, 253, 0.3)",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
   },
 
-  createButtonText: {
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  createFilterText: {
     color: COLORS.accent,
     fontFamily: "SpaceMono",
     fontSize: 15,
@@ -376,35 +377,35 @@ export const styles = StyleSheet.create({
   },
 
   // Bottom action bar
-  bottomBar: {
+  bottomButtonContainer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
+    padding: 16,
     backgroundColor: COLORS.background,
     borderTopWidth: 1,
     borderTopColor: COLORS.divider,
-    padding: 16,
   },
 
   clearButton: {
-    backgroundColor: COLORS.buttonBackground,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.error.background,
+    borderWidth: 1,
+    borderColor: COLORS.error.border,
     gap: 8,
   },
 
   clearButtonText: {
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
-    letterSpacing: 0.5,
+    fontFamily: "SpaceMono",
+    color: COLORS.error.text,
   },
 
   modalHeader: {
