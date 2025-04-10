@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef, useMemo, memo } from "react";
 import {
   View,
   StyleSheet,
@@ -60,6 +60,16 @@ interface HubDataType {
     events: EventType[];
   }[];
   eventsToday: EventType[];
+}
+
+interface EventsListSectionProps {
+  title: string;
+  icon: React.ElementType;
+  events: EventType[];
+  onEventPress: (event: EventType) => void;
+  onPageChange?: (index: number) => void;
+  currentPage?: number;
+  useScrollView?: boolean;
 }
 
 // Theme
@@ -482,13 +492,13 @@ const styles = StyleSheet.create({
   },
 });
 
-// Components
-const TabButton: React.FC<{
+// Memoized TabButton component
+const TabButton = memo<{
   icon: React.ElementType;
   label: string;
   isActive: boolean;
   onPress: () => void;
-}> = ({ icon: Icon, label, isActive, onPress }) => (
+}>(({ icon: Icon, label, isActive, onPress }) => (
   <TouchableOpacity
     style={[styles.tab, isActive && styles.activeTab]}
     onPress={onPress}
@@ -501,59 +511,13 @@ const TabButton: React.FC<{
     />
     <Text style={[styles.tabText, isActive && styles.activeTabText]}>{label}</Text>
   </TouchableOpacity>
-);
+));
 
-const AnimatedEventCard: React.FC<{
+// Memoized EventCard component
+const EventCard = memo<{
   event: EventType;
   onPress: () => void;
-  index: number;
-}> = ({ event, onPress, index }) => {
-  return (
-    <Animated.View
-      entering={FadeInDown.delay(index * 100).springify()}
-      layout={Layout.springify()}
-    >
-      <TouchableOpacity
-        style={styles.eventCard}
-        onPress={onPress}
-        activeOpacity={0.7}
-      >
-        <View style={styles.eventEmojiContainer}>
-          <Text style={styles.eventEmojiText}>{event.emoji || "🎉"}</Text>
-        </View>
-        <View style={styles.eventInfo}>
-          <Text style={styles.eventTitle} numberOfLines={1} ellipsizeMode="tail">
-            {event.title}
-          </Text>
-          <View style={styles.eventDetails}>
-            <View style={styles.eventDetail}>
-              <Calendar size={12} color={COLORS.textSecondary} />
-              <Text style={styles.eventDetailText}>
-                {new Date(event.eventDate).toLocaleDateString()}
-              </Text>
-            </View>
-            <View style={styles.eventDetail}>
-              <MapPin size={12} color={COLORS.textSecondary} />
-              <Text style={styles.eventDetailText} numberOfLines={1}>
-                {event.location}
-              </Text>
-            </View>
-          </View>
-        </View>
-        <View style={styles.eventActions}>
-          <View style={styles.chevronContainer}>
-            <ChevronRight size={16} color={COLORS.textSecondary} />
-          </View>
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-};
-
-const EventCard: React.FC<{
-  event: EventType;
-  onPress: () => void
-}> = ({ event, onPress }) => (
+}>(({ event, onPress }) => (
   <TouchableOpacity
     style={styles.eventCard}
     onPress={onPress}
@@ -587,12 +551,29 @@ const EventCard: React.FC<{
       </View>
     </View>
   </TouchableOpacity>
-);
+));
 
-const HighlightCard: React.FC<{
+// Memoized AnimatedEventCard component
+const AnimatedEventCard = memo<{
   event: EventType;
   onPress: () => void;
-}> = ({ event, onPress }) => (
+  index: number;
+}>(({ event, onPress, index }) => {
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(index * 100).springify()}
+      layout={Layout.springify()}
+    >
+      <EventCard event={event} onPress={onPress} />
+    </Animated.View>
+  );
+});
+
+// Memoized HighlightCard component
+const HighlightCard = memo<{
+  event: EventType;
+  onPress: () => void;
+}>(({ event, onPress }) => (
   <TouchableOpacity
     style={styles.highlightCard}
     onPress={onPress}
@@ -630,12 +611,13 @@ const HighlightCard: React.FC<{
       </View>
     </View>
   </TouchableOpacity>
-);
+));
 
-const FeaturedEvent: React.FC<{
+// Memoized FeaturedEvent component
+const FeaturedEvent = memo<{
   event: EventType;
   onPress: () => void;
-}> = ({ event, onPress }) => {
+}>(({ event, onPress }) => {
   const emojiScale = useSharedValue(1);
   const emojiOffset = useSharedValue(0);
 
@@ -689,8 +671,8 @@ const FeaturedEvent: React.FC<{
         </View>
         {event.category && (
           <View style={[styles.featuredTag, {
-            top: 16,
-            right: 16,
+            top: 12,
+            right: 12,
             left: 'auto',
             backgroundColor: "rgba(255, 255, 255, 0.15)",
             borderColor: "rgba(255, 255, 255, 0.3)",
@@ -729,16 +711,18 @@ const FeaturedEvent: React.FC<{
       </View>
     </TouchableOpacity>
   );
-};
+});
 
-const EventsListSection: React.FC<{
-  title: string;
-  icon: React.ElementType;
-  events: EventType[];
-  onEventPress: (event: EventType) => void;
-  onPageChange?: (index: number) => void;
-  currentPage?: number;
-}> = ({ title, icon: Icon, events, onEventPress, onPageChange, currentPage }) => {
+// Memoized EventsListSection component
+const EventsListSection = memo<EventsListSectionProps>(({
+  title,
+  icon: Icon,
+  events,
+  onEventPress,
+  onPageChange,
+  currentPage,
+  useScrollView = false
+}) => {
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -749,6 +733,16 @@ const EventsListSection: React.FC<{
       });
     }
   }, [currentPage]);
+
+  const renderItem = useCallback(({ item, index }: { item: EventType; index: number }) => (
+    <AnimatedEventCard
+      event={item}
+      onPress={() => onEventPress(item)}
+      index={index}
+    />
+  ), [onEventPress]);
+
+  const keyExtractor = useCallback((item: EventType) => item.id, []);
 
   return (
     <View style={styles.eventsListContainer}>
@@ -761,28 +755,45 @@ const EventsListSection: React.FC<{
           <View style={[styles.emptyListContainer, { height: 450 }]}>
             <Text style={styles.emptyListText}>No events found</Text>
           </View>
+        ) : useScrollView ? (
+          <ScrollView
+            showsVerticalScrollIndicator={true}
+            contentContainerStyle={{ paddingBottom: 16 }}
+          >
+            {events.map((event, index) => (
+              <AnimatedEventCard
+                key={event.id}
+                event={event}
+                onPress={() => onEventPress(event)}
+                index={index}
+              />
+            ))}
+          </ScrollView>
         ) : (
           <FlatList
             ref={flatListRef}
             data={events}
-            renderItem={({ item, index }) => (
-              <AnimatedEventCard
-                event={item}
-                onPress={() => onEventPress(item)}
-                index={index}
-              />
-            )}
-            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
             showsVerticalScrollIndicator={true}
             scrollEnabled={true}
             nestedScrollEnabled={true}
             contentContainerStyle={{ paddingBottom: 16 }}
+            initialNumToRender={5}
+            maxToRenderPerBatch={5}
+            windowSize={5}
+            removeClippedSubviews={true}
+            getItemLayout={(data, index) => ({
+              length: 80,
+              offset: 80 * index,
+              index,
+            })}
           />
         )}
       </View>
     </View>
   );
-};
+});
 
 // Main component
 const ClusterEventsView: React.FC = () => {
@@ -823,7 +834,23 @@ const ClusterEventsView: React.FC = () => {
     },
   });
 
-  // Fetch data
+  // Memoized handlers
+  const handleBack = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.back();
+  }, [router]);
+
+  const handleTabPress = useCallback((tab: "categories" | "locations" | "today") => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveTab(tab);
+  }, []);
+
+  const handleEventPress = useCallback((event: EventType) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push(`/details?eventId=${event.id}` as never);
+  }, [router]);
+
+  // Memoized fetch function
   const fetchClusterHubData = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -849,23 +876,8 @@ const ClusterEventsView: React.FC = () => {
     fetchClusterHubData();
   }, [fetchClusterHubData]);
 
-  // Handlers
-  const handleBack = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
-  };
-
-  const handleTabPress = (tab: "categories" | "locations" | "today") => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActiveTab(tab);
-  };
-
-  const handleEventPress = (event: EventType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push(`/details?eventId=${event.id}` as never);
-  };
-
-  const renderCategoryPageIndicator = () => {
+  // Memoized page indicators
+  const renderCategoryPageIndicator = useMemo(() => {
     if (!hubData?.eventsByCategory.length) return null;
 
     return (
@@ -881,9 +893,9 @@ const ClusterEventsView: React.FC = () => {
         ))}
       </View>
     );
-  };
+  }, [hubData?.eventsByCategory, currentCategoryIndex]);
 
-  const renderLocationPageIndicator = () => {
+  const renderLocationPageIndicator = useMemo(() => {
     if (!hubData?.eventsByLocation.length) return null;
 
     return (
@@ -899,27 +911,38 @@ const ClusterEventsView: React.FC = () => {
         ))}
       </View>
     );
-  };
+  }, [hubData?.eventsByLocation, currentLocationIndex]);
 
-  // Render loading state
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
-          <Text style={styles.loadingText}>Loading events...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // Move these hook declarations outside of useMemo
+  const renderCategoryItem = useCallback(({ item }: { item: { category: CategoryType; events: EventType[] } }) => (
+    <View style={{ width: SCREEN_WIDTH - 32 }}>
+      <EventsListSection
+        title={item.category.name}
+        icon={Tag}
+        events={item.events}
+        onEventPress={handleEventPress}
+      />
+    </View>
+  ), [handleEventPress]);
 
-  // If no data
-  if (!hubData) {
-    return null;
-  }
+  const renderLocationItem = useCallback(({ item }: { item: { location: string; events: EventType[] } }) => (
+    <View style={{ width: SCREEN_WIDTH - 32 }}>
+      <EventsListSection
+        title={item.location}
+        icon={MapPin}
+        events={item.events}
+        onEventPress={handleEventPress}
+      />
+    </View>
+  ), [handleEventPress]);
 
-  // Determine content based on active tab
-  const renderActiveTabContent = () => {
+  const categoryKeyExtractor = useCallback((item: { category: CategoryType; events: EventType[] }) => item.category.id, []);
+  const locationKeyExtractor = useCallback((item: { location: string; events: EventType[] }) => item.location, []);
+
+  // Now useMemo can use these memoized functions
+  const renderActiveTabContent = useMemo(() => {
+    if (!hubData) return null;
+
     switch (activeTab) {
       case "categories":
         return (
@@ -929,7 +952,8 @@ const ClusterEventsView: React.FC = () => {
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               data={hubData.eventsByCategory}
-              keyExtractor={(item) => item.category.id}
+              keyExtractor={categoryKeyExtractor}
+              renderItem={renderCategoryItem}
               onMomentumScrollEnd={(event) => {
                 const newIndex = Math.round(
                   event.nativeEvent.contentOffset.x / SCREEN_WIDTH
@@ -939,18 +963,17 @@ const ClusterEventsView: React.FC = () => {
                   setCurrentCategoryIndex(newIndex);
                 }
               }}
-              renderItem={({ item }) => (
-                <View style={{ width: SCREEN_WIDTH - 32 }}>
-                  <EventsListSection
-                    title={item.category.name}
-                    icon={Tag}
-                    events={item.events}
-                    onEventPress={handleEventPress}
-                  />
-                </View>
-              )}
+              initialNumToRender={1}
+              maxToRenderPerBatch={1}
+              windowSize={3}
+              removeClippedSubviews={true}
+              getItemLayout={(data, index) => ({
+                length: SCREEN_WIDTH - 32,
+                offset: (SCREEN_WIDTH - 32) * index,
+                index,
+              })}
             />
-            {renderCategoryPageIndicator()}
+            {renderCategoryPageIndicator}
           </>
         );
       case "locations":
@@ -961,7 +984,8 @@ const ClusterEventsView: React.FC = () => {
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               data={hubData.eventsByLocation}
-              keyExtractor={(item) => item.location}
+              keyExtractor={locationKeyExtractor}
+              renderItem={renderLocationItem}
               onMomentumScrollEnd={(event) => {
                 const newIndex = Math.round(
                   event.nativeEvent.contentOffset.x / SCREEN_WIDTH
@@ -971,18 +995,17 @@ const ClusterEventsView: React.FC = () => {
                   setCurrentLocationIndex(newIndex);
                 }
               }}
-              renderItem={({ item }) => (
-                <View style={{ width: SCREEN_WIDTH - 32 }}>
-                  <EventsListSection
-                    title={item.location}
-                    icon={MapPin}
-                    events={item.events}
-                    onEventPress={handleEventPress}
-                  />
-                </View>
-              )}
+              initialNumToRender={1}
+              maxToRenderPerBatch={1}
+              windowSize={3}
+              removeClippedSubviews={true}
+              getItemLayout={(data, index) => ({
+                length: SCREEN_WIDTH - 32,
+                offset: (SCREEN_WIDTH - 32) * index,
+                index,
+              })}
             />
-            {renderLocationPageIndicator()}
+            {renderLocationPageIndicator}
           </>
         );
       case "today":
@@ -992,19 +1015,22 @@ const ClusterEventsView: React.FC = () => {
             icon={Calendar}
             events={hubData.eventsToday}
             onEventPress={handleEventPress}
+            useScrollView={true}
           />
         );
       default:
         return null;
     }
-  };
+  }, [hubData, activeTab, currentCategoryIndex, currentLocationIndex, handleEventPress, renderCategoryPageIndicator, renderLocationPageIndicator, renderCategoryItem, renderLocationItem, categoryKeyExtractor, locationKeyExtractor]);
 
-  const renderContent = () => {
+  // Memoized main content
+  const renderContent = useMemo(() => {
+    if (!hubData) return null;
+
     return (
       <>
-        {/* Featured Event Section */}
         <View style={styles.sectionContainer}>
-          {hubData?.featuredEvent ? (
+          {hubData.featuredEvent ? (
             <FeaturedEvent
               event={hubData.featuredEvent}
               onPress={() => handleEventPress(hubData.featuredEvent as EventType)}
@@ -1018,7 +1044,6 @@ const ClusterEventsView: React.FC = () => {
           )}
         </View>
 
-        {/* Tab Section */}
         <View style={styles.tabsContainer}>
           <TabButton
             icon={Tag}
@@ -1040,11 +1065,27 @@ const ClusterEventsView: React.FC = () => {
           />
         </View>
 
-        {/* Render content based on active tab */}
-        {renderActiveTabContent()}
+        {renderActiveTabContent}
       </>
     );
-  };
+  }, [hubData, activeTab, handleTabPress, handleEventPress, renderActiveTabContent]);
+
+  // Render loading state
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+          <Text style={styles.loadingText}>Loading events...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // If no data
+  if (!hubData) {
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -1059,17 +1100,16 @@ const ClusterEventsView: React.FC = () => {
         <Text style={styles.headerTitle}>Discover Events</Text>
       </Animated.View>
 
-      <Animated.FlatList
-        data={[renderContent()]}
-        renderItem={({ item }) => item}
-        keyExtractor={() => 'main-content'}
+      <Animated.ScrollView
         style={styles.mainScrollView}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         bounces={true}
-      />
+      >
+        {renderContent}
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 };
