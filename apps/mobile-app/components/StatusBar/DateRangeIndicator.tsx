@@ -109,6 +109,8 @@ const DateRangeIndicator: React.FC = () => {
                         dateRange: { start: startDate, end: endDate }
                     },
                 });
+                // Apply the newly created filter
+                await applyFilters([targetFilter.id]);
             } else {
                 const updatedFilter = {
                     ...targetFilter,
