@@ -1,10 +1,33 @@
 import { ViewStyle, StyleSheet, TextStyle } from "react-native";
 
+// Unified color theme matching ClusterEventsView
+const COLORS = {
+  background: "#1a1a1a",
+  cardBackground: "#2a2a2a",
+  textPrimary: "#f8f9fa",
+  textSecondary: "#a0a0a0",
+  accent: "#93c5fd",
+  divider: "rgba(255, 255, 255, 0.08)",
+  buttonBackground: "rgba(255, 255, 255, 0.05)",
+  buttonBorder: "rgba(255, 255, 255, 0.1)",
+  success: {
+    background: "rgba(64, 192, 87, 0.12)",
+    border: "rgba(64, 192, 87, 0.2)",
+    text: "#40c057"
+  },
+  error: {
+    background: "rgba(249, 117, 131, 0.1)",
+    border: "rgba(249, 117, 131, 0.2)",
+    text: "#f97583"
+  },
+  shadow: "rgba(0, 0, 0, 0.5)",
+};
+
 // Inline styles
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#333",
+    backgroundColor: COLORS.background,
   },
 
   // Header styles
@@ -13,36 +36,41 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "transparent",
-    backgroundColor: "#333",
+    borderBottomColor: COLORS.divider,
+    backgroundColor: COLORS.background,
     zIndex: 10,
   },
 
   backButton: {
-    padding: 8,
-    borderRadius: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 
   headerTitle: {
     fontSize: 20,
-    fontWeight: "600",
-    color: "#f8f9fa",
+    fontWeight: "700",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
+    letterSpacing: 0.5,
   },
 
   addButton: {
-    padding: 8,
-  },
-
-  addButtonContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 
   // Content area
@@ -52,66 +80,70 @@ export const styles = StyleSheet.create({
 
   // List styles
   listContent: {
-    padding: 12,
+    padding: 16,
     paddingBottom: 100,
   },
 
   // Filter card styles
   filterCard: {
-    backgroundColor: "#3a3a3a",
-    borderRadius: 10,
-    marginBottom: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: COLORS.cardBackground,
+    padding: 12,
+    marginHorizontal: 0,
+    marginVertical: 6,
+    borderRadius: 12,
+    flexDirection: "column",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
-    overflow: "hidden",
-    transform: [{ scale: 1 }],
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   filterHeader: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    padding: 10,
-    gap: 8,
+    alignItems: "center",
+    paddingBottom: 12,
+    gap: 12,
   },
 
   filterIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
 
   filterTitleContainer: {
     flex: 1,
     flexDirection: "column",
-    gap: 2,
+    gap: 4,
   },
 
   filterName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#f8f9fa",
+    color: COLORS.textPrimary,
+    fontSize: 14,
     fontFamily: "SpaceMono",
+    fontWeight: "600",
+    marginBottom: 4,
   },
 
   filterQuery: {
     fontSize: 13,
-    color: "#adb5bd",
+    color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
-    fontStyle: "italic",
-    lineHeight: 16,
+    lineHeight: 18,
   },
 
   filterDetails: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
     gap: 8,
     marginTop: 4,
   },
@@ -119,49 +151,47 @@ export const styles = StyleSheet.create({
   filterDetailItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(147, 197, 253, 0.1)",
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.2)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
 
   filterDetailText: {
-    fontSize: 11,
-    color: "#93c5fd",
+    fontSize: 12,
+    color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
-    fontWeight: "500",
-    marginLeft: 2,
+    marginLeft: 4,
   },
 
   activeCheckmark: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "rgba(64, 192, 87, 0.15)",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(64, 192, 87, 0.2)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
 
   filterEmoji: {
-    fontSize: 16,
+    fontSize: 18,
     textAlign: "center",
     includeFontPadding: false,
   },
 
   divider: {
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    marginHorizontal: 10,
+    backgroundColor: COLORS.divider,
+    marginVertical: 12,
   },
 
   filterActions: {
     display: "flex",
     flexDirection: "row",
-    padding: 8,
     gap: 8,
     width: "100%",
   },
@@ -176,39 +206,41 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     gap: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
 
   actionButtonText: {
     fontSize: 13,
     fontWeight: "600",
     fontFamily: "SpaceMono",
+    color: COLORS.textPrimary,
   },
 
   applyButton: {
-    backgroundColor: "rgba(147, 197, 253, 0.1)",
-    borderColor: "rgba(147, 197, 253, 0.2)",
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    borderColor: "rgba(147, 197, 253, 0.3)",
   },
 
   applyButtonText: {
-    color: "#93c5fd",
+    color: COLORS.accent,
   },
 
   editButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: COLORS.buttonBackground,
+    borderColor: COLORS.buttonBorder,
   },
 
   editButtonText: {
-    color: "#f8f9fa",
+    color: COLORS.textPrimary,
   },
 
   deleteButton: {
-    backgroundColor: "rgba(249, 117, 131, 0.1)",
-    borderColor: "rgba(249, 117, 131, 0.2)",
+    backgroundColor: COLORS.error.background,
+    borderColor: COLORS.error.border,
   },
 
   deleteButtonText: {
-    color: "#f97583",
+    color: COLORS.error.text,
   },
 
   // Loading state
@@ -220,7 +252,7 @@ export const styles = StyleSheet.create({
   },
 
   loadingText: {
-    color: "#f8f9fa",
+    color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
     fontSize: 16,
     marginTop: 16,
@@ -238,47 +270,53 @@ export const styles = StyleSheet.create({
   errorIconContainer: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(249, 117, 131, 0.1)",
+    borderRadius: 20,
+    backgroundColor: COLORS.error.background,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.error.border,
   },
 
   errorTitle: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#f8f9fa",
+    fontWeight: "700",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
-    marginBottom: 12,
+    textAlign: "center",
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
 
   errorText: {
-    color: "#f97583",
-    fontFamily: "SpaceMono",
     fontSize: 14,
-    marginBottom: 24,
+    color: COLORS.textSecondary,
+    fontFamily: "SpaceMono",
     textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 20,
   },
 
   retryButton: {
-    backgroundColor: "rgba(147, 197, 253, 0.2)",
-    paddingHorizontal: 20,
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
     paddingVertical: 12,
-    borderRadius: 10,
+    paddingHorizontal: 24,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(147, 197, 253, 0.3)",
   },
 
   retryButtonText: {
-    color: "#93c5fd",
+    color: COLORS.accent,
     fontFamily: "SpaceMono",
+    fontSize: 15,
     fontWeight: "600",
-    fontSize: 14,
+    letterSpacing: 0.5,
   },
 
   // Empty state
-  emptyStateContainer: {
+  emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
@@ -286,98 +324,87 @@ export const styles = StyleSheet.create({
     paddingBottom: 50,
   },
 
-  emptyStateIconContainer: {
+  emptyIconContainer: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    borderRadius: 20,
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
   },
 
-  emptyStateTitle: {
+  emptyTitle: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#f8f9fa",
+    fontWeight: "700",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
-    marginBottom: 12,
-  },
-
-  emptyStateDescription: {
-    fontSize: 14,
-    color: "#adb5bd",
     textAlign: "center",
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+
+  emptyText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
-    lineHeight: 20,
+    textAlign: "center",
     marginBottom: 24,
-    paddingHorizontal: 20,
+    lineHeight: 20,
   },
 
-  createFilterButton: {
-    position: "relative",
-    borderRadius: 14,
-    paddingVertical: 14,
+  createButton: {
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    paddingVertical: 12,
     paddingHorizontal: 24,
-    overflow: "hidden",
-    marginTop: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-
-  buttonGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  },
-
-  buttonContent: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 8,
   },
 
-  createFilterText: {
-    color: "#ffffff",
+  createButtonText: {
+    color: COLORS.accent,
+    fontFamily: "SpaceMono",
     fontSize: 15,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    letterSpacing: 0.5,
   },
 
-  // Bottom button
-  bottomButtonContainer: {
+  // Bottom action bar
+  bottomBar: {
     position: "absolute",
-    bottom: 10,
+    bottom: 0,
     left: 0,
     right: 0,
-    padding: 16,
-    backgroundColor: "#333",
+    backgroundColor: COLORS.background,
     borderTopWidth: 1,
-    borderTopColor: "#3a3a3a",
+    borderTopColor: COLORS.divider,
+    padding: 16,
   },
 
   clearButton: {
+    backgroundColor: COLORS.buttonBackground,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(249, 117, 131, 0.1)",
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(249, 117, 131, 0.3)",
+    gap: 8,
   },
 
   clearButtonText: {
-    color: "#f97583",
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
     fontSize: 16,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
-    marginLeft: 8,
+    letterSpacing: 0.5,
   },
 
   modalHeader: {

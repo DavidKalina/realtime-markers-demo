@@ -31,6 +31,18 @@ import Animated, {
 
 type TabType = 'saved' | 'discovered';
 
+// Unified color theme matching ClusterEventsView
+const COLORS = {
+  background: "#1a1a1a",
+  cardBackground: "#2a2a2a",
+  textPrimary: "#f8f9fa",
+  textSecondary: "#a0a0a0",
+  accent: "#93c5fd",
+  divider: "rgba(255, 255, 255, 0.08)",
+  buttonBackground: "rgba(255, 255, 255, 0.05)",
+  buttonBorder: "rgba(255, 255, 255, 0.1)",
+};
+
 // Memoize the EventCard component
 const EventCard: React.FC<{
   item: EventType;
@@ -675,7 +687,7 @@ const SavedEventsView: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#333",
+    backgroundColor: COLORS.background,
   },
 
   // Header styles
@@ -683,34 +695,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "transparent",
-    backgroundColor: "#333",
+    borderBottomColor: COLORS.divider,
+    backgroundColor: COLORS.background,
     zIndex: 10,
   },
 
   backButton: {
-    padding: 8,
-    borderRadius: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
     marginRight: 12,
   },
 
   headerTitle: {
     fontSize: 20,
-    fontWeight: "600",
-    color: "#f8f9fa",
+    fontWeight: "700",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
     flex: 1,
+    letterSpacing: 0.5,
   },
 
   headerIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 
   // Content area
@@ -734,43 +755,46 @@ const styles = StyleSheet.create({
 
   resultsText: {
     fontSize: 14,
-    color: "#adb5bd",
+    color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
   },
 
   // Event card
   eventCard: {
-    backgroundColor: "#3a3a3a",
-    borderRadius: 14,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
+    backgroundColor: COLORS.cardBackground,
+    padding: 12,
+    marginHorizontal: 0,
+    marginVertical: 6,
+    borderRadius: 12,
+    flexDirection: "column",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
-    overflow: "hidden",
+    borderColor: COLORS.divider,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   eventCardContent: {
     flexDirection: "row",
-    padding: 14,
     alignItems: "center",
   },
 
   emojiContainer: {
-    width: 46,
-    height: 46,
+    width: 40,
+    height: 40,
     borderRadius: 12,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 
   resultEmoji: {
-    fontSize: 22,
+    fontSize: 20,
   },
 
   resultTextContainer: {
@@ -779,9 +803,9 @@ const styles = StyleSheet.create({
   },
 
   resultTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#f8f9fa",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
     marginBottom: 6,
   },
@@ -797,19 +821,62 @@ const styles = StyleSheet.create({
 
   resultDetailText: {
     fontSize: 13,
-    color: "#adb5bd",
+    color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
     flex: 1,
   },
 
   savedBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
+    marginLeft: 12,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+  },
+
+  // Tab styles
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.background,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+    gap: 12,
+  },
+
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+  },
+
+  activeTab: {
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    borderColor: "rgba(147, 197, 253, 0.3)",
+  },
+
+  tabText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontFamily: 'SpaceMono',
     marginLeft: 8,
+    fontWeight: "600",
+  },
+
+  activeTabText: {
+    color: COLORS.accent,
   },
 
   // Empty state
@@ -824,24 +891,27 @@ const styles = StyleSheet.create({
   emptyStateIconContainer: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    borderRadius: 20,
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
   },
 
   emptyStateTitle: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#f8f9fa",
+    fontWeight: "700",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
-    marginBottom: 12,
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
 
   emptyStateDescription: {
     fontSize: 14,
-    color: "#adb5bd",
+    color: COLORS.textSecondary,
     textAlign: "center",
     fontFamily: "SpaceMono",
     lineHeight: 20,
@@ -849,25 +919,12 @@ const styles = StyleSheet.create({
   },
 
   emptyStateButton: {
-    position: "relative",
-    borderRadius: 14,
-    paddingVertical: 14,
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    paddingVertical: 12,
     paddingHorizontal: 24,
-    overflow: "hidden",
-    marginTop: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-
-  buttonGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
   },
 
   buttonContent: {
@@ -877,10 +934,11 @@ const styles = StyleSheet.create({
   },
 
   emptyStateButtonText: {
-    color: "#ffffff",
+    color: COLORS.accent,
     fontSize: 15,
     fontWeight: "600",
     fontFamily: "SpaceMono",
+    letterSpacing: 0.5,
   },
 
   // Loading states
@@ -892,28 +950,28 @@ const styles = StyleSheet.create({
   },
 
   loadingText: {
-    color: "#f8f9fa",
+    color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
     fontSize: 16,
     marginTop: 16,
   },
 
   loadingFooter: {
-    height: 50, // Fixed height to prevent layout shifts
+    height: 50,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
   },
 
   loadingFooterText: {
-    color: "#93c5fd",
+    color: COLORS.accent,
     fontFamily: "SpaceMono",
     fontSize: 14,
     marginLeft: 8,
   },
 
   loadingFooterSpacer: {
-    height: 50, // Same height as loadingFooter
+    height: 50,
   },
 
   // Error state
@@ -927,6 +985,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(249, 117, 131, 0.3)",
+    flexDirection: "row",
     alignItems: "center",
   },
 
@@ -934,14 +993,14 @@ const styles = StyleSheet.create({
     color: "#f97583",
     fontFamily: "SpaceMono",
     fontSize: 14,
-    marginBottom: 12,
-    textAlign: "center",
+    flex: 1,
+    marginRight: 12,
   },
 
   retryButton: {
-    backgroundColor: "rgba(249, 117, 131, 0.2)",
-    paddingHorizontal: 20,
+    backgroundColor: "rgba(249, 117, 131, 0.15)",
     paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "rgba(249, 117, 131, 0.3)",
@@ -950,41 +1009,8 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: "#f97583",
     fontFamily: "SpaceMono",
-    fontWeight: "500",
+    fontWeight: "600",
     fontSize: 14,
-  },
-
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#333',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#3a3a3a',
-  },
-
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    marginRight: 12,
-  },
-
-  activeTab: {
-    backgroundColor: 'rgba(147, 197, 253, 0.15)',
-  },
-
-  tabText: {
-    fontSize: 14,
-    color: '#adb5bd',
-    fontFamily: 'SpaceMono',
-    marginLeft: 6,
-  },
-
-  activeTabText: {
-    color: '#93c5fd',
   },
 });
 

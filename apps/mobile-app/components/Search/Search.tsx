@@ -33,6 +33,18 @@ import Animated, {
   ZoomIn
 } from "react-native-reanimated";
 
+// Unified color theme matching ClusterEventsView
+const COLORS = {
+  background: "#1a1a1a",
+  cardBackground: "#2a2a2a",
+  textPrimary: "#f8f9fa",
+  textSecondary: "#a0a0a0",
+  accent: "#93c5fd",
+  divider: "rgba(255, 255, 255, 0.08)",
+  buttonBackground: "rgba(255, 255, 255, 0.05)",
+  buttonBorder: "rgba(255, 255, 255, 0.1)",
+};
+
 // Memoize the SearchResultCard component
 const SearchResultCard: React.FC<{
   item: EventType;
@@ -465,7 +477,7 @@ const SearchView = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#333",
+    backgroundColor: COLORS.background,
   },
 
   // Header styles
@@ -473,34 +485,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "transparent",
-    backgroundColor: "#333",
+    borderBottomColor: COLORS.divider,
+    backgroundColor: COLORS.background,
     zIndex: 10,
   },
 
   backButton: {
-    padding: 8,
-    borderRadius: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
     marginRight: 12,
   },
 
   headerTitle: {
     fontSize: 20,
-    fontWeight: "600",
-    color: "#f8f9fa",
+    fontWeight: "700",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
     flex: 1,
+    letterSpacing: 0.5,
   },
 
   headerIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 
   // Content area
@@ -513,19 +534,19 @@ const styles = StyleSheet.create({
   searchInputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#3a3a3a",
-    borderRadius: 14,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 12,
     paddingVertical: 4,
     paddingHorizontal: 4,
     marginHorizontal: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: COLORS.buttonBorder,
   },
 
   searchIconContainer: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
@@ -534,7 +555,7 @@ const styles = StyleSheet.create({
 
   searchInput: {
     flex: 1,
-    color: "#f8f9fa",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
     fontSize: 15,
     paddingVertical: 12,
@@ -557,43 +578,46 @@ const styles = StyleSheet.create({
 
   resultsText: {
     fontSize: 14,
-    color: "#adb5bd",
+    color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
   },
 
   // Event card
   eventCard: {
-    backgroundColor: "#3a3a3a",
-    borderRadius: 14,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
+    backgroundColor: COLORS.cardBackground,
+    padding: 12,
+    marginHorizontal: 0,
+    marginVertical: 6,
+    borderRadius: 12,
+    flexDirection: "column",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
-    overflow: "hidden",
+    borderColor: COLORS.divider,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   eventCardContent: {
     flexDirection: "row",
-    padding: 14,
     alignItems: "center",
   },
 
   emojiContainer: {
-    width: 46,
-    height: 46,
+    width: 40,
+    height: 40,
     borderRadius: 12,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 
   resultEmoji: {
-    fontSize: 22,
+    fontSize: 20,
   },
 
   resultTextContainer: {
@@ -609,9 +633,9 @@ const styles = StyleSheet.create({
   },
 
   resultTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#f8f9fa",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
     flex: 1,
   },
@@ -627,7 +651,7 @@ const styles = StyleSheet.create({
 
   resultDetailText: {
     fontSize: 13,
-    color: "#adb5bd",
+    color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
     flex: 1,
   },
@@ -644,24 +668,27 @@ const styles = StyleSheet.create({
   emptyStateIconContainer: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    borderRadius: 20,
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
   },
 
   emptyStateTitle: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#f8f9fa",
+    fontWeight: "700",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
-    marginBottom: 12,
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
 
   emptyStateDescription: {
     fontSize: 14,
-    color: "#adb5bd",
+    color: COLORS.textSecondary,
     textAlign: "center",
     fontFamily: "SpaceMono",
     lineHeight: 20,
@@ -677,7 +704,7 @@ const styles = StyleSheet.create({
   },
 
   loadingText: {
-    color: "#f8f9fa",
+    color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
     fontSize: 16,
     marginTop: 16,
@@ -691,7 +718,7 @@ const styles = StyleSheet.create({
   },
 
   loadingFooterText: {
-    color: "#93c5fd",
+    color: COLORS.accent,
     fontFamily: "SpaceMono",
     fontSize: 14,
     marginLeft: 8,
@@ -713,13 +740,15 @@ const styles = StyleSheet.create({
   },
 
   errorIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(249, 117, 131, 0.2)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(249, 117, 131, 0.15)",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: "rgba(249, 117, 131, 0.3)",
   },
 
   errorText: {
@@ -730,7 +759,7 @@ const styles = StyleSheet.create({
   },
 
   retryButton: {
-    backgroundColor: "rgba(249, 117, 131, 0.2)",
+    backgroundColor: "rgba(249, 117, 131, 0.15)",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -753,33 +782,27 @@ const styles = StyleSheet.create({
   },
 
   searchSpinnerContainer: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "rgba(73, 171, 247, 0.1)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 4,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 
   clearButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "rgba(73, 171, 247, 0.1)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 4,
-  },
-
-  qrIconContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 });
 

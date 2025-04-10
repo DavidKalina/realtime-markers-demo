@@ -14,27 +14,27 @@ import Animated, {
 
 // Unified color theme (from EventDetailsHeader)
 const COLORS = {
-    background: "#2a2a2a",
-    cardBackground: "#2C3333",
+    background: "#1a1a1a",
+    cardBackground: "#2a2a2a",
     textPrimary: "#f8f9fa",
-    textSecondary: "#93c5fd", // Blue
-    accent: "#93c5fd", // Blue
+    textSecondary: "#a0a0a0",
+    accent: "#93c5fd",
 
-    divider: "rgba(147, 197, 253, 0.12)",
-    buttonBackground: "rgba(147, 197, 253, 0.1)",
-    buttonBorder: "rgba(147, 197, 253, 0.15)",
+    divider: "rgba(255, 255, 255, 0.08)",
+    buttonBackground: "rgba(255, 255, 255, 0.05)",
+    buttonBorder: "rgba(255, 255, 255, 0.1)",
 
     success: "#40c057",
     successBackground: "rgba(64, 192, 87, 0.12)",
     successBorder: "rgba(64, 192, 87, 0.2)",
 
-    iconUser: "#ff922b", // Orange
-    iconEngagement: "#a5d8ff", // Light Blue
-    iconVerified: "#69db7c", // Green
-    iconDateTime: "#ffd43b", // Yellow
-    iconLocation: "#ff8787", // Red
-    iconCategories: "#da77f2", // Purple
-    iconDefault: "#93c5fd", // Default blue
+    iconUser: "#ff922b",
+    iconEngagement: "#a5d8ff",
+    iconVerified: "#69db7c",
+    iconDateTime: "#ffd43b",
+    iconLocation: "#ff8787",
+    iconCategories: "#da77f2",
+    iconDefault: "#93c5fd",
 };
 
 // Helper for dimmed text color
@@ -357,82 +357,88 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: COLORS.cardBackground, // Themed background
-        borderRadius: 16,
+        backgroundColor: COLORS.cardBackground,
+        borderRadius: 20,
         overflow: 'hidden',
         width: '90%',
         maxHeight: '75%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
+        shadowColor: 'rgba(0, 0, 0, 0.5)',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
         elevation: 8,
         borderWidth: 1,
-        borderColor: COLORS.buttonBorder, // Themed border
+        borderColor: COLORS.divider,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 16,
+        padding: 20,
         borderBottomWidth: 1,
-        borderBottomColor: COLORS.divider, // Themed divider
+        borderBottomColor: COLORS.divider,
     },
     title: {
         flex: 1,
         textAlign: 'center',
         fontSize: 18,
-        fontWeight: '600',
-        color: COLORS.textPrimary, // Themed text
+        fontWeight: '700',
+        color: COLORS.textPrimary,
         fontFamily: 'SpaceMono',
+        letterSpacing: 0.5,
         marginRight: 36,
     },
     closeButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: getRgbaBackground(COLORS.textPrimary, 0.1), // Subtle background
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: COLORS.buttonBackground,
         justifyContent: 'center',
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.buttonBorder,
     },
     calendarContainer: {
-        padding: 16,
+        padding: 20,
     },
     monthHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 20,
     },
     monthText: {
         fontSize: 16,
-        fontWeight: '600',
-        color: COLORS.textPrimary, // Themed text
+        fontWeight: '700',
+        color: COLORS.textPrimary,
         fontFamily: 'SpaceMono',
+        letterSpacing: 0.5,
     },
     monthNavButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: COLORS.buttonBackground, // Themed button bg
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: COLORS.buttonBackground,
         justifyContent: 'center',
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.buttonBorder,
     },
     monthNavButtonDisabled: {
-        backgroundColor: getRgbaBackground(COLORS.buttonBackground, 0.5), // Dimmed background
         opacity: 0.5,
     },
     weekDays: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 8,
+        marginBottom: 12,
     },
     weekDayText: {
         width: 40,
         textAlign: 'center',
-        fontSize: 12,
-        color: getDimmedTextColor(COLORS.textPrimary, 0.6), // Dimmed primary text
+        fontSize: 13,
+        color: COLORS.textSecondary,
         fontFamily: 'SpaceMono',
+        fontWeight: '600',
     },
     daysGrid: {
         flexDirection: 'row',
@@ -445,42 +451,42 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 8,
-        borderRadius: 20,
+        borderRadius: 12,
     },
     dayText: {
         fontSize: 14,
-        color: COLORS.textPrimary, // Themed text
+        color: COLORS.textPrimary,
         fontFamily: 'SpaceMono',
     },
     selectedDay: {
-        backgroundColor: COLORS.accent, // Blue accent
+        backgroundColor: COLORS.accent,
     },
     selectedDayText: {
-        color: COLORS.textPrimary, // Primary text on blue bg
+        color: COLORS.textPrimary,
         fontWeight: '600',
     },
     rangeDay: {
-        backgroundColor: getRgbaBackground(COLORS.accent, 0.2), // Blue range bg
+        backgroundColor: 'rgba(147, 197, 253, 0.15)',
     },
     startDay: {
-        borderTopLeftRadius: 20,
-        borderBottomLeftRadius: 20,
+        borderTopLeftRadius: 12,
+        borderBottomLeftRadius: 12,
     },
     endDay: {
-        borderTopRightRadius: 20,
-        borderBottomRightRadius: 20,
+        borderTopRightRadius: 12,
+        borderBottomRightRadius: 12,
     },
     otherMonthDay: {
-        color: getDimmedTextColor(COLORS.textPrimary, 0.4), // Dimmed text
+        color: COLORS.textSecondary,
     },
     todayText: {
-        color: COLORS.accent, // Blue accent for today
+        color: COLORS.accent,
         fontWeight: '600',
     },
     footer: {
-        padding: 16,
+        padding: 20,
         borderTopWidth: 1,
-        borderTopColor: COLORS.divider, // Themed divider
+        borderTopColor: COLORS.divider,
         gap: 16,
     },
     dateRangeInfo: {
@@ -490,69 +496,66 @@ const styles = StyleSheet.create({
     },
     dateRangeText: {
         fontSize: 16,
-        fontWeight: '600',
-        color: COLORS.textPrimary, // Themed text
+        fontWeight: '700',
+        color: COLORS.textPrimary,
         fontFamily: 'SpaceMono',
+        letterSpacing: 0.5,
         marginBottom: 4,
     },
     dateRangeDuration: {
         fontSize: 14,
-        color: COLORS.accent, // Blue accent for duration text
+        color: COLORS.accent,
         fontFamily: 'SpaceMono',
     },
     buttonContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        gap: 8,
+        gap: 12,
     },
     button: {
         flex: 1,
-        height: 44,
+        height: 48,
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        borderWidth: 1,
     },
     resetButton: {
-        backgroundColor: getRgbaBackground(COLORS.accent, 0.1), // Blue themed bg
-        borderWidth: 1,
-        borderColor: getRgbaBackground(COLORS.accent, 0.2), // Blue themed border
+        backgroundColor: COLORS.buttonBackground,
+        borderColor: COLORS.buttonBorder,
     },
     resetButtonText: {
-        color: COLORS.accent, // Blue themed text
+        color: COLORS.textPrimary,
         fontSize: 15,
         fontWeight: '600',
         fontFamily: 'SpaceMono',
     },
     confirmButton: {
-        backgroundColor: COLORS.accent, // Blue accent bg
+        backgroundColor: COLORS.accent,
+        borderColor: 'rgba(147, 197, 253, 0.3)',
     },
     confirmButtonDisabled: {
-        backgroundColor: getRgbaBackground(COLORS.accent, 0.2), // Blue disabled bg
+        opacity: 0.5,
     },
     confirmButtonText: {
-        color: COLORS.textPrimary, // Primary text on blue bg
+        color: COLORS.textPrimary,
         fontSize: 15,
         fontWeight: '600',
         fontFamily: 'SpaceMono',
     },
     placeholderText: {
         fontSize: 14,
-        color: getDimmedTextColor(COLORS.textPrimary, 0.6), // Dimmed placeholder
+        color: COLORS.textSecondary,
         fontFamily: 'SpaceMono',
     },
     confirmButtonLoading: {
         opacity: 0.7,
     },
     disabledDay: {
-        opacity: 0.4, // Dim more
+        opacity: 0.4,
     },
     disabledDayText: {
-        color: getDimmedTextColor(COLORS.textPrimary, 0.4), // Dimmed text
+        color: COLORS.textSecondary,
     },
 });
 
