@@ -15,7 +15,7 @@ interface MapStyleContextType {
 const MapStyleContext = createContext<MapStyleContextType | undefined>(undefined);
 
 export const MapStyleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentStyle, setCurrentStyle] = useState<MapStyleType>('street');
+  const [currentStyle, setCurrentStyle] = useState<MapStyleType>('dark');
 
   useEffect(() => {
     // Load saved preference on mount
