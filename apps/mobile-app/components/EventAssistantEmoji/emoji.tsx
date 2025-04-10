@@ -17,7 +17,7 @@ export const styles = StyleSheet.create({
   emojiCircle: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 32,
-    backgroundColor: "#3a3a3a", // Match event details card background
+    backgroundColor: "#232323", // Match event details card background
     borderWidth: 1,
     borderColor: "#4a4a4a", // Match event details border
     alignItems: "center",

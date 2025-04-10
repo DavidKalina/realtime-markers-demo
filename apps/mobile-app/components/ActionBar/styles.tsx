@@ -4,7 +4,7 @@ import { Platform, StyleSheet } from "react-native";
 export const styles = StyleSheet.create({
   bottomBar: {
     height: 75, // Slightly taller for better touch targets
-    backgroundColor: "#2C3333",
+    backgroundColor: "#1a1a1a", // Match Cluster Events view background
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -59,15 +59,14 @@ export const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   actionButtonLabel: {
-    color: "#adb5bd", // Subtle gray for inactive
+    color: "#a0a0a0", // Match Cluster Events view textSecondary
     fontSize: 10,
     fontFamily: "SpaceMono",
     marginTop: 5,
     textAlign: "center",
   },
-
   activeActionButtonLabel: {
-    color: "#93c5fd", // Match the icon color when active
+    color: "#93c5fd", // Match Cluster Events view accent
   },
   actionButtonIcon: {
     width: 22,
@@ -81,7 +80,7 @@ export const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontFamily: "SpaceMono",
-    color: "#fff", // Light text for dark theme
+    color: "#f8f9fa",
     fontSize: 12,
     fontWeight: "500",
   },
@@ -100,7 +99,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 10, // Slightly more refined corners
-    backgroundColor: '#2C3333',
+    backgroundColor: '#1a1a1a', // Match Cluster Events view background
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
     ...Platform.select({

@@ -32,7 +32,6 @@ const EventQRCodeSection: React.FC<EventQRCodeSection> = ({ event }) => {
 
   return (
     <View style={styles.qrCodeSection}>
-
       <View style={styles.cardHeader}>
         <View style={styles.iconContainer}>
           <QrCode size={20} color="#93c5fd" />
@@ -43,7 +42,6 @@ const EventQRCodeSection: React.FC<EventQRCodeSection> = ({ event }) => {
       </View>
 
       <View style={styles.cardContent}>
-        {/* QR code with improved container */}
         <View style={styles.qrCodeContainer}>
           <View style={styles.qrCodeInner}>
             <QRCode
@@ -55,17 +53,15 @@ const EventQRCodeSection: React.FC<EventQRCodeSection> = ({ event }) => {
           </View>
         </View>
 
-        {/* Informational text */}
         <Text style={styles.qrSourceText}>
           {event.qrDetectedInImage
             ? "This QR code was detected in the original event flyer"
             : "Scan this QR code to access the event"}
         </Text>
 
-        {/* Action button */}
         <TouchableOpacity style={styles.qrLinkButton} onPress={handleOpenLink} activeOpacity={0.7}>
           <View style={styles.buttonContent}>
-            <ExternalLink size={18} color="#f8f9fa" />
+            <ExternalLink size={18} color="#93c5fd" />
             <Text style={styles.qrLinkButtonText}>Open QR Code Link</Text>
           </View>
         </TouchableOpacity>
@@ -76,7 +72,17 @@ const EventQRCodeSection: React.FC<EventQRCodeSection> = ({ event }) => {
 
 const styles = StyleSheet.create({
   qrCodeSection: {
-    marginTop: 24,
+    backgroundColor: "#2a2a2a",
+    borderRadius: 20,
+    padding: 20,
+    marginTop: 20,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
   cardHeader: {
@@ -88,18 +94,21 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     backgroundColor: "rgba(147, 197, 253, 0.15)",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
   },
 
   cardTitle: {
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "700",
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
+    letterSpacing: 0.5,
   },
 
   cardContent: {
@@ -110,9 +119,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 16,
-    backgroundColor: "rgba(50, 50, 50, 0.7)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderRadius: 16,
-    marginBottom: 16,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
   },
@@ -124,7 +133,7 @@ const styles = StyleSheet.create({
   },
 
   qrSourceText: {
-    color: "#93c5fd",
+    color: "#a0a0a0",
     fontSize: 14,
     fontFamily: "SpaceMono",
     textAlign: "center",
@@ -136,25 +145,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(147, 197, 253, 0.1)",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
   },
 
   buttonContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
   },
 
   qrLinkButtonText: {
     color: "#93c5fd",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
     fontFamily: "SpaceMono",
-    marginLeft: 6,
+    marginLeft: 8,
+    letterSpacing: 0.5,
   },
 });
 

@@ -227,19 +227,21 @@ const windowHeight = Dimensions.get("window").height;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#3a3a3a",
-    borderRadius: 16,
+    backgroundColor: "#2a2a2a",
+    borderRadius: 20,
     padding: 0,
     marginVertical: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowRadius: 12,
+    elevation: 8,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
-  // Header gradient
+  // Gradient header
   headerGradient: {
     position: "absolute",
     left: 0,
@@ -252,18 +254,22 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.08)",
   },
 
   cardIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
-    backgroundColor: "rgba(255, 152, 0, 0.2)",
+    marginRight: 16,
+    backgroundColor: "rgba(255, 152, 0, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 152, 0, 0.3)",
   },
 
   cardTitle: {
@@ -272,6 +278,7 @@ const styles = StyleSheet.create({
     color: "#f8f9fa",
     fontFamily: "SpaceMono",
     flex: 1,
+    letterSpacing: 0.5,
   },
 
   // Admin badge
@@ -279,25 +286,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 152, 0, 0.15)",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "rgba(255, 152, 0, 0.3)",
   },
 
   adminText: {
-    fontSize: 10,
+    fontSize: 11,
     color: "#ff9800",
     fontFamily: "SpaceMono",
     fontWeight: "600",
-    marginLeft: 4,
+    marginLeft: 6,
+    letterSpacing: 0.5,
   },
 
   // Card content
   cardContent: {
-    paddingHorizontal: 18,
-    paddingBottom: 18,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
 
   // Loading state
@@ -305,15 +313,17 @@ const styles = StyleSheet.create({
     height: 180,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(66, 66, 66, 0.5)",
-    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
 
   loadingText: {
-    color: "#f8f9fa",
+    color: "#a0a0a0",
     fontFamily: "SpaceMono",
-    fontSize: 12,
-    marginTop: 10,
+    fontSize: 13,
+    marginTop: 12,
   },
 
   // Error state
@@ -321,14 +331,16 @@ const styles = StyleSheet.create({
     height: 100,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(66, 66, 66, 0.5)",
-    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
 
   errorText: {
     color: "#f97583",
     fontFamily: "SpaceMono",
-    fontSize: 12,
+    fontSize: 13,
     textAlign: "center",
     paddingHorizontal: 20,
   },
@@ -336,22 +348,17 @@ const styles = StyleSheet.create({
   // Image container
   imageContainer: {
     position: "relative",
-    backgroundColor: "#424242",
-    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
   },
 
   thumbnail: {
     width: "100%",
     height: 220,
-    borderRadius: 12,
+    borderRadius: 16,
   },
 
   viewOverlay: {
@@ -360,7 +367,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
-    paddingVertical: 10,
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -370,7 +377,7 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontFamily: "SpaceMono",
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
     marginLeft: 8,
   },
 
@@ -379,12 +386,14 @@ const styles = StyleSheet.create({
     height: 100,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(66, 66, 66, 0.5)",
-    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
 
   noImageText: {
-    color: "#adb5bd",
+    color: "#a0a0a0",
     fontFamily: "SpaceMono",
     fontSize: 14,
   },
@@ -399,7 +408,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     padding: 16,
-    paddingTop: 50, // Provide space for status bar
+    paddingTop: 50,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     zIndex: 10,
   },
@@ -407,23 +416,23 @@ const styles = StyleSheet.create({
   closeButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(58, 58, 58, 0.8)",
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
 
   shareButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(58, 58, 58, 0.8)",
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
 
   modalContent: {

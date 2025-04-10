@@ -8,33 +8,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: "#3a3a3a",
-    backgroundColor: "#333",
+    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "#1a1a1a",
   },
 
   // Button with gradient background
   shareButton: {
-    position: "relative",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 16,
-    borderRadius: 14,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-
-  // Button gradient
-  buttonGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
 
   // Button content container
@@ -46,31 +33,34 @@ const styles = StyleSheet.create({
 
   // Icon container
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
 
   // Text styling
   shareButtonText: {
-    color: "#f8f9fa",
+    color: "#93c5fd",
     fontSize: 16,
     fontWeight: "600",
     fontFamily: "SpaceMono",
+    letterSpacing: 0.5,
   },
 });
 
 const ShareEvent = ({ handleShare }: { handleShare: () => void }) => {
   return (
     <View style={styles.bottomButtonContainer}>
-      <TouchableOpacity style={styles.shareButton} onPress={handleShare} activeOpacity={0.85}>
+      <TouchableOpacity style={styles.shareButton} onPress={handleShare} activeOpacity={0.7}>
         <View style={styles.buttonContent}>
           <View style={styles.iconContainer}>
-            <Share2 size={20} color="#ffffff" />
+            <Share2 size={20} color="#93c5fd" />
           </View>
           <Text style={styles.shareButtonText}>Share Event</Text>
         </View>

@@ -119,14 +119,14 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     indicator: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
+        width: 22,
+        height: 22,
+        borderRadius: 11,
         justifyContent: 'center',
         alignItems: 'center',
     },
     text: {
-        fontSize: 10,
+        fontSize: 11,
         fontFamily: "SpaceMono",
         fontWeight: "600",
         letterSpacing: 0.2,

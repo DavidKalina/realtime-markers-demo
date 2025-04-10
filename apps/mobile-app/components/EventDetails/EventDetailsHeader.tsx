@@ -22,18 +22,16 @@ import SaveButton from "./SaveButton";
 // Unified color theme
 const COLORS = {
   // Primary colors
-  background: "#2a2a2a",
-  cardBackground: "#3a3a3a",
+  background: "#1a1a1a",
+  cardBackground: "#2a2a2a",
   textPrimary: "#f8f9fa",
-  textSecondary: "#93c5fd", // Using the blue from QR component
-  accent: "#93c5fd", // Using the blue from QR component
+  textSecondary: "#a0a0a0",
+  accent: "#93c5fd",
 
   // UI elements
-  divider: "rgba(147, 197, 253, 0.12)",
-  buttonBackground: "rgba(147, 197, 253, 0.1)",
-  buttonBorder: "rgba(147, 197, 253, 0.15)",
-  // Removed iconBackground - will derive from iconColor
-  // iconBackground: "rgba(147, 197, 253, 0.15)",
+  divider: "rgba(255, 255, 255, 0.08)",
+  buttonBackground: "rgba(255, 255, 255, 0.05)",
+  buttonBorder: "rgba(255, 255, 255, 0.1)",
 
   // Status colors
   success: "#40c057",
@@ -41,13 +39,13 @@ const COLORS = {
   successBorder: "rgba(64, 192, 87, 0.2)",
 
   // Vibrant Icon Colors
-  iconUser: "#ff922b", // Orange
-  iconEngagement: "#a5d8ff", // Light Blue
-  iconVerified: "#69db7c", // Green
-  iconDateTime: "#ffd43b", // Yellow
-  iconLocation: "#ff8787", // Red
-  iconCategories: "#da77f2", // Purple
-  iconDefault: "#93c5fd", // Default blue
+  iconUser: "#ff922b",
+  iconEngagement: "#a5d8ff",
+  iconVerified: "#69db7c",
+  iconDateTime: "#ffd43b",
+  iconLocation: "#ff8787",
+  iconCategories: "#da77f2",
+  iconDefault: "#93c5fd",
 };
 
 // Helper to generate icon background color from primary color
@@ -68,35 +66,39 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cardBackground,
     borderRadius: 20,
     marginVertical: 20,
-    shadowColor: "#000",
+    shadowColor: "rgba(0, 0, 0, 0.5)",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.2,
     shadowRadius: 10,
     elevation: 8,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
 
   // Content container with proper padding
   headerContent: {
-    padding: 24,
+    padding: 20,
   },
 
   // Top row with emoji and title
   topRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 20,
     position: 'relative',
   },
 
   // Emoji container styling
   emojiContainer: {
-    width: 50,
-    height: 50,
+    width: 48,
+    height: 48,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: getIconBackgroundColor(COLORS.iconDefault),
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
     marginRight: 16,
   },
 
@@ -116,11 +118,13 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
     letterSpacing: -0.2,
+    lineHeight: 28,
   },
 
   // Description styling
   descriptionContainer: {
     marginBottom: 20,
+    paddingHorizontal: 4,
   },
 
   descriptionText: {
@@ -132,14 +136,14 @@ const styles = StyleSheet.create({
 
   // Divider styling
   divider: {
-    height: 2,
+    height: 1,
     backgroundColor: COLORS.divider,
-    marginVertical: 24,
+    marginVertical: 20,
   },
 
   // Info sections container
   infoSections: {
-    gap: 24,
+    gap: 20,
   },
 
   // Info section styling
@@ -147,16 +151,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 16,
+    paddingHorizontal: 4,
   },
 
-  // Updated infoIcon style - background is now dynamic
   infoIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    // backgroundColor removed, will be applied dynamically
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
 
   infoContent: {
@@ -197,85 +203,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 
-  // Meta info container
-  metaContainer: {
-    marginBottom: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-  },
-
-  metaSectionHeader: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    fontFamily: 'SpaceMono',
-    fontWeight: '600',
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-
-  metaContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-
-  // QR Code section
-  qrSection: {
-    marginTop: 24,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-  },
-
-  // We'll remove these since we're using the actual component
-  qrContainer: {
-    backgroundColor: COLORS.textPrimary,
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-
-  qrLabel: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontFamily: 'SpaceMono',
-    fontWeight: '600',
-    marginBottom: 14,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-
-  // Creator info
-  creatorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.buttonBackground,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-
-  creatorText: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    fontFamily: 'SpaceMono',
-    fontWeight: '500',
-    marginLeft: 8,
-  },
-
   // Stats container
   statsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginTop: 8,
   },
 
   statItem: {
@@ -285,6 +218,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 
   statIcon: {
@@ -306,6 +241,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: COLORS.successBorder,
+    marginTop: 8,
   },
 
   statusText: {
@@ -328,7 +266,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -338,7 +278,7 @@ const styles = StyleSheet.create({
   // Location actions container
   locationActions: {
     flexDirection: "row",
-    marginTop: 16,
+    marginTop: 12,
     gap: 12,
   },
 
@@ -350,6 +290,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 
   actionButtonText: {
@@ -365,7 +307,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 6,
+    marginTop: 8,
   },
 
   categoryTag: {
@@ -373,12 +315,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 
   categoryText: {
     fontSize: 13,
     color: COLORS.textPrimary,
     fontFamily: 'SpaceMono',
+  },
+
+  // QR Code section
+  qrSection: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
   },
 });
 
@@ -685,7 +637,7 @@ const EventDetailsHeader = ({
               icon={User}
               label="Scanned By"
               delay={300}
-              iconColor={COLORS.iconUser} // Assign specific color
+              iconColor={COLORS.iconUser}
             >
               <Text style={styles.infoValue}>
                 {event.creator.displayName || event.creator.email}
@@ -696,8 +648,8 @@ const EventDetailsHeader = ({
           <EventInfoSection
             icon={BookmarkIcon}
             label="Engagement"
-            delay={350} // Stagger delay
-            iconColor={COLORS.iconEngagement} // Assign specific color
+            delay={350}
+            iconColor={COLORS.iconEngagement}
           >
             <EventStats event={event} />
           </EventInfoSection>
@@ -706,8 +658,8 @@ const EventDetailsHeader = ({
             <EventInfoSection
               icon={CheckCircle}
               label="Verification"
-              delay={400} // Stagger delay
-              iconColor={COLORS.iconVerified} // Assign specific color
+              delay={400}
+              iconColor={COLORS.iconVerified}
             >
               <View style={styles.statusBadge}>
                 <Text style={styles.statusText}>VERIFIED EVENT</Text>
@@ -718,8 +670,8 @@ const EventDetailsHeader = ({
           <EventInfoSection
             icon={Calendar}
             label="Date & Time"
-            delay={450} // Stagger delay
-            iconColor={COLORS.iconDateTime} // Assign specific color
+            delay={450}
+            iconColor={COLORS.iconDateTime}
           >
             <Text style={styles.infoValue}>
               {formatDate(event.eventDate, event.timezone)}
@@ -733,8 +685,8 @@ const EventDetailsHeader = ({
           <EventInfoSection
             icon={MapPin}
             label="Location"
-            delay={500} // Stagger delay
-            iconColor={COLORS.iconLocation} // Assign specific color
+            delay={500}
+            iconColor={COLORS.iconLocation}
           >
             <Text style={styles.infoValue}>{event.location}</Text>
             {event.locationNotes && event.locationNotes !== "No additional location context provided" && (
@@ -754,8 +706,8 @@ const EventDetailsHeader = ({
             <EventInfoSection
               icon={Info}
               label="Categories"
-              delay={550} // Stagger delay
-              iconColor={COLORS.iconCategories} // Assign specific color
+              delay={550}
+              iconColor={COLORS.iconCategories}
             >
               <EventCategories categories={event.categories} />
             </EventInfoSection>

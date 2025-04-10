@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, Platform, StatusBar as RNStatusBar, Text } from 'react-native';
+import { View, StyleSheet, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
     LinearTransition,
@@ -25,13 +25,12 @@ const ANIMATION_CONFIG = {
 };
 
 const StatusBar: React.FC<StatusBarProps> = ({
-    backgroundColor = '#2C3333', // Gun metal gray, fully opaque
+    backgroundColor = '#1a1a1a', // Match Cluster Events view background
     children
 }) => {
     const insets = useSafeAreaInsets();
 
     const indicators = useMemo(() => [
-        <ConnectionIndicator key="connection" />,
         <EmojiIndicator key="emoji" />,
         <DateRangeIndicator key="date" />,
         <JobIndicator key="job" />
@@ -53,14 +52,6 @@ const StatusBar: React.FC<StatusBarProps> = ({
         []
     );
 
-    const fadeInConfig = useMemo(() =>
-        FadeIn.delay(200).springify()
-            .damping(ANIMATION_CONFIG.damping)
-            .mass(ANIMATION_CONFIG.mass)
-            .stiffness(ANIMATION_CONFIG.stiffness),
-        []
-    );
-
     return (
         <View style={containerStyle}>
             <RNStatusBar
@@ -72,12 +63,16 @@ const StatusBar: React.FC<StatusBarProps> = ({
                 entering={slideInConfig}
                 style={styles.content}
             >
-                <Animated.Text
-                    entering={fadeInConfig}
-                    style={styles.title}
+                <Animated.View
+                    entering={FadeIn
+                        .delay(300)
+                        .springify()
+                        .damping(ANIMATION_CONFIG.damping)
+                        .mass(ANIMATION_CONFIG.mass)
+                        .stiffness(ANIMATION_CONFIG.stiffness)}
                 >
-                    MapMoji
-                </Animated.Text>
+                    <ConnectionIndicator />
+                </Animated.View>
                 <Animated.View
                     style={styles.indicatorsContainer}
                     layout={LinearTransition.duration(300)}
@@ -131,13 +126,6 @@ const styles = StyleSheet.create({
         paddingTop: 0,
         paddingBottom: 6,
     },
-    title: {
-        fontSize: 15,
-        fontFamily: 'SpaceMono',
-        fontWeight: '700',
-        color: '#FFFFFF',
-        letterSpacing: 0.5,
-    },
     indicatorsContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -145,7 +133,7 @@ const styles = StyleSheet.create({
     },
     divider: {
         width: 1,
-        height: 20,
+        height: 22,
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         marginHorizontal: 2,
     },

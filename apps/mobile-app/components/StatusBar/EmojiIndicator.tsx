@@ -100,18 +100,18 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     iconContainer: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
+        width: 22,
+        height: 22,
+        borderRadius: 11,
         backgroundColor: 'rgba(236, 72, 153, 0.2)',
         justifyContent: 'center',
         alignItems: 'center',
     },
     emoji: {
-        fontSize: 12,
+        fontSize: 13,
     },
     text: {
-        fontSize: 10,
+        fontSize: 11,
         fontFamily: "SpaceMono",
         fontWeight: "600",
         color: '#EC4899',

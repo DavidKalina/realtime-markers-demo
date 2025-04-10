@@ -14,7 +14,7 @@ export const layout = StyleSheet.create({
     zIndex: 10000000,
   },
   card: {
-    backgroundColor: "#2C3333",
+    backgroundColor: "#1a1a1a",
     borderRadius: 0, // Remove the border radius at top
     borderBottomRightRadius: 0,
     borderBottomLeftRadius: 0,
@@ -26,8 +26,7 @@ export const layout = StyleSheet.create({
     overflow: "hidden",
     flexDirection: "column",
     height: 150,
-    borderWidth: 1,
-    borderColor: "#3a3a3a", // Subtle border like event details
+
   },
   row: {
     flexDirection: "row",

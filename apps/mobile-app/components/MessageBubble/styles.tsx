@@ -3,7 +3,7 @@ import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
   messageBubble: {
-    backgroundColor: "#3a3a3a", // Match the event details card background
+    backgroundColor: "#232323", // Match the event details card background
     borderRadius: 12,
     padding: 7,
     flex: 1,
