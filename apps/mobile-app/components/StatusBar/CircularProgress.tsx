@@ -66,7 +66,7 @@ const CircularProgress: React.FC<CircularProgressProps> = ({ progress, children,
                         cx="12"
                         cy="12"
                         r="10"
-                        stroke="rgba(255, 107, 0, 0.2)"
+                        stroke="rgba(156, 163, 175, 0.2)"
                         strokeWidth="2"
                         fill="none"
                     />
@@ -74,7 +74,7 @@ const CircularProgress: React.FC<CircularProgressProps> = ({ progress, children,
                         cx="12"
                         cy="12"
                         r="10"
-                        stroke="#FF6B00"
+                        stroke="#9CA3AF"
                         strokeWidth="2"
                         fill="none"
                         strokeDasharray="88"

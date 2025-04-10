@@ -11,6 +11,7 @@ import Animated, {
     FadeIn,
     FadeOut,
     cancelAnimation,
+    withDelay,
 } from 'react-native-reanimated';
 import { Cog, Check, X } from 'lucide-react-native';
 import * as Haptics from "expo-haptics";
@@ -38,6 +39,9 @@ const JobIndicator: React.FC = () => {
     const [jobMessage, setJobMessage] = useState<{ emoji: string; message: string } | null>(null);
     const previousProgress = useRef(0);
     const timeoutRef = useRef<NodeJS.Timeout>();
+    const glowOpacity = useSharedValue(0);
+    const xScale = useSharedValue(0);
+    const xRotation = useSharedValue(0);
 
     // Get active jobs
     const activeJobs = useMemo(() => {
@@ -101,6 +105,41 @@ const JobIndicator: React.FC = () => {
         }
     }, [state]);
 
+    // Setup failure state animations
+    useEffect(() => {
+        if (state === 'jobMessage' && jobMessage?.emoji === "❌") {
+            // Reset values
+            glowOpacity.value = 0;
+            xScale.value = 0;
+            xRotation.value = 0;
+
+            // Start animations
+            glowOpacity.value = withRepeat(
+                withSequence(
+                    withTiming(0.3, { duration: 1000 }),
+                    withTiming(0, { duration: 1000 })
+                ),
+                -1,
+                true
+            );
+
+            xScale.value = withSequence(
+                withTiming(1.2, { duration: 200, easing: Easing.out(Easing.back(1.7)) }),
+                withTiming(1, { duration: 100 })
+            );
+
+            xRotation.value = withSequence(
+                withTiming(-10, { duration: 100 }),
+                withTiming(10, { duration: 100 }),
+                withTiming(0, { duration: 100 })
+            );
+        } else {
+            glowOpacity.value = 0;
+            xScale.value = 0;
+            xRotation.value = 0;
+        }
+    }, [state, jobMessage]);
+
     const handlePress = useMemo(() => () => {
         // Cancel any ongoing animations before starting new ones
         cancelAnimation(scale);
@@ -136,6 +175,17 @@ const JobIndicator: React.FC = () => {
     const spinAnimatedStyle = useAnimatedStyle(() => ({
         transform: [
             { rotate: `${spinRotation.value}deg` }
+        ],
+    }));
+
+    const glowStyle = useAnimatedStyle(() => ({
+        opacity: glowOpacity.value,
+    }));
+
+    const xStyle = useAnimatedStyle(() => ({
+        transform: [
+            { scale: xScale.value },
+            { rotate: `${xRotation.value}deg` }
         ],
     }));
 
@@ -181,7 +231,7 @@ const JobIndicator: React.FC = () => {
                                                 .damping(15)
                                                 .stiffness(200)}
                                         >
-                                            <Cog size={10} color="#FF6B00" />
+                                            <Cog size={10} color="#9CA3AF" />
                                         </Animated.View>
                                     </Animated.View>
                                 </Animated.View>
@@ -206,13 +256,27 @@ const JobIndicator: React.FC = () => {
                                     {jobMessage?.emoji === "✅" ? (
                                         <Check size={10} color="#4CAF50" />
                                     ) : (
-                                        <X size={10} color="#F44336" />
+                                        <>
+                                            <Animated.View style={[styles.glow, glowStyle]} />
+                                            <Animated.View style={xStyle}>
+                                                <X size={10} color="#F44336" />
+                                            </Animated.View>
+                                        </>
                                     )}
                                 </Animated.View>
                             )}
                         </View>
                     )}
                 </View>
+                {state === 'processing' && (
+                    <Animated.View
+                        entering={FadeIn.duration(300)}
+                        exiting={FadeOut.duration(300)}
+                        style={styles.percentageContainer}
+                    >
+                        <Text style={styles.percentageText}>{progress}%</Text>
+                    </Animated.View>
+                )}
             </Animated.View>
         </Pressable>
     );
@@ -250,6 +314,24 @@ const styles = StyleSheet.create({
         height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    percentageContainer: {
+        marginLeft: 4,
+    },
+    percentageText: {
+        fontSize: 11,
+        fontFamily: "SpaceMono",
+        fontWeight: "600",
+        color: '#9CA3AF',
+        letterSpacing: 0.1,
+    },
+    glow: {
+        position: 'absolute',
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: '#F44336',
+        opacity: 0.3,
     },
 });
 
