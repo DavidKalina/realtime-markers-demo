@@ -8,6 +8,35 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 
+// Unified color theme matching ClusterEventsView
+const COLORS = {
+  background: "#1a1a1a",
+  cardBackground: "#2a2a2a",
+  textPrimary: "#f8f9fa",
+  textSecondary: "#a0a0a0",
+  accent: "#93c5fd",
+  divider: "rgba(255, 255, 255, 0.08)",
+  buttonBackground: "rgba(255, 255, 255, 0.05)",
+  buttonBorder: "rgba(255, 255, 255, 0.1)",
+  roles: {
+    admin: {
+      background: "rgba(255, 204, 0, 0.15)",
+      border: "rgba(255, 204, 0, 0.3)",
+      text: "#ffcc00"
+    },
+    moderator: {
+      background: "rgba(147, 197, 253, 0.15)",
+      border: "rgba(147, 197, 253, 0.3)",
+      text: "#93c5fd"
+    },
+    default: {
+      background: "rgba(255, 255, 255, 0.05)",
+      border: "rgba(255, 255, 255, 0.1)",
+      text: "#a0a0a0"
+    }
+  }
+};
+
 interface ProfileFloatingEmojiProps {
   emoji: string;
   name: string;
@@ -23,28 +52,36 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
   isActive = false,
   role,
 }) => {
-  // Simple animation shared values
+  // Animation shared values
   const floatY = useSharedValue(0);
-  const scale = useSharedValue(isActive ? 1.1 : 1);
-  const opacity = useSharedValue(isActive ? 1 : 0.8); // Slightly higher base opacity
+  const scale = useSharedValue(isActive ? 1.05 : 1);
+  const opacity = useSharedValue(isActive ? 1 : 0.9);
 
-  // Setup simple floating animation
+  // Setup floating animation
   useEffect(() => {
-    // Simple floating animation
     floatY.value = withRepeat(
-      withTiming(-4, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
-      -1, // Infinite repetitions
-      true // Reverse each cycle
+      withTiming(-3, {
+        duration: 1800,
+        easing: Easing.inOut(Easing.sin)
+      }),
+      -1,
+      true
     );
   }, []);
 
   // Update scale and opacity when active state changes
   useEffect(() => {
-    scale.value = withTiming(isActive ? 1.1 : 1, { duration: 300 });
-    opacity.value = withTiming(isActive ? 1 : 0.8, { duration: 300 });
+    scale.value = withTiming(isActive ? 1.05 : 1, {
+      duration: 300,
+      easing: Easing.bezier(0.4, 0, 0.2, 1)
+    });
+    opacity.value = withTiming(isActive ? 1 : 0.9, {
+      duration: 300,
+      easing: Easing.bezier(0.4, 0, 0.2, 1)
+    });
   }, [isActive]);
 
-  // Create animated style for emoji and container
+  // Animated styles
   const animatedEmojiStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: floatY.value }, { scale: scale.value }],
   }));
@@ -54,29 +91,19 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
     opacity: opacity.value,
   }));
 
-  // Get background color based on role
-  const getBgColor = () => {
+  // Get role-based styles
+  const getRoleStyles = () => {
     switch (role?.toUpperCase()) {
       case "ADMIN":
-        return "rgba(255, 215, 0, 0.2)"; // Slightly more transparent gold
+        return COLORS.roles.admin;
       case "MODERATOR":
-        return "rgba(77, 171, 247, 0.2)"; // Slightly more transparent blue
+        return COLORS.roles.moderator;
       default:
-        return "rgba(255, 255, 255, 0.6)"; // Lighter default bg
+        return COLORS.roles.default;
     }
   };
 
-  // Create role indicator color
-  const getRoleColor = () => {
-    switch (role?.toUpperCase()) {
-      case "ADMIN":
-        return "#e6bc00"; // Darker gold for better contrast
-      case "MODERATOR":
-        return "#1a8fe3"; // Darker blue for better contrast
-      default:
-        return "#666"; // Darker gray for better contrast
-    }
-  };
+  const roleStyles = getRoleStyles();
 
   return (
     <View style={styles.container}>
@@ -86,11 +113,10 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
           {
             width: size,
             height: size,
-            borderRadius: size / 2,
-            backgroundColor: getBgColor(),
-            borderColor: isActive ? getRoleColor() : "rgba(0, 0, 0, 0.1)", // Darker border for light theme
+            borderRadius: 12,
+            backgroundColor: roleStyles.background,
+            borderColor: roleStyles.border,
             borderWidth: isActive ? 2 : 1,
-            shadowColor: getRoleColor(),
           },
           animatedContainerStyle,
         ]}
@@ -98,7 +124,7 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
         <Animated.Text
           style={[
             styles.emojiText,
-            { fontSize: size * 0.6 }, // Make emoji 60% of the bubble size
+            { fontSize: size * 0.55 },
             animatedEmojiStyle,
           ]}
         >
@@ -110,8 +136,8 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
         style={[
           styles.nameText,
           {
-            opacity: isActive ? 1 : 0.8,
-            fontSize: isActive ? 14 : 12,
+            color: isActive ? COLORS.textPrimary : COLORS.textSecondary,
+            fontSize: isActive ? 14 : 13,
           },
         ]}
         numberOfLines={1}
@@ -120,7 +146,14 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
         {name}
       </Text>
 
-      {isActive && <View style={[styles.roleIndicator, { backgroundColor: getRoleColor() }]} />}
+      {isActive && (
+        <View
+          style={[
+            styles.roleIndicator,
+            { backgroundColor: roleStyles.text }
+          ]}
+        />
+      )}
     </View>
   );
 };
@@ -130,36 +163,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 10,
-    width: 80, // Fixed width for container
+    width: 80,
   },
   emojiBubble: {
     justifyContent: "center",
     alignItems: "center",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 8,
   },
   emojiText: {
     textAlign: "center",
   },
   nameText: {
-    color: "#333", // Changed from white to dark
     marginTop: 8,
     textAlign: "center",
-    fontWeight: "500",
+    fontWeight: "600",
     maxWidth: 80,
-    fontFamily: "SpaceMono-Regular",
+    fontFamily: "SpaceMono",
+    letterSpacing: 0.2,
   },
   roleIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginTop: 4,
-    shadowColor: "#000", // Changed from white to black
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2, // Less intense shadow
-    shadowRadius: 3,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 6,
+    opacity: 0.9,
   },
 });
 

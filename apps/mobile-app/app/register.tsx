@@ -40,6 +40,23 @@ import Animated, {
   FadeInDown
 } from "react-native-reanimated";
 
+// Unified color theme matching ClusterEventsView
+const COLORS = {
+  background: "#1a1a1a",
+  cardBackground: "#2a2a2a",
+  textPrimary: "#f8f9fa",
+  textSecondary: "#a0a0a0",
+  accent: "#93c5fd",
+  divider: "rgba(255, 255, 255, 0.08)",
+  buttonBackground: "rgba(255, 255, 255, 0.05)",
+  buttonBorder: "rgba(255, 255, 255, 0.1)",
+  error: {
+    background: "rgba(249, 117, 131, 0.1)",
+    border: "rgba(249, 117, 131, 0.3)",
+    text: "#f97583"
+  }
+};
+
 const RegisterScreen: React.FC = () => {
   const router = useRouter();
   const { mapStyle } = useMapStyle();
@@ -182,12 +199,12 @@ const RegisterScreen: React.FC = () => {
                   )}
 
                   <View style={styles.inputContainer}>
-                    <User size={18} color="#93c5fd" style={styles.inputIcon} />
+                    <User size={18} color={COLORS.accent} style={styles.inputIcon} />
                     <TextInput
                       ref={displayNameInputRef}
                       style={styles.input}
                       placeholder="Display name"
-                      placeholderTextColor="#808080"
+                      placeholderTextColor={COLORS.textSecondary}
                       value={displayName}
                       onChangeText={setDisplayName}
                       autoCapitalize="words"
@@ -198,12 +215,12 @@ const RegisterScreen: React.FC = () => {
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
+                    <Mail size={18} color={COLORS.accent} style={styles.inputIcon} />
                     <TextInput
                       ref={emailInputRef}
                       style={styles.input}
                       placeholder="Email address"
-                      placeholderTextColor="#808080"
+                      placeholderTextColor={COLORS.textSecondary}
                       value={email}
                       onChangeText={setEmail}
                       autoCapitalize="none"
@@ -216,12 +233,12 @@ const RegisterScreen: React.FC = () => {
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
+                    <Lock size={18} color={COLORS.accent} style={styles.inputIcon} />
                     <TextInput
                       ref={passwordInputRef}
                       style={styles.input}
                       placeholder="Password"
-                      placeholderTextColor="#808080"
+                      placeholderTextColor={COLORS.textSecondary}
                       value={password}
                       onChangeText={setPassword}
                       secureTextEntry={!showPassword}
@@ -230,20 +247,20 @@ const RegisterScreen: React.FC = () => {
                     />
                     <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
                       {showPassword ? (
-                        <EyeOff size={18} color="#93c5fd" />
+                        <EyeOff size={18} color={COLORS.accent} />
                       ) : (
-                        <Eye size={18} color="#93c5fd" />
+                        <Eye size={18} color={COLORS.accent} />
                       )}
                     </TouchableOpacity>
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
+                    <Lock size={18} color={COLORS.accent} style={styles.inputIcon} />
                     <TextInput
                       ref={confirmPasswordInputRef}
                       style={styles.input}
                       placeholder="Confirm password"
-                      placeholderTextColor="#808080"
+                      placeholderTextColor={COLORS.textSecondary}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
                       secureTextEntry={!showConfirmPassword}
@@ -255,9 +272,9 @@ const RegisterScreen: React.FC = () => {
                       style={styles.eyeIcon}
                     >
                       {showConfirmPassword ? (
-                        <EyeOff size={18} color="#93c5fd" />
+                        <EyeOff size={18} color={COLORS.accent} />
                       ) : (
-                        <Eye size={18} color="#93c5fd" />
+                        <Eye size={18} color={COLORS.accent} />
                       )}
                     </TouchableOpacity>
                   </View>
@@ -270,7 +287,7 @@ const RegisterScreen: React.FC = () => {
                       style={[styles.loginButton, buttonAnimatedStyle]}
                     >
                       {isLoading ? (
-                        <ActivityIndicator size="small" color="#000" />
+                        <ActivityIndicator size="small" color={COLORS.accent} />
                       ) : (
                         <Text style={styles.loginButtonText}>Create Account</Text>
                       )}
@@ -296,7 +313,7 @@ const RegisterScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "transparent",
+    backgroundColor: COLORS.background,
   },
   contentContainer: {
     alignItems: "center",
@@ -321,47 +338,42 @@ const styles = StyleSheet.create({
   },
   formCard: {
     width: "100%",
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 20,
-    backgroundColor: "rgba(58, 58, 58, 0.75)",
+    backgroundColor: COLORS.cardBackground,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    shadowColor: "#000",
+    borderColor: COLORS.divider,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.2,
     shadowRadius: 12,
-    elevation: 10,
+    elevation: 8,
     position: "relative",
     overflow: "hidden",
   },
   errorContainer: {
-    backgroundColor: "rgba(255, 70, 70, 0.2)",
+    backgroundColor: COLORS.error.background,
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "rgba(255, 70, 70, 0.3)",
+    borderColor: COLORS.error.border,
   },
   errorText: {
-    color: "#ff7675",
+    color: COLORS.error.text,
     fontSize: 14,
     fontFamily: "SpaceMono",
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(45, 45, 45, 0.8)",
+    backgroundColor: COLORS.background,
     borderRadius: 12,
     marginBottom: 16,
     paddingHorizontal: 12,
     height: 55,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
+    borderColor: COLORS.buttonBorder,
   },
   inputIcon: {
     marginRight: 10,
@@ -369,7 +381,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: "100%",
-    color: "#f8f9fa",
+    color: COLORS.textPrimary,
     fontSize: 16,
     fontFamily: "SpaceMono",
   },
@@ -377,18 +389,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   loginButtonContainer: {
-    borderRadius: 12,
-    height: 55,
-    justifyContent: "center",
-    alignItems: "center",
-    marginVertical: 20,
-    shadowColor: "#4dabf7",
-    backgroundColor: "#4dabf7",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-    overflow: "hidden",
+    marginTop: 20,
   },
   loginButton: {
     borderRadius: 12,
@@ -396,19 +397,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginVertical: 20,
-    shadowColor: "#4dabf7",
-    backgroundColor: "#4dabf7",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-    overflow: "hidden",
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
   },
   loginButtonText: {
-    color: "black",
-    fontSize: 18,
+    color: COLORS.accent,
+    fontSize: 16,
     fontWeight: "600",
     fontFamily: "SpaceMono",
+    letterSpacing: 0.5,
   },
   createAccountContainer: {
     flexDirection: "row",
@@ -416,12 +414,12 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   createAccountText: {
-    color: "#adb5bd",
+    color: COLORS.textSecondary,
     fontSize: 14,
     fontFamily: "SpaceMono",
   },
   createAccountLink: {
-    color: "#93c5fd",
+    color: COLORS.accent,
     fontSize: 14,
     fontWeight: "600",
     fontFamily: "SpaceMono",

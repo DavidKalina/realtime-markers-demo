@@ -80,6 +80,23 @@ const TEST_PROFILES: Profile[] = [
   },
 ];
 
+// Unified color theme matching ClusterEventsView
+const COLORS = {
+  background: "#1a1a1a",
+  cardBackground: "#2a2a2a",
+  textPrimary: "#f8f9fa",
+  textSecondary: "#a0a0a0",
+  accent: "#93c5fd",
+  divider: "rgba(255, 255, 255, 0.08)",
+  buttonBackground: "rgba(255, 255, 255, 0.05)",
+  buttonBorder: "rgba(255, 255, 255, 0.1)",
+  error: {
+    background: "rgba(249, 117, 131, 0.1)",
+    border: "rgba(249, 117, 131, 0.3)",
+    text: "#f97583"
+  }
+};
+
 const Login: React.FC = () => {
   const router = useRouter();
   const { mapStyle } = useMapStyle();
@@ -379,7 +396,7 @@ const Login: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "transparent",
+    backgroundColor: COLORS.background,
   },
 
   keyboardAvoidingView: {
@@ -409,39 +426,31 @@ const styles = StyleSheet.create({
 
   formCard: {
     width: "100%",
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 20,
-    backgroundColor: "rgba(58, 58, 58, 0.75)",
+    backgroundColor: COLORS.cardBackground,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    shadowColor: "#000",
+    borderColor: COLORS.divider,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.2,
     shadowRadius: 12,
-    elevation: 10,
+    elevation: 8,
     position: "relative",
     overflow: "hidden",
   },
 
-  formGradient: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-
   errorContainer: {
-    backgroundColor: "rgba(255, 70, 70, 0.2)",
+    backgroundColor: COLORS.error.background,
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "rgba(255, 70, 70, 0.3)",
+    borderColor: COLORS.error.border,
   },
 
   errorText: {
-    color: "#ff7675",
+    color: COLORS.error.text,
     fontSize: 14,
     fontFamily: "SpaceMono",
   },
@@ -449,18 +458,13 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(45, 45, 45, 0.8)",
+    backgroundColor: COLORS.background,
     borderRadius: 12,
     marginBottom: 16,
     paddingHorizontal: 12,
     height: 55,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
+    borderColor: COLORS.buttonBorder,
   },
 
   inputIcon: {
@@ -470,7 +474,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: "100%",
-    color: "#f8f9fa",
+    color: COLORS.textPrimary,
     fontSize: 16,
     fontFamily: "SpaceMono",
   },
@@ -485,33 +489,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginVertical: 20,
-    shadowColor: "#4dabf7",
-    backgroundColor: "#4dabf7",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-    overflow: "hidden",
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.3)",
   },
 
   loginButtonText: {
-    color: "black",
-    fontSize: 18,
+    color: COLORS.accent,
+    fontSize: 16,
     fontWeight: "600",
     fontFamily: "SpaceMono",
-  },
-
-  toggleManualButton: {
-    alignSelf: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-
-  toggleManualText: {
-    color: "#adb5bd",
-    fontSize: 14,
-    textDecorationLine: "underline",
-    fontFamily: "SpaceMono",
+    letterSpacing: 0.5,
   },
 
   createAccountContainer: {
@@ -521,13 +509,13 @@ const styles = StyleSheet.create({
   },
 
   createAccountText: {
-    color: "#adb5bd",
+    color: COLORS.textSecondary,
     fontSize: 14,
     fontFamily: "SpaceMono",
   },
 
   createAccountLink: {
-    color: "#93c5fd",
+    color: COLORS.accent,
     fontSize: 14,
     fontWeight: "600",
     fontFamily: "SpaceMono",
@@ -537,20 +525,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(45, 45, 45, 0.8)",
+    backgroundColor: COLORS.background,
     borderRadius: 12,
     marginBottom: 16,
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: COLORS.buttonBorder,
     height: 55,
     zIndex: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
   },
 
   selectedProfileContainer: {
@@ -560,9 +543,9 @@ const styles = StyleSheet.create({
   },
 
   selectedProfileEmojiContainer: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: "rgba(147, 197, 253, 0.15)",
     justifyContent: "center",
     alignItems: "center",
@@ -572,11 +555,11 @@ const styles = StyleSheet.create({
   },
 
   profileEmojiLarge: {
-    fontSize: 18,
+    fontSize: 20,
   },
 
   selectedProfileName: {
-    color: "#f8f9fa",
+    color: COLORS.textPrimary,
     fontSize: 15,
     fontWeight: "500",
     fontFamily: "SpaceMono",
@@ -589,32 +572,37 @@ const styles = StyleSheet.create({
   },
 
   placeholderAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 23,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
     borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.3)",
+    borderColor: COLORS.buttonBorder,
   },
 
   selectProfileText: {
-    color: "#adb5bd",
+    color: COLORS.textSecondary,
     fontSize: 15,
     fontFamily: "SpaceMono",
   },
 
   dropdownTrigger: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -625,16 +613,16 @@ const styles = StyleSheet.create({
     width: "90%",
     maxWidth: 400,
     maxHeight: 300,
-    backgroundColor: "#3a3a3a",
-    borderRadius: 16,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 20,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
+    borderColor: COLORS.divider,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
 
   profileList: {
@@ -648,27 +636,27 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    borderBottomColor: COLORS.divider,
   },
 
   profileEmojiContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
     borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.3)",
+    borderColor: COLORS.buttonBorder,
   },
 
   profileEmojiSmall: {
-    fontSize: 18,
+    fontSize: 20,
   },
 
   profileDropdownName: {
-    color: "#f8f9fa",
+    color: COLORS.textPrimary,
     fontSize: 15,
     fontFamily: "SpaceMono",
     flex: 1,
