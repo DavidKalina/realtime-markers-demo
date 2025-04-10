@@ -589,7 +589,7 @@ export default function ScanScreen() {
                 ref={scannerOverlayRef}
                 detectionStatus={detectionStatus}
                 isCapturing={isCapturing || isUploading}
-                showScannerAnimation={true}
+                showScannerAnimation={false}
               />
 
               {/* Camera not ready indicator */}
@@ -719,7 +719,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     height: "100%",
-    resizeMode: "contain",
+    resizeMode: "cover",
     backgroundColor: COLORS.cardBackground,
   },
   progressContainer: {
