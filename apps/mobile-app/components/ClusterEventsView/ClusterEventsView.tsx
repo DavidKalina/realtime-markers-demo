@@ -51,15 +51,23 @@ interface EventType {
 
 interface HubDataType {
   featuredEvent: EventType | null;
-  eventsByCategory: {
+  eventsByCategory?: {
     category: CategoryType;
     events: EventType[];
-  }[];
-  eventsByLocation: {
+    total: number;
+    hasMore: boolean;
+  };
+  eventsByLocation?: {
     location: string;
     events: EventType[];
-  }[];
-  eventsToday: EventType[];
+    total: number;
+    hasMore: boolean;
+  };
+  eventsToday?: {
+    events: EventType[];
+    total: number;
+    hasMore: boolean;
+  };
 }
 
 interface EventsListSectionProps {
@@ -70,6 +78,9 @@ interface EventsListSectionProps {
   onPageChange?: (index: number) => void;
   currentPage?: number;
   useScrollView?: boolean;
+  isLoadingMore: boolean;
+  hasMoreData: boolean;
+  onLoadMore: () => void;
 }
 
 // Theme
@@ -490,6 +501,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "SpaceMono",
   },
+  loadingFooter: {
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  loadingFooterText: {
+    marginLeft: 8,
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontFamily: 'SpaceMono',
+  },
 });
 
 // Memoized TabButton component
@@ -624,16 +647,16 @@ const FeaturedEvent = memo<{
   useEffect(() => {
     emojiScale.value = withRepeat(
       withSequence(
-        withTiming(1.1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+        withTiming(1.1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) })
       ),
       -1,
       true
     );
     emojiOffset.value = withRepeat(
       withSequence(
-        withTiming(-5, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+        withTiming(-5, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.ease) })
       ),
       -1,
       true
@@ -647,7 +670,7 @@ const FeaturedEvent = memo<{
         { translateY: emojiOffset.value }
       ]
     };
-  });
+  }, []);
 
   return (
     <TouchableOpacity
@@ -657,7 +680,11 @@ const FeaturedEvent = memo<{
     >
       <View style={styles.featuredImageContainer}>
         {event.imageUrl ? (
-          <Image source={{ uri: event.imageUrl }} style={styles.featuredImage} />
+          <Image
+            source={{ uri: event.imageUrl }}
+            style={styles.featuredImage}
+            resizeMode="cover"
+          />
         ) : (
           <View style={styles.featuredEmojiContainer}>
             <Animated.View style={emojiAnimatedStyle}>
@@ -719,21 +746,21 @@ const EventsListSection = memo<EventsListSectionProps>(({
   icon: Icon,
   events,
   onEventPress,
-  onPageChange,
-  currentPage,
-  useScrollView = false
+  isLoadingMore,
+  hasMoreData,
+  onLoadMore
 }) => {
   const flatListRef = useRef<FlatList>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
 
-  useEffect(() => {
-    if (currentPage !== undefined && flatListRef.current) {
-      flatListRef.current.scrollToIndex({
-        index: currentPage,
-        animated: true,
-      });
+  // Handle scroll to load more
+  const handleEndReached = useCallback(() => {
+    if (!isLoadingMore && hasMoreData && !isScrolling) {
+      onLoadMore();
     }
-  }, [currentPage]);
+  }, [isLoadingMore, hasMoreData, isScrolling, onLoadMore]);
 
+  // Memoize render functions
   const renderItem = useCallback(({ item, index }: { item: EventType; index: number }) => (
     <AnimatedEventCard
       event={item}
@@ -744,31 +771,37 @@ const EventsListSection = memo<EventsListSectionProps>(({
 
   const keyExtractor = useCallback((item: EventType) => item.id, []);
 
+  // Memoize list header
+  const ListHeader = useMemo(() => (
+    <View style={styles.listHeader}>
+      <Icon size={18} color={COLORS.accent} />
+      <Text style={styles.listHeaderText}>{title}</Text>
+    </View>
+  ), [title, Icon]);
+
+  // Memoize empty state
+  const EmptyState = useMemo(() => (
+    <View style={[styles.emptyListContainer, { height: 450 }]}>
+      <Text style={styles.emptyListText}>No events found</Text>
+    </View>
+  ), []);
+
+  // Memoize loading footer
+  const LoadingFooter = useMemo(() => (
+    isLoadingMore ? (
+      <View style={styles.loadingFooter}>
+        <ActivityIndicator size="small" color={COLORS.accent} />
+        <Text style={styles.loadingFooterText}>Loading more events...</Text>
+      </View>
+    ) : null
+  ), [isLoadingMore]);
+
   return (
     <View style={styles.eventsListContainer}>
-      <View style={styles.listHeader}>
-        <Icon size={18} color={COLORS.accent} />
-        <Text style={styles.listHeaderText}>{title}</Text>
-      </View>
+      {ListHeader}
       <View style={styles.eventsListInner}>
         {events.length === 0 ? (
-          <View style={[styles.emptyListContainer, { height: 450 }]}>
-            <Text style={styles.emptyListText}>No events found</Text>
-          </View>
-        ) : useScrollView ? (
-          <ScrollView
-            showsVerticalScrollIndicator={true}
-            contentContainerStyle={{ paddingBottom: 16 }}
-          >
-            {events.map((event, index) => (
-              <AnimatedEventCard
-                key={event.id}
-                event={event}
-                onPress={() => onEventPress(event)}
-                index={index}
-              />
-            ))}
-          </ScrollView>
+          EmptyState
         ) : (
           <FlatList
             ref={flatListRef}
@@ -779,10 +812,17 @@ const EventsListSection = memo<EventsListSectionProps>(({
             scrollEnabled={true}
             nestedScrollEnabled={true}
             contentContainerStyle={{ paddingBottom: 16 }}
-            initialNumToRender={5}
-            maxToRenderPerBatch={5}
-            windowSize={5}
+            initialNumToRender={3}
+            maxToRenderPerBatch={3}
+            windowSize={3}
             removeClippedSubviews={true}
+            updateCellsBatchingPeriod={50}
+            onScrollBeginDrag={() => setIsScrolling(true)}
+            onScrollEndDrag={() => setIsScrolling(false)}
+            onMomentumScrollEnd={() => setIsScrolling(false)}
+            onEndReached={handleEndReached}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={LoadingFooter}
             getItemLayout={(data, index) => ({
               length: 80,
               offset: 80 * index,
@@ -803,6 +843,10 @@ const ClusterEventsView: React.FC = () => {
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState<number>(0);
   const [currentLocationIndex, setCurrentLocationIndex] = useState<number>(0);
   const [hubData, setHubData] = useState<HubDataType | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [hasMoreData, setHasMoreData] = useState<boolean>(true);
+  const [currentPage, setCurrentPage] = useState<number>(0);
+  const PAGE_SIZE = 5;
 
   const scrollY = useSharedValue(0);
   const markers = useLocationStore((state) => state.markers);
@@ -843,6 +887,13 @@ const ClusterEventsView: React.FC = () => {
   const handleTabPress = useCallback((tab: "categories" | "locations" | "today") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tab);
+
+    // Reset indices when switching tabs
+    if (tab === "categories") {
+      setCurrentCategoryIndex(0);
+    } else if (tab === "locations") {
+      setCurrentLocationIndex(0);
+    }
   }, []);
 
   const handleEventPress = useCallback((event: EventType) => {
@@ -850,10 +901,15 @@ const ClusterEventsView: React.FC = () => {
     router.push(`/details?eventId=${event.id}` as never);
   }, [router]);
 
-  // Memoized fetch function
-  const fetchClusterHubData = useCallback(async () => {
+  // Update the data fetching function
+  const fetchClusterHubData = useCallback(async (page: number = 0) => {
     try {
-      setIsLoading(true);
+      if (page === 0) {
+        setIsLoading(true);
+      } else {
+        setIsLoadingMore(true);
+      }
+
       const markerIds =
         selectedItem?.type === "cluster"
           ? (selectedItem as any).childrenIds || []
@@ -863,26 +919,128 @@ const ClusterEventsView: React.FC = () => {
         throw new Error("No markers found");
       }
 
-      const data = await apiClient.getClusterHubData(markerIds);
-      setHubData(data);
+      const data = await apiClient.getClusterHubData(markerIds, {
+        tab: activeTab,
+        page,
+        pageSize: PAGE_SIZE,
+        ...(activeTab === 'categories' && hubData?.eventsByCategory?.category && {
+          categoryId: hubData.eventsByCategory.category.id
+        }),
+        ...(activeTab === 'locations' && hubData?.eventsByLocation?.location && {
+          location: hubData.eventsByLocation.location
+        })
+      });
+
+      if (page === 0) {
+        setHubData(data);
+      } else {
+        // Append new data to existing data
+        setHubData(prev => {
+          if (!prev) return data;
+
+          return {
+            ...prev,
+            ...(activeTab === 'categories' && data.eventsByCategory && {
+              eventsByCategory: {
+                ...data.eventsByCategory,
+                events: [...prev.eventsByCategory?.events || [], ...data.eventsByCategory.events]
+              }
+            }),
+            ...(activeTab === 'locations' && data.eventsByLocation && {
+              eventsByLocation: {
+                ...data.eventsByLocation,
+                events: [...prev.eventsByLocation?.events || [], ...data.eventsByLocation.events]
+              }
+            }),
+            ...(activeTab === 'today' && data.eventsToday && {
+              eventsToday: {
+                ...data.eventsToday,
+                events: [...prev.eventsToday?.events || [], ...data.eventsToday.events]
+              }
+            })
+          };
+        });
+      }
+
+      // Update hasMoreData based on the response
+      setHasMoreData(
+        (activeTab === 'categories' && data.eventsByCategory?.hasMore) ||
+        (activeTab === 'locations' && data.eventsByLocation?.hasMore) ||
+        (activeTab === 'today' && data.eventsToday?.hasMore) ||
+        false
+      );
     } catch (error) {
       console.error("Error fetching cluster hub data:", error);
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
-  }, [markers, selectedItem]);
+  }, [markers, selectedItem, activeTab, hubData]);
 
+  // Load initial data
   useEffect(() => {
-    fetchClusterHubData();
+    fetchClusterHubData(0);
   }, [fetchClusterHubData]);
+
+  // Handle tab changes
+  useEffect(() => {
+    setCurrentPage(0);
+    fetchClusterHubData(0);
+  }, [activeTab]);
+
+  // Handle load more
+  const handleLoadMore = useCallback(() => {
+    if (!isLoadingMore && hasMoreData) {
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      fetchClusterHubData(nextPage);
+    }
+  }, [isLoadingMore, hasMoreData, currentPage, fetchClusterHubData]);
+
+  // Update render functions to use the new data structure
+  const renderCategoryItem = useCallback(() => {
+    if (!hubData?.eventsByCategory) return null;
+
+    return (
+      <View style={{ width: SCREEN_WIDTH - 32 }}>
+        <EventsListSection
+          title={hubData.eventsByCategory.category.name}
+          icon={Tag}
+          events={hubData.eventsByCategory.events}
+          onEventPress={handleEventPress}
+          isLoadingMore={isLoadingMore}
+          hasMoreData={hasMoreData}
+          onLoadMore={handleLoadMore}
+        />
+      </View>
+    );
+  }, [hubData, handleEventPress, isLoadingMore, hasMoreData, handleLoadMore]);
+
+  const renderLocationItem = useCallback(() => {
+    if (!hubData?.eventsByLocation) return null;
+
+    return (
+      <View style={{ width: SCREEN_WIDTH - 32 }}>
+        <EventsListSection
+          title={hubData.eventsByLocation.location}
+          icon={MapPin}
+          events={hubData.eventsByLocation.events}
+          onEventPress={handleEventPress}
+          isLoadingMore={isLoadingMore}
+          hasMoreData={hasMoreData}
+          onLoadMore={handleLoadMore}
+        />
+      </View>
+    );
+  }, [hubData, handleEventPress, isLoadingMore, hasMoreData, handleLoadMore]);
 
   // Memoized page indicators
   const renderCategoryPageIndicator = useMemo(() => {
-    if (!hubData?.eventsByCategory.length) return null;
+    if (!hubData?.eventsByCategory?.events) return null;
 
     return (
       <View style={styles.pageIndicator}>
-        {hubData.eventsByCategory.map((_, index) => (
+        {Array.from({ length: Math.ceil(hubData.eventsByCategory.events.length / PAGE_SIZE) }).map((_, index) => (
           <View
             key={index}
             style={[
@@ -893,14 +1051,14 @@ const ClusterEventsView: React.FC = () => {
         ))}
       </View>
     );
-  }, [hubData?.eventsByCategory, currentCategoryIndex]);
+  }, [hubData?.eventsByCategory?.events, currentCategoryIndex]);
 
   const renderLocationPageIndicator = useMemo(() => {
-    if (!hubData?.eventsByLocation.length) return null;
+    if (!hubData?.eventsByLocation?.events) return null;
 
     return (
       <View style={styles.pageIndicator}>
-        {hubData.eventsByLocation.map((_, index) => (
+        {Array.from({ length: Math.ceil(hubData.eventsByLocation.events.length / PAGE_SIZE) }).map((_, index) => (
           <View
             key={index}
             style={[
@@ -911,35 +1069,24 @@ const ClusterEventsView: React.FC = () => {
         ))}
       </View>
     );
-  }, [hubData?.eventsByLocation, currentLocationIndex]);
+  }, [hubData?.eventsByLocation?.events, currentLocationIndex]);
 
-  // Move these hook declarations outside of useMemo
-  const renderCategoryItem = useCallback(({ item }: { item: { category: CategoryType; events: EventType[] } }) => (
-    <View style={{ width: SCREEN_WIDTH - 32 }}>
-      <EventsListSection
-        title={item.category.name}
-        icon={Tag}
-        events={item.events}
-        onEventPress={handleEventPress}
-      />
-    </View>
-  ), [handleEventPress]);
+  // Optimize page change handlers
+  const handleCategoryPageChange = useCallback((index: number) => {
+    if (index !== currentCategoryIndex) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setCurrentCategoryIndex(index);
+    }
+  }, [currentCategoryIndex]);
 
-  const renderLocationItem = useCallback(({ item }: { item: { location: string; events: EventType[] } }) => (
-    <View style={{ width: SCREEN_WIDTH - 32 }}>
-      <EventsListSection
-        title={item.location}
-        icon={MapPin}
-        events={item.events}
-        onEventPress={handleEventPress}
-      />
-    </View>
-  ), [handleEventPress]);
+  const handleLocationPageChange = useCallback((index: number) => {
+    if (index !== currentLocationIndex) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setCurrentLocationIndex(index);
+    }
+  }, [currentLocationIndex]);
 
-  const categoryKeyExtractor = useCallback((item: { category: CategoryType; events: EventType[] }) => item.category.id, []);
-  const locationKeyExtractor = useCallback((item: { location: string; events: EventType[] }) => item.location, []);
-
-  // Now useMemo can use these memoized functions
+  // Update renderActiveTabContent
   const renderActiveTabContent = useMemo(() => {
     if (!hubData) return null;
 
@@ -947,64 +1094,14 @@ const ClusterEventsView: React.FC = () => {
       case "categories":
         return (
           <>
-            <FlatList
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              data={hubData.eventsByCategory}
-              keyExtractor={categoryKeyExtractor}
-              renderItem={renderCategoryItem}
-              onMomentumScrollEnd={(event) => {
-                const newIndex = Math.round(
-                  event.nativeEvent.contentOffset.x / SCREEN_WIDTH
-                );
-                if (newIndex !== currentCategoryIndex) {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setCurrentCategoryIndex(newIndex);
-                }
-              }}
-              initialNumToRender={1}
-              maxToRenderPerBatch={1}
-              windowSize={3}
-              removeClippedSubviews={true}
-              getItemLayout={(data, index) => ({
-                length: SCREEN_WIDTH - 32,
-                offset: (SCREEN_WIDTH - 32) * index,
-                index,
-              })}
-            />
+            {renderCategoryItem()}
             {renderCategoryPageIndicator}
           </>
         );
       case "locations":
         return (
           <>
-            <FlatList
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              data={hubData.eventsByLocation}
-              keyExtractor={locationKeyExtractor}
-              renderItem={renderLocationItem}
-              onMomentumScrollEnd={(event) => {
-                const newIndex = Math.round(
-                  event.nativeEvent.contentOffset.x / SCREEN_WIDTH
-                );
-                if (newIndex !== currentLocationIndex) {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setCurrentLocationIndex(newIndex);
-                }
-              }}
-              initialNumToRender={1}
-              maxToRenderPerBatch={1}
-              windowSize={3}
-              removeClippedSubviews={true}
-              getItemLayout={(data, index) => ({
-                length: SCREEN_WIDTH - 32,
-                offset: (SCREEN_WIDTH - 32) * index,
-                index,
-              })}
-            />
+            {renderLocationItem()}
             {renderLocationPageIndicator}
           </>
         );
@@ -1013,15 +1110,17 @@ const ClusterEventsView: React.FC = () => {
           <EventsListSection
             title="Events Today"
             icon={Calendar}
-            events={hubData.eventsToday}
+            events={hubData.eventsToday?.events || []}
             onEventPress={handleEventPress}
-            useScrollView={true}
+            isLoadingMore={isLoadingMore}
+            hasMoreData={hasMoreData}
+            onLoadMore={handleLoadMore}
           />
         );
       default:
         return null;
     }
-  }, [hubData, activeTab, currentCategoryIndex, currentLocationIndex, handleEventPress, renderCategoryPageIndicator, renderLocationPageIndicator, renderCategoryItem, renderLocationItem, categoryKeyExtractor, locationKeyExtractor]);
+  }, [hubData, activeTab, renderCategoryItem, renderLocationItem, handleEventPress, isLoadingMore, hasMoreData, handleLoadMore, renderCategoryPageIndicator, renderLocationPageIndicator]);
 
   // Memoized main content
   const renderContent = useMemo(() => {
@@ -1105,8 +1204,9 @@ const ClusterEventsView: React.FC = () => {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
         onScroll={scrollHandler}
-        scrollEventThrottle={16}
+        scrollEventThrottle={32}
         bounces={true}
+        removeClippedSubviews={true}
       >
         {renderContent}
       </Animated.ScrollView>

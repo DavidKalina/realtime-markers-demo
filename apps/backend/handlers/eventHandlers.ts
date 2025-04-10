@@ -125,9 +125,9 @@ export const processEventImageHandler: EventHandler = async (c) => {
     const userCoordinates =
       userLat && userLng
         ? {
-            lat: parseFloat(userLat.toString()),
-            lng: parseFloat(userLng.toString()),
-          }
+          lat: parseFloat(userLat.toString()),
+          lng: parseFloat(userLng.toString()),
+        }
         : null;
 
     if (!user || !user?.userId) {
@@ -512,13 +512,24 @@ export const getClusterHubDataHandler: EventHandler = async (c) => {
   try {
     const data = await c.req.json();
     const { markerIds } = data;
+    const tab = c.req.query("tab") as 'categories' | 'locations' | 'today' | undefined;
+    const categoryId = c.req.query("categoryId");
+    const location = c.req.query("location");
+    const page = c.req.query("page") ? parseInt(c.req.query("page")!) : undefined;
+    const pageSize = c.req.query("pageSize") ? parseInt(c.req.query("pageSize")!) : undefined;
 
     if (!markerIds || !Array.isArray(markerIds)) {
       return c.json({ error: "Missing or invalid markerIds array" }, 400);
     }
 
     const eventService = c.get("eventService");
-    const hubData = await eventService.getClusterHubData(markerIds);
+    const hubData = await eventService.getClusterHubData(markerIds, {
+      tab,
+      categoryId,
+      location,
+      page,
+      pageSize,
+    });
 
     return c.json(hubData);
   } catch (error) {

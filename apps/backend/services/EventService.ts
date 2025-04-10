@@ -975,12 +975,23 @@ export class EventService {
     }
   }
 
-  async getClusterHubData(markerIds: string[]): Promise<{
+  async getClusterHubData(
+    markerIds: string[],
+    options: {
+      tab?: 'categories' | 'locations' | 'today';
+      categoryId?: string;
+      location?: string;
+      page?: number;
+      pageSize?: number;
+    } = {}
+  ): Promise<{
     featuredEvent: Event | null;
-    eventsByCategory: { category: Category; events: Event[] }[];
-    eventsByLocation: { location: string; events: Event[] }[];
-    eventsToday: Event[];
+    eventsByCategory?: { category: Category; events: Event[]; total: number; hasMore: boolean };
+    eventsByLocation?: { location: string; events: Event[]; total: number; hasMore: boolean };
+    eventsToday?: { events: Event[]; total: number; hasMore: boolean };
   }> {
+    const { tab, categoryId, location, page = 0, pageSize = 5 } = options;
+
     // Get all events from the marker IDs
     const events = await this.eventRepository
       .createQueryBuilder("event")
@@ -991,70 +1002,131 @@ export class EventService {
     if (events.length === 0) {
       return {
         featuredEvent: null,
-        eventsByCategory: [],
-        eventsByLocation: [],
-        eventsToday: [],
+        ...(tab === 'categories' && { eventsByCategory: { category: {} as Category, events: [], total: 0, hasMore: false } }),
+        ...(tab === 'locations' && { eventsByLocation: { location: '', events: [], total: 0, hasMore: false } }),
+        ...(tab === 'today' && { eventsToday: { events: [], total: 0, hasMore: false } }),
       };
     }
 
-    // 1. Get featured event (oldest event for now)
+    // Always get featured event
     const featuredEvent = events.reduce((oldest, current) => {
       return oldest.eventDate < current.eventDate ? oldest : current;
     });
 
-    // 2. Get events by category
-    const categoryMap = new Map<string, { category: Category; events: Event[] }>();
-    events.forEach((event) => {
-      event.categories.forEach((category) => {
-        if (!categoryMap.has(category.id)) {
-          categoryMap.set(category.id, { category, events: [] });
-        }
-        categoryMap.get(category.id)!.events.push(event);
-      });
-    });
+    const result: any = { featuredEvent };
 
-    // Sort categories by number of events and take top 4
-    const eventsByCategory = Array.from(categoryMap.values())
-      .sort((a, b) => b.events.length - a.events.length)
-      .slice(0, 4);
-
-    // 3. Get events by location
-    const locationMap = new Map<string, Event[]>();
-    events.forEach((event) => {
-      if (event.address) {
-        // Extract city and state from address
-        const locationMatch = event.address.match(/([^,]+),\s*([A-Z]{2})/);
-        if (locationMatch) {
-          const location = locationMatch[0]; // e.g., "Provo, UT"
-          if (!locationMap.has(location)) {
-            locationMap.set(location, []);
-          }
-          locationMap.get(location)!.push(event);
+    // Only fetch data for the requested tab
+    if (tab === 'categories') {
+      if (categoryId) {
+        // Get specific category data with pagination
+        const category = await this.categoryRepository.findOne({ where: { id: categoryId } });
+        if (!category) {
+          return { ...result, eventsByCategory: { category, events: [], total: 0, hasMore: false } };
         }
+
+        const categoryEvents = events.filter(event =>
+          event.categories.some(c => c.id === categoryId)
+        );
+
+        const start = page * pageSize;
+        const end = start + pageSize;
+        const paginatedEvents = categoryEvents.slice(start, end);
+
+        result.eventsByCategory = {
+          category,
+          events: paginatedEvents,
+          total: categoryEvents.length,
+          hasMore: end < categoryEvents.length
+        };
+      } else {
+        // Get all categories with their event counts
+        const categoryMap = new Map<string, { category: Category; events: Event[] }>();
+        events.forEach((event) => {
+          event.categories.forEach((category) => {
+            if (!categoryMap.has(category.id)) {
+              categoryMap.set(category.id, { category, events: [] });
+            }
+            categoryMap.get(category.id)!.events.push(event);
+          });
+        });
+
+        // Sort categories by number of events and take top 4
+        const eventsByCategory = Array.from(categoryMap.values())
+          .sort((a, b) => b.events.length - a.events.length)
+          .slice(0, 4);
+
+        result.eventsByCategory = {
+          category: eventsByCategory[0]?.category,
+          events: eventsByCategory[0]?.events.slice(0, pageSize) || [],
+          total: eventsByCategory[0]?.events.length || 0,
+          hasMore: (eventsByCategory[0]?.events.length || 0) > pageSize
+        };
       }
-    });
+    } else if (tab === 'locations') {
+      if (location) {
+        // Get specific location data with pagination
+        const locationEvents = events.filter(event => event.address?.includes(location));
+        const start = page * pageSize;
+        const end = start + pageSize;
+        const paginatedEvents = locationEvents.slice(start, end);
 
-    // Convert to array and sort by number of events
-    const eventsByLocation = Array.from(locationMap.entries())
-      .map(([location, events]) => ({ location, events }))
-      .sort((a, b) => b.events.length - a.events.length);
+        result.eventsByLocation = {
+          location,
+          events: paginatedEvents,
+          total: locationEvents.length,
+          hasMore: end < locationEvents.length
+        };
+      } else {
+        // Get all locations with their event counts
+        const locationMap = new Map<string, Event[]>();
+        events.forEach((event) => {
+          if (event.address) {
+            const locationMatch = event.address.match(/([^,]+),\s*([A-Z]{2})/);
+            if (locationMatch) {
+              const location = locationMatch[0];
+              if (!locationMap.has(location)) {
+                locationMap.set(location, []);
+              }
+              locationMap.get(location)!.push(event);
+            }
+          }
+        });
 
-    // 4. Get events happening today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+        // Sort locations by number of events
+        const eventsByLocation = Array.from(locationMap.entries())
+          .map(([location, events]) => ({ location, events }))
+          .sort((a, b) => b.events.length - a.events.length);
 
-    const eventsToday = events.filter((event) => {
-      const eventDate = new Date(event.eventDate);
-      return eventDate >= today && eventDate < tomorrow;
-    });
+        result.eventsByLocation = {
+          location: eventsByLocation[0]?.location || '',
+          events: eventsByLocation[0]?.events.slice(0, pageSize) || [],
+          total: eventsByLocation[0]?.events.length || 0,
+          hasMore: (eventsByLocation[0]?.events.length || 0) > pageSize
+        };
+      }
+    } else if (tab === 'today') {
+      // Get events happening today with pagination
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
 
-    return {
-      featuredEvent,
-      eventsByCategory,
-      eventsByLocation,
-      eventsToday,
-    };
+      const todayEvents = events.filter((event) => {
+        const eventDate = new Date(event.eventDate);
+        return eventDate >= today && eventDate < tomorrow;
+      });
+
+      const start = page * pageSize;
+      const end = start + pageSize;
+      const paginatedEvents = todayEvents.slice(start, end);
+
+      result.eventsToday = {
+        events: paginatedEvents,
+        total: todayEvents.length,
+        hasMore: end < todayEvents.length
+      };
+    }
+
+    return result;
   }
 }

@@ -717,8 +717,7 @@ class ApiClient {
 
       // Log pagination details for debugging
       console.log(
-        `Search query: "${query}" | Results: ${data.results.length} | Next cursor: ${
-          data.nextCursor || "none"
+        `Search query: "${query}" | Results: ${data.results.length} | Next cursor: ${data.nextCursor || "none"
         }`
       );
 
@@ -1031,19 +1030,45 @@ class ApiClient {
   }
 
   // Add this method to fetch cluster hub data
-  async getClusterHubData(markerIds: string[]): Promise<{
+  async getClusterHubData(
+    markerIds: string[],
+    options: {
+      tab?: 'categories' | 'locations' | 'today';
+      categoryId?: string;
+      location?: string;
+      page?: number;
+      pageSize?: number;
+    } = {}
+  ): Promise<{
     featuredEvent: EventType | null;
-    eventsByCategory: {
+    eventsByCategory?: {
       category: { id: string; name: string };
       events: EventType[];
-    }[];
-    eventsByLocation: {
+      total: number;
+      hasMore: boolean;
+    };
+    eventsByLocation?: {
       location: string;
       events: EventType[];
-    }[];
-    eventsToday: EventType[];
+      total: number;
+      hasMore: boolean;
+    };
+    eventsToday?: {
+      events: EventType[];
+      total: number;
+      hasMore: boolean;
+    };
   }> {
-    const url = `${this.baseUrl}/api/events/cluster-hub`;
+    const queryParams = new URLSearchParams();
+
+    // Add query parameters if provided
+    if (options.tab) queryParams.append('tab', options.tab);
+    if (options.categoryId) queryParams.append('categoryId', options.categoryId);
+    if (options.location) queryParams.append('location', options.location);
+    if (options.page) queryParams.append('page', options.page.toString());
+    if (options.pageSize) queryParams.append('pageSize', options.pageSize.toString());
+
+    const url = `${this.baseUrl}/api/events/cluster-hub?${queryParams.toString()}`;
 
     try {
       const response = await this.fetchWithAuth(url, {
@@ -1051,20 +1076,53 @@ class ApiClient {
         body: JSON.stringify({ markerIds }),
       });
 
-      const data = await this.handleResponse<ClusterHubData>(response);
+      const data = await this.handleResponse<{
+        featuredEvent: ApiEvent | null;
+        eventsByCategory?: {
+          category: { id: string; name: string };
+          events: ApiEvent[];
+          total: number;
+          hasMore: boolean;
+        };
+        eventsByLocation?: {
+          location: string;
+          events: ApiEvent[];
+          total: number;
+          hasMore: boolean;
+        };
+        eventsToday?: {
+          events: ApiEvent[];
+          total: number;
+          hasMore: boolean;
+        };
+      }>(response);
 
       // Map all events to EventType
       return {
         featuredEvent: data.featuredEvent ? this.mapEventToEventType(data.featuredEvent) : null,
-        eventsByCategory: data.eventsByCategory.map((categoryGroup) => ({
-          category: categoryGroup.category,
-          events: categoryGroup.events.map(this.mapEventToEventType),
-        })),
-        eventsByLocation: data.eventsByLocation.map((locationGroup) => ({
-          location: locationGroup.location,
-          events: locationGroup.events.map(this.mapEventToEventType),
-        })),
-        eventsToday: data.eventsToday.map(this.mapEventToEventType),
+        ...(data.eventsByCategory && {
+          eventsByCategory: {
+            category: data.eventsByCategory.category,
+            events: data.eventsByCategory.events.map(this.mapEventToEventType),
+            total: data.eventsByCategory.total,
+            hasMore: data.eventsByCategory.hasMore
+          }
+        }),
+        ...(data.eventsByLocation && {
+          eventsByLocation: {
+            location: data.eventsByLocation.location,
+            events: data.eventsByLocation.events.map(this.mapEventToEventType),
+            total: data.eventsByLocation.total,
+            hasMore: data.eventsByLocation.hasMore
+          }
+        }),
+        ...(data.eventsToday && {
+          eventsToday: {
+            events: data.eventsToday.events.map(this.mapEventToEventType),
+            total: data.eventsToday.total,
+            hasMore: data.eventsToday.hasMore
+          }
+        })
       };
     } catch (error) {
       console.error("Error fetching cluster hub data:", error);
