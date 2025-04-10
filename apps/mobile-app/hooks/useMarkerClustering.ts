@@ -148,13 +148,7 @@ export const useMarkerClustering = (
         const markerIds = leaves.map(leaf => (leaf as PointFeature).properties.id);
         const stableId = generateClusterId(markerIds.map(id => markers.find(m => m.id === id)!));
 
-        // Log cluster information
-        console.log('Cluster Processing:', {
-          clusterId: clusterFeature.properties.cluster_id,
-          pointCount: clusterFeature.properties.point_count,
-          markerIdsCount: markerIds.length,
-          markerIds: markerIds,
-        });
+
 
         return {
           ...clusterFeature,

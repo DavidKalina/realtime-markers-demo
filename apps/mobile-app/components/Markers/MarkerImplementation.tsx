@@ -217,22 +217,12 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               childMarkers: item.childrenIds,
             };
 
-            // Log the cluster selection
-            console.log('Publishing Cluster Selection:', {
-              clusterId: item.id,
-              count: item.count,
-              childMarkers: item.childrenIds,
-              childMarkersCount: item.childrenIds?.length
-            });
-
-            // Publish the unified MAP_ITEM_SELECTED event
             publish<MapItemEvent>(EventTypes.MAP_ITEM_SELECTED, {
               timestamp: Date.now(),
               source: "ClusteredMapMarkers",
               item: clusterEventItem,
             });
 
-            // For backward compatibility, also publish the legacy event
             publish(EventTypes.CLUSTER_SELECTED, {
               timestamp: Date.now(),
               source: "ClusteredMapMarkers",
