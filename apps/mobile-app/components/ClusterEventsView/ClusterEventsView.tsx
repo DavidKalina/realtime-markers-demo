@@ -61,6 +61,7 @@ interface HubDataType {
   }[];
   eventsToday: EventType[];
   clusterName: string;
+  clusterDescription: string;
 }
 
 interface EventsListSectionProps {
@@ -113,6 +114,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
+  },
+  clusterDescription: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+    marginTop: 12,
   },
   backButton: {
     width: 40,
@@ -620,6 +627,15 @@ const truncateText = (text: string, maxLength: number = 20): string => {
   return text.substring(0, maxLength) + '...';
 };
 
+
+const ClusterDescription = memo<{
+  description: string;
+}>(({ description }) => {
+  return (
+    <Text style={styles.clusterDescription}>{description}</Text>
+  );
+});
+
 // Memoized FeaturedEvent component
 const FeaturedEvent = memo<{
   event: EventType;
@@ -1036,6 +1052,7 @@ const ClusterEventsView: React.FC = () => {
 
     return (
       <>
+        <ClusterDescription description={hubData.clusterDescription} />
         <Animated.View
           style={styles.sectionContainer}
           entering={FadeInDown.duration(600).delay(100).springify()}

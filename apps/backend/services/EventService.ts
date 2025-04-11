@@ -991,6 +991,7 @@ export class EventService {
     eventsByLocation: { location: string; events: Event[] }[];
     eventsToday: Event[];
     clusterName: string;
+    clusterDescription: string;
   }> {
     // Try to get from cache first
     const cachedData = await CacheService.getCachedClusterHub(markerIds);
@@ -1012,16 +1013,17 @@ export class EventService {
         eventsByLocation: [],
         eventsToday: [],
         clusterName: "",
+        clusterDescription: "",
       };
     }
 
-    // Generate cluster name using 4o-mini model
+    // Generate cluster name and description using 4o-mini model
     let clusterName = "";
+    let clusterDescription = "";
     try {
-      const openai = OpenAIService.getInstance();
       // Combine event names and descriptions to create context
       const eventContext = events
-        .slice(0, 5) // Limit to first 5 events to avoid token limits
+        .slice(0, 10) // Take up to 10 events for more comprehensive context
         .map((event) => `${event.title}${event.description ? `: ${event.description}` : ''}`)
         .join('\n');
 
@@ -1030,22 +1032,34 @@ export class EventService {
         messages: [
           {
             role: "system",
-            content: "You are a creative naming assistant. Generate a short, catchy name (2-3 words) that captures the essence of these events. The name should be memorable and relevant to the events' themes."
+            content: `You are a creative naming and description assistant. Generate a name and description for a cluster of events.
+            Respond with a JSON object in this exact format:
+            {
+              "name": "A short, catchy name (2-3 words) that captures the essence of these events",
+              "description": "A concise but informative description (1-2 sentences) that summarizes the key themes and types of events"
+            }
+            
+            The name should be memorable and relevant to the events' themes.
+            The description should highlight what makes these events special or unique.`
           },
           {
             role: "user",
-            content: `Based on these events, create a creative name for this cluster:\n\n${eventContext}`
+            content: `Based on these events, create a name and description for this cluster:\n\n${eventContext}`
           }
         ],
         temperature: 0.7,
-        max_tokens: 20,
+        max_tokens: 200,
+        response_format: { type: "json_object" }
       });
 
-      clusterName = response.choices[0]?.message?.content?.trim() || "";
+      const result = JSON.parse(response.choices[0]?.message?.content || '{}');
+      clusterName = result.name || "";
+      clusterDescription = result.description || "";
     } catch (error) {
-      console.error("Error generating cluster name:", error);
-      // Fallback to using the first event's title if AI generation fails
+      console.error("Error generating cluster name and description:", error);
+      // Fallback to using the first event's title and description
       clusterName = events[0]?.title || "";
+      clusterDescription = events[0]?.description || "";
     }
 
     // 1. Get featured event (oldest event for now)
@@ -1107,6 +1121,7 @@ export class EventService {
       eventsByLocation,
       eventsToday,
       clusterName,
+      clusterDescription,
     };
 
     // Cache the result for 5 minutes

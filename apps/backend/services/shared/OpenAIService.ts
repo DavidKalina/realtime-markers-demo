@@ -210,6 +210,7 @@ export class OpenAIService {
     messages: any[];
     temperature?: number;
     max_tokens?: number;
+    response_format?: { type: "json_object" | "text" };
   }): Promise<any> {
     const openai = this.getInstance();
     const result = await openai.chat.completions.create(params);

@@ -150,6 +150,7 @@ interface ClusterHubData {
   }[];
   eventsToday: ApiEvent[];
   clusterName: string;
+  clusterDescription: string;
 }
 
 class ApiClient {
@@ -1043,6 +1044,7 @@ class ApiClient {
     }[];
     eventsToday: EventType[];
     clusterName: string;
+    clusterDescription: string;
   }> {
     const url = `${this.baseUrl}/api/events/cluster-hub`;
 
@@ -1057,6 +1059,7 @@ class ApiClient {
       // Map all events to EventType
       return {
         clusterName: data.clusterName,
+        clusterDescription: data.clusterDescription,
         featuredEvent: data.featuredEvent ? this.mapEventToEventType(data.featuredEvent) : null,
         eventsByCategory: data.eventsByCategory.map((categoryGroup) => ({
           category: categoryGroup.category,
