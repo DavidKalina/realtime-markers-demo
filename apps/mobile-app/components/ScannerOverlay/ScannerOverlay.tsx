@@ -24,6 +24,81 @@ const ANIMATIONS = {
   },
 };
 
+// Memoized AnimatedBoundary component
+const AnimatedBoundary = React.memo(() => {
+  const borderWidth = useSharedValue(2);
+  const animationRef = useRef<number>();
+
+  useEffect(() => {
+    const startAnimation = () => {
+      animationRef.current = requestAnimationFrame(() => {
+        borderWidth.value = withRepeat(
+          withSequence(
+            withTiming(2.5, {
+              duration: ANIMATIONS.BORDER_PULSE.DURATION,
+              easing: ANIMATIONS.BORDER_PULSE.EASING,
+            }),
+            withTiming(2, {
+              duration: ANIMATIONS.BORDER_PULSE.DURATION,
+              easing: ANIMATIONS.BORDER_PULSE.EASING,
+            })
+          ),
+          -1,
+          true
+        );
+      });
+    };
+
+    startAnimation();
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+      cancelAnimation(borderWidth);
+    };
+  }, [borderWidth]);
+
+  return (
+    <Animated.View
+      style={[
+        overlayStyles.boundary,
+        { borderWidth: borderWidth }
+      ]}
+    />
+  );
+});
+
+// Memoized ScannerAnimationContainer component
+const ScannerAnimationContainer = React.memo(({
+  showScannerAnimation,
+  detectionStatus,
+  isCapturing
+}: {
+  showScannerAnimation: boolean;
+  detectionStatus: "none" | "detecting" | "aligned";
+  isCapturing: boolean;
+}) => {
+  const showScanning = useMemo(
+    () => showScannerAnimation && (detectionStatus !== "none" || isCapturing),
+    [detectionStatus, isCapturing, showScannerAnimation]
+  );
+
+  const scannerAnimationProps = useMemo(() => ({
+    isActive: showScanning,
+    color: COLORS.accent,
+    speed: isCapturing ? 1000 : 1500,
+  }), [showScanning, isCapturing]);
+
+  if (!showScannerAnimation) return null;
+
+  return (
+    <View style={overlayStyles.scannerContainer}>
+      <SimplifiedScannerAnimation {...scannerAnimationProps} />
+    </View>
+  );
+});
+
 interface ScannerOverlayProps {
   detectionStatus?: "none" | "detecting" | "aligned";
   isCapturing?: boolean;
@@ -36,6 +111,45 @@ export interface ScannerOverlayRef {
   resetAnimations: () => void;
 }
 
+// Custom hook for frame ready callback
+const useFrameReadyCallback = (
+  detectionStatus: "none" | "detecting" | "aligned",
+  onFrameReady?: () => void
+) => {
+  const frameReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted.current) return;
+
+    if (frameReadyTimeoutRef.current) {
+      clearTimeout(frameReadyTimeoutRef.current);
+      frameReadyTimeoutRef.current = null;
+    }
+
+    if (detectionStatus === "aligned" && onFrameReady) {
+      frameReadyTimeoutRef.current = setTimeout(() => {
+        if (isMounted.current && onFrameReady) {
+          onFrameReady();
+        }
+      }, 300);
+    }
+
+    return () => {
+      if (frameReadyTimeoutRef.current) {
+        clearTimeout(frameReadyTimeoutRef.current);
+        frameReadyTimeoutRef.current = null;
+      }
+    };
+  }, [detectionStatus, onFrameReady]);
+};
+
 export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlayProps>(
   (props, ref) => {
     const {
@@ -45,43 +159,17 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
       showScannerAnimation = true,
     } = props;
 
-    // Refs to store timeouts and track component mounted state
-    const frameReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isMounted = useRef(true);
-    const animationRefs = useRef<{
-      borderWidth?: Animated.SharedValue<number>;
-    }>({});
-
-    // Shared values for animations - created once
-    const borderWidth = useSharedValue(2);
 
     // Create unified cleanup function to cancel all animations
     const cleanupAnimations = useCallback(() => {
       if (!isMounted.current) return;
-
-      // Cancel all Reanimated animations
-      if (animationRefs.current.borderWidth) {
-        cancelAnimation(animationRefs.current.borderWidth);
-        animationRefs.current.borderWidth = undefined;
-      }
-
-      // Clear any pending timeouts
-      if (frameReadyTimeoutRef.current) {
-        clearTimeout(frameReadyTimeoutRef.current);
-        frameReadyTimeoutRef.current = null;
-      }
-
-      // Reset all animation values to their initial states
-      borderWidth.value = 2;
-    }, [borderWidth]);
+    }, []);
 
     // Reset animations without cancelling them
     const resetAnimations = useCallback(() => {
       if (!isMounted.current) return;
-
-      // Reset all animation values to their initial states
-      borderWidth.value = 2;
-    }, [borderWidth]);
+    }, []);
 
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
@@ -97,84 +185,18 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
       };
     }, [cleanupAnimations]);
 
-    // Handle the frame ready callback
-    useEffect(() => {
-      if (!isMounted.current) return;
-
-      if (frameReadyTimeoutRef.current) {
-        clearTimeout(frameReadyTimeoutRef.current);
-        frameReadyTimeoutRef.current = null;
-      }
-
-      if (detectionStatus === "aligned" && onFrameReady) {
-        frameReadyTimeoutRef.current = setTimeout(() => {
-          if (isMounted.current && onFrameReady) {
-            onFrameReady();
-          }
-        }, 300);
-      }
-
-      return () => {
-        if (frameReadyTimeoutRef.current) {
-          clearTimeout(frameReadyTimeoutRef.current);
-          frameReadyTimeoutRef.current = null;
-        }
-      };
-    }, [detectionStatus, onFrameReady]);
-
-    // Separate effect for the constant border pulse animation
-    useEffect(() => {
-      if (!isMounted.current) return;
-
-      animationRefs.current.borderWidth = borderWidth;
-      borderWidth.value = withRepeat(
-        withSequence(
-          withTiming(2.5, {
-            duration: ANIMATIONS.BORDER_PULSE.DURATION,
-            easing: ANIMATIONS.BORDER_PULSE.EASING,
-          }),
-          withTiming(2, {
-            duration: ANIMATIONS.BORDER_PULSE.DURATION,
-            easing: ANIMATIONS.BORDER_PULSE.EASING,
-          })
-        ),
-        -1,
-        true
-      );
-
-      return () => {
-        if (isMounted.current) {
-          if (animationRefs.current.borderWidth) {
-            cancelAnimation(animationRefs.current.borderWidth);
-            animationRefs.current.borderWidth = undefined;
-          }
-          borderWidth.value = 2; // Reset to initial value
-        }
-      };
-    }, [borderWidth]);
-
-    // Determine if scanning animation should be shown - memoized
-    const showScanning = useMemo(
-      () => showScannerAnimation && (detectionStatus !== "none" || isCapturing),
-      [detectionStatus, isCapturing, showScannerAnimation]
-    );
-
-    // Memoize scanner animation props
-    const scannerAnimationProps = useMemo(() => ({
-      isActive: showScanning,
-      color: COLORS.accent,
-      speed: isCapturing ? 1000 : 1500,
-    }), [showScanning, isCapturing]);
+    // Use the custom hook for frame ready callback
+    useFrameReadyCallback(detectionStatus, onFrameReady);
 
     return (
       <View style={overlayStyles.container}>
         <View style={overlayStyles.frame}>
-          <Animated.View style={[overlayStyles.boundary, { borderWidth: borderWidth }]} />
-          {showScannerAnimation && (
-            <View style={overlayStyles.scannerContainer}>
-              <SimplifiedScannerAnimation {...scannerAnimationProps} />
-            </View>
-          )}
+          <AnimatedBoundary />
+          <ScannerAnimationContainer
+            showScannerAnimation={showScannerAnimation}
+            detectionStatus={detectionStatus}
+            isCapturing={isCapturing}
+          />
         </View>
       </View>
     );

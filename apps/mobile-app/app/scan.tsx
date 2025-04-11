@@ -118,6 +118,7 @@ export default function ScanScreen() {
 
     let counter = 0;
     let animationFrameId: number;
+    let lastDetectionStatus: DetectionStatus = "none";
 
     const updateDetection = () => {
       if (!isMounted.current || !isCameraActive || !isCameraReady) {
@@ -129,13 +130,19 @@ export default function ScanScreen() {
 
       counter++;
 
-      // Simplified detection logic
+      // Only update state if detection status changes
+      let newStatus: DetectionStatus;
       if (counter < 3) {
-        handleDetectionStatus("none");
+        newStatus = "none";
       } else if (counter < 5) {
-        handleDetectionStatus("detecting");
+        newStatus = "detecting";
       } else {
-        handleDetectionStatus("aligned");
+        newStatus = "aligned";
+      }
+
+      if (newStatus !== lastDetectionStatus) {
+        lastDetectionStatus = newStatus;
+        handleDetectionStatus(newStatus);
       }
 
       animationFrameId = requestAnimationFrame(updateDetection);
