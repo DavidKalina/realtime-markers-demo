@@ -7,7 +7,7 @@ import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
-import apiClient from "@/services/ApiClient";
+import apiClient, { PlanType } from "@/services/ApiClient";
 import { EventTypes } from "@/services/EventBroker";
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { Feather } from "@expo/vector-icons";
@@ -84,6 +84,15 @@ export default function ScanScreen() {
   // Refs for animation components
   const scannerOverlayRef = useRef<ScannerOverlayRef>(null);
   const scannerAnimationRef = useRef<SimplifiedScannerAnimationRef>(null);
+
+  const [planDetails, setPlanDetails] = useState<{
+    planType: PlanType;
+    weeklyScanCount: number;
+    scanLimit: number;
+    remainingScans: number;
+    lastReset: Date | null;
+  } | null>(null);
+  const [isCheckingPlan, setIsCheckingPlan] = useState(true);
 
   // Memoize the detection status handler to prevent unnecessary rerenders
   const handleDetectionStatus = useCallback((status: DetectionStatus) => {
@@ -377,7 +386,39 @@ export default function ScanScreen() {
     [uploadImageAndQueue]
   );
 
-  // Update handleCapture to use debounced upload
+  // Fetch plan details
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchPlanDetails = async () => {
+      try {
+        const details = await apiClient.getPlanDetails();
+        if (isMounted) {
+          setPlanDetails(details);
+        }
+      } catch (error) {
+        console.error("Error fetching plan details:", error);
+      } finally {
+        if (isMounted) {
+          setIsCheckingPlan(false);
+        }
+      }
+    };
+
+    fetchPlanDetails();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Check if user has remaining scans
+  const hasRemainingScans = useMemo(() => {
+    if (!planDetails) return true;
+    return planDetails.remainingScans > 0;
+  }, [planDetails]);
+
+  // Update handleCapture to check remaining scans
   const handleCapture = async () => {
     if (!isMounted.current) return;
 
@@ -391,6 +432,23 @@ export default function ScanScreen() {
         source: "ScanScreen",
         message: "Camera is initializing, please try again in a moment.",
       });
+      return;
+    }
+
+    // Check remaining scans
+    if (!hasRemainingScans) {
+      Alert.alert(
+        "Scan Limit Reached",
+        "You've reached your weekly scan limit. Please upgrade to Pro for unlimited scans.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Upgrade",
+            onPress: () => router.push("/checkout"),
+            style: "default"
+          }
+        ]
+      );
       return;
     }
 
@@ -447,9 +505,26 @@ export default function ScanScreen() {
     }
   };
 
-  // Update handleImageSelected to check network before starting
+  // Update handleImageSelected to check remaining scans
   const handleImageSelected = async (uri: string) => {
     if (!isMounted.current) return;
+
+    // Check remaining scans
+    if (!hasRemainingScans) {
+      Alert.alert(
+        "Scan Limit Reached",
+        "You've reached your weekly scan limit. Please upgrade to Pro for unlimited scans.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Upgrade",
+            onPress: () => router.push("/checkout"),
+            style: "default"
+          }
+        ]
+      );
+      return;
+    }
 
     // Check network before starting gallery image process
     if (!isNetworkSuitable()) {
@@ -547,6 +622,18 @@ export default function ScanScreen() {
     );
   }
 
+  // Loading state while checking plan details
+  if (isCheckingPlan) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#93c5fd" />
+          <Text style={styles.loaderText}>Checking scan limits...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   // Image preview mode (for both camera captured and gallery selected images)
   if (capturedImage) {
     return (
@@ -609,6 +696,42 @@ export default function ScanScreen() {
         </View>
       </Animated.View>
 
+      {/* Scan Limit Indicator */}
+      {planDetails && (
+        <Animated.View
+          style={styles.scanLimitContainer}
+          entering={FadeIn.duration(300).delay(100)}
+        >
+          <View style={styles.scanLimitContent}>
+            <Text style={styles.scanLimitText}>
+              {planDetails.remainingScans} scans remaining this week
+            </Text>
+            {planDetails.planType === PlanType.FREE && (
+              <TouchableOpacity
+                style={styles.upgradeButton}
+                onPress={() => router.push("/checkout")}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.progressBarContainer}>
+            <View
+              style={[
+                styles.progressBar,
+                {
+                  width: `${Math.min(
+                    ((planDetails.weeklyScanCount || 0) / (planDetails.scanLimit || 10)) * 100,
+                    100
+                  )}%`,
+                },
+              ]}
+            />
+          </View>
+        </Animated.View>
+      )}
+
       {/* Camera container */}
       <View style={styles.contentArea}>
         <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
@@ -650,7 +773,7 @@ export default function ScanScreen() {
         isReady={isCameraReady && detectionStatus === "aligned"}
         flashMode={flashMode}
         onFlashToggle={toggleFlash}
-        disabled={!isCameraReady || isUploading}
+        disabled={!isCameraReady || isUploading || !hasRemainingScans}
       />
     </SafeAreaView>
   );
@@ -788,5 +911,39 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontFamily: "SpaceMono",
     fontSize: 14,
+  },
+  scanLimitContainer: {
+    backgroundColor: COLORS.cardBackground,
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  scanLimitContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  scanLimitText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+  },
+  upgradeButton: {
+    backgroundColor: "rgba(251, 191, 36, 0.15)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(251, 191, 36, 0.3)",
+  },
+  upgradeButtonText: {
+    color: "#fbbf24",
+    fontSize: 12,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
   },
 });
