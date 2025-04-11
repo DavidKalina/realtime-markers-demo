@@ -1,0 +1,78 @@
+import Stripe from "stripe";
+import { PlanService } from "./PlanService";
+import { PlanType } from "../entities/User";
+import dataSource from "../data-source";
+
+export class StripeService {
+  public stripe: Stripe;
+  private planService: PlanService;
+
+  constructor() {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error("STRIPE_SECRET_KEY is not set");
+    }
+    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2025-03-31.basil",
+    });
+    this.planService = new PlanService(dataSource);
+  }
+
+  /**
+   * Create a checkout session for upgrading to PRO
+   */
+  async createCheckoutSession(userId: string, successUrl: string, cancelUrl: string) {
+    const session = await this.stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: "PRO Plan",
+              description: "Upgrade to PRO for unlimited scans and more features",
+            },
+            unit_amount: 999, // $9.99
+            recurring: {
+              interval: "month",
+            },
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "subscription",
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      metadata: {
+        userId,
+      },
+    });
+
+    return session;
+  }
+
+  /**
+   * Handle Stripe webhook events
+   */
+  async handleWebhookEvent(event: Stripe.Event) {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const userId = session.metadata?.userId;
+
+        if (userId) {
+          await this.planService.updatePlan(userId, PlanType.PRO);
+        }
+        break;
+      }
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const userId = subscription.metadata?.userId;
+
+        if (userId) {
+          await this.planService.updatePlan(userId, PlanType.FREE);
+        }
+        break;
+      }
+    }
+  }
+}
