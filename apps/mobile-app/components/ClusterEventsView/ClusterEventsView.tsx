@@ -115,6 +115,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
+  clusterName: {
+    color: COLORS.textPrimary,
+    fontSize: 20,
+    fontFamily: "SpaceMono",
+    fontWeight: "700",
+    marginBottom: 12,
+  },
   clusterDescriptionContainer: {
     backgroundColor: COLORS.cardBackground,
     borderRadius: 16,
@@ -1074,7 +1081,6 @@ const ClusterEventsView: React.FC = () => {
 
     return (
       <>
-        <ClusterDescription description={hubData.clusterDescription} />
         <Animated.View
           style={styles.sectionContainer}
           entering={FadeInDown.duration(600).delay(100).springify()}
@@ -1092,6 +1098,15 @@ const ClusterEventsView: React.FC = () => {
               </Text>
             </View>
           )}
+        </Animated.View>
+
+        <Animated.View
+          style={styles.sectionContainer}
+          entering={FadeInDown.duration(600).delay(50).springify()}
+          layout={LinearTransition.springify()}
+        >
+          <Text style={styles.clusterName}>{hubData.clusterName}</Text>
+          <ClusterDescription description={hubData.clusterDescription} />
         </Animated.View>
 
         <Animated.View
@@ -1159,7 +1174,7 @@ const ClusterEventsView: React.FC = () => {
         >
           <ArrowLeft size={20} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{hubData?.clusterName}</Text>
+        <Text style={styles.headerTitle}>Cluster</Text>
       </Animated.View>
 
       <Animated.ScrollView
