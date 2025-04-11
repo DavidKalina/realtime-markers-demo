@@ -197,46 +197,39 @@ const JobIndicator: React.FC = () => {
             <Animated.View style={[styles.container, animatedStyle]}>
                 <View style={styles.fixedContainer}>
                     {state === 'processing' ? (
-                        <CircularProgress
-                            progress={progress}
-                            message={jobMessage ? {
-                                emoji: jobMessage.emoji,
-                                text: jobMessage.message
-                            } : undefined}
-                        >
-                            <View style={styles.placeholderContainer}>
-                                <Animated.View
-                                    entering={FadeIn
-                                        .duration(300)
-                                        .springify()
-                                        .damping(15)
-                                        .stiffness(200)}
-                                    exiting={FadeOut
-                                        .duration(300)
-                                        .springify()
-                                        .damping(15)
-                                        .stiffness(200)}
-                                    style={styles.indicatorWrapper}
-                                >
-                                    <Animated.View style={spinAnimatedStyle}>
-                                        <Animated.View
-                                            entering={FadeIn
-                                                .duration(300)
-                                                .springify()
-                                                .damping(15)
-                                                .stiffness(200)}
-                                            exiting={FadeOut
-                                                .duration(300)
-                                                .springify()
-                                                .damping(15)
-                                                .stiffness(200)}
-                                        >
-                                            <Cog size={10} color="#9CA3AF" />
-                                        </Animated.View>
+
+                        <View style={styles.placeholderContainer}>
+                            <Animated.View
+                                entering={FadeIn
+                                    .duration(300)
+                                    .springify()
+                                    .damping(15)
+                                    .stiffness(200)}
+                                exiting={FadeOut
+                                    .duration(300)
+                                    .springify()
+                                    .damping(15)
+                                    .stiffness(200)}
+                                style={styles.indicatorWrapper}
+                            >
+                                <Animated.View style={spinAnimatedStyle}>
+                                    <Animated.View
+                                        entering={FadeIn
+                                            .duration(300)
+                                            .springify()
+                                            .damping(15)
+                                            .stiffness(200)}
+                                        exiting={FadeOut
+                                            .duration(300)
+                                            .springify()
+                                            .damping(15)
+                                            .stiffness(200)}
+                                    >
+                                        <Cog size={10} color="#9CA3AF" />
                                     </Animated.View>
                                 </Animated.View>
-                            </View>
-                        </CircularProgress>
+                            </Animated.View>
+                        </View>
                     ) : (
                         <View style={styles.placeholderContainer}>
                             {state === 'jobMessage' && (
