@@ -11,6 +11,7 @@ import { User } from "../entities/User";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
 import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import { EventSimilarityService } from "./event-processing/EventSimilarityService";
+import { GeocodingService } from "./GeocodingService";
 
 interface SearchResult {
   event: Event;
@@ -989,6 +990,7 @@ export class EventService {
     eventsByCategory: { category: Category; events: Event[] }[];
     eventsByLocation: { location: string; events: Event[] }[];
     eventsToday: Event[];
+    clusterName: string;
   }> {
     // Try to get from cache first
     const cachedData = await CacheService.getCachedClusterHub(markerIds);
@@ -1009,7 +1011,22 @@ export class EventService {
         eventsByCategory: [],
         eventsByLocation: [],
         eventsToday: [],
+        clusterName: "",
       };
+    }
+
+    // Get cluster name using geocoding service
+    let clusterName = "";
+    const geocodingService = GeocodingService.getInstance();
+    // Use the first event's coordinates to determine the cluster name
+    const firstEvent = events[0];
+    if (firstEvent.location?.coordinates) {
+      const [longitude, latitude] = firstEvent.location.coordinates;
+      const geocodedPlace = await geocodingService.reverseGeocode([longitude, latitude]);
+      if (geocodedPlace) {
+        // Use a medium zoom level (12) to get a good balance between specificity and generality
+        clusterName = geocodingService.getAppropriateNameForZoom(geocodedPlace, 12);
+      }
     }
 
     // 1. Get featured event (oldest event for now)
@@ -1070,6 +1087,7 @@ export class EventService {
       eventsByCategory,
       eventsByLocation,
       eventsToday,
+      clusterName,
     };
 
     // Cache the result for 5 minutes
