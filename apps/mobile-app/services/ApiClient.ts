@@ -169,7 +169,7 @@ interface PlanDetails {
 }
 
 interface StripeCheckoutSession {
-  sessionId: string;
+  clientSecret: string;
 }
 
 class ApiClient {
@@ -1107,14 +1107,10 @@ class ApiClient {
   }
 
   // Create Stripe checkout session
-  async createStripeCheckoutSession(
-    successUrl: string,
-    cancelUrl: string
-  ): Promise<StripeCheckoutSession> {
+  async createStripeCheckoutSession(): Promise<StripeCheckoutSession> {
     const url = `${this.baseUrl}/api/stripe/create-checkout-session`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
-      body: JSON.stringify({ successUrl, cancelUrl }),
     });
     return this.handleResponse<StripeCheckoutSession>(response);
   }
