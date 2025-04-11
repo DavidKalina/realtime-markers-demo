@@ -5,7 +5,7 @@ import { Category } from "../entities/Category";
 import { Event, EventStatus } from "../entities/Event";
 import { UserEventSave } from "../entities/UserEventSave";
 import { CacheService } from "./shared/CacheService";
-import { OpenAIService } from "./shared/OpenAIService";
+import { OpenAIService, OpenAIModel } from "./shared/OpenAIService";
 import type { Filter } from "../entities/Filter";
 import { User } from "../entities/User";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
@@ -1025,8 +1025,8 @@ export class EventService {
         .map((event) => `${event.title}${event.description ? `: ${event.description}` : ''}`)
         .join('\n');
 
-      const response = await openai.chat.completions.create({
-        model: "4o-mini",
+      const response = await OpenAIService.executeChatCompletion({
+        model: OpenAIModel.GPT4OMini,
         messages: [
           {
             role: "system",

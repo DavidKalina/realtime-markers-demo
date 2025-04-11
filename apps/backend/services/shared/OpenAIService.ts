@@ -2,18 +2,24 @@
 import { OpenAI } from "openai";
 import { Redis } from "ioredis";
 
+export enum OpenAIModel {
+  GPT4O = "gpt-4o",
+  GPT4OMini = "gpt-4o-mini",
+  TextEmbedding3Small = "text-embedding-3-small",
+}
+
 interface RateLimitConfig {
   tokensPerMinute: number;
   requestsPerMinute: number;
 }
 
-const MODEL_RATE_LIMITS: Record<string, RateLimitConfig> = {
-  "gpt-4o": { tokensPerMinute: 5000, requestsPerMinute: 500 },
-  "gpt-4o-mini": { tokensPerMinute: 10000, requestsPerMinute: 1000 },
-  "text-embedding-3-small": { tokensPerMinute: 1000000, requestsPerMinute: 3000 },
-  // Add more models as needed
-  default: { tokensPerMinute: 3000, requestsPerMinute: 300 },
+const MODEL_RATE_LIMITS: Record<OpenAIModel, RateLimitConfig> = {
+  [OpenAIModel.GPT4O]: { tokensPerMinute: 5000, requestsPerMinute: 500 },
+  [OpenAIModel.GPT4OMini]: { tokensPerMinute: 10000, requestsPerMinute: 1000 },
+  [OpenAIModel.TextEmbedding3Small]: { tokensPerMinute: 1000000, requestsPerMinute: 3000 },
 };
+
+const DEFAULT_RATE_LIMITS: RateLimitConfig = { tokensPerMinute: 3000, requestsPerMinute: 300 };
 
 export class OpenAIService {
   private static instance: OpenAI;
@@ -55,11 +61,14 @@ export class OpenAIService {
 
     const customFetch = async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       // Determine which model is being used from the request body
-      let model = "default";
+      let model: OpenAIModel | undefined;
       if (init?.body) {
         try {
           const body = JSON.parse(init.body.toString());
-          model = body.model || "default";
+          const modelStr = body.model;
+          if (modelStr && Object.values(OpenAIModel).includes(modelStr as OpenAIModel)) {
+            model = modelStr as OpenAIModel;
+          }
         } catch (e) {
           // If we can't parse the body, use default rate limit
         }
@@ -73,8 +82,8 @@ export class OpenAIService {
           ? "chat"
           : "api";
 
-      const requestKey = `${operation}:${model}`;
-      const rateLimits = MODEL_RATE_LIMITS[model] || MODEL_RATE_LIMITS.default;
+      const requestKey = `${operation}:${model || 'default'}`;
+      const rateLimits = model ? MODEL_RATE_LIMITS[model] : DEFAULT_RATE_LIMITS;
 
       // Check rate limits before proceeding
       await this.checkRateLimit(requestKey, rateLimits);
@@ -196,7 +205,12 @@ export class OpenAIService {
   }
 
   // Helper method for extracting model from a request payload
-  public static async executeChatCompletion(params: any): Promise<any> {
+  public static async executeChatCompletion(params: {
+    model: OpenAIModel;
+    messages: any[];
+    temperature?: number;
+    max_tokens?: number;
+  }): Promise<any> {
     const openai = this.getInstance();
     const result = await openai.chat.completions.create(params);
     return result;
@@ -205,7 +219,7 @@ export class OpenAIService {
   // Helper method for generating embeddings
   public static async generateEmbedding(
     text: string,
-    model: string = "text-embedding-3-small"
+    model: OpenAIModel = OpenAIModel.TextEmbedding3Small
   ): Promise<number[]> {
     const openai = this.getInstance();
 
