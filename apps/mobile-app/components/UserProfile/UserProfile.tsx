@@ -40,7 +40,7 @@ import Animated, {
   FadeInDown,
 } from "react-native-reanimated";
 import { initStripe, useStripe } from "@stripe/stripe-react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 // Initialize Stripe
 initStripe({
@@ -78,6 +78,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { currentStyle, setMapStyle } = useMapStyle();
+  const { paymentStatus } = useLocalSearchParams<{ paymentStatus?: string }>();
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState<any>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -143,6 +144,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
     fetchPlanDetails();
   }, []);
+
+  console.log(planDetails)
+
+  // Handle payment status
+  useEffect(() => {
+    if (paymentStatus === "success") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Refresh plan details
+      apiClient.getPlanDetails().then(setPlanDetails);
+    } else if (paymentStatus === "cancel") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+  }, [paymentStatus]);
 
   // Format date for member since
   const formatMemberSince = (date: string) => {
@@ -214,12 +228,16 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const handleUpgradePlan = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const { clientSecret } = await apiClient.createStripeCheckoutSession();
+      const response = await apiClient.createStripeCheckoutSession();
 
-      // Navigate to the checkout screen with the client secret
+      if (!response.checkoutUrl) {
+        throw new Error("No checkout URL received");
+      }
+
+      // Open the checkout URL in a WebView
       router.push({
-        pathname: "/checkout" as never,
-        params: { sessionId: clientSecret },
+        pathname: "/checkout",
+        params: { checkoutUrl: response.checkoutUrl },
       });
     } catch (error) {
       console.error("Error creating checkout session:", error);
@@ -339,7 +357,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                     {
                       width: `${Math.min(
                         ((planDetails?.weeklyScanCount || 0) / (planDetails?.scanLimit || 10)) *
-                          100,
+                        100,
                         100
                       )}%`,
                     },

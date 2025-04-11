@@ -21,21 +21,15 @@ export class StripeService {
    * Create a checkout session for upgrading to PRO
    */
   async createCheckoutSession(userId: string, successUrl: string, cancelUrl: string) {
+    if (!process.env.STRIPE_PRICE_ID) {
+      throw new Error("STRIPE_PRICE_ID is not set");
+    }
+
     const session = await this.stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
         {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: "PRO Plan",
-              description: "Upgrade to PRO for unlimited scans and more features",
-            },
-            unit_amount: 999, // $9.99
-            recurring: {
-              interval: "month",
-            },
-          },
+          price: process.env.STRIPE_PRICE_ID,
           quantity: 1,
         },
       ],
@@ -58,6 +52,15 @@ export class StripeService {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.metadata?.userId;
+
+        if (userId) {
+          await this.planService.updatePlan(userId, PlanType.PRO);
+        }
+        break;
+      }
+      case "customer.subscription.created": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const userId = subscription.metadata?.userId;
 
         if (userId) {
           await this.planService.updatePlan(userId, PlanType.PRO);

@@ -738,8 +738,7 @@ class ApiClient {
 
       // Log pagination details for debugging
       console.log(
-        `Search query: "${query}" | Results: ${data.results.length} | Next cursor: ${
-          data.nextCursor || "none"
+        `Search query: "${query}" | Results: ${data.results.length} | Next cursor: ${data.nextCursor || "none"
         }`
       );
 
@@ -1107,12 +1106,21 @@ class ApiClient {
   }
 
   // Create Stripe checkout session
-  async createStripeCheckoutSession(): Promise<StripeCheckoutSession> {
+  async createStripeCheckoutSession(): Promise<{ checkoutUrl: string; sessionId: string }> {
     const url = `${this.baseUrl}/api/stripe/create-checkout-session`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
     });
-    return this.handleResponse<StripeCheckoutSession>(response);
+
+    const data = await this.handleResponse<{ checkoutUrl: string; sessionId: string }>(response);
+
+    console.log("data", data);
+
+    if (!data.checkoutUrl) {
+      throw new Error("No checkout URL received");
+    }
+
+    return data;
   }
 }
 
