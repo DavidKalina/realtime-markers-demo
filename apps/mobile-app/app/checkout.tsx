@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { WebView } from "react-native-webview";
 import * as Haptics from "expo-haptics";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function CheckoutScreen() {
   const { checkoutUrl } = useLocalSearchParams<{ checkoutUrl: string }>();
@@ -17,8 +18,8 @@ export default function CheckoutScreen() {
 
       if (status === "success") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        // Navigate back to user profile with success message
-        router.push({
+        // Replace current route with user profile to prevent back navigation
+        router.replace({
           pathname: "/user",
           params: { paymentStatus: "success" }
         });
@@ -34,13 +35,13 @@ export default function CheckoutScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <WebView
         source={{ uri: checkoutUrl }}
         onNavigationStateChange={handleNavigationStateChange}
         style={styles.webview}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

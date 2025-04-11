@@ -172,7 +172,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     if (onBack) {
       onBack();
     } else {
-      router.back();
+      router.push("/");
     }
   };
 
