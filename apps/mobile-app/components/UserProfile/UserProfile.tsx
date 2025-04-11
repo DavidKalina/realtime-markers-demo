@@ -219,7 +219,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
       // Navigate to the checkout screen with the client secret
       router.push({
-        pathname: "/checkout",
+        pathname: "/checkout" as never,
         params: { sessionId: clientSecret },
       });
     } catch (error) {
