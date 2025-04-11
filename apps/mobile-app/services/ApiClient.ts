@@ -154,6 +154,24 @@ interface ClusterHubData {
   clusterDescription: string;
 }
 
+// Add these interfaces before the ApiClient class
+export enum PlanType {
+  FREE = "FREE",
+  PRO = "PRO",
+}
+
+interface PlanDetails {
+  planType: PlanType;
+  weeklyScanCount: number;
+  scanLimit: number;
+  remainingScans: number;
+  lastReset: Date | null;
+}
+
+interface StripeCheckoutSession {
+  clientSecret: string;
+}
+
 class ApiClient {
   public baseUrl: string;
   private user: User | null = null;
@@ -1078,6 +1096,31 @@ class ApiClient {
       console.error("Error fetching cluster hub data:", error);
       throw error;
     }
+  }
+
+  // Get plan details
+  async getPlanDetails(): Promise<PlanDetails> {
+    const url = `${this.baseUrl}/api/plans`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<PlanDetails>(response);
+  }
+
+  // Create Stripe checkout session
+  async createStripeCheckoutSession(): Promise<{ checkoutUrl: string; sessionId: string }> {
+    const url = `${this.baseUrl}/api/stripe/create-checkout-session`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+    });
+
+    const data = await this.handleResponse<{ checkoutUrl: string; sessionId: string }>(response);
+
+    console.log("data", data);
+
+    if (!data.checkoutUrl) {
+      throw new Error("No checkout URL received");
+    }
+
+    return data;
   }
 }
 

@@ -3,6 +3,7 @@ import Redis from "ioredis";
 import AppDataSource from "./data-source";
 import { Category } from "./entities/Category";
 import { Event } from "./entities/Event";
+import { User } from "./entities/User";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
@@ -12,13 +13,12 @@ import { LocationResolutionService } from "./services/event-processing/LocationR
 import { EventProcessingService } from "./services/EventProcessingService";
 import { EventService } from "./services/EventService";
 import { JobQueue } from "./services/JobQueue";
+import { PlanService } from "./services/PlanService";
 import { ConfigService } from "./services/shared/ConfigService";
-import { OpenAIService } from "./services/shared/OpenAIService";
-import { isEventTemporalyRelevant } from "./utils/isEventTemporalyRelevant";
-import { StorageService } from "./services/shared/StorageService";
-import { User } from "./entities/User";
 import { GoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
-import { CacheService } from "./services/shared/CacheService";
+import { OpenAIService } from "./services/shared/OpenAIService";
+import { StorageService } from "./services/shared/StorageService";
+import { isEventTemporalyRelevant } from "./utils/isEventTemporalyRelevant";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -43,10 +43,10 @@ async function initializeWorker() {
       return delay;
     },
     reconnectOnError: (err: Error) => {
-      console.log('Redis reconnectOnError triggered:', {
+      console.log("Redis reconnectOnError triggered:", {
         message: err.message,
         stack: err.stack,
-        name: err.name
+        name: err.name,
       });
       return true;
     },
@@ -55,26 +55,26 @@ async function initializeWorker() {
     commandTimeout: 5000,
     lazyConnect: true,
     authRetry: true,
-    enableReadyCheck: true
+    enableReadyCheck: true,
   };
 
   const redisClient = new Redis(redisConfig);
 
   // Add error handling for Redis
-  redisClient.on('error', (error: Error & { code?: string }) => {
-    console.error('Redis connection error:', {
+  redisClient.on("error", (error: Error & { code?: string }) => {
+    console.error("Redis connection error:", {
       message: error.message,
       code: error.code,
-      stack: error.stack
+      stack: error.stack,
     });
   });
 
-  redisClient.on('connect', () => {
-    console.log('Redis connected successfully');
+  redisClient.on("connect", () => {
+    console.log("Redis connected successfully");
   });
 
-  redisClient.on('ready', () => {
-    console.log('Redis is ready to accept commands');
+  redisClient.on("ready", () => {
+    console.log("Redis is ready to accept commands");
   });
 
   // Initialize OpenAI service
@@ -92,15 +92,12 @@ async function initializeWorker() {
   // Initialize LocationService singleton (this is just to warm up the cache)
   GoogleGeocodingService.getInstance();
 
-
   const configService = ConfigService.getInstance();
 
   // Initialize repositories and services
   const eventRepository = AppDataSource.getRepository(Event);
   const categoryRepository = AppDataSource.getRepository(Category);
-  const categoryProcessingService = new CategoryProcessingService(
-    categoryRepository
-  );
+  const categoryProcessingService = new CategoryProcessingService(categoryRepository);
 
   // Create the event similarity service
   const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
@@ -132,6 +129,8 @@ async function initializeWorker() {
   const eventProcessingService = new EventProcessingService(eventProcessingDependencies);
 
   const eventService = new EventService(AppDataSource);
+
+  const planService = new PlanService(AppDataSource);
 
   // Initialize JobQueue
 
@@ -220,6 +219,22 @@ async function initializeWorker() {
           await jobQueue.enqueueCleanupJob(batchSize);
         }
       } else if (job.type === "process_flyer") {
+        // Check if user has reached their scan limit
+        if (job.data.creatorId) {
+          const hasReachedLimit = await planService.hasReachedScanLimit(job.data.creatorId);
+          if (hasReachedLimit) {
+            await jobQueue.updateJobStatus(jobId, {
+              status: "failed",
+              progress: 1,
+              error: "Scan limit reached",
+              message:
+                "You have reached your weekly scan limit. Please upgrade to Pro for more scans.",
+              completed: new Date().toISOString(),
+            });
+            return;
+          }
+        }
+
         // Get the image buffer from Redis
         const bufferData = await redisClient.getBuffer(`job:${jobId}:buffer`);
         if (!bufferData) {
@@ -246,12 +261,15 @@ async function initializeWorker() {
 
         // Check confidence score first
         if (scanResult.confidence < 0.75) {
-          console.log(`[Worker] Confidence too low (${scanResult.confidence}) to proceed with event processing`);
+          console.log(
+            `[Worker] Confidence too low (${scanResult.confidence}) to proceed with event processing`
+          );
           await jobQueue.updateJobStatus(jobId, {
             status: "completed",
             progress: 1, // Set to 100% when completed
             result: {
-              message: "The image quality or content was not clear enough to reliably extract event information. Please try again with a clearer image.",
+              message:
+                "The image quality or content was not clear enough to reliably extract event information. Please try again with a clearer image.",
               confidence: scanResult.confidence,
               threshold: 0.75,
             },
@@ -283,7 +301,8 @@ async function initializeWorker() {
                 coordinates: existingEvent.location.coordinates,
                 isDuplicate: true,
                 similarityScore: scanResult.similarity.score,
-                message: "This event appears to be very similar to an existing event in our database. We've linked you to the existing event instead.",
+                message:
+                  "This event appears to be very similar to an existing event in our database. We've linked you to the existing event instead.",
               },
               completed: new Date().toISOString(),
             });
@@ -320,9 +339,10 @@ async function initializeWorker() {
               status: "completed",
               progress: 1,
               result: {
-                message: dateValidation.daysFromNow !== undefined && dateValidation.daysFromNow < 0
-                  ? "This event appears to be in the past. We only process upcoming events."
-                  : dateValidation.reason,
+                message:
+                  dateValidation.daysFromNow !== undefined && dateValidation.daysFromNow < 0
+                    ? "This event appears to be in the past. We only process upcoming events."
+                    : dateValidation.reason,
                 daysFromNow: dateValidation.daysFromNow,
                 date: eventDate.toISOString(),
                 confidence: scanResult.confidence,
@@ -354,14 +374,6 @@ async function initializeWorker() {
           // Create discovery record and increment user stats if they are the creator
           if (job.data.creatorId) {
             await eventService.createDiscoveryRecord(job.data.creatorId, newEvent.id);
-            await AppDataSource
-              .createQueryBuilder()
-              .update(User)
-              .set({
-                scanCount: () => "scan_count + 1"
-              })
-              .where("id = :userId", { userId: job.data.creatorId })
-              .execute();
           }
 
           // Publish notifications
@@ -445,7 +457,8 @@ async function initializeWorker() {
         status: "failed",
         progress: 1, // Set to 100% when completed
         error: error.message,
-        message: "We encountered an error while processing your event. Please try again with a different image or contact support if the issue persists.",
+        message:
+          "We encountered an error while processing your event. Please try again with a different image or contact support if the issue persists.",
         completed: new Date().toISOString(),
       });
     } finally {

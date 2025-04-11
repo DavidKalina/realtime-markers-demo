@@ -90,6 +90,13 @@ export default {
         },
       ],
       [
+        "@stripe/stripe-react-native",
+        {
+          merchantIdentifier: "merchant.com.mapmoji.app",
+          enableGooglePay: false,
+        },
+      ],
+      [
         "expo-camera",
         {
           cameraPermission: "Allow $(PRODUCT_NAME) to access your camera",

@@ -1,9 +1,19 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { MapStyleType, useMapStyle } from "@/contexts/MapStyleContext";
-import { apiClient } from "@/services/ApiClient";
+import { apiClient, PlanType } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import { ArrowLeft, Calendar, LogOut, Mail, Moon, Shield, Trash2, User } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Calendar,
+  LogOut,
+  Mail,
+  Moon,
+  Shield,
+  Trash2,
+  User,
+  Crown,
+  Zap,
+} from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -27,8 +37,16 @@ import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  FadeInDown
+  FadeInDown,
 } from "react-native-reanimated";
+import { initStripe, useStripe } from "@stripe/stripe-react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
+
+// Initialize Stripe
+initStripe({
+  publishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
+  merchantIdentifier: "merchant.com.mapmoji.app",
+});
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -47,25 +65,33 @@ const COLORS = {
   success: {
     background: "rgba(64, 192, 87, 0.12)",
     border: "rgba(64, 192, 87, 0.2)",
-    text: "#40c057"
+    text: "#40c057",
   },
   error: {
     background: "rgba(220, 38, 38, 0.1)",
     border: "rgba(220, 38, 38, 0.3)",
-    text: "#dc2626"
-  }
+    text: "#dc2626",
+  },
 };
 
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { currentStyle, setMapStyle } = useMapStyle();
+  const { paymentStatus } = useLocalSearchParams<{ paymentStatus?: string }>();
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState<any>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [password, setPassword] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [planDetails, setPlanDetails] = useState<{
+    planType: PlanType;
+    weeklyScanCount: number;
+    scanLimit: number;
+    remainingScans: number;
+    lastReset: Date | null;
+  } | null>(null);
 
   // Animation values
   const scrollY = useSharedValue(0);
@@ -79,19 +105,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
   // Animated styles
   const headerStyle = useAnimatedStyle(() => {
-    const shadowOpacity = interpolate(
-      scrollY.value,
-      [0, 50],
-      [0, 0.2],
-      Extrapolation.CLAMP
-    );
+    const shadowOpacity = interpolate(scrollY.value, [0, 50], [0, 0.2], Extrapolation.CLAMP);
 
-    const borderOpacity = interpolate(
-      scrollY.value,
-      [0, 50],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
+    const borderOpacity = interpolate(scrollY.value, [0, 50], [0, 1], Extrapolation.CLAMP);
 
     return {
       shadowOpacity,
@@ -106,7 +122,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         const data = await apiClient.getUserProfile();
         setProfileData(data);
       } catch (error) {
-        console.error('Error fetching profile data:', error);
+        console.error("Error fetching profile data:", error);
       } finally {
         setLoading(false);
       }
@@ -115,11 +131,38 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     fetchProfileData();
   }, []);
 
+  // Fetch plan details
+  useEffect(() => {
+    const fetchPlanDetails = async () => {
+      try {
+        const details = await apiClient.getPlanDetails();
+        setPlanDetails(details);
+      } catch (error) {
+        console.error("Error fetching plan details:", error);
+      }
+    };
+
+    fetchPlanDetails();
+  }, []);
+
+  console.log(planDetails)
+
+  // Handle payment status
+  useEffect(() => {
+    if (paymentStatus === "success") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Refresh plan details
+      apiClient.getPlanDetails().then(setPlanDetails);
+    } else if (paymentStatus === "cancel") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+  }, [paymentStatus]);
+
   // Format date for member since
   const formatMemberSince = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'long',
-      year: 'numeric'
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
     });
   };
 
@@ -129,7 +172,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     if (onBack) {
       onBack();
     } else {
-      router.back();
+      router.push("/");
     }
   };
 
@@ -181,6 +224,27 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     await setMapStyle(style);
   };
 
+  // Handle plan upgrade
+  const handleUpgradePlan = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const response = await apiClient.createStripeCheckoutSession();
+
+      if (!response.checkoutUrl) {
+        throw new Error("No checkout URL received");
+      }
+
+      // Open the checkout URL in a WebView
+      router.push({
+        pathname: "/checkout",
+        params: { checkoutUrl: response.checkoutUrl },
+      });
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#333" />
@@ -229,7 +293,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
             <Animated.View
               entering={FadeInDown.duration(600).delay(300).springify()}
-              style={[styles.statsContainer, { justifyContent: 'center', gap: 32 }]}
+              style={[styles.statsContainer, { justifyContent: "center", gap: 32 }]}
             >
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{profileData?.scanCount || 0}</Text>
@@ -243,6 +307,67 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 <Text style={styles.statLabel}>Saved</Text>
               </View>
             </Animated.View>
+          </Animated.View>
+
+          {/* Plan Section */}
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(350).springify()}
+            layout={LinearTransition.springify()}
+            style={styles.planCard}
+          >
+            <View style={styles.planHeader}>
+              <View style={styles.planBadge}>
+                {planDetails?.planType === PlanType.PRO ? (
+                  <Crown size={16} color="#fbbf24" />
+                ) : (
+                  <Zap size={16} color="#93c5fd" />
+                )}
+                <Text
+                  style={[
+                    styles.planBadgeText,
+                    planDetails?.planType === PlanType.PRO && styles.planBadgeTextPro,
+                  ]}
+                >
+                  {planDetails?.planType || "FREE"}
+                </Text>
+              </View>
+              {planDetails?.planType === PlanType.FREE && (
+                <TouchableOpacity
+                  style={styles.upgradeButton}
+                  onPress={handleUpgradePlan}
+                  activeOpacity={0.8}
+                >
+                  <Crown size={16} color="#fbbf24" style={{ marginRight: 4 }} />
+                  <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.usageContainer}>
+              <View style={styles.usageHeader}>
+                <Text style={styles.usageLabel}>Weekly Scans</Text>
+                <Text style={styles.usageCount}>
+                  {planDetails?.weeklyScanCount || 0} / {planDetails?.scanLimit || 10}
+                </Text>
+              </View>
+              <View style={styles.progressBarContainer}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    {
+                      width: `${Math.min(
+                        ((planDetails?.weeklyScanCount || 0) / (planDetails?.scanLimit || 10)) *
+                        100,
+                        100
+                      )}%`,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.usageNote}>
+                {planDetails?.remainingScans || 0} scans remaining this week
+              </Text>
+            </View>
           </Animated.View>
 
           {/* User Details Card */}
@@ -281,7 +406,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   </View>
                   <View style={styles.detailContent}>
                     <Text style={styles.detailLabel}>Role</Text>
-                    <Text style={styles.detailValue}>{profileData?.role || user?.role || 'User'}</Text>
+                    <Text style={styles.detailValue}>
+                      {profileData?.role || user?.role || "User"}
+                    </Text>
                   </View>
                 </Animated.View>
 
@@ -296,7 +423,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   <View style={styles.detailContent}>
                     <Text style={styles.detailLabel}>Member Since</Text>
                     <Text style={styles.detailValue}>
-                      {profileData?.createdAt ? formatMemberSince(profileData.createdAt) : 'Loading...'}
+                      {profileData?.createdAt
+                        ? formatMemberSince(profileData.createdAt)
+                        : "Loading..."}
                     </Text>
                   </View>
                 </Animated.View>
@@ -331,40 +460,52 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                       <TouchableOpacity
                         style={[
                           styles.mapStyleButton,
-                          currentStyle === 'light' && styles.mapStyleButtonActive
+                          currentStyle === "light" && styles.mapStyleButtonActive,
                         ]}
-                        onPress={() => handleMapStyleChange('light')}
+                        onPress={() => handleMapStyleChange("light")}
                       >
-                        <Text style={[
-                          styles.mapStyleButtonText,
-                          currentStyle === 'light' && styles.mapStyleButtonTextActive
-                        ]}>Light</Text>
+                        <Text
+                          style={[
+                            styles.mapStyleButtonText,
+                            currentStyle === "light" && styles.mapStyleButtonTextActive,
+                          ]}
+                        >
+                          Light
+                        </Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
                         style={[
                           styles.mapStyleButton,
-                          currentStyle === 'dark' && styles.mapStyleButtonActive
+                          currentStyle === "dark" && styles.mapStyleButtonActive,
                         ]}
-                        onPress={() => handleMapStyleChange('dark')}
+                        onPress={() => handleMapStyleChange("dark")}
                       >
-                        <Text style={[
-                          styles.mapStyleButtonText,
-                          currentStyle === 'dark' && styles.mapStyleButtonTextActive
-                        ]}>Dark</Text>
+                        <Text
+                          style={[
+                            styles.mapStyleButtonText,
+                            currentStyle === "dark" && styles.mapStyleButtonTextActive,
+                          ]}
+                        >
+                          Dark
+                        </Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
                         style={[
                           styles.mapStyleButton,
-                          currentStyle === 'street' && styles.mapStyleButtonActive
+                          currentStyle === "street" && styles.mapStyleButtonActive,
                         ]}
-                        onPress={() => handleMapStyleChange('street')}
+                        onPress={() => handleMapStyleChange("street")}
                       >
-                        <Text style={[
-                          styles.mapStyleButtonText,
-                          currentStyle === 'street' && styles.mapStyleButtonTextActive
-                        ]}>Colorful</Text>
+                        <Text
+                          style={[
+                            styles.mapStyleButtonText,
+                            currentStyle === "street" && styles.mapStyleButtonTextActive,
+                          ]}
+                        >
+                          Colorful
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -468,10 +609,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.deleteModalButton,
-                  isDeleting && styles.deleteModalButtonDisabled
-                ]}
+                style={[styles.deleteModalButton, isDeleting && styles.deleteModalButtonDisabled]}
                 onPress={handleDeleteAccount}
                 disabled={isDeleting}
               >
@@ -708,7 +846,7 @@ const styles = StyleSheet.create({
 
   // Map style buttons
   mapStyleButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 6,
     marginTop: 6,
   },
@@ -718,8 +856,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: COLORS.buttonBackground,
     borderWidth: 1,
     borderColor: COLORS.buttonBorder,
@@ -733,7 +871,7 @@ const styles = StyleSheet.create({
 
   mapStyleButtonText: {
     fontSize: 12,
-    fontFamily: 'SpaceMono',
+    fontFamily: "SpaceMono",
     fontWeight: "600",
     color: COLORS.textSecondary,
   },
@@ -779,7 +917,7 @@ const styles = StyleSheet.create({
   },
 
   deleteButton: {
-    width: 'auto',
+    width: "auto",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -813,9 +951,9 @@ const styles = StyleSheet.create({
   // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
 
@@ -823,7 +961,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cardBackground,
     borderRadius: 20,
     padding: 20,
-    width: '100%',
+    width: "100%",
     maxWidth: 400,
     borderWidth: 1,
     borderColor: COLORS.divider,
@@ -877,8 +1015,8 @@ const styles = StyleSheet.create({
   },
 
   modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "flex-end",
     gap: 12,
     marginTop: 24,
   },
@@ -917,6 +1055,111 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "SpaceMono",
     fontWeight: "600",
+  },
+
+  planCard: {
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+
+  planHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+
+  planBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.buttonBackground,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+    gap: 6,
+  },
+
+  planBadgeText: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
+  },
+
+  planBadgeTextPro: {
+    color: "#fbbf24",
+  },
+
+  upgradeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(251, 191, 36, 0.15)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(251, 191, 36, 0.3)",
+  },
+
+  upgradeButtonText: {
+    color: "#fbbf24",
+    fontSize: 14,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
+  },
+
+  usageContainer: {
+    gap: 8,
+  },
+
+  usageHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  usageLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+  },
+
+  usageCount: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
+  },
+
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: COLORS.buttonBackground,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+
+  progressBar: {
+    height: "100%",
+    backgroundColor: COLORS.accent,
+    borderRadius: 4,
+  },
+
+  usageNote: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontFamily: "SpaceMono",
+    marginTop: 4,
   },
 });
 

@@ -5,6 +5,7 @@ import { JobQueue } from "../services/JobQueue";
 import Redis from "ioredis";
 import type { UserPreferencesService } from "../services/UserPreferences";
 import type { StorageService } from "../services/shared/StorageService";
+import { PlanService } from "../services/PlanService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -13,6 +14,7 @@ export interface AppVariables {
   jobQueue: JobQueue;
   redisClient: Redis;
   userPreferencesService: UserPreferencesService;
+  planService: PlanService;
   user?: { userId: string; email: string; role: string };
 }
 

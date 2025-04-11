@@ -19,6 +19,11 @@ export enum UserRole {
   ADMIN = "ADMIN",
 }
 
+export enum PlanType {
+  FREE = "FREE",
+  PRO = "PRO",
+}
+
 @Entity("users")
 export class User {
   @PrimaryGeneratedColumn("uuid")
@@ -47,6 +52,13 @@ export class User {
   })
   role!: UserRole;
 
+  @Column({
+    type: "enum",
+    enum: PlanType,
+    default: PlanType.FREE,
+  })
+  planType!: PlanType;
+
   @Column({ name: "is_verified", type: "boolean", default: false })
   isVerified!: boolean;
 
@@ -58,6 +70,12 @@ export class User {
 
   @Column({ name: "save_count", type: "integer", default: 0 })
   saveCount!: number;
+
+  @Column({ name: "weekly_scan_count", type: "integer", default: 0 })
+  weeklyScanCount!: number;
+
+  @Column({ name: "last_scan_reset", type: "timestamptz", nullable: true })
+  lastScanReset?: Date;
 
   @OneToMany(() => UserEventDiscovery, (discovery) => discovery.user)
   discoveries!: UserEventDiscovery[];
