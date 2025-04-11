@@ -374,16 +374,6 @@ async function initializeWorker() {
           // Create discovery record and increment user stats if they are the creator
           if (job.data.creatorId) {
             await eventService.createDiscoveryRecord(job.data.creatorId, newEvent.id);
-            await AppDataSource.createQueryBuilder()
-              .update(User)
-              .set({
-                scanCount: () => "scan_count + 1",
-              })
-              .where("id = :userId", { userId: job.data.creatorId })
-              .execute();
-
-            // Increment weekly scan count
-            await planService.incrementWeeklyScanCount(job.data.creatorId);
           }
 
           // Publish notifications

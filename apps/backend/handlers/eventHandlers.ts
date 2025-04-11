@@ -125,17 +125,30 @@ export const processEventImageHandler: EventHandler = async (c) => {
     const userCoordinates =
       userLat && userLng
         ? {
-            lat: parseFloat(userLat.toString()),
-            lng: parseFloat(userLng.toString()),
-          }
+          lat: parseFloat(userLat.toString()),
+          lng: parseFloat(userLng.toString()),
+        }
         : null;
 
     if (!user || !user?.userId) {
       return c.json({ error: "Missing user id" }, 404);
     }
 
-    // Get job queue from context - properly typed!
+    // Get job queue and plan service from context
     const jobQueue = c.get("jobQueue");
+    const planService = c.get("planService");
+
+    // Check if user has reached their scan limit
+    const hasReachedLimit = await planService.hasReachedScanLimit(user.userId);
+    if (hasReachedLimit) {
+      return c.json({
+        error: "Scan limit reached",
+        message: "You have reached your weekly scan limit. Please upgrade to Pro for more scans."
+      }, 403);
+    }
+
+    // Increment scan count before processing
+    await planService.incrementWeeklyScanCount(user.userId);
 
     // Validate the image
     if (!imageEntry) {

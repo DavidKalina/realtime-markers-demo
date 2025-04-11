@@ -36,6 +36,7 @@ import { UserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
 import plansRouter from "./routes/plans";
 import stripeRouter from "./routes/stripe";
+import { PlanService } from "./services/PlanService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -304,6 +305,9 @@ async function initializeServices() {
 
   const storageService = StorageService.getInstance();
 
+  // Initialize the PlanService
+  const planService = new PlanService(dataSource);
+
   function setupCleanupSchedule() {
     const CLEANUP_HOUR = 3;
     const BATCH_SIZE = 100;
@@ -337,6 +341,7 @@ async function initializeServices() {
     categoryProcessingService,
     userPreferencesService,
     storageService,
+    planService,
   };
 }
 
@@ -350,6 +355,7 @@ app.use("*", async (c, next) => {
   c.set("redisClient", redisPub);
   c.set("userPreferencesService", services.userPreferencesService);
   c.set("storageService", services.storageService);
+  c.set("planService", services.planService);
   await next();
 });
 
