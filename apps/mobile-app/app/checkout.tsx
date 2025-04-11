@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
-import { useStripe } from "@stripe/stripe-react-native";
+import { initStripe, useStripe } from "@stripe/stripe-react-native";
 import { apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 
@@ -10,6 +10,26 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const initializeStripe = async () => {
+      try {
+        await initStripe({
+          publishableKey:
+            "pk_test_51Qm2COFNykbtbgZXK7p168Ex0wT6UuqsSSIyjcC4N9dq4dibwYWR0JhKFnAjcSGYK5a9QoOop0FWbLYcD9Cphk2w00wv6bq37I",
+          merchantIdentifier: "merchant.com.mapmoji.app",
+          urlScheme: "mapmoji",
+          setReturnUrlSchemeOnAndroid: true,
+        });
+      } catch (error) {
+        console.error("Error initializing Stripe:", error);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        router.back();
+      }
+    };
+
+    initializeStripe();
+  }, []);
 
   useEffect(() => {
     const initializePayment = async () => {

@@ -78,7 +78,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { currentStyle, setMapStyle } = useMapStyle();
-  const { presentPaymentSheet } = useStripe();
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState<any>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);

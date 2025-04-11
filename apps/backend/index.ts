@@ -34,6 +34,7 @@ import { RateLimitService } from "./services/shared/RateLimitService";
 import { StorageService } from "./services/shared/StorageService";
 import { UserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
+import plansRouter from "./routes/plans";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -49,10 +50,10 @@ const redisConfig = {
     return delay;
   },
   reconnectOnError: (err: Error) => {
-    console.log('Redis reconnectOnError triggered:', {
+    console.log("Redis reconnectOnError triggered:", {
       message: err.message,
       stack: err.stack,
-      name: err.name
+      name: err.name,
     });
     return true;
   },
@@ -61,15 +62,15 @@ const redisConfig = {
   commandTimeout: 5000,
   lazyConnect: true,
   authRetry: true,
-  enableReadyCheck: true
+  enableReadyCheck: true,
 };
 
 // Initialize Redis clients
 const redisPub = new Redis(redisConfig);
 
 // Add comprehensive error handling for Redis
-redisPub.on('error', (error: Error & { code?: string }) => {
-  console.error('Redis connection error:', {
+redisPub.on("error", (error: Error & { code?: string }) => {
+  console.error("Redis connection error:", {
     message: error.message,
     code: error.code,
     stack: error.stack,
@@ -79,64 +80,67 @@ redisPub.on('error', (error: Error & { code?: string }) => {
     env: {
       REDIS_HOST: process.env.REDIS_HOST,
       REDIS_PORT: process.env.REDIS_PORT,
-      REDIS_PASSWORD: process.env.REDIS_PASSWORD ? '***' : 'not set'
-    }
+      REDIS_PASSWORD: process.env.REDIS_PASSWORD ? "***" : "not set",
+    },
   });
 });
 
 // Add authentication error handler
-redisPub.on('authError', (error: Error) => {
-  console.error('Redis authentication error:', {
+redisPub.on("authError", (error: Error) => {
+  console.error("Redis authentication error:", {
     message: error.message,
     stack: error.stack,
-    hasPassword: !!process.env.REDIS_PASSWORD
+    hasPassword: !!process.env.REDIS_PASSWORD,
   });
 });
 
-redisPub.on('connect', () => {
-  console.log('Redis connected successfully');
+redisPub.on("connect", () => {
+  console.log("Redis connected successfully");
   // Test the connection with a PING
-  redisPub.ping().then(() => {
-    console.log('Redis PING successful');
-  }).catch(err => {
-    console.error('Redis PING failed:', err);
-  });
+  redisPub
+    .ping()
+    .then(() => {
+      console.log("Redis PING successful");
+    })
+    .catch((err) => {
+      console.error("Redis PING failed:", err);
+    });
 });
 
-redisPub.on('ready', () => {
-  console.log('Redis is ready to accept commands');
+redisPub.on("ready", () => {
+  console.log("Redis is ready to accept commands");
 });
 
-redisPub.on('close', () => {
-  console.log('Redis connection closed');
+redisPub.on("close", () => {
+  console.log("Redis connection closed");
 });
 
-redisPub.on('reconnecting', (times: number) => {
+redisPub.on("reconnecting", (times: number) => {
   console.log(`Redis reconnecting... Attempt ${times}`);
 });
 
-redisPub.on('end', () => {
-  console.log('Redis connection ended');
+redisPub.on("end", () => {
+  console.log("Redis connection ended");
 });
 
 // Add a global error handler for unhandled Redis errors
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
 });
 
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception:", error);
 });
 
 // Add a connection test function
 async function testRedisConnection() {
   try {
-    console.log('Testing Redis connection...');
+    console.log("Testing Redis connection...");
     const result = await redisPub.ping();
-    console.log('Redis connection test successful:', result);
+    console.log("Redis connection test successful:", result);
     return true;
   } catch (error) {
-    console.error('Redis connection test failed:', error);
+    console.error("Redis connection test failed:", error);
     return false;
   }
 }
@@ -150,11 +154,14 @@ setTimeout(() => {
 app.use("*", logger());
 app.use("*", cors());
 app.use("*", securityHeaders());
-app.use("*", requestLimiter({
-  maxBodySize: 5 * 1024 * 1024, // 5MB for file uploads
-  maxUrlLength: 2048,
-  maxHeadersSize: 8192,
-}));
+app.use(
+  "*",
+  requestLimiter({
+    maxBodySize: 5 * 1024 * 1024, // 5MB for file uploads
+    maxUrlLength: 2048,
+    maxHeadersSize: 8192,
+  })
+);
 
 // Initialize rate limit service
 RateLimitService.getInstance().initRedis({
@@ -238,7 +245,6 @@ OpenAIService.initRedis({
   port: parseInt(process.env.REDIS_PORT || "6379"),
   password: process.env.REDIS_PASSWORD || undefined,
 });
-
 
 const jobQueue = new JobQueue(redisPub);
 
@@ -351,6 +357,7 @@ app.route("/api/events", eventsRouter);
 app.route("/api/auth", authRouter);
 app.route("/api/admin", adminRouter);
 app.route("/api/filters", filterRouter);
+app.route("/api/plans", plansRouter);
 app.route("/api/internal", internalRouter);
 
 // =============================================================================
