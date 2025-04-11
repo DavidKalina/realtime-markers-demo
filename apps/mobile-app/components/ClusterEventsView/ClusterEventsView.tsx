@@ -115,11 +115,25 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
+  clusterDescriptionContainer: {
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
   clusterDescription: {
     color: COLORS.textPrimary,
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: "SpaceMono",
-    marginTop: 12,
+    lineHeight: 22,
+    letterSpacing: 0.3,
   },
   backButton: {
     width: 40,
@@ -632,7 +646,13 @@ const ClusterDescription = memo<{
   description: string;
 }>(({ description }) => {
   return (
-    <Text style={styles.clusterDescription}>{description}</Text>
+    <Animated.View
+      style={styles.clusterDescriptionContainer}
+      entering={FadeInDown.duration(600).delay(50).springify()}
+      layout={LinearTransition.springify()}
+    >
+      <Text style={styles.clusterDescription}>{description}</Text>
+    </Animated.View>
   );
 });
 
@@ -826,6 +846,8 @@ const ClusterEventsView: React.FC = () => {
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState<number>(0);
   const [currentLocationIndex, setCurrentLocationIndex] = useState<number>(0);
   const [hubData, setHubData] = useState<HubDataType | null>(null);
+
+  console.log("hubData", hubData);
 
   const scrollY = useSharedValue(0);
   const markers = useLocationStore((state) => state.markers);

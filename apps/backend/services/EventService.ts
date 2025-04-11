@@ -1032,19 +1032,19 @@ export class EventService {
         messages: [
           {
             role: "system",
-            content: `You are a creative naming and description assistant. Generate a name and description for a cluster of events.
+            content: `You are a creative tagline generator. Create a short, engaging description for a cluster of events.
             Respond with a JSON object in this exact format:
             {
               "name": "A short, catchy name (2-3 words) that captures the essence of these events",
-              "description": "A concise but informative description (1-2 sentences) that summarizes the key themes and types of events"
+              "description": "A concise, engaging tagline (1-2 sentences max) that sparks interest and highlights what makes these events special"
             }
             
             The name should be memorable and relevant to the events' themes.
-            The description should highlight what makes these events special or unique.`
+            The description should be punchy and intriguing - think of it like a movie tagline that makes people want to learn more.`
           },
           {
             role: "user",
-            content: `Based on these events, create a name and description for this cluster:\n\n${eventContext}`
+            content: `Based on these events, create a name and tagline for this cluster:\n\n${eventContext}`
           }
         ],
         temperature: 0.7,
