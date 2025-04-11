@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { View, StyleSheet, Text, Pressable } from 'react-native';
 import Animated, {
     useAnimatedStyle,
@@ -42,8 +42,14 @@ const JobIndicator: React.FC = () => {
     const glowOpacity = useSharedValue(0);
     const xScale = useSharedValue(0);
     const xRotation = useSharedValue(0);
+    const animationRefs = useRef<{
+        spin?: Animated.SharedValue<number>;
+        glow?: Animated.SharedValue<number>;
+        xScale?: Animated.SharedValue<number>;
+        xRotation?: Animated.SharedValue<number>;
+    }>({});
 
-    // Get active jobs
+    // Get active jobs with memoization
     const activeJobs = useMemo(() => {
         return jobs.filter(job =>
             job.status === "processing" ||
@@ -51,7 +57,7 @@ const JobIndicator: React.FC = () => {
         );
     }, [jobs]);
 
-    // Calculate progress
+    // Calculate progress with memoization
     const progress = useMemo(() => {
         if (activeJobs.length === 0) return 0;
 
@@ -65,13 +71,31 @@ const JobIndicator: React.FC = () => {
         return Math.round((totalProgress / activeJobs.length));
     }, [activeJobs]);
 
-    // Update state based on active jobs
+    // Cleanup all animations
+    const cleanupAllAnimations = useCallback(() => {
+        if (animationRefs.current.spin) {
+            cancelAnimation(animationRefs.current.spin);
+        }
+        if (animationRefs.current.glow) {
+            cancelAnimation(animationRefs.current.glow);
+        }
+        if (animationRefs.current.xScale) {
+            cancelAnimation(animationRefs.current.xScale);
+        }
+        if (animationRefs.current.xRotation) {
+            cancelAnimation(animationRefs.current.xRotation);
+        }
+    }, []);
+
+    // Update state based on active jobs with cleanup
     useEffect(() => {
         const activeJob = activeJobs[0];
 
         if (activeJobs.length > 0) {
+            cleanupAllAnimations();
             setState('processing');
         } else if (state === 'processing') {
+            cleanupAllAnimations();
             const isSuccess = activeJob?.status === 'completed';
             setJobMessage({
                 emoji: isSuccess ? "✅" : "❌",
@@ -86,32 +110,57 @@ const JobIndicator: React.FC = () => {
 
             // Set new timeout
             timeoutRef.current = setTimeout(() => {
+                cleanupAllAnimations();
                 setState('idle');
                 setJobMessage(null);
             }, 3000);
         }
-    }, [activeJobs, state]);
 
-    // Setup continuous spinning animation
+        return () => {
+            cleanupAllAnimations();
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
+    }, [activeJobs, state, cleanupAllAnimations]);
+
+    // Setup continuous spinning animation with cleanup
     useEffect(() => {
         if (state === 'processing') {
+            animationRefs.current.spin = spinRotation;
             spinRotation.value = withRepeat(
                 withTiming(360, SPIN_CONFIG),
                 -1,
                 false
             );
         } else {
+            if (animationRefs.current.spin) {
+                cancelAnimation(animationRefs.current.spin);
+                animationRefs.current.spin = undefined;
+            }
             spinRotation.value = 0;
         }
+
+        return () => {
+            if (animationRefs.current.spin) {
+                cancelAnimation(animationRefs.current.spin);
+                animationRefs.current.spin = undefined;
+            }
+        };
     }, [state]);
 
-    // Setup failure state animations
+    // Setup failure state animations with cleanup
     useEffect(() => {
         if (state === 'jobMessage' && jobMessage?.emoji === "❌") {
             // Reset values
             glowOpacity.value = 0;
             xScale.value = 0;
             xRotation.value = 0;
+
+            // Store refs
+            animationRefs.current.glow = glowOpacity;
+            animationRefs.current.xScale = xScale;
+            animationRefs.current.xRotation = xRotation;
 
             // Start animations
             glowOpacity.value = withRepeat(
@@ -134,11 +183,16 @@ const JobIndicator: React.FC = () => {
                 withTiming(0, { duration: 100 })
             );
         } else {
+            cleanupAllAnimations();
             glowOpacity.value = 0;
             xScale.value = 0;
             xRotation.value = 0;
         }
-    }, [state, jobMessage]);
+
+        return () => {
+            cleanupAllAnimations();
+        };
+    }, [state, jobMessage, cleanupAllAnimations]);
 
     const handlePress = useMemo(() => () => {
         // Cancel any ongoing animations before starting new ones

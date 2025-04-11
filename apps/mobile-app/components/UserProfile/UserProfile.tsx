@@ -14,7 +14,7 @@ import {
   Crown,
   Zap,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -115,48 +115,115 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     };
   });
 
-  // Fetch user profile data
+  // Fetch user profile data with cleanup
   useEffect(() => {
+    let isMounted = true;
+
     const fetchProfileData = async () => {
       try {
         const data = await apiClient.getUserProfile();
-        setProfileData(data);
-      } catch (error) {
+        if (isMounted) {
+          setProfileData(data);
+        }
+      } catch (error: any) {
         console.error("Error fetching profile data:", error);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchProfileData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Fetch plan details
+  // Fetch plan details with cleanup
   useEffect(() => {
+    let isMounted = true;
+
     const fetchPlanDetails = async () => {
       try {
         const details = await apiClient.getPlanDetails();
-        setPlanDetails(details);
-      } catch (error) {
+        if (isMounted) {
+          setPlanDetails(details);
+        }
+      } catch (error: any) {
         console.error("Error fetching plan details:", error);
       }
     };
 
     fetchPlanDetails();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  console.log(planDetails)
-
-  // Handle payment status
+  // Handle payment status with cleanup
   useEffect(() => {
+    let isMounted = true;
+
     if (paymentStatus === "success") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Refresh plan details
-      apiClient.getPlanDetails().then(setPlanDetails);
+      apiClient.getPlanDetails()
+        .then(details => {
+          if (isMounted) {
+            setPlanDetails(details);
+          }
+        })
+        .catch((error: any) => {
+          console.error("Error refreshing plan details:", error);
+        });
     } else if (paymentStatus === "cancel") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [paymentStatus]);
+
+  // Cleanup Stripe on unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup any Stripe resources if needed
+    };
+  }, []);
+
+  // Memoize expensive calculations
+  const userInitials = useMemo(() => {
+    if (user?.displayName) {
+      const nameParts = user.displayName.split(" ");
+      if (nameParts.length > 1) {
+        return `${nameParts[0].charAt(0)}${nameParts[1].charAt(0)}`.toUpperCase();
+      }
+      return user.displayName.charAt(0).toUpperCase();
+    }
+    return user?.email.charAt(0).toUpperCase() || "?";
+  }, [user?.displayName, user?.email]);
+
+  // Memoize formatted date
+  const memberSince = useMemo(() => {
+    return profileData?.createdAt
+      ? new Date(profileData.createdAt).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      })
+      : "Loading...";
+  }, [profileData?.createdAt]);
+
+  // Memoize progress bar width
+  const progressWidth = useMemo(() => {
+    return Math.min(
+      ((planDetails?.weeklyScanCount || 0) / (planDetails?.scanLimit || 10)) * 100,
+      100
+    );
+  }, [planDetails?.weeklyScanCount, planDetails?.scanLimit]);
 
   // Format date for member since
   const formatMemberSince = (date: string) => {
@@ -355,11 +422,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   style={[
                     styles.progressBar,
                     {
-                      width: `${Math.min(
-                        ((planDetails?.weeklyScanCount || 0) / (planDetails?.scanLimit || 10)) *
-                        100,
-                        100
-                      )}%`,
+                      width: `${progressWidth}%`,
                     },
                   ]}
                 />
@@ -422,11 +485,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   </View>
                   <View style={styles.detailContent}>
                     <Text style={styles.detailLabel}>Member Since</Text>
-                    <Text style={styles.detailValue}>
-                      {profileData?.createdAt
-                        ? formatMemberSince(profileData.createdAt)
-                        : "Loading..."}
-                    </Text>
+                    <Text style={styles.detailValue}>{memberSince}</Text>
                   </View>
                 </Animated.View>
 

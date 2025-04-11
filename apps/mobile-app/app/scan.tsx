@@ -13,7 +13,7 @@ import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { Feather } from "@expo/vector-icons";
 import { CameraView } from "expo-camera";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +25,7 @@ import {
   View
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
+import { debounce } from "lodash";
 
 type DetectionStatus = "none" | "detecting" | "aligned";
 type ImageSource = "camera" | "gallery" | null;
@@ -59,7 +60,7 @@ export default function ScanScreen() {
   } = useCamera();
 
   const router = useRouter();
-  const detectionIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const detectionIntervalRef = useRef<ReturnType<typeof setTimeout> | number | null>(null);
   const [detectionStatus, setDetectionStatus] = useState<DetectionStatus>("none");
   const [isUploading, setIsUploading] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
@@ -84,6 +85,13 @@ export default function ScanScreen() {
   const scannerOverlayRef = useRef<ScannerOverlayRef>(null);
   const scannerAnimationRef = useRef<SimplifiedScannerAnimationRef>(null);
 
+  // Memoize the detection status handler to prevent unnecessary rerenders
+  const handleDetectionStatus = useCallback((status: DetectionStatus) => {
+    if (isMounted.current) {
+      setDetectionStatus(status);
+    }
+  }, []);
+
   // Clear detection interval function
   const clearDetectionInterval = useCallback(() => {
     if (detectionIntervalRef.current) {
@@ -102,17 +110,20 @@ export default function ScanScreen() {
     };
   }, []);
 
-  // Document detection simulation
+  // Optimize document detection with requestAnimationFrame
   const startDocumentDetection = useCallback(() => {
     clearDetectionInterval();
 
     if (!isCameraActive || !isCameraReady || !isMounted.current) return;
 
     let counter = 0;
+    let animationFrameId: number;
 
-    const interval = setInterval(() => {
+    const updateDetection = () => {
       if (!isMounted.current || !isCameraActive || !isCameraReady) {
-        clearInterval(interval);
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+        }
         return;
       }
 
@@ -120,17 +131,25 @@ export default function ScanScreen() {
 
       // Simplified detection logic
       if (counter < 3) {
-        setDetectionStatus("none");
+        handleDetectionStatus("none");
       } else if (counter < 5) {
-        setDetectionStatus("detecting");
+        handleDetectionStatus("detecting");
       } else {
-        setDetectionStatus("aligned");
+        handleDetectionStatus("aligned");
       }
-    }, 500);
 
-    detectionIntervalRef.current = interval;
-    return () => clearInterval(interval);
-  }, [isCameraActive, isCameraReady, clearDetectionInterval]);
+      animationFrameId = requestAnimationFrame(updateDetection);
+    };
+
+    animationFrameId = requestAnimationFrame(updateDetection);
+    detectionIntervalRef.current = animationFrameId;
+
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [isCameraActive, isCameraReady, clearDetectionInterval, handleDetectionStatus]);
 
   // Start detection when camera becomes active and ready
   useEffect(() => {
@@ -142,7 +161,9 @@ export default function ScanScreen() {
       clearDetectionInterval();
     }
 
-    return clearDetectionInterval;
+    return () => {
+      clearDetectionInterval();
+    };
   }, [
     isCameraActive,
     isCameraReady,
@@ -194,20 +215,6 @@ export default function ScanScreen() {
     releaseCamera();
   }, [clearDetectionInterval, releaseCamera]);
 
-  // Back button handler with enhanced cleanup
-  const handleBack = () => {
-    if (!isMounted.current) return;
-
-    // Perform full cleanup
-    performFullCleanup();
-
-    // Ensure all cleanup operations are completed before navigation
-    Promise.resolve().then(() => {
-      if (isMounted.current) {
-        router.replace("/");
-      }
-    });
-  };
 
   // Enhanced cleanup effect
   useEffect(() => {
@@ -216,6 +223,13 @@ export default function ScanScreen() {
       performFullCleanup();
     };
   }, [performFullCleanup]);
+
+  // Back button handler with enhanced cleanup
+  const handleBack = () => {
+    if (!isMounted.current) return;
+    performFullCleanup();
+    router.replace("/");
+  };
 
   // Queue job and navigate after a brief delay
   const queueJobAndNavigateDelayed = useCallback(
@@ -343,7 +357,20 @@ export default function ScanScreen() {
     }, 500);
   }, [startDocumentDetection]);
 
-  // Update handleCapture to check network before starting
+  // Optimize image processing with debouncing
+  const debouncedUpload = useCallback(
+    debounce(async (uri: string) => {
+      if (!isMounted.current) return;
+      try {
+        await uploadImageAndQueue(uri);
+      } catch (error) {
+        console.error("Debounced upload failed:", error);
+      }
+    }, 300),
+    [uploadImageAndQueue]
+  );
+
+  // Update handleCapture to use debounced upload
   const handleCapture = async () => {
     if (!isMounted.current) return;
 
@@ -395,8 +422,8 @@ export default function ScanScreen() {
         message: "Processing document...",
       });
 
-      // Upload the image and process
-      await uploadImageAndQueue(photoUri);
+      // Use debounced upload
+      await debouncedUpload(photoUri);
     } catch (error) {
       console.error("Capture failed:", error);
 

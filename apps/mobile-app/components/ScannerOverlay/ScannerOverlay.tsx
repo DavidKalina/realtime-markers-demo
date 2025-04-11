@@ -48,6 +48,9 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
     // Refs to store timeouts and track component mounted state
     const frameReadyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isMounted = useRef(true);
+    const animationRefs = useRef<{
+      borderWidth?: Animated.SharedValue<number>;
+    }>({});
 
     // Shared values for animations - created once
     const borderWidth = useSharedValue(2);
@@ -57,7 +60,10 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
       if (!isMounted.current) return;
 
       // Cancel all Reanimated animations
-      cancelAnimation(borderWidth);
+      if (animationRefs.current.borderWidth) {
+        cancelAnimation(animationRefs.current.borderWidth);
+        animationRefs.current.borderWidth = undefined;
+      }
 
       // Clear any pending timeouts
       if (frameReadyTimeoutRef.current) {
@@ -120,6 +126,7 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
     useEffect(() => {
       if (!isMounted.current) return;
 
+      animationRefs.current.borderWidth = borderWidth;
       borderWidth.value = withRepeat(
         withSequence(
           withTiming(2.5, {
@@ -136,8 +143,13 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
       );
 
       return () => {
-        cancelAnimation(borderWidth);
-        borderWidth.value = 2; // Reset to initial value
+        if (isMounted.current) {
+          if (animationRefs.current.borderWidth) {
+            cancelAnimation(animationRefs.current.borderWidth);
+            animationRefs.current.borderWidth = undefined;
+          }
+          borderWidth.value = 2; // Reset to initial value
+        }
       };
     }, [borderWidth]);
 
@@ -147,17 +159,20 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
       [detectionStatus, isCapturing, showScannerAnimation]
     );
 
+    // Memoize scanner animation props
+    const scannerAnimationProps = useMemo(() => ({
+      isActive: showScanning,
+      color: COLORS.accent,
+      speed: isCapturing ? 1000 : 1500,
+    }), [showScanning, isCapturing]);
+
     return (
       <View style={overlayStyles.container}>
         <View style={overlayStyles.frame}>
           <Animated.View style={[overlayStyles.boundary, { borderWidth: borderWidth }]} />
           {showScannerAnimation && (
             <View style={overlayStyles.scannerContainer}>
-              <SimplifiedScannerAnimation
-                isActive={showScanning}
-                color={COLORS.accent}
-                speed={isCapturing ? 1000 : 1500}
-              />
+              <SimplifiedScannerAnimation {...scannerAnimationProps} />
             </View>
           )}
         </View>
