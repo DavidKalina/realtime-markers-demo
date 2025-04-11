@@ -11,7 +11,7 @@ export default function CheckoutScreen() {
 
   const handleNavigationStateChange = (navState: any) => {
     // Check if we're back to our app after Stripe checkout
-    if (navState.url.includes("mapmoji://")) {
+    if (navState.url.includes(process.env.EXPO_PUBLIC_API_URL!)) {
       const url = new URL(navState.url);
       const status = url.searchParams.get("status");
 
