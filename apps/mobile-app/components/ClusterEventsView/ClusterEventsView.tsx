@@ -16,7 +16,6 @@ import apiClient from "@/services/ApiClient";
 import { ArrowLeft, Calendar, MapPin, Tag, Star, TrendingUp, ChevronRight } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
@@ -61,6 +60,7 @@ interface HubDataType {
     events: EventType[];
   }[];
   eventsToday: EventType[];
+  clusterName: string;
 }
 
 interface EventsListSectionProps {
@@ -1120,7 +1120,7 @@ const ClusterEventsView: React.FC = () => {
         >
           <ArrowLeft size={20} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Discover Events</Text>
+        <Text style={styles.headerTitle}>{hubData?.clusterName}</Text>
       </Animated.View>
 
       <Animated.ScrollView

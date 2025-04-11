@@ -1015,18 +1015,37 @@ export class EventService {
       };
     }
 
-    // Get cluster name using geocoding service
+    // Generate cluster name using 4o-mini model
     let clusterName = "";
-    const geocodingService = GeocodingService.getInstance();
-    // Use the first event's coordinates to determine the cluster name
-    const firstEvent = events[0];
-    if (firstEvent.location?.coordinates) {
-      const [longitude, latitude] = firstEvent.location.coordinates;
-      const geocodedPlace = await geocodingService.reverseGeocode([longitude, latitude]);
-      if (geocodedPlace) {
-        // Use a medium zoom level (12) to get a good balance between specificity and generality
-        clusterName = geocodingService.getAppropriateNameForZoom(geocodedPlace, 12);
-      }
+    try {
+      const openai = OpenAIService.getInstance();
+      // Combine event names and descriptions to create context
+      const eventContext = events
+        .slice(0, 5) // Limit to first 5 events to avoid token limits
+        .map((event) => `${event.title}${event.description ? `: ${event.description}` : ''}`)
+        .join('\n');
+
+      const response = await openai.chat.completions.create({
+        model: "4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are a creative naming assistant. Generate a short, catchy name (2-3 words) that captures the essence of these events. The name should be memorable and relevant to the events' themes."
+          },
+          {
+            role: "user",
+            content: `Based on these events, create a creative name for this cluster:\n\n${eventContext}`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 20,
+      });
+
+      clusterName = response.choices[0]?.message?.content?.trim() || "";
+    } catch (error) {
+      console.error("Error generating cluster name:", error);
+      // Fallback to using the first event's title if AI generation fails
+      clusterName = events[0]?.title || "";
     }
 
     // 1. Get featured event (oldest event for now)

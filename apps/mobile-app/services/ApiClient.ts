@@ -149,6 +149,7 @@ interface ClusterHubData {
     events: ApiEvent[];
   }[];
   eventsToday: ApiEvent[];
+  clusterName: string;
 }
 
 class ApiClient {
@@ -717,8 +718,7 @@ class ApiClient {
 
       // Log pagination details for debugging
       console.log(
-        `Search query: "${query}" | Results: ${data.results.length} | Next cursor: ${
-          data.nextCursor || "none"
+        `Search query: "${query}" | Results: ${data.results.length} | Next cursor: ${data.nextCursor || "none"
         }`
       );
 
@@ -1042,6 +1042,7 @@ class ApiClient {
       events: EventType[];
     }[];
     eventsToday: EventType[];
+    clusterName: string;
   }> {
     const url = `${this.baseUrl}/api/events/cluster-hub`;
 
@@ -1055,6 +1056,7 @@ class ApiClient {
 
       // Map all events to EventType
       return {
+        clusterName: data.clusterName,
         featuredEvent: data.featuredEvent ? this.mapEventToEventType(data.featuredEvent) : null,
         eventsByCategory: data.eventsByCategory.map((categoryGroup) => ({
           category: categoryGroup.category,
