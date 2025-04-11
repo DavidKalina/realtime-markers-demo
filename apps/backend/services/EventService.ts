@@ -992,6 +992,7 @@ export class EventService {
     eventsToday: Event[];
     clusterName: string;
     clusterDescription: string;
+    clusterEmoji: string;
   }> {
     // Try to get from cache first
     const cachedData = await CacheService.getCachedClusterHub(markerIds);
@@ -1014,12 +1015,14 @@ export class EventService {
         eventsToday: [],
         clusterName: "",
         clusterDescription: "",
+        clusterEmoji: "🎉",
       };
     }
 
     // Generate cluster name and description using 4o-mini model
     let clusterName = "";
     let clusterDescription = "";
+    let clusterEmoji = "🎉";
     try {
       // Combine event names and descriptions to create context
       const eventContext = events
@@ -1032,19 +1035,21 @@ export class EventService {
         messages: [
           {
             role: "system",
-            content: `You are a creative tagline generator. Create a short, engaging description for a cluster of events.
+            content: `You are a creative tagline and emoji generator. Create a short, engaging description and matching emoji for a cluster of events.
             Respond with a JSON object in this exact format:
             {
               "name": "A short, catchy name (2-3 words) that captures the essence of these events",
-              "description": "A concise, engaging tagline (1-2 sentences max) that sparks interest and highlights what makes these events special"
+              "description": "A concise, engaging tagline (1-2 sentences max) that sparks interest and highlights what makes these events special",
+              "emoji": "A single, relevant emoji that visually represents the cluster theme"
             }
             
             The name should be memorable and relevant to the events' themes.
-            The description should be punchy and intriguing - think of it like a movie tagline that makes people want to learn more.`
+            The description should be punchy and intriguing - think of it like a movie tagline that makes people want to learn more.
+            The emoji should be a single, well-known emoji that clearly represents the cluster's theme or mood.`
           },
           {
             role: "user",
-            content: `Based on these events, create a name and tagline for this cluster:\n\n${eventContext}`
+            content: `Based on these events, create a name, tagline, and emoji for this cluster:\n\n${eventContext}`
           }
         ],
         temperature: 0.7,
@@ -1055,6 +1060,7 @@ export class EventService {
       const result = JSON.parse(response.choices[0]?.message?.content || '{}');
       clusterName = result.name || "";
       clusterDescription = result.description || "";
+      clusterEmoji = result.emoji || "🎉"; // Default to party emoji if none provided
     } catch (error) {
       console.error("Error generating cluster name and description:", error);
       // Fallback to using the first event's title and description
@@ -1122,6 +1128,7 @@ export class EventService {
       eventsToday,
       clusterName,
       clusterDescription,
+      clusterEmoji,
     };
 
     // Cache the result for 5 minutes

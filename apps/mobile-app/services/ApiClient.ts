@@ -149,6 +149,7 @@ interface ClusterHubData {
     events: ApiEvent[];
   }[];
   eventsToday: ApiEvent[];
+  clusterEmoji: string;
   clusterName: string;
   clusterDescription: string;
 }
@@ -1043,6 +1044,7 @@ class ApiClient {
       events: EventType[];
     }[];
     eventsToday: EventType[];
+    clusterEmoji: string;
     clusterName: string;
     clusterDescription: string;
   }> {
@@ -1058,6 +1060,7 @@ class ApiClient {
 
       // Map all events to EventType
       return {
+        clusterEmoji: data.clusterEmoji,
         clusterName: data.clusterName,
         clusterDescription: data.clusterDescription,
         featuredEvent: data.featuredEvent ? this.mapEventToEventType(data.featuredEvent) : null,

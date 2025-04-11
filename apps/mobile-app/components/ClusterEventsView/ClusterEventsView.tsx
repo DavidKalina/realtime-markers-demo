@@ -62,6 +62,7 @@ interface HubDataType {
   eventsToday: EventType[];
   clusterName: string;
   clusterDescription: string;
+  clusterEmoji: string;
 }
 
 interface EventsListSectionProps {
@@ -121,6 +122,14 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontWeight: "700",
     marginBottom: 12,
+  },
+  clusterNameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  clusterEmoji: {
+    fontSize: 24,
   },
   clusterDescriptionContainer: {
     backgroundColor: COLORS.cardBackground,
@@ -1105,7 +1114,10 @@ const ClusterEventsView: React.FC = () => {
           entering={FadeInDown.duration(600).delay(50).springify()}
           layout={LinearTransition.springify()}
         >
-          <Text style={styles.clusterName}>{hubData.clusterName}</Text>
+          <View style={styles.clusterNameContainer}>
+            <Text style={styles.clusterEmoji}>{hubData.clusterEmoji}</Text>
+            <Text style={styles.clusterName}>{hubData.clusterName}</Text>
+          </View>
           <ClusterDescription description={hubData.clusterDescription} />
         </Animated.View>
 
