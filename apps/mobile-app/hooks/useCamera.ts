@@ -1,10 +1,19 @@
 // useCamera.ts - Improved version with better error handling and lifecycle management
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { useCameraPermissions, FlashMode } from "expo-camera";
 import { Alert, AppState, Platform } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as FileSystem from "expo-file-system";
+
+// Constants for camera configuration
+const CAMERA_CONFIG = {
+  PHOTO_QUALITY: 0.8,
+  PROCESSED_WIDTH: 1200,
+  PROCESSED_QUALITY: 0.3,
+  CAMERA_REINIT_DELAY: 300,
+  PERMISSION_DELAY: 500,
+} as const;
 
 export const useCamera = () => {
   // Permissions
@@ -29,6 +38,13 @@ export const useCamera = () => {
 
   // Track camera initialization
   const cameraInitialized = useRef(false);
+
+  // Memoize camera configuration
+  const cameraConfig = useMemo(() => ({
+    quality: CAMERA_CONFIG.PHOTO_QUALITY,
+    exif: true,
+    flashMode,
+  }), [flashMode]);
 
   // Release camera resources
   const releaseCamera = useCallback(() => {
@@ -98,7 +114,7 @@ export const useCamera = () => {
           if (cameraRef.current) {
             setIsCameraActive(true);
           }
-        }, 300);
+        }, CAMERA_CONFIG.CAMERA_REINIT_DELAY);
       } else if (!isActive) {
         // Clean up when app goes to background
         releaseCamera();
@@ -143,31 +159,15 @@ export const useCamera = () => {
   }, [isFocused, appActive]);
 
   // Take picture - robust version with better error handling and flash support
-  const takePicture = async () => {
-    if (!cameraRef.current) {
-      return null;
-    }
-
-    if (isCapturing) {
-      return null;
-    }
-
-    if (!isCameraReady) {
-      return null;
-    }
-
-    if (!isCameraActive) {
+  const takePicture = useCallback(async () => {
+    if (!cameraRef.current || isCapturing || !isCameraReady || !isCameraActive) {
       return null;
     }
 
     try {
       setIsCapturing(true);
 
-      const photo = await (cameraRef.current as any).takePictureAsync({
-        quality: 0.8,
-        exif: true,
-        flashMode: flashMode,
-      });
+      const photo = await (cameraRef.current as any).takePictureAsync(cameraConfig);
 
       // Return the URI directly
       return photo.uri;
@@ -183,18 +183,22 @@ export const useCamera = () => {
     } finally {
       setIsCapturing(false);
     }
-  };
+  }, [cameraRef, isCapturing, isCameraReady, isCameraActive, cameraConfig]);
 
   // Toggle flash mode function
   const toggleFlash = useCallback(() => {
-    setFlashMode((prevMode) => {
-      const newMode = prevMode === "off" ? "on" : "off";
-      return newMode;
-    });
+    setFlashMode((prevMode) => (prevMode === "off" ? "on" : "off"));
   }, []);
 
+  // Memoize image processing configuration
+  const processImageConfig = useMemo(() => ({
+    resize: { width: CAMERA_CONFIG.PROCESSED_WIDTH } as unknown as ImageManipulator.Action,
+    compress: CAMERA_CONFIG.PROCESSED_QUALITY,
+    format: ImageManipulator.SaveFormat.JPEG,
+  }), []);
+
   // For useCamera.ts - Updated processImage function with proper type checking
-  const processImage = async (uri: string) => {
+  const processImage = useCallback(async (uri: string) => {
     try {
       // Get file info with proper type checking
       const fileInfo = await FileSystem.getInfoAsync(uri);
@@ -202,19 +206,16 @@ export const useCamera = () => {
       // Use Image Manipulator for consistent processing
       const processed = await ImageManipulator.manipulateAsync(
         uri,
-        [{ resize: { width: 1200 } }], // Resize to max width of 1200px
-        { compress: 0.3, format: ImageManipulator.SaveFormat.JPEG } // 30% quality JPEG
+        [processImageConfig.resize],
+        { compress: processImageConfig.compress, format: processImageConfig.format }
       );
-
-      // Log processed size with proper type checking
-      const processedInfo = await FileSystem.getInfoAsync(processed.uri);
 
       return processed.uri;
     } catch (error) {
       console.error("Error processing image:", error);
       return uri; // Fall back to original if processing fails
     }
-  };
+  }, [processImageConfig]);
 
   // Discard captured image and return to camera
   const discardImage = useCallback(() => {
@@ -231,7 +232,7 @@ export const useCamera = () => {
         // Small delay to let the system register the permission
         setTimeout(() => {
           setIsCameraActive(true);
-        }, 500);
+        }, CAMERA_CONFIG.PERMISSION_DELAY);
       }
 
       return result.granted;
