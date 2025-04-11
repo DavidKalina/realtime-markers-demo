@@ -121,7 +121,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: "SpaceMono",
     fontWeight: "700",
-    marginBottom: 12,
   },
   clusterNameContainer: {
     flexDirection: "row",
@@ -1090,6 +1089,21 @@ const ClusterEventsView: React.FC = () => {
 
     return (
       <>
+
+
+        <Animated.View
+          style={styles.sectionContainer}
+          entering={FadeInDown.duration(600).delay(50).springify()}
+          layout={LinearTransition.springify()}
+        >
+          <View style={styles.clusterNameContainer}>
+            <Text style={styles.clusterEmoji}>{hubData.clusterEmoji}</Text>
+            <Text style={styles.clusterName}>{hubData.clusterName}</Text>
+          </View>
+          <ClusterDescription description={hubData.clusterDescription} />
+        </Animated.View>
+
+
         <Animated.View
           style={styles.sectionContainer}
           entering={FadeInDown.duration(600).delay(100).springify()}
@@ -1107,18 +1121,6 @@ const ClusterEventsView: React.FC = () => {
               </Text>
             </View>
           )}
-        </Animated.View>
-
-        <Animated.View
-          style={styles.sectionContainer}
-          entering={FadeInDown.duration(600).delay(50).springify()}
-          layout={LinearTransition.springify()}
-        >
-          <View style={styles.clusterNameContainer}>
-            <Text style={styles.clusterEmoji}>{hubData.clusterEmoji}</Text>
-            <Text style={styles.clusterName}>{hubData.clusterName}</Text>
-          </View>
-          <ClusterDescription description={hubData.clusterDescription} />
         </Animated.View>
 
         <Animated.View
