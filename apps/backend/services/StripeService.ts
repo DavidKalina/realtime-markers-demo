@@ -60,7 +60,8 @@ export class StripeService {
       }
       case "customer.subscription.created": {
         const subscription = event.data.object as Stripe.Subscription;
-        const userId = subscription.metadata?.userId;
+        const customer = await this.stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
+        const userId = customer.metadata?.userId;
 
         if (userId) {
           await this.planService.updatePlan(userId, PlanType.PRO);
@@ -69,7 +70,8 @@ export class StripeService {
       }
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        const userId = subscription.metadata?.userId;
+        const customer = await this.stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
+        const userId = customer.metadata?.userId;
 
         if (userId) {
           await this.planService.updatePlan(userId, PlanType.FREE);
