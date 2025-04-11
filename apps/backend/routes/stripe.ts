@@ -2,8 +2,18 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { StripeService } from "../services/StripeService";
 import type { AppContext } from "../types/context";
+import { authMiddleware } from "../middleware/authMiddleware";
 
 const stripeRouter = new Hono<AppContext>();
+
+// Apply auth middleware to all Stripe routes except webhook
+stripeRouter.use("*", async (c, next) => {
+  // Skip auth for webhook endpoint
+  if (c.req.path === "/webhook") {
+    return next();
+  }
+  return authMiddleware(c, next);
+});
 
 // Create checkout session
 stripeRouter.post("/create-checkout-session", async (c) => {

@@ -5,19 +5,26 @@ import { PlanService } from "../services/PlanService";
 import { PlanType } from "../entities/User";
 import type { AppContext } from "../types/context";
 import dataSource from "../data-source";
+import { authMiddleware } from "../middleware/authMiddleware";
 
 const plansRouter = new Hono<AppContext>();
 
+// Apply auth middleware to all plan routes
+plansRouter.use("*", authMiddleware);
+
 // Get plan details
 plansRouter.get("/", async (c) => {
-  const userId = c.get("user")?.userId;
-  if (!userId) {
+  const user = c.get("user");
+
+  console.log({ user });
+
+  if (!user?.userId) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
   const planService = new PlanService(dataSource);
   try {
-    const planDetails = await planService.getPlanDetails(userId);
+    const planDetails = await planService.getPlanDetails(user.userId);
     return c.json(planDetails);
   } catch (error) {
     console.error("Error getting plan details:", error);

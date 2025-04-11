@@ -35,6 +35,7 @@ import { StorageService } from "./services/shared/StorageService";
 import { UserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
 import plansRouter from "./routes/plans";
+import stripeRouter from "./routes/stripe";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -358,6 +359,7 @@ app.route("/api/auth", authRouter);
 app.route("/api/admin", adminRouter);
 app.route("/api/filters", filterRouter);
 app.route("/api/plans", plansRouter);
+app.route("/api/stripe", stripeRouter);
 app.route("/api/internal", internalRouter);
 
 // =============================================================================
