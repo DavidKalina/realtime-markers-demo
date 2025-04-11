@@ -256,6 +256,7 @@ const SavedEventsList: React.FC<{
       cursor={cursor}
       error={error}
       activeTab="saved"
+      isLoading={isLoading}
     />
   );
 };
@@ -376,6 +377,7 @@ const DiscoveredEventsList: React.FC<{
       cursor={cursor}
       error={error}
       activeTab="discovered"
+      isLoading={isLoading}
     />
   );
 };
@@ -391,6 +393,7 @@ interface EventsListProps {
   cursor?: string;
   error?: string | null;
   activeTab: TabType;
+  isLoading: boolean;
 }
 
 const EventsList = ({
@@ -403,7 +406,8 @@ const EventsList = ({
   hasMore,
   cursor,
   error,
-  activeTab
+  activeTab,
+  isLoading
 }: EventsListProps) => {
   const listRef = useAnimatedRef<FlatList>();
   const scrollY = useSharedValue(0);
@@ -482,6 +486,19 @@ const EventsList = ({
 
   const ListEmptyComponent = useCallback(() => {
     if (isRefreshing) return null;
+    if (isLoading) {
+      return (
+        <Animated.View
+          style={styles.loadingContainer}
+          entering={FadeInDown.duration(600).springify()}
+          exiting={FadeOut.duration(200)}
+          layout={Layout.duration(300)}
+        >
+          <ActivityIndicator size="large" color="#93c5fd" />
+          <Text style={styles.loadingText}>Loading events...</Text>
+        </Animated.View>
+      );
+    }
     return (
       <Animated.View
         style={styles.emptyStateContainer}
@@ -513,7 +530,7 @@ const EventsList = ({
         </TouchableOpacity>
       </Animated.View>
     );
-  }, [isRefreshing]);
+  }, [isRefreshing, isLoading]);
 
   const ListFooterComponent = useCallback(() => (
     <Animated.View

@@ -123,7 +123,10 @@ const ConnectionIndicator: React.FC = () => {
 
     const handlePress = useMemo(() => () => {
         cancelAnimation(scale);
-        scale.value = withSpring(0.95, ANIMATION_CONFIG);
+        scale.value = withSequence(
+            withSpring(0.95, ANIMATION_CONFIG),
+            withSpring(1, ANIMATION_CONFIG)
+        );
     }, []);
 
     const animatedStyle = useAnimatedStyle(() => ({
@@ -131,7 +134,10 @@ const ConnectionIndicator: React.FC = () => {
     }));
 
     return (
-        <Animated.View style={[styles.container, animatedStyle]}>
+        <Animated.View
+            style={[styles.container, animatedStyle]}
+            onTouchStart={handlePress}
+        >
             <View style={[styles.indicator, { backgroundColor: currentState.bgColor }]}>
                 <Wifi size={10} color={currentState.color} />
             </View>

@@ -268,15 +268,13 @@ const JobIndicator: React.FC = () => {
                         </View>
                     )}
                 </View>
-                {state === 'processing' && (
-                    <Animated.View
-                        entering={FadeIn.duration(300)}
-                        exiting={FadeOut.duration(300)}
-                        style={styles.percentageContainer}
-                    >
-                        <Text style={styles.percentageText}>{progress}%</Text>
-                    </Animated.View>
-                )}
+                <Animated.View
+                    entering={FadeIn.duration(300)}
+                    exiting={FadeOut.duration(300)}
+                    style={styles.percentageContainer}
+                >
+                    <Text style={styles.percentageText}>{progress}%</Text>
+                </Animated.View>
             </Animated.View>
         </Pressable>
     );
@@ -287,6 +285,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
+        width: 65,
         padding: 8,
         margin: -8,
         position: 'relative',
