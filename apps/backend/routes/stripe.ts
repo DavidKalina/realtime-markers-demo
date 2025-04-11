@@ -23,10 +23,9 @@ stripeRouter.post("/create-checkout-session", async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  console.log({ userId });
 
   // Check for required environment variable
-  const appUrl = `https://4cdbc404d515.ngrok.app`;
+  const appUrl = `https://mapmoji.app`
   if (!appUrl) {
     console.error("APP_URL environment variable is not set");
     return c.json({ error: "Server configuration error" }, 500);
