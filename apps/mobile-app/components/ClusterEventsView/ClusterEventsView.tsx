@@ -1,36 +1,36 @@
-import React, { useCallback, useEffect, useState, useRef, useMemo, memo } from "react";
+import apiClient from "@/services/ApiClient";
+import { useLocationStore } from "@/stores/useLocationStore";
+import { EventType } from "@/types/types";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
+import { ArrowLeft, Calendar, MapPin, Star, Tag } from "lucide-react-native";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  View,
-  StyleSheet,
   ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  FlatList,
-  Dimensions,
-  ScrollView,
-  Image,
+  View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocationStore } from "@/stores/useLocationStore";
-import apiClient from "@/services/ApiClient";
-import { ArrowLeft, Calendar, MapPin, Tag, Star, TrendingUp, ChevronRight } from "lucide-react-native";
-import { useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
 import Animated, {
-  useSharedValue,
-  useAnimatedScrollHandler,
-  interpolate,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
   Easing,
   FadeInDown,
+  interpolate,
   Layout,
-  LinearTransition
+  LinearTransition,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming
 } from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 import EventItem from "../EventItem/EventItem";
-import { EventType } from "@/types/types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -541,18 +541,7 @@ const TabButton = memo<{
   </TouchableOpacity>
 ));
 
-// Memoized EventCard component
-const EventCard = memo<{
-  event: EventType;
-  onPress: () => void;
-}>(({ event, onPress }) => (
-  <EventItem
-    event={event}
-    onPress={onPress}
-    variant="default"
-    showChevron={true}
-  />
-));
+
 
 // Memoized AnimatedEventCard component
 const AnimatedEventCard = memo<{
