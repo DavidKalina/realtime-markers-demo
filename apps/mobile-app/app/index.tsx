@@ -344,6 +344,7 @@ function HomeScreen() {
         >
           {/* Camera with ref for control */}
           <MapboxGL.Camera
+            minZoomLevel={10}
             ref={cameraRef}
             defaultSettings={defaultCameraSettings}
             animationDuration={0}
