@@ -408,15 +408,13 @@ const FiltersView: React.FC = () => {
             ref={listRef}
             data={filters}
             renderItem={({ index, item }) => (
-              <Card delay={index * 100}>
-                <FilterListItem
-                  item={item}
-                  activeFilterIds={activeFilterIds}
-                  onApply={handleApplyFilter}
-                  onEdit={handleEditFilter}
-                  onDelete={handleDeleteFilter}
-                />
-              </Card>
+              <FilterListItem
+                item={item}
+                activeFilterIds={activeFilterIds}
+                onApply={handleApplyFilter}
+                onEdit={handleEditFilter}
+                onDelete={handleDeleteFilter}
+              />
             )}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
