@@ -2,39 +2,36 @@ import { useFilterStore } from "@/stores/useFilterStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
+import { Plus } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
   Keyboard,
-  SafeAreaView,
   ScrollView,
-  StatusBar,
+  TouchableOpacity,
   View,
   ViewStyle,
 } from "react-native";
 import Animated, {
-  BounceIn,
-  FadeInDown,
-  FadeOut,
-  LinearTransition,
-  SlideOutRight,
   cancelAnimation,
   interpolate,
   useAnimatedRef,
   useAnimatedScrollHandler,
   useAnimatedStyle,
-  useSharedValue,
+  useSharedValue
 } from "react-native-reanimated";
 import { Filter as FilterType } from "../../services/ApiClient";
-import { styles } from "./styles";
-import { FilterHeader } from "./FilterHeader";
-import { ErrorState } from "./ErrorState";
+import Card from "../Layout/Card";
+import Header from "../Layout/Header";
+import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 import { BottomActionBar } from "./BottomActionBar";
 import { EmptyState } from "./EmptyState";
+import { ErrorState } from "./ErrorState";
 import { FilterFormModal } from "./FilterFormModal";
 import { FilterListItem } from "./FilterListItem";
 import { LoadingState } from "./LoadingState";
+import { styles } from "./styles";
 
 const ACTIVE_FILTERS_KEY = "@active_filters";
 
@@ -87,22 +84,7 @@ const FiltersView: React.FC = () => {
     modalContentAnimationProgress.value = 0;
   }, []);
 
-  // Animation for header shadow
-  const headerAnimatedStyle = useAnimatedStyle(() => {
-    const shadowOpacity = interpolate(scrollY.value, [0, 50], [0, 0.15], "clamp");
 
-    const borderOpacity = interpolate(scrollY.value, [0, 50], [0, 0.1], "clamp");
-
-    return {
-      shadowOpacity,
-      borderBottomColor: `rgba(58, 58, 58, ${borderOpacity})`,
-      transform: [
-        {
-          translateY: interpolate(scrollY.value, [0, 50], [0, -2], "clamp"),
-        },
-      ],
-    } as ViewStyle;
-  });
 
   // Scroll handler
   const scrollHandler = useAnimatedScrollHandler({
@@ -399,13 +381,19 @@ const FiltersView: React.FC = () => {
   ]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#333" />
-
-      <FilterHeader
+    <ScreenLayout>
+      <Header
+        title="Filters"
         onBack={handleBack}
-        onCreateFilter={handleCreateFilter}
-        headerAnimatedStyle={headerAnimatedStyle}
+        rightIcon={
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={handleCreateFilter}
+            activeOpacity={0.7}
+          >
+            <Plus size={20} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+        }
       />
 
       <View style={styles.contentArea}>
@@ -420,13 +408,7 @@ const FiltersView: React.FC = () => {
             ref={listRef}
             data={filters}
             renderItem={({ index, item }) => (
-              <Animated.View
-                entering={FadeInDown.duration(600)
-                  .delay(index * 100)
-                  .springify()}
-                exiting={FadeOut.duration(200)}
-                layout={LinearTransition.duration(300)}
-              >
+              <Card delay={index * 100}>
                 <FilterListItem
                   item={item}
                   activeFilterIds={activeFilterIds}
@@ -434,7 +416,7 @@ const FiltersView: React.FC = () => {
                   onEdit={handleEditFilter}
                   onDelete={handleDeleteFilter}
                 />
-              </Animated.View>
+              </Card>
             )}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
@@ -471,7 +453,7 @@ const FiltersView: React.FC = () => {
         isMounted={isMounted}
         cleanupModalAnimations={cleanupModalAnimations}
       />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 };
 
