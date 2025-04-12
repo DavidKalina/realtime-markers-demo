@@ -13,37 +13,8 @@ interface CardProps {
     onPress?: () => void;
 }
 
-const Card: React.FC<CardProps> = ({
-    children,
-    style,
-    animated = true,
-    delay = 0,
-    noBorder = false,
-    noShadow = false,
-    onPress,
-}) => {
-    const CardComponent = animated ? Animated.View : View;
-    const Container = onPress ? TouchableOpacity : View;
-
-    return (
-        <Container onPress={onPress} activeOpacity={0.8}>
-            <CardComponent
-                style={[
-                    styles.card,
-                    !noBorder && styles.border,
-                    !noShadow && styles.shadow,
-                    style,
-                ]}
-                entering={animated ? FadeInDown.duration(600).delay(delay).springify() : undefined}
-                layout={animated ? LinearTransition.springify() : undefined}
-            >
-                {children}
-            </CardComponent>
-        </Container>
-    );
-};
-
-const styles = StyleSheet.create({
+// Memoize the card styles
+const cardStyles = StyleSheet.create({
     card: {
         backgroundColor: COLORS.cardBackground,
         borderRadius: 20,
@@ -61,6 +32,39 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
         elevation: 8,
     },
+});
+
+const Card: React.FC<CardProps> = React.memo(({
+    children,
+    style,
+    animated = true,
+    delay = 0,
+    noBorder = false,
+    noShadow = false,
+    onPress,
+}) => {
+    const CardComponent = animated ? Animated.View : View;
+    const Container = onPress ? TouchableOpacity : View;
+
+    // Memoize the card style
+    const cardStyle = React.useMemo(() => [
+        cardStyles.card,
+        !noBorder && cardStyles.border,
+        !noShadow && cardStyles.shadow,
+        style,
+    ], [noBorder, noShadow, style]);
+
+    return (
+        <Container onPress={onPress} activeOpacity={0.8}>
+            <CardComponent
+                style={cardStyle}
+                entering={animated ? FadeInDown.duration(600).delay(delay).springify() : undefined}
+                layout={animated ? LinearTransition.springify() : undefined}
+            >
+                {children}
+            </CardComponent>
+        </Container>
+    );
 });
 
 export default Card; 

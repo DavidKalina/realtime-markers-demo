@@ -4,47 +4,62 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Bookmark, Heart, Scan } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import {
-  useSharedValue
-} from "react-native-reanimated";
-import EventItem from "../EventItem/EventItem";
-import Card from "../Layout/Card";
+import { StyleSheet, View } from "react-native";
+import EventList from "../EventList/EventList";
 import Header from "../Layout/Header";
 import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 import Tabs, { TabItem } from "../Layout/Tabs";
 
 type TabType = 'saved' | 'discovered';
 
-// Memoize the EventCard component
-const EventCard: React.FC<{
-  item: EventType;
-  activeTab: TabType;
-  onPress: (event: EventType) => void;
-  index: number;
-}> = React.memo(({ item, activeTab, onPress, index }) => {
+// Main SavedEventsView component
+const SavedEventsView: React.FC = () => {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<TabType>('saved');
+
+  const handleBack = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.back();
+  }, [router]);
+
+  const handleTabSwitch = useCallback((tab: TabType) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveTab(tab);
+  }, []);
+
+  const tabItems: TabItem<TabType>[] = [
+    { icon: Bookmark, label: "Saved", value: "saved" },
+    { icon: Scan, label: "Discovered", value: "discovered" },
+  ];
+
   return (
-    <EventItem
-      event={item}
-      onPress={onPress}
-      index={index}
-      variant="default"
-      showChevron={false}
-    />
+    <ScreenLayout>
+      <Header
+        title="My Events"
+        onBack={handleBack}
+        rightIcon={activeTab === 'saved' ? <Heart size={20} color={COLORS.accent} fill={COLORS.accent} /> : <Scan size={20} color={COLORS.accent} />}
+      />
+
+      <Tabs<TabType>
+        items={tabItems}
+        activeTab={activeTab}
+        onTabPress={handleTabSwitch}
+        style={styles.tabsContainer}
+      />
+
+      <View style={styles.contentArea}>
+        {activeTab === 'saved' ? (
+          <SavedEventsList />
+        ) : (
+          <DiscoveredEventsList />
+        )}
+      </View>
+    </ScreenLayout>
   );
-});
+};
 
 // Separate component for Saved Events
-const SavedEventsList: React.FC<{
-  onEventPress: (event: EventType) => void;
-}> = ({ onEventPress }) => {
+const SavedEventsList: React.FC = () => {
   const [events, setEvents] = useState<EventType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -128,76 +143,25 @@ const SavedEventsList: React.FC<{
     }
   }, [isFetchingMore, isRefreshing, hasMore, cursor, fetchEvents, lastLoadMoreAttempt]);
 
-  const ListFooter = useCallback(() => {
-    if (!isFetchingMore) return null;
-    return (
-      <View style={styles.loadingFooter}>
-        <ActivityIndicator size="small" color={COLORS.accent} />
-        <Text style={styles.loadingFooterText}>Loading more...</Text>
-      </View>
-    );
-  }, [isFetchingMore]);
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
-        <Text style={styles.loadingText}>Loading saved events...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => fetchEvents(true)}>
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
-      </Card>
-    );
-  }
-
-  if (events.length === 0) {
-    return (
-      <Card style={styles.emptyStateContainer}>
-        <View style={styles.emptyStateIconContainer}>
-          <Heart size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />
-        </View>
-        <Text style={styles.emptyStateTitle}>No saved events</Text>
-        <Text style={styles.emptyStateDescription}>
-          Events you save will appear here. Start exploring to find events you're interested in!
-        </Text>
-      </Card>
-    );
-  }
-
   return (
-    <FlatList
-      data={events}
-      renderItem={({ item, index }) => (
-        <EventCard
-          item={item}
-          activeTab="saved"
-          onPress={onEventPress}
-          index={index}
-        />
-      )}
-      keyExtractor={(item) => `${item.id}-${item.time}`}
-      onEndReached={handleLoadMore}
-      onEndReachedThreshold={0.2}
-      refreshing={isRefreshing}
+    <EventList
+      events={events}
+      isLoading={isLoading}
+      isFetchingMore={isFetchingMore}
+      error={error}
       onRefresh={handleRefresh}
-      ListFooterComponent={ListFooter}
-      contentContainerStyle={styles.listContent}
+      onLoadMore={handleLoadMore}
+      onRetry={() => fetchEvents(true)}
+      emptyStateTitle="No saved events"
+      emptyStateDescription="Events you save will appear here. Start exploring to find events you're interested in!"
+      emptyStateIcon={<Heart size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />}
+      showChevron={false}
     />
   );
 };
 
 // Separate component for Discovered Events
-const DiscoveredEventsList: React.FC<{
-  onEventPress: (event: EventType) => void;
-}> = ({ onEventPress }) => {
+const DiscoveredEventsList: React.FC = () => {
   const [events, setEvents] = useState<EventType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -281,123 +245,20 @@ const DiscoveredEventsList: React.FC<{
     }
   }, [isFetchingMore, isRefreshing, hasMore, cursor, fetchEvents, lastLoadMoreAttempt]);
 
-  const ListFooter = useCallback(() => {
-    if (!isFetchingMore) return null;
-    return (
-      <View style={styles.loadingFooter}>
-        <ActivityIndicator size="small" color={COLORS.accent} />
-        <Text style={styles.loadingFooterText}>Loading more...</Text>
-      </View>
-    );
-  }, [isFetchingMore]);
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
-        <Text style={styles.loadingText}>Loading discovered events...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => fetchEvents(true)}>
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
-      </Card>
-    );
-  }
-
-  if (events.length === 0) {
-    return (
-      <Card style={styles.emptyStateContainer}>
-        <View style={styles.emptyStateIconContainer}>
-          <Scan size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />
-        </View>
-        <Text style={styles.emptyStateTitle}>No discovered events</Text>
-        <Text style={styles.emptyStateDescription}>
-          Events you discover through scanning will appear here. Try scanning some event flyers!
-        </Text>
-      </Card>
-    );
-  }
-
   return (
-    <FlatList
-      data={events}
-      renderItem={({ item, index }) => (
-        <EventCard
-          item={item}
-          activeTab="discovered"
-          onPress={onEventPress}
-          index={index}
-        />
-      )}
-      keyExtractor={(item) => `${item.id}-${item.time}`}
-      onEndReached={handleLoadMore}
-      onEndReachedThreshold={0.2}
-      refreshing={isRefreshing}
+    <EventList
+      events={events}
+      isLoading={isLoading}
+      isFetchingMore={isFetchingMore}
+      error={error}
       onRefresh={handleRefresh}
-      ListFooterComponent={ListFooter}
-      contentContainerStyle={styles.listContent}
+      onLoadMore={handleLoadMore}
+      onRetry={() => fetchEvents(true)}
+      emptyStateTitle="No discovered events"
+      emptyStateDescription="Events you discover through scanning will appear here. Try scanning some event flyers!"
+      emptyStateIcon={<Scan size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />}
+      showChevron={false}
     />
-  );
-};
-
-// Main SavedEventsView component
-const SavedEventsView: React.FC = () => {
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabType>('saved');
-  const scrollY = useSharedValue(0);
-
-  const handleBack = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
-  }, [router]);
-
-  const handleSelectEvent = useCallback((event: EventType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (event.id) {
-      router.push(`/details?eventId=${event.id}`);
-    }
-  }, [router]);
-
-  const handleTabSwitch = useCallback((tab: TabType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActiveTab(tab);
-  }, []);
-
-  const tabItems: TabItem<TabType>[] = [
-    { icon: Bookmark, label: "Saved", value: "saved" },
-    { icon: Scan, label: "Discovered", value: "discovered" },
-  ];
-
-  return (
-    <ScreenLayout>
-      <Header
-        title="My Events"
-        onBack={handleBack}
-        rightIcon={activeTab === 'saved' ? <Heart size={20} color={COLORS.accent} fill={COLORS.accent} /> : <Scan size={20} color={COLORS.accent} />}
-      />
-
-      <Tabs<TabType>
-        items={tabItems}
-        activeTab={activeTab}
-        onTabPress={handleTabSwitch}
-        style={styles.tabsContainer}
-      />
-
-      <View style={styles.contentArea}>
-        {activeTab === 'saved' ? (
-          <SavedEventsList onEventPress={handleSelectEvent} />
-        ) : (
-          <DiscoveredEventsList onEventPress={handleSelectEvent} />
-        )}
-      </View>
-    </ScreenLayout>
   );
 };
 
@@ -409,86 +270,6 @@ const styles = StyleSheet.create({
   tabsContainer: {
     marginHorizontal: 16,
     marginVertical: 12,
-  },
-  listContent: {
-    paddingVertical: 8,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
-    fontSize: 14,
-    marginTop: 12,
-  },
-  loadingFooter: {
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  loadingFooterText: {
-    color: COLORS.accent,
-    fontFamily: "SpaceMono",
-    fontSize: 14,
-    marginLeft: 8,
-  },
-  errorContainer: {
-    margin: 16,
-    alignItems: 'center',
-  },
-  errorText: {
-    color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
-    fontSize: 14,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: COLORS.buttonBackground,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
-  retryButtonText: {
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    fontSize: 14,
-  },
-  emptyStateContainer: {
-    margin: 16,
-    alignItems: 'center',
-    padding: 24,
-  },
-  emptyStateIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.3)",
-  },
-  emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    marginBottom: 8,
-  },
-  emptyStateDescription: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
-    textAlign: 'center',
-    lineHeight: 20,
   },
 });
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { SafeAreaView, StyleSheet, StatusBar, View, ViewStyle } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
@@ -25,7 +25,18 @@ interface ScreenLayoutProps {
     noAnimation?: boolean;
 }
 
-const ScreenLayout: React.FC<ScreenLayoutProps> = ({
+// Memoize the screen layout styles
+const screenLayoutStyles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: COLORS.background,
+    },
+    content: {
+        flex: 1,
+    },
+});
+
+const ScreenLayout: React.FC<ScreenLayoutProps> = React.memo(({
     children,
     style,
     contentStyle,
@@ -35,27 +46,28 @@ const ScreenLayout: React.FC<ScreenLayoutProps> = ({
     const Container = noSafeArea ? View : SafeAreaView;
     const Content = noAnimation ? View : Animated.View;
 
+    // Memoize the container and content styles
+    const containerStyle = useMemo(() => [
+        screenLayoutStyles.container,
+        style,
+    ], [style]);
+
+    const contentStyleMemo = useMemo(() => [
+        screenLayoutStyles.content,
+        contentStyle,
+    ], [contentStyle]);
+
     return (
-        <Container style={[styles.container, style]}>
+        <Container style={containerStyle}>
             <StatusBar barStyle="light-content" backgroundColor="#333" />
             <Content
-                style={[styles.content, contentStyle]}
+                style={contentStyleMemo}
                 entering={noAnimation ? undefined : FadeIn.duration(300)}
             >
                 {children}
             </Content>
         </Container>
     );
-};
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-    },
-    content: {
-        flex: 1,
-    },
 });
 
 export default ScreenLayout; 

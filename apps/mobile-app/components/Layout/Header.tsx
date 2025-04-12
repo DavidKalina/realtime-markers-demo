@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -12,42 +12,8 @@ interface HeaderProps {
     animated?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({
-    title,
-    onBack,
-    rightIcon,
-    style,
-    animated = true,
-}) => {
-    const HeaderComponent = animated ? Animated.View : View;
-
-    return (
-        <HeaderComponent
-            style={[styles.header, style]}
-            entering={animated ? FadeIn.duration(300) : undefined}
-        >
-            {onBack && (
-                <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.7}>
-                    <ArrowLeft size={22} color={COLORS.textPrimary} />
-                </TouchableOpacity>
-            )}
-
-            <Text style={styles.headerTitle} numberOfLines={1}>
-                {title}
-            </Text>
-
-            {rightIcon ? (
-                <View style={styles.rightIconContainer}>
-                    {rightIcon}
-                </View>
-            ) : (
-                <View style={styles.placeholderIcon} />
-            )}
-        </HeaderComponent>
-    );
-};
-
-const styles = StyleSheet.create({
+// Memoize the header styles
+const headerStyles = StyleSheet.create({
     header: {
         flexDirection: "row",
         alignItems: "center",
@@ -91,6 +57,53 @@ const styles = StyleSheet.create({
         width: 40,
         marginLeft: 12,
     },
+});
+
+// Memoize the back button component
+const BackButton = React.memo(({ onBack }: { onBack: () => void }) => (
+    <TouchableOpacity style={headerStyles.backButton} onPress={onBack} activeOpacity={0.7}>
+        <ArrowLeft size={22} color={COLORS.textPrimary} />
+    </TouchableOpacity>
+));
+
+// Memoize the right icon component
+const RightIcon = React.memo(({ icon }: { icon?: React.ReactNode }) => (
+    icon ? (
+        <View style={headerStyles.rightIconContainer}>
+            {icon}
+        </View>
+    ) : (
+        <View style={headerStyles.placeholderIcon} />
+    )
+));
+
+const Header: React.FC<HeaderProps> = React.memo(({
+    title,
+    onBack,
+    rightIcon,
+    style,
+    animated = true,
+}) => {
+    const HeaderComponent = animated ? Animated.View : View;
+
+    // Memoize the header style
+    const headerStyle = useMemo(() => [
+        headerStyles.header,
+        style,
+    ], [style]);
+
+    return (
+        <HeaderComponent
+            style={headerStyle}
+            entering={animated ? FadeIn.duration(300) : undefined}
+        >
+            {onBack && <BackButton onBack={onBack} />}
+            <Text style={headerStyles.headerTitle} numberOfLines={1}>
+                {title}
+            </Text>
+            <RightIcon icon={rightIcon} />
+        </HeaderComponent>
+    );
 });
 
 export default Header; 
