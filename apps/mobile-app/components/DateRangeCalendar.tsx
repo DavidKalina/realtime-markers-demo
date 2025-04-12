@@ -1,15 +1,14 @@
-import { addMonths, eachDayOfInterval, endOfMonth, format, isSameMonth, isToday, parseISO, startOfMonth, subMonths, addDays } from 'date-fns';
+import { addDays, addMonths, eachDayOfInterval, endOfMonth, format, isSameMonth, isToday, parseISO, startOfMonth, subMonths } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
+    cancelAnimation,
+    runOnJS,
     SlideInDown,
     SlideOutDown,
-    useSharedValue,
-    withTiming,
-    runOnJS,
-    cancelAnimation
+    useSharedValue
 } from 'react-native-reanimated';
 import { COLORS } from './Layout/ScreenLayout';
 
