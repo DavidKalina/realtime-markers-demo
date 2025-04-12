@@ -12,10 +12,6 @@ import {
   TextInput,
   View
 } from "react-native";
-import {
-  useAnimatedScrollHandler,
-  useSharedValue
-} from "react-native-reanimated";
 import EventList from "../EventList/EventList";
 import Input from "../Input/Input";
 import Header from "../Layout/Header";
@@ -25,7 +21,6 @@ const SearchView = () => {
   const router = useRouter();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const scrollY = useSharedValue(0);
 
   // Get stored markers from location store to show nearby events initially
   const storedMarkers = useLocationStore((state) => state.markers);
@@ -69,12 +64,6 @@ const SearchView = () => {
     searchInputRef.current?.focus();
   }, [clearSearch]);
 
-  // Scroll handler
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
-  });
 
   // Set up keyboard listeners
   useEffect(() => {
