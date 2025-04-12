@@ -412,6 +412,20 @@ export default function ScanScreen() {
         message: "Processing document...",
       });
 
+      // Wait for 2 seconds to ensure animation plays
+      // Add safety check to ensure we still have the image
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Double check we still have the image and component is mounted
+      if (!isMounted.current || !photoUri) {
+        throw new Error("Scan cancelled or image lost");
+      }
+
+      // Recheck network before proceeding with upload
+      if (!isNetworkSuitable()) {
+        throw new Error("Network connection lost during scan");
+      }
+
       // Use debounced upload
       await debouncedUpload(photoUri);
     } catch (error) {

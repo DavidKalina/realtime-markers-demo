@@ -207,12 +207,13 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
     const ScannerAnimationContainer = useMemo(() => {
       if (!showScannerAnimation) return null;
 
-      const showScanning = showScannerAnimation && (detectionStatus !== "none" || isCapturing);
+      // Always show scanning animation when capturing
+      const showScanning = isCapturing;
 
       const scannerAnimationProps = {
         isActive: showScanning,
         color: COLORS.accent,
-        speed: isCapturing ? 1500 : 2000,
+        speed: 2000, // Fixed 2 second duration
       };
 
       return (
@@ -220,7 +221,7 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
           <SimplifiedScannerAnimation {...scannerAnimationProps} />
         </View>
       );
-    }, [detectionStatus, isCapturing, showScannerAnimation]);
+    }, [isCapturing, showScannerAnimation]);
 
     return (
       <View style={overlayStyles.container}>
