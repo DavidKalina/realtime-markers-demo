@@ -250,7 +250,7 @@ export const ImagePoofIntoEmojiTransformation: React.FC<ImagePoofIntoEmojiTransf
                 <Image
                     source={{ uri: imageUri }}
                     style={styles.image}
-                    resizeMode="cover"
+                    resizeMode="contain"
                 />
             </Animated.View>
 
@@ -276,10 +276,13 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         position: 'absolute',
         backfaceVisibility: 'hidden',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     image: {
         width: '100%',
         height: '100%',
+        resizeMode: 'contain',
     },
     poofContainer: {
         position: 'absolute',
