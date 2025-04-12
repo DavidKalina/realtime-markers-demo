@@ -1,7 +1,6 @@
 // scan.tsx - Updated version with removed detection logic
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
-import { ScannerOverlay } from "@/components/ScannerOverlay/ScannerOverlay";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
 import { useEventBroker } from "@/hooks/useEventBroker";
@@ -28,6 +27,7 @@ import {
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { debounce } from "lodash";
 import { useFocusEffect } from '@react-navigation/native';
+import { ImagePoofIntoEmojiTransformation } from "@/components/ImagePoofIntoEmojiTransformation/ImagePoofIntoEmojiTransformation";
 
 type ImageSource = "camera" | "gallery" | null;
 
@@ -559,17 +559,28 @@ export default function ScanScreen() {
           </View>
         </Animated.View>
 
-        {/* Content area - same structure as camera view for consistency */}
+        {/* Content area with transformation animation */}
         <View style={styles.contentArea}>
-          <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
-            <Image source={{ uri: capturedImage }} style={styles.previewImage} />
-
-            {/* Scanner overlay */}
-            <ScannerOverlay
-              isCapturing={true}
-              showScannerAnimation={true}
-            />
-          </Animated.View>
+          <ImagePoofIntoEmojiTransformation
+            imageUri={capturedImage}
+            onAnimationComplete={async () => {
+              try {
+                await uploadImageAndQueue(capturedImage);
+              } catch (error) {
+                console.error("Upload failed after animation:", error);
+                if (isMounted.current) {
+                  Alert.alert(
+                    "Upload Failed",
+                    "There was a problem uploading your document. Please try again.",
+                    [{ text: "OK" }]
+                  );
+                  setCapturedImage(null);
+                  setImageSource(null);
+                  setIsUploading(false);
+                }
+              }
+            }}
+          />
         </View>
 
         {/* Empty view to maintain same layout structure */}
@@ -605,11 +616,6 @@ export default function ScanScreen() {
               onCameraReady={onCameraReady}
               flash={flashMode}
             >
-              <ScannerOverlay
-                isCapturing={isCapturing || isUploading}
-                showScannerAnimation={false}
-              />
-
               {/* Camera not ready indicator */}
               {!isCameraReady && (
                 <View style={styles.cameraNotReadyOverlay}>

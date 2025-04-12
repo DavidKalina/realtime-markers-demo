@@ -14,7 +14,7 @@ import Animated, {
     cancelAnimation,
     runOnJS,
 } from 'react-native-reanimated';
-import { Cog, Check, X } from 'lucide-react-native';
+import { Check, X } from 'lucide-react-native';
 import * as Haptics from "expo-haptics";
 import { useJobSessionStore, Job } from "@/stores/useJobSessionStore";
 
@@ -24,9 +24,9 @@ const ANIMATION_CONFIG = {
     stiffness: 200,
 };
 
-const SPIN_CONFIG = {
-    duration: 2000,
-    easing: Easing.linear,
+const BOBBING_CONFIG = {
+    duration: 1000,
+    easing: Easing.inOut(Easing.cubic),
 };
 
 const TEXT_ANIMATION_CONFIG = {
@@ -52,7 +52,7 @@ const JobIndicator: React.FC = () => {
 
     // Shared animation values
     const scale = useSharedValue(1);
-    const rotation = useSharedValue(0);
+    const bobOffset = useSharedValue(0);
     const textScale = useSharedValue(1);
     const textOpacity = useSharedValue(1);
     const iconScale = useSharedValue(0);
@@ -76,23 +76,26 @@ const JobIndicator: React.FC = () => {
         return jobs.filter(job => job.status === "failed");
     }, [jobs]);
 
-    // Setup spinning animation when there are pending jobs
+    // Setup bobbing animation when there are pending jobs
     useEffect(() => {
         if (pendingJobs.length > 0 && displayStatus === STATUS.IDLE) {
-            rotation.value = withRepeat(
-                withTiming(360, SPIN_CONFIG),
+            bobOffset.value = withRepeat(
+                withSequence(
+                    withTiming(-3, BOBBING_CONFIG),
+                    withTiming(0, BOBBING_CONFIG)
+                ),
                 -1,
-                false
+                true
             );
         } else if (pendingJobs.length === 0 || displayStatus !== STATUS.IDLE) {
-            cancelAnimation(rotation);
-            rotation.value = 0;
+            cancelAnimation(bobOffset);
+            bobOffset.value = 0;
         }
 
         return () => {
-            cancelAnimation(rotation);
+            cancelAnimation(bobOffset);
         };
-    }, [pendingJobs.length, rotation, displayStatus]);
+    }, [pendingJobs.length, bobOffset, displayStatus]);
 
     // Detect job completions or failures
     useEffect(() => {
@@ -233,9 +236,9 @@ const JobIndicator: React.FC = () => {
         ],
     }));
 
-    const gearStyle = useAnimatedStyle(() => ({
+    const emojiStyle = useAnimatedStyle(() => ({
         transform: [
-            { rotate: `${rotation.value}deg` }
+            { translateY: bobOffset.value }
         ],
     }));
 
@@ -267,8 +270,8 @@ const JobIndicator: React.FC = () => {
                 <View style={styles.fixedContainer}>
                     <Animated.View style={[styles.placeholderContainer, statusContainerStyle]}>
                         {displayStatus === STATUS.IDLE && (
-                            <Animated.View style={[styles.indicatorWrapper, gearStyle]}>
-                                <Cog size={10} color="#9CA3AF" />
+                            <Animated.View style={[styles.indicatorWrapper, emojiStyle]}>
+                                <Text style={styles.emoji}>🖼️</Text>
                             </Animated.View>
                         )}
 
@@ -310,8 +313,8 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     fixedContainer: {
-        width: 24,
-        height: 24,
+        width: 22,
+        height: 22,
         position: 'relative',
     },
     placeholderContainer: {
@@ -324,14 +327,17 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         position: 'absolute',
-        top: 1,
-        left: 1,
+        top: 0,
+        left: 0,
     },
     indicatorWrapper: {
         width: '100%',
         height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    emoji: {
+        fontSize: 11,
     },
     countContainer: {
         marginLeft: 4,
