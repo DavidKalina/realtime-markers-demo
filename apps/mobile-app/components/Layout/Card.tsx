@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, ViewStyle } from 'react-native';
+import { StyleSheet, View, ViewStyle, TouchableOpacity } from 'react-native';
 import Animated, { FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { COLORS } from './ScreenLayout';
 
@@ -10,6 +10,7 @@ interface CardProps {
     delay?: number;
     noBorder?: boolean;
     noShadow?: boolean;
+    onPress?: () => void;
 }
 
 const Card: React.FC<CardProps> = ({
@@ -19,22 +20,26 @@ const Card: React.FC<CardProps> = ({
     delay = 0,
     noBorder = false,
     noShadow = false,
+    onPress,
 }) => {
     const CardComponent = animated ? Animated.View : View;
+    const Container = onPress ? TouchableOpacity : View;
 
     return (
-        <CardComponent
-            style={[
-                styles.card,
-                !noBorder && styles.border,
-                !noShadow && styles.shadow,
-                style,
-            ]}
-            entering={animated ? FadeInDown.duration(600).delay(delay).springify() : undefined}
-            layout={animated ? LinearTransition.springify() : undefined}
-        >
-            {children}
-        </CardComponent>
+        <Container onPress={onPress} activeOpacity={0.8}>
+            <CardComponent
+                style={[
+                    styles.card,
+                    !noBorder && styles.border,
+                    !noShadow && styles.shadow,
+                    style,
+                ]}
+                entering={animated ? FadeInDown.duration(600).delay(delay).springify() : undefined}
+                layout={animated ? LinearTransition.springify() : undefined}
+            >
+                {children}
+            </CardComponent>
+        </Container>
     );
 };
 
@@ -50,7 +55,7 @@ const styles = StyleSheet.create({
         borderColor: COLORS.divider,
     },
     shadow: {
-        shadowColor: "rgba(0, 0, 0, 0.5)",
+        shadowColor: COLORS.shadow,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.2,
         shadowRadius: 12,

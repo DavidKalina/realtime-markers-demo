@@ -6,12 +6,15 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 export const COLORS = {
     background: "#1a1a1a",
     cardBackground: "#2a2a2a",
+    cardBackgroundAlt: "#232323",
     textPrimary: "#f8f9fa",
     textSecondary: "#a0a0a0",
     accent: "#93c5fd",
+    accentDark: "#3b82f6",
     divider: "rgba(255, 255, 255, 0.08)",
     buttonBackground: "rgba(255, 255, 255, 0.05)",
     buttonBorder: "rgba(255, 255, 255, 0.1)",
+    shadow: "rgba(0, 0, 0, 0.5)",
 };
 
 interface ScreenLayoutProps {
