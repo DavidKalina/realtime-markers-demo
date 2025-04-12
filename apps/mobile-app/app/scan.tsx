@@ -28,6 +28,9 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { debounce } from "lodash";
 import { useFocusEffect } from '@react-navigation/native';
 import { ImagePoofIntoEmojiTransformation } from "@/components/ImagePoofIntoEmojiTransformation/ImagePoofIntoEmojiTransformation";
+import ScreenLayout from '@/components/Layout/ScreenLayout';
+import Header from '@/components/Layout/Header';
+import Card from '@/components/Layout/Card';
 
 type ImageSource = "camera" | "gallery" | null;
 
@@ -513,89 +516,60 @@ export default function ScanScreen() {
   // Loading state while checking permissions
   if (hasPermission === null) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenLayout>
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color="#93c5fd" />
           <Text style={styles.loaderText}>Checking camera permissions...</Text>
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   // Loading state while checking plan details
   if (isCheckingPlan) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenLayout>
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color="#93c5fd" />
           <Text style={styles.loaderText}>Checking scan limits...</Text>
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
-  // Image preview mode (for both camera captured and gallery selected images)
+  // Image preview mode
   if (capturedImage) {
     return (
-      <SafeAreaView style={styles.container}>
-        {/* Header */}
-        <Animated.View style={styles.header} entering={FadeIn.duration(300)}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleCancel}
-            activeOpacity={0.7}
-            disabled={isUploading}
-          >
-            <View style={styles.backButtonContainer}>
-              <Feather name="x" size={20} color="#f8f9fa" />
-            </View>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            Processing {imageSource === "gallery" ? "Gallery Image" : "Document"}
-          </Text>
+      <ScreenLayout>
+        <Header
+          title={`Processing ${imageSource === "gallery" ? "Gallery Image" : "Document"}`}
+          onBack={handleCancel}
+          rightIcon={<Feather name="file" size={20} color="#93c5fd" />}
+        />
 
-          <View style={styles.headerIconContainer}>
-            <Feather name="file" size={20} color="#93c5fd" />
-          </View>
-        </Animated.View>
-
-        {/* Content area with transformation animation */}
         <View style={styles.contentArea}>
           <ImagePoofIntoEmojiTransformation
             imageUri={capturedImage}
-            onAnimationComplete={() => {
-              // Navigate back to index screen after animation completes
-              router.replace("/");
-            }}
+            onAnimationComplete={() => router.replace("/")}
           />
         </View>
 
-        {/* Empty view to maintain same layout structure */}
         <View style={styles.controlsContainer} />
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   // Main camera view
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <Animated.View style={styles.header} entering={FadeIn.duration(300)}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
-          <View style={styles.backButtonContainer}>
-            <Feather name="arrow-left" size={20} color="#f8f9fa" />
-          </View>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Scan Document</Text>
+    <ScreenLayout>
+      <Header
+        title="Scan Document"
+        onBack={handleBack}
+        rightIcon={<Feather name="camera" size={20} color="#93c5fd" />}
+      />
 
-        <View style={styles.headerIconContainer}>
-          <Feather name="camera" size={20} color="#93c5fd" />
-        </View>
-      </Animated.View>
-
-      {/* Camera container with fixed dimensions */}
       <View style={styles.contentArea}>
-        <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
+        <Card style={styles.cameraCard} animated={false}>
           {isCameraActive ? (
             <CameraView
               ref={cameraRef}
@@ -649,10 +623,9 @@ export default function ScanScreen() {
               <Text style={styles.cameraPlaceholderText}>Initializing camera...</Text>
             </View>
           )}
-        </Animated.View>
+        </Card>
       </View>
 
-      {/* Fixed height container for controls */}
       <View style={styles.controlsContainer}>
         <CameraControls
           onCapture={handleCapture}
@@ -664,7 +637,6 @@ export default function ScanScreen() {
           disabled={!isCameraReady || isUploading || !hasRemainingScans}
         />
 
-        {/* Subtle scan counter badge */}
         {planDetails && hasRemainingScans && (
           <Animated.View
             style={styles.scanCountBadge}
@@ -676,74 +648,20 @@ export default function ScanScreen() {
           </Animated.View>
         )}
       </View>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    display: "flex",
-    flexDirection: "column",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-    backgroundColor: COLORS.background,
-    zIndex: 10,
-  },
-  backButton: {
-    marginRight: 12,
-  },
-  backButtonContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    flex: 1,
-    letterSpacing: 0.5,
-  },
-  headerIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
   contentArea: {
     flex: 1,
     padding: 8,
-    minHeight: 400, // Ensure minimum height for camera view
+    minHeight: 400,
   },
   cameraCard: {
     flex: 1,
-    borderRadius: 20,
+    padding: 0,
     overflow: "hidden",
-    backgroundColor: COLORS.cardBackground,
-    shadowColor: "rgba(0, 0, 0, 0.5)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    borderColor: COLORS.divider,
   },
   camera: {
     flex: 1,
