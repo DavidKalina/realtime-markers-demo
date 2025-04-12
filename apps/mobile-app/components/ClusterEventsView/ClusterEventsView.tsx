@@ -33,6 +33,7 @@ import EventItem from "../EventItem/EventItem";
 import ScreenLayout from "../Layout/ScreenLayout";
 import Card from "../Layout/Card";
 import Header from "../Layout/Header";
+import Tabs, { TabItem } from "../Layout/Tabs";
 import { COLORS } from "../Layout/ScreenLayout";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -997,6 +998,14 @@ const ClusterEventsView: React.FC = () => {
   const renderContent = useMemo(() => {
     if (!hubData) return null;
 
+    type TabValue = "categories" | "locations" | "today";
+
+    const tabItems: TabItem<TabValue>[] = [
+      { icon: Tag, label: "Categories", value: "categories" },
+      { icon: MapPin, label: "Locations", value: "locations" },
+      { icon: Calendar, label: "Today", value: "today" },
+    ];
+
     return (
       <>
         <Animated.View
@@ -1032,30 +1041,12 @@ const ClusterEventsView: React.FC = () => {
           <ClusterDescription description={hubData.clusterDescription} />
         </Animated.View>
 
-        <Animated.View
-          style={styles.tabsContainer}
-          entering={FadeInDown.duration(600).delay(200).springify()}
-          layout={LinearTransition.springify()}
-        >
-          <TabButton
-            icon={Tag}
-            label="Categories"
-            isActive={activeTab === "categories"}
-            onPress={() => handleTabPress("categories")}
-          />
-          <TabButton
-            icon={MapPin}
-            label="Locations"
-            isActive={activeTab === "locations"}
-            onPress={() => handleTabPress("locations")}
-          />
-          <TabButton
-            icon={Calendar}
-            label="Today"
-            isActive={activeTab === "today"}
-            onPress={() => handleTabPress("today")}
-          />
-        </Animated.View>
+        <Tabs<TabValue>
+          items={tabItems}
+          activeTab={activeTab}
+          onTabPress={handleTabPress}
+          delay={200}
+        />
 
         <Animated.View
           entering={FadeInDown.duration(600).delay(300).springify()}
