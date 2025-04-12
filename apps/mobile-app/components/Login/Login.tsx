@@ -1,6 +1,6 @@
 import AnimatedMapBackground from "@/components/Background";
+import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
-import apiClient from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { ChevronDown, ChevronUp, Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
@@ -22,17 +22,15 @@ import {
   View,
 } from "react-native";
 import Animated, {
-  FadeIn,
+  FadeInDown,
   LinearTransition,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
-  withSpring,
-  FadeInDown
+  withSpring
 } from "react-native-reanimated";
 import MapMojiHeader from "../AnimationHeader";
 import { AuthWrapper } from "../AuthWrapper";
-import { useAuth } from "@/contexts/AuthContext";
 import Input from "../Input/Input";
 
 // Define types for our data

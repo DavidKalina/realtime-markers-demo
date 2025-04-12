@@ -140,7 +140,7 @@ const SearchView = () => {
 
       <View style={styles.contentArea}>
         {/* Enhanced Search Input */}
-        <Card style={styles.searchInputContainer} animated={false} noBorder>
+        <View style={styles.searchInputContainer}>
           <Input
             ref={searchInputRef}
             icon={SearchIcon}
@@ -160,7 +160,7 @@ const SearchView = () => {
               <ActivityIndicator size="small" color="#4dabf7" />
             </View>
           )}
-        </Card>
+        </View>
 
         {/* Main Content */}
         {isLoading && eventResults.length === 0 ? (
