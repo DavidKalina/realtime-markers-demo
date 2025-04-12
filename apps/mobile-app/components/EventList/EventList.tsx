@@ -268,7 +268,6 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
     listContent: {
-        paddingHorizontal: 16,
         paddingBottom: 24,
     },
     listHeader: {
