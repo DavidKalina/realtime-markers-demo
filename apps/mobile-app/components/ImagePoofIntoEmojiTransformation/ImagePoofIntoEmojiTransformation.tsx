@@ -121,28 +121,44 @@ export const ImagePoofIntoEmojiTransformation: React.FC<ImagePoofIntoEmojiTransf
                 easing: Easing.inOut(Easing.cubic),
             });
 
-            // Second phase: Add resistance/struggle effect
+            // Start gentle bobbing animation immediately
+            yOffset.value = withRepeat(
+                withSequence(
+                    withTiming(-35, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+                    withTiming(-25, { duration: 1500, easing: Easing.inOut(Easing.sin) })
+                ),
+                -1, // Infinite
+                true // Reverse
+            );
+
+            // Add subtle rotation during bobbing
+            wobble.value = withRepeat(
+                withSequence(
+                    withTiming(2, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+                    withTiming(-2, { duration: 1500, easing: Easing.inOut(Easing.sin) })
+                ),
+                -1,
+                true
+            );
+
+            // Schedule the poof transformation after the initial animations
             setTimeout(() => {
-                // Create a "struggle" wobble effect
-                wobble.value = withTiming(1, { duration: 300 });
-
-                const struggleSequence = () => {
-                    struggle.value = withSequence(
-                        withTiming(-5, { duration: 150 }),
-                        withTiming(5, { duration: 150 }),
-                        withTiming(-3, { duration: 150 }),
-                        withTiming(3, { duration: 150 }),
-                        withTiming(0, { duration: 150, easing: Easing.out(Easing.cubic) }, () => {
-                            runOnJS(poofPhase)();
-                        })
-                    );
-                };
-
-                struggleSequence();
-            }, 1200);
+                poofPhase();
+            }, 3000);
 
             // Third phase: Poof and transform
             const poofPhase = () => {
+                // Stop the bobbing animation
+                yOffset.value = withTiming(-30, {
+                    duration: 300,
+                    easing: Easing.out(Easing.cubic),
+                });
+
+                wobble.value = withTiming(0, {
+                    duration: 300,
+                    easing: Easing.out(Easing.cubic),
+                });
+
                 // Final transformation - rapidly scale down and fade out
                 progress.value = withTiming(1, {
                     duration: 800,
