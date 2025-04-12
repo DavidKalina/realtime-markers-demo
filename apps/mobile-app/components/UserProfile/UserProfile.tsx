@@ -1,27 +1,26 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { MapStyleType, useMapStyle } from "@/contexts/MapStyleContext";
 import { apiClient, PlanType } from "@/services/ApiClient";
+import { initStripe } from "@stripe/stripe-react-native";
 import * as Haptics from "expo-haptics";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  ArrowLeft,
   Calendar,
+  Crown,
   LogOut,
   Mail,
   Moon,
   Shield,
   Trash2,
   User,
-  Crown,
   Zap,
 } from "lucide-react-native";
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
-  SafeAreaView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -32,15 +31,16 @@ import Animated, {
   BounceIn,
   BounceOut,
   Extrapolation,
+  FadeInDown,
   interpolate,
   LinearTransition,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  FadeInDown,
 } from "react-native-reanimated";
-import { initStripe, useStripe } from "@stripe/stripe-react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import Card from "../Layout/Card";
+import Header from "../Layout/Header";
+import ScreenLayout from "../Layout/ScreenLayout";
 
 // Initialize Stripe
 initStripe({
@@ -103,17 +103,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     },
   });
 
-  // Animated styles
-  const headerStyle = useAnimatedStyle(() => {
-    const shadowOpacity = interpolate(scrollY.value, [0, 50], [0, 0.2], Extrapolation.CLAMP);
-
-    const borderOpacity = interpolate(scrollY.value, [0, 50], [0, 1], Extrapolation.CLAMP);
-
-    return {
-      shadowOpacity,
-      borderBottomColor: `rgba(58, 58, 58, ${borderOpacity})`,
-    };
-  });
 
   // Fetch user profile data with cleanup
   useEffect(() => {
@@ -188,13 +177,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     };
   }, [paymentStatus]);
 
-  // Cleanup Stripe on unmount
-  useEffect(() => {
-    return () => {
-      // Cleanup any Stripe resources if needed
-    };
-  }, []);
-
   // Memoize expensive calculations
   const userInitials = useMemo(() => {
     if (user?.displayName) {
@@ -225,14 +207,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     );
   }, [planDetails?.weeklyScanCount, planDetails?.scanLimit]);
 
-  // Format date for member since
-  const formatMemberSince = (date: string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
-  };
-
   // Handle back button
   const handleBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -248,18 +222,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     logout();
     router.replace("/login");
-  };
-
-  // Get user initials for avatar
-  const getUserInitials = () => {
-    if (user?.displayName) {
-      const nameParts = user.displayName.split(" ");
-      if (nameParts.length > 1) {
-        return `${nameParts[0].charAt(0)}${nameParts[1].charAt(0)}`.toUpperCase();
-      }
-      return user.displayName.charAt(0).toUpperCase();
-    }
-    return user?.email.charAt(0).toUpperCase() || "?";
   };
 
   // Handle delete account
@@ -313,271 +275,247 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#333" />
+    <ScreenLayout>
+      <Header title="Profile" onBack={handleBack} />
 
-      {/* Animated Header */}
-      <Animated.View style={[styles.header, headerStyle]}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
-          <ArrowLeft size={22} color="#f8f9fa" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
-      </Animated.View>
-
-      {/* Content Area */}
-      <View style={styles.contentArea}>
-        <Animated.ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          onScroll={scrollHandler}
-          scrollEventThrottle={16}
-        >
-          {/* User Header with Avatar */}
-          <Animated.View
-            entering={FadeInDown.duration(600).delay(100).springify()}
-            layout={LinearTransition.springify()}
-            style={styles.profileHeaderCard}
-          >
-            <View style={styles.profileHeader}>
-              <View style={styles.avatarOuterContainer}>
-                <Text style={styles.avatarText}>{getUserInitials()}</Text>
-              </View>
-
-              <View style={styles.userInfoContainer}>
-                <Text style={styles.userName}>{user?.displayName || user?.email}</Text>
-
-                {user?.isVerified && (
-                  <Animated.View
-                    entering={FadeInDown.duration(600).delay(200).springify()}
-                    style={styles.verifiedBadge}
-                  >
-                    <Shield size={12} color="#40c057" />
-                    <Text style={styles.verifiedText}>VERIFIED</Text>
-                  </Animated.View>
-                )}
-              </View>
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+      >
+        {/* User Header with Avatar */}
+        <Card delay={100}>
+          <View style={styles.profileHeader}>
+            <View style={styles.avatarOuterContainer}>
+              <Text style={styles.avatarText}>{userInitials}</Text>
             </View>
 
-            <Animated.View
-              entering={FadeInDown.duration(600).delay(300).springify()}
-              style={[styles.statsContainer, { justifyContent: "center", gap: 32 }]}
-            >
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{profileData?.scanCount || 0}</Text>
-                <Text style={styles.statLabel}>Scans</Text>
-              </View>
+            <View style={styles.userInfoContainer}>
+              <Text style={styles.userName}>{user?.displayName || user?.email}</Text>
 
-              <View style={styles.statDivider} />
-
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{profileData?.saveCount || 0}</Text>
-                <Text style={styles.statLabel}>Saved</Text>
-              </View>
-            </Animated.View>
-          </Animated.View>
-
-          {/* Plan Section */}
-          <Animated.View
-            entering={FadeInDown.duration(600).delay(350).springify()}
-            layout={LinearTransition.springify()}
-            style={styles.planCard}
-          >
-            <View style={styles.planHeader}>
-              <View style={styles.planBadge}>
-                {planDetails?.planType === PlanType.PRO ? (
-                  <Crown size={16} color="#fbbf24" />
-                ) : (
-                  <Zap size={16} color="#93c5fd" />
-                )}
-                <Text
-                  style={[
-                    styles.planBadgeText,
-                    planDetails?.planType === PlanType.PRO && styles.planBadgeTextPro,
-                  ]}
+              {user?.isVerified && (
+                <Animated.View
+                  entering={FadeInDown.duration(600).delay(200).springify()}
+                  style={styles.verifiedBadge}
                 >
-                  {planDetails?.planType || "FREE"}
-                </Text>
-              </View>
-              {planDetails?.planType === PlanType.FREE && (
-                <TouchableOpacity
-                  style={styles.upgradeButton}
-                  onPress={handleUpgradePlan}
-                  activeOpacity={0.8}
-                >
-                  <Crown size={16} color="#fbbf24" style={{ marginRight: 4 }} />
-                  <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
-                </TouchableOpacity>
+                  <Shield size={12} color="#40c057" />
+                  <Text style={styles.verifiedText}>VERIFIED</Text>
+                </Animated.View>
               )}
             </View>
+          </View>
 
-            <View style={styles.usageContainer}>
-              <View style={styles.usageHeader}>
-                <Text style={styles.usageLabel}>Weekly Scans</Text>
-                <Text style={styles.usageCount}>
-                  {planDetails?.weeklyScanCount || 0} / {planDetails?.scanLimit || 10}
-                </Text>
-              </View>
-              <View style={styles.progressBarContainer}>
-                <View
-                  style={[
-                    styles.progressBar,
-                    {
-                      width: `${progressWidth}%`,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.usageNote}>
-                {planDetails?.remainingScans || 0} scans remaining this week
-              </Text>
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(300).springify()}
+            style={[styles.statsContainer, { justifyContent: "center", gap: 32 }]}
+          >
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{profileData?.scanCount || 0}</Text>
+              <Text style={styles.statLabel}>Scans</Text>
+            </View>
+
+            <View style={styles.statDivider} />
+
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{profileData?.saveCount || 0}</Text>
+              <Text style={styles.statLabel}>Saved</Text>
             </View>
           </Animated.View>
+        </Card>
 
-          {/* User Details Card */}
-          <Animated.View
-            entering={FadeInDown.duration(600).delay(400).springify()}
-            layout={LinearTransition.springify()}
-            style={styles.detailsCard}
-          >
-            <Text style={styles.sectionTitle}>Account Information</Text>
+        {/* Plan Section */}
+        <Card delay={350}>
+          <View style={styles.planHeader}>
+            <View style={styles.planBadge}>
+              {planDetails?.planType === PlanType.PRO ? (
+                <Crown size={16} color="#fbbf24" />
+              ) : (
+                <Zap size={16} color="#93c5fd" />
+              )}
+              <Text
+                style={[
+                  styles.planBadgeText,
+                  planDetails?.planType === PlanType.PRO && styles.planBadgeTextPro,
+                ]}
+              >
+                {planDetails?.planType || "FREE"}
+              </Text>
+            </View>
+            {planDetails?.planType === PlanType.FREE && (
+              <TouchableOpacity
+                style={styles.upgradeButton}
+                onPress={handleUpgradePlan}
+                activeOpacity={0.8}
+              >
+                <Crown size={16} color="#fbbf24" style={{ marginRight: 4 }} />
+                <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
-            {loading ? (
-              <ActivityIndicator size="large" color="#93c5fd" style={{ marginVertical: 20 }} />
-            ) : (
-              <Animated.View layout={LinearTransition.springify()}>
-                {/* Email Detail */}
+          <View style={styles.usageContainer}>
+            <View style={styles.usageHeader}>
+              <Text style={styles.usageLabel}>Weekly Scans</Text>
+              <Text style={styles.usageCount}>
+                {planDetails?.weeklyScanCount || 0} / {planDetails?.scanLimit || 10}
+              </Text>
+            </View>
+            <View style={styles.progressBarContainer}>
+              <View
+                style={[
+                  styles.progressBar,
+                  {
+                    width: `${progressWidth}%`,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.usageNote}>
+              {planDetails?.remainingScans || 0} scans remaining this week
+            </Text>
+          </View>
+        </Card>
+
+        {/* User Details Card */}
+        <Card delay={400}>
+          <Text style={styles.sectionTitle}>Account Information</Text>
+
+          {loading ? (
+            <ActivityIndicator size="large" color="#93c5fd" style={{ marginVertical: 20 }} />
+          ) : (
+            <Animated.View layout={LinearTransition.springify()}>
+              {/* Email Detail */}
+              <Animated.View
+                entering={FadeInDown.duration(600).delay(500).springify()}
+                style={styles.detailItem}
+              >
+                <View style={styles.detailIconContainer}>
+                  <Mail size={18} color="#93c5fd" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Email</Text>
+                  <Text style={styles.detailValue}>{profileData?.email || user?.email}</Text>
+                </View>
+              </Animated.View>
+
+              {/* Role Detail */}
+              <Animated.View
+                entering={FadeInDown.duration(600).delay(600).springify()}
+                style={styles.detailItem}
+              >
+                <View style={styles.detailIconContainer}>
+                  <User size={18} color="#93c5fd" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Role</Text>
+                  <Text style={styles.detailValue}>
+                    {profileData?.role || user?.role || "User"}
+                  </Text>
+                </View>
+              </Animated.View>
+
+              {/* Member Since */}
+              <Animated.View
+                entering={FadeInDown.duration(600).delay(700).springify()}
+                style={styles.detailItem}
+              >
+                <View style={styles.detailIconContainer}>
+                  <Calendar size={18} color="#93c5fd" />
+                </View>
+                <View style={styles.detailContent}>
+                  <Text style={styles.detailLabel}>Member Since</Text>
+                  <Text style={styles.detailValue}>{memberSince}</Text>
+                </View>
+              </Animated.View>
+
+              {/* Bio - if available */}
+              {profileData?.bio && (
                 <Animated.View
-                  entering={FadeInDown.duration(600).delay(500).springify()}
-                  style={styles.detailItem}
-                >
-                  <View style={styles.detailIconContainer}>
-                    <Mail size={18} color="#93c5fd" />
-                  </View>
-                  <View style={styles.detailContent}>
-                    <Text style={styles.detailLabel}>Email</Text>
-                    <Text style={styles.detailValue}>{profileData?.email || user?.email}</Text>
-                  </View>
-                </Animated.View>
-
-                {/* Role Detail */}
-                <Animated.View
-                  entering={FadeInDown.duration(600).delay(600).springify()}
+                  entering={FadeInDown.duration(600).delay(800).springify()}
                   style={styles.detailItem}
                 >
                   <View style={styles.detailIconContainer}>
                     <User size={18} color="#93c5fd" />
                   </View>
                   <View style={styles.detailContent}>
-                    <Text style={styles.detailLabel}>Role</Text>
-                    <Text style={styles.detailValue}>
-                      {profileData?.role || user?.role || "User"}
-                    </Text>
+                    <Text style={styles.detailLabel}>Bio</Text>
+                    <Text style={styles.detailValue}>{profileData.bio}</Text>
                   </View>
                 </Animated.View>
+              )}
 
-                {/* Member Since */}
-                <Animated.View
-                  entering={FadeInDown.duration(600).delay(700).springify()}
-                  style={styles.detailItem}
-                >
-                  <View style={styles.detailIconContainer}>
-                    <Calendar size={18} color="#93c5fd" />
-                  </View>
-                  <View style={styles.detailContent}>
-                    <Text style={styles.detailLabel}>Member Since</Text>
-                    <Text style={styles.detailValue}>{memberSince}</Text>
-                  </View>
-                </Animated.View>
-
-                {/* Bio - if available */}
-                {profileData?.bio && (
-                  <Animated.View
-                    entering={FadeInDown.duration(600).delay(800).springify()}
-                    style={styles.detailItem}
-                  >
-                    <View style={styles.detailIconContainer}>
-                      <User size={18} color="#93c5fd" />
-                    </View>
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Bio</Text>
-                      <Text style={styles.detailValue}>{profileData.bio}</Text>
-                    </View>
-                  </Animated.View>
-                )}
-
-                {/* Map Style */}
-                <Animated.View
-                  entering={FadeInDown.duration(600).delay(900).springify()}
-                  style={styles.detailItem}
-                >
-                  <View style={styles.detailIconContainer}>
-                    <Moon size={18} color="#93c5fd" />
-                  </View>
-                  <View style={[styles.detailContent, { gap: 8 }]}>
-                    <Text style={styles.detailLabel}>Map Style</Text>
-                    <View style={styles.mapStyleButtons}>
-                      <TouchableOpacity
+              {/* Map Style */}
+              <Animated.View
+                entering={FadeInDown.duration(600).delay(900).springify()}
+                style={styles.detailItem}
+              >
+                <View style={styles.detailIconContainer}>
+                  <Moon size={18} color="#93c5fd" />
+                </View>
+                <View style={[styles.detailContent, { gap: 8 }]}>
+                  <Text style={styles.detailLabel}>Map Style</Text>
+                  <View style={styles.mapStyleButtons}>
+                    <TouchableOpacity
+                      style={[
+                        styles.mapStyleButton,
+                        currentStyle === "light" && styles.mapStyleButtonActive,
+                      ]}
+                      onPress={() => handleMapStyleChange("light")}
+                    >
+                      <Text
                         style={[
-                          styles.mapStyleButton,
-                          currentStyle === "light" && styles.mapStyleButtonActive,
+                          styles.mapStyleButtonText,
+                          currentStyle === "light" && styles.mapStyleButtonTextActive,
                         ]}
-                        onPress={() => handleMapStyleChange("light")}
                       >
-                        <Text
-                          style={[
-                            styles.mapStyleButtonText,
-                            currentStyle === "light" && styles.mapStyleButtonTextActive,
-                          ]}
-                        >
-                          Light
-                        </Text>
-                      </TouchableOpacity>
+                        Light
+                      </Text>
+                    </TouchableOpacity>
 
-                      <TouchableOpacity
+                    <TouchableOpacity
+                      style={[
+                        styles.mapStyleButton,
+                        currentStyle === "dark" && styles.mapStyleButtonActive,
+                      ]}
+                      onPress={() => handleMapStyleChange("dark")}
+                    >
+                      <Text
                         style={[
-                          styles.mapStyleButton,
-                          currentStyle === "dark" && styles.mapStyleButtonActive,
+                          styles.mapStyleButtonText,
+                          currentStyle === "dark" && styles.mapStyleButtonTextActive,
                         ]}
-                        onPress={() => handleMapStyleChange("dark")}
                       >
-                        <Text
-                          style={[
-                            styles.mapStyleButtonText,
-                            currentStyle === "dark" && styles.mapStyleButtonTextActive,
-                          ]}
-                        >
-                          Dark
-                        </Text>
-                      </TouchableOpacity>
+                        Dark
+                      </Text>
+                    </TouchableOpacity>
 
-                      <TouchableOpacity
+                    <TouchableOpacity
+                      style={[
+                        styles.mapStyleButton,
+                        currentStyle === "street" && styles.mapStyleButtonActive,
+                      ]}
+                      onPress={() => handleMapStyleChange("street")}
+                    >
+                      <Text
                         style={[
-                          styles.mapStyleButton,
-                          currentStyle === "street" && styles.mapStyleButtonActive,
+                          styles.mapStyleButtonText,
+                          currentStyle === "street" && styles.mapStyleButtonTextActive,
                         ]}
-                        onPress={() => handleMapStyleChange("street")}
                       >
-                        <Text
-                          style={[
-                            styles.mapStyleButtonText,
-                            currentStyle === "street" && styles.mapStyleButtonTextActive,
-                          ]}
-                        >
-                          Colorful
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                        Colorful
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                </Animated.View>
+                </View>
               </Animated.View>
-            )}
-          </Animated.View>
+            </Animated.View>
+          )}
+        </Card>
 
-          {/* Logout and Delete Section */}
-          <Animated.View
-            entering={FadeInDown.duration(600).delay(1000).springify()}
-            style={styles.actionsSection}
-          >
+        {/* Logout and Delete Section */}
+        <Card delay={1000}>
+          <View style={styles.actionsSection}>
             <TouchableOpacity
               style={styles.logoutButton}
               onPress={handleLogout}
@@ -598,17 +536,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               <Trash2 size={18} color="#dc2626" style={{ marginRight: 8 }} />
               <Text style={styles.deleteText}>Delete Account</Text>
             </TouchableOpacity>
-          </Animated.View>
+          </View>
+        </Card>
 
-          {/* App Version */}
-          <Animated.View
-            entering={FadeInDown.duration(600).delay(1100).springify()}
-            style={styles.versionContainer}
-          >
-            <Text style={styles.versionText}>App Version 1.0.0</Text>
-          </Animated.View>
-        </Animated.ScrollView>
-      </View>
+        {/* App Version */}
+        <Animated.View
+          entering={FadeInDown.duration(600).delay(1100).springify()}
+          style={styles.versionContainer}
+        >
+          <Text style={styles.versionText}>App Version 1.0.0</Text>
+        </Animated.View>
+      </Animated.ScrollView>
 
       {/* Delete Account Modal */}
       <Modal
@@ -682,76 +620,18 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 };
 
 // Inline styles
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-
-  // Header styles
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-    backgroundColor: COLORS.background,
-    zIndex: 10,
-  },
-
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-    marginRight: 12,
-  },
-
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    flex: 1,
-    letterSpacing: 0.5,
-  },
-
-  // Content area
-  contentArea: {
-    flex: 1,
-  },
-
   scrollContent: {
     paddingHorizontal: 16,
     paddingBottom: 30,
   },
 
-  // Profile header card
-  profileHeaderCard: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 20,
-    marginTop: 12,
-    marginBottom: 12,
-    overflow: "hidden",
-    shadowColor: "rgba(0, 0, 0, 0.5)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: COLORS.divider,
-  },
-
+  // Profile header styles
   profileHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -843,21 +723,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.divider,
   },
 
-  // Details card
-  detailsCard: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: "rgba(0, 0, 0, 0.5)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: COLORS.divider,
-  },
-
+  // Details section
   sectionTitle: {
     fontSize: 16,
     fontWeight: "700",
@@ -941,17 +807,6 @@ const styles = StyleSheet.create({
 
   // Actions section
   actionsSection: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 24,
-    shadowColor: "rgba(0, 0, 0, 0.5)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: COLORS.divider,
     flexDirection: "row",
     gap: 12,
   },
@@ -1116,20 +971,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  planCard: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: "rgba(0, 0, 0, 0.5)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: COLORS.divider,
-  },
-
+  // Plan section styles
   planHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
