@@ -19,6 +19,7 @@ import EventItem from "../EventItem/EventItem";
 import Card from "../Layout/Card";
 import Header from "../Layout/Header";
 import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
+import Tabs, { TabItem } from "../Layout/Tabs";
 
 type TabType = 'saved' | 'discovered';
 
@@ -369,6 +370,11 @@ const SavedEventsView: React.FC = () => {
     setActiveTab(tab);
   }, []);
 
+  const tabItems: TabItem<TabType>[] = [
+    { icon: Bookmark, label: "Saved", value: "saved" },
+    { icon: Scan, label: "Discovered", value: "discovered" },
+  ];
+
   return (
     <ScreenLayout>
       <Header
@@ -377,28 +383,12 @@ const SavedEventsView: React.FC = () => {
         rightIcon={activeTab === 'saved' ? <Heart size={20} color={COLORS.accent} fill={COLORS.accent} /> : <Scan size={20} color={COLORS.accent} />}
       />
 
-      <Card style={styles.tabContainer} noBorder noShadow>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'saved' && styles.activeTab]}
-          onPress={() => handleTabSwitch('saved')}
-          activeOpacity={0.7}
-        >
-          <Bookmark size={16} color={activeTab === 'saved' ? COLORS.accent : COLORS.textSecondary} />
-          <Text style={[styles.tabText, activeTab === 'saved' && styles.activeTabText]}>
-            Saved
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'discovered' && styles.activeTab]}
-          onPress={() => handleTabSwitch('discovered')}
-          activeOpacity={0.7}
-        >
-          <Scan size={16} color={activeTab === 'discovered' ? COLORS.accent : COLORS.textSecondary} />
-          <Text style={[styles.tabText, activeTab === 'discovered' && styles.activeTabText]}>
-            Discovered
-          </Text>
-        </TouchableOpacity>
-      </Card>
+      <Tabs<TabType>
+        items={tabItems}
+        activeTab={activeTab}
+        onTabPress={handleTabSwitch}
+        style={styles.tabsContainer}
+      />
 
       <View style={styles.contentArea}>
         {activeTab === 'saved' ? (
@@ -416,38 +406,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.background,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
-  activeTab: {
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
-    borderColor: "rgba(147, 197, 253, 0.3)",
-  },
-  tabText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontFamily: 'SpaceMono',
-    marginLeft: 8,
-    fontWeight: "600",
-  },
-  activeTabText: {
-    color: COLORS.accent,
+  tabsContainer: {
+    marginHorizontal: 16,
+    marginVertical: 12,
   },
   listContent: {
     paddingVertical: 8,
