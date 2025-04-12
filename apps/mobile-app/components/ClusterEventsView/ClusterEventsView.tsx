@@ -29,6 +29,8 @@ import Animated, {
   Layout,
   LinearTransition
 } from "react-native-reanimated";
+import EventItem from "../EventItem/EventItem";
+import { EventType } from "@/types/types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -36,17 +38,6 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 interface CategoryType {
   id: string;
   name: string;
-}
-
-interface EventType {
-  id: string;
-  title: string;
-  description?: string;
-  emoji?: string;
-  location: string;
-  eventDate: string;
-  category?: CategoryType;
-  imageUrl?: string;
 }
 
 interface HubDataType {
@@ -555,39 +546,12 @@ const EventCard = memo<{
   event: EventType;
   onPress: () => void;
 }>(({ event, onPress }) => (
-  <TouchableOpacity
-    style={styles.eventCard}
+  <EventItem
+    event={event}
     onPress={onPress}
-    activeOpacity={0.7}
-  >
-    <View style={styles.eventEmojiContainer}>
-      <Text style={styles.eventEmojiText}>{event.emoji || "🎉"}</Text>
-    </View>
-    <View style={styles.eventInfo}>
-      <Text style={styles.eventTitle} numberOfLines={1} ellipsizeMode="tail">
-        {event.title}
-      </Text>
-      <View style={styles.eventDetails}>
-        <View style={styles.eventDetail}>
-          <Calendar size={12} color={COLORS.textSecondary} />
-          <Text style={styles.eventDetailText}>
-            {new Date(event.eventDate).toLocaleDateString()}
-          </Text>
-        </View>
-        <View style={styles.eventDetail}>
-          <MapPin size={12} color={COLORS.textSecondary} />
-          <Text style={styles.eventDetailText} numberOfLines={1}>
-            {event.location}
-          </Text>
-        </View>
-      </View>
-    </View>
-    <View style={styles.eventActions}>
-      <View style={styles.chevronContainer}>
-        <ChevronRight size={16} color={COLORS.textSecondary} />
-      </View>
-    </View>
-  </TouchableOpacity>
+    variant="default"
+    showChevron={true}
+  />
 ));
 
 // Memoized AnimatedEventCard component
@@ -601,7 +565,13 @@ const AnimatedEventCard = memo<{
       entering={FadeInDown.delay(index * 100).springify()}
       layout={Layout.springify()}
     >
-      <EventCard event={event} onPress={onPress} />
+      <EventItem
+        event={event}
+        onPress={onPress}
+        index={index}
+        variant="default"
+        showChevron={true}
+      />
     </Animated.View>
   );
 });

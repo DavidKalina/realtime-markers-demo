@@ -32,6 +32,7 @@ import Animated, {
   withSpring,
   ZoomIn
 } from "react-native-reanimated";
+import EventItem from "../EventItem/EventItem";
 
 // Unified color theme matching ClusterEventsView
 const COLORS = {
@@ -52,82 +53,15 @@ const SearchResultCard: React.FC<{
   onPress: (event: EventType) => void;
   entering: any;
 }> = React.memo(({ item, index, onPress, entering }) => {
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.98, {
-      damping: 25,
-      stiffness: 400,
-    });
-  }, []);
-
-  const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, {
-      damping: 25,
-      stiffness: 400,
-    });
-  }, []);
-
-  const handlePress = useCallback(() => {
-    onPress(item);
-  }, [item, onPress]);
-
   return (
-    <Animated.View
-      style={[styles.eventCard, animatedStyle]}
-      entering={entering}
-      exiting={FadeOut.duration(200)}
-      layout={LinearTransition.springify().damping(25).stiffness(400)}
-    >
-      <TouchableOpacity
-        onPress={handlePress}
-        activeOpacity={1}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-      >
-        <View style={styles.eventCardContent}>
-          <View style={styles.emojiContainer}>
-            <Text style={styles.resultEmoji}>{item.emoji || "📍"}</Text>
-          </View>
-
-          <View style={styles.resultTextContainer}>
-            <View style={styles.titleRow}>
-              <Text style={styles.resultTitle} numberOfLines={1} ellipsizeMode="tail">
-                {item.title}
-              </Text>
-            </View>
-
-            <View style={styles.detailsContainer}>
-              <View style={styles.resultDetailsRow}>
-                <Clock size={14} color="#93c5fd" style={{ marginRight: 6 }} />
-                <Text
-                  style={styles.resultDetailText}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {item.time}
-                </Text>
-              </View>
-
-              <View style={styles.resultDetailsRow}>
-                <MapPin size={14} color="#93c5fd" style={{ marginRight: 6 }} />
-                <Text
-                  style={styles.resultDetailText}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {item.distance ? item.distance : item.location}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
+    <EventItem
+      event={item}
+      onPress={onPress}
+      index={index}
+      variant="default"
+      showChevron={true}
+      showDistance={true}
+    />
   );
 });
 

@@ -28,6 +28,7 @@ import Animated, {
   useSharedValue,
   withSpring
 } from "react-native-reanimated";
+import EventItem from "../EventItem/EventItem";
 
 type TabType = 'saved' | 'discovered';
 
@@ -50,88 +51,14 @@ const EventCard: React.FC<{
   onPress: (event: EventType) => void;
   index: number;
 }> = React.memo(({ item, activeTab, onPress, index }) => {
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.98, {
-      damping: 25,
-      stiffness: 400,
-    });
-  }, []);
-
-  const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, {
-      damping: 25,
-      stiffness: 400,
-    });
-  }, []);
-
-  const handlePress = useCallback(() => {
-    onPress(item);
-  }, [item, onPress]);
-
   return (
-    <Animated.View
-      style={[styles.eventCard, animatedStyle]}
-      entering={FadeInDown.duration(600).delay(index * 100).springify()}
-      exiting={FadeOut.duration(200)}
-      layout={LinearTransition.duration(300)}
-    >
-      <TouchableOpacity
-        onPress={handlePress}
-        activeOpacity={1}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-      >
-        <View style={styles.eventCardContent}>
-          <View style={styles.emojiContainer}>
-            <Text style={styles.resultEmoji}>{item.emoji || "📍"}</Text>
-          </View>
-
-          <View style={styles.resultTextContainer}>
-            <Text style={styles.resultTitle} numberOfLines={1} ellipsizeMode="tail">
-              {item.title}
-            </Text>
-
-            <View style={styles.detailsContainer}>
-              <View style={styles.resultDetailsRow}>
-                <Calendar size={14} color="#93c5fd" style={{ marginRight: 6 }} />
-                <Text
-                  style={styles.resultDetailText}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {item.time}
-                </Text>
-              </View>
-
-              <View style={styles.resultDetailsRow}>
-                <MapPin size={14} color="#93c5fd" style={{ marginRight: 6 }} />
-                <Text
-                  style={styles.resultDetailText}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {item.location}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.savedBadge}>
-            {activeTab === 'saved' ? (
-              <Heart size={16} color="#93c5fd" fill="#93c5fd" />
-            ) : (
-              <Scan size={16} color="#93c5fd" />
-            )}
-          </View>
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
+    <EventItem
+      event={item}
+      onPress={onPress}
+      index={index}
+      variant="default"
+      showChevron={false}
+    />
   );
 });
 
