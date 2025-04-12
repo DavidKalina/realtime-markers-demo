@@ -10,19 +10,15 @@ import {
   Keyboard,
   ScrollView,
   TouchableOpacity,
-  View,
-  ViewStyle,
+  View
 } from "react-native";
 import Animated, {
   cancelAnimation,
-  interpolate,
   useAnimatedRef,
   useAnimatedScrollHandler,
-  useAnimatedStyle,
   useSharedValue
 } from "react-native-reanimated";
 import { Filter as FilterType } from "../../services/ApiClient";
-import Card from "../Layout/Card";
 import Header from "../Layout/Header";
 import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 import { BottomActionBar } from "./BottomActionBar";
