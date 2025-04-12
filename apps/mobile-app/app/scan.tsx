@@ -25,7 +25,7 @@ import {
   View,
   AppState
 } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { debounce } from "lodash";
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -724,7 +724,7 @@ export default function ScanScreen() {
         </View>
       </Animated.View>
 
-      {/* Camera container */}
+      {/* Camera container with fixed dimensions */}
       <View style={styles.contentArea}>
         <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
           {isCameraActive ? (
@@ -758,43 +758,46 @@ export default function ScanScreen() {
         </Animated.View>
       </View>
 
-      {/* Scan Limit Indicator */}
-      {planDetails && (
-        <Animated.View
-          style={styles.scanLimitContainer}
-          entering={FadeIn.duration(300).delay(100)}
-        >
-          <View style={styles.scanLimitContent}>
-            <Feather name="camera" size={12} color={COLORS.textSecondary} />
-            <Text style={styles.scanLimitText}>
-              {planDetails.remainingScans} scans remaining
-            </Text>
-          </View>
-          <View style={styles.progressBarContainer}>
-            <View
-              style={[
-                styles.progressBar,
-                {
-                  width: `${Math.min(
-                    ((planDetails.weeklyScanCount || 0) / (planDetails.scanLimit || 10)) * 100,
-                    100
-                  )}%`,
-                },
-              ]}
-            />
-          </View>
-        </Animated.View>
-      )}
+      {/* Fixed height container for controls and scan limit */}
+      <View style={styles.bottomContainer}>
+        {/* Scan Limit Indicator */}
+        {planDetails && !isCapturing && !isUploading && (
+          <Animated.View
+            style={styles.scanLimitContainer}
+            entering={FadeIn.duration(300).delay(100)}
+            exiting={FadeOut.duration(200)}
+          >
+            <View style={styles.scanLimitContent}>
+              <Text style={styles.scanLimitText}>
+                {planDetails.remainingScans} scans
+              </Text>
+            </View>
+            <View style={styles.progressBarContainer}>
+              <View
+                style={[
+                  styles.progressBar,
+                  {
+                    width: `${Math.min(
+                      ((planDetails.weeklyScanCount || 0) / (planDetails.scanLimit || 10)) * 100,
+                      100
+                    )}%`,
+                  },
+                ]}
+              />
+            </View>
+          </Animated.View>
+        )}
 
-      <CameraControls
-        onCapture={handleCapture}
-        onImageSelected={handleImageSelected}
-        isCapturing={isCapturing || isUploading}
-        isReady={isCameraReady && detectionStatus === "aligned"}
-        flashMode={flashMode}
-        onFlashToggle={toggleFlash}
-        disabled={!isCameraReady || isUploading || !hasRemainingScans}
-      />
+        <CameraControls
+          onCapture={handleCapture}
+          onImageSelected={handleImageSelected}
+          isCapturing={isCapturing || isUploading}
+          isReady={isCameraReady && detectionStatus === "aligned"}
+          flashMode={flashMode}
+          onFlashToggle={toggleFlash}
+          disabled={!isCameraReady || isUploading || !hasRemainingScans}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -851,6 +854,7 @@ const styles = StyleSheet.create({
   contentArea: {
     flex: 1,
     padding: 8,
+    minHeight: 400, // Ensure minimum height for camera view
   },
   cameraCard: {
     flex: 1,
@@ -958,5 +962,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "SpaceMono",
     letterSpacing: 0.5,
+  },
+  bottomContainer: {
+    minHeight: 120, // Fixed height for controls area
+    paddingBottom: 16,
   },
 });
