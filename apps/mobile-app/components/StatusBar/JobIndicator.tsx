@@ -27,10 +27,17 @@ const SPIN_CONFIG = {
     easing: Easing.linear,
 };
 
+const TEXT_ANIMATION_CONFIG = {
+    duration: 200,
+    easing: Easing.out(Easing.cubic),
+};
+
 const JobIndicator: React.FC = () => {
     const jobs = useJobSessionStore((state) => state.jobs);
     const scale = useSharedValue(1);
     const rotation = useSharedValue(0);
+    const textScale = useSharedValue(1);
+    const textOpacity = useSharedValue(1);
 
     // Get pending jobs with memoization
     const pendingJobs = useMemo(() => {
@@ -54,6 +61,18 @@ const JobIndicator: React.FC = () => {
             cancelAnimation(rotation);
         };
     }, [pendingJobs.length, rotation]);
+
+    // Animate text when pending jobs count changes
+    useEffect(() => {
+        textScale.value = withSequence(
+            withTiming(1.2, TEXT_ANIMATION_CONFIG),
+            withTiming(1, TEXT_ANIMATION_CONFIG)
+        );
+        textOpacity.value = withSequence(
+            withTiming(0.5, TEXT_ANIMATION_CONFIG),
+            withTiming(1, TEXT_ANIMATION_CONFIG)
+        );
+    }, [pendingJobs.length]);
 
     // Handle press with proper dependencies
     const handlePress = useCallback(() => {
@@ -79,6 +98,13 @@ const JobIndicator: React.FC = () => {
         ],
     }));
 
+    const textStyle = useAnimatedStyle(() => ({
+        transform: [
+            { scale: textScale.value }
+        ],
+        opacity: textOpacity.value,
+    }));
+
     return (
         <Pressable
             onPress={handlePress}
@@ -95,9 +121,11 @@ const JobIndicator: React.FC = () => {
                 <Animated.View
                     entering={FadeIn.duration(300)}
                     exiting={FadeOut.duration(300)}
-                    style={styles.countContainer}
+                    style={[styles.countContainer, textStyle]}
                 >
-                    <Text style={styles.countText}>{pendingJobs.length} job{pendingJobs.length > 1 ? 's' : ''}</Text>
+                    <Animated.Text style={styles.countText}>
+                        {pendingJobs.length} job{pendingJobs.length > 1 ? 's' : ''}
+                    </Animated.Text>
                 </Animated.View>
             </Animated.View>
         </Pressable>
