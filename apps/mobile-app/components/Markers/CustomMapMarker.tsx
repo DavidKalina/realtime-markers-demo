@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View, Platform } from "react-native";
 import * as Haptics from "expo-haptics";
-import Svg, { Path, Circle } from "react-native-svg";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -14,6 +13,7 @@ import Animated, {
   Easing,
   interpolateColor,
 } from "react-native-reanimated";
+import { ShadowSVG, MarkerSVG, MARKER_WIDTH, MARKER_HEIGHT, SHADOW_OFFSET } from "./MarkerSVGs";
 
 // Define marker colors
 const markerColors = [
@@ -52,11 +52,6 @@ const ANIMATIONS = {
     duration: 300,
   },
 };
-
-// Pre-define constants
-const SHADOW_OFFSET = { x: 3, y: 3 };
-const MARKER_WIDTH = 48;
-const MARKER_HEIGHT = 64;
 
 export interface EventType {
   title: string;
@@ -216,47 +211,19 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       borderColor: "#fff", // Use consistent dark gray
     }));
 
-    // SVG components - memoized for performance
-    const ShadowSvg = useMemo(() => (
-      <Svg width={MARKER_WIDTH} height={MARKER_HEIGHT} viewBox="0 0 48 64">
-        <Path
-          d="M24 4C13.5 4 6 12.1 6 22C6 28.5 9 34.4 13.5 39.6C17.5 44.2 24 52 24 52C24 52 30.5 44.2 34.5 39.6C39 34.4 42 28.5 42 22C42 12.1 34.5 4 24 4Z"
-          fill="black"
-          fillOpacity="0.3"
-        />
-      </Svg>
-    ), []);
-
+    // Remove the old SVG components and use the shared ones
+    const ShadowSvg = useMemo(() => <ShadowSVG />, []);
     const MarkerSvg = useMemo(() => (
-      <Svg width={MARKER_WIDTH} height={MARKER_HEIGHT} viewBox="0 0 48 64">
-        {/* Teardrop marker */}
-        <Path
-          d="M24 4C13.5 4 6 12.1 6 22C6 28.5 9 34.4 13.5 39.6C17.5 44.2 24 52 24 52C24 52 30.5 44.2 34.5 39.6C39 34.4 42 28.5 42 22C42 12.1 34.5 4 24 4Z"
-          fill="#1a1a1a"
-          stroke="white"
-          strokeWidth="3"
-          strokeLinejoin="round"
-        />
-
-        {/* Nintendo-style highlight */}
-        <Path
-          d="M16 12C16 12 19 9 24 9C29 9 32 12 32 12"
-          stroke="rgba(255, 255, 255, 0.7)"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-
-        {/* Emoji background circle */}
-        <Circle
-          cx="24"
-          cy="22"
-          r="12"
-          fill="white"
-          stroke="#E2E8F0"
-          strokeWidth="1"
-        />
-      </Svg>
-    ), [markerColor]);
+      <MarkerSVG
+        fill="#1a1a1a"
+        stroke="white"
+        strokeWidth="3"
+        highlightStrokeWidth="2.5"
+        circleRadius="12"
+        circleStroke="#E2E8F0"
+        circleStrokeWidth="1"
+      />
+    ), []);
 
     return (
       <View style={styles.container}>

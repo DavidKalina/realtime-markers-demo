@@ -38,6 +38,11 @@ export interface EventType {
   qrGeneratedAt?: string | null;
   qrDetectedInImage?: boolean;
   detectedQrData?: string | null;
+  imageUrl?: string;
+  category?: {
+    id: string;
+    name: string;
+  };
 }
 
 // Mapbox viewport format for map integration

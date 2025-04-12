@@ -1,18 +1,19 @@
 import * as Haptics from "expo-haptics";
-import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Svg, { Path, Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 import Animated, {
   cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
-  withTiming,
   withSpring,
-  withDelay,
+  withTiming,
 } from "react-native-reanimated";
+import { ShadowSVG, MarkerSVG, MARKER_WIDTH, MARKER_HEIGHT, SHADOW_OFFSET } from "./MarkerSVGs";
+import { COLORS } from "../Layout/ScreenLayout";
 
 interface ClusterMarkerProps {
   count: number;
@@ -23,27 +24,22 @@ interface ClusterMarkerProps {
   index?: number; // For staggered animations
 }
 
-// Pre-define constants
-const MARKER_WIDTH = 48;
-const MARKER_HEIGHT = 64;
-const SHADOW_OFFSET = { x: 3, y: 3 };
-
 // Color schemes with teardrop design
 const COLOR_SCHEMES = {
   small: {
-    fill: "#1a1a1a",
-    stroke: "#FFFFFF",
-    text: "#FFFFFF"
+    fill: COLORS.background,
+    stroke: COLORS.textPrimary,
+    text: COLORS.textPrimary
   },
   medium: {
-    fill: "#1a1a1a",
-    stroke: "#FFFFFF",
-    text: "#FFFFFF"
+    fill: COLORS.background,
+    stroke: COLORS.textPrimary,
+    text: COLORS.textPrimary
   },
   large: {
-    fill: "#1a1a1a",
-    stroke: "#FFD700", // Gold stroke for large clusters
-    text: "#FFFFFF"
+    fill: COLORS.background,
+    stroke: COLORS.accent, // Use accent color for large clusters
+    text: COLORS.textPrimary
   },
 };
 
@@ -101,11 +97,6 @@ const createAnimationCleanup = (animations: Animated.SharedValue<number>[]) => {
   };
 };
 
-// Styled sub-components to reduce re-renders
-const ClusterText = React.memo(({ text }: { text: string }) => (
-  <Text style={styles.clusterText}>{text}</Text>
-));
-
 export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
   ({ count, onPress, isSelected = false, isHighlighted = false, index = 0 }) => {
     // Component state
@@ -137,6 +128,20 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
 
     // Memoize formatted count
     const formattedCount = useMemo(() => (count > 99 ? "99+" : count.toString()), [count]);
+
+    // Use shared SVG components
+    const ShadowSvg = useMemo(() => <ShadowSVG />, []);
+    const MarkerSvg = useMemo(() => (
+      <MarkerSVG
+        fill={colorScheme.fill}
+        stroke={colorScheme.stroke}
+        strokeWidth={count > 5 ? "4" : "3"}
+        highlightStrokeWidth={count > 5 ? "3" : "2.5"}
+        circleRadius={count > 5 ? "14" : "12"}
+        circleStroke={count > 15 ? COLORS.accent : COLORS.buttonBorder}
+        circleStrokeWidth={count > 15 ? "2" : "1"}
+      />
+    ), [colorScheme, count]);
 
     // Set up drop-in animation on mount
     useEffect(() => {
@@ -327,48 +332,6 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
       transform: [{ scale: rippleScale.value }],
     }));
 
-    // SVG components - memoized for performance
-    const ShadowSvg = useMemo(() => (
-      <Svg width={MARKER_WIDTH} height={MARKER_HEIGHT} viewBox="0 0 48 64">
-        <Path
-          d="M24 4C13.5 4 6 12.1 6 22C6 28.5 9 34.4 13.5 39.6C17.5 44.2 24 52 24 52C24 52 30.5 44.2 34.5 39.6C39 34.4 42 28.5 42 22C42 12.1 34.5 4 24 4Z"
-          fill="black"
-          fillOpacity="0.3"
-        />
-      </Svg>
-    ), []);
-
-    const MarkerSvg = useMemo(() => (
-      <Svg width={MARKER_WIDTH} height={MARKER_HEIGHT} viewBox="0 0 48 64">
-        {/* Teardrop marker with dynamic stroke width */}
-        <Path
-          d="M24 4C13.5 4 6 12.1 6 22C6 28.5 9 34.4 13.5 39.6C17.5 44.2 24 52 24 52C24 52 30.5 44.2 34.5 39.6C39 34.4 42 28.5 42 22C42 12.1 34.5 4 24 4Z"
-          fill={colorScheme.fill}
-          stroke={colorScheme.stroke}
-          strokeWidth={count > 5 ? "4" : "3"} // Reduced threshold from 10 to 5
-          strokeLinejoin="round"
-        />
-
-        {/* Nintendo-style highlight with dynamic opacity */}
-        <Path
-          d="M16 12C16 12 19 9 24 9C29 9 32 12 32 12"
-          stroke="rgba(255, 255, 255, 0.7)"
-          strokeWidth={count > 5 ? "3" : "2.5"} // Reduced threshold from 10 to 5
-          strokeLinecap="round"
-        />
-
-        {/* Count background circle with dynamic size */}
-        <Circle
-          cx="24"
-          cy="22"
-          r={count > 5 ? "14" : "12"} // Reduced threshold from 10 to 5
-          fill="#FFFFFF"
-          stroke={count > 15 ? "#FFD700" : "#E2E8F0"} // Gold stroke for very large clusters
-          strokeWidth={count > 15 ? "2" : "1"} // Thicker stroke for very large clusters
-        />
-      </Svg>
-    ), [colorScheme, count]);
-
     return (
       <View style={styles.container}>
         {/* Marker Shadow */}
@@ -451,7 +414,7 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontWeight: "bold",
-    color: "#222222",
+    color: "#fff",
     fontFamily: "SpaceMono",
     textAlign: "center",
     lineHeight: 24,

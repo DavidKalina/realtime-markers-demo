@@ -1,4 +1,4 @@
-// scan.tsx - Updated version with removed detection logic
+// scan.tsx - Updated version with shared layout components
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import { useUserLocation } from "@/contexts/LocationContext";
@@ -17,7 +17,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -28,26 +27,11 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { debounce } from "lodash";
 import { useFocusEffect } from '@react-navigation/native';
 import { ImagePoofIntoEmojiTransformation } from "@/components/ImagePoofIntoEmojiTransformation/ImagePoofIntoEmojiTransformation";
+import ScreenLayout from "@/components/Layout/ScreenLayout";
+import Header from "@/components/Layout/Header";
+import { COLORS } from "@/components/Layout/ScreenLayout";
 
 type ImageSource = "camera" | "gallery" | null;
-
-// Unified color theme matching ClusterEventsView
-const COLORS = {
-  background: "#1a1a1a",
-  cardBackground: "#2a2a2a",
-  textPrimary: "#f8f9fa",
-  textSecondary: "#a0a0a0",
-  accent: "#93c5fd",
-  divider: "rgba(255, 255, 255, 0.08)",
-  buttonBackground: "rgba(255, 255, 255, 0.05)",
-  buttonBorder: "rgba(255, 255, 255, 0.1)",
-  warningBackground: "rgba(253, 186, 116, 0.1)",
-  warningBorder: "rgba(253, 186, 116, 0.3)",
-  warningText: "#fdba74",
-  errorBackground: "rgba(248, 113, 113, 0.1)",
-  errorBorder: "rgba(248, 113, 113, 0.3)",
-  errorText: "#f87171",
-};
 
 export default function ScanScreen() {
   const {
@@ -513,51 +497,36 @@ export default function ScanScreen() {
   // Loading state while checking permissions
   if (hasPermission === null) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenLayout>
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#93c5fd" />
+          <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.loaderText}>Checking camera permissions...</Text>
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   // Loading state while checking plan details
   if (isCheckingPlan) {
     return (
-      <SafeAreaView style={styles.container}>
+      <ScreenLayout>
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#93c5fd" />
+          <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.loaderText}>Checking scan limits...</Text>
         </View>
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   // Image preview mode (for both camera captured and gallery selected images)
   if (capturedImage) {
     return (
-      <SafeAreaView style={styles.container}>
-        {/* Header */}
-        <Animated.View style={styles.header} entering={FadeIn.duration(300)}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleCancel}
-            activeOpacity={0.7}
-            disabled={isUploading}
-          >
-            <View style={styles.backButtonContainer}>
-              <Feather name="x" size={20} color="#f8f9fa" />
-            </View>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            Processing {imageSource === "gallery" ? "Gallery Image" : "Document"}
-          </Text>
-
-          <View style={styles.headerIconContainer}>
-            <Feather name="file" size={20} color="#93c5fd" />
-          </View>
-        </Animated.View>
+      <ScreenLayout>
+        <Header
+          title={`Processing ${imageSource === "gallery" ? "Gallery Image" : "Document"}`}
+          onBack={handleCancel}
+          rightIcon={<Feather name="file" size={20} color={COLORS.accent} />}
+        />
 
         {/* Content area with transformation animation */}
         <View style={styles.contentArea}>
@@ -572,26 +541,18 @@ export default function ScanScreen() {
 
         {/* Empty view to maintain same layout structure */}
         <View style={styles.controlsContainer} />
-      </SafeAreaView>
+      </ScreenLayout>
     );
   }
 
   // Main camera view
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <Animated.View style={styles.header} entering={FadeIn.duration(300)}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
-          <View style={styles.backButtonContainer}>
-            <Feather name="arrow-left" size={20} color="#f8f9fa" />
-          </View>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Scan Document</Text>
-
-        <View style={styles.headerIconContainer}>
-          <Feather name="camera" size={20} color="#93c5fd" />
-        </View>
-      </Animated.View>
+    <ScreenLayout>
+      <Header
+        title="Scan Document"
+        onBack={handleBack}
+        rightIcon={<Feather name="camera" size={20} color={COLORS.accent} />}
+      />
 
       {/* Camera container with fixed dimensions */}
       <View style={styles.contentArea}>
@@ -645,7 +606,7 @@ export default function ScanScreen() {
             </CameraView>
           ) : (
             <View style={styles.cameraPlaceholder}>
-              <ActivityIndicator size="large" color="#93c5fd" />
+              <ActivityIndicator size="large" color={COLORS.accent} />
               <Text style={styles.cameraPlaceholderText}>Initializing camera...</Text>
             </View>
           )}
@@ -676,58 +637,11 @@ export default function ScanScreen() {
           </Animated.View>
         )}
       </View>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    display: "flex",
-    flexDirection: "column",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-    backgroundColor: COLORS.background,
-    zIndex: 10,
-  },
-  backButton: {
-    marginRight: 12,
-  },
-  backButtonContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    flex: 1,
-    letterSpacing: 0.5,
-  },
-  headerIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
   contentArea: {
     flex: 1,
     padding: 8,
@@ -738,7 +652,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: "hidden",
     backgroundColor: COLORS.cardBackground,
-    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
@@ -772,13 +686,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontFamily: "SpaceMono",
     fontSize: 14,
-  },
-  previewImage: {
-    flex: 1,
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-    backgroundColor: COLORS.cardBackground,
   },
   loaderContainer: {
     flex: 1,
@@ -892,4 +799,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "SpaceMono",
   },
-})
+});

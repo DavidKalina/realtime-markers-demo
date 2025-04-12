@@ -1,41 +1,16 @@
-import { addMonths, eachDayOfInterval, endOfMonth, format, isSameMonth, isToday, parseISO, startOfMonth, subMonths, addDays } from 'date-fns';
+import { addDays, addMonths, eachDayOfInterval, endOfMonth, format, isSameMonth, isToday, parseISO, startOfMonth, subMonths } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
+    cancelAnimation,
+    runOnJS,
     SlideInDown,
     SlideOutDown,
-    useSharedValue,
-    withTiming,
-    runOnJS,
-    cancelAnimation
+    useSharedValue
 } from 'react-native-reanimated';
-
-// Unified color theme (from EventDetailsHeader)
-const COLORS = {
-    background: "#1a1a1a",
-    cardBackground: "#2a2a2a",
-    textPrimary: "#f8f9fa",
-    textSecondary: "#a0a0a0",
-    accent: "#93c5fd",
-
-    divider: "rgba(255, 255, 255, 0.08)",
-    buttonBackground: "rgba(255, 255, 255, 0.05)",
-    buttonBorder: "rgba(255, 255, 255, 0.1)",
-
-    success: "#40c057",
-    successBackground: "rgba(64, 192, 87, 0.12)",
-    successBorder: "rgba(64, 192, 87, 0.2)",
-
-    iconUser: "#ff922b",
-    iconEngagement: "#a5d8ff",
-    iconVerified: "#69db7c",
-    iconDateTime: "#ffd43b",
-    iconLocation: "#ff8787",
-    iconCategories: "#da77f2",
-    iconDefault: "#93c5fd",
-};
+import { COLORS } from './Layout/ScreenLayout';
 
 // Helper for dimmed text color
 const getDimmedTextColor = (baseColor: string, opacity: number = 0.5) => {
@@ -362,7 +337,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         width: '90%',
         maxHeight: '75%',
-        shadowColor: 'rgba(0, 0, 0, 0.5)',
+        shadowColor: COLORS.shadow,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.2,
         shadowRadius: 12,
@@ -466,7 +441,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     rangeDay: {
-        backgroundColor: 'rgba(147, 197, 253, 0.15)',
+        backgroundColor: getRgbaBackground(COLORS.accent, 0.15),
     },
     startDay: {
         borderTopLeftRadius: 12,
@@ -532,7 +507,7 @@ const styles = StyleSheet.create({
     },
     confirmButton: {
         backgroundColor: COLORS.accent,
-        borderColor: 'rgba(147, 197, 253, 0.3)',
+        borderColor: getRgbaBackground(COLORS.accent, 0.3),
     },
     confirmButtonDisabled: {
         opacity: 0.5,

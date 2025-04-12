@@ -114,7 +114,8 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
             publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
                 coordinates: discovery.event.location.coordinates,
                 timestamp: new Date().getTime(),
-                source: "discovery_indicator"
+                source: "discovery_indicator",
+                zoomLevel: 18
             });
         }
 

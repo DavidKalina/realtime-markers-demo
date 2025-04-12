@@ -1,34 +1,40 @@
-import React, { useCallback, useEffect, useState, useRef, useMemo, memo } from "react";
+import apiClient from "@/services/ApiClient";
+import { useLocationStore } from "@/stores/useLocationStore";
+import { EventType } from "@/types/types";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
+import { ArrowLeft, Calendar, MapPin, Star, Tag } from "lucide-react-native";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  View,
-  StyleSheet,
   ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
   Text,
   TouchableOpacity,
-  FlatList,
-  Dimensions,
-  ScrollView,
-  Image,
+  View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocationStore } from "@/stores/useLocationStore";
-import apiClient from "@/services/ApiClient";
-import { ArrowLeft, Calendar, MapPin, Tag, Star, TrendingUp, ChevronRight } from "lucide-react-native";
-import { useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
 import Animated, {
-  useSharedValue,
-  useAnimatedScrollHandler,
-  interpolate,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
   Easing,
   FadeInDown,
+  interpolate,
   Layout,
-  LinearTransition
+  LinearTransition,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming
 } from "react-native-reanimated";
+import EventItem from "../EventItem/EventItem";
+import ScreenLayout from "../Layout/ScreenLayout";
+import Card from "../Layout/Card";
+import Header from "../Layout/Header";
+import Tabs, { TabItem } from "../Layout/Tabs";
+import { COLORS } from "../Layout/ScreenLayout";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -36,17 +42,6 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 interface CategoryType {
   id: string;
   name: string;
-}
-
-interface EventType {
-  id: string;
-  title: string;
-  description?: string;
-  emoji?: string;
-  location: string;
-  eventDate: string;
-  category?: CategoryType;
-  imageUrl?: string;
 }
 
 interface HubDataType {
@@ -75,21 +70,6 @@ interface EventsListSectionProps {
   useScrollView?: boolean;
 }
 
-// Theme
-const COLORS = {
-  background: "#1a1a1a",
-  cardBackground: "#2a2a2a",
-  cardBackgroundAlt: "#232323",
-  textPrimary: "#f8f9fa",
-  textSecondary: "#a0a0a0",
-  accent: "#93c5fd",
-  accentDark: "#3b82f6",
-  divider: "rgba(255, 255, 255, 0.08)",
-  buttonBackground: "rgba(147, 197, 253, 0.1)",
-  buttonBorder: "rgba(255, 255, 255, 0.05)",
-  shadow: "rgba(0, 0, 0, 0.5)",
-};
-
 // Styles
 const styles = StyleSheet.create({
   safeArea: {
@@ -116,32 +96,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
+  clusterNameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  clusterEmoji: {
+    fontSize: 24,
+  },
   clusterName: {
     color: COLORS.textPrimary,
     fontSize: 20,
     fontFamily: "SpaceMono",
     fontWeight: "700",
-  },
-  clusterNameContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  clusterEmoji: {
-    fontSize: 24,
-  },
-  clusterDescriptionContainer: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
   },
   clusterDescription: {
     color: COLORS.textPrimary,
@@ -206,18 +174,6 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   // Featured event styles
-  featuredEvent: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 20,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-  },
   featuredImageContainer: {
     width: "100%",
     height: 140,
@@ -550,46 +506,6 @@ const TabButton = memo<{
   </TouchableOpacity>
 ));
 
-// Memoized EventCard component
-const EventCard = memo<{
-  event: EventType;
-  onPress: () => void;
-}>(({ event, onPress }) => (
-  <TouchableOpacity
-    style={styles.eventCard}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    <View style={styles.eventEmojiContainer}>
-      <Text style={styles.eventEmojiText}>{event.emoji || "🎉"}</Text>
-    </View>
-    <View style={styles.eventInfo}>
-      <Text style={styles.eventTitle} numberOfLines={1} ellipsizeMode="tail">
-        {event.title}
-      </Text>
-      <View style={styles.eventDetails}>
-        <View style={styles.eventDetail}>
-          <Calendar size={12} color={COLORS.textSecondary} />
-          <Text style={styles.eventDetailText}>
-            {new Date(event.eventDate).toLocaleDateString()}
-          </Text>
-        </View>
-        <View style={styles.eventDetail}>
-          <MapPin size={12} color={COLORS.textSecondary} />
-          <Text style={styles.eventDetailText} numberOfLines={1}>
-            {event.location}
-          </Text>
-        </View>
-      </View>
-    </View>
-    <View style={styles.eventActions}>
-      <View style={styles.chevronContainer}>
-        <ChevronRight size={16} color={COLORS.textSecondary} />
-      </View>
-    </View>
-  </TouchableOpacity>
-));
-
 // Memoized AnimatedEventCard component
 const AnimatedEventCard = memo<{
   event: EventType;
@@ -601,7 +517,13 @@ const AnimatedEventCard = memo<{
       entering={FadeInDown.delay(index * 100).springify()}
       layout={Layout.springify()}
     >
-      <EventCard event={event} onPress={onPress} />
+      <EventItem
+        event={event}
+        onPress={onPress}
+        index={index}
+        variant="default"
+        showChevron={true}
+      />
     </Animated.View>
   );
 });
@@ -656,18 +578,13 @@ const truncateText = (text: string, maxLength: number = 20): string => {
   return text.substring(0, maxLength) + '...';
 };
 
-
 const ClusterDescription = memo<{
   description: string;
 }>(({ description }) => {
   return (
-    <Animated.View
-      style={styles.clusterDescriptionContainer}
-      entering={FadeInDown.duration(600).delay(50).springify()}
-      layout={LinearTransition.springify()}
-    >
+    <Card>
       <Text style={styles.clusterDescription}>{description}</Text>
-    </Animated.View>
+    </Card>
   );
 });
 
@@ -708,11 +625,7 @@ const FeaturedEvent = memo<{
   });
 
   return (
-    <TouchableOpacity
-      style={styles.featuredEvent}
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
+    <Card onPress={onPress} noBorder noShadow>
       <View style={styles.featuredImageContainer}>
         {event.imageUrl ? (
           <Image source={{ uri: event.imageUrl }} style={styles.featuredImage} />
@@ -767,7 +680,7 @@ const FeaturedEvent = memo<{
           </View>
         </View>
       </View>
-    </TouchableOpacity>
+    </Card>
   );
 });
 
@@ -861,8 +774,6 @@ const ClusterEventsView: React.FC = () => {
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState<number>(0);
   const [currentLocationIndex, setCurrentLocationIndex] = useState<number>(0);
   const [hubData, setHubData] = useState<HubDataType | null>(null);
-
-  console.log("hubData", hubData);
 
   const scrollY = useSharedValue(0);
   const markers = useLocationStore((state) => state.markers);
@@ -1087,6 +998,14 @@ const ClusterEventsView: React.FC = () => {
   const renderContent = useMemo(() => {
     if (!hubData) return null;
 
+    type TabValue = "categories" | "locations" | "today";
+
+    const tabItems: TabItem<TabValue>[] = [
+      { icon: Tag, label: "Categories", value: "categories" },
+      { icon: MapPin, label: "Locations", value: "locations" },
+      { icon: Calendar, label: "Today", value: "today" },
+    ];
+
     return (
       <>
         <Animated.View
@@ -1100,11 +1019,13 @@ const ClusterEventsView: React.FC = () => {
               onPress={() => handleEventPress(hubData.featuredEvent as EventType)}
             />
           ) : (
-            <View style={[styles.featuredEvent, { padding: 24, alignItems: 'center', justifyContent: 'center' }]}>
-              <Text style={{ color: COLORS.textSecondary, fontFamily: 'SpaceMono' }}>
-                No featured event available
-              </Text>
-            </View>
+            <Card>
+              <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: COLORS.textSecondary, fontFamily: 'SpaceMono' }}>
+                  No featured event available
+                </Text>
+              </View>
+            </Card>
           )}
         </Animated.View>
 
@@ -1120,30 +1041,12 @@ const ClusterEventsView: React.FC = () => {
           <ClusterDescription description={hubData.clusterDescription} />
         </Animated.View>
 
-        <Animated.View
-          style={styles.tabsContainer}
-          entering={FadeInDown.duration(600).delay(200).springify()}
-          layout={LinearTransition.springify()}
-        >
-          <TabButton
-            icon={Tag}
-            label="Categories"
-            isActive={activeTab === "categories"}
-            onPress={() => handleTabPress("categories")}
-          />
-          <TabButton
-            icon={MapPin}
-            label="Locations"
-            isActive={activeTab === "locations"}
-            onPress={() => handleTabPress("locations")}
-          />
-          <TabButton
-            icon={Calendar}
-            label="Today"
-            isActive={activeTab === "today"}
-            onPress={() => handleTabPress("today")}
-          />
-        </Animated.View>
+        <Tabs<TabValue>
+          items={tabItems}
+          activeTab={activeTab}
+          onTabPress={handleTabPress}
+          delay={200}
+        />
 
         <Animated.View
           entering={FadeInDown.duration(600).delay(300).springify()}
@@ -1158,15 +1061,12 @@ const ClusterEventsView: React.FC = () => {
   // Render loading state
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <Animated.View
-          style={styles.loadingContainer}
-          entering={FadeInDown.duration(600).springify()}
-        >
+      <ScreenLayout>
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.loadingText}>Loading events...</Text>
-        </Animated.View>
-      </SafeAreaView>
+        </View>
+      </ScreenLayout>
     );
   }
 
@@ -1176,17 +1076,12 @@ const ClusterEventsView: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Animated.View style={[styles.header, headerAnimatedStyle]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBack}
-          activeOpacity={0.7}
-        >
-          <ArrowLeft size={20} color={COLORS.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Cluster</Text>
-      </Animated.View>
+    <ScreenLayout>
+      <Header
+        title="Cluster"
+        onBack={handleBack}
+        style={headerAnimatedStyle}
+      />
 
       <Animated.ScrollView
         style={styles.mainScrollView}
@@ -1198,7 +1093,7 @@ const ClusterEventsView: React.FC = () => {
       >
         {renderContent}
       </Animated.ScrollView>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 };
 
