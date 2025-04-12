@@ -327,6 +327,20 @@ const EventAssistant: React.FC = () => {
           () => executeNavigation(navigationHandler),
           { pauseAfterMs: CONFIG.ACTION_PAUSE_MS }
         );
+      } else if (action === "locate") {
+        // Special handling for locate action
+        streamForMarker(
+          itemId,
+          actionMessages,
+          () => {
+            // After locate action completes, hide the assistant
+            if (isMountedRef.current) {
+              animationControls.hideAssistant();
+              resetStreaming();
+            }
+          },
+          { pauseAfterMs: CONFIG.ACTION_PAUSE_MS }
+        );
       } else {
         streamForMarker(
           itemId,
@@ -346,6 +360,7 @@ const EventAssistant: React.FC = () => {
       getStoreSelectedItem,
       showError,
       navigationHandlers,
+      resetStreaming,
     ]
   );
 

@@ -20,7 +20,7 @@ const DEBUG = false;
 const EMOJI_SIZE = 60;
 
 // Particle system for the "poof" effect
-const PARTICLE_COUNT = 10;
+const PARTICLE_COUNT = 20;
 
 interface ImagePoofIntoEmojiTransformationProps {
     imageUri: string;
