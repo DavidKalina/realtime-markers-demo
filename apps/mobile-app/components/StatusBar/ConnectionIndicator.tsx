@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import Animated, {
     useAnimatedStyle,
     withSpring,
@@ -141,9 +141,6 @@ const ConnectionIndicator: React.FC = () => {
             <View style={[styles.indicator, { backgroundColor: currentState.bgColor }]}>
                 <Wifi size={10} color={currentState.color} />
             </View>
-            <Text style={[styles.text, { color: currentState.color }]}>
-                {currentState.text}
-            </Text>
         </Animated.View>
     );
 };
