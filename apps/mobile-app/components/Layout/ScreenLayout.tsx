@@ -15,6 +15,14 @@ export const COLORS = {
     buttonBackground: "rgba(255, 255, 255, 0.05)",
     buttonBorder: "rgba(255, 255, 255, 0.1)",
     shadow: "rgba(0, 0, 0, 0.5)",
+    // Warning colors
+    warningBackground: "rgba(253, 186, 116, 0.1)",
+    warningBorder: "rgba(253, 186, 116, 0.3)",
+    warningText: "#fdba74",
+    // Error colors
+    errorBackground: "rgba(248, 113, 113, 0.1)",
+    errorBorder: "rgba(248, 113, 113, 0.3)",
+    errorText: "#f87171",
 };
 
 interface ScreenLayoutProps {

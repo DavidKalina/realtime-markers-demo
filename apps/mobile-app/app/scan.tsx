@@ -1,4 +1,4 @@
-// scan.tsx - Updated version with removed detection logic
+// scan.tsx - Updated version with shared layout components
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import { useUserLocation } from "@/contexts/LocationContext";
@@ -17,7 +17,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -28,29 +27,11 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { debounce } from "lodash";
 import { useFocusEffect } from '@react-navigation/native';
 import { ImagePoofIntoEmojiTransformation } from "@/components/ImagePoofIntoEmojiTransformation/ImagePoofIntoEmojiTransformation";
-import ScreenLayout from '@/components/Layout/ScreenLayout';
-import Header from '@/components/Layout/Header';
-import Card from '@/components/Layout/Card';
+import ScreenLayout from "@/components/Layout/ScreenLayout";
+import Header from "@/components/Layout/Header";
+import { COLORS } from "@/components/Layout/ScreenLayout";
 
 type ImageSource = "camera" | "gallery" | null;
-
-// Unified color theme matching ClusterEventsView
-const COLORS = {
-  background: "#1a1a1a",
-  cardBackground: "#2a2a2a",
-  textPrimary: "#f8f9fa",
-  textSecondary: "#a0a0a0",
-  accent: "#93c5fd",
-  divider: "rgba(255, 255, 255, 0.08)",
-  buttonBackground: "rgba(255, 255, 255, 0.05)",
-  buttonBorder: "rgba(255, 255, 255, 0.1)",
-  warningBackground: "rgba(253, 186, 116, 0.1)",
-  warningBorder: "rgba(253, 186, 116, 0.3)",
-  warningText: "#fdba74",
-  errorBackground: "rgba(248, 113, 113, 0.1)",
-  errorBorder: "rgba(248, 113, 113, 0.3)",
-  errorText: "#f87171",
-};
 
 export default function ScanScreen() {
   const {
@@ -518,7 +499,7 @@ export default function ScanScreen() {
     return (
       <ScreenLayout>
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#93c5fd" />
+          <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.loaderText}>Checking camera permissions...</Text>
         </View>
       </ScreenLayout>
@@ -530,30 +511,35 @@ export default function ScanScreen() {
     return (
       <ScreenLayout>
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#93c5fd" />
+          <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.loaderText}>Checking scan limits...</Text>
         </View>
       </ScreenLayout>
     );
   }
 
-  // Image preview mode
+  // Image preview mode (for both camera captured and gallery selected images)
   if (capturedImage) {
     return (
       <ScreenLayout>
         <Header
           title={`Processing ${imageSource === "gallery" ? "Gallery Image" : "Document"}`}
           onBack={handleCancel}
-          rightIcon={<Feather name="file" size={20} color="#93c5fd" />}
+          rightIcon={<Feather name="file" size={20} color={COLORS.accent} />}
         />
 
+        {/* Content area with transformation animation */}
         <View style={styles.contentArea}>
           <ImagePoofIntoEmojiTransformation
             imageUri={capturedImage}
-            onAnimationComplete={() => router.replace("/")}
+            onAnimationComplete={() => {
+              // Navigate back to index screen after animation completes
+              router.replace("/");
+            }}
           />
         </View>
 
+        {/* Empty view to maintain same layout structure */}
         <View style={styles.controlsContainer} />
       </ScreenLayout>
     );
@@ -565,11 +551,12 @@ export default function ScanScreen() {
       <Header
         title="Scan Document"
         onBack={handleBack}
-        rightIcon={<Feather name="camera" size={20} color="#93c5fd" />}
+        rightIcon={<Feather name="camera" size={20} color={COLORS.accent} />}
       />
 
+      {/* Camera container with fixed dimensions */}
       <View style={styles.contentArea}>
-        <Card style={styles.cameraCard} animated={false}>
+        <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
           {isCameraActive ? (
             <CameraView
               ref={cameraRef}
@@ -619,13 +606,14 @@ export default function ScanScreen() {
             </CameraView>
           ) : (
             <View style={styles.cameraPlaceholder}>
-              <ActivityIndicator size="large" color="#93c5fd" />
+              <ActivityIndicator size="large" color={COLORS.accent} />
               <Text style={styles.cameraPlaceholderText}>Initializing camera...</Text>
             </View>
           )}
-        </Card>
+        </Animated.View>
       </View>
 
+      {/* Fixed height container for controls */}
       <View style={styles.controlsContainer}>
         <CameraControls
           onCapture={handleCapture}
@@ -637,6 +625,7 @@ export default function ScanScreen() {
           disabled={!isCameraReady || isUploading || !hasRemainingScans}
         />
 
+        {/* Subtle scan counter badge */}
         {planDetails && hasRemainingScans && (
           <Animated.View
             style={styles.scanCountBadge}
@@ -656,12 +645,19 @@ const styles = StyleSheet.create({
   contentArea: {
     flex: 1,
     padding: 8,
-    minHeight: 400,
+    minHeight: 400, // Ensure minimum height for camera view
   },
   cameraCard: {
     flex: 1,
-    padding: 0,
+    borderRadius: 20,
     overflow: "hidden",
+    backgroundColor: COLORS.cardBackground,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+    borderColor: COLORS.divider,
   },
   camera: {
     flex: 1,
@@ -690,13 +686,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontFamily: "SpaceMono",
     fontSize: 14,
-  },
-  previewImage: {
-    flex: 1,
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-    backgroundColor: COLORS.cardBackground,
   },
   loaderContainer: {
     flex: 1,
@@ -810,4 +799,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "SpaceMono",
   },
-})
+});
