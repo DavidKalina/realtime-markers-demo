@@ -291,7 +291,7 @@ const JobIndicator: React.FC = () => {
                     style={[styles.countContainer, textStyle]}
                 >
                     <Animated.Text style={styles.countText}>
-                        {pendingJobs.length} job{pendingJobs.length !== 1 ? 's' : ''}
+                        {pendingJobs.length > 0 ? `${pendingJobs.length} job${pendingJobs.length !== 1 ? 's' : ''}` : 'Idle'}
                     </Animated.Text>
                 </Animated.View>
             </Animated.View>
