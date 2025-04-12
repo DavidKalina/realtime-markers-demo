@@ -696,33 +696,6 @@ export default function ScanScreen() {
         </View>
       </Animated.View>
 
-      {/* Scan Limit Indicator */}
-      {planDetails && (
-        <Animated.View
-          style={styles.scanLimitContainer}
-          entering={FadeIn.duration(300).delay(100)}
-        >
-          <View style={styles.scanLimitContent}>
-            <Text style={styles.scanLimitText}>
-              {planDetails.remainingScans} scans remaining this week
-            </Text>
-          </View>
-          <View style={styles.progressBarContainer}>
-            <View
-              style={[
-                styles.progressBar,
-                {
-                  width: `${Math.min(
-                    ((planDetails.weeklyScanCount || 0) / (planDetails.scanLimit || 10)) * 100,
-                    100
-                  )}%`,
-                },
-              ]}
-            />
-          </View>
-        </Animated.View>
-      )}
-
       {/* Camera container */}
       <View style={styles.contentArea}>
         <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
@@ -756,6 +729,34 @@ export default function ScanScreen() {
           )}
         </Animated.View>
       </View>
+
+      {/* Scan Limit Indicator */}
+      {planDetails && (
+        <Animated.View
+          style={styles.scanLimitContainer}
+          entering={FadeIn.duration(300).delay(100)}
+        >
+          <View style={styles.scanLimitContent}>
+            <Feather name="camera" size={12} color={COLORS.textSecondary} />
+            <Text style={styles.scanLimitText}>
+              {planDetails.remainingScans} scans remaining
+            </Text>
+          </View>
+          <View style={styles.progressBarContainer}>
+            <View
+              style={[
+                styles.progressBar,
+                {
+                  width: `${Math.min(
+                    ((planDetails.weeklyScanCount || 0) / (planDetails.scanLimit || 10)) * 100,
+                    100
+                  )}%`,
+                },
+              ]}
+            />
+          </View>
+        </Animated.View>
+      )}
 
       <CameraControls
         onCapture={handleCapture}
@@ -883,15 +884,15 @@ const styles = StyleSheet.create({
   },
   progressBarContainer: {
     height: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 1,
     overflow: "hidden",
-    marginTop: 4,
+    marginTop: 6,
   },
   progressBar: {
     height: "100%",
     backgroundColor: COLORS.accent,
-    borderRadius: 2,
+    borderRadius: 1,
   },
   loaderContainer: {
     flex: 1,
@@ -905,22 +906,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   scanLimitContainer: {
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: "rgba(42, 42, 42, 0.9)",
     padding: 8,
     marginHorizontal: 16,
-    marginTop: 8,
+    marginBottom: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   scanLimitContent: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 4,
   },
   scanLimitText: {
     color: COLORS.textSecondary,
     fontSize: 12,
     fontFamily: "SpaceMono",
+    letterSpacing: 0.5,
   },
 });
