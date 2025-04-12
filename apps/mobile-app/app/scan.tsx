@@ -22,10 +22,12 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  AppState
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { debounce } from "lodash";
+import { useFocusEffect } from '@react-navigation/native';
 
 type DetectionStatus = "none" | "detecting" | "aligned";
 type ImageSource = "camera" | "gallery" | null;
@@ -109,6 +111,9 @@ export default function ScanScreen() {
     }
   }, []);
 
+  // Track animation frame ID
+  const animationFrameIdRef = useRef<number | null>(null);
+
   // Set mounted flag to false when component unmounts
   useEffect(() => {
     return () => {
@@ -119,20 +124,81 @@ export default function ScanScreen() {
     };
   }, []);
 
-  // Optimize document detection with requestAnimationFrame
+  // Enhanced cleanup function
+  const performFullCleanup = useCallback(() => {
+    if (!isMounted.current) return;
+
+    // Clear all intervals and timers
+    clearDetectionInterval();
+
+    // Clear navigation timer
+    if (navigationTimerRef.current) {
+      clearTimeout(navigationTimerRef.current);
+      navigationTimerRef.current = null;
+    }
+
+    // Clear animation frame if exists
+    if (animationFrameIdRef.current) {
+      cancelAnimationFrame(animationFrameIdRef.current);
+      animationFrameIdRef.current = null;
+    }
+
+    // Reset all state
+    setDetectionStatus("none");
+    setIsUploading(false);
+    setCapturedImage(null);
+    setImageSource(null);
+    uploadRetryCount.current = 0;
+
+    // Clean up animations and refs
+    if (scannerOverlayRef.current?.cleanup) {
+      scannerOverlayRef.current.cleanup();
+    }
+    if (scannerAnimationRef.current?.cleanup) {
+      scannerAnimationRef.current.cleanup();
+    }
+
+    // Release camera resources
+    releaseCamera();
+  }, [clearDetectionInterval, releaseCamera]);
+
+  // Handle screen focus changes
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        performFullCleanup();
+      };
+    }, [performFullCleanup])
+  );
+
+  // Handle app state changes
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        performFullCleanup();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+      performFullCleanup();
+    };
+  }, [performFullCleanup]);
+
+  // Update startDocumentDetection to track animation frame
   const startDocumentDetection = useCallback(() => {
     clearDetectionInterval();
 
     if (!isCameraActive || !isCameraReady || !isMounted.current) return;
 
     let counter = 0;
-    let animationFrameId: number;
     let lastDetectionStatus: DetectionStatus = "none";
 
     const updateDetection = () => {
       if (!isMounted.current || !isCameraActive || !isCameraReady) {
-        if (animationFrameId) {
-          cancelAnimationFrame(animationFrameId);
+        if (animationFrameIdRef.current) {
+          cancelAnimationFrame(animationFrameIdRef.current);
+          animationFrameIdRef.current = null;
         }
         return;
       }
@@ -154,15 +220,16 @@ export default function ScanScreen() {
         handleDetectionStatus(newStatus);
       }
 
-      animationFrameId = requestAnimationFrame(updateDetection);
+      animationFrameIdRef.current = requestAnimationFrame(updateDetection);
     };
 
-    animationFrameId = requestAnimationFrame(updateDetection);
-    detectionIntervalRef.current = animationFrameId;
+    animationFrameIdRef.current = requestAnimationFrame(updateDetection);
+    detectionIntervalRef.current = animationFrameIdRef.current;
 
     return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = null;
       }
     };
   }, [isCameraActive, isCameraReady, clearDetectionInterval, handleDetectionStatus]);
@@ -199,39 +266,6 @@ export default function ScanScreen() {
     };
   }, [clearDetectionInterval, releaseCamera]);
 
-  // Enhanced cleanup function
-  const performFullCleanup = useCallback(() => {
-    if (!isMounted.current) return;
-
-    // Clear all intervals and timers
-    clearDetectionInterval();
-
-    // Clear navigation timer
-    if (navigationTimerRef.current) {
-      clearTimeout(navigationTimerRef.current);
-      navigationTimerRef.current = null;
-    }
-
-    // Reset all state
-    setDetectionStatus("none");
-    setIsUploading(false);
-    setCapturedImage(null);
-    setImageSource(null);
-    uploadRetryCount.current = 0;
-
-    // Clean up animations and refs
-    if (scannerOverlayRef.current?.cleanup) {
-      scannerOverlayRef.current.cleanup();
-    }
-    if (scannerAnimationRef.current?.cleanup) {
-      scannerAnimationRef.current.cleanup();
-    }
-
-    // Release camera resources
-    releaseCamera();
-  }, [clearDetectionInterval, releaseCamera]);
-
-
   // Enhanced cleanup effect
   useEffect(() => {
     return () => {
@@ -240,12 +274,25 @@ export default function ScanScreen() {
     };
   }, [performFullCleanup]);
 
+  // Handle cancellation with cleanup
+  const handleCancel = useCallback(() => {
+    if (!isMounted.current) return;
+
+    // Perform cleanup
+    performFullCleanup();
+
+    // Restart detection if camera is available
+    if (isCameraActive && isCameraReady) {
+      startDocumentDetection();
+    }
+  }, [isCameraActive, isCameraReady, performFullCleanup, startDocumentDetection]);
+
   // Back button handler with enhanced cleanup
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     if (!isMounted.current) return;
     performFullCleanup();
     router.replace("/");
-  };
+  }, [performFullCleanup, router]);
 
   // Queue job and navigate after a brief delay
   const queueJobAndNavigateDelayed = useCallback(
@@ -573,25 +620,6 @@ export default function ScanScreen() {
           startDocumentDetection();
         }
       }
-    }
-  };
-
-  // Handle cancellation
-  const handleCancel = () => {
-    if (!isMounted.current) return;
-
-    setCapturedImage(null);
-    setImageSource(null);
-    setIsUploading(false);
-
-    if (navigationTimerRef.current) {
-      clearTimeout(navigationTimerRef.current);
-      navigationTimerRef.current = null;
-    }
-
-    // Restart detection
-    if (isCameraActive && isCameraReady) {
-      startDocumentDetection();
     }
   };
 
