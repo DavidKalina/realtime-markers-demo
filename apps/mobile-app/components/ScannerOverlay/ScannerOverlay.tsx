@@ -19,7 +19,7 @@ const COLORS = {
 // Animation configurations - defined outside component to prevent recreation
 const ANIMATIONS = {
   BORDER_PULSE: {
-    DURATION: 1500,
+    DURATION: 2000,
     EASING: Easing.bezier(0.4, 0, 0.2, 1),
   },
 };
@@ -155,6 +155,7 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
     // AnimatedBoundary component with proper animation tracking
     const AnimatedBoundary = useCallback(() => {
       const borderWidth = useSharedValue(2);
+      const isMounted = useRef(true);
 
       useEffect(() => {
         if (!isMounted.current) return;
@@ -182,10 +183,11 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
         registerAnimFrame(animFrameId);
 
         return () => {
+          isMounted.current = false;
           cancelAnimationFrame(animFrameId);
           cancelAnimation(borderWidth);
         };
-      }, []);
+      }, [registerAnimation, registerAnimFrame]);
 
       const animatedStyle = useAnimatedStyle(() => ({
         borderWidth: borderWidth.value
@@ -210,7 +212,7 @@ export const ScannerOverlay = React.forwardRef<ScannerOverlayRef, ScannerOverlay
       const scannerAnimationProps = {
         isActive: showScanning,
         color: COLORS.accent,
-        speed: isCapturing ? 1000 : 1500,
+        speed: isCapturing ? 1500 : 2000,
       };
 
       return (

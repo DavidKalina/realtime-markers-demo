@@ -12,6 +12,7 @@ import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { Feather } from "@expo/vector-icons";
 import { CameraView } from "expo-camera";
 import { useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
 import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import {
   ActivityIndicator,
@@ -335,10 +336,26 @@ export default function ScanScreen() {
     return planDetails.remainingScans > 0;
   }, [planDetails]);
 
-  // Handle upgrade button press
-  const handleUpgrade = useCallback(() => {
-    router.push("/checkout");
-  }, [router]);
+  const handleUpgrade = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const response = await apiClient.createStripeCheckoutSession();
+
+      if (!response.checkoutUrl) {
+        throw new Error("No checkout URL received");
+      }
+
+      // Open the checkout URL in a WebView
+      router.push({
+        pathname: "/checkout",
+        params: { checkoutUrl: response.checkoutUrl },
+      });
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
 
   // Update handleCapture to check remaining scans
   const handleCapture = async () => {

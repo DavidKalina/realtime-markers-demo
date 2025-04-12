@@ -3,16 +3,16 @@ import { View, StyleSheet, Dimensions, Platform } from "react-native";
 import Mapbox from "@rnmapbox/maps";
 
 // 3D map camera configuration - Adjusted for better performance
-const CAMERA_UPDATE_INTERVAL = Platform.select({ ios: 16, android: 32 }) ?? 32; // Reduced frequency on Android
-const ANIMATION_BATCH_SIZE = 3; // Number of frames to skip between major updates
+const CAMERA_UPDATE_INTERVAL = Platform.select({ ios: 32, android: 64 }) ?? 64; // Further reduced frequency
+const ANIMATION_BATCH_SIZE = 5; // Increased batch size to reduce updates
 const BASE_PITCH = 60;
 const BASE_ZOOM = 15;
 const BASE_BEARING = 45;
 
 // Animation timing constants
-const INITIAL_DELAY = 1000; // Wait 1 second before starting animations
-const LOCATION_DURATION = 30000;
-const TRANSITION_DURATION = 10000;
+const INITIAL_DELAY = 2000; // Increased initial delay
+const LOCATION_DURATION = 45000; // Increased duration for smoother transitions
+const TRANSITION_DURATION = 15000; // Increased duration for smoother transitions
 
 // Default locations for camera to move between
 const LOCATIONS = [
@@ -147,54 +147,44 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
   useEffect(() => {
     if (!isInitialized || !isMountedRef.current) return;
 
-    let lastLocationChange = 0;
+    // Clear any existing intervals
+    if (animationIntervalRef.current) {
+      clearInterval(animationIntervalRef.current);
+    }
 
+    // Initialize camera with current values
+    updateCamera();
+
+    // Start animation loop with increased interval
     animationIntervalRef.current = setInterval(() => {
-      if (!isMountedRef.current) {
-        if (animationIntervalRef.current) {
-          clearInterval(animationIntervalRef.current);
-          animationIntervalRef.current = null;
-        }
+      if (!isMountedRef.current) return;
+
+      // Skip frames based on batch size
+      frameCountRef.current++;
+      if (frameCountRef.current % ANIMATION_BATCH_SIZE !== 0) {
         return;
       }
 
-      timeRef.current += CAMERA_UPDATE_INTERVAL;
-      const elapsedSinceLocationChange = timeRef.current - lastLocationChange;
+      // Update time reference
+      const currentTime = Date.now();
+      const deltaTime = currentTime - lastUpdateTimeRef.current;
+      lastUpdateTimeRef.current = currentTime;
+      timeRef.current += deltaTime;
 
-      // Check if it's time to move to a new location
-      if (elapsedSinceLocationChange >= LOCATION_DURATION && !transitioningRef.current) {
+      // Check if it's time to transition to a new location
+      if (timeRef.current >= LOCATION_DURATION && !transitioningRef.current) {
         transitioningRef.current = true;
-        const nextLocationIndex = (currentLocationIndexRef.current + 1) % LOCATIONS.length;
-        currentLocationIndexRef.current = nextLocationIndex;
-        lastLocationChange = timeRef.current;
+        currentLocationIndexRef.current = (currentLocationIndexRef.current + 1) % LOCATIONS.length;
+
+        // Reset time after transition
+        timeRef.current = 0;
+        transitioningRef.current = false;
       }
 
-      // Handle active transition
-      if (transitioningRef.current) {
-        const transitionProgress = elapsedSinceLocationChange / TRANSITION_DURATION;
-
-        if (transitionProgress >= 1) {
-          transitioningRef.current = false;
-        } else {
-          const currentLocation = LOCATIONS[currentLocationIndexRef.current];
-          const prevIndex = (currentLocationIndexRef.current - 1 + LOCATIONS.length) % LOCATIONS.length;
-          const prevLocation = LOCATIONS[prevIndex];
-
-          centerRef.current = [
-            prevLocation.center[0] + (currentLocation.center[0] - prevLocation.center[0]) * transitionProgress,
-            prevLocation.center[1] + (currentLocation.center[1] - prevLocation.center[1]) * transitionProgress,
-          ];
-        }
-      }
-
-      // Subtle animations with reduced intensity
-      zoomRef.current = BASE_ZOOM + Math.sin(timeRef.current * 0.0002) * 0.15;
-      pitchRef.current = BASE_PITCH + Math.sin(timeRef.current * 0.0001) * 2;
-      bearingRef.current = BASE_BEARING + Math.sin(timeRef.current * 0.00005) * 3;
-
+      // Calculate new camera position
       if (!transitioningRef.current) {
-        const longitudeOffset = Math.sin(timeRef.current * 0.0001) * 0.001;
-        const latitudeOffset = Math.cos(timeRef.current * 0.00015) * 0.001;
+        const longitudeOffset = Math.sin(timeRef.current * 0.00005) * 0.0005; // Reduced movement range
+        const latitudeOffset = Math.cos(timeRef.current * 0.000075) * 0.0005; // Reduced movement range
 
         centerRef.current = [
           LOCATIONS[currentLocationIndexRef.current].center[0] + longitudeOffset,

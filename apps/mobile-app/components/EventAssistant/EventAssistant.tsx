@@ -56,10 +56,12 @@ const EventAssistant: React.FC = () => {
   const { userLocation } = useUserLocation();
   const { user } = useAuth();
 
+  // Track mounted state
+  const isMountedRef = useRef(true);
+
   // Auto-dismiss timer reference
   const autoDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isMountedRef = useRef(true);
   const navigationActionRef = useRef<string | null>(null);
   const isNavigatingRef = useRef<boolean>(false);
 
@@ -117,8 +119,37 @@ const EventAssistant: React.FC = () => {
     saved: () => router.push("saved" as never),
   }), [router]);
 
-  // Function to schedule auto-dismiss
+  // Cleanup function for all timers and animations
+  const cleanupAll = useCallback(() => {
+    if (!isMountedRef.current) return;
+
+    // Clear all timers
+    if (autoDismissTimerRef.current) {
+      clearTimeout(autoDismissTimerRef.current);
+      autoDismissTimerRef.current = null;
+    }
+
+    if (navigationTimerRef.current) {
+      clearTimeout(navigationTimerRef.current);
+      navigationTimerRef.current = null;
+    }
+
+    // Cancel any ongoing streaming
+    cancelStreaming();
+
+    // Reset navigation state
+    navigationActionRef.current = null;
+    isNavigatingRef.current = false;
+
+    // Hide assistant
+    animationControls.hideAssistant();
+  }, [cancelStreaming, animationControls]);
+
+  // Function to schedule auto-dismiss with cleanup
   const scheduleAutoDismiss = useCallback(() => {
+    if (!isMountedRef.current) return;
+
+    // Clear any existing timer
     if (autoDismissTimerRef.current) {
       clearTimeout(autoDismissTimerRef.current);
       autoDismissTimerRef.current = null;
@@ -132,8 +163,10 @@ const EventAssistant: React.FC = () => {
     }, CONFIG.AUTO_DISMISS_DELAY_MS);
   }, [animationControls, isStreaming]);
 
-  // Clear any pending navigation
+  // Clear any pending navigation with cleanup
   const clearNavigationTimer = useCallback(() => {
+    if (!isMountedRef.current) return;
+
     if (navigationTimerRef.current) {
       clearTimeout(navigationTimerRef.current);
       navigationTimerRef.current = null;
@@ -143,13 +176,19 @@ const EventAssistant: React.FC = () => {
   // Execute navigation with proper state setting and assistant cleanup
   const executeNavigation = useCallback(
     (navigateFn: () => void) => {
+      if (!isMountedRef.current) return;
+
       isNavigatingRef.current = true;
       clearNavigationTimer();
       animationControls.hideAssistant();
 
-      setTimeout(() => {
-        navigateFn();
+      const timer = setTimeout(() => {
+        if (isMountedRef.current) {
+          navigateFn();
+        }
       }, 100);
+
+      return () => clearTimeout(timer);
     },
     [animationControls, clearNavigationTimer]
   );
@@ -157,6 +196,8 @@ const EventAssistant: React.FC = () => {
   // Handle direct navigation to details when marker or cluster is selected
   const navigateToDetails = useCallback(
     (item: MapItem) => {
+      if (!isMountedRef.current) return;
+
       clearNavigationTimer();
 
       navigationTimerRef.current = setTimeout(() => {
@@ -190,7 +231,9 @@ const EventAssistant: React.FC = () => {
         itemId,
         messages,
         () => {
-          navigateToDetails(item);
+          if (isMountedRef.current) {
+            navigateToDetails(item);
+          }
         },
         { pauseAfterMs: CONFIG.ACTION_PAUSE_MS }
       );
@@ -210,8 +253,10 @@ const EventAssistant: React.FC = () => {
       streamMessages(
         [goodbyeMessage],
         () => {
-          animationControls.hideAssistant();
-          resetStreaming();
+          if (isMountedRef.current) {
+            animationControls.hideAssistant();
+            resetStreaming();
+          }
         },
         {
           markerId: "goodbye",
@@ -341,20 +386,9 @@ const EventAssistant: React.FC = () => {
 
     return () => {
       isMountedRef.current = false;
-
-      if (autoDismissTimerRef.current) {
-        clearTimeout(autoDismissTimerRef.current);
-        autoDismissTimerRef.current = null;
-      }
-
-      if (navigationTimerRef.current) {
-        clearTimeout(navigationTimerRef.current);
-        navigationTimerRef.current = null;
-      }
-
-      cancelStreaming();
+      cleanupAll();
     };
-  }, [cancelStreaming]);
+  }, [cleanupAll]);
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
