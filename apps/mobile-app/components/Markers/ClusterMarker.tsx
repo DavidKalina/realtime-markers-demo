@@ -13,6 +13,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { ShadowSVG, MarkerSVG, MARKER_WIDTH, MARKER_HEIGHT, SHADOW_OFFSET } from "./MarkerSVGs";
+import { COLORS } from "../Layout/ScreenLayout";
 
 interface ClusterMarkerProps {
   count: number;
@@ -26,19 +27,19 @@ interface ClusterMarkerProps {
 // Color schemes with teardrop design
 const COLOR_SCHEMES = {
   small: {
-    fill: "#1a1a1a",
-    stroke: "#FFFFFF",
-    text: "#FFFFFF"
+    fill: COLORS.background,
+    stroke: COLORS.textPrimary,
+    text: COLORS.textPrimary
   },
   medium: {
-    fill: "#1a1a1a",
-    stroke: "#FFFFFF",
-    text: "#FFFFFF"
+    fill: COLORS.background,
+    stroke: COLORS.textPrimary,
+    text: COLORS.textPrimary
   },
   large: {
-    fill: "#1a1a1a",
-    stroke: "#FFD700", // Gold stroke for large clusters
-    text: "#FFFFFF"
+    fill: COLORS.background,
+    stroke: COLORS.accent, // Use accent color for large clusters
+    text: COLORS.textPrimary
   },
 };
 
@@ -137,7 +138,7 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
         strokeWidth={count > 5 ? "4" : "3"}
         highlightStrokeWidth={count > 5 ? "3" : "2.5"}
         circleRadius={count > 5 ? "14" : "12"}
-        circleStroke={count > 15 ? "#FFD700" : "#E2E8F0"}
+        circleStroke={count > 15 ? COLORS.accent : COLORS.buttonBorder}
         circleStrokeWidth={count > 15 ? "2" : "1"}
       />
     ), [colorScheme, count]);
@@ -413,7 +414,7 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontWeight: "bold",
-    color: "#222222",
+    color: "#fff",
     fontFamily: "SpaceMono",
     textAlign: "center",
     lineHeight: 24,
