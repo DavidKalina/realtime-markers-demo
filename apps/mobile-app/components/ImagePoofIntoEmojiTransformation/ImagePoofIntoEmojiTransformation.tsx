@@ -16,8 +16,7 @@ import Animated, {
 // For debugging timings
 const DEBUG = false;
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const IMAGE_SIZE = SCREEN_WIDTH * 0.8;
+// Using full available space instead of fixed dimensions
 const EMOJI_SIZE = 60;
 
 // Particle system for the "poof" effect
@@ -250,7 +249,7 @@ export const ImagePoofIntoEmojiTransformation: React.FC<ImagePoofIntoEmojiTransf
                 <Image
                     source={{ uri: imageUri }}
                     style={styles.image}
-                    resizeMode="contain"
+                    resizeMode="cover"
                 />
             </Animated.View>
 
@@ -270,8 +269,8 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
     },
     imageContainer: {
-        width: IMAGE_SIZE,
-        height: IMAGE_SIZE,
+        width: '100%',
+        height: '100%',
         borderRadius: 20,
         overflow: 'hidden',
         position: 'absolute',
@@ -282,7 +281,7 @@ const styles = StyleSheet.create({
     image: {
         width: '100%',
         height: '100%',
-        resizeMode: 'contain',
+        resizeMode: 'cover',
     },
     poofContainer: {
         position: 'absolute',
