@@ -563,22 +563,9 @@ export default function ScanScreen() {
         <View style={styles.contentArea}>
           <ImagePoofIntoEmojiTransformation
             imageUri={capturedImage}
-            onAnimationComplete={async () => {
-              try {
-                await uploadImageAndQueue(capturedImage);
-              } catch (error) {
-                console.error("Upload failed after animation:", error);
-                if (isMounted.current) {
-                  Alert.alert(
-                    "Upload Failed",
-                    "There was a problem uploading your document. Please try again.",
-                    [{ text: "OK" }]
-                  );
-                  setCapturedImage(null);
-                  setImageSource(null);
-                  setIsUploading(false);
-                }
-              }
+            onAnimationComplete={() => {
+              // Navigate back to index screen after animation completes
+              router.replace("/");
             }}
           />
         </View>
