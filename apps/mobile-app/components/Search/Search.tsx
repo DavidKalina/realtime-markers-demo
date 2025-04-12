@@ -3,7 +3,7 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import { EventType } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { AlertCircle, ArrowLeft, Search as SearchIcon, X } from "lucide-react-native";
+import { AlertCircle, Search as SearchIcon, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,20 +18,15 @@ import {
   View,
 } from "react-native";
 import Animated, {
-  FadeIn,
-  FadeOut,
-  interpolate,
   useAnimatedRef,
   useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-  ZoomIn
+  useSharedValue
 } from "react-native-reanimated";
 import EventItem from "../EventItem/EventItem";
-import ScreenLayout from "../Layout/ScreenLayout";
-import Header from "../Layout/Header";
 import Card from "../Layout/Card";
-import { COLORS } from "../Layout/ScreenLayout";
+import Header from "../Layout/Header";
+import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
+import Input from "../Input/Input";
 
 const SearchView = () => {
   const router = useRouter();
@@ -146,14 +141,12 @@ const SearchView = () => {
       <View style={styles.contentArea}>
         {/* Enhanced Search Input */}
         <Card style={styles.searchInputContainer} animated={false} noBorder>
-          <View style={styles.searchIconContainer}>
-            <SearchIcon size={18} color="#4dabf7" />
-          </View>
-          <TextInput
+          <Input
             ref={searchInputRef}
-            style={styles.searchInput}
+            icon={SearchIcon}
+            rightIcon={searchQuery !== "" ? X : undefined}
+            onRightIconPress={handleClearSearch}
             placeholder="Search events, venues, categories..."
-            placeholderTextColor="#919191"
             value={searchQuery}
             onChangeText={handleSearchInput}
             returnKeyType="search"
@@ -166,15 +159,6 @@ const SearchView = () => {
             <View style={styles.searchSpinnerContainer}>
               <ActivityIndicator size="small" color="#4dabf7" />
             </View>
-          )}
-          {searchQuery !== "" && !isLoading && (
-            <TouchableOpacity
-              onPress={handleClearSearch}
-              style={styles.clearButton}
-              activeOpacity={0.7}
-            >
-              <X size={16} color="#4dabf7" />
-            </TouchableOpacity>
           )}
         </Card>
 
@@ -268,30 +252,8 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   searchInputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
     marginHorizontal: 16,
     marginBottom: 16,
-  },
-  searchIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 4,
-  },
-  searchInput: {
-    flex: 1,
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    fontSize: 15,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -407,17 +369,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   searchSpinnerContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 4,
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
-  clearButton: {
     width: 40,
     height: 40,
     borderRadius: 12,

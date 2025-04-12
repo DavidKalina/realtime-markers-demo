@@ -33,6 +33,7 @@ import Animated, {
 import MapMojiHeader from "../AnimationHeader";
 import { AuthWrapper } from "../AuthWrapper";
 import { useAuth } from "@/contexts/AuthContext";
+import Input from "../Input/Input";
 
 // Define types for our data
 interface Profile {
@@ -298,45 +299,34 @@ const Login: React.FC = () => {
                   )}
 
                   <View style={{ gap: 16 }}>
-                    <View style={styles.inputContainer}>
-                      <Mail size={18} color="#93c5fd" style={styles.inputIcon} />
-                      <TextInput
-                        ref={emailInputRef}
-                        style={styles.input}
-                        placeholder="Email address"
-                        placeholderTextColor="#808080"
-                        value={email}
-                        onChangeText={setEmail}
-                        autoCapitalize="none"
-                        autoComplete="email"
-                        autoCorrect={false}
-                        keyboardType="email-address"
-                        returnKeyType="next"
-                        onSubmitEditing={() => passwordInputRef.current?.focus()}
-                      />
-                    </View>
+                    <Input
+                      ref={emailInputRef}
+                      icon={Mail}
+                      placeholder="Email address"
+                      value={email}
+                      onChangeText={setEmail}
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      autoCorrect={false}
+                      keyboardType="email-address"
+                      returnKeyType="next"
+                      onSubmitEditing={() => passwordInputRef.current?.focus()}
+                      delay={300}
+                    />
 
-                    <View style={styles.inputContainer}>
-                      <Lock size={18} color="#93c5fd" style={styles.inputIcon} />
-                      <TextInput
-                        ref={passwordInputRef}
-                        style={styles.input}
-                        placeholder="Password"
-                        placeholderTextColor="#808080"
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry={!showPassword}
-                        returnKeyType="done"
-                        onSubmitEditing={handleLogin}
-                      />
-                      <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
-                        {showPassword ? (
-                          <EyeOff size={18} color="#93c5fd" />
-                        ) : (
-                          <Eye size={18} color="#93c5fd" />
-                        )}
-                      </TouchableOpacity>
-                    </View>
+                    <Input
+                      ref={passwordInputRef}
+                      icon={Lock}
+                      rightIcon={showPassword ? EyeOff : Eye}
+                      onRightIconPress={togglePasswordVisibility}
+                      placeholder="Password"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                      returnKeyType="done"
+                      onSubmitEditing={handleLogin}
+                      delay={400}
+                    />
                   </View>
 
                   <View style={styles.loginButtonContainer}>
