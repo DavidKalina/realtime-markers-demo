@@ -36,13 +36,7 @@ MapboxGL.setWellKnownTileServer('mapbox');
 const styles = homeScreenStyles;
 
 // Memoized UI components
-const UserLocationPoint = React.memo(({ userLocation }: { userLocation: [number, number] }) => (
-  <MapboxGL.PointAnnotation id="userLocation" coordinate={userLocation} title="Your Location">
-    <View style={styles.userLocationMarker}>
-      <View style={styles.userLocationDot} />
-    </View>
-  </MapboxGL.PointAnnotation>
-));
+
 
 const GravitatingOverlay = React.memo(() => (
   <Animated.View
@@ -303,12 +297,6 @@ function HomeScreen() {
     return <MapboxGL.UserLocation visible={true} showsUserHeadingIndicator={true} />;
   }, [locationPermissionGranted]);
 
-  // Cleanup interaction timeout
-  useEffect(() => {
-    return () => {
-      // Implementation of cleanup
-    };
-  }, []);
 
   return (
     <AuthWrapper>
