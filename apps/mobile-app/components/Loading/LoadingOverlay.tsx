@@ -41,11 +41,8 @@ const styles = StyleSheet.create({
     loadingContainer: {
         alignItems: 'center',
         padding: 24,
-        backgroundColor: COLORS.cardBackground,
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: COLORS.buttonBorder,
-        shadowColor: COLORS.shadow,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.2,
         shadowRadius: 12,

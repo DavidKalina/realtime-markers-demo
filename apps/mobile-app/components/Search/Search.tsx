@@ -5,7 +5,6 @@ import { useRouter } from "expo-router";
 import { Search as SearchIcon, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Keyboard,
   KeyboardEvent,
   Platform,
@@ -160,6 +159,7 @@ const styles = StyleSheet.create({
   contentArea: {
     flex: 1,
     paddingTop: 8,
+    paddingHorizontal: 16,
   },
   searchInputContainer: {
     marginHorizontal: 16,
