@@ -6,7 +6,6 @@ import { Search as SearchIcon, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Keyboard,
   KeyboardEvent,
   Platform,
@@ -15,7 +14,6 @@ import {
   View
 } from "react-native";
 import {
-  useAnimatedRef,
   useAnimatedScrollHandler,
   useSharedValue
 } from "react-native-reanimated";
@@ -48,7 +46,6 @@ const SearchView = () => {
   } = useEventSearch({ initialMarkers: storedMarkers });
 
   const searchInputRef = useRef<TextInput>(null);
-  const listRef = useAnimatedRef<FlatList>();
 
   // Simplify the search input handler
   const handleSearchInput = useCallback((text: string) => {
@@ -134,11 +131,6 @@ const SearchView = () => {
             autoCorrect={false}
             autoFocus={true}
           />
-          {isLoading && searchQuery !== "" && (
-            <View style={styles.searchSpinnerContainer}>
-              <ActivityIndicator size="small" color="#4dabf7" />
-            </View>
-          )}
         </View>
 
         {/* Main Content */}
