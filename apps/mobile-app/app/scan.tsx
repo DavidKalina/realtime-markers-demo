@@ -706,15 +706,6 @@ export default function ScanScreen() {
             <Text style={styles.scanLimitText}>
               {planDetails.remainingScans} scans remaining this week
             </Text>
-            {planDetails.planType === PlanType.FREE && (
-              <TouchableOpacity
-                style={styles.upgradeButton}
-                onPress={() => router.push("/checkout")}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
-              </TouchableOpacity>
-            )}
           </View>
           <View style={styles.progressBarContainer}>
             <View
@@ -891,10 +882,11 @@ const styles = StyleSheet.create({
     height: 100,
   },
   progressBarContainer: {
-    height: 4,
+    height: 2,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 2,
+    borderRadius: 1,
     overflow: "hidden",
+    marginTop: 4,
   },
   progressBar: {
     height: "100%",
@@ -914,36 +906,21 @@ const styles = StyleSheet.create({
   },
   scanLimitContainer: {
     backgroundColor: COLORS.cardBackground,
-    padding: 12,
+    padding: 8,
     marginHorizontal: 16,
     marginTop: 8,
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.divider,
   },
   scanLimitContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
   scanLimitText: {
     color: COLORS.textSecondary,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-  },
-  upgradeButton: {
-    backgroundColor: "rgba(251, 191, 36, 0.15)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "rgba(251, 191, 36, 0.3)",
-  },
-  upgradeButtonText: {
-    color: "#fbbf24",
     fontSize: 12,
-    fontWeight: "600",
     fontFamily: "SpaceMono",
   },
 });

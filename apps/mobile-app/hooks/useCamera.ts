@@ -131,6 +131,7 @@ export const useCamera = () => {
 
   // Handle camera readiness with better logging
   const onCameraReady = useCallback(() => {
+    console.log('[Camera] Camera ready callback triggered');
     setIsCameraReady(true);
     cameraInitialized.current = true;
   }, []);
@@ -138,12 +139,28 @@ export const useCamera = () => {
   // Update camera active state based on all required conditions
   useEffect(() => {
     const shouldBeActive = isFocused && appActive && hasPermission === true;
+    console.log('[Camera] Camera state conditions:', {
+      isFocused,
+      appActive,
+      hasPermission,
+      shouldBeActive,
+      currentlyActive: isCameraActive
+    });
 
     if (shouldBeActive !== isCameraActive) {
       setIsCameraActive(shouldBeActive);
 
-      // Reset camera ready state when becoming active
+      // Reset camera ready state when becoming active, with a small delay
       if (shouldBeActive) {
+        const timeoutId = setTimeout(() => {
+          if (!cameraInitialized.current) {
+            setIsCameraReady(false);
+            cameraInitialized.current = false;
+          }
+        }, 100);
+
+        return () => clearTimeout(timeoutId);
+      } else {
         setIsCameraReady(false);
         cameraInitialized.current = false;
       }
@@ -160,20 +177,35 @@ export const useCamera = () => {
 
   // Take picture - robust version with better error handling and flash support
   const takePicture = useCallback(async () => {
+    console.log('[Camera] Taking picture:', {
+      hasRef: !!cameraRef.current,
+      isCapturing,
+      isCameraReady,
+      isCameraActive
+    });
+
     if (!cameraRef.current || isCapturing || !isCameraReady || !isCameraActive) {
+      console.log('[Camera] Cannot take picture:', {
+        noRef: !cameraRef.current,
+        isCapturing,
+        notReady: !isCameraReady,
+        notActive: !isCameraActive
+      });
       return null;
     }
 
     try {
+      console.log('[Camera] Starting capture...');
       setIsCapturing(true);
 
       const photo = await (cameraRef.current as any).takePictureAsync(cameraConfig);
+      console.log('[Camera] Picture taken successfully');
 
       // Return the URI directly
       return photo.uri;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Failed to capture image";
-      console.error("Error capturing image:", error);
+      console.error("[Camera] Error capturing image:", error);
 
       Alert.alert("Error", `${errorMsg}. Please try again.`, [{ text: "OK" }], {
         cancelable: false,
@@ -181,6 +213,7 @@ export const useCamera = () => {
 
       return null;
     } finally {
+      console.log('[Camera] Capture complete');
       setIsCapturing(false);
     }
   }, [cameraRef, isCapturing, isCameraReady, isCameraActive, cameraConfig]);
@@ -206,7 +239,7 @@ export const useCamera = () => {
       // Use Image Manipulator for consistent processing
       const processed = await ImageManipulator.manipulateAsync(
         uri,
-        [processImageConfig.resize],
+        [{ resize: { width: CAMERA_CONFIG.PROCESSED_WIDTH } } as unknown as ImageManipulator.Action],
         { compress: processImageConfig.compress, format: processImageConfig.format }
       );
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useMemo, useReducer, useRef, useCallback } from 'react';
 import { View, StyleSheet, Text, Pressable } from 'react-native';
 import Animated, {
     useAnimatedStyle,
@@ -11,13 +11,13 @@ import Animated, {
     FadeIn,
     FadeOut,
     cancelAnimation,
-    withDelay,
+    SharedValue,
 } from 'react-native-reanimated';
 import { Cog, Check, X } from 'lucide-react-native';
 import * as Haptics from "expo-haptics";
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
-import CircularProgress from './CircularProgress';
 
+// Constants moved outside component to prevent recreation
 const ANIMATION_CONFIG = {
     damping: 10,
     stiffness: 200,
@@ -28,26 +28,69 @@ const SPIN_CONFIG = {
     easing: Easing.linear,
 };
 
+// Define state types
 type IndicatorState = 'idle' | 'processing' | 'jobMessage';
+
+interface IndicatorStateInterface {
+    state: IndicatorState;
+    jobMessage: { emoji: string; message: string } | null;
+}
+
+// Define action types
+type ActionType =
+    | { type: 'SET_STATE', payload: IndicatorState }
+    | { type: 'SET_JOB_MESSAGE', payload: { emoji: string; message: string } | null }
+    | { type: 'RESET' };
+
+// Initial state
+const initialState: IndicatorStateInterface = {
+    state: 'idle',
+    jobMessage: null
+};
+
+// Reducer function for consolidated state management
+const indicatorReducer = (state: IndicatorStateInterface, action: ActionType): IndicatorStateInterface => {
+    switch (action.type) {
+        case 'SET_STATE':
+            return { ...state, state: action.payload };
+        case 'SET_JOB_MESSAGE':
+            return { ...state, jobMessage: action.payload };
+        case 'RESET':
+            return initialState;
+        default:
+            return state;
+    }
+};
 
 const JobIndicator: React.FC = () => {
     const jobs = useJobSessionStore((state) => state.jobs);
+    const [{ state, jobMessage }, dispatch] = useReducer(indicatorReducer, initialState);
+    const timeoutRef = useRef<NodeJS.Timeout>();
+
+    // Animation values
     const scale = useSharedValue(1);
     const rotation = useSharedValue(0);
     const spinRotation = useSharedValue(0);
-    const [state, setState] = useState<IndicatorState>('idle');
-    const [jobMessage, setJobMessage] = useState<{ emoji: string; message: string } | null>(null);
-    const previousProgress = useRef(0);
-    const timeoutRef = useRef<NodeJS.Timeout>();
     const glowOpacity = useSharedValue(0);
     const xScale = useSharedValue(0);
     const xRotation = useSharedValue(0);
-    const animationRefs = useRef<{
-        spin?: Animated.SharedValue<number>;
-        glow?: Animated.SharedValue<number>;
-        xScale?: Animated.SharedValue<number>;
-        xRotation?: Animated.SharedValue<number>;
-    }>({});
+
+    // Animation registry for proper tracking and cleanup
+    const animationRegistry = useRef(new Set<SharedValue<number>>()).current;
+
+    // Register animation for tracking
+    const registerAnimation = useCallback((animation: SharedValue<number>) => {
+        animationRegistry.add(animation);
+    }, []);
+
+    // Cancel all tracked animations
+    const cancelAllAnimations = useCallback(() => {
+        animationRegistry.forEach(animation => {
+            cancelAnimation(animation);
+            animation.value = 0;
+        });
+        animationRegistry.clear();
+    }, []);
 
     // Get active jobs with memoization
     const activeJobs = useMemo(() => {
@@ -71,98 +114,80 @@ const JobIndicator: React.FC = () => {
         return Math.round((totalProgress / activeJobs.length));
     }, [activeJobs]);
 
-    // Cleanup all animations
-    const cleanupAllAnimations = useCallback(() => {
-        if (animationRefs.current.spin) {
-            cancelAnimation(animationRefs.current.spin);
+    // Centralized function to start a timeout with auto-cleanup
+    const startTimeout = useCallback((callback: () => void, delay: number) => {
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
         }
-        if (animationRefs.current.glow) {
-            cancelAnimation(animationRefs.current.glow);
-        }
-        if (animationRefs.current.xScale) {
-            cancelAnimation(animationRefs.current.xScale);
-        }
-        if (animationRefs.current.xRotation) {
-            cancelAnimation(animationRefs.current.xRotation);
-        }
-    }, []);
 
-    // Update state based on active jobs with cleanup
-    useEffect(() => {
-        const activeJob = activeJobs[0];
-
-        if (activeJobs.length > 0) {
-            cleanupAllAnimations();
-            setState('processing');
-        } else if (state === 'processing') {
-            cleanupAllAnimations();
-            const isSuccess = activeJob?.status === 'completed';
-            setJobMessage({
-                emoji: isSuccess ? "✅" : "❌",
-                message: isSuccess ? "Completed" : "Failed"
-            });
-            setState('jobMessage');
-
-            // Clear any existing timeout
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-            }
-
-            // Set new timeout
-            timeoutRef.current = setTimeout(() => {
-                cleanupAllAnimations();
-                setState('idle');
-                setJobMessage(null);
-            }, 3000);
-        }
+        timeoutRef.current = setTimeout(() => {
+            callback();
+            timeoutRef.current = undefined;
+        }, delay);
 
         return () => {
-            cleanupAllAnimations();
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
+                timeoutRef.current = undefined;
             }
         };
-    }, [activeJobs, state, cleanupAllAnimations]);
+    }, []);
 
-    // Setup continuous spinning animation with cleanup
+    // Update state based on active jobs
     useEffect(() => {
+        if (activeJobs.length > 0) {
+            cancelAllAnimations();
+            dispatch({ type: 'SET_STATE', payload: 'processing' });
+        } else if (state === 'processing') {
+            cancelAllAnimations();
+
+            // Find the latest job that completed or failed
+            const lastJob = jobs.find(job =>
+                job.status === 'completed' || job.status === 'failed'
+            );
+
+            if (lastJob) {
+                const isSuccess = lastJob.status === 'completed';
+                dispatch({
+                    type: 'SET_JOB_MESSAGE',
+                    payload: {
+                        emoji: isSuccess ? "✅" : "❌",
+                        message: isSuccess ? "Completed" : "Failed"
+                    }
+                });
+                dispatch({ type: 'SET_STATE', payload: 'jobMessage' });
+
+                // Auto-reset after delay with cleanup
+                const cleanup = startTimeout(() => {
+                    cancelAllAnimations();
+                    dispatch({ type: 'RESET' });
+                }, 3000);
+
+                return cleanup;
+            }
+        }
+    }, [activeJobs, jobs, state, cancelAllAnimations, startTimeout]);
+
+    // Setup animations based on state
+    useEffect(() => {
+        // Clear previous animations first
+        cancelAllAnimations();
+
         if (state === 'processing') {
-            animationRefs.current.spin = spinRotation;
             spinRotation.value = withRepeat(
                 withTiming(360, SPIN_CONFIG),
                 -1,
                 false
             );
-        } else {
-            if (animationRefs.current.spin) {
-                cancelAnimation(animationRefs.current.spin);
-                animationRefs.current.spin = undefined;
-            }
-            spinRotation.value = 0;
+            registerAnimation(spinRotation);
         }
-
-        return () => {
-            if (animationRefs.current.spin) {
-                cancelAnimation(animationRefs.current.spin);
-                animationRefs.current.spin = undefined;
-            }
-        };
-    }, [state]);
-
-    // Setup failure state animations with cleanup
-    useEffect(() => {
-        if (state === 'jobMessage' && jobMessage?.emoji === "❌") {
+        else if (state === 'jobMessage' && jobMessage?.emoji === "❌") {
             // Reset values
             glowOpacity.value = 0;
             xScale.value = 0;
             xRotation.value = 0;
 
-            // Store refs
-            animationRefs.current.glow = glowOpacity;
-            animationRefs.current.xScale = xScale;
-            animationRefs.current.xRotation = xRotation;
-
-            // Start animations
+            // Start animations for failure state
             glowOpacity.value = withRepeat(
                 withSequence(
                     withTiming(0.3, { duration: 1000 }),
@@ -171,54 +196,52 @@ const JobIndicator: React.FC = () => {
                 -1,
                 true
             );
+            registerAnimation(glowOpacity);
 
             xScale.value = withSequence(
                 withTiming(1.2, { duration: 200, easing: Easing.out(Easing.back(1.7)) }),
                 withTiming(1, { duration: 100 })
             );
+            registerAnimation(xScale);
 
             xRotation.value = withSequence(
                 withTiming(-10, { duration: 100 }),
                 withTiming(10, { duration: 100 }),
                 withTiming(0, { duration: 100 })
             );
-        } else {
-            cleanupAllAnimations();
-            glowOpacity.value = 0;
-            xScale.value = 0;
-            xRotation.value = 0;
+            registerAnimation(xRotation);
         }
 
         return () => {
-            cleanupAllAnimations();
+            cancelAllAnimations();
         };
-    }, [state, jobMessage, cleanupAllAnimations]);
+    }, [state, jobMessage, registerAnimation, cancelAllAnimations]);
 
-    const handlePress = useMemo(() => () => {
-        // Cancel any ongoing animations before starting new ones
+    // Handle press with proper dependencies
+    const handlePress = useCallback(() => {
         cancelAnimation(scale);
         cancelAnimation(rotation);
-        cancelAnimation(spinRotation);
 
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
         scale.value = withSequence(
             withSpring(0.9, ANIMATION_CONFIG),
             withSpring(1, ANIMATION_CONFIG)
         );
-    }, []);
+        registerAnimation(scale);
+    }, [scale, registerAnimation]);
 
-    // Cleanup animations and timeouts on unmount
+    // Cleanup on unmount
     useEffect(() => {
         return () => {
-            cancelAnimation(scale);
-            cancelAnimation(rotation);
-            cancelAnimation(spinRotation);
+            cancelAllAnimations();
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
             }
         };
-    }, []);
+    }, [cancelAllAnimations]);
 
+    // Animated styles
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [
             { scale: scale.value },
@@ -251,7 +274,6 @@ const JobIndicator: React.FC = () => {
             <Animated.View style={[styles.container, animatedStyle]}>
                 <View style={styles.fixedContainer}>
                     {state === 'processing' ? (
-
                         <View style={styles.placeholderContainer}>
                             <Animated.View
                                 entering={FadeIn
