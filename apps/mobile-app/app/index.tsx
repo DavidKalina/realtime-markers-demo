@@ -1,6 +1,6 @@
 import { AuthWrapper } from "@/components/AuthWrapper";
 import EventAssistant from "@/components/EventAssistant/EventAssistant";
-import { styles } from "@/components/homeScreenStyles";
+import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import DiscoveryIndicator from "@/components/DiscoveryIndicator/DiscoveryIndicator";
 import { DEFAULT_CAMERA_SETTINGS, createCameraSettings } from "@/config/cameraConfig";
@@ -18,8 +18,9 @@ import {
 import { useLocationStore } from "@/stores/useLocationStore";
 import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Platform, Text, View } from "react-native";
+import { Animated, Platform, View } from "react-native";
 import StatusBar from "@/components/StatusBar/StatusBar";
+import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -31,14 +32,10 @@ if (Platform.OS === "android") {
 MapboxGL.locationManager.start();
 MapboxGL.setWellKnownTileServer('mapbox');
 
-// Memoized UI components
-const LoadingOverlay = React.memo(() => (
-  <View style={styles.loadingOverlay}>
-    <ActivityIndicator size="large" color="#4dabf7" />
-    <Text style={styles.loadingText}>Getting your location...</Text>
-  </View>
-));
+// Use the imported styles directly
+const styles = homeScreenStyles;
 
+// Memoized UI components
 const UserLocationPoint = React.memo(({ userLocation }: { userLocation: [number, number] }) => (
   <MapboxGL.PointAnnotation id="userLocation" coordinate={userLocation} title="Your Location">
     <View style={styles.userLocationMarker}>
