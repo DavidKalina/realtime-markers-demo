@@ -101,10 +101,6 @@ const createAnimationCleanup = (animations: Animated.SharedValue<number>[]) => {
   };
 };
 
-// Styled sub-components to reduce re-renders
-const ClusterText = React.memo(({ text }: { text: string }) => (
-  <Text style={styles.clusterText}>{text}</Text>
-));
 
 export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
   ({ count, onPress, isSelected = false, isHighlighted = false, index = 0 }) => {
