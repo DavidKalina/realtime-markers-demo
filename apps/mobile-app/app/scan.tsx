@@ -1,8 +1,7 @@
-// scan.tsx - Updated version with card-like UI styling
+// scan.tsx - Updated version with removed detection logic
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
-import { SimplifiedScannerAnimationRef } from "@/components/ScannerAnimation";
-import { ScannerOverlay, ScannerOverlayRef } from "@/components/ScannerOverlay/ScannerOverlay";
+import { ScannerOverlay } from "@/components/ScannerOverlay/ScannerOverlay";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
 import { useEventBroker } from "@/hooks/useEventBroker";
@@ -29,7 +28,6 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { debounce } from "lodash";
 import { useFocusEffect } from '@react-navigation/native';
 
-type DetectionStatus = "none" | "detecting" | "aligned";
 type ImageSource = "camera" | "gallery" | null;
 
 // Unified color theme matching ClusterEventsView
@@ -42,6 +40,12 @@ const COLORS = {
   divider: "rgba(255, 255, 255, 0.08)",
   buttonBackground: "rgba(255, 255, 255, 0.05)",
   buttonBorder: "rgba(255, 255, 255, 0.1)",
+  warningBackground: "rgba(253, 186, 116, 0.1)",
+  warningBorder: "rgba(253, 186, 116, 0.3)",
+  warningText: "#fdba74",
+  errorBackground: "rgba(248, 113, 113, 0.1)",
+  errorBorder: "rgba(248, 113, 113, 0.3)",
+  errorText: "#f87171",
 };
 
 export default function ScanScreen() {
@@ -62,8 +66,6 @@ export default function ScanScreen() {
   } = useCamera();
 
   const router = useRouter();
-  const detectionIntervalRef = useRef<ReturnType<typeof setTimeout> | number | null>(null);
-  const [detectionStatus, setDetectionStatus] = useState<DetectionStatus>("none");
   const [isUploading, setIsUploading] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [imageSource, setImageSource] = useState<ImageSource>(null);
@@ -83,10 +85,6 @@ export default function ScanScreen() {
   // Get the event broker
   const { publish } = useEventBroker();
 
-  // Refs for animation components
-  const scannerOverlayRef = useRef<ScannerOverlayRef>(null);
-  const scannerAnimationRef = useRef<SimplifiedScannerAnimationRef>(null);
-
   const [planDetails, setPlanDetails] = useState<{
     planType: PlanType;
     weeklyScanCount: number;
@@ -96,23 +94,8 @@ export default function ScanScreen() {
   } | null>(null);
   const [isCheckingPlan, setIsCheckingPlan] = useState(true);
 
-  // Memoize the detection status handler to prevent unnecessary rerenders
-  const handleDetectionStatus = useCallback((status: DetectionStatus) => {
-    if (isMounted.current) {
-      setDetectionStatus(status);
-    }
-  }, []);
-
-  // Clear detection interval function
-  const clearDetectionInterval = useCallback(() => {
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-      detectionIntervalRef.current = null;
-    }
-  }, []);
-
-  // Track animation frame ID
-  const animationFrameIdRef = useRef<number | null>(null);
+  // New state to control when to show no-scans overlay
+  const [showNoScansOverlay, setShowNoScansOverlay] = useState(false);
 
   // Set mounted flag to false when component unmounts
   useEffect(() => {
@@ -128,39 +111,21 @@ export default function ScanScreen() {
   const performFullCleanup = useCallback(() => {
     if (!isMounted.current) return;
 
-    // Clear all intervals and timers
-    clearDetectionInterval();
-
     // Clear navigation timer
     if (navigationTimerRef.current) {
       clearTimeout(navigationTimerRef.current);
       navigationTimerRef.current = null;
     }
 
-    // Clear animation frame if exists
-    if (animationFrameIdRef.current) {
-      cancelAnimationFrame(animationFrameIdRef.current);
-      animationFrameIdRef.current = null;
-    }
-
     // Reset all state
-    setDetectionStatus("none");
     setIsUploading(false);
     setCapturedImage(null);
     setImageSource(null);
     uploadRetryCount.current = 0;
 
-    // Clean up animations and refs
-    if (scannerOverlayRef.current?.cleanup) {
-      scannerOverlayRef.current.cleanup();
-    }
-    if (scannerAnimationRef.current?.cleanup) {
-      scannerAnimationRef.current.cleanup();
-    }
-
     // Release camera resources
     releaseCamera();
-  }, [clearDetectionInterval, releaseCamera]);
+  }, [releaseCamera]);
 
   // Handle screen focus changes
   useFocusEffect(
@@ -185,107 +150,11 @@ export default function ScanScreen() {
     };
   }, [performFullCleanup]);
 
-  // Update startDocumentDetection to track animation frame
-  const startDocumentDetection = useCallback(() => {
-    clearDetectionInterval();
-
-    if (!isCameraActive || !isCameraReady || !isMounted.current) return;
-
-    let counter = 0;
-    let lastDetectionStatus: DetectionStatus = "none";
-
-    const updateDetection = () => {
-      if (!isMounted.current || !isCameraActive || !isCameraReady) {
-        if (animationFrameIdRef.current) {
-          cancelAnimationFrame(animationFrameIdRef.current);
-          animationFrameIdRef.current = null;
-        }
-        return;
-      }
-
-      counter++;
-
-      // Only update state if detection status changes
-      let newStatus: DetectionStatus;
-      if (counter < 3) {
-        newStatus = "none";
-      } else if (counter < 5) {
-        newStatus = "detecting";
-      } else {
-        newStatus = "aligned";
-      }
-
-      if (newStatus !== lastDetectionStatus) {
-        lastDetectionStatus = newStatus;
-        handleDetectionStatus(newStatus);
-      }
-
-      animationFrameIdRef.current = requestAnimationFrame(updateDetection);
-    };
-
-    animationFrameIdRef.current = requestAnimationFrame(updateDetection);
-    detectionIntervalRef.current = animationFrameIdRef.current;
-
-    return () => {
-      if (animationFrameIdRef.current) {
-        cancelAnimationFrame(animationFrameIdRef.current);
-        animationFrameIdRef.current = null;
-      }
-    };
-  }, [isCameraActive, isCameraReady, clearDetectionInterval, handleDetectionStatus]);
-
-  // Start detection when camera becomes active and ready
-  useEffect(() => {
-    if (!isMounted.current) return;
-
-    if (isCameraActive && isCameraReady && !isCapturing && !isUploading && !capturedImage) {
-      startDocumentDetection();
-    } else {
-      clearDetectionInterval();
-    }
-
-    return () => {
-      clearDetectionInterval();
-    };
-  }, [
-    isCameraActive,
-    isCameraReady,
-    isCapturing,
-    isUploading,
-    capturedImage,
-    startDocumentDetection,
-    clearDetectionInterval,
-  ]);
-
-  // Clean up resources on component unmount
-  useEffect(() => {
-    return () => {
-      clearDetectionInterval();
-      releaseCamera();
-      isMounted.current = false;
-    };
-  }, [clearDetectionInterval, releaseCamera]);
-
-  // Enhanced cleanup effect
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-      performFullCleanup();
-    };
-  }, [performFullCleanup]);
-
   // Handle cancellation with cleanup
   const handleCancel = useCallback(() => {
     if (!isMounted.current) return;
-
-    // Perform cleanup
     performFullCleanup();
-
-    // Restart detection if camera is available
-    if (isCameraActive && isCameraReady) {
-      startDocumentDetection();
-    }
-  }, [isCameraActive, isCameraReady, performFullCleanup, startDocumentDetection]);
+  }, [performFullCleanup]);
 
   // Back button handler with enhanced cleanup
   const handleBack = useCallback(() => {
@@ -339,10 +208,8 @@ export default function ScanScreen() {
         throw new Error("Network connection is too weak for upload");
       }
 
-
       // Process/compress the image before uploading
       const processedUri = await processImage(uri);
-
 
       // Create imageFile object for apiClient
       const imageFile = {
@@ -360,10 +227,8 @@ export default function ScanScreen() {
       // Add source information to track analytics
       imageFile.source = imageSource || "unknown";
 
-
       // Upload using API client
       const result = await apiClient.processEventImage(imageFile);
-
 
       if (result.jobId && isMounted.current) {
         queueJobAndNavigateDelayed(result.jobId);
@@ -415,10 +280,10 @@ export default function ScanScreen() {
     // Small delay to ensure camera is properly initialized
     setTimeout(() => {
       if (isMounted.current) {
-        startDocumentDetection();
+        // Camera will be ready automatically
       }
     }, 500);
-  }, [startDocumentDetection]);
+  }, []);
 
   // Optimize image processing with debouncing
   const debouncedUpload = useCallback(
@@ -442,6 +307,11 @@ export default function ScanScreen() {
         const details = await apiClient.getPlanDetails();
         if (isMounted) {
           setPlanDetails(details);
+
+          // Show no scans overlay if user has no more scans
+          if (details && details.remainingScans <= 0) {
+            setShowNoScansOverlay(true);
+          }
         }
       } catch (error) {
         console.error("Error fetching plan details:", error);
@@ -465,6 +335,11 @@ export default function ScanScreen() {
     return planDetails.remainingScans > 0;
   }, [planDetails]);
 
+  // Handle upgrade button press
+  const handleUpgrade = useCallback(() => {
+    router.push("/checkout");
+  }, [router]);
+
   // Update handleCapture to check remaining scans
   const handleCapture = async () => {
     if (!isMounted.current) return;
@@ -484,18 +359,7 @@ export default function ScanScreen() {
 
     // Check remaining scans
     if (!hasRemainingScans) {
-      Alert.alert(
-        "Scan Limit Reached",
-        "You've reached your weekly scan limit. Please upgrade to Pro for unlimited scans.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Upgrade",
-            onPress: () => router.push("/checkout"),
-            style: "default"
-          }
-        ]
-      );
+      setShowNoScansOverlay(true);
       return;
     }
 
@@ -510,9 +374,6 @@ export default function ScanScreen() {
     }
 
     try {
-      // Stop detection while capturing
-      clearDetectionInterval();
-
       // Take picture
       const photoUri = await takePicture();
 
@@ -547,7 +408,6 @@ export default function ScanScreen() {
         setCapturedImage(null);
         setImageSource(null);
         setIsUploading(false);
-        startDocumentDetection();
       }
     }
   };
@@ -558,18 +418,7 @@ export default function ScanScreen() {
 
     // Check remaining scans
     if (!hasRemainingScans) {
-      Alert.alert(
-        "Scan Limit Reached",
-        "You've reached your weekly scan limit. Please upgrade to Pro for unlimited scans.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Upgrade",
-            onPress: () => router.push("/checkout"),
-            style: "default"
-          }
-        ]
-      );
+      setShowNoScansOverlay(true);
       return;
     }
 
@@ -584,9 +433,6 @@ export default function ScanScreen() {
     }
 
     try {
-      // Stop detection
-      clearDetectionInterval();
-
       // Show the selected image
       setCapturedImage(uri);
       setImageSource("gallery");
@@ -614,11 +460,6 @@ export default function ScanScreen() {
         setCapturedImage(null);
         setImageSource(null);
         setIsUploading(false);
-
-        // Restart camera if available
-        if (isCameraActive && isCameraReady) {
-          startDocumentDetection();
-        }
       }
     }
   };
@@ -694,7 +535,6 @@ export default function ScanScreen() {
 
             {/* Scanner overlay */}
             <ScannerOverlay
-              detectionStatus="aligned"
               isCapturing={true}
               showScannerAnimation={true}
             />
@@ -702,7 +542,7 @@ export default function ScanScreen() {
         </View>
 
         {/* Empty view to maintain same layout structure */}
-        <View style={styles.controlsPlaceholder} />
+        <View style={styles.controlsContainer} />
       </SafeAreaView>
     );
   }
@@ -735,8 +575,6 @@ export default function ScanScreen() {
               flash={flashMode}
             >
               <ScannerOverlay
-                ref={scannerOverlayRef}
-                detectionStatus={detectionStatus}
                 isCapturing={isCapturing || isUploading}
                 showScannerAnimation={false}
               />
@@ -748,6 +586,38 @@ export default function ScanScreen() {
                   <Text style={styles.cameraNotReadyText}>Initializing camera...</Text>
                 </View>
               )}
+
+              {/* No Scans Available Overlay */}
+              {showNoScansOverlay && (
+                <Animated.View
+                  style={styles.noScansOverlay}
+                  entering={FadeIn.duration(300)}
+                >
+                  <View style={styles.noScansContent}>
+                    <View style={styles.noScansIconContainer}>
+                      <Feather name="alert-triangle" size={32} color={COLORS.warningText} />
+                    </View>
+                    <Text style={styles.noScansTitle}>Scan Limit Reached</Text>
+                    <Text style={styles.noScansMessage}>
+                      You've used all your weekly scans. Upgrade to Pro for unlimited scans.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.upgradeButton}
+                      onPress={handleUpgrade}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.dismissButton}
+                      onPress={() => setShowNoScansOverlay(false)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.dismissButtonText}>Dismiss</Text>
+                    </TouchableOpacity>
+                  </View>
+                </Animated.View>
+              )}
             </CameraView>
           ) : (
             <View style={styles.cameraPlaceholder}>
@@ -758,50 +628,33 @@ export default function ScanScreen() {
         </Animated.View>
       </View>
 
-      {/* Fixed height container for controls and scan limit */}
-      <View style={styles.bottomContainer}>
-        {/* Scan Limit Indicator */}
-        {planDetails && !isCapturing && !isUploading && (
-          <Animated.View
-            style={styles.scanLimitContainer}
-            entering={FadeIn.duration(300).delay(100)}
-            exiting={FadeOut.duration(200)}
-          >
-            <View style={styles.scanLimitContent}>
-              <Text style={styles.scanLimitText}>
-                {planDetails.remainingScans} scans
-              </Text>
-            </View>
-            <View style={styles.progressBarContainer}>
-              <View
-                style={[
-                  styles.progressBar,
-                  {
-                    width: `${Math.min(
-                      ((planDetails.weeklyScanCount || 0) / (planDetails.scanLimit || 10)) * 100,
-                      100
-                    )}%`,
-                  },
-                ]}
-              />
-            </View>
-          </Animated.View>
-        )}
-
+      {/* Fixed height container for controls */}
+      <View style={styles.controlsContainer}>
         <CameraControls
           onCapture={handleCapture}
           onImageSelected={handleImageSelected}
           isCapturing={isCapturing || isUploading}
-          isReady={isCameraReady && detectionStatus === "aligned"}
+          isReady={isCameraReady}
           flashMode={flashMode}
           onFlashToggle={toggleFlash}
           disabled={!isCameraReady || isUploading || !hasRemainingScans}
         />
+
+        {/* Subtle scan counter badge */}
+        {planDetails && hasRemainingScans && (
+          <Animated.View
+            style={styles.scanCountBadge}
+            entering={FadeIn.duration(300)}
+          >
+            <Text style={styles.scanCountText}>
+              {planDetails.remainingScans} scan{planDetails.remainingScans !== 1 ? 's' : ''} left
+            </Text>
+          </Animated.View>
+        )}
       </View>
     </SafeAreaView>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -903,29 +756,6 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
     backgroundColor: COLORS.cardBackground,
   },
-  progressContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-  },
-  controlsPlaceholder: {
-    height: 100,
-  },
-  progressBarContainer: {
-    height: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 1,
-    overflow: "hidden",
-    marginTop: 6,
-  },
-  progressBar: {
-    height: "100%",
-    backgroundColor: COLORS.accent,
-    borderRadius: 1,
-  },
   loaderContainer: {
     flex: 1,
     justifyContent: "center",
@@ -937,34 +767,105 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontSize: 14,
   },
-  scanLimitContainer: {
-    backgroundColor: "rgba(42, 42, 42, 0.9)",
-    padding: 8,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.15)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  scanLimitContent: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 4,
-  },
-  scanLimitText: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    letterSpacing: 0.5,
-  },
-  bottomContainer: {
-    minHeight: 120, // Fixed height for controls area
+  controlsContainer: {
     paddingBottom: 16,
+    position: "relative",
   },
-});
+  // Subtle scan counter at bottom of screen
+  scanCountBadge: {
+    position: "absolute",
+    bottom: 8,
+    right: 16,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  scanCountText: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontFamily: "SpaceMono",
+  },
+  // No Scans Overlay
+  noScansOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    zIndex: 100,
+  },
+  noScansContent: {
+    width: "100%",
+    maxWidth: 340,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: COLORS.warningBorder,
+  },
+  noScansIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.warningBackground,
+    borderWidth: 1,
+    borderColor: COLORS.warningBorder,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  noScansTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 20,
+    fontWeight: "700",
+    fontFamily: "SpaceMono",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  noScansMessage: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  upgradeButton: {
+    backgroundColor: COLORS.accent,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  upgradeButtonText: {
+    color: "#000000",
+    fontSize: 16,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
+  },
+  dismissButton: {
+    backgroundColor: "transparent",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    width: "100%",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  dismissButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+  },
+})
