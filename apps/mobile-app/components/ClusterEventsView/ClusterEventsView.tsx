@@ -29,8 +29,11 @@ import Animated, {
   withSequence,
   withTiming
 } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
 import EventItem from "../EventItem/EventItem";
+import ScreenLayout from "../Layout/ScreenLayout";
+import Card from "../Layout/Card";
+import Header from "../Layout/Header";
+import { COLORS } from "../Layout/ScreenLayout";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -66,21 +69,6 @@ interface EventsListSectionProps {
   useScrollView?: boolean;
 }
 
-// Theme
-const COLORS = {
-  background: "#1a1a1a",
-  cardBackground: "#2a2a2a",
-  cardBackgroundAlt: "#232323",
-  textPrimary: "#f8f9fa",
-  textSecondary: "#a0a0a0",
-  accent: "#93c5fd",
-  accentDark: "#3b82f6",
-  divider: "rgba(255, 255, 255, 0.08)",
-  buttonBackground: "rgba(147, 197, 253, 0.1)",
-  buttonBorder: "rgba(255, 255, 255, 0.05)",
-  shadow: "rgba(0, 0, 0, 0.5)",
-};
-
 // Styles
 const styles = StyleSheet.create({
   safeArea: {
@@ -107,32 +95,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
+  clusterNameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  clusterEmoji: {
+    fontSize: 24,
+  },
   clusterName: {
     color: COLORS.textPrimary,
     fontSize: 20,
     fontFamily: "SpaceMono",
     fontWeight: "700",
-  },
-  clusterNameContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  clusterEmoji: {
-    fontSize: 24,
-  },
-  clusterDescriptionContainer: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
   },
   clusterDescription: {
     color: COLORS.textPrimary,
@@ -197,18 +173,6 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   // Featured event styles
-  featuredEvent: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 20,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-  },
   featuredImageContainer: {
     width: "100%",
     height: 140,
@@ -541,8 +505,6 @@ const TabButton = memo<{
   </TouchableOpacity>
 ));
 
-
-
 // Memoized AnimatedEventCard component
 const AnimatedEventCard = memo<{
   event: EventType;
@@ -615,18 +577,13 @@ const truncateText = (text: string, maxLength: number = 20): string => {
   return text.substring(0, maxLength) + '...';
 };
 
-
 const ClusterDescription = memo<{
   description: string;
 }>(({ description }) => {
   return (
-    <Animated.View
-      style={styles.clusterDescriptionContainer}
-      entering={FadeInDown.duration(600).delay(50).springify()}
-      layout={LinearTransition.springify()}
-    >
+    <Card>
       <Text style={styles.clusterDescription}>{description}</Text>
-    </Animated.View>
+    </Card>
   );
 });
 
@@ -667,11 +624,7 @@ const FeaturedEvent = memo<{
   });
 
   return (
-    <TouchableOpacity
-      style={styles.featuredEvent}
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
+    <Card onPress={onPress} noBorder noShadow>
       <View style={styles.featuredImageContainer}>
         {event.imageUrl ? (
           <Image source={{ uri: event.imageUrl }} style={styles.featuredImage} />
@@ -726,7 +679,7 @@ const FeaturedEvent = memo<{
           </View>
         </View>
       </View>
-    </TouchableOpacity>
+    </Card>
   );
 });
 
@@ -820,8 +773,6 @@ const ClusterEventsView: React.FC = () => {
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState<number>(0);
   const [currentLocationIndex, setCurrentLocationIndex] = useState<number>(0);
   const [hubData, setHubData] = useState<HubDataType | null>(null);
-
-  console.log("hubData", hubData);
 
   const scrollY = useSharedValue(0);
   const markers = useLocationStore((state) => state.markers);
@@ -1059,11 +1010,13 @@ const ClusterEventsView: React.FC = () => {
               onPress={() => handleEventPress(hubData.featuredEvent as EventType)}
             />
           ) : (
-            <View style={[styles.featuredEvent, { padding: 24, alignItems: 'center', justifyContent: 'center' }]}>
-              <Text style={{ color: COLORS.textSecondary, fontFamily: 'SpaceMono' }}>
-                No featured event available
-              </Text>
-            </View>
+            <Card>
+              <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: COLORS.textSecondary, fontFamily: 'SpaceMono' }}>
+                  No featured event available
+                </Text>
+              </View>
+            </Card>
           )}
         </Animated.View>
 
@@ -1117,15 +1070,12 @@ const ClusterEventsView: React.FC = () => {
   // Render loading state
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <Animated.View
-          style={styles.loadingContainer}
-          entering={FadeInDown.duration(600).springify()}
-        >
+      <ScreenLayout>
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.loadingText}>Loading events...</Text>
-        </Animated.View>
-      </SafeAreaView>
+        </View>
+      </ScreenLayout>
     );
   }
 
@@ -1135,17 +1085,12 @@ const ClusterEventsView: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Animated.View style={[styles.header, headerAnimatedStyle]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBack}
-          activeOpacity={0.7}
-        >
-          <ArrowLeft size={20} color={COLORS.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Cluster</Text>
-      </Animated.View>
+    <ScreenLayout>
+      <Header
+        title="Cluster"
+        onBack={handleBack}
+        style={headerAnimatedStyle}
+      />
 
       <Animated.ScrollView
         style={styles.mainScrollView}
@@ -1157,7 +1102,7 @@ const ClusterEventsView: React.FC = () => {
       >
         {renderContent}
       </Animated.ScrollView>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 };
 
