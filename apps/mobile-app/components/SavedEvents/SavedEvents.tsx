@@ -12,22 +12,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Animated, {
-  FadeInDown,
-  FadeOut,
-  FadeOutUp,
-  interpolate,
-  Layout,
-  useAnimatedRef,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
+import {
+  useSharedValue
 } from "react-native-reanimated";
 import EventItem from "../EventItem/EventItem";
-import ScreenLayout from "../Layout/ScreenLayout";
-import Header from "../Layout/Header";
 import Card from "../Layout/Card";
-import { COLORS } from "../Layout/ScreenLayout";
+import Header from "../Layout/Header";
+import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 
 type TabType = 'saved' | 'discovered';
 
