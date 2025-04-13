@@ -513,7 +513,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               })
             );
 
-            console.log(`Identified WebSocket connection with user ID: ${user.id}`);
           } else {
             console.warn("Unable to identify WebSocket connection: user not authenticated");
           }
