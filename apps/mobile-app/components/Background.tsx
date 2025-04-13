@@ -3,16 +3,16 @@ import { View, StyleSheet, Dimensions, Platform } from "react-native";
 import Mapbox from "@rnmapbox/maps";
 
 // 3D map camera configuration - Adjusted for better performance
-const CAMERA_UPDATE_INTERVAL = Platform.select({ ios: 32, android: 64 }) ?? 64; // Further reduced frequency
-const ANIMATION_BATCH_SIZE = 5; // Increased batch size to reduce updates
+const CAMERA_UPDATE_INTERVAL = Platform.select({ ios: 16, android: 32 }) ?? 32; // Reduced interval for smoother animation
+const ANIMATION_BATCH_SIZE = 3; // Reduced batch size for more frequent updates
 const BASE_PITCH = 60;
 const BASE_ZOOM = 15;
 const BASE_BEARING = 45;
 
 // Animation timing constants
-const INITIAL_DELAY = 2000; // Increased initial delay
-const LOCATION_DURATION = 45000; // Increased duration for smoother transitions
-const TRANSITION_DURATION = 15000; // Increased duration for smoother transitions
+const INITIAL_DELAY = 1000; // Reduced initial delay
+const LOCATION_DURATION = 30000; // Reduced duration for more frequent transitions
+const TRANSITION_DURATION = 10000; // Reduced duration for smoother transitions
 
 // Default locations for camera to move between
 const LOCATIONS = [
@@ -153,17 +153,11 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
     }
 
     // Initialize camera with current values
-    updateCamera();
+    updateCamera(true); // Force initial update
 
     // Start animation loop with increased interval
     animationIntervalRef.current = setInterval(() => {
       if (!isMountedRef.current) return;
-
-      // Skip frames based on batch size
-      frameCountRef.current++;
-      if (frameCountRef.current % ANIMATION_BATCH_SIZE !== 0) {
-        return;
-      }
 
       // Update time reference
       const currentTime = Date.now();
@@ -175,22 +169,18 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
       if (timeRef.current >= LOCATION_DURATION && !transitioningRef.current) {
         transitioningRef.current = true;
         currentLocationIndexRef.current = (currentLocationIndexRef.current + 1) % LOCATIONS.length;
-
-        // Reset time after transition
         timeRef.current = 0;
         transitioningRef.current = false;
       }
 
       // Calculate new camera position
-      if (!transitioningRef.current) {
-        const longitudeOffset = Math.sin(timeRef.current * 0.00005) * 0.0005; // Reduced movement range
-        const latitudeOffset = Math.cos(timeRef.current * 0.000075) * 0.0005; // Reduced movement range
+      const longitudeOffset = Math.sin(timeRef.current * 0.0001) * 0.001; // Increased movement range
+      const latitudeOffset = Math.cos(timeRef.current * 0.00015) * 0.001; // Increased movement range
 
-        centerRef.current = [
-          LOCATIONS[currentLocationIndexRef.current].center[0] + longitudeOffset,
-          LOCATIONS[currentLocationIndexRef.current].center[1] + latitudeOffset,
-        ];
-      }
+      centerRef.current = [
+        LOCATIONS[currentLocationIndexRef.current].center[0] + longitudeOffset,
+        LOCATIONS[currentLocationIndexRef.current].center[1] + latitudeOffset,
+      ];
 
       updateCamera();
     }, CAMERA_UPDATE_INTERVAL);
