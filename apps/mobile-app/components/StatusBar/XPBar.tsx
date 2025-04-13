@@ -1,18 +1,14 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { useAuth } from '@/contexts/AuthContext';
+import { apiClient } from '@/services/ApiClient';
+import { eventBroker, EventTypes, LevelUpdateEvent, XPAwardedEvent } from '@/services/EventBroker';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
     withTiming,
-    withSequence,
-    withDelay,
-    interpolate,
-    Extrapolate
 } from 'react-native-reanimated';
-import { useAuth } from '@/contexts/AuthContext';
-import { apiClient } from '@/services/ApiClient';
-import { eventBroker, EventTypes, LevelUpdateEvent, XPAwardedEvent } from '@/services/EventBroker';
-import { useEventBroker } from '@/hooks/useEventBroker';
+import { useXPGainAnimation } from './useXPGainAnimation';
 
 interface XPBarProps {
     backgroundColor?: string;
@@ -26,10 +22,9 @@ interface LevelInfo {
     progress: number;
 }
 
-const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
+const XPBar: React.FC<XPBarProps> = React.memo(({ backgroundColor = '#1a1a1a' }) => {
     const { user } = useAuth();
-    const { publish } = useEventBroker();
-    const [levelInfo, setLevelInfo] = useState<LevelInfo>({
+    const [levelInfo, setLevelInfo] = React.useState<LevelInfo>({
         currentLevel: 1,
         currentTitle: "Explorer",
         totalXp: 0,
@@ -41,11 +36,16 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
     const progressValue = useSharedValue(0);
     const totalXpValue = useSharedValue(0);
     const nextLevelXpValue = useSharedValue(100);
-    const xpGainOpacity = useSharedValue(0);
-    const xpGainTranslateY = useSharedValue(0);
-    const [xpGainAmount, setXpGainAmount] = useState(0);
 
-    // Animation values for progress bar
+    // Use the XP gain animation hook
+    const {
+        xpGainOpacity,
+        xpGainTranslateY,
+        xpGainAmount,
+        showXPGain,
+    } = useXPGainAnimation();
+
+    // Memoize the progress bar style
     const progressStyle = useAnimatedStyle(() => {
         const progress = Math.min(Math.max(progressValue.value, 0), 100);
         return {
@@ -54,30 +54,17 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
             backgroundColor: '#4ADE80',
             borderRadius: 1.5,
         };
-    });
+    }, []);
 
-    // Animation for XP gain indicator
+    // Memoize the XP gain style
     const xpGainStyle = useAnimatedStyle(() => ({
         opacity: xpGainOpacity.value,
         transform: [{ translateY: xpGainTranslateY.value }],
-    }));
+    }), []);
 
-    const AnimatedXPGainText = Animated.createAnimatedComponent(Text);
+    const AnimatedXPGainText = useMemo(() => Animated.createAnimatedComponent(Text), []);
 
-    // Function to show XP gain animation
-    const showXPGain = (amount: number) => {
-        setXpGainAmount(amount);
-        xpGainOpacity.value = withSequence(
-            withTiming(1, { duration: 200 }),
-            withDelay(1000, withTiming(0, { duration: 300 }))
-        );
-        xpGainTranslateY.value = withSequence(
-            withTiming(-5, { duration: 200 }),
-            withDelay(1000, withTiming(0, { duration: 300 }))
-        );
-    };
-
-    // Function to fetch latest XP data from database
+    // Memoize the fetch function
     const fetchLatestXPData = useCallback(async () => {
         try {
             const user = await apiClient.getUserProfile();
@@ -89,8 +76,6 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
                 nextLevelXp: user.nextLevelXp || 100,
                 progress: user.xpProgress || 0
             };
-
-
 
             // Update state and animation values
             setLevelInfo(newLevelInfo);
@@ -115,33 +100,39 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
         fetchLatestXPData();
     }, [fetchLatestXPData]);
 
+    // Memoize event handlers
+    const handleLevelUpdate = useCallback(async (event: LevelUpdateEvent) => {
+        if (event.data.userId === user?.id) {
+            await fetchLatestXPData();
+        }
+    }, [user?.id, fetchLatestXPData]);
+
+    const handleXPAwarded = useCallback(async (event: XPAwardedEvent) => {
+        if (event.data.userId === user?.id) {
+            showXPGain(event.data.amount);
+            await fetchLatestXPData();
+        }
+    }, [user?.id, fetchLatestXPData, showXPGain]);
+
     // Subscribe to level updates and XP awards
     useEffect(() => {
-        const levelUnsubscribe = eventBroker.on<LevelUpdateEvent>(EventTypes.LEVEL_UPDATE, async (event) => {
-            if (event.data.userId === user?.id) {
-                // Fetch latest data to ensure we're in sync
-                await fetchLatestXPData();
-            }
-        });
-
-        const xpUnsubscribe = eventBroker.on<XPAwardedEvent>(EventTypes.XP_AWARDED, async (event) => {
-            if (event.data.userId === user?.id) {
-                // Show XP gain animation
-                showXPGain(event.data.amount);
-
-                // Fetch latest data to ensure we're in sync
-                await fetchLatestXPData();
-            }
-        });
+        const levelUnsubscribe = eventBroker.on<LevelUpdateEvent>(EventTypes.LEVEL_UPDATE, handleLevelUpdate);
+        const xpUnsubscribe = eventBroker.on<XPAwardedEvent>(EventTypes.XP_AWARDED, handleXPAwarded);
 
         return () => {
             levelUnsubscribe();
             xpUnsubscribe();
         };
-    }, [user?.id, fetchLatestXPData]);
+    }, [handleLevelUpdate, handleXPAwarded]);
+
+    // Memoize the container style
+    const containerStyle = useMemo(() => [
+        styles.container,
+        { backgroundColor }
+    ], [backgroundColor]);
 
     return (
-        <View style={[styles.container, { backgroundColor }]}>
+        <View style={containerStyle}>
             <View style={styles.content}>
                 <View style={styles.levelInfo}>
                     <View style={styles.levelTitleContainer}>
@@ -158,7 +149,9 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
             </View>
         </View>
     );
-};
+}, (prevProps, nextProps) => {
+    return prevProps.backgroundColor === nextProps.backgroundColor;
+});
 
 const styles = StyleSheet.create({
     container: {
@@ -223,4 +216,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default React.memo(XPBar); 
+export default XPBar; 

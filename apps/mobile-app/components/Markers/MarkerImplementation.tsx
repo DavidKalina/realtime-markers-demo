@@ -12,8 +12,8 @@ import {
 import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
 import MapboxGL from "@rnmapbox/maps";
-import React, { useCallback, useMemo, useRef, useEffect } from "react";
-import Animated, { BounceIn, BounceOut, Layout, LinearTransition } from "react-native-reanimated";
+import React, { useCallback, useMemo } from "react";
+import Animated, { BounceIn, BounceOut, LinearTransition } from "react-native-reanimated";
 import { ClusterMarker } from "./ClusterMarker";
 import { EmojiMapMarker } from "./CustomMapMarker";
 
