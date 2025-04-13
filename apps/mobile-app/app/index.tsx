@@ -28,16 +28,10 @@ if (Platform.OS === "android") {
   MapboxGL.setTelemetryEnabled(false);
 }
 
-// Initialize location module
-MapboxGL.locationManager.start();
-MapboxGL.setWellKnownTileServer('mapbox');
-
 // Use the imported styles directly
 const styles = homeScreenStyles;
 
 // Memoized UI components
-
-
 const GravitatingOverlay = React.memo(() => (
   <Animated.View
     style={[
@@ -65,6 +59,16 @@ function HomeScreen() {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const { publish } = useEventBroker();
   const { mapStyle } = useMapStyle();
+
+  // Initialize MapboxGL location manager with cleanup
+  useEffect(() => {
+    MapboxGL.locationManager.start();
+    MapboxGL.setWellKnownTileServer('mapbox');
+
+    return () => {
+      MapboxGL.locationManager.stop();
+    };
+  }, []);
 
   // Store references
   const { selectMapItem, setZoomLevel, zoomLevel } = useLocationStore();
@@ -97,9 +101,23 @@ function HomeScreen() {
 
   // Get user location only when needed
   useEffect(() => {
-    if (!userLocation && !isLoadingLocation) {
-      getUserLocation();
-    }
+    let isMounted = true;
+
+    const updateLocation = async () => {
+      if (!userLocation && !isLoadingLocation && isMounted) {
+        try {
+          await getUserLocation();
+        } catch (error) {
+          console.error('Error getting user location:', error);
+        }
+      }
+    };
+
+    updateLocation();
+
+    return () => {
+      isMounted = false;
+    };
   }, [userLocation, isLoadingLocation, getUserLocation]);
 
   // Track if we've done initial centering
@@ -114,6 +132,10 @@ function HomeScreen() {
         centerCoordinate: userLocation,
       });
     }
+
+    return () => {
+      hasCenteredOnUserRef.current = false;
+    };
   }, [userLocation, isLoadingLocation, isMapReady]);
 
   // Create map item event utility
