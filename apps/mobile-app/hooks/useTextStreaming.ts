@@ -17,7 +17,7 @@ export const useEnhancedTextStreaming = () => {
       wordDelayMs?: number;
       messageDelayMs?: number;
       pauseAfterMs?: number;
-      characterDelayMs?: number; // New option for character delay
+      characterDelayMs?: number;
     };
   } | null>(null);
 
@@ -28,7 +28,7 @@ export const useEnhancedTextStreaming = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Track any active timers for cleanup
-  const activeTimersRef = useRef<number[]>([]);
+  const activeTimersRef = useRef<Set<NodeJS.Timeout>>(new Set());
 
   // Track if we're in a transition state (between markers)
   const isTransitioningRef = useRef<boolean>(false);
@@ -37,7 +37,7 @@ export const useEnhancedTextStreaming = () => {
   const currentMarkerIdRef = useRef<string | null>(null);
 
   // Track debounce timer
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -51,8 +51,8 @@ export const useEnhancedTextStreaming = () => {
    */
   const clearAllTimers = useCallback(() => {
     // Clear all active timers
-    activeTimersRef.current.forEach((timerId) => clearTimeout(timerId));
-    activeTimersRef.current = [];
+    activeTimersRef.current.forEach((timer) => clearTimeout(timer));
+    activeTimersRef.current.clear();
 
     // Clear debounce timer
     if (debounceTimerRef.current) {
@@ -86,7 +86,7 @@ export const useEnhancedTextStreaming = () => {
    */
   const cancelStreaming = useCallback(() => {
     const hadActiveController = abortControllerRef.current !== null;
-    const hadActiveTimers = activeTimersRef.current.length > 0;
+    const hadActiveTimers = activeTimersRef.current.size > 0;
 
     cleanupAllStreaming();
 
@@ -111,11 +111,11 @@ export const useEnhancedTextStreaming = () => {
       setQueuedStream(null);
 
       // Small delay to ensure UI is updated before starting new stream
-      const timerId = setTimeout(() => {
+      const timer = setTimeout(() => {
         _streamMessages(messages, onComplete, options);
       }, 50);
 
-      activeTimersRef.current.push(timerId as unknown as number);
+      activeTimersRef.current.add(timer);
     }
   }, [queuedStream]);
 
@@ -149,7 +149,7 @@ export const useEnhancedTextStreaming = () => {
       const wordDelay = options?.wordDelayMs ?? 50;
       const messageDelay = options?.messageDelayMs ?? 500;
       const pauseAfter = options?.pauseAfterMs ?? 0;
-      const characterDelay = options?.characterDelayMs ?? 5; // Default 30ms between characters
+      const characterDelay = options?.characterDelayMs ?? 5;
 
       // Create a new abort controller for this streaming session
       const controller = new AbortController();
@@ -211,17 +211,14 @@ export const useEnhancedTextStreaming = () => {
                 }, characterDelay);
 
                 // Add timer to active timers list
-                const timerId = timer as unknown as number;
-                activeTimersRef.current.push(timerId);
+                activeTimersRef.current.add(timer);
 
                 // Handle abort during wait
                 controller.signal.addEventListener(
                   "abort",
                   () => {
                     clearTimeout(timer);
-                    activeTimersRef.current = activeTimersRef.current.filter(
-                      (id) => id !== timerId
-                    );
+                    activeTimersRef.current.delete(timer);
                     reject(new Error("Streaming aborted during character delay"));
                   },
                   { once: true }
@@ -243,17 +240,14 @@ export const useEnhancedTextStreaming = () => {
                 }, wordDelay);
 
                 // Add timer to active timers list
-                const timerId = timer as unknown as number;
-                activeTimersRef.current.push(timerId);
+                activeTimersRef.current.add(timer);
 
                 // Handle abort during wait
                 controller.signal.addEventListener(
                   "abort",
                   () => {
                     clearTimeout(timer);
-                    activeTimersRef.current = activeTimersRef.current.filter(
-                      (id) => id !== timerId
-                    );
+                    activeTimersRef.current.delete(timer);
                     reject(new Error("Streaming aborted during word delay"));
                   },
                   { once: true }
@@ -270,15 +264,14 @@ export const useEnhancedTextStreaming = () => {
               }, messageDelay);
 
               // Add timer to active timers list
-              const timerId = timer as unknown as number;
-              activeTimersRef.current.push(timerId);
+              activeTimersRef.current.add(timer);
 
               // Handle abort during wait
               controller.signal.addEventListener(
                 "abort",
                 () => {
                   clearTimeout(timer);
-                  activeTimersRef.current = activeTimersRef.current.filter((id) => id !== timerId);
+                  activeTimersRef.current.delete(timer);
                   reject(new Error("Streaming aborted during message delay"));
                 },
                 { once: true }
@@ -311,17 +304,14 @@ export const useEnhancedTextStreaming = () => {
                 }, pauseAfter);
 
                 // Add timer to active timers list
-                const timerId = timer as unknown as number;
-                activeTimersRef.current.push(timerId);
+                activeTimersRef.current.add(timer);
 
                 // Handle abort during wait
                 controller.signal.addEventListener(
                   "abort",
                   () => {
                     clearTimeout(timer);
-                    activeTimersRef.current = activeTimersRef.current.filter(
-                      (id) => id !== timerId
-                    );
+                    activeTimersRef.current.delete(timer);
                     reject(new Error("Streaming aborted during pause after"));
                   },
                   { once: true }
@@ -467,24 +457,24 @@ export const useEnhancedTextStreaming = () => {
       const streamId = ++streamIdRef.current;
 
       // Add a pause before completing
-      const timerId = setTimeout(() => {
+      const timer = setTimeout(() => {
         // Only proceed if this is still the current stream and not aborted
         if (streamId === streamIdRef.current && !controller.signal.aborted) {
           setIsStreaming(false);
           abortControllerRef.current = null;
           if (onComplete) onComplete();
         }
-      }, pauseAfter) as unknown as number;
+      }, pauseAfter);
 
       // Store the timer ID for cleanup
-      activeTimersRef.current.push(timerId as unknown as number);
+      activeTimersRef.current.add(timer);
 
       // Set up abort handling for this timer
       controller.signal.addEventListener(
         "abort",
         () => {
-          clearTimeout(timerId);
-          activeTimersRef.current = activeTimersRef.current.filter((id) => id !== timerId);
+          clearTimeout(timer);
+          activeTimersRef.current.delete(timer);
 
           // Reset streaming state if this is still the current stream
           if (streamId === streamIdRef.current) {

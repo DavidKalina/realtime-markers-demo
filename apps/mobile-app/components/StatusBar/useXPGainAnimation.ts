@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
-import Animated, {
+import {
     useSharedValue,
     withTiming,
     withSequence,
     withDelay,
+    SharedValue,
 } from 'react-native-reanimated';
 
 interface UseXPGainAnimationProps {
@@ -11,8 +12,8 @@ interface UseXPGainAnimationProps {
 }
 
 interface XPGainAnimation {
-    xpGainOpacity: Animated.SharedValue<number>;
-    xpGainTranslateY: Animated.SharedValue<number>;
+    xpGainOpacity: SharedValue<number>;
+    xpGainTranslateY: SharedValue<number>;
     xpGainAmount: number;
     showXPGain: (amount: number) => void;
 }
