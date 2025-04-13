@@ -7,6 +7,7 @@ import { User } from "../entities/User";
 import { AuthService } from "../services/AuthService";
 import { UserPreferencesService } from "../services/UserPreferences";
 import { CacheService } from "../services/shared/CacheService";
+import { LevelingService } from "../services/LevelingService";
 import Redis from "ioredis";
 
 // Create instances of required services
@@ -61,7 +62,8 @@ redisClient.on('ready', () => {
 
 // Initialize services
 const userPreferencesService = new UserPreferencesService(dataSource, redisClient);
-const authService = new AuthService(userRepository, userPreferencesService);
+const levelingService = new LevelingService(dataSource, redisClient);
+const authService = new AuthService(userRepository, userPreferencesService, levelingService);
 
 export type AuthHandler = (c: Context<AppContext>) => Promise<Response> | Response;
 

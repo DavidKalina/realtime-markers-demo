@@ -38,6 +38,7 @@ import plansRouter from "./routes/plans";
 import stripeRouter from "./routes/stripe";
 import { PlanService } from "./services/PlanService";
 import { LevelingService } from "./services/LevelingService";
+import { seedLevels } from "./seeds/seedLevels";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -220,6 +221,7 @@ const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource
 
       // Seed the database with test users
       try {
+        await seedLevels(AppDataSource);
         await seedUsers(AppDataSource);
       } catch (seedError) {
         console.error("Error seeding users:", seedError);

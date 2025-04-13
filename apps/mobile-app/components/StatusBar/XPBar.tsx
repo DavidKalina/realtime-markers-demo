@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import Animated, {
     useAnimatedStyle,
@@ -18,10 +18,18 @@ interface XPBarProps {
     backgroundColor?: string;
 }
 
+interface LevelInfo {
+    currentLevel: number;
+    currentTitle: string;
+    totalXp: number;
+    nextLevelXp: number;
+    progress: number;
+}
+
 const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
     const { user } = useAuth();
     const { publish } = useEventBroker();
-    const [levelInfo, setLevelInfo] = useState({
+    const [levelInfo, setLevelInfo] = useState<LevelInfo>({
         currentLevel: 1,
         currentTitle: "Explorer",
         totalXp: 0,
@@ -38,9 +46,16 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
     const [xpGainAmount, setXpGainAmount] = useState(0);
 
     // Animation values for progress bar
-    const progressStyle = useAnimatedStyle(() => ({
-        width: `${progressValue.value}%`,
-    }));
+    const progressStyle = useAnimatedStyle(() => {
+        const progress = Math.min(Math.max(progressValue.value, 0), 100);
+        console.log('Progress bar width:', progress);
+        return {
+            width: `${progress}%`,
+            height: '100%',
+            backgroundColor: '#4ADE80',
+            borderRadius: 1.5,
+        };
+    });
 
     // Animation for XP gain indicator
     const xpGainStyle = useAnimatedStyle(() => ({
@@ -63,67 +78,70 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
         );
     };
 
+    // Function to fetch latest XP data from database
+    const fetchLatestXPData = useCallback(async () => {
+        try {
+            const user = await apiClient.getUserProfile();
+            console.log("Raw user data from API:", user);
+
+            const newLevelInfo = {
+                currentLevel: user.level || 1,
+                currentTitle: user.currentTitle || "Explorer",
+                totalXp: user.totalXp || 0,
+                nextLevelXp: user.nextLevelXp || 100,
+                progress: user.xpProgress || 0
+            };
+
+            console.log("Processed level info:", newLevelInfo);
+            console.log("Progress calculation:", {
+                totalXp: newLevelInfo.totalXp,
+                nextLevelXp: newLevelInfo.nextLevelXp,
+                rawProgress: newLevelInfo.progress,
+                calculatedProgress: (newLevelInfo.totalXp / newLevelInfo.nextLevelXp) * 100
+            });
+
+            // Update state and animation values
+            setLevelInfo(newLevelInfo);
+
+            // Ensure progress is between 0 and 100
+            const clampedProgress = Math.min(Math.max(newLevelInfo.progress, 0), 100);
+            console.log("Setting progress to:", clampedProgress);
+
+            // Animate the progress change
+            progressValue.value = withTiming(clampedProgress, {
+                duration: 500,
+            });
+
+            totalXpValue.value = newLevelInfo.totalXp;
+            nextLevelXpValue.value = newLevelInfo.nextLevelXp;
+        } catch (error) {
+            console.error('Error fetching level info:', error);
+        }
+    }, []);
+
     // Fetch initial level info
     useEffect(() => {
-        const fetchLevelInfo = async () => {
-            try {
-                const user = await apiClient.getUserProfile();
-                const newLevelInfo = {
-                    currentLevel: user.level || 1,
-                    currentTitle: user.currentTitle || "Explorer",
-                    totalXp: user.totalXp || 0,
-                    nextLevelXp: user.nextLevelXp || 100,
-                    progress: user.xpProgress || 0
-                };
-                setLevelInfo(newLevelInfo);
-                // Initialize animation values
-                progressValue.value = newLevelInfo.progress;
-                totalXpValue.value = newLevelInfo.totalXp;
-                nextLevelXpValue.value = newLevelInfo.nextLevelXp;
-            } catch (error) {
-                console.error('Error fetching level info:', error);
-            }
-        };
-
-        fetchLevelInfo();
-    }, []);
+        fetchLatestXPData();
+    }, [fetchLatestXPData]);
 
     // Subscribe to level updates and XP awards
     useEffect(() => {
-        const levelUnsubscribe = eventBroker.on<LevelUpdateEvent>(EventTypes.LEVEL_UPDATE, (event) => {
+        const levelUnsubscribe = eventBroker.on<LevelUpdateEvent>(EventTypes.LEVEL_UPDATE, async (event) => {
             if (event.data.userId === user?.id) {
-                setLevelInfo(prev => ({
-                    ...prev,
-                    currentLevel: event.data.level,
-                    currentTitle: event.data.title,
-                    // Calculate progress based on total XP and next level XP
-                    progress: Math.min((prev.totalXp / prev.nextLevelXp) * 100, 100)
-                }));
-                // Animate progress change
-                progressValue.value = withTiming(Math.min((levelInfo.totalXp / levelInfo.nextLevelXp) * 100, 100), {
-                    duration: 500,
-                });
+                console.log("Received level update event:", event.data);
+                // Fetch latest data to ensure we're in sync
+                await fetchLatestXPData();
             }
         });
 
-        const xpUnsubscribe = eventBroker.on<XPAwardedEvent>(EventTypes.XP_AWARDED, (event) => {
+        const xpUnsubscribe = eventBroker.on<XPAwardedEvent>(EventTypes.XP_AWARDED, async (event) => {
             if (event.data.userId === user?.id) {
+                console.log("Received XP award event:", event.data);
                 // Show XP gain animation
                 showXPGain(event.data.amount);
-                // Update total XP and progress
-                setLevelInfo(prev => {
-                    const newTotalXp = prev.totalXp + event.data.amount;
-                    const newProgress = Math.min((newTotalXp / prev.nextLevelXp) * 100, 100);
-                    return {
-                        ...prev,
-                        totalXp: newTotalXp,
-                        progress: newProgress
-                    };
-                });
-                // Animate progress change
-                progressValue.value = withTiming(Math.min((levelInfo.totalXp + event.data.amount) / levelInfo.nextLevelXp * 100, 100), {
-                    duration: 500,
-                });
+
+                // Fetch latest data to ensure we're in sync
+                await fetchLatestXPData();
             }
         });
 
@@ -131,7 +149,7 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
             levelUnsubscribe();
             xpUnsubscribe();
         };
-    }, [user?.id, levelInfo.totalXp, levelInfo.nextLevelXp]);
+    }, [user?.id, fetchLatestXPData]);
 
     return (
         <View style={[styles.container, { backgroundColor }]}>
@@ -146,7 +164,7 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
                     </AnimatedXPGainText>
                 </View>
                 <View style={styles.progressContainer}>
-                    <Animated.View style={[styles.progressBar, progressStyle]} />
+                    <Animated.View style={progressStyle} />
                 </View>
             </View>
         </View>
@@ -157,8 +175,6 @@ const styles = StyleSheet.create({
     container: {
         width: '100%',
         paddingVertical: 4,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
     },
     content: {
         paddingHorizontal: 12,
