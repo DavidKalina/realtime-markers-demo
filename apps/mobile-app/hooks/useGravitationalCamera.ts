@@ -367,8 +367,10 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
         const cameraSettings: any = {
           centerCoordinate: event.coordinates,
           animationDuration: duration,
+          zoomLevel: event.zoomLevel || gravitationConfig.gravityZoomLevel,
           animationMode: "flyTo"
         };
+
 
         // Only include zoomLevel if zoom changes are explicitly allowed
         if (event.allowZoomChange === true) {

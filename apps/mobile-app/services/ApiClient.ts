@@ -43,6 +43,15 @@ export interface User {
   role: string;
   avatarUrl?: string;
   isVerified: boolean;
+  bio?: string;
+  createdAt?: Date;
+  scanCount?: number;
+  saveCount?: number;
+  totalXp?: number;
+  currentTitle?: string;
+  level?: number;
+  nextLevelXp?: number;
+  xpProgress?: number;
 }
 
 export interface AuthTokens {
@@ -582,7 +591,15 @@ class ApiClient {
 
     const response = await this.fetchWithAuth(url, { method: "POST" });
 
-    return this.handleResponse<User>(response);
+    const user = await this.handleResponse<User>(response);
+
+    // Update local user state with the new data
+    if (this.user) {
+      this.user = { ...this.user, ...user };
+      await AsyncStorage.setItem("user", JSON.stringify(this.user));
+    }
+
+    return user;
   }
 
   // Update user profile

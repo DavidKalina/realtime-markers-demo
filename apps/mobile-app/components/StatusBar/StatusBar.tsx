@@ -9,6 +9,7 @@ import ConnectionIndicator from './ConnectionIndicator';
 import DateRangeIndicator from './DateRangeIndicator';
 import EmojiIndicator from './EmojiIndicator';
 import JobIndicator from './JobIndicator';
+import XPBar from './XPBar';
 
 interface StatusBarProps {
     backgroundColor?: string;
@@ -48,7 +49,8 @@ const StatusBar: React.FC<StatusBarProps> = ({
                 backgroundColor={backgroundColor}
                 translucent
             />
-            <View style={styles.content}>
+            <XPBar backgroundColor={backgroundColor} />
+            <View style={styles.indicatorsRow}>
                 <Animated.View
                     entering={FadeIn
                         .delay(300)
@@ -104,13 +106,12 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(255, 255, 255, 0.05)',
     },
-    content: {
+    indicatorsRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 12,
-        paddingTop: 0,
-        paddingBottom: 6,
+        paddingVertical: 6,
     },
     indicatorsContainer: {
         flexDirection: 'row',

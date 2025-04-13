@@ -3,7 +3,6 @@ import Redis from "ioredis";
 import AppDataSource from "./data-source";
 import { Category } from "./entities/Category";
 import { Event } from "./entities/Event";
-import { User } from "./entities/User";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
@@ -128,7 +127,7 @@ async function initializeWorker() {
 
   const eventProcessingService = new EventProcessingService(eventProcessingDependencies);
 
-  const eventService = new EventService(AppDataSource);
+  const eventService = new EventService(AppDataSource, redisClient);
 
   const planService = new PlanService(AppDataSource);
 
@@ -374,6 +373,7 @@ async function initializeWorker() {
           // Create discovery record and increment user stats if they are the creator
           if (job.data.creatorId) {
             await eventService.createDiscoveryRecord(job.data.creatorId, newEvent.id);
+
           }
 
           // Publish notifications

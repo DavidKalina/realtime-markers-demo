@@ -6,6 +6,7 @@ import { Repository } from "typeorm";
 import { User } from "../entities/User";
 import { UserPreferencesService } from "./UserPreferences";
 import { addDays, format } from "date-fns";
+import { LevelingService } from "./LevelingService";
 
 export interface UserRegistrationData {
   email: string;
@@ -25,10 +26,16 @@ export class AuthService {
   private accessTokenExpiry: SignOptions["expiresIn"];
   private refreshTokenExpiry: SignOptions["expiresIn"];
   private userPreferencesService: UserPreferencesService;
+  private levelingService: LevelingService;
 
-  constructor(userRepository: Repository<User>, userPreferencesService: UserPreferencesService) {
+  constructor(
+    userRepository: Repository<User>,
+    userPreferencesService: UserPreferencesService,
+    levelingService: LevelingService
+  ) {
     this.userRepository = userRepository;
     this.userPreferencesService = userPreferencesService;
+    this.levelingService = levelingService;
     this.jwtSecret = process.env.JWT_SECRET!;
     if (!this.jwtSecret) {
       throw new Error("JWT_SECRET environment variable must be set");
@@ -237,16 +244,29 @@ export class AuthService {
         "createdAt",
         "scanCount",
         "saveCount",
+        "totalXp",
+        "currentTitle",
       ],
     });
 
-    if (user) {
-      // Don't return sensitive information
-      delete (user as any).passwordHash;
-      delete user.refreshToken;
+    if (!user) {
+      return null;
     }
 
-    return user;
+    // Get level information from LevelingService
+    const levelInfo = await this.levelingService.getUserLevelInfo(userId);
+
+    // Create a new object with level information
+    const userWithLevelInfo = {
+      ...user,
+      level: levelInfo.currentLevel,
+      currentTitle: levelInfo.currentTitle,
+      totalXp: levelInfo.totalXp,
+      nextLevelXp: levelInfo.nextLevelXp,
+      xpProgress: levelInfo.progress,
+    };
+
+    return userWithLevelInfo;
   }
 
   /**

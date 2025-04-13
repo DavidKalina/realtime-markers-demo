@@ -40,6 +40,10 @@ const MessageTypes = {
   SESSION_CREATED: "session_created",
   SESSION_JOINED: "session_joined",
   SESSION_UPDATE: "session_update",
+
+  // Leveling system
+  LEVEL_UPDATE: "level-update",
+  XP_AWARDED: "xp-awarded",
 };
 
 // --- In-Memory State ---
@@ -61,11 +65,56 @@ const redisConfig = {
 // Main Redis client for publishing
 const redisPub = new Redis(redisConfig);
 
+// Add error handling for Redis publisher
+redisPub.on('error', (error) => {
+  console.error('Redis publisher error:', error);
+});
+
+redisPub.on('connect', () => {
+  console.log('Redis publisher connected successfully');
+});
+
+redisPub.on('ready', () => {
+  console.log('Redis publisher is ready to accept commands');
+});
+
 // Subscribe to discovered events
 const redisSub = new Redis(redisConfig);
-redisSub.subscribe("discovered_events");
+
+// Add error handling for Redis subscriber
+redisSub.on('error', (error) => {
+  console.error('Redis subscriber error:', error);
+});
+
+redisSub.on('connect', () => {
+  console.log('Redis subscriber connected successfully');
+});
+
+redisSub.on('ready', () => {
+  console.log('Redis subscriber is ready to accept commands');
+});
+
+// Subscribe to channels
+redisSub.subscribe('discovered_events', (err, count) => {
+  if (err) {
+    console.error('Error subscribing to discovered_events:', err);
+  } else {
+    console.log(`Subscribed to discovered_events, total subscriptions: ${count}`);
+  }
+});
+
+redisSub.subscribe('level-update', (err, count) => {
+  if (err) {
+    console.error('Error subscribing to level-update:', err);
+  } else {
+    console.log(`Subscribed to level-update, total subscriptions: ${count}`);
+  }
+});
 
 redisSub.on("message", (channel, message) => {
+
+  console.log(`Received message from ${channel}: ${message}`);
+
   if (channel === "discovered_events") {
     try {
       const data = JSON.parse(message);
@@ -82,19 +131,49 @@ redisSub.on("message", (channel, message) => {
           client.send(formattedMessage);
         } catch (error) {
           console.error(`Error sending discovery event to client ${clientId}:`, error);
-
-
-
-
-
-
-
-
-
         }
       }
     } catch (error) {
       console.error("Error processing discovery event:", error);
+    }
+  } else if (channel === "level-update") {
+    try {
+      const data = JSON.parse(message);
+      console.log("Received level update:", data);
+
+      // Handle both XP awards and level-up events
+      const formattedMessage = JSON.stringify({
+        type: data.action === "xp_awarded" ? MessageTypes.XP_AWARDED : MessageTypes.LEVEL_UPDATE,
+        data: {
+          userId: data.userId,
+          level: data.level,
+          title: data.title,
+          action: data.action,
+          amount: data.amount,
+          totalXp: data.totalXp,
+          timestamp: data.timestamp || new Date().toISOString(),
+        },
+      });
+
+      // Forward to all clients of the user
+      const userClients = userToClients.get(data.userId);
+      if (userClients) {
+        for (const clientId of userClients) {
+          const client = clients.get(clientId);
+          if (client) {
+            try {
+              client.send(formattedMessage);
+              console.log(`Sent level update to client ${clientId}`);
+            } catch (error) {
+              console.error(`Error sending level update to client ${clientId}:`, error);
+            }
+          }
+        }
+      } else {
+        console.log(`No clients found for user ${data.userId}`);
+      }
+    } catch (error) {
+      console.error("Error processing level update:", error);
     }
   }
 });

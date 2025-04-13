@@ -37,6 +37,8 @@ import type { AppContext } from "./types/context";
 import plansRouter from "./routes/plans";
 import stripeRouter from "./routes/stripe";
 import { PlanService } from "./services/PlanService";
+import { LevelingService } from "./services/LevelingService";
+import { seedLevels } from "./seeds/seedLevels";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -219,6 +221,7 @@ const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource
 
       // Seed the database with test users
       try {
+        await seedLevels(AppDataSource);
         await seedUsers(AppDataSource);
       } catch (seedError) {
         console.error("Error seeding users:", seedError);
@@ -271,7 +274,7 @@ async function initializeServices() {
 
   const categoryProcessingService = new CategoryProcessingService(categoryRepository);
 
-  const eventService = new EventService(dataSource);
+  const eventService = new EventService(dataSource, redisPub);
 
   // Create the event similarity service
   const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
@@ -308,6 +311,9 @@ async function initializeServices() {
   // Initialize the PlanService
   const planService = new PlanService(dataSource);
 
+  // Initialize the LevelingService
+  const levelingService = new LevelingService(dataSource, redisPub);
+
   function setupCleanupSchedule() {
     const CLEANUP_HOUR = 3;
     const BATCH_SIZE = 100;
@@ -342,6 +348,7 @@ async function initializeServices() {
     userPreferencesService,
     storageService,
     planService,
+    levelingService,
   };
 }
 
@@ -356,6 +363,7 @@ app.use("*", async (c, next) => {
   c.set("userPreferencesService", services.userPreferencesService);
   c.set("storageService", services.storageService);
   c.set("planService", services.planService);
+  c.set("levelingService", services.levelingService);
   await next();
 });
 

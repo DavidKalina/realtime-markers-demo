@@ -40,7 +40,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
         switch (position) {
             case "top-left":
                 return {
-                    top: 90,
+                    top: 120,
                     left: baseSpacing,
                     maxHeight: maxItems * (40 + itemSpacing)
                 };
@@ -115,7 +115,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
                 coordinates: discovery.event.location.coordinates,
                 timestamp: new Date().getTime(),
                 source: "discovery_indicator",
-                zoomLevel: 18
+                zoomLevel: 20
             });
         }
 

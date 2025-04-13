@@ -6,6 +6,7 @@ import Redis from "ioredis";
 import type { UserPreferencesService } from "../services/UserPreferences";
 import type { StorageService } from "../services/shared/StorageService";
 import { PlanService } from "../services/PlanService";
+import { LevelingService } from "../services/LevelingService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -15,6 +16,7 @@ export interface AppVariables {
   redisClient: Redis;
   userPreferencesService: UserPreferencesService;
   planService: PlanService;
+  levelingService: LevelingService;
   user?: { userId: string; email: string; role: string };
 }
 
