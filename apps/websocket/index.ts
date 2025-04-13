@@ -40,6 +40,10 @@ const MessageTypes = {
   SESSION_CREATED: "session_created",
   SESSION_JOINED: "session_joined",
   SESSION_UPDATE: "session_update",
+
+  // Leveling system
+  LEVEL_UPDATE: "level-update",
+  XP_AWARDED: "xp-awarded",
 };
 
 // --- In-Memory State ---
@@ -65,6 +69,9 @@ const redisPub = new Redis(redisConfig);
 const redisSub = new Redis(redisConfig);
 redisSub.subscribe("discovered_events");
 
+// Subscribe to level updates
+redisSub.subscribe("level-update");
+
 redisSub.on("message", (channel, message) => {
   if (channel === "discovered_events") {
     try {
@@ -82,19 +89,44 @@ redisSub.on("message", (channel, message) => {
           client.send(formattedMessage);
         } catch (error) {
           console.error(`Error sending discovery event to client ${clientId}:`, error);
-
-
-
-
-
-
-
-
-
         }
       }
     } catch (error) {
       console.error("Error processing discovery event:", error);
+    }
+  } else if (channel === "level-update") {
+    try {
+      const data = JSON.parse(message);
+      const { userId, level, title, action } = data;
+
+      // Format the message for clients
+      const formattedMessage = JSON.stringify({
+        type: MessageTypes.LEVEL_UPDATE,
+        data: {
+          userId,
+          level,
+          title,
+          action,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      // Forward to all clients of the user
+      const userClients = userToClients.get(userId);
+      if (userClients) {
+        for (const clientId of userClients) {
+          const client = clients.get(clientId);
+          if (client) {
+            try {
+              client.send(formattedMessage);
+            } catch (error) {
+              console.error(`Error sending level update to client ${clientId}:`, error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error processing level update:", error);
     }
   }
 });

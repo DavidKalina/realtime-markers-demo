@@ -12,6 +12,7 @@ import {
 import { Event } from "./Event";
 import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
+import { UserLevel } from "./UserLevel";
 
 export enum UserRole {
   USER = "USER",
@@ -76,6 +77,15 @@ export class User {
 
   @Column({ name: "last_scan_reset", type: "timestamptz", nullable: true })
   lastScanReset?: Date;
+
+  @Column({ name: "total_xp", type: "integer", default: 0 })
+  totalXp!: number;
+
+  @Column({ name: "current_title", type: "varchar", nullable: true })
+  currentTitle?: string;
+
+  @OneToMany(() => UserLevel, (userLevel) => userLevel.user)
+  userLevels!: UserLevel[];
 
   @OneToMany(() => UserEventDiscovery, (discovery) => discovery.user)
   discoveries!: UserEventDiscovery[];

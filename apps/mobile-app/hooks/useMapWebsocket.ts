@@ -7,6 +7,8 @@ import {
   MarkersEvent,
   BaseEvent,
   DiscoveryEvent,
+  LevelUpdateEvent,
+  XPAwardedEvent,
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -68,6 +70,10 @@ const MessageTypes = {
 
   // New event type for discovered events
   EVENT_DISCOVERED: "event_discovered",
+
+  // Leveling system events
+  LEVEL_UPDATE: "level-update",
+  XP_AWARDED: "xp-awarded",
 };
 
 export const useMapWebSocket = (url: string): MapWebSocketResult => {
@@ -409,6 +415,46 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               });
             } catch (error) {
               console.error('[useMapWebsocket] Error processing EVENT_DISCOVERED:', error);
+            }
+            break;
+          }
+
+          // Handle level updates
+          case MessageTypes.LEVEL_UPDATE: {
+            try {
+              eventBroker.emit<LevelUpdateEvent>(EventTypes.LEVEL_UPDATE, {
+                timestamp: Date.now(),
+                source: "useMapWebSocket",
+                data: {
+                  userId: data.userId,
+                  level: data.level,
+                  title: data.title,
+                  xpProgress: data.xpProgress,
+                  action: data.action,
+                  timestamp: data.timestamp,
+                },
+              });
+            } catch (error) {
+              console.error('[useMapWebsocket] Error processing LEVEL_UPDATE:', error);
+            }
+            break;
+          }
+
+          // Handle XP awarded events
+          case MessageTypes.XP_AWARDED: {
+            try {
+              eventBroker.emit<XPAwardedEvent>(EventTypes.XP_AWARDED, {
+                timestamp: Date.now(),
+                source: "useMapWebSocket",
+                data: {
+                  userId: data.userId,
+                  amount: data.amount,
+                  reason: data.reason,
+                  timestamp: data.timestamp,
+                },
+              });
+            } catch (error) {
+              console.error('[useMapWebsocket] Error processing XP_AWARDED:', error);
             }
             break;
           }

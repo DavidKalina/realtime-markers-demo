@@ -3,6 +3,7 @@
 import { DataSource } from "typeorm";
 import { seedUsers } from "./seedUsers";
 import { seedDefaultFilters } from "./seedFilters";
+import { seedLevels } from "./seedLevels";
 
 export async function seedDatabase(dataSource: DataSource): Promise<void> {
   console.log("Starting database seeding...");
@@ -21,6 +22,9 @@ export async function seedDatabase(dataSource: DataSource): Promise<void> {
 
     // Add default filters for all users (including existing ones)
     await seedDefaultFilters(dataSource);
+
+    // Seed levels
+    await seedLevels(dataSource);
 
     // Add more seed functions as needed:
     // await seedCategories(dataSource);

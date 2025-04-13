@@ -43,6 +43,15 @@ export interface User {
   role: string;
   avatarUrl?: string;
   isVerified: boolean;
+  bio?: string;
+  createdAt?: Date;
+  scanCount?: number;
+  saveCount?: number;
+  totalXp?: number;
+  currentTitle?: string;
+  level?: number;
+  nextLevelXp?: number;
+  xpProgress?: number;
 }
 
 export interface AuthTokens {

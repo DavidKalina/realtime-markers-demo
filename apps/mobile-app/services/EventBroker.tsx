@@ -56,6 +56,10 @@ export enum EventTypes {
   // New camera events
   CAMERA_ANIMATE_TO_LOCATION = "camera:animate:to:location",
   CAMERA_ANIMATE_TO_BOUNDS = "camera:animate:to:bounds",
+
+  // Leveling system events
+  LEVEL_UPDATE = "level-update",
+  XP_AWARDED = "xp-awarded",
 }
 
 // Base event interface that all event payloads should extend
@@ -234,6 +238,28 @@ export interface DiscoveredEventData {
 
 export interface DiscoveryEvent extends BaseEvent {
   event: DiscoveredEventData;
+}
+
+// Add level update event interface
+export interface LevelUpdateEvent extends BaseEvent {
+  data: {
+    userId: string;
+    level: number;
+    title: string;
+    xpProgress: number;
+    action: string;
+    timestamp: string;
+  };
+}
+
+// Add XP awarded event interface
+export interface XPAwardedEvent extends BaseEvent {
+  data: {
+    userId: string;
+    amount: number;
+    reason: string;
+    timestamp: string;
+  };
 }
 
 // Main EventBroker class
