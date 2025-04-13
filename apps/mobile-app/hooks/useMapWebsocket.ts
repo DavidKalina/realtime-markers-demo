@@ -288,9 +288,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         const data = JSON.parse(event.data);
 
 
-        console.log('[useMapWebsocket] Received message:', data.type);
-
-        // Guard against invalid data
         if (!data || typeof data !== 'object') {
           console.warn('[useMapWebsocket] Received invalid message data');
           return;
