@@ -272,7 +272,7 @@ async function initializeServices() {
 
   const categoryProcessingService = new CategoryProcessingService(categoryRepository);
 
-  const eventService = new EventService(dataSource);
+  const eventService = new EventService(dataSource, redisPub);
 
   // Create the event similarity service
   const eventSimilarityService = new EventSimilarityService(eventRepository, configService);

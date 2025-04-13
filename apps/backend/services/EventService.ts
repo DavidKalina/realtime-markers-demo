@@ -1,17 +1,18 @@
 import { type Point } from "geojson";
+import { Redis } from "ioredis";
 import pgvector from "pgvector";
 import { Brackets, DataSource, Repository, type DeepPartial } from "typeorm";
 import { Category } from "../entities/Category";
 import { Event, EventStatus } from "../entities/Event";
-import { UserEventSave } from "../entities/UserEventSave";
-import { CacheService } from "./shared/CacheService";
-import { OpenAIService, OpenAIModel } from "./shared/OpenAIService";
 import type { Filter } from "../entities/Filter";
 import { User } from "../entities/User";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
-import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
+import { UserEventSave } from "../entities/UserEventSave";
 import { EventSimilarityService } from "./event-processing/EventSimilarityService";
-import { GeocodingService } from "./GeocodingService";
+import { LevelingService } from "./LevelingService";
+import { CacheService } from "./shared/CacheService";
+import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
+import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
 
 interface SearchResult {
   event: Event;
@@ -44,13 +45,15 @@ export class EventService {
   private userEventSaveRepository: Repository<UserEventSave>;
   private locationService: GoogleGeocodingService;
   private eventSimilarityService: EventSimilarityService;
+  private levelingService: LevelingService;
 
-  constructor(private dataSource: DataSource) {
+  constructor(private dataSource: DataSource, redis: Redis) {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
     this.userEventSaveRepository = dataSource.getRepository(UserEventSave);
     this.locationService = GoogleGeocodingService.getInstance();
     this.eventSimilarityService = new EventSimilarityService(this.eventRepository);
+    this.levelingService = new LevelingService(dataSource, redis);
   }
 
   async cleanupOutdatedEvents(
@@ -224,6 +227,9 @@ export class EventService {
     }
 
     const savedEvent = await this.eventRepository.save(event);
+
+    // Award XP for creating an event
+    await this.levelingService.awardXp(input.creatorId, "CREATION", 50);
 
     await CacheService.invalidateSearchCache();
 
@@ -642,6 +648,9 @@ export class EventService {
         // Increment the user's save count
         user.saveCount = (user.saveCount || 0) + 1;
         saved = true;
+
+        // Award XP for saving an event
+        await this.levelingService.awardXp(userId, "SAVE", 10);
       }
 
       // Save both the updated event and user

@@ -48,9 +48,6 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
         transform: [{ translateY: xpGainTranslateY.value }],
     }));
 
-    // Animated XP text
-    const AnimatedXPText = Animated.createAnimatedComponent(Text);
-    const AnimatedNextLevelText = Animated.createAnimatedComponent(Text);
     const AnimatedXPGainText = Animated.createAnimatedComponent(Text);
 
     // Function to show XP gain animation
@@ -91,110 +88,50 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
         fetchLevelInfo();
     }, []);
 
-    // Subscribe to level updates
+    // Subscribe to level updates and XP awards
     useEffect(() => {
-        const unsubscribe = eventBroker.on<LevelUpdateEvent>(EventTypes.LEVEL_UPDATE, (event) => {
+        const levelUnsubscribe = eventBroker.on<LevelUpdateEvent>(EventTypes.LEVEL_UPDATE, (event) => {
             if (event.data.userId === user?.id) {
                 setLevelInfo(prev => ({
                     ...prev,
                     currentLevel: event.data.level,
                     currentTitle: event.data.title,
-                    progress: event.data.xpProgress
+                    // Calculate progress based on total XP and next level XP
+                    progress: Math.min((prev.totalXp / prev.nextLevelXp) * 100, 100)
                 }));
                 // Animate progress change
-                progressValue.value = withTiming(event.data.xpProgress, {
+                progressValue.value = withTiming(Math.min((levelInfo.totalXp / levelInfo.nextLevelXp) * 100, 100), {
                     duration: 500,
                 });
             }
         });
 
-        return () => unsubscribe();
-    }, [user?.id]);
-
-    // Simulation effect
-    useEffect(() => {
-        if (!user?.id) return;
-
-        // Simulate XP gains every 5 seconds
-        const xpInterval = setInterval(() => {
-            // Random XP amount between 10 and 30
-            const xpAmount = Math.floor(Math.random() * 21) + 10;
-
-            // Show XP gain animation
-            showXPGain(xpAmount);
-
-            // Publish XP awarded event
-            publish<XPAwardedEvent>(EventTypes.XP_AWARDED, {
-                timestamp: Date.now(),
-                source: 'simulation',
-                data: {
-                    userId: user.id,
-                    amount: xpAmount,
-                    reason: 'Simulated activity',
-                    timestamp: new Date().toISOString()
-                }
-            });
-
-            // Calculate new progress
-            const newTotalXp = levelInfo.totalXp + xpAmount;
-            const newProgress = (newTotalXp % levelInfo.nextLevelXp) / levelInfo.nextLevelXp * 100;
-
-            // Animate XP change
-            totalXpValue.value = withTiming(newTotalXp, {
-                duration: 500,
-            });
-
-            // Check if level up
-            if (newTotalXp >= levelInfo.nextLevelXp) {
-                const newLevel = levelInfo.currentLevel + 1;
-                const newTitle = `Level ${newLevel} Explorer`;
-                const newNextLevelXp = levelInfo.nextLevelXp * 1.5;
-
-                // Animate next level XP change
-                nextLevelXpValue.value = withTiming(newNextLevelXp, {
+        const xpUnsubscribe = eventBroker.on<XPAwardedEvent>(EventTypes.XP_AWARDED, (event) => {
+            if (event.data.userId === user?.id) {
+                // Show XP gain animation
+                showXPGain(event.data.amount);
+                // Update total XP and progress
+                setLevelInfo(prev => {
+                    const newTotalXp = prev.totalXp + event.data.amount;
+                    const newProgress = Math.min((newTotalXp / prev.nextLevelXp) * 100, 100);
+                    return {
+                        ...prev,
+                        totalXp: newTotalXp,
+                        progress: newProgress
+                    };
+                });
+                // Animate progress change
+                progressValue.value = withTiming(Math.min((levelInfo.totalXp + event.data.amount) / levelInfo.nextLevelXp * 100, 100), {
                     duration: 500,
                 });
-
-                // Publish level update event
-                publish<LevelUpdateEvent>(EventTypes.LEVEL_UPDATE, {
-                    timestamp: Date.now(),
-                    source: 'simulation',
-                    data: {
-                        userId: user.id,
-                        level: newLevel,
-                        title: newTitle,
-                        xpProgress: newProgress,
-                        action: 'level_up',
-                        timestamp: new Date().toISOString()
-                    }
-                });
-
-                // Update local state
-                setLevelInfo(prev => ({
-                    ...prev,
-                    currentLevel: newLevel,
-                    currentTitle: newTitle,
-                    nextLevelXp: newNextLevelXp,
-                    totalXp: newTotalXp,
-                    progress: newProgress
-                }));
-            } else {
-                // Just update progress
-                setLevelInfo(prev => ({
-                    ...prev,
-                    totalXp: newTotalXp,
-                    progress: newProgress
-                }));
             }
+        });
 
-            // Animate progress change
-            progressValue.value = withTiming(newProgress, {
-                duration: 500,
-            });
-        }, 5000);
-
-        return () => clearInterval(xpInterval);
-    }, [user?.id, levelInfo, publish]);
+        return () => {
+            levelUnsubscribe();
+            xpUnsubscribe();
+        };
+    }, [user?.id, levelInfo.totalXp, levelInfo.nextLevelXp]);
 
     return (
         <View style={[styles.container, { backgroundColor }]}>
@@ -210,14 +147,6 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
                 </View>
                 <View style={styles.progressContainer}>
                     <Animated.View style={[styles.progressBar, progressStyle]} />
-                </View>
-                <View style={styles.xpInfo}>
-                    <AnimatedXPText style={styles.xpText}>
-                        {Math.round(totalXpValue.value)} XP
-                    </AnimatedXPText>
-                    <AnimatedNextLevelText style={styles.nextLevelText}>
-                        Next: {Math.round(nextLevelXpValue.value)} XP
-                    </AnimatedNextLevelText>
                 </View>
             </View>
         </View>

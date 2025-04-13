@@ -63,17 +63,17 @@ const DateRangeIndicator: React.FC = () => {
     // Format date range for display
     const dateRangeText = useMemo(() => {
         if (filters.length === 0 || activeFilterIds.length === 0) {
-            return "Set Range";
+            return "Calendar";
         }
 
         const activeFilter = filters.find(f => activeFilterIds.includes(f.id));
         if (!activeFilter?.criteria?.dateRange) {
-            return "Set Range";
+            return "Calendar";
         }
 
         const { start, end } = activeFilter.criteria.dateRange;
         if (!start || !end) {
-            return "Set Range";
+            return "Calendar";
         }
 
         return `${format(parseISO(start), "M/d")} – ${format(parseISO(end), "M/d")}`;

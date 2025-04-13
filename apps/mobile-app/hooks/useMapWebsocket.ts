@@ -287,6 +287,9 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       try {
         const data = JSON.parse(event.data);
 
+
+        console.log('[useMapWebsocket] Received message:', data.type);
+
         // Guard against invalid data
         if (!data || typeof data !== 'object') {
           console.warn('[useMapWebsocket] Received invalid message data');
@@ -422,16 +425,17 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           // Handle level updates
           case MessageTypes.LEVEL_UPDATE: {
             try {
+              console.log('[useMapWebsocket] Processing level update:', data);
               eventBroker.emit<LevelUpdateEvent>(EventTypes.LEVEL_UPDATE, {
                 timestamp: Date.now(),
                 source: "useMapWebSocket",
                 data: {
-                  userId: data.userId,
-                  level: data.level,
-                  title: data.title,
-                  xpProgress: data.xpProgress,
-                  action: data.action,
-                  timestamp: data.timestamp,
+                  userId: data.data.userId,
+                  level: data.data.level,
+                  title: data.data.title,
+                  xpProgress: 0, // This will be updated by the XP bar component
+                  action: data.data.action,
+                  timestamp: data.data.timestamp,
                 },
               });
             } catch (error) {
@@ -443,14 +447,15 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           // Handle XP awarded events
           case MessageTypes.XP_AWARDED: {
             try {
+              console.log('[useMapWebsocket] Processing XP award:', data);
               eventBroker.emit<XPAwardedEvent>(EventTypes.XP_AWARDED, {
                 timestamp: Date.now(),
                 source: "useMapWebSocket",
                 data: {
-                  userId: data.userId,
-                  amount: data.amount,
-                  reason: data.reason,
-                  timestamp: data.timestamp,
+                  userId: data.data.userId,
+                  amount: data.data.amount,
+                  reason: data.data.action,
+                  timestamp: data.data.timestamp,
                 },
               });
             } catch (error) {
