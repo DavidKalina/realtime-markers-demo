@@ -12,7 +12,7 @@ export const authRouter = new Hono<AppContext>();
 // Apply IP and rate limiting middleware to all routes
 authRouter.use("*", ip());
 authRouter.use("*", rateLimit({
-    maxRequests: 5, // 5 requests per minute for auth routes
+    maxRequests: 20, // 5 requests per minute for auth routes
     windowMs: 60 * 1000,
     keyGenerator: (c) => {
         const ipInfo = c.get("ip");
