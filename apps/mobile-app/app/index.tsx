@@ -36,8 +36,6 @@ MapboxGL.setWellKnownTileServer('mapbox');
 const styles = homeScreenStyles;
 
 // Memoized UI components
-
-
 const GravitatingOverlay = React.memo(() => (
   <Animated.View
     style={[
@@ -95,15 +93,17 @@ function HomeScreen() {
     isUserInteracting: false,
   });
 
+  // Track if we've done initial centering
+  const hasCenteredOnUserRef = useRef(false);
+  const initialLocationRequestedRef = useRef(false);
+
   // Get user location only when needed
   useEffect(() => {
-    if (!userLocation && !isLoadingLocation) {
+    if (!userLocation && !isLoadingLocation && !initialLocationRequestedRef.current) {
+      initialLocationRequestedRef.current = true;
       getUserLocation();
     }
   }, [userLocation, isLoadingLocation, getUserLocation]);
-
-  // Track if we've done initial centering
-  const hasCenteredOnUserRef = useRef(false);
 
   // Update camera position only once when user location becomes available
   useEffect(() => {
@@ -115,6 +115,13 @@ function HomeScreen() {
       });
     }
   }, [userLocation, isLoadingLocation, isMapReady]);
+
+  // Cleanup Mapbox location manager on unmount
+  useEffect(() => {
+    return () => {
+      MapboxGL.locationManager.stop();
+    };
+  }, []);
 
   // Create map item event utility
   const createMapItemEvent = useCallback((selectedItem: any): MapItemEvent['item'] => {

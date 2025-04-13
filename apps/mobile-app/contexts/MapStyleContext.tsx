@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapboxGL from '@rnmapbox/maps';
 
@@ -14,55 +14,72 @@ interface MapStyleContextType {
 
 const MapStyleContext = createContext<MapStyleContextType | undefined>(undefined);
 
-export const MapStyleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+// Memoize the style URL calculation since it's a pure function
+const getMapStyleURL = (style: MapStyleType): string => {
+  switch (style) {
+    case 'dark':
+      return MapboxGL.StyleURL.Dark;
+    case 'street':
+      return MapboxGL.StyleURL.Street;
+    case 'light':
+      return MapboxGL.StyleURL.Light;
+    default:
+      return MapboxGL.StyleURL.Street;
+  }
+};
+
+export const MapStyleProvider: React.FC<{ children: React.ReactNode }> = React.memo(({ children }) => {
   const [currentStyle, setCurrentStyle] = useState<MapStyleType>('dark');
 
-  useEffect(() => {
-    // Load saved preference on mount
-    const loadMapStyle = async () => {
-      try {
-        const savedStyle = await AsyncStorage.getItem(MAP_STYLE_KEY);
-        if (savedStyle && (savedStyle === 'light' || savedStyle === 'dark' || savedStyle === 'street')) {
-          setCurrentStyle(savedStyle as MapStyleType);
-        }
-      } catch (error) {
-        console.error('Error loading map style preference:', error);
-      }
-    };
+  // Memoize the style URL to prevent recalculation
+  const mapStyle = useMemo(() => getMapStyleURL(currentStyle), [currentStyle]);
 
-    loadMapStyle();
-  }, []);
-
-  const setMapStyle = async (style: MapStyleType) => {
+  // Memoize the style change handler
+  const setMapStyle = useCallback(async (style: MapStyleType) => {
     try {
       await AsyncStorage.setItem(MAP_STYLE_KEY, style);
       setCurrentStyle(style);
     } catch (error) {
       console.error('Error saving map style preference:', error);
+      // Consider adding error handling UI here
     }
-  };
+  }, []);
 
-  const getMapStyle = () => {
-    switch (currentStyle) {
-      case 'dark':
-        return MapboxGL.StyleURL.Dark;
-      case 'street':
-        return MapboxGL.StyleURL.Street;
-      case 'light':
-        return MapboxGL.StyleURL.Light;
-      default:
-        return MapboxGL.StyleURL.Street;
-    }
-  };
+  // Load saved preference on mount
+  useEffect(() => {
+    let isMounted = true;
 
-  const value = {
+    const loadMapStyle = async () => {
+      try {
+        const savedStyle = await AsyncStorage.getItem(MAP_STYLE_KEY);
+        if (isMounted && savedStyle && (savedStyle === 'light' || savedStyle === 'dark' || savedStyle === 'street')) {
+          setCurrentStyle(savedStyle as MapStyleType);
+        }
+      } catch (error) {
+        console.error('Error loading map style preference:', error);
+        // Consider adding error handling UI here
+      }
+    };
+
+    loadMapStyle();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
     currentStyle,
     setMapStyle,
-    mapStyle: getMapStyle(),
-  };
+    mapStyle,
+  }), [currentStyle, setMapStyle, mapStyle]);
 
-  return <MapStyleContext.Provider value={value}>{children}</MapStyleContext.Provider>;
-};
+  return <MapStyleContext.Provider value={contextValue}>{children}</MapStyleContext.Provider>;
+});
+
+// Add display name for better debugging
+MapStyleProvider.displayName = 'MapStyleProvider';
 
 export const useMapStyle = () => {
   const context = useContext(MapStyleContext);

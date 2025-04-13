@@ -15,7 +15,7 @@ import {
   User,
   Zap,
 } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -74,6 +74,218 @@ const COLORS = {
   },
 };
 
+// Memoized Profile Header
+const ProfileHeader = React.memo(({ user, userInitials, profileData }: {
+  user: any;
+  userInitials: string;
+  profileData: any;
+}) => (
+  <Card delay={100}>
+    <View style={styles.profileHeader}>
+      <View style={styles.avatarOuterContainer}>
+        <Text style={styles.avatarText}>{userInitials}</Text>
+      </View>
+      <View style={styles.userInfoContainer}>
+        <Text style={styles.userName}>{user?.displayName || user?.email}</Text>
+        {user?.isVerified && (
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(200).springify()}
+            style={styles.verifiedBadge}
+          >
+            <Shield size={12} color="#40c057" />
+            <Text style={styles.verifiedText}>VERIFIED</Text>
+          </Animated.View>
+        )}
+      </View>
+    </View>
+    <Animated.View
+      entering={FadeInDown.duration(600).delay(300).springify()}
+      style={[styles.statsContainer, { justifyContent: "center", gap: 32 }]}
+    >
+      <View style={styles.statItem}>
+        <Text style={styles.statValue}>{profileData?.scanCount || 0}</Text>
+        <Text style={styles.statLabel}>Scans</Text>
+      </View>
+      <View style={styles.statDivider} />
+      <View style={styles.statItem}>
+        <Text style={styles.statValue}>{profileData?.saveCount || 0}</Text>
+        <Text style={styles.statLabel}>Saved</Text>
+      </View>
+    </Animated.View>
+  </Card>
+));
+
+// Memoized Plan Section
+const PlanSection = React.memo(({ planDetails, progressWidth, handleUpgradePlan }: {
+  planDetails: any;
+  progressWidth: number;
+  handleUpgradePlan: () => void;
+}) => (
+  <Card delay={350}>
+    <View style={styles.planHeader}>
+      <View style={styles.planBadge}>
+        {planDetails?.planType === PlanType.PRO ? (
+          <Crown size={16} color="#fbbf24" />
+        ) : (
+          <Zap size={16} color="#93c5fd" />
+        )}
+        <Text
+          style={[
+            styles.planBadgeText,
+            planDetails?.planType === PlanType.PRO && styles.planBadgeTextPro,
+          ]}
+        >
+          {planDetails?.planType || "FREE"}
+        </Text>
+      </View>
+      {planDetails?.planType === PlanType.FREE && (
+        <TouchableOpacity
+          style={styles.upgradeButton}
+          onPress={handleUpgradePlan}
+          activeOpacity={0.8}
+        >
+          <Crown size={16} color="#fbbf24" style={{ marginRight: 4 }} />
+          <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+    <View style={styles.usageContainer}>
+      <View style={styles.usageHeader}>
+        <Text style={styles.usageLabel}>Weekly Scans</Text>
+        <Text style={styles.usageCount}>
+          {planDetails?.weeklyScanCount || 0} / {planDetails?.scanLimit || 10}
+        </Text>
+      </View>
+      <View style={styles.progressBarContainer}>
+        <View
+          style={[
+            styles.progressBar,
+            {
+              width: `${progressWidth}%`,
+            },
+          ]}
+        />
+      </View>
+      <Text style={styles.usageNote}>
+        {planDetails?.remainingScans || 0} scans remaining this week
+      </Text>
+    </View>
+  </Card>
+));
+
+// Memoized Account Details
+const AccountDetails = React.memo(({ loading, profileData, user, memberSince, mapStyleButtons }: {
+  loading: boolean;
+  profileData: any;
+  user: any;
+  memberSince: string;
+  mapStyleButtons: JSX.Element;
+}) => (
+  <Card delay={400}>
+    <Text style={styles.sectionTitle}>Account Information</Text>
+    {loading ? (
+      <ActivityIndicator size="large" color="#93c5fd" style={{ marginVertical: 20 }} />
+    ) : (
+      <Animated.View layout={LinearTransition.springify()}>
+        <Animated.View
+          entering={FadeInDown.duration(600).delay(500).springify()}
+          style={styles.detailItem}
+        >
+          <View style={styles.detailIconContainer}>
+            <Mail size={18} color="#93c5fd" />
+          </View>
+          <View style={styles.detailContent}>
+            <Text style={styles.detailLabel}>Email</Text>
+            <Text style={styles.detailValue}>{profileData?.email || user?.email}</Text>
+          </View>
+        </Animated.View>
+        <Animated.View
+          entering={FadeInDown.duration(600).delay(600).springify()}
+          style={styles.detailItem}
+        >
+          <View style={styles.detailIconContainer}>
+            <User size={18} color="#93c5fd" />
+          </View>
+          <View style={styles.detailContent}>
+            <Text style={styles.detailLabel}>Role</Text>
+            <Text style={styles.detailValue}>
+              {profileData?.role || user?.role || "User"}
+            </Text>
+          </View>
+        </Animated.View>
+        <Animated.View
+          entering={FadeInDown.duration(600).delay(700).springify()}
+          style={styles.detailItem}
+        >
+          <View style={styles.detailIconContainer}>
+            <Calendar size={18} color="#93c5fd" />
+          </View>
+          <View style={styles.detailContent}>
+            <Text style={styles.detailLabel}>Member Since</Text>
+            <Text style={styles.detailValue}>{memberSince}</Text>
+          </View>
+        </Animated.View>
+        {profileData?.bio && (
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(800).springify()}
+            style={styles.detailItem}
+          >
+            <View style={styles.detailIconContainer}>
+              <User size={18} color="#93c5fd" />
+            </View>
+            <View style={styles.detailContent}>
+              <Text style={styles.detailLabel}>Bio</Text>
+              <Text style={styles.detailValue}>{profileData.bio}</Text>
+            </View>
+          </Animated.View>
+        )}
+        <Animated.View
+          entering={FadeInDown.duration(600).delay(900).springify()}
+          style={styles.detailItem}
+        >
+          <View style={styles.detailIconContainer}>
+            <Moon size={18} color="#93c5fd" />
+          </View>
+          <View style={[styles.detailContent, { gap: 8 }]}>
+            <Text style={styles.detailLabel}>Map Style</Text>
+            {mapStyleButtons}
+          </View>
+        </Animated.View>
+      </Animated.View>
+    )}
+  </Card>
+));
+
+// Memoized Actions Section
+const ActionsSection = React.memo(({ handleLogout, setShowDeleteDialog }: {
+  handleLogout: () => void;
+  setShowDeleteDialog: (show: boolean) => void;
+}) => (
+  <Card delay={1000}>
+    <View style={styles.actionsSection}>
+      <TouchableOpacity
+        style={styles.logoutButton}
+        onPress={handleLogout}
+        activeOpacity={0.8}
+      >
+        <LogOut size={18} color="#f97583" style={{ marginRight: 8 }} />
+        <Text style={styles.logoutText}>Logout</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          setShowDeleteDialog(true);
+        }}
+        activeOpacity={0.8}
+      >
+        <Trash2 size={18} color="#dc2626" style={{ marginRight: 8 }} />
+        <Text style={styles.deleteText}>Delete Account</Text>
+      </TouchableOpacity>
+    </View>
+  </Card>
+));
+
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -93,7 +305,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     lastReset: Date | null;
   } | null>(null);
 
-  // Animation values
+  // Track mounted state
+  const isMountedRef = useRef(true);
+
+  // Animation values with cleanup
   const scrollY = useSharedValue(0);
 
   // Scroll handler
@@ -103,10 +318,44 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     },
   });
 
+  // Cleanup animation on unmount
+  useEffect(() => {
+    return () => {
+      scrollY.value = 0;
+    };
+  }, []);
+
+  // Handle map style change
+  const handleMapStyleChange = useCallback(async (style: MapStyleType) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await setMapStyle(style);
+  }, [setMapStyle]);
+
+  // Handle plan upgrade
+  const handleUpgradePlan = useCallback(async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const response = await apiClient.createStripeCheckoutSession();
+
+      if (!response.checkoutUrl) {
+        throw new Error("No checkout URL received");
+      }
+
+      // Open the checkout URL in a WebView
+      router.push({
+        pathname: "/checkout",
+        params: { checkoutUrl: response.checkoutUrl },
+      });
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }, [router]);
 
   // Fetch user profile data with cleanup
   useEffect(() => {
     let isMounted = true;
+    let controller = new AbortController();
 
     const fetchProfileData = async () => {
       try {
@@ -115,7 +364,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           setProfileData(data);
         }
       } catch (error: any) {
-        console.error("Error fetching profile data:", error);
+        if (error.name !== 'AbortError') {
+          console.error("Error fetching profile data:", error);
+        }
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -127,12 +378,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, []);
 
   // Fetch plan details with cleanup
   useEffect(() => {
     let isMounted = true;
+    let controller = new AbortController();
 
     const fetchPlanDetails = async () => {
       try {
@@ -141,7 +394,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           setPlanDetails(details);
         }
       } catch (error: any) {
-        console.error("Error fetching plan details:", error);
+        if (error.name !== 'AbortError') {
+          console.error("Error fetching plan details:", error);
+        }
       }
     };
 
@@ -149,12 +404,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, []);
 
   // Handle payment status with cleanup
   useEffect(() => {
     let isMounted = true;
+    let controller = new AbortController();
 
     if (paymentStatus === "success") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -166,7 +423,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           }
         })
         .catch((error: any) => {
-          console.error("Error refreshing plan details:", error);
+          if (error.name !== 'AbortError') {
+            console.error("Error refreshing plan details:", error);
+          }
         });
     } else if (paymentStatus === "cancel") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -174,6 +433,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, [paymentStatus]);
 
@@ -206,6 +466,62 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       100
     );
   }, [planDetails?.weeklyScanCount, planDetails?.scanLimit]);
+
+  // Memoize map style buttons to prevent unnecessary re-renders
+  const mapStyleButtons = useMemo(() => (
+    <View style={styles.mapStyleButtons}>
+      <TouchableOpacity
+        style={[
+          styles.mapStyleButton,
+          currentStyle === "light" && styles.mapStyleButtonActive,
+        ]}
+        onPress={() => handleMapStyleChange("light")}
+      >
+        <Text
+          style={[
+            styles.mapStyleButtonText,
+            currentStyle === "light" && styles.mapStyleButtonTextActive,
+          ]}
+        >
+          Light
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.mapStyleButton,
+          currentStyle === "dark" && styles.mapStyleButtonActive,
+        ]}
+        onPress={() => handleMapStyleChange("dark")}
+      >
+        <Text
+          style={[
+            styles.mapStyleButtonText,
+            currentStyle === "dark" && styles.mapStyleButtonTextActive,
+          ]}
+        >
+          Dark
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.mapStyleButton,
+          currentStyle === "street" && styles.mapStyleButtonActive,
+        ]}
+        onPress={() => handleMapStyleChange("street")}
+      >
+        <Text
+          style={[
+            styles.mapStyleButtonText,
+            currentStyle === "street" && styles.mapStyleButtonTextActive,
+          ]}
+        >
+          Colorful
+        </Text>
+      </TouchableOpacity>
+    </View>
+  ), [currentStyle, handleMapStyleChange]);
 
   // Handle back button
   const handleBack = () => {
@@ -247,33 +563,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     }
   };
 
-  // Handle map style change
-  const handleMapStyleChange = async (style: MapStyleType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await setMapStyle(style);
-  };
-
-  // Handle plan upgrade
-  const handleUpgradePlan = async () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const response = await apiClient.createStripeCheckoutSession();
-
-      if (!response.checkoutUrl) {
-        throw new Error("No checkout URL received");
-      }
-
-      // Open the checkout URL in a WebView
-      router.push({
-        pathname: "/checkout",
-        params: { checkoutUrl: response.checkoutUrl },
-      });
-    } catch (error) {
-      console.error("Error creating checkout session:", error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  };
-
   return (
     <ScreenLayout>
       <Header title="Profile" onBack={handleBack} />
@@ -284,262 +573,27 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         onScroll={scrollHandler}
         scrollEventThrottle={16}
       >
-        {/* User Header with Avatar */}
-        <Card delay={100}>
-          <View style={styles.profileHeader}>
-            <View style={styles.avatarOuterContainer}>
-              <Text style={styles.avatarText}>{userInitials}</Text>
-            </View>
-
-            <View style={styles.userInfoContainer}>
-              <Text style={styles.userName}>{user?.displayName || user?.email}</Text>
-
-              {user?.isVerified && (
-                <Animated.View
-                  entering={FadeInDown.duration(600).delay(200).springify()}
-                  style={styles.verifiedBadge}
-                >
-                  <Shield size={12} color="#40c057" />
-                  <Text style={styles.verifiedText}>VERIFIED</Text>
-                </Animated.View>
-              )}
-            </View>
-          </View>
-
-          <Animated.View
-            entering={FadeInDown.duration(600).delay(300).springify()}
-            style={[styles.statsContainer, { justifyContent: "center", gap: 32 }]}
-          >
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{profileData?.scanCount || 0}</Text>
-              <Text style={styles.statLabel}>Scans</Text>
-            </View>
-
-            <View style={styles.statDivider} />
-
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{profileData?.saveCount || 0}</Text>
-              <Text style={styles.statLabel}>Saved</Text>
-            </View>
-          </Animated.View>
-        </Card>
-
-        {/* Plan Section */}
-        <Card delay={350}>
-          <View style={styles.planHeader}>
-            <View style={styles.planBadge}>
-              {planDetails?.planType === PlanType.PRO ? (
-                <Crown size={16} color="#fbbf24" />
-              ) : (
-                <Zap size={16} color="#93c5fd" />
-              )}
-              <Text
-                style={[
-                  styles.planBadgeText,
-                  planDetails?.planType === PlanType.PRO && styles.planBadgeTextPro,
-                ]}
-              >
-                {planDetails?.planType || "FREE"}
-              </Text>
-            </View>
-            {planDetails?.planType === PlanType.FREE && (
-              <TouchableOpacity
-                style={styles.upgradeButton}
-                onPress={handleUpgradePlan}
-                activeOpacity={0.8}
-              >
-                <Crown size={16} color="#fbbf24" style={{ marginRight: 4 }} />
-                <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.usageContainer}>
-            <View style={styles.usageHeader}>
-              <Text style={styles.usageLabel}>Weekly Scans</Text>
-              <Text style={styles.usageCount}>
-                {planDetails?.weeklyScanCount || 0} / {planDetails?.scanLimit || 10}
-              </Text>
-            </View>
-            <View style={styles.progressBarContainer}>
-              <View
-                style={[
-                  styles.progressBar,
-                  {
-                    width: `${progressWidth}%`,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={styles.usageNote}>
-              {planDetails?.remainingScans || 0} scans remaining this week
-            </Text>
-          </View>
-        </Card>
-
-        {/* User Details Card */}
-        <Card delay={400}>
-          <Text style={styles.sectionTitle}>Account Information</Text>
-
-          {loading ? (
-            <ActivityIndicator size="large" color="#93c5fd" style={{ marginVertical: 20 }} />
-          ) : (
-            <Animated.View layout={LinearTransition.springify()}>
-              {/* Email Detail */}
-              <Animated.View
-                entering={FadeInDown.duration(600).delay(500).springify()}
-                style={styles.detailItem}
-              >
-                <View style={styles.detailIconContainer}>
-                  <Mail size={18} color="#93c5fd" />
-                </View>
-                <View style={styles.detailContent}>
-                  <Text style={styles.detailLabel}>Email</Text>
-                  <Text style={styles.detailValue}>{profileData?.email || user?.email}</Text>
-                </View>
-              </Animated.View>
-
-              {/* Role Detail */}
-              <Animated.View
-                entering={FadeInDown.duration(600).delay(600).springify()}
-                style={styles.detailItem}
-              >
-                <View style={styles.detailIconContainer}>
-                  <User size={18} color="#93c5fd" />
-                </View>
-                <View style={styles.detailContent}>
-                  <Text style={styles.detailLabel}>Role</Text>
-                  <Text style={styles.detailValue}>
-                    {profileData?.role || user?.role || "User"}
-                  </Text>
-                </View>
-              </Animated.View>
-
-              {/* Member Since */}
-              <Animated.View
-                entering={FadeInDown.duration(600).delay(700).springify()}
-                style={styles.detailItem}
-              >
-                <View style={styles.detailIconContainer}>
-                  <Calendar size={18} color="#93c5fd" />
-                </View>
-                <View style={styles.detailContent}>
-                  <Text style={styles.detailLabel}>Member Since</Text>
-                  <Text style={styles.detailValue}>{memberSince}</Text>
-                </View>
-              </Animated.View>
-
-              {/* Bio - if available */}
-              {profileData?.bio && (
-                <Animated.View
-                  entering={FadeInDown.duration(600).delay(800).springify()}
-                  style={styles.detailItem}
-                >
-                  <View style={styles.detailIconContainer}>
-                    <User size={18} color="#93c5fd" />
-                  </View>
-                  <View style={styles.detailContent}>
-                    <Text style={styles.detailLabel}>Bio</Text>
-                    <Text style={styles.detailValue}>{profileData.bio}</Text>
-                  </View>
-                </Animated.View>
-              )}
-
-              {/* Map Style */}
-              <Animated.View
-                entering={FadeInDown.duration(600).delay(900).springify()}
-                style={styles.detailItem}
-              >
-                <View style={styles.detailIconContainer}>
-                  <Moon size={18} color="#93c5fd" />
-                </View>
-                <View style={[styles.detailContent, { gap: 8 }]}>
-                  <Text style={styles.detailLabel}>Map Style</Text>
-                  <View style={styles.mapStyleButtons}>
-                    <TouchableOpacity
-                      style={[
-                        styles.mapStyleButton,
-                        currentStyle === "light" && styles.mapStyleButtonActive,
-                      ]}
-                      onPress={() => handleMapStyleChange("light")}
-                    >
-                      <Text
-                        style={[
-                          styles.mapStyleButtonText,
-                          currentStyle === "light" && styles.mapStyleButtonTextActive,
-                        ]}
-                      >
-                        Light
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.mapStyleButton,
-                        currentStyle === "dark" && styles.mapStyleButtonActive,
-                      ]}
-                      onPress={() => handleMapStyleChange("dark")}
-                    >
-                      <Text
-                        style={[
-                          styles.mapStyleButtonText,
-                          currentStyle === "dark" && styles.mapStyleButtonTextActive,
-                        ]}
-                      >
-                        Dark
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.mapStyleButton,
-                        currentStyle === "street" && styles.mapStyleButtonActive,
-                      ]}
-                      onPress={() => handleMapStyleChange("street")}
-                    >
-                      <Text
-                        style={[
-                          styles.mapStyleButtonText,
-                          currentStyle === "street" && styles.mapStyleButtonTextActive,
-                        ]}
-                      >
-                        Colorful
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </Animated.View>
-            </Animated.View>
-          )}
-        </Card>
-
-        {/* Logout and Delete Section */}
-        <Card delay={1000}>
-          <View style={styles.actionsSection}>
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogout}
-              activeOpacity={0.8}
-            >
-              <LogOut size={18} color="#f97583" style={{ marginRight: 8 }} />
-              <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                setShowDeleteDialog(true);
-              }}
-              activeOpacity={0.8}
-            >
-              <Trash2 size={18} color="#dc2626" style={{ marginRight: 8 }} />
-              <Text style={styles.deleteText}>Delete Account</Text>
-            </TouchableOpacity>
-          </View>
-        </Card>
-
-        {/* App Version */}
+        <ProfileHeader
+          user={user}
+          userInitials={userInitials}
+          profileData={profileData}
+        />
+        <PlanSection
+          planDetails={planDetails}
+          progressWidth={progressWidth}
+          handleUpgradePlan={handleUpgradePlan}
+        />
+        <AccountDetails
+          loading={loading}
+          profileData={profileData}
+          user={user}
+          memberSince={memberSince}
+          mapStyleButtons={mapStyleButtons}
+        />
+        <ActionsSection
+          handleLogout={handleLogout}
+          setShowDeleteDialog={setShowDeleteDialog}
+        />
         <Animated.View
           entering={FadeInDown.duration(600).delay(1100).springify()}
           style={styles.versionContainer}

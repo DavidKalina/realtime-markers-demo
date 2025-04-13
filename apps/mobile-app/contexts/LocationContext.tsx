@@ -224,16 +224,27 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
     return () => {
       if (locationSubscription) {
         locationSubscription.remove();
+        setLocationSubscription(null);
       }
     };
   }, [locationSubscription]);
 
   // Request location permissions when the component mounts
   useEffect(() => {
-    getUserLocation();
-    // This effect should only run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    let isMounted = true;
+
+    const initLocation = async () => {
+      if (isMounted) {
+        await getUserLocation();
+      }
+    };
+
+    initLocation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [getUserLocation]);
 
   // Create the context value object using useMemo to prevent unnecessary re-renders
   const contextValue = useMemo(

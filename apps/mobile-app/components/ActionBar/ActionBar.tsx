@@ -55,6 +55,13 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
     // Each button has its own scale animation
     const scaleValue = useSharedValue(1);
 
+    // Cleanup animation value on unmount
+    useEffect(() => {
+      return () => {
+        scaleValue.value = 1; // Reset the animation value
+      };
+    }, [scaleValue]);
+
     // Create animated style for the button - this won't change between renders
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [{ scale: scaleValue.value }],
@@ -264,13 +271,17 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
       [userLocation, actionHandlers]
     );
 
-    // Clean up timeouts when component unmounts
+    // Clean up timeouts and subscriptions when component unmounts
     useEffect(() => {
       return () => {
+        // Clear any pending timeout
         if (activeActionTimeoutRef.current) {
           clearTimeout(activeActionTimeoutRef.current);
           activeActionTimeoutRef.current = null;
         }
+
+        // Reset active action state
+        setActiveAction(null);
       };
     }, []);
 

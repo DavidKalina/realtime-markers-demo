@@ -136,14 +136,16 @@ const EventAssistant: React.FC = () => {
 
     // Cancel any ongoing streaming
     cancelStreaming();
+    resetStreaming();
 
     // Reset navigation state
     navigationActionRef.current = null;
     isNavigatingRef.current = false;
 
-    // Hide assistant
+    // Hide assistant and reset animations
     animationControls.hideAssistant();
-  }, [cancelStreaming, animationControls]);
+    animationControls.quickTransition();
+  }, [cancelStreaming, resetStreaming, animationControls]);
 
   // Function to schedule auto-dismiss with cleanup
   const scheduleAutoDismiss = useCallback(() => {
@@ -388,13 +390,6 @@ const EventAssistant: React.FC = () => {
     [handleActionPress, selectedItem, animationStyles.actionBar]
   );
 
-  // Watch for streaming state changes to handle auto-dismiss
-  useEffect(() => {
-    if (!isStreaming && isMountedRef.current) {
-      scheduleAutoDismiss();
-    }
-  }, [isStreaming, scheduleAutoDismiss]);
-
   // Cleanup on unmount
   useEffect(() => {
     isMountedRef.current = true;
@@ -404,6 +399,30 @@ const EventAssistant: React.FC = () => {
       cleanupAll();
     };
   }, [cleanupAll]);
+
+  // Watch for streaming state changes to handle auto-dismiss
+  useEffect(() => {
+    if (!isStreaming && isMountedRef.current) {
+      scheduleAutoDismiss();
+    }
+
+    return () => {
+      if (autoDismissTimerRef.current) {
+        clearTimeout(autoDismissTimerRef.current);
+        autoDismissTimerRef.current = null;
+      }
+    };
+  }, [isStreaming, scheduleAutoDismiss]);
+
+  // Handle navigation cleanup
+  useEffect(() => {
+    return () => {
+      if (navigationTimerRef.current) {
+        clearTimeout(navigationTimerRef.current);
+        navigationTimerRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
