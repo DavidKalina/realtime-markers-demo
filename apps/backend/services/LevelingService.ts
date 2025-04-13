@@ -9,6 +9,9 @@ export class LevelingService {
     private levelRepository: Repository<Level>;
     private userLevelRepository: Repository<UserLevel>;
     private redis: Redis;
+    private levelsCache: Level[] | null = null;
+    private lastCacheUpdate: number = 0;
+    private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
     constructor(dataSource: DataSource, redis: Redis) {
         this.userRepository = dataSource.getRepository(User);
@@ -18,73 +21,147 @@ export class LevelingService {
     }
 
     /**
+     * Get all levels with caching
+     */
+    private async getAllLevels(): Promise<Level[]> {
+        const now = Date.now();
+
+        // Return cached levels if they exist and are not expired
+        if (this.levelsCache && (now - this.lastCacheUpdate) < this.CACHE_TTL) {
+            return this.levelsCache;
+        }
+
+        // Fetch fresh levels from database
+        const levels = await this.levelRepository.find({
+            order: { levelNumber: "ASC" },
+        });
+
+        if (levels.length === 0) {
+            throw new Error("No levels found in database");
+        }
+
+        // Update cache
+        this.levelsCache = levels;
+        this.lastCacheUpdate = now;
+
+        return levels;
+    }
+
+    /**
      * Award XP to a user for a specific action
      */
     async awardXp(userId: string, action: "DISCOVERY" | "SAVE" | "CREATION" | "LOGIN", amount: number): Promise<void> {
-        const user = await this.userRepository.findOne({ where: { id: userId } });
-        if (!user) throw new Error("User not found");
+        // Start a transaction to ensure all operations are atomic
+        const queryRunner = this.userRepository.manager.connection.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
 
-        // Update total XP
-        user.totalXp += amount;
-        await this.userRepository.save(user);
+        try {
+            // Get user and levels in a single transaction
+            const [user, levels] = await Promise.all([
+                queryRunner.manager.findOne(User, { where: { id: userId } }),
+                this.getAllLevels()
+            ]);
 
-        // Get current level before XP award
-        const oldLevel = await this.getCurrentLevel(userId);
+            if (!user) throw new Error("User not found");
 
-        // Get new level after XP award
-        const newLevel = await this.getCurrentLevel(userId);
+            // Get current level before XP award
+            const oldLevel = this.determineLevel(levels, user.totalXp);
 
-        // If level changed, update user's title and publish level up event
-        if (newLevel.levelNumber > oldLevel.levelNumber) {
-            user.currentTitle = newLevel.title;
-            await this.userRepository.save(user);
+            // Update total XP
+            user.totalXp += amount;
+            await queryRunner.manager.save(user);
 
-            // Publish level-up event
+            // Get new level after XP award
+            const newLevel = this.determineLevel(levels, user.totalXp);
+
+            // If level changed, update user's title and publish level up event
+            if (newLevel.levelNumber > oldLevel.levelNumber) {
+                user.currentTitle = newLevel.title;
+                await queryRunner.manager.save(user);
+
+                // Publish level-up event
+                await this.redis.publish(
+                    "level-update",
+                    JSON.stringify({
+                        userId,
+                        level: newLevel.levelNumber,
+                        title: newLevel.title,
+                        action: "level_up",
+                        timestamp: new Date().toISOString(),
+                    })
+                );
+            }
+
+            // Publish XP award event
             await this.redis.publish(
                 "level-update",
                 JSON.stringify({
                     userId,
-                    level: newLevel.levelNumber,
-                    title: newLevel.title,
-                    action: "level_up",
+                    action: "xp_awarded",
+                    amount,
+                    totalXp: user.totalXp,
                     timestamp: new Date().toISOString(),
                 })
             );
-        }
 
-        // Publish XP award event
-        await this.redis.publish(
-            "level-update",
-            JSON.stringify({
-                userId,
-                action: "xp_awarded",
-                amount,
-                totalXp: user.totalXp,
-                timestamp: new Date().toISOString(),
-            })
-        );
+            // Update current level progress
+            const userLevel = await queryRunner.manager.findOne(UserLevel, {
+                where: { userId, levelId: newLevel.id },
+            });
 
-        // Update current level progress
-        const userLevel = await this.userLevelRepository.findOne({
-            where: { userId, levelId: newLevel.id },
-        });
+            if (userLevel && !userLevel.isCompleted) {
+                userLevel.currentXp += amount;
 
-        if (userLevel && !userLevel.isCompleted) {
-            userLevel.currentXp += amount;
+                // Check if level is completed
+                if (userLevel.currentXp >= newLevel.requiredXp) {
+                    userLevel.isCompleted = true;
+                    userLevel.completedAt = new Date();
 
-            // Check if level is completed
-            if (userLevel.currentXp >= newLevel.requiredXp) {
-                userLevel.isCompleted = true;
-                userLevel.completedAt = new Date();
-
-                // Apply rewards if any
-                if (newLevel.rewards) {
-                    await this.applyRewards(userId, newLevel.rewards);
+                    // Apply rewards if any
+                    if (newLevel.rewards) {
+                        await this.applyRewards(userId, newLevel.rewards);
+                    }
                 }
+
+                await queryRunner.manager.save(userLevel);
             }
 
-            await this.userLevelRepository.save(userLevel);
+            await queryRunner.commitTransaction();
+        } catch (error) {
+            await queryRunner.rollbackTransaction();
+            throw error;
+        } finally {
+            await queryRunner.release();
         }
+    }
+
+    /**
+     * Determine level based on XP (without database query)
+     */
+    private determineLevel(levels: Level[], totalXp: number): Level {
+        let currentLevel = levels[0]; // Start with level 1
+        for (let i = 0; i < levels.length; i++) {
+            const level = levels[i];
+            const nextLevel = levels[i + 1];
+
+            // If this is the last level, stay at current level
+            if (!nextLevel) {
+                currentLevel = level;
+                break;
+            }
+
+            // If user's XP meets the next level's requirement, move to next level
+            if (totalXp >= nextLevel.requiredXp) {
+                currentLevel = nextLevel;
+            } else {
+                // If user's XP is less than next level's requirement, stay at current level
+                currentLevel = level;
+                break;
+            }
+        }
+
+        return currentLevel;
     }
 
     /**
@@ -97,14 +174,17 @@ export class LevelingService {
         nextLevelXp: number;
         progress: number;
     }> {
-        const user = await this.userRepository.findOne({ where: { id: userId } });
+        // Get user and levels in parallel
+        const [user, levels] = await Promise.all([
+            this.userRepository.findOne({ where: { id: userId } }),
+            this.getAllLevels()
+        ]);
+
         if (!user) throw new Error("User not found");
 
         try {
-            const currentLevel = await this.getCurrentLevel(userId);
-            const nextLevel = await this.levelRepository.findOne({
-                where: { levelNumber: currentLevel.levelNumber + 1 },
-            });
+            const currentLevel = this.determineLevel(levels, user.totalXp);
+            const nextLevel = levels.find(l => l.levelNumber === currentLevel.levelNumber + 1);
 
             // Calculate progress based on current level
             let progress = 0;
@@ -149,55 +229,6 @@ export class LevelingService {
                 progress: Math.min((user.totalXp / 100) * 100, 100),
             };
         }
-    }
-
-    /**
-     * Get user's current level
-     */
-    private async getCurrentLevel(userId: string): Promise<Level> {
-        const levels = await this.levelRepository.find({
-            order: { levelNumber: "ASC" },
-        });
-
-        if (levels.length === 0) {
-            throw new Error("No levels found in database");
-        }
-
-        const user = await this.userRepository.findOne({ where: { id: userId } });
-        if (!user) {
-            throw new Error("User not found");
-        }
-
-        // Find the highest level where user's XP meets the requirement
-        let currentLevel = levels[0]; // Start with level 1
-        for (let i = 0; i < levels.length; i++) {
-            const level = levels[i];
-            const nextLevel = levels[i + 1];
-
-            // If this is the last level, stay at current level
-            if (!nextLevel) {
-                currentLevel = level;
-                break;
-            }
-
-            // If user's XP meets the next level's requirement, move to next level
-            if (user.totalXp >= nextLevel.requiredXp) {
-                currentLevel = nextLevel;
-            } else {
-                // If user's XP is less than next level's requirement, stay at current level
-                currentLevel = level;
-                break;
-            }
-        }
-
-        console.log("Level determination:", {
-            userId,
-            totalXp: user.totalXp,
-            determinedLevel: currentLevel.levelNumber,
-            requiredXp: currentLevel.requiredXp
-        });
-
-        return currentLevel;
     }
 
     /**
