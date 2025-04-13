@@ -401,9 +401,14 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
 
   // Event listeners
   useEffect(() => {
+    let isMounted = true;
+    let animationTimeout: NodeJS.Timeout | null = null;
+
     const unsubscribeAnimateToLocation = subscribe<CameraAnimateToLocationEvent>(
       EventTypes.CAMERA_ANIMATE_TO_LOCATION,
       (event) => {
+        if (!isMounted) return;
+
         const duration = event.duration || 1000;
         const cameraSettings: any = {
           centerCoordinate: event.coordinates,
@@ -418,20 +423,20 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
 
         if (cameraRef.current) {
           isAnimatingRef.current = true;
-          let animationTimeout: NodeJS.Timeout;
+
+          // Clear any existing animation timeout
+          if (animationTimeout) {
+            clearTimeout(animationTimeout);
+            animationTimeout = null;
+          }
 
           cameraRef.current.setCamera(cameraSettings);
 
           animationTimeout = setTimeout(() => {
-            if (isAnimatingRef.current) { // Check if still mounted
+            if (isMounted) {
               isAnimatingRef.current = false;
             }
           }, duration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
-
-          return () => {
-            clearTimeout(animationTimeout);
-            isAnimatingRef.current = false;
-          };
         }
       }
     );
@@ -439,6 +444,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     const unsubscribeAnimateToBounds = subscribe<CameraAnimateToBoundsEvent>(
       EventTypes.CAMERA_ANIMATE_TO_BOUNDS,
       (event) => {
+        if (!isMounted) return;
         const duration = event.duration || 1000;
         const padding = event.padding || 50;
         animateToBounds(event.bounds, padding, duration);
@@ -446,30 +452,70 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     );
 
     return () => {
+      isMounted = false;
       unsubscribeAnimateToLocation();
       unsubscribeAnimateToBounds();
+
+      // Clear any pending animation timeout
+      if (animationTimeout) {
+        clearTimeout(animationTimeout);
+        animationTimeout = null;
+      }
+
       // Reset all animation states
       isAnimatingRef.current = false;
       isPullingRef.current = false;
       setIsGravitating(false);
       setIsHighVelocity(false);
+
+      // Clear viewport samples
+      viewportSamplesRef.current = [];
+
+      // Reset user interaction states
+      isUserPanningRef.current = false;
+      isUserZoomingRef.current = false;
+
+      // Clear any pending timeouts
+      if (panningTimeoutRef.current) {
+        clearTimeout(panningTimeoutRef.current);
+        panningTimeoutRef.current = null;
+      }
+      if (zoomingTimeoutRef.current) {
+        clearTimeout(zoomingTimeoutRef.current);
+        zoomingTimeoutRef.current = null;
+      }
     };
   }, [subscribe, animateToLocationWithZoom, animateToBounds, gravitationConfig.gravityZoomLevel]);
 
   // Cleanup
   useEffect(() => {
+    let isMounted = true;
+
     return () => {
+      isMounted = false;
+
+      // Clear all timeouts
       if (panningTimeoutRef.current) {
         clearTimeout(panningTimeoutRef.current);
+        panningTimeoutRef.current = null;
       }
       if (zoomingTimeoutRef.current) {
         clearTimeout(zoomingTimeoutRef.current);
+        zoomingTimeoutRef.current = null;
       }
+
       // Reset all animation states
       isAnimatingRef.current = false;
       isPullingRef.current = false;
       setIsGravitating(false);
       setIsHighVelocity(false);
+
+      // Clear viewport samples
+      viewportSamplesRef.current = [];
+
+      // Reset user interaction states
+      isUserPanningRef.current = false;
+      isUserZoomingRef.current = false;
     };
   }, []);
 

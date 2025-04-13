@@ -153,7 +153,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
     const selectMapItem = useLocationStore((state) => state.selectMapItem);
     const isItemSelected = useLocationStore((state) => state.isItemSelected);
 
-    const { publish } = useEventBroker();
+    const { publish, subscribe } = useEventBroker();
 
     // Use provided markers or fall back to store markers
     const markers = propMarkers || storeMarkers;
@@ -164,7 +164,12 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
     // Memoize the handler creation to avoid recreating functions
     const createMapItemPressHandler = useCallback(
       (item: MapItem) => {
+        let isMounted = true;
+        let animationTimeout: NodeJS.Timeout | null = null;
+
         return () => {
+          if (!isMounted) return;
+
           // Skip if already selected
           if (selectedItem?.id === item.id) {
             return;
@@ -172,8 +177,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
 
           // Select the item in the store
           selectMapItem(item);
-
-
 
           // Convert to the EventBroker's expected format
           if (item.type === "marker") {
@@ -199,7 +202,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               markerId: item.id,
               markerData: item.data,
             });
-
 
             // Center camera on the item without changing zoom
             publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
@@ -234,10 +236,9 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               clusterInfo: {
                 count: item.count,
                 coordinates: item.coordinates,
-                childMarkers: item.childrenIds, // Ensure childMarkers are included
+                childMarkers: item.childrenIds,
               },
             });
-
 
             // Center camera on the item without changing zoom
             publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
@@ -245,14 +246,44 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               source: "ClusteredMapMarkers",
               coordinates: item.coordinates,
               duration: 400,
-              zoomLevel: currentZoom, // Keep the same zoom level
-              allowZoomChange: false, // Explicitly prevent zoom changes
+              zoomLevel: currentZoom,
+              allowZoomChange: false,
             });
           }
+
+          return () => {
+            isMounted = false;
+            if (animationTimeout) {
+              clearTimeout(animationTimeout);
+              animationTimeout = null;
+            }
+          };
         };
       },
       [currentZoom, publish, selectMapItem, selectedItem?.id]
     );
+
+    // Cleanup effect
+    useEffect(() => {
+      let isMounted = true;
+      let unsubscribeCamera: (() => void) | null = null;
+
+      // Subscribe to camera events
+      unsubscribeCamera = subscribe<CameraAnimateToLocationEvent>(
+        EventTypes.CAMERA_ANIMATE_TO_LOCATION,
+        (event) => {
+          if (!isMounted) return;
+          // Handle camera animation
+        }
+      );
+
+      return () => {
+        isMounted = false;
+        if (unsubscribeCamera) {
+          unsubscribeCamera();
+        }
+      };
+    }, [subscribe]);
 
     // Memoize the cluster processing function with stable references
     const processCluster = useCallback(
@@ -271,7 +302,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               type: "cluster" as const,
               coordinates: coordinates as [number, number],
               count,
-              childrenIds: clusterFeature.properties.childMarkers || [], // Ensure we always have an array
+              childrenIds: clusterFeature.properties.childMarkers || [],
             },
             isSelected: isItemSelected(clusterId),
             onPress: createMapItemPressHandler({
@@ -279,7 +310,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               type: "cluster" as const,
               coordinates: coordinates as [number, number],
               count,
-              childrenIds: clusterFeature.properties.childMarkers || [], // Ensure we always have an array
+              childrenIds: clusterFeature.properties.childMarkers || [],
             }),
           };
         } else {
@@ -318,7 +349,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
     }, [clusters, processCluster]);
 
     // Further optimize by adding culling for markers that are outside the viewport
-    // This is a simple implementation - you may want to add a buffer zone
     const visibleItems = useMemo(() => {
       return processedClusters.filter((item) => {
         const [lng, lat] = item.item.coordinates;
