@@ -105,6 +105,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
 
     // Set up drop-in animation on mount
     useEffect(() => {
+      let isMounted = true;
       // Delay based on index for staggered entrance
       const startDelay = index * 200;
 
@@ -127,24 +128,23 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
 
       // After drop is complete
       const dropCompleteTimer = setTimeout(() => {
-        setIsDropComplete(true);
+        if (isMounted) {
+          setIsDropComplete(true);
 
-        // Show shadow
-        shadowOpacity.value = withTiming(0.3, ANIMATIONS.SHADOW);
+          // Show shadow
+          shadowOpacity.value = withTiming(0.3, ANIMATIONS.SHADOW);
 
-        // Show ripple effect
-        rippleScale.value = withTiming(5, ANIMATIONS.RIPPLE);
-        rippleOpacity.value = withTiming(0, ANIMATIONS.RIPPLE);
+          // Show ripple effect
+          rippleScale.value = withTiming(5, ANIMATIONS.RIPPLE);
+          rippleOpacity.value = withTiming(0, ANIMATIONS.RIPPLE);
 
-        // Periodic gentle bounce
-        const bounceTimer = setTimeout(() => {
+          // Start periodic bounce
           startPeriodicBounce();
-        }, 300);
-
-        return () => clearTimeout(bounceTimer);
+        }
       }, startDelay + 1200);
 
       return () => {
+        isMounted = false;
         clearTimeout(dropCompleteTimer);
         createAnimationCleanup([dropY, scale, rotation, shadowOpacity, rippleScale, rippleOpacity])();
       };
@@ -152,26 +152,44 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
 
     // Start periodic bounce animation
     const startPeriodicBounce = useCallback(() => {
-      bounceY.value = withSequence(
-        withTiming(-5, ANIMATIONS.BOUNCE),
-        withTiming(0, ANIMATIONS.BOUNCE)
-      );
+      let isMounted = true;
+      let bounceTimer: NodeJS.Timeout;
 
-      // Set up periodic repeating
-      const timer = setTimeout(() => {
-        startPeriodicBounce();
-      }, 6000);
+      const bounce = () => {
+        if (!isMounted) return;
 
-      return () => clearTimeout(timer);
+        bounceY.value = withSequence(
+          withTiming(-5, ANIMATIONS.BOUNCE),
+          withTiming(0, ANIMATIONS.BOUNCE)
+        );
+
+        bounceTimer = setTimeout(bounce, 6000);
+      };
+
+      bounce();
+
+      return () => {
+        isMounted = false;
+        if (bounceTimer) {
+          clearTimeout(bounceTimer);
+        }
+      };
     }, []);
 
     // Handle selection state changes
     useEffect(() => {
+      let isMounted = true;
+
       if (isSelected) {
         scale.value = withSpring(1.15, ANIMATIONS.SCALE_RELEASE);
       } else {
         scale.value = withSpring(1, ANIMATIONS.SCALE_RELEASE);
       }
+
+      return () => {
+        isMounted = false;
+        createAnimationCleanup([scale])();
+      };
     }, [isSelected]);
 
     // Handle press with haptic feedback

@@ -145,6 +145,7 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
 
     // Set up drop-in animation on mount
     useEffect(() => {
+      let isMounted = true;
       // Delay based on index for staggered entrance
       const startDelay = index * 200;
 
@@ -167,24 +168,23 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
 
       // After drop is complete
       const dropCompleteTimer = setTimeout(() => {
-        setIsDropComplete(true);
+        if (isMounted) {
+          setIsDropComplete(true);
 
-        // Show shadow
-        shadowOpacity.value = withTiming(0.3, ANIMATIONS.SHADOW);
+          // Show shadow
+          shadowOpacity.value = withTiming(0.3, ANIMATIONS.SHADOW);
 
-        // Show ripple effect
-        rippleScale.value = withTiming(5, ANIMATIONS.RIPPLE);
-        rippleOpacity.value = withTiming(0, ANIMATIONS.RIPPLE);
+          // Show ripple effect
+          rippleScale.value = withTiming(5, ANIMATIONS.RIPPLE);
+          rippleOpacity.value = withTiming(0, ANIMATIONS.RIPPLE);
 
-        // Periodic gentle bounce
-        const bounceTimer = setTimeout(() => {
+          // Start periodic bounce
           startPeriodicBounce();
-        }, 300);
-
-        return () => clearTimeout(bounceTimer);
+        }
       }, startDelay + 1200);
 
       return () => {
+        isMounted = false;
         clearTimeout(dropCompleteTimer);
         createAnimationCleanup([dropY, scale, rotation, shadowOpacity, rippleScale, rippleOpacity])();
       };
@@ -192,17 +192,28 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
 
     // Start periodic bounce animation
     const startPeriodicBounce = useCallback(() => {
-      bounceY.value = withSequence(
-        withTiming(-5, ANIMATIONS.BOUNCE),
-        withTiming(0, ANIMATIONS.BOUNCE)
-      );
+      let isMounted = true;
+      let bounceTimer: NodeJS.Timeout;
 
-      // Set up periodic repeating
-      const timer = setTimeout(() => {
-        startPeriodicBounce();
-      }, 6000);
+      const bounce = () => {
+        if (!isMounted) return;
 
-      return () => clearTimeout(timer);
+        bounceY.value = withSequence(
+          withTiming(-5, ANIMATIONS.BOUNCE),
+          withTiming(0, ANIMATIONS.BOUNCE)
+        );
+
+        bounceTimer = setTimeout(bounce, 6000);
+      };
+
+      bounce();
+
+      return () => {
+        isMounted = false;
+        if (bounceTimer) {
+          clearTimeout(bounceTimer);
+        }
+      };
     }, []);
 
     // Handle selection state changes
@@ -236,8 +247,14 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
 
     // Add fanning animation effect
     useEffect(() => {
-      if (isDropComplete) {
-        // Fan out and in sequence
+      if (!isDropComplete) return;
+
+      let isMounted = true;
+      let fanTimer: NodeJS.Timeout;
+
+      const fan = () => {
+        if (!isMounted) return;
+
         fanRotation.value = withSequence(
           withTiming(0.2, ANIMATIONS.FAN_OUT),
           withTiming(-0.2, ANIMATIONS.FAN_OUT),
@@ -250,40 +267,39 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
           withTiming(1, ANIMATIONS.FAN_IN)
         );
 
-        // Repeat the fanning animation every 4 seconds
-        const fanTimer = setInterval(() => {
-          fanRotation.value = withSequence(
-            withTiming(0.2, ANIMATIONS.FAN_OUT),
-            withTiming(-0.2, ANIMATIONS.FAN_OUT),
-            withTiming(0, ANIMATIONS.FAN_IN)
-          );
+        fanTimer = setTimeout(fan, 4000);
+      };
 
-          fanScale.value = withSequence(
-            withTiming(1.1, ANIMATIONS.FAN_OUT),
-            withTiming(1.1, { duration: 200 }),
-            withTiming(1, ANIMATIONS.FAN_IN)
-          );
-        }, 4000);
+      fan();
 
-        return () => clearInterval(fanTimer);
-      }
+      return () => {
+        isMounted = false;
+        if (fanTimer) {
+          clearTimeout(fanTimer);
+        }
+        createAnimationCleanup([fanRotation, fanScale])();
+      };
     }, [isDropComplete]);
 
     // Add pulsing animation for larger clusters
     useEffect(() => {
-      if (count > 15) { // Only for very large clusters
+      if (!isDropComplete) return;
+
+      let isMounted = true;
+      let pulseAnimation: Animated.SharedValue<number>;
+
+      if (count > 15) {
         pulseScale.value = withRepeat(
           withSequence(
-            withTiming(1.15, { duration: 300 }), // Faster, more intense pulse
-            withTiming(0.95, { duration: 300 }), // Quick shrink
-            withTiming(1.1, { duration: 200 }),  // Medium pulse
-            withTiming(1, { duration: 200 })     // Back to normal
+            withTiming(1.15, { duration: 300 }),
+            withTiming(0.95, { duration: 300 }),
+            withTiming(1.1, { duration: 200 }),
+            withTiming(1, { duration: 200 })
           ),
           -1,
           true
         );
       } else if (count > 5) {
-        // Keep the gentler pulse for medium clusters
         pulseScale.value = withRepeat(
           withSequence(
             withTiming(1.08, { duration: 1000 }),
@@ -293,22 +309,35 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
           true
         );
       }
-    }, [count]);
+
+      return () => {
+        isMounted = false;
+        createAnimationCleanup([pulseScale])();
+      };
+    }, [count, isDropComplete]);
 
     // Add a secondary "burst" effect for very large clusters
     const burstScale = useSharedValue(1);
     useEffect(() => {
-      if (count > 15) {
-        burstScale.value = withRepeat(
-          withSequence(
-            withTiming(1.2, { duration: 400 }),  // Quick burst
-            withTiming(1, { duration: 400 })     // Quick return
-          ),
-          -1,
-          true
-        );
-      }
-    }, [count]);
+      if (!isDropComplete || count <= 15) return;
+
+      let isMounted = true;
+      let burstAnimation: Animated.SharedValue<number>;
+
+      burstScale.value = withRepeat(
+        withSequence(
+          withTiming(1.2, { duration: 400 }),
+          withTiming(1, { duration: 400 })
+        ),
+        -1,
+        true
+      );
+
+      return () => {
+        isMounted = false;
+        createAnimationCleanup([burstScale])();
+      };
+    }, [count, isDropComplete]);
 
     // Animated styles
     const markerStyle = useAnimatedStyle(() => ({
