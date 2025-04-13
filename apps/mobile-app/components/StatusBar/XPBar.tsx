@@ -48,7 +48,6 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
     // Animation values for progress bar
     const progressStyle = useAnimatedStyle(() => {
         const progress = Math.min(Math.max(progressValue.value, 0), 100);
-        console.log('Progress bar width:', progress);
         return {
             width: `${progress}%`,
             height: '100%',
@@ -82,7 +81,6 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
     const fetchLatestXPData = useCallback(async () => {
         try {
             const user = await apiClient.getUserProfile();
-            console.log("Raw user data from API:", user);
 
             const newLevelInfo = {
                 currentLevel: user.level || 1,
@@ -92,20 +90,13 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
                 progress: user.xpProgress || 0
             };
 
-            console.log("Processed level info:", newLevelInfo);
-            console.log("Progress calculation:", {
-                totalXp: newLevelInfo.totalXp,
-                nextLevelXp: newLevelInfo.nextLevelXp,
-                rawProgress: newLevelInfo.progress,
-                calculatedProgress: (newLevelInfo.totalXp / newLevelInfo.nextLevelXp) * 100
-            });
+
 
             // Update state and animation values
             setLevelInfo(newLevelInfo);
 
             // Ensure progress is between 0 and 100
             const clampedProgress = Math.min(Math.max(newLevelInfo.progress, 0), 100);
-            console.log("Setting progress to:", clampedProgress);
 
             // Animate the progress change
             progressValue.value = withTiming(clampedProgress, {
@@ -128,7 +119,6 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
     useEffect(() => {
         const levelUnsubscribe = eventBroker.on<LevelUpdateEvent>(EventTypes.LEVEL_UPDATE, async (event) => {
             if (event.data.userId === user?.id) {
-                console.log("Received level update event:", event.data);
                 // Fetch latest data to ensure we're in sync
                 await fetchLatestXPData();
             }
@@ -136,7 +126,6 @@ const XPBar: React.FC<XPBarProps> = ({ backgroundColor = '#1a1a1a' }) => {
 
         const xpUnsubscribe = eventBroker.on<XPAwardedEvent>(EventTypes.XP_AWARDED, async (event) => {
             if (event.data.userId === user?.id) {
-                console.log("Received XP award event:", event.data);
                 // Show XP gain animation
                 showXPGain(event.data.amount);
 
