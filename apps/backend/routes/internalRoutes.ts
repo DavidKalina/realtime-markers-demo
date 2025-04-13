@@ -43,7 +43,7 @@ internalRouter.post("/xp/award", async (c) => {
         const { userId, action, amount } = awardXpSchema.parse(body);
 
         const levelingService = c.get("levelingService");
-        await levelingService.awardXp(userId, action, amount);
+        await levelingService.awardXp(userId, amount);
 
         return c.json({ success: true, message: "XP awarded successfully" });
     } catch (error) {

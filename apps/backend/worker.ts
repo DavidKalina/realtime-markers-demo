@@ -3,7 +3,6 @@ import Redis from "ioredis";
 import AppDataSource from "./data-source";
 import { Category } from "./entities/Category";
 import { Event } from "./entities/Event";
-import { User } from "./entities/User";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
@@ -19,7 +18,6 @@ import { GoogleGeocodingService } from "./services/shared/GoogleGeocodingService
 import { OpenAIService } from "./services/shared/OpenAIService";
 import { StorageService } from "./services/shared/StorageService";
 import { isEventTemporalyRelevant } from "./utils/isEventTemporalyRelevant";
-import { LevelingService } from "./services/LevelingService";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -376,20 +374,6 @@ async function initializeWorker() {
           if (job.data.creatorId) {
             await eventService.createDiscoveryRecord(job.data.creatorId, newEvent.id);
 
-            // Award XP for discovery and publish level update
-            const levelingService = new LevelingService(AppDataSource, redisClient);
-            await levelingService.awardXp(job.data.creatorId, "DISCOVERY", 10);
-
-            // Publish level update to Redis
-            await redisClient.publish(
-              "level-update",
-              JSON.stringify({
-                userId: job.data.creatorId,
-                action: "xp_awarded",
-                amount: 10,
-                timestamp: new Date().toISOString(),
-              })
-            );
           }
 
           // Publish notifications

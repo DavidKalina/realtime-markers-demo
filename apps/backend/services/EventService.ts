@@ -229,7 +229,7 @@ export class EventService {
     const savedEvent = await this.eventRepository.save(event);
 
     // Award XP for creating an event
-    await this.levelingService.awardXp(input.creatorId, "CREATION", 50);
+    await this.levelingService.awardXp(input.creatorId, 50);
 
     await CacheService.invalidateSearchCache();
 
@@ -650,7 +650,7 @@ export class EventService {
         saved = true;
 
         // Award XP for saving an event
-        await this.levelingService.awardXp(userId, "SAVE", 10);
+        await this.levelingService.awardXp(userId, 10);
       }
 
       // Save both the updated event and user
