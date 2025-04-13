@@ -62,11 +62,28 @@ function HomeScreen() {
 
   // Initialize MapboxGL location manager with cleanup
   useEffect(() => {
-    MapboxGL.locationManager.start();
-    MapboxGL.setWellKnownTileServer('mapbox');
+    let isMounted = true;
+    let locationManagerStarted = false;
+
+    const initializeLocation = async () => {
+      if (isMounted) {
+        try {
+          await MapboxGL.locationManager.start();
+          MapboxGL.setWellKnownTileServer('mapbox');
+          locationManagerStarted = true;
+        } catch (error) {
+          console.error('Error initializing location manager:', error);
+        }
+      }
+    };
+
+    initializeLocation();
 
     return () => {
-      MapboxGL.locationManager.stop();
+      isMounted = false;
+      if (locationManagerStarted) {
+        MapboxGL.locationManager.stop();
+      }
     };
   }, []);
 
@@ -102,11 +119,23 @@ function HomeScreen() {
   // Get user location only when needed
   useEffect(() => {
     let isMounted = true;
+    let updateTimeout: NodeJS.Timeout | null = null;
 
     const updateLocation = async () => {
       if (!userLocation && !isLoadingLocation && isMounted) {
         try {
-          await getUserLocation();
+          // Clear any pending updates
+          if (updateTimeout) {
+            clearTimeout(updateTimeout);
+            updateTimeout = null;
+          }
+
+          // Add a small delay to prevent rapid updates
+          updateTimeout = setTimeout(async () => {
+            if (isMounted) {
+              await getUserLocation();
+            }
+          }, 500);
         } catch (error) {
           console.error('Error getting user location:', error);
         }
@@ -117,6 +146,9 @@ function HomeScreen() {
 
     return () => {
       isMounted = false;
+      if (updateTimeout) {
+        clearTimeout(updateTimeout);
+      }
     };
   }, [userLocation, isLoadingLocation, getUserLocation]);
 
@@ -125,15 +157,37 @@ function HomeScreen() {
 
   // Update camera position only once when user location becomes available
   useEffect(() => {
-    if (userLocation && !isLoadingLocation && isMapReady && cameraRef.current && !hasCenteredOnUserRef.current) {
-      hasCenteredOnUserRef.current = true;
-      cameraRef.current.setCamera({
-        ...DEFAULT_CAMERA_SETTINGS,
-        centerCoordinate: userLocation,
-      });
-    }
+    let isMounted = true;
+    let cameraUpdateTimeout: NodeJS.Timeout | null = null;
+
+    const updateCamera = () => {
+      if (userLocation && !isLoadingLocation && isMapReady && cameraRef.current && !hasCenteredOnUserRef.current && isMounted) {
+        // Clear any pending updates
+        if (cameraUpdateTimeout) {
+          clearTimeout(cameraUpdateTimeout);
+          cameraUpdateTimeout = null;
+        }
+
+        // Add a small delay to prevent rapid updates
+        cameraUpdateTimeout = setTimeout(() => {
+          if (isMounted) {
+            hasCenteredOnUserRef.current = true;
+            cameraRef.current?.setCamera({
+              ...DEFAULT_CAMERA_SETTINGS,
+              centerCoordinate: userLocation,
+            });
+          }
+        }, 500);
+      }
+    };
+
+    updateCamera();
 
     return () => {
+      isMounted = false;
+      if (cameraUpdateTimeout) {
+        clearTimeout(cameraUpdateTimeout);
+      }
       hasCenteredOnUserRef.current = false;
     };
   }, [userLocation, isLoadingLocation, isMapReady]);

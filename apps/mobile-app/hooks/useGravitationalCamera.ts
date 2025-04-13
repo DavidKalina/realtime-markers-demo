@@ -162,6 +162,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
 
       if (cameraRef.current) {
         isAnimatingRef.current = true;
+        let animationTimeout: NodeJS.Timeout;
 
         cameraRef.current.setCamera({
           centerCoordinate: centroid,
@@ -170,19 +171,27 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
           animationMode: gravitationConfig.gravityAnimationMode,
         });
 
-        setTimeout(() => {
-          isPullingRef.current = false;
-          setIsGravitating(false);
-          setIsHighVelocity(false);
-          lastPullTimeRef.current = Date.now();
+        animationTimeout = setTimeout(() => {
+          if (isPullingRef.current) { // Check if still mounted
+            isPullingRef.current = false;
+            setIsGravitating(false);
+            setIsHighVelocity(false);
+            lastPullTimeRef.current = Date.now();
 
-          publish<BaseEvent>(EventTypes.GRAVITATIONAL_PULL_COMPLETED, {
-            timestamp: Date.now(),
-            source: "GravitationalCamera",
-          });
+            publish<BaseEvent>(EventTypes.GRAVITATIONAL_PULL_COMPLETED, {
+              timestamp: Date.now(),
+              source: "GravitationalCamera",
+            });
 
-          isAnimatingRef.current = false;
+            isAnimatingRef.current = false;
+          }
         }, animationDuration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
+
+        return () => {
+          clearTimeout(animationTimeout);
+          isAnimatingRef.current = false;
+          isPullingRef.current = false;
+        };
       }
     }
   }, [
@@ -274,11 +283,16 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     }
 
     if (!isPullingRef.current && isGravitatingEnabled) {
-      const timeoutId = setTimeout(() => {
-        applyGravitationalPull();
+      let markerTimeout: NodeJS.Timeout;
+      markerTimeout = setTimeout(() => {
+        if (!isPullingRef.current) { // Check if still mounted
+          applyGravitationalPull();
+        }
       }, 50);
 
-      return () => clearTimeout(timeoutId);
+      return () => {
+        clearTimeout(markerTimeout);
+      };
     }
   }, [markers, applyGravitationalPull, isGravitatingEnabled]);
 
@@ -297,15 +311,24 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     (coordinates: [number, number], duration = 1000, zoom?: number) => {
       if (cameraRef.current) {
         isAnimatingRef.current = true;
+        let animationTimeout: NodeJS.Timeout;
+
         cameraRef.current.setCamera({
           centerCoordinate: coordinates,
           animationDuration: duration,
           animationMode: "flyTo",
         });
 
-        setTimeout(() => {
-          isAnimatingRef.current = false;
+        animationTimeout = setTimeout(() => {
+          if (isAnimatingRef.current) { // Check if still mounted
+            isAnimatingRef.current = false;
+          }
         }, duration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
+
+        return () => {
+          clearTimeout(animationTimeout);
+          isAnimatingRef.current = false;
+        };
       }
     },
     []
@@ -315,6 +338,8 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     (coordinates: [number, number], duration = 3000, targetZoom?: number) => {
       if (cameraRef.current) {
         isAnimatingRef.current = true;
+        let animationTimeout: NodeJS.Timeout;
+
         cameraRef.current.setCamera({
           centerCoordinate: coordinates,
           zoomLevel: Math.min(targetZoom ?? gravitationConfig.gravityZoomLevel, ANIMATION_CONSTANTS.SAFE_ZOOM_LEVEL),
@@ -322,9 +347,16 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
           animationMode: "flyTo",
         });
 
-        setTimeout(() => {
-          isAnimatingRef.current = false;
+        animationTimeout = setTimeout(() => {
+          if (isAnimatingRef.current) { // Check if still mounted
+            isAnimatingRef.current = false;
+          }
         }, duration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
+
+        return () => {
+          clearTimeout(animationTimeout);
+          isAnimatingRef.current = false;
+        };
       }
     },
     [gravitationConfig.gravityZoomLevel]
@@ -343,6 +375,8 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     ) => {
       if (cameraRef.current) {
         isAnimatingRef.current = true;
+        let animationTimeout: NodeJS.Timeout;
+
         cameraRef.current.fitBounds(
           [bounds.west, bounds.south],
           [bounds.east, bounds.north],
@@ -350,9 +384,16 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
           duration
         );
 
-        setTimeout(() => {
-          isAnimatingRef.current = false;
+        animationTimeout = setTimeout(() => {
+          if (isAnimatingRef.current) { // Check if still mounted
+            isAnimatingRef.current = false;
+          }
         }, duration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
+
+        return () => {
+          clearTimeout(animationTimeout);
+          isAnimatingRef.current = false;
+        };
       }
     },
     []
@@ -371,19 +412,26 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
           animationMode: "flyTo"
         };
 
-
-        // Only include zoomLevel if zoom changes are explicitly allowed
         if (event.allowZoomChange === true) {
           cameraSettings.zoomLevel = event.zoomLevel || gravitationConfig.gravityZoomLevel;
         }
 
         if (cameraRef.current) {
           isAnimatingRef.current = true;
+          let animationTimeout: NodeJS.Timeout;
+
           cameraRef.current.setCamera(cameraSettings);
 
-          setTimeout(() => {
-            isAnimatingRef.current = false;
+          animationTimeout = setTimeout(() => {
+            if (isAnimatingRef.current) { // Check if still mounted
+              isAnimatingRef.current = false;
+            }
           }, duration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
+
+          return () => {
+            clearTimeout(animationTimeout);
+            isAnimatingRef.current = false;
+          };
         }
       }
     );
@@ -400,6 +448,11 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     return () => {
       unsubscribeAnimateToLocation();
       unsubscribeAnimateToBounds();
+      // Reset all animation states
+      isAnimatingRef.current = false;
+      isPullingRef.current = false;
+      setIsGravitating(false);
+      setIsHighVelocity(false);
     };
   }, [subscribe, animateToLocationWithZoom, animateToBounds, gravitationConfig.gravityZoomLevel]);
 
@@ -412,6 +465,11 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       if (zoomingTimeoutRef.current) {
         clearTimeout(zoomingTimeoutRef.current);
       }
+      // Reset all animation states
+      isAnimatingRef.current = false;
+      isPullingRef.current = false;
+      setIsGravitating(false);
+      setIsHighVelocity(false);
     };
   }, []);
 
