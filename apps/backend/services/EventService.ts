@@ -1096,7 +1096,7 @@ export class EventService {
     // Sort categories by number of events and take top 4
     const eventsByCategory = Array.from(categoryMap.values())
       .sort((a, b) => b.events.length - a.events.length)
-      .slice(0, 4);
+      .slice(0, 10);
 
     // 3. Get events by location
     const locationMap = new Map<string, Event[]>();
