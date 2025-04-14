@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { find } from "geo-tz";
-import { OpenAIService } from "./OpenAIService";
+import { OpenAIModel, OpenAIService } from "./OpenAIService";
 
 interface CachedLocation {
     cluesHash: string;
@@ -341,7 +341,7 @@ export class GoogleGeocodingService {
         try {
             console.warn('\n🤖 Querying LLM for location analysis...');
             const response = await OpenAIService.executeChatCompletion({
-                model: "gpt-4o",
+                model: "gpt-4o" as OpenAIModel,
                 temperature: 0.1,
                 response_format: { type: "json_object" },
                 messages: [
