@@ -148,7 +148,7 @@ export default function ScanScreen() {
     router.replace("/");
   }, [performFullCleanup, router]);
 
-  // Queue job and navigate after a brief delay
+  // Queue job and navigate after animation completes
   const queueJobAndNavigateDelayed = useCallback(
     (jobId: string) => {
       if (!jobId || !isMounted.current) return;
@@ -164,16 +164,9 @@ export default function ScanScreen() {
         message: "Document scan queued for processing",
       });
 
-      // Set a timer to navigate away after a brief preview
-      navigationTimerRef.current = setTimeout(() => {
-        if (isMounted.current) {
-          // Perform full cleanup before navigation
-          performFullCleanup();
-          router.replace("/");
-        }
-      }, 1500);
+      // We'll let the animation's onAnimationComplete handle the navigation
     },
-    [addJob, publish, performFullCleanup, router]
+    [addJob, publish]
   );
 
   // Check if network is suitable for upload
@@ -259,6 +252,13 @@ export default function ScanScreen() {
       }
     }
   };
+
+  // Handle animation completion
+  const handleAnimationComplete = useCallback(() => {
+    if (!isMounted.current) return;
+    performFullCleanup();
+    router.replace("/");
+  }, [performFullCleanup, router]);
 
   // Handle camera permission granted
   const handlePermissionGranted = useCallback(() => {
@@ -396,20 +396,6 @@ export default function ScanScreen() {
         message: "Processing document...",
       });
 
-      // Wait for 2 seconds to ensure animation plays
-      // Add safety check to ensure we still have the image
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Double check we still have the image and component is mounted
-      if (!isMounted.current || !photoUri) {
-        throw new Error("Scan cancelled or image lost");
-      }
-
-      // Recheck network before proceeding with upload
-      if (!isNetworkSuitable()) {
-        throw new Error("Network connection lost during scan");
-      }
-
       // Use debounced upload
       await debouncedUpload(photoUri);
     } catch (error) {
@@ -532,10 +518,7 @@ export default function ScanScreen() {
         <View style={styles.contentArea}>
           <ImagePoofIntoEmojiTransformation
             imageUri={capturedImage}
-            onAnimationComplete={() => {
-              // Navigate back to index screen after animation completes
-              router.replace("/");
-            }}
+            onAnimationComplete={handleAnimationComplete}
           />
         </View>
 
