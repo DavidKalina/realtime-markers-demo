@@ -37,6 +37,7 @@ interface CreateEventInput {
   detectedQrData?: string;
   originalImageUrl?: string | null;
   embedding: number[];
+  organizationId?: string;
 }
 
 export class EventService {
@@ -193,6 +194,18 @@ export class EventService {
       }
     }
 
+    // If organizationId is provided, verify the creator is a member of that organization
+    if (input.organizationId) {
+      const user = await this.dataSource.getRepository(User).findOne({
+        where: { id: input.creatorId },
+        relations: ["organization"],
+      });
+
+      if (!user || user.organizationId !== input.organizationId) {
+        throw new Error("User is not a member of the specified organization");
+      }
+    }
+
     let categories: any = [];
     if (input.categoryIds?.length) {
       categories = await this.categoryRepository.findByIds(input.categoryIds);
@@ -217,6 +230,7 @@ export class EventService {
       qrDetectedInImage: input.qrDetectedInImage || false,
       detectedQrData: input.detectedQrData,
       originalImageUrl: input.originalImageUrl || undefined,
+      organizationId: input.organizationId,
     };
 
     // Create event instance

@@ -18,6 +18,7 @@ import { Category } from "./Category";
 import { User } from "./User";
 import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
+import { Organization } from "./Organization";
 
 export enum EventStatus {
   PENDING = "PENDING",
@@ -138,6 +139,13 @@ export class Event {
     inverseJoinColumn: { name: "category_id", referencedColumnName: "id" },
   })
   categories!: Category[];
+
+  @Column({ name: "organization_id", type: "uuid", nullable: true })
+  organizationId?: string;
+
+  @ManyToOne(() => Organization, (organization) => organization.events, { nullable: true })
+  @JoinColumn({ name: "organization_id" })
+  organization?: Organization;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

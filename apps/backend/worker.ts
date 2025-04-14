@@ -368,6 +368,7 @@ async function initializeWorker() {
             detectedQrData: scanResult.qrCodeData,
             originalImageUrl: originalImageUrl,
             embedding: scanResult.embedding,
+            organizationId: job.data.organizationId,
           });
 
           // Create discovery record and increment user stats if they are the creator

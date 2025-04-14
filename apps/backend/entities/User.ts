@@ -8,11 +8,14 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from "typeorm";
 import { Event } from "./Event";
 import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
 import { UserLevel } from "./UserLevel";
+import { Organization } from "./Organization";
 
 export enum UserRole {
   USER = "USER",
@@ -106,4 +109,14 @@ export class User {
   // Optional: Add refresh token for auth if needed
   @Column({ name: "refresh_token", type: "varchar", nullable: true, select: false })
   refreshToken?: string;
+
+  @Column({ name: "organization_id", type: "uuid", nullable: true })
+  organizationId?: string;
+
+  @ManyToOne(() => Organization, (organization) => organization.members, { nullable: true })
+  @JoinColumn({ name: "organization_id" })
+  organization?: Organization;
+
+  @OneToMany(() => Organization, (organization) => organization.owner)
+  ownedOrganizations!: Organization[];
 }

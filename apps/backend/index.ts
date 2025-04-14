@@ -39,6 +39,8 @@ import stripeRouter from "./routes/stripe";
 import { PlanService } from "./services/PlanService";
 import { LevelingService } from "./services/LevelingService";
 import { seedLevels } from "./seeds/seedLevels";
+import organizationsRouter from "./routes/organizations";
+import { OrganizationService } from "./services/OrganizationService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -314,6 +316,9 @@ async function initializeServices() {
   // Initialize the LevelingService
   const levelingService = new LevelingService(dataSource, redisPub);
 
+  // Initialize the OrganizationService
+  const organizationService = new OrganizationService(dataSource);
+
   function setupCleanupSchedule() {
     const CLEANUP_HOUR = 3;
     const BATCH_SIZE = 100;
@@ -349,6 +354,7 @@ async function initializeServices() {
     storageService,
     planService,
     levelingService,
+    organizationService,
   };
 }
 
@@ -364,6 +370,7 @@ app.use("*", async (c, next) => {
   c.set("storageService", services.storageService);
   c.set("planService", services.planService);
   c.set("levelingService", services.levelingService);
+  c.set("organizationService", services.organizationService);
   await next();
 });
 
@@ -375,6 +382,7 @@ app.route("/api/filters", filterRouter);
 app.route("/api/plans", plansRouter);
 app.route("/api/stripe", stripeRouter);
 app.route("/api/internal", internalRouter);
+app.route("/api/organizations", organizationsRouter);
 
 // =============================================================================
 // Jobs API - Server-Sent Events
