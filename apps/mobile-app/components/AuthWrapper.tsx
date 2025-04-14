@@ -2,6 +2,7 @@
 import React from "react";
 import { Redirect } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
+import { LoadingOverlay } from "./Loading/LoadingOverlay";
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -10,6 +11,14 @@ interface AuthWrapperProps {
 
 export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children, requireAuth = true }) => {
   const { isAuthenticated, isLoading } = useAuth();
+
+  // Show loading overlay during authentication transitions
+  if (isLoading) {
+    return <LoadingOverlay
+      message="Loading..."
+      subMessage={requireAuth ? "Checking authentication..." : "Redirecting..."}
+    />;
+  }
 
   // If authentication is required but user is not authenticated, redirect to login
   if (requireAuth && !isAuthenticated) {

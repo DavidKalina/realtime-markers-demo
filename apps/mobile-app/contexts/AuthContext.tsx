@@ -247,6 +247,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await apiClient.logout();
       setUser(null);
       setIsAuthenticated(false);
+      // Add a small delay to ensure the loading state is visible
+      await new Promise(resolve => setTimeout(resolve, 500));
     } finally {
       setIsLoading(false);
     }
