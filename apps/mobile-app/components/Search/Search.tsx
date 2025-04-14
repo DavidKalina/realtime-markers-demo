@@ -43,6 +43,7 @@ const SearchView = () => {
 
   // Simplify the search input handler
   const handleSearchInput = useCallback((text: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSearchQuery(text);
   }, []);
 

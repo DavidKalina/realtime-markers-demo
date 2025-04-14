@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-nativ
 import { ArrowLeft } from 'lucide-react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { COLORS } from './ScreenLayout';
+import * as Haptics from 'expo-haptics';
 
 interface HeaderProps {
     title: string;
@@ -61,7 +62,14 @@ const headerStyles = StyleSheet.create({
 
 // Memoize the back button component
 const BackButton = React.memo(({ onBack }: { onBack: () => void }) => (
-    <TouchableOpacity style={headerStyles.backButton} onPress={onBack} activeOpacity={0.7}>
+    <TouchableOpacity
+        style={headerStyles.backButton}
+        onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onBack();
+        }}
+        activeOpacity={0.7}
+    >
         <ArrowLeft size={22} color={COLORS.textPrimary} />
     </TouchableOpacity>
 ));
