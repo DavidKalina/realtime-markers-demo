@@ -92,6 +92,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
 
     // Handle close with animation cleanup
     const handleClose = useCallback(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         cleanupAnimations();
         onClose();
     }, [onClose, cleanupAnimations]);
@@ -140,17 +141,20 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
     // Handle month navigation
     const handlePrevMonth = useCallback(() => {
         if (canGoBack) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setCurrentMonth(prev => subMonths(prev, 1));
         }
     }, [canGoBack]);
 
     const handleNextMonth = useCallback(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setCurrentMonth(prev => addMonths(prev, 1));
     }, []);
 
     // Handle date range selection
     const handleConfirmSelection = useCallback(() => {
         if (selectedStartDate && selectedEndDate) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             onDateRangeSelect(selectedStartDate, selectedEndDate);
             onClose();
@@ -159,6 +163,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
 
     // Handle reset - set to default 2-week range
     const handleReset = useCallback(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         const today = new Date();
         const twoWeeksFromNow = addDays(today, 14);
         setSelectedStartDate(format(today, 'yyyy-MM-dd'));

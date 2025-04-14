@@ -6,6 +6,7 @@ import {
     TouchableOpacity,
     View,
     ViewStyle,
+    ActivityIndicator,
 } from "react-native";
 import Animated, {
     FadeInDown,
@@ -22,6 +23,7 @@ interface InputProps extends Omit<TextInputProps, 'style'> {
     error?: string;
     delay?: number;
     style?: ViewStyle;
+    loading?: boolean;
 }
 
 const Input = forwardRef<TextInput, InputProps>(
@@ -33,6 +35,7 @@ const Input = forwardRef<TextInput, InputProps>(
             error,
             delay = 0,
             style,
+            loading = false,
             ...props
         },
         ref
@@ -54,7 +57,11 @@ const Input = forwardRef<TextInput, InputProps>(
                     placeholderTextColor="#808080"
                     {...props}
                 />
-                {RightIcon && (
+                {loading ? (
+                    <View style={styles.rightIconContainer}>
+                        <ActivityIndicator size="small" color="#93c5fd" />
+                    </View>
+                ) : RightIcon && (
                     <TouchableOpacity
                         onPress={onRightIconPress}
                         style={styles.rightIconContainer}

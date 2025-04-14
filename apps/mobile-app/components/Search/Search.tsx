@@ -118,6 +118,7 @@ const SearchView = () => {
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus={true}
+            loading={isLoading}
           />
         </View>
 
