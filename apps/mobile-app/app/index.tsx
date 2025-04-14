@@ -35,17 +35,6 @@ MapboxGL.setWellKnownTileServer('mapbox');
 // Use the imported styles directly
 const styles = homeScreenStyles;
 
-// Memoized UI components
-const GravitatingOverlay = React.memo(() => (
-  <Animated.View
-    style={[
-      styles.pulseOverlay,
-      {
-        opacity: 0.15,
-      },
-    ]}
-  />
-));
 
 // Configuration constants
 const GRAVITATIONAL_CAMERA_CONFIG = {
@@ -80,7 +69,6 @@ function HomeScreen() {
   // Gravitational camera hook with memoized config
   const {
     cameraRef,
-    isGravitating,
     handleViewportChange: handleGravitationalViewportChange,
   } = useGravitationalCamera(markers, GRAVITATIONAL_CAMERA_CONFIG);
 
@@ -349,7 +337,6 @@ function HomeScreen() {
           {userLocationLayer}
         </MapboxGL.MapView>
 
-        {isGravitating && <GravitatingOverlay />}
 
         {mapOverlays}
         {assistantOverlay}
