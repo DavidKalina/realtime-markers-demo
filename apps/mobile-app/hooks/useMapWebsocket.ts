@@ -96,13 +96,8 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevMarkerCount = useRef<number>(0);
   const markerUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastViewportUpdateRef = useRef<number>(0);
-  const pendingViewportUpdateRef = useRef<MapboxViewport | null>(null);
   const viewportUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFirstConnectionRef = useRef<boolean>(true);
-
-  // Throttling constants - INCREASED from 0ms to add meaningful throttling
-  const VIEWPORT_THROTTLE_MS = 200; // 200ms throttle for viewport updates
 
   // Update refs when state changes
   useEffect(() => {
@@ -191,68 +186,22 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     };
   }, []);
 
-  // Throttled viewport update function - memoized
-  const sendViewportUpdate = useCallback((immediate: boolean = false) => {
-    // If there's a pending timeout and we don't want immediate update, do nothing
-    if (viewportUpdateTimeoutRef.current && !immediate) {
-      return;
-    }
+  // Simplified viewport update function - memoized
+  const sendViewportUpdate = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN && currentViewportRef.current) {
+      const message = {
+        type: MessageTypes.VIEWPORT_UPDATE,
+        viewport: currentViewportRef.current,
+      };
+      wsRef.current.send(JSON.stringify(message));
 
-    // Clear any existing timeout
-    if (viewportUpdateTimeoutRef.current) {
-      clearTimeout(viewportUpdateTimeoutRef.current);
-      viewportUpdateTimeoutRef.current = null;
-    }
-
-    // If we need immediate update or no throttling needed
-    if (immediate || Date.now() - lastViewportUpdateRef.current > VIEWPORT_THROTTLE_MS) {
-      if (wsRef.current?.readyState === WebSocket.OPEN && currentViewportRef.current) {
-        const message = {
-          type: MessageTypes.VIEWPORT_UPDATE,
-          viewport: currentViewportRef.current,
-        };
-        wsRef.current.send(JSON.stringify(message));
-        lastViewportUpdateRef.current = Date.now();
-
-        // Emit viewport changed event
-        eventBroker.emit<ViewportEvent>(EventTypes.VIEWPORT_CHANGED, {
-          timestamp: lastViewportUpdateRef.current,
-          source: "useMapWebSocket",
-          viewport: currentViewportRef.current,
-          markers: markersRef.current,
-        });
-
-        // Clear pending update since we just sent it
-        pendingViewportUpdateRef.current = null;
-      }
-    } else {
-      // Schedule a throttled update
-      viewportUpdateTimeoutRef.current = setTimeout(() => {
-        viewportUpdateTimeoutRef.current = null;
-
-        // Use latest viewport value if available
-        const viewportToSend = pendingViewportUpdateRef.current || currentViewportRef.current;
-
-        if (wsRef.current?.readyState === WebSocket.OPEN && viewportToSend) {
-          const message = {
-            type: MessageTypes.VIEWPORT_UPDATE,
-            viewport: viewportToSend,
-          };
-          wsRef.current.send(JSON.stringify(message));
-          lastViewportUpdateRef.current = Date.now();
-
-          // Emit viewport changed event
-          eventBroker.emit<ViewportEvent>(EventTypes.VIEWPORT_CHANGED, {
-            timestamp: lastViewportUpdateRef.current,
-            source: "useMapWebSocket",
-            viewport: viewportToSend,
-            markers: markersRef.current,
-          });
-
-          // Clear pending update
-          pendingViewportUpdateRef.current = null;
-        }
-      }, VIEWPORT_THROTTLE_MS - (Date.now() - lastViewportUpdateRef.current));
+      // Emit viewport changed event
+      eventBroker.emit<ViewportEvent>(EventTypes.VIEWPORT_CHANGED, {
+        timestamp: Date.now(),
+        source: "useMapWebSocket",
+        viewport: currentViewportRef.current,
+        markers: markersRef.current,
+      });
     }
   }, []);
 
@@ -263,9 +212,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       setCurrentViewport(viewport);
       currentViewportRef.current = viewport;
 
-      // Save this as the pending update to ensure latest value is used
-      pendingViewportUpdateRef.current = viewport;
-
       // First emit that the viewport is changing and we're starting to search
       eventBroker.emit<ViewportEvent & { searching: boolean }>(EventTypes.VIEWPORT_CHANGED, {
         timestamp: Date.now(),
@@ -275,8 +221,8 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         searching: true, // Explicitly indicate search is starting
       });
 
-      // Send the viewport update to the server (throttled)
-      sendViewportUpdate(false);
+      // Send the viewport update to the server
+      sendViewportUpdate();
     },
     [sendViewportUpdate]
   );
@@ -519,7 +465,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
           // Send viewport update if available (force immediate send)
           if (currentViewportRef.current) {
-            sendViewportUpdate(true);
+            sendViewportUpdate();
           }
 
           // First connection is complete
