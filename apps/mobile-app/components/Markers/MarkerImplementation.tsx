@@ -12,10 +12,12 @@ import {
 import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
 import MapboxGL from "@rnmapbox/maps";
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useEffect } from "react";
 import Animated, { BounceIn, BounceOut, LinearTransition } from "react-native-reanimated";
 import { ClusterMarker } from "./ClusterMarker";
 import { EmojiMapMarker } from "./CustomMapMarker";
+import * as Haptics from "expo-haptics";
+import { Platform } from "react-native";
 
 // Define the map item types from the store (ideally these would be imported from a types file)
 interface BaseMapItem {
@@ -56,6 +58,20 @@ const SingleMarkerView = React.memo(
     onPress: () => void;
     index: number;
   }) => {
+    // Add haptic feedback for each marker's appearance
+    useEffect(() => {
+      if (Platform.OS === "web") return;
+
+      // Delay haptic to match the staggered animation
+      const hapticDelay = index * 300; // Match the animation delay
+
+      const timer = setTimeout(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
+      }, hapticDelay);
+
+      return () => clearTimeout(timer);
+    }, [index]);
+
     return (
       <MapboxGL.MarkerView
         key={`marker-${marker.id}`}
@@ -106,6 +122,20 @@ const ClusterView = React.memo(
     onPress: () => void;
     index: number;
   }) => {
+    // Add haptic feedback for each cluster's appearance
+    useEffect(() => {
+      if (Platform.OS === "web") return;
+
+      // Delay haptic to match the staggered animation
+      const hapticDelay = index * 50; // Match the animation delay
+
+      const timer = setTimeout(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
+      }, hapticDelay);
+
+      return () => clearTimeout(timer);
+    }, [index]);
+
     return (
       <MapboxGL.MarkerView
         key={cluster.id}

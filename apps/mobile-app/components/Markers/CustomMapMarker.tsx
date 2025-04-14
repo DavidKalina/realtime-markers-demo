@@ -129,11 +129,6 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       const dropCompleteTimer = setTimeout(() => {
         setIsDropComplete(true);
 
-        // Add haptic feedback when drop completes
-        if (Platform.OS !== "web") {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
-        }
-
         // Show shadow
         shadowOpacity.value = withTiming(0.3, ANIMATIONS.SHADOW);
 

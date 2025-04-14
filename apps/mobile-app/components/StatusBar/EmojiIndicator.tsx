@@ -25,15 +25,25 @@ const ROTATION_CONFIG = {
 
 const EmojiIndicator: React.FC = () => {
     const router = useRouter();
-    const { filters, activeFilterIds, applyFilters } = useFilterStore();
+    const { filters, activeFilterIds, applyFilters, fetchFilters } = useFilterStore();
     const scale = useSharedValue(1);
     const rotation = useSharedValue(0);
 
-    // Sync emoji on mount
+    // Fetch and sync filters on mount
     useEffect(() => {
-        if (activeFilterIds.length === 0 && filters.length > 0) {
-            applyFilters([filters[0].id]);
-        }
+        const initializeFilters = async () => {
+            try {
+                await fetchFilters();
+                // After fetching, if no active filters and we have filters available, apply the first one
+                if (activeFilterIds.length === 0 && filters.length > 0) {
+                    await applyFilters([filters[0].id]);
+                }
+            } catch (error) {
+                console.error("Failed to initialize filters:", error);
+            }
+        };
+
+        initializeFilters();
     }, []);
 
     // Get active filters with emoji
