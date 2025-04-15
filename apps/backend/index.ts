@@ -23,12 +23,12 @@ import { CategoryProcessingService } from "./services/CategoryProcessingService"
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
 import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
-import { LocationResolutionService } from "./services/event-processing/LocationResolutionService";
 import { EventProcessingService } from "./services/EventProcessingService";
 import { EventService } from "./services/EventService";
 import { JobQueue } from "./services/JobQueue";
 import { CacheService } from "./services/shared/CacheService";
 import { ConfigService } from "./services/shared/ConfigService";
+import { GoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
 import { OpenAIService } from "./services/shared/OpenAIService";
 import { RateLimitService } from "./services/shared/RateLimitService";
 import { StorageService } from "./services/shared/StorageService";
@@ -279,9 +279,6 @@ async function initializeServices() {
   // Create the event similarity service
   const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
 
-  // Create the location resolution service
-  const locationResolutionService = new LocationResolutionService(configService);
-
   // Create the image processing service
   const imageProcessingService = new ImageProcessingService();
 
@@ -290,14 +287,14 @@ async function initializeServices() {
   // Create the event extraction service
   const eventExtractionService = new EventExtractionService(
     categoryProcessingService,
-    locationResolutionService
+    GoogleGeocodingService.getInstance()
   );
 
   // Create event processing service with all dependencies
   const eventProcessingService = new EventProcessingService({
     categoryProcessingService,
     eventSimilarityService,
-    locationResolutionService,
+    locationResolutionService: GoogleGeocodingService.getInstance(),
     imageProcessingService,
     configService,
     eventExtractionService,

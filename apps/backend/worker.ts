@@ -8,7 +8,6 @@ import { EventExtractionService } from "./services/event-processing/EventExtract
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
 import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
 import type { IEventProcessingServiceDependencies } from "./services/event-processing/interfaces/IEventProcessingServiceDependencies";
-import { LocationResolutionService } from "./services/event-processing/LocationResolutionService";
 import { EventProcessingService } from "./services/EventProcessingService";
 import { EventService } from "./services/EventService";
 import { JobQueue } from "./services/JobQueue";
@@ -101,15 +100,12 @@ async function initializeWorker() {
   // Create the event similarity service
   const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
 
-  // Create the location resolution service
-  const locationResolutionService = new LocationResolutionService();
-
   // Create the image processing service
   const imageProcessingService = new ImageProcessingService();
 
   const eventExtractionService = new EventExtractionService(
     categoryProcessingService,
-    locationResolutionService
+    GoogleGeocodingService.getInstance()
   );
 
   const jobQueue = new JobQueue(redisClient);
@@ -118,7 +114,7 @@ async function initializeWorker() {
   const eventProcessingDependencies: IEventProcessingServiceDependencies = {
     categoryProcessingService,
     eventSimilarityService,
-    locationResolutionService,
+    locationResolutionService: GoogleGeocodingService.getInstance(),
     imageProcessingService,
     configService,
     eventExtractionService,

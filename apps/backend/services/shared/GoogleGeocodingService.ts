@@ -1,6 +1,9 @@
 import { createHash } from "crypto";
 import { find } from "geo-tz";
 import { OpenAIModel, OpenAIService } from "./OpenAIService";
+import type { Point } from "geojson";
+import type { LocationResolutionResult } from "../event-processing/dto/LocationResolutionResult";
+import type { ILocationResolutionService } from "../event-processing/interfaces/ILocationResolutionService";
 
 interface CachedLocation {
     cluesHash: string;
@@ -12,7 +15,7 @@ interface CachedLocation {
     locationNotes?: string;
 }
 
-export class GoogleGeocodingService {
+export class GoogleGeocodingService implements ILocationResolutionService {
     private static instance: GoogleGeocodingService;
     private locationCache: Map<string, CachedLocation> = new Map();
     private readonly CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -300,7 +303,71 @@ export class GoogleGeocodingService {
         return degrees * (Math.PI / 180);
     }
 
-    async resolveLocation(
+    public async resolveLocation(
+        locationClues: string[],
+        userContext?: {
+            cityState?: string;
+            coordinates?: { lat: number; lng: number };
+        }
+    ): Promise<LocationResolutionResult> {
+        try {
+            // First try to get user's city and state if coordinates are provided but city/state is not
+            let userCityState = userContext?.cityState || "";
+
+            if (!userCityState && userContext?.coordinates) {
+                userCityState = await this.reverseGeocodeCityState(
+                    userContext.coordinates.lat,
+                    userContext.coordinates.lng
+                );
+            }
+
+            // Filter out empty clues and normalize
+            const validClues = locationClues.filter(Boolean).map((clue) => clue.trim());
+
+            // Delegate to the existing resolveLocation method
+            const resolvedLocation = await this.resolveLocationInternal(
+                validClues,
+                userCityState,
+                userContext?.coordinates
+            );
+
+            // Create a proper GeoJSON Point
+            const point: Point = {
+                type: "Point",
+                coordinates: resolvedLocation.coordinates,
+            };
+
+            return {
+                address: resolvedLocation.address,
+                coordinates: point,
+                confidence: resolvedLocation.confidence,
+                timezone: resolvedLocation.timezone,
+                resolvedAt: new Date().toISOString(),
+                locationNotes: resolvedLocation.locationNotes
+            };
+        } catch (error) {
+            console.error("Error resolving location:", error);
+
+            // Return a default value centered on UTC timezone in case of error
+            const defaultPoint: Point = {
+                type: "Point",
+                coordinates: [0, 0],
+            };
+
+            return {
+                address: "",
+                coordinates: defaultPoint,
+                confidence: 0,
+                timezone: "UTC",
+                resolvedAt: new Date().toISOString(),
+                error: error instanceof Error ? error.message : "Unknown error resolving location",
+                locationNotes: ""
+            };
+        }
+    }
+
+    // Rename the existing resolveLocation method to resolveLocationInternal
+    private async resolveLocationInternal(
         clues: string[],
         userCityState: string,
         userCoordinates?: { lat: number; lng: number }
@@ -476,7 +543,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
             if (address) {
                 // Step 1: Try complete address first
                 console.log('\nTrying to resolve address:', address);
-                const geocodeResult = await this.geocodeAddress(address, `${address} | ${locationNotes}`);
+                const geocodeResult = await this.geocodeAddressInternal(address);
                 coordinates = geocodeResult.coordinates;
                 formattedAddress = geocodeResult.formattedAddress;
 
@@ -569,7 +636,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
             } else if (locationNotes) {
                 // Step 3: Try general geocoding with location notes
                 console.log('\nTrying to resolve from location notes:', locationNotes);
-                const geocodeResult = await this.geocodeAddress(locationNotes, locationNotes);
+                const geocodeResult = await this.geocodeAddressInternal(locationNotes, locationNotes);
                 coordinates = geocodeResult.coordinates;
                 formattedAddress = geocodeResult.formattedAddress;
 
@@ -645,7 +712,24 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
         return data;
     }
 
-    public async geocodeAddress(query: string, locationContext?: string): Promise<{
+    public async geocodeAddress(address: string): Promise<[number, number]> {
+        if (!address.trim()) {
+            // Return default coordinates (0,0) for empty address
+            return [0, 0];
+        }
+
+        try {
+            const result = await this.geocodeAddressInternal(address);
+            return result.coordinates;
+        } catch (error) {
+            console.error("Geocoding error:", error);
+            // Return default coordinates in case of error
+            return [0, 0];
+        }
+    }
+
+    // Rename the existing geocodeAddress method to geocodeAddressInternal
+    private async geocodeAddressInternal(query: string, locationContext?: string): Promise<{
         coordinates: [number, number];
         formattedAddress: string;
         addressComponents: {
@@ -777,6 +861,15 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
         } catch (error) {
             console.error("Error reverse geocoding:", error);
             return "";
+        }
+    }
+
+    public async getTimezone(lat: number, lng: number): Promise<string> {
+        try {
+            return await this.getTimezoneFromCoordinates(lat, lng);
+        } catch (error) {
+            console.error("Error getting timezone:", error);
+            return "UTC";
         }
     }
 } 
