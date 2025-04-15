@@ -559,28 +559,12 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
                         // Higher confidence for places closer to user
                         confidence = 0.6 + (distance < 1 ? 0.2 : distance < 5 ? 0.1 : 0);
                         console.log('Distance from user:', distance.toFixed(2), 'km');
-
-                        // If the place is too far from user, fall back to user coordinates
-                        if (distance > 10) { // 10km threshold
-                            console.log('Place too far from user, falling back to user coordinates');
-                            coordinates = [userCoordinates.lng, userCoordinates.lat];
-                            formattedAddress = userCityState;
-                            confidence = 0.3;
-                        }
                     } else {
                         confidence = 0.6;
                     }
                     console.log('Places API Resolution:', placesResult.name);
                 } else {
-                    // If Places API fails, fall back to user coordinates
-                    console.log('Places API failed, falling back to user coordinates');
-                    if (userCoordinates) {
-                        coordinates = [userCoordinates.lng, userCoordinates.lat];
-                        formattedAddress = userCityState;
-                        confidence = 0.3;
-                    } else {
-                        throw new Error("No places found matching the query and no user coordinates available");
-                    }
+                    throw new Error("No places found matching the query");
                 }
             } else if (locationNotes) {
                 // Step 3: Try general geocoding with location notes
@@ -593,36 +577,9 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
                     throw new Error("Invalid coordinates obtained from geocoding");
                 }
 
-                // If we have user coordinates, check if this location is reasonable
-                if (userCoordinates) {
-                    const distance = this.calculateDistance(
-                        userCoordinates.lat,
-                        userCoordinates.lng,
-                        coordinates[1],
-                        coordinates[0]
-                    );
-                    console.log('Distance from user:', distance.toFixed(2), 'km');
-
-                    // If too far, fall back to user coordinates
-                    if (distance > 10) {
-                        console.log('Location too far from user, falling back to user coordinates');
-                        coordinates = [userCoordinates.lng, userCoordinates.lat];
-                        formattedAddress = userCityState;
-                        confidence = 0.3;
-                    } else {
-                        confidence = 0.4;
-                    }
-                } else {
-                    confidence = 0.4;
-                }
-            } else if (userCoordinates) {
-                // Step 4: Fall back to user coordinates
-                console.log('\nFalling back to user coordinates');
-                coordinates = [userCoordinates.lng, userCoordinates.lat];
-                formattedAddress = userCityState;
-                confidence = 0.3;
+                confidence = 0.4;
             } else {
-                throw new Error("Cannot determine event location: No address, organization, or scan coordinates available");
+                throw new Error("Cannot determine event location: No address or location information available");
             }
 
             const timezone = await this.getTimezoneFromCoordinates(coordinates[1], coordinates[0]);
