@@ -244,7 +244,7 @@ async function initializeWorker() {
           filename: job.data.filename || "event-flyer.jpg",
         });
 
-        console.log("job.data.userCoordinates", job.data.userCoordinates);
+        console.log("job.data.userCoordinates", job.data);
 
         // Process the image - ProgressReportingService will handle all progress updates
         const scanResult = await eventProcessingService.processFlyerFromImage(
