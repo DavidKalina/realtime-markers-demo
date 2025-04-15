@@ -42,6 +42,8 @@ export class EventExtractionService implements IEventExtractionService {
       userCityState?: string;
     }
   ): Promise<EventExtractionResult> {
+
+    console.log("options", options);
     // Get current date to provide as context
     const currentDate = new Date().toISOString();
 

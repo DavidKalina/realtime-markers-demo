@@ -126,6 +126,9 @@ export class EventProcessingService {
 
     // Step 3: Extract event details
     await workflow.updateProgress(3, "Extracting event details...");
+
+    console.log("locationContext", locationContext);
+
     const extractionResult = await this.eventExtractionService.extractEventDetails(
       extractedText,
       locationContext
