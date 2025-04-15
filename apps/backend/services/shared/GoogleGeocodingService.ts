@@ -366,7 +366,6 @@ export class GoogleGeocodingService implements ILocationResolutionService {
         }
     }
 
-    // Rename the existing resolveLocation method to resolveLocationInternal
     private async resolveLocationInternal(
         clues: string[],
         userCityState: string,
@@ -584,10 +583,20 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
                     enhancedQuery += ` ${placesQueryContext.area}`;
                 }
 
+                // Always add city and state from user context if available
+                if (userCityState) {
+                    const [city, state] = userCityState.split(',').map(s => s.trim());
+                    if (city && !enhancedQuery.toLowerCase().includes(city.toLowerCase())) {
+                        enhancedQuery += ` ${city}`;
+                    }
+                    if (state && !enhancedQuery.toLowerCase().includes(state.toLowerCase())) {
+                        enhancedQuery += ` ${state}`;
+                    }
+                }
+
                 const skipCityState = isNotableVenue &&
                     (enhancedQuery.toLowerCase().includes(placesQueryContext.city?.toLowerCase() || '') ||
                         enhancedQuery.toLowerCase().includes(placesQueryContext.state?.toLowerCase() || ''));
-
 
                 // Add city/state if needed
                 if (!skipCityState) {
@@ -636,7 +645,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
             } else if (locationNotes) {
                 // Step 3: Try general geocoding with location notes
                 console.log('\nTrying to resolve from location notes:', locationNotes);
-                const geocodeResult = await this.geocodeAddressInternal(locationNotes, locationNotes);
+                const geocodeResult = await this.geocodeAddressInternal(locationNotes);
                 coordinates = geocodeResult.coordinates;
                 formattedAddress = geocodeResult.formattedAddress;
 
