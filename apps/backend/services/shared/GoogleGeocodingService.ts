@@ -528,14 +528,6 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
             const placesQuery = result.placesQuery || "";
             const placesQueryContext = result.placesQueryContext || {};
 
-            console.log('\nParsed LLM Result:');
-            console.log('Address:', address || '(none)');
-            console.log('Location Notes:', locationNotes || '(none)');
-            console.log('Initial Confidence:', confidence);
-            console.log('Should Try Places API:', shouldTryPlacesApi);
-            console.log('Places Query:', placesQuery);
-            console.log('Places Query Context:', placesQueryContext);
-
             let coordinates: [number, number];
             let formattedAddress = address;
 
@@ -660,10 +652,6 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
 
             const timezone = await this.getTimezoneFromCoordinates(coordinates[1], coordinates[0]);
 
-            console.log('\nFinal Resolution:');
-            console.log('Coordinates:', coordinates);
-            console.log('Final Confidence:', confidence);
-            console.log('Timezone:', timezone);
 
             this.locationCache.set(cluesFingerprint, {
                 cluesHash: cluesFingerprint,
@@ -675,7 +663,6 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
                 locationNotes
             });
 
-            console.log('=== Location Resolution End ===\n');
 
             return {
                 address: formattedAddress,
@@ -695,11 +682,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
             throw new Error("Geocoding API key is required for geocoding requests");
         }
 
-        console.log("\n=== Google Geocoding API Request ===");
-        console.log("Request URL:", url);
-        console.log("API Key length:", process.env.GOOGLE_GEOCODING_API_KEY.length);
-        console.log("API Key first 4 chars:", process.env.GOOGLE_GEOCODING_API_KEY.substring(0, 4));
-        console.log("API Key last 4 chars:", process.env.GOOGLE_GEOCODING_API_KEY.substring(process.env.GOOGLE_GEOCODING_API_KEY.length - 4));
+
 
         const response = await fetch(url);
         console.log("Response status:", response.status);

@@ -14,8 +14,8 @@ import type {
   ProgressCallback,
 } from "./event-processing/interfaces/IProgressReportingService";
 import { ProgressReportingService } from "./event-processing/ProgressReportingService";
-import { EmbeddingService, type EmbeddingInput } from "./shared/EmbeddingService";
 import type { JobQueue } from "./JobQueue";
+import { EmbeddingService } from "./shared/EmbeddingService";
 
 interface LocationContext {
   userCoordinates?: { lat: number; lng: number };
