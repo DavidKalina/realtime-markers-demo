@@ -122,6 +122,10 @@ export const processEventImageHandler: EventHandler = async (c) => {
     const userLng = formData.get("userLng");
     const user = c.get("user");
 
+
+    console.log("userLat", userLat);
+    console.log("userLng", userLng);
+
     const userCoordinates =
       userLat && userLng
         ? {
@@ -129,6 +133,9 @@ export const processEventImageHandler: EventHandler = async (c) => {
           lng: parseFloat(userLng.toString()),
         }
         : null;
+
+
+
 
     if (!user || !user?.userId) {
       return c.json({ error: "Missing user id" }, 404);
