@@ -5,7 +5,7 @@ import { format, fromZonedTime } from "date-fns-tz";
 import type { Category } from "../../entities/Category";
 import type { CategoryProcessingService } from "../CategoryProcessingService";
 import type { ConfigService } from "../shared/ConfigService";
-import { OpenAIService } from "../shared/OpenAIService";
+import { OpenAIModel, OpenAIService } from "../shared/OpenAIService";
 import type { EventExtractionResult } from "./dto/EventExtractionResult";
 import type { IEventExtractionService } from "./interfaces/IEventExtractionService";
 import type { ILocationResolutionService } from "./interfaces/ILocationResolutionService";
@@ -70,7 +70,7 @@ export class EventExtractionService implements IEventExtractionService {
 
     // Extract event details with enhanced location awareness
     const response = await OpenAIService.executeChatCompletion({
-      model: this.extractionModel,
+      model: this.extractionModel as OpenAIModel,
       messages: [
         {
           role: "system",
