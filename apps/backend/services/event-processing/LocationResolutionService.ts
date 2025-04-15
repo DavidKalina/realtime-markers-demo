@@ -2,11 +2,9 @@
 
 import type { Point } from "geojson";
 
-import type { ConfigService } from "../shared/ConfigService";
-import { EnhancedLocationService } from "../shared/LocationService";
+import { GoogleGeocodingService } from "../shared/GoogleGeocodingService";
 import type { LocationResolutionResult } from "./dto/LocationResolutionResult";
 import type { ILocationResolutionService } from "./interfaces/ILocationResolutionService";
-import { GoogleGeocodingService } from "../shared/GoogleGeocodingService";
 
 /**
  * Service for resolving location information from textual clues
@@ -14,15 +12,10 @@ import { GoogleGeocodingService } from "../shared/GoogleGeocodingService";
  */
 export class LocationResolutionService implements ILocationResolutionService {
   private locationService: GoogleGeocodingService;
-  private readonly geocodingApiKey: string;
 
-  /**
-   * Create a new LocationResolutionService
-   * @param configService Optional configuration service for settings
-   */
-  constructor(private configService?: ConfigService) {
+
+  constructor() {
     this.locationService = GoogleGeocodingService.getInstance();
-    this.geocodingApiKey = process.env.GOOGLE_GEOCODING_API_KEY || "";
   }
 
   /**

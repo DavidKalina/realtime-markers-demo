@@ -102,7 +102,7 @@ async function initializeWorker() {
   const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
 
   // Create the location resolution service
-  const locationResolutionService = new LocationResolutionService(configService);
+  const locationResolutionService = new LocationResolutionService();
 
   // Create the image processing service
   const imageProcessingService = new ImageProcessingService();
