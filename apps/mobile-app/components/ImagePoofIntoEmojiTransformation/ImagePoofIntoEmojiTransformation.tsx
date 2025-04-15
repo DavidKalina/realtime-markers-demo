@@ -265,7 +265,7 @@ export const ImagePoofIntoEmojiTransformation: React.FC<ImagePoofIntoEmojiTransf
                 <Image
                     source={{ uri: imageUri }}
                     style={styles.image}
-                    resizeMode="cover"
+                    resizeMode="contain"
                 />
             </Animated.View>
 

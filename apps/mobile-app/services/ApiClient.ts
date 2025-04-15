@@ -843,9 +843,12 @@ class ApiClient {
   }
 
   // Upload an image for event processing
-  async processEventImage(imageFile: File): Promise<{ jobId: string; status: string }> {
+  async processEventImage(payload: Record<string, any>): Promise<{ jobId: string; status: string }> {
     const formData = new FormData();
-    formData.append("image", imageFile);
+    formData.append("image", payload.imageFile);
+    formData.append("userLat", payload.userLat);
+    formData.append("userLng", payload.userLng);
+    formData.append("source", payload.source);
 
     const url = `${this.baseUrl}/api/events/process`;
 

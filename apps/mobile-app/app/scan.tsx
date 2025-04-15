@@ -189,24 +189,33 @@ export default function ScanScreen() {
       // Process/compress the image before uploading
       const processedUri = await processImage(uri);
 
-      // Create imageFile object for apiClient
-      const imageFile = {
+      const payload: Record<string, any> = {};
+
+
+
+
+      payload.imageFile = {
         uri: processedUri || uri,
         name: "image.jpg",
         type: "image/jpeg",
       } as any;
 
+
+
+
       // Add location data if available
       if (userLocation) {
-        imageFile.userLat = userLocation[1].toString();
-        imageFile.userLng = userLocation[0].toString();
+        payload.userLat = userLocation[1].toString();
+        payload.userLng = userLocation[0].toString();
       }
 
       // Add source information to track analytics
-      imageFile.source = imageSource || "unknown";
+      payload.source = imageSource || "unknown";
+
+
 
       // Upload using API client
-      const result = await apiClient.processEventImage(imageFile);
+      const result = await apiClient.processEventImage(payload);
 
       if (result.jobId && isMounted.current) {
         queueJobAndNavigateDelayed(result.jobId);

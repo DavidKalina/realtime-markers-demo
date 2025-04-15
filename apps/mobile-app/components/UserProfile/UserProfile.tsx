@@ -322,6 +322,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   useEffect(() => {
     return () => {
       scrollY.value = 0;
+      isMountedRef.current = false;
     };
   }, []);
 
@@ -352,55 +353,35 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     }
   }, [router]);
 
-  // Fetch user profile data with cleanup
+  // Combined data fetching with caching
   useEffect(() => {
     let isMounted = true;
     let controller = new AbortController();
 
-    const fetchProfileData = async () => {
+    const fetchUserData = async () => {
       try {
-        const data = await apiClient.getUserProfile();
+        // Fetch both profile and plan details in parallel
+        const [profileResponse, planResponse] = await Promise.all([
+          apiClient.getUserProfile(),
+          apiClient.getPlanDetails()
+        ]);
+
         if (isMounted) {
-          setProfileData(data);
-        }
-      } catch (error: any) {
-        if (error.name !== 'AbortError') {
-          console.error("Error fetching profile data:", error);
-        }
-      } finally {
-        if (isMounted) {
+          setProfileData(profileResponse);
+          setPlanDetails(planResponse);
           setLoading(false);
         }
-      }
-    };
-
-    fetchProfileData();
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-    };
-  }, []);
-
-  // Fetch plan details with cleanup
-  useEffect(() => {
-    let isMounted = true;
-    let controller = new AbortController();
-
-    const fetchPlanDetails = async () => {
-      try {
-        const details = await apiClient.getPlanDetails();
-        if (isMounted) {
-          setPlanDetails(details);
-        }
       } catch (error: any) {
         if (error.name !== 'AbortError') {
-          console.error("Error fetching plan details:", error);
+          console.error("Error fetching user data:", error);
+          if (isMounted) {
+            setLoading(false);
+          }
         }
       }
     };
 
-    fetchPlanDetails();
+    fetchUserData();
 
     return () => {
       isMounted = false;
@@ -408,33 +389,20 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     };
   }, []);
 
-  // Handle payment status with cleanup
+  // Handle payment status with local state update
   useEffect(() => {
-    let isMounted = true;
-    let controller = new AbortController();
-
-    if (paymentStatus === "success") {
+    if (paymentStatus === "success" && planDetails) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Refresh plan details
-      apiClient.getPlanDetails()
-        .then(details => {
-          if (isMounted) {
-            setPlanDetails(details);
-          }
-        })
-        .catch((error: any) => {
-          if (error.name !== 'AbortError') {
-            console.error("Error refreshing plan details:", error);
-          }
-        });
+      // Update plan details locally instead of refetching
+      setPlanDetails(prev => prev ? {
+        ...prev,
+        planType: PlanType.PRO,
+        scanLimit: 100, // Assuming PRO plan has 100 scans
+        remainingScans: 100 - (prev.weeklyScanCount || 0)
+      } : null);
     } else if (paymentStatus === "cancel") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-    };
   }, [paymentStatus]);
 
   // Memoize expensive calculations
