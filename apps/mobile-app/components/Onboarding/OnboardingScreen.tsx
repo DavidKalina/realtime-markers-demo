@@ -2,7 +2,15 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useRouter } from 'expo-router';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, {
+    FadeIn,
+    FadeOut,
+    SlideInRight,
+    SlideOutLeft,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
@@ -11,18 +19,22 @@ const ONBOARDING_STEPS = [
     {
         title: 'Welcome to MapMoji!',
         description: 'Discover and scan events around you to earn XP and unlock rewards.',
+        emoji: '🎉'
     },
     {
         title: 'Scan Events',
         description: 'Use your camera to scan event posters and flyers to add them to the map.',
+        emoji: '📸'
     },
     {
         title: 'Browse & Filter',
         description: 'Find events that match your interests using our smart filters.',
+        emoji: '🔍'
     },
     {
         title: 'Earn XP',
         description: 'Get XP for each unique event you scan. The more you scan, the more you earn!',
+        emoji: '✨'
     },
 ];
 
@@ -30,9 +42,19 @@ export const OnboardingScreen: React.FC = () => {
     const [currentStep, setCurrentStep] = useState(0);
     const { completeOnboarding } = useOnboarding();
     const router = useRouter();
+    const buttonScale = useSharedValue(1);
+
+    const buttonAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: buttonScale.value }],
+    }));
 
     const handleNext = () => {
-        Haptics.selectionAsync();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        buttonScale.value = withSpring(0.95, { damping: 15, stiffness: 200 });
+        setTimeout(() => {
+            buttonScale.value = withSpring(1, { damping: 15, stiffness: 200 });
+        }, 100);
+
         if (currentStep < ONBOARDING_STEPS.length - 1) {
             setCurrentStep(currentStep + 1);
         } else {
@@ -42,7 +64,7 @@ export const OnboardingScreen: React.FC = () => {
     };
 
     const handleSkip = () => {
-        Haptics.selectionAsync();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         completeOnboarding();
         router.replace('/');
     };
@@ -51,10 +73,14 @@ export const OnboardingScreen: React.FC = () => {
         <View style={styles.container}>
             <Animated.View
                 key={currentStep}
-                entering={FadeIn}
-                exiting={FadeOut}
+                entering={SlideInRight.springify().damping(15).mass(0.8)}
+                exiting={SlideOutLeft.springify().damping(15).mass(0.8)}
                 style={styles.content}
             >
+                <View style={styles.emojiContainer}>
+                    <Text style={styles.emoji}>{ONBOARDING_STEPS[currentStep].emoji}</Text>
+                </View>
+
                 <Text style={styles.title}>{ONBOARDING_STEPS[currentStep].title}</Text>
                 <Text style={styles.description}>
                     {ONBOARDING_STEPS[currentStep].description}
@@ -62,7 +88,11 @@ export const OnboardingScreen: React.FC = () => {
             </Animated.View>
 
             <View style={styles.footer}>
-                <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
+                <TouchableOpacity
+                    onPress={handleSkip}
+                    style={styles.skipButton}
+                    activeOpacity={0.7}
+                >
                     <Text style={styles.skipText}>Skip</Text>
                 </TouchableOpacity>
 
@@ -78,11 +108,17 @@ export const OnboardingScreen: React.FC = () => {
                     ))}
                 </View>
 
-                <TouchableOpacity onPress={handleNext} style={styles.nextButton}>
-                    <Text style={styles.nextText}>
-                        {currentStep === ONBOARDING_STEPS.length - 1 ? 'Get Started' : 'Next'}
-                    </Text>
-                </TouchableOpacity>
+                <Animated.View style={buttonAnimatedStyle}>
+                    <TouchableOpacity
+                        onPress={handleNext}
+                        style={styles.nextButton}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.nextText}>
+                            {currentStep === ONBOARDING_STEPS.length - 1 ? 'Get Started' : 'Next'}
+                        </Text>
+                    </TouchableOpacity>
+                </Animated.View>
             </View>
         </View>
     );
@@ -99,18 +135,36 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    emojiContainer: {
+        width: 120,
+        height: 120,
+        borderRadius: 24,
+        backgroundColor: 'rgba(147, 197, 253, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(147, 197, 253, 0.2)',
+        marginBottom: 32,
+    },
+    emoji: {
+        fontSize: 48,
+    },
     title: {
         fontSize: 28,
         fontWeight: 'bold',
         color: '#f8f9fa',
         textAlign: 'center',
         marginBottom: 20,
+        fontFamily: 'SpaceMono',
+        letterSpacing: 0.5,
     },
     description: {
         fontSize: 16,
         color: '#a0a0a0',
         textAlign: 'center',
         paddingHorizontal: 20,
+        fontFamily: 'SpaceMono',
+        lineHeight: 24,
     },
     footer: {
         flexDirection: 'row',
@@ -124,6 +178,7 @@ const styles = StyleSheet.create({
     skipText: {
         color: '#a0a0a0',
         fontSize: 16,
+        fontFamily: 'SpaceMono',
     },
     stepsContainer: {
         flexDirection: 'row',
@@ -143,12 +198,15 @@ const styles = StyleSheet.create({
     nextButton: {
         backgroundColor: '#93c5fd',
         paddingHorizontal: 20,
-        paddingVertical: 10,
+        paddingVertical: 12,
         borderRadius: 20,
+        minWidth: 100,
     },
     nextText: {
         color: '#1a1a1a',
         fontSize: 16,
         fontWeight: '600',
+        fontFamily: 'SpaceMono',
+        textAlign: 'center',
     },
 }); 
