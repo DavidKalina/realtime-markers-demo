@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface OnboardingContextType {
@@ -45,14 +45,14 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     };
 
+    const contextValue = useMemo(() => ({
+        hasCompletedOnboarding,
+        completeOnboarding,
+        resetOnboarding,
+    }), [hasCompletedOnboarding]);
+
     return (
-        <OnboardingContext.Provider
-            value={{
-                hasCompletedOnboarding,
-                completeOnboarding,
-                resetOnboarding,
-            }}
-        >
+        <OnboardingContext.Provider value={contextValue}>
             {children}
         </OnboardingContext.Provider>
     );
