@@ -12,6 +12,7 @@ import "react-native-reanimated";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
+import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { JobSessionInitializer } from "@/components/JobSessionInitializer";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { isRunningInExpoGo } from "expo";
@@ -61,10 +62,12 @@ function RootLayout() {
     <AuthProvider>
       <LocationProvider>
         <MapStyleProvider>
-          <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-            <JobSessionInitializer />
-            {children}
-          </ThemeProvider>
+          <OnboardingProvider>
+            <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+              <JobSessionInitializer />
+              {children}
+            </ThemeProvider>
+          </OnboardingProvider>
         </MapStyleProvider>
       </LocationProvider>
     </AuthProvider>
@@ -79,6 +82,7 @@ function RootLayout() {
     >
       <Providers>
         <Stack>
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="register" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="index" options={{ headerShown: false }} />
