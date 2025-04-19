@@ -154,47 +154,52 @@ export class ImageProcessingService implements IImageProcessingService {
                - Check if there's a QR code present in the image (yes/no)
                - Event Title
                - Event Date and Time (be specific about year, month, day, time):
-                 * DOUBLE CHECK TIME DIGITS - carefully distinguish between:
-                   - 1 vs 7 (look for the horizontal line at the bottom of the 1. look for the horizontal line at the top of the 7)
-                      - "1" is usually a straight vertical line, sometimes with a small horizontal base line at the bottom. 
-                      - "7" typically has a long horizontal stroke at the top, followed by a diagonal descending line. 
-                      - 🔍 If the top line is clearly extended, it’s likely a 7. If there’s only a bottom line or a very short top line, it’s more likely a 1
-                   - 11 vs 1 (check for double digits)
-                   - 12 vs 2 (check for double digits)
-                   - 4 vs 9 (check for the closed loop in 9)
-                 * Verify AM/PM indicators
-                 * Include minutes if present
-                 * Be precise about time format (e.g., 1:00 PM vs 13:00)
+                 * **CRITICAL CHECK FOR THE HOUR DIGIT:** Meticulously examine the hour digit in the time provided.
+                 * **Distinguish 1 vs 7:** Pay extremely close attention to these visual cues:
+                    - '1': Primarily a **vertical line**. It might have a small horizontal base or a very small flag/serif at the top.
+                    - '7': Has a **distinct, long horizontal line across the top**, connected to a diagonal descending line.
+                    - **DO NOT confuse a small top serif/flag on a '1' with the long horizontal top bar of a '7'. Look closely at the image.**
+                 * **Plausibility Check:** Consider the likely time for an afternoon Easter service.
+                 * **Other Digit Checks:** Also verify: 11 vs 1, 12 vs 2, 4 vs 9.
+                 * **Format:** Verify AM/PM indicators. Include minutes if present (e.g., :00). State time precisely as seen (e.g., 1:00 PM).
                - Any timezone information (EST, PST, GMT, etc.)
                - Full Location Details:
-                 * PRIMARY VENUE: Focus on the most prominently displayed location in the image
-                 * Pay attention to visual hierarchy - larger text for locations is likely the actual venue
+                 * PRIMARY VENUE: Focus on the most prominently displayed location in the image.
+                 * Pay attention to visual hierarchy - larger text for locations is likely the actual venue.
                  * EXACT venue name as written (e.g., "Provo Airport", "Grande Ballroom")
                  * Building/Room number if applicable
                  * Full address if provided
                  * City and State
                - Organizer Information (SEPARATE from venue):
-                 * Organization name (e.g., "UVU Career Center")
-                 * Note this as the ORGANIZER, not the location, if it appears in a less prominent position
-                 * Look for logos, smaller text at bottom/sides that indicate who is hosting, not where
-               - Complete Description
+                 * Organization name (e.g., "UVU Career Center", "YSA 36TH WARD")
+                 * Note this as the ORGANIZER, not the location, if it appears in a less prominent position (like the top).
+                 * Look for logos, smaller text at top/bottom/sides that indicate who is hosting, not where.
+               - Complete Description (purpose of the event)
                - Any contact information
                - Any social media handles
-               - Any other important details
+               - Any other important details (e.g., "All are welcome...")
 
                IMPORTANT: For location extraction:
-               1. Use the EXACT venue name as shown in the image
-               2. Clearly distinguish between the EVENT VENUE and the EVENT ORGANIZER
-               3. Consider VISUAL HIERARCHY - larger, more prominent text is likely the actual venue
-               4. If it's a well-known venue (airport, stadium, theater, etc.), that's often sufficient as the location
-               5. Report organization details (like "UVU Career & Internship Center") as the ORGANIZER, not the venue
+               1. Use the EXACT venue name/address as shown in the image.
+               2. Clearly distinguish between the EVENT VENUE (where it happens) and the EVENT ORGANIZER (who is hosting).
+               3. Consider VISUAL HIERARCHY - larger, more central text is often the title or venue. Smaller text at the top/bottom is often the organizer.
+               4. Report organization details (like "YSA 36TH WARD") as the ORGANIZER.
 
                Format your response with clear separation:
-               VENUE: [exact venue name]
+               QR Code Present: [yes/no]
+               Event Title: [title]
+               Date and Time: [full date and time, paying attention to the 1 vs 7 check]
+               Timezone: [timezone, or N/A]
+               VENUE ADDRESS: [full address]
+               VENUE NAME: [venue name, if distinct from address, otherwise N/A]
                ORGANIZER: [organization hosting the event]
+               Description: [event description]
+               Contact Info: [contact, or N/A]
+               Social Media: [handles, or N/A]
+               Other Details: [any other text like welcome message]
 
                Also, provide a confidence score between 0 and 1, indicating how confident you are that the extraction is an event.
-               Consider whether there's a date, a time, and a location.`,
+               Confidence Score: [score]`,
               },
               {
                 type: "image_url",
