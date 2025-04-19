@@ -74,7 +74,8 @@ export const useMapCamera = ({ cameraRef }: UseMapCameraProps) => {
           animationMode: "flyTo",
         };
 
-        if (event.allowZoomChange === true && event.zoomLevel !== undefined) {
+        // Only include zoomLevel if explicitly allowed and provided
+        if (event.allowZoomChange === true && typeof event.zoomLevel === "number") {
           cameraSettings.zoomLevel = event.zoomLevel;
         }
 
