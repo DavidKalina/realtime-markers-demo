@@ -25,6 +25,11 @@
       "distribution": "store",
       "releaseChannel": "testflight",
       "channel": "testflight"
+    },
+    "simulator": {
+      "ios": {
+        "simulator": true
+      }
     }
   },
   "submit": {
