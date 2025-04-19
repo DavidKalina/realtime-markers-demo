@@ -49,13 +49,16 @@ const styles = {
 
 // Configuration constants
 const GRAVITATIONAL_CAMERA_CONFIG = {
-  minMarkersForPull: 1,
   animationDuration: 500,
   cooldownPeriod: 2000,
   gravityZoomLevel: 14,
   centeringThreshold: 0.003,
+  maxDistanceForPull: 0.1, // Approximately 11km at equator
   velocitySampleSize: 3,
   velocityMeasurementWindow: 200,
+  highVelocityThreshold: 0.001,
+  highVelocityAnimationDuration: 400,
+  gravityAnimationMode: "easeTo" as const,
 };
 
 function HomeScreen() {

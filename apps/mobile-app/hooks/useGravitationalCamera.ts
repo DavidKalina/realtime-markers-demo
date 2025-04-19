@@ -9,13 +9,16 @@ import {
   CameraAnimateToBoundsEvent,
 } from "@/services/EventBroker";
 import MapboxGL from "@rnmapbox/maps";
-import { DEFAULT_CONFIG, GravitationConfig, ANIMATION_CONSTANTS } from "./gravitationalCameraConfig";
+import {
+  DEFAULT_CONFIG,
+  GravitationConfig,
+  ANIMATION_CONSTANTS,
+} from "./gravitationalCameraConfig";
 import {
   calculatePanningVelocity,
-  findVisibleMarkers,
-  calculateMarkersCentroid,
-  determineZoomLevel,
+  findNearestMarker,
   needsCentering,
+  getDistanceSquared,
 } from "./gravitationalCameraUtils";
 import { createPanningHandlers, createZoomingHandlers } from "./gravitationalCameraHandlers";
 
@@ -62,8 +65,6 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     east: number;
     west: number;
   } | null>(null);
-  const visibleMarkersRef = useRef<Marker[]>([]);
-  const hadZeroMarkersRef = useRef<boolean>(true);
   const viewportSamplesRef = useRef<ViewportSample[]>([]);
   const isUserPanningRef = useRef<boolean>(false);
   const panningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,36 +105,24 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       return;
     }
 
-    const visibleMarkers = findVisibleMarkers(markers, currentViewportRef.current);
-    const currentMarkerCount = visibleMarkers.length;
-    const previousMarkerCount = visibleMarkersRef.current.length;
-    visibleMarkersRef.current = visibleMarkers;
-
-    const isTransitionToMarkersArea =
-      currentMarkerCount >= gravitationConfig.minMarkersForPull &&
-      previousMarkerCount < gravitationConfig.minMarkersForPull;
-
-    if (!isTransitionToMarkersArea) {
-      return;
-    }
-
     const viewportCenter = getViewportCenter();
-    const centroid = calculateMarkersCentroid(
-      visibleMarkers,
-      viewportCenter,
-      gravitationConfig.minMarkersForPull
-    );
+    if (!viewportCenter) return;
 
-    if (!centroid || !needsCentering(centroid, viewportCenter, gravitationConfig.centeringThreshold)) {
+    const nearestItem = findNearestMarker(markers, viewportCenter);
+    if (!nearestItem) return;
+
+    // Check if the nearest item is within the maximum distance threshold
+    const distanceSq = getDistanceSquared(viewportCenter, nearestItem.coordinates);
+    const maxDistanceSq =
+      gravitationConfig.maxDistanceForPull * gravitationConfig.maxDistanceForPull;
+    if (distanceSq > maxDistanceSq) return;
+
+    // Check if centering is needed
+    if (
+      !needsCentering(nearestItem.coordinates, viewportCenter, gravitationConfig.centeringThreshold)
+    ) {
       return;
     }
-
-    const zoomLevel = determineZoomLevel(
-      centroid,
-      visibleMarkers,
-      gravitationConfig,
-      currentZoomLevelRef.current
-    );
 
     if (!isPullingRef.current) {
       isPullingRef.current = true;
@@ -150,22 +139,21 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
         ? gravitationConfig.highVelocityAnimationDuration
         : gravitationConfig.animationDuration;
 
-      publish<BaseEvent & { target: [number, number]; isHighVelocity: boolean }>(
-        EventTypes.GRAVITATIONAL_PULL_STARTED,
-        {
-          timestamp: Date.now(),
-          source: "GravitationalCamera",
-          target: centroid,
-          isHighVelocity: isHighVelocityPan,
-        }
-      );
+      publish<
+        BaseEvent & { target: [number, number]; isHighVelocity: boolean; isCluster: boolean }
+      >(EventTypes.GRAVITATIONAL_PULL_STARTED, {
+        timestamp: Date.now(),
+        source: "GravitationalCamera",
+        target: nearestItem.coordinates,
+        isHighVelocity: isHighVelocityPan,
+        isCluster: nearestItem.isCluster,
+      });
 
       if (cameraRef.current) {
         isAnimatingRef.current = true;
 
         cameraRef.current.setCamera({
-          centerCoordinate: centroid,
-          zoomLevel: zoomLevel,
+          centerCoordinate: nearestItem.coordinates,
           animationDuration: animationDuration,
           animationMode: gravitationConfig.gravityAnimationMode,
         });
@@ -185,13 +173,7 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
         }, animationDuration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
       }
     }
-  }, [
-    isGravitatingEnabled,
-    markers,
-    getViewportCenter,
-    gravitationConfig,
-    publish,
-  ]);
+  }, [isGravitatingEnabled, markers, getViewportCenter, gravitationConfig, publish]);
 
   // Handle viewport changes
   const handleViewportChange = useCallback(
@@ -269,7 +251,6 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
   useEffect(() => {
     if (!didMountRef.current) {
       didMountRef.current = true;
-      visibleMarkersRef.current = findVisibleMarkers(markers, currentViewportRef.current);
       return;
     }
 
@@ -293,23 +274,20 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
   }, [isGravitatingEnabled, publish]);
 
   // Camera animation methods
-  const animateToLocation = useCallback(
-    (coordinates: [number, number], duration = 1000, zoom?: number) => {
-      if (cameraRef.current) {
-        isAnimatingRef.current = true;
-        cameraRef.current.setCamera({
-          centerCoordinate: coordinates,
-          animationDuration: duration,
-          animationMode: "flyTo",
-        });
+  const animateToLocation = useCallback((coordinates: [number, number], duration = 1000) => {
+    if (cameraRef.current) {
+      isAnimatingRef.current = true;
+      cameraRef.current.setCamera({
+        centerCoordinate: coordinates,
+        animationDuration: duration,
+        animationMode: "flyTo",
+      });
 
-        setTimeout(() => {
-          isAnimatingRef.current = false;
-        }, duration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
-      }
-    },
-    []
-  );
+      setTimeout(() => {
+        isAnimatingRef.current = false;
+      }, duration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
+    }
+  }, []);
 
   const animateToLocationWithZoom = useCallback(
     (coordinates: [number, number], duration = 3000, targetZoom?: number) => {
@@ -317,7 +295,10 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
         isAnimatingRef.current = true;
         cameraRef.current.setCamera({
           centerCoordinate: coordinates,
-          zoomLevel: Math.min(targetZoom ?? gravitationConfig.gravityZoomLevel, ANIMATION_CONSTANTS.SAFE_ZOOM_LEVEL),
+          zoomLevel: Math.min(
+            targetZoom ?? gravitationConfig.gravityZoomLevel,
+            ANIMATION_CONSTANTS.SAFE_ZOOM_LEVEL
+          ),
           animationDuration: duration,
           animationMode: "flyTo",
         });
@@ -367,10 +348,8 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
         const cameraSettings: any = {
           centerCoordinate: event.coordinates,
           animationDuration: duration,
-          zoomLevel: event.zoomLevel || gravitationConfig.gravityZoomLevel,
-          animationMode: "flyTo"
+          animationMode: "flyTo",
         };
-
 
         // Only include zoomLevel if zoom changes are explicitly allowed
         if (event.allowZoomChange === true) {
@@ -427,7 +406,6 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       animateToLocation,
       animateToLocationWithZoom,
       animateToBounds,
-      visibleMarkers: visibleMarkersRef.current,
       updateConfig: (newConfig: Partial<GravitationConfig>) => {
         Object.assign(configRef.current, newConfig);
       },
