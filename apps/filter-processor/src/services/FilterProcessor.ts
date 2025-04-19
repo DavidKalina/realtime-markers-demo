@@ -42,7 +42,7 @@ export class FilterProcessor {
    */
   public async initialize(): Promise<void> {
     try {
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== "production") {
         console.log("Initializing Filter Processor...");
       }
 
@@ -52,7 +52,7 @@ export class FilterProcessor {
       // Subscribe to Redis channels
       await this.subscribeToChannels();
 
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== "production") {
         console.log("Filter Processor initialized:", {
           events: this.spatialIndex.all().length,
           users: this.userFilters.size,
@@ -68,7 +68,7 @@ export class FilterProcessor {
    * Gracefully shut down the filter processor.
    */
   public async shutdown(): Promise<void> {
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV !== "production") {
       console.log("Shutting down Filter Processor...");
       console.log("Final stats:", this.stats);
     }
@@ -91,14 +91,14 @@ export class FilterProcessor {
    */
   private async initializeSpatialIndex(): Promise<void> {
     try {
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== "production") {
         console.log("Initializing spatial index...");
       }
 
       // Fetch events from the API or database
       const events = await this.fetchAllEvents();
 
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== "production") {
         console.log(`Received ${events.length} events for initialization`);
       }
 
@@ -109,7 +109,7 @@ export class FilterProcessor {
           !Array.isArray(event.location.coordinates) ||
           event.location.coordinates.length !== 2
         ) {
-          if (process.env.NODE_ENV !== 'production') {
+          if (process.env.NODE_ENV !== "production") {
             console.warn(`Event ${event.id} has invalid coordinates:`, event.location);
           }
           return false;
@@ -117,7 +117,7 @@ export class FilterProcessor {
         return true;
       });
 
-      if (process.env.NODE_ENV !== 'production' && validEvents.length < events.length) {
+      if (process.env.NODE_ENV !== "production" && validEvents.length < events.length) {
         console.warn(
           `Filtered out ${events.length - validEvents.length} events with invalid coordinates`
         );
@@ -134,7 +134,7 @@ export class FilterProcessor {
         this.eventCache.set(event.id, event);
       });
 
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== "production") {
         console.log(`Spatial index initialized with ${items.length} events`);
         if (items.length > 0) {
           console.log("Sample spatial item:", items[0]);
@@ -166,7 +166,7 @@ export class FilterProcessor {
       // And this one for pattern matching
       this.redisSub.on("pmessage", (pattern, channel, message) => {
         try {
-          if (process.env.NODE_ENV !== 'production') {
+          if (process.env.NODE_ENV !== "production") {
             console.log(`Received pmessage on channel ${channel} from pattern ${pattern}`);
           }
           const data = JSON.parse(message);
@@ -179,7 +179,7 @@ export class FilterProcessor {
         }
       });
 
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== "production") {
         console.log(
           "Subscribed to Redis channels: filter-changes, viewport-updates, filter-processor:request-initial, event_changes"
         );
@@ -197,7 +197,7 @@ export class FilterProcessor {
       if (channel === "filter-changes") {
         const { userId, filters } = data;
 
-        if (process.env.NODE_ENV !== 'production') {
+        if (process.env.NODE_ENV !== "production") {
           console.log("Processing filter changes:", { userId, filterCount: filters.length });
         }
 
@@ -209,7 +209,7 @@ export class FilterProcessor {
         this.stats.viewportUpdatesProcessed++;
       } else if (channel === "filter-processor:request-initial") {
         const { userId } = data;
-        if (process.env.NODE_ENV !== 'production') {
+        if (process.env.NODE_ENV !== "production") {
           console.log(`Received request for initial events for user ${userId}`);
         }
 
@@ -217,13 +217,13 @@ export class FilterProcessor {
         if (userId) {
           // If we have filters for this user, use them
           if (this.userFilters.has(userId)) {
-            if (process.env.NODE_ENV !== 'production') {
+            if (process.env.NODE_ENV !== "production") {
               console.log(`User ${userId} has existing filters, sending filtered events`);
             }
             this.sendAllFilteredEvents(userId);
           } else {
             // If no filters yet, send empty filter set to get all events
-            if (process.env.NODE_ENV !== 'production') {
+            if (process.env.NODE_ENV !== "production") {
               console.log(`User ${userId} has no filters yet, setting empty filter`);
             }
             this.updateUserFilters(userId, []);
@@ -243,7 +243,7 @@ export class FilterProcessor {
    */
   private updateUserFilters(userId: string, filters: Filter[]): void {
     try {
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== "production") {
         console.log(`Updating filters for user ${userId} with ${filters.length} filters`);
       }
 
@@ -266,14 +266,23 @@ export class FilterProcessor {
   /**
    * Update a user's viewport and send relevant events.
    */
-  private updateUserViewport(userId: string, viewport: BoundingBox): void {
+  private async updateUserViewport(userId: string, viewport: BoundingBox): Promise<void> {
     try {
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== "production") {
         console.log(`Updating viewport for user ${userId}`, viewport);
       }
 
-      // Store the user's current viewport
-      this.userViewports.set(userId, viewport);
+      const viewportKey = `viewport:${userId}`;
+
+      // Store the full viewport data
+      await this.redisPub.set(viewportKey, JSON.stringify(viewport));
+
+      // Calculate center point for GEO indexing
+      const centerLng = (viewport.minX + viewport.maxX) / 2;
+      const centerLat = (viewport.minY + viewport.maxY) / 2;
+
+      // Add to GEO index
+      await this.redisPub.geoadd("viewport:geo", centerLng, centerLat, viewportKey);
 
       // Send events in this viewport that match the user's filters
       this.sendViewportEvents(userId, viewport);
@@ -282,22 +291,43 @@ export class FilterProcessor {
     }
   }
 
+  /**
+   * Remove a user's viewport from Redis and GEO index
+   */
+  private async removeUserViewport(userId: string): Promise<void> {
+    try {
+      const viewportKey = `viewport:${userId}`;
+
+      // Remove from GEO index first
+      await this.redisPub.zrem("viewport:geo", viewportKey);
+
+      // Then remove viewport data
+      await this.redisPub.del(viewportKey);
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`Removed viewport data for user ${userId}`);
+      }
+    } catch (error) {
+      console.error(`Error removing viewport for user ${userId}:`, error);
+    }
+  }
+
   private sendAllFilteredEvents(userId: string): void {
     try {
       const filters = this.userFilters.get(userId) || [];
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== "production") {
         console.log(`Applying ${filters.length} filters for user ${userId}`);
       }
 
       // Get all events from cache
       const allEvents = Array.from(this.eventCache.values());
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== "production") {
         console.log(`Total events before filtering: ${allEvents.length}`);
       }
 
       // Apply filters
       const filteredEvents = allEvents.filter((event) => this.eventMatchesFilters(event, filters));
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== "production") {
         console.log(`Events after filtering: ${filteredEvents.length}`);
         console.log(
           `Filter results: ${filteredEvents.length}/${allEvents.length} events passed filters`
@@ -343,7 +373,7 @@ export class FilterProcessor {
    * Process an event from the raw events feed.
    * This includes CREATE, UPDATE, and DELETE operations.
    */
-  private processEvent(event: { operation: string; record: Event }): void {
+  private async processEvent(event: { operation: string; record: Event }): Promise<void> {
     try {
       const { operation, record } = event;
 
@@ -353,23 +383,19 @@ export class FilterProcessor {
         this.removeEventFromIndex(record.id);
         this.eventCache.delete(record.id);
 
-        // Deletion events are forwarded to all users
-        for (const userId of this.userFilters.keys()) {
-          this.redisPub.publish(
-            `user:${userId}:filtered-events`,
-            JSON.stringify({
-              type: "delete-event",
-              id: record.id,
-            })
-          );
-          this.stats.totalFilteredEventsPublished++;
-        }
+        // Publish deletion event to all users
+        await this.redisPub.publish(
+          "event:deleted",
+          JSON.stringify({
+            id: record.id,
+            timestamp: new Date().toISOString(),
+          })
+        );
+        this.stats.totalFilteredEventsPublished++;
         return;
       }
 
       // For CREATE/UPDATE operations
-
-      // Remove any existing entry for updates
       if (operation === "UPDATE") {
         this.removeEventFromIndex(record.id);
       }
@@ -379,28 +405,35 @@ export class FilterProcessor {
       this.spatialIndex.insert(spatialItem);
       this.eventCache.set(record.id, record);
 
-      // Check if event matches filters for each user
-      for (const [userId, filters] of this.userFilters.entries()) {
-        // Skip if event doesn't match user's filters
-        if (!this.eventMatchesFilters(record, filters)) {
-          continue;
-        }
+      // Calculate event's spatial bounds for interest matching
+      const [lng, lat] = record.location.coordinates;
+      const eventBounds = {
+        minX: lng,
+        minY: lat,
+        maxX: lng,
+        maxY: lat,
+      };
 
-        const viewport = this.userViewports.get(userId);
+      // Get all active viewports that intersect with this event
+      const intersectingViewports = await this.getIntersectingViewports(eventBounds);
 
-        if (viewport && !this.isEventInViewport(record, viewport)) {
+      // For each intersecting viewport, check if the event matches user filters
+      for (const { userId, viewport } of intersectingViewports) {
+        const filters = this.userFilters.get(userId);
+        if (!filters || !this.eventMatchesFilters(record, filters)) {
           continue;
         }
 
         // Strip sensitive data before publishing
         const sanitizedEvent = this.stripSensitiveData(record);
 
-        // Publish to user channel
-        this.redisPub.publish(
+        // Publish to user's specific channel
+        await this.redisPub.publish(
           `user:${userId}:filtered-events`,
           JSON.stringify({
             type: operation === "INSERT" ? "add-event" : "update-event",
             event: sanitizedEvent,
+            timestamp: new Date().toISOString(),
           })
         );
         this.stats.totalFilteredEventsPublished++;
@@ -408,6 +441,61 @@ export class FilterProcessor {
     } catch (error) {
       console.error("❌ Error processing event:", error);
     }
+  }
+
+  /**
+   * Get all viewports that intersect with an event's location
+   */
+  private async getIntersectingViewports(
+    eventBounds: BoundingBox
+  ): Promise<{ userId: string; viewport: BoundingBox }[]> {
+    const intersectingViewports: { userId: string; viewport: BoundingBox }[] = [];
+
+    try {
+      // Calculate the center point of the event
+      const centerLng = (eventBounds.minX + eventBounds.maxX) / 2;
+      const centerLat = (eventBounds.minY + eventBounds.maxY) / 2;
+
+      // Use a fixed search radius of 50km to ensure we catch all potentially relevant viewports
+      const SEARCH_RADIUS_METERS = 50000;
+
+      // Use GEORADIUS to find nearby viewports
+      const nearbyViewports = (await this.redisPub.georadius(
+        "viewport:geo",
+        centerLng,
+        centerLat,
+        SEARCH_RADIUS_METERS,
+        "m", // meters
+        "WITHDIST", // include distance
+        "ASC" // sort by distance
+      )) as [string, string][]; // Type assertion for GEORADIUS response
+
+      // Process results
+      for (const [viewportKey, distance] of nearbyViewports) {
+        const userId = viewportKey.replace("viewport:", "");
+        const viewportData = await this.redisPub.get(viewportKey);
+
+        if (viewportData) {
+          const viewport = JSON.parse(viewportData);
+
+          // Double-check intersection (GEORADIUS is approximate)
+          if (this.boundsIntersect(eventBounds, viewport)) {
+            intersectingViewports.push({ userId, viewport });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error querying intersecting viewports:", error);
+    }
+
+    return intersectingViewports;
+  }
+
+  /**
+   * Check if two bounding boxes intersect
+   */
+  private boundsIntersect(a: BoundingBox, b: BoundingBox): boolean {
+    return !(a.maxX < b.minX || a.minX > b.maxX || a.maxY < b.minY || a.minY > b.maxY);
   }
 
   /**
@@ -433,7 +521,11 @@ export class FilterProcessor {
       let totalWeight = 0;
 
       // 1. Apply strict location filter if specified
-      if (criteria.location?.latitude && criteria.location?.longitude && criteria.location?.radius) {
+      if (
+        criteria.location?.latitude &&
+        criteria.location?.longitude &&
+        criteria.location?.radius
+      ) {
         const [eventLng, eventLat] = event.location.coordinates;
         const distance = this.calculateDistance(
           eventLat,
@@ -444,8 +536,12 @@ export class FilterProcessor {
 
         // If event is outside the radius, reject immediately
         if (distance > criteria.location.radius) {
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(`Location Filter Rejection: Event ${event.id} is ${distance.toFixed(0)}m from filter center (radius: ${criteria.location.radius}m)`);
+          if (process.env.NODE_ENV !== "production") {
+            console.log(
+              `Location Filter Rejection: Event ${event.id} is ${distance.toFixed(
+                0
+              )}m from filter center (radius: ${criteria.location.radius}m)`
+            );
           }
           return false;
         }
@@ -455,39 +551,39 @@ export class FilterProcessor {
       if (criteria.dateRange) {
         const { start, end } = criteria.dateRange;
 
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('Raw Date Values:', {
+        if (process.env.NODE_ENV !== "production") {
+          console.log("Raw Date Values:", {
             eventDate: event.eventDate,
             eventEndDate: event.endDate,
             filterStart: start,
-            filterEnd: end
+            filterEnd: end,
           });
         }
 
         try {
           // Parse filter dates first
           if (!start || !end) {
-            console.error('Missing filter date range');
+            console.error("Missing filter date range");
             return false;
           }
 
           // Normalize filter dates to cover the full day
-          const filterStartDate = new Date(start + 'T00:00:00.000Z');
-          const filterEndDate = new Date(end + 'T23:59:59.999Z');
+          const filterStartDate = new Date(start + "T00:00:00.000Z");
+          const filterEndDate = new Date(end + "T23:59:59.999Z");
 
           // Validate filter dates
           if (isNaN(filterStartDate.getTime())) {
-            console.error('Invalid filter start date:', start);
+            console.error("Invalid filter start date:", start);
             return false;
           }
           if (isNaN(filterEndDate.getTime())) {
-            console.error('Invalid filter end date:', end);
+            console.error("Invalid filter end date:", end);
             return false;
           }
 
           // Parse event dates
           if (!event.eventDate) {
-            console.error('Missing event date');
+            console.error("Missing event date");
             return false;
           }
 
@@ -497,26 +593,26 @@ export class FilterProcessor {
 
           // Validate event dates
           if (isNaN(eventStartDate.getTime())) {
-            console.error('Invalid event start date:', event.eventDate);
+            console.error("Invalid event start date:", event.eventDate);
             return false;
           }
           if (isNaN(eventEndDate.getTime())) {
-            console.error('Invalid event end date:', event.endDate);
+            console.error("Invalid event end date:", event.endDate);
             return false;
           }
 
           // Validate event date range
           if (eventEndDate < eventStartDate) {
-            console.error('Invalid event date range: end date is before start date', {
+            console.error("Invalid event date range: end date is before start date", {
               eventId: event.id,
               eventStartDate: eventStartDate.toISOString(),
-              eventEndDate: eventEndDate.toISOString()
+              eventEndDate: eventEndDate.toISOString(),
             });
             return false;
           }
 
-          if (process.env.NODE_ENV !== 'production') {
-            console.log('Date Range Analysis:', {
+          if (process.env.NODE_ENV !== "production") {
+            console.log("Date Range Analysis:", {
               eventId: event.id,
               eventTitle: event.title,
               eventStartDate: eventStartDate.toISOString(),
@@ -524,10 +620,14 @@ export class FilterProcessor {
               filterStartDate: filterStartDate.toISOString(),
               filterEndDate: filterEndDate.toISOString(),
               isMultiDay: event.endDate !== null,
-              timezone: event.timezone || 'UTC',
+              timezone: event.timezone || "UTC",
               isRejected: eventStartDate > filterEndDate || eventEndDate < filterStartDate,
-              rejectionReason: eventStartDate > filterEndDate ? 'start after filter end' :
-                eventEndDate < filterStartDate ? 'end before filter start' : 'none'
+              rejectionReason:
+                eventStartDate > filterEndDate
+                  ? "start after filter end"
+                  : eventEndDate < filterStartDate
+                  ? "end before filter start"
+                  : "none",
             });
           }
 
@@ -538,15 +638,17 @@ export class FilterProcessor {
           const isInRange = eventStartsBeforeFilterEnd && eventEndsAfterFilterStart;
 
           if (!isInRange) {
-            if (process.env.NODE_ENV !== 'production') {
-              console.log('Date Range Rejection:', {
+            if (process.env.NODE_ENV !== "production") {
+              console.log("Date Range Rejection:", {
                 eventId: event.id,
                 eventTitle: event.title,
                 eventStartDate: eventStartDate.toISOString(),
                 eventEndDate: eventEndDate.toISOString(),
                 filterStartDate: filterStartDate.toISOString(),
                 filterEndDate: filterEndDate.toISOString(),
-                reason: !eventStartsBeforeFilterEnd ? 'starts after filter end' : 'ends before filter start'
+                reason: !eventStartsBeforeFilterEnd
+                  ? "starts after filter end"
+                  : "ends before filter start",
               });
             }
             return false;
@@ -557,7 +659,7 @@ export class FilterProcessor {
             return true;
           }
         } catch (error) {
-          console.error('Error parsing dates:', error);
+          console.error("Error parsing dates:", error);
           return false;
         }
       }
@@ -567,7 +669,7 @@ export class FilterProcessor {
         try {
           const filterEmbedding = this.vectorService.parseSqlEmbedding(filter.embedding);
           const eventEmbedding = this.vectorService.parseSqlEmbedding(event.embedding);
-          const semanticQuery = filter.semanticQuery?.toLowerCase() || '';
+          const semanticQuery = filter.semanticQuery?.toLowerCase() || "";
 
           const similarityScore = this.vectorService.calculateSimilarity(
             filterEmbedding,
@@ -588,7 +690,7 @@ export class FilterProcessor {
 
             // Category matching (highest weight)
             if (event.categories?.length) {
-              const categoryMatches = event.categories.filter(cat =>
+              const categoryMatches = event.categories.filter((cat) =>
                 cat.name.toLowerCase().includes(semanticQuery)
               );
               if (categoryMatches.length > 0) {
@@ -616,8 +718,8 @@ export class FilterProcessor {
             }
           }
 
-          if (process.env.NODE_ENV !== 'production') {
-            console.log('Semantic Analysis:', {
+          if (process.env.NODE_ENV !== "production") {
+            console.log("Semantic Analysis:", {
               eventId: event.id,
               eventTitle: event.title,
               filterQuery: filter.semanticQuery,
@@ -625,9 +727,9 @@ export class FilterProcessor {
               compositeScore: compositeScore.toFixed(2),
               totalWeight: totalWeight.toFixed(2),
               finalScore: (totalWeight > 0 ? compositeScore / totalWeight : 0).toFixed(2),
-              categoryMatches: event.categories?.filter(cat =>
-                cat.name.toLowerCase().includes(semanticQuery)
-              ).map(cat => cat.name)
+              categoryMatches: event.categories
+                ?.filter((cat) => cat.name.toLowerCase().includes(semanticQuery))
+                .map((cat) => cat.name),
             });
           }
         } catch (error) {
@@ -652,14 +754,20 @@ export class FilterProcessor {
         threshold = 0.25;
       }
 
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== "production") {
         console.log(
           `Filter Debug: Event ${event.id} "${event.title}"\n` +
-          `  - Final Score: ${finalScore.toFixed(2)}\n` +
-          `  - Threshold: ${threshold.toFixed(2)}\n` +
-          `  - Passes: ${finalScore >= threshold}\n` +
-          `  - Filter Type: ${!criteria.location && !criteria.dateRange ? 'Semantic Only' : 'Combined'}\n` +
-          `  - Has Category Match: ${event.categories?.some(cat => cat.name.toLowerCase().includes(filter.semanticQuery!.toLowerCase())) || false}`
+            `  - Final Score: ${finalScore.toFixed(2)}\n` +
+            `  - Threshold: ${threshold.toFixed(2)}\n` +
+            `  - Passes: ${finalScore >= threshold}\n` +
+            `  - Filter Type: ${
+              !criteria.location && !criteria.dateRange ? "Semantic Only" : "Combined"
+            }\n` +
+            `  - Has Category Match: ${
+              event.categories?.some((cat) =>
+                cat.name.toLowerCase().includes(filter.semanticQuery!.toLowerCase())
+              ) || false
+            }`
         );
       }
 
@@ -675,9 +783,9 @@ export class FilterProcessor {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(this.toRadians(lat1)) *
-      Math.cos(this.toRadians(lat2)) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
+        Math.cos(this.toRadians(lat2)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in meters
@@ -717,7 +825,7 @@ export class FilterProcessor {
   /**
    * Strip sensitive data from events before sending to client
    */
-  private stripSensitiveData(event: Event): Omit<Event, 'embedding'> {
+  private stripSensitiveData(event: Event): Omit<Event, "embedding"> {
     const { embedding, ...eventWithoutEmbedding } = event;
     return eventWithoutEmbedding;
   }
@@ -726,7 +834,7 @@ export class FilterProcessor {
   private publishFilteredEvents(userId: string, type: string, events: Event[]): void {
     try {
       // Strip sensitive data from all events
-      const sanitizedEvents = events.map(event => this.stripSensitiveData(event));
+      const sanitizedEvents = events.map((event) => this.stripSensitiveData(event));
 
       // Publish the filtered events to the user's channel
       this.redisPub.publish(
@@ -743,12 +851,14 @@ export class FilterProcessor {
       this.stats.totalFilteredEventsPublished += sanitizedEvents.length;
 
       // If this was a replace-all operation, log additional details
-      if (process.env.NODE_ENV !== 'production' && type === "replace-all") {
+      if (process.env.NODE_ENV !== "production" && type === "replace-all") {
         console.log(`Sent complete replacement set to user ${userId}`);
 
         // Log sample of event IDs for debugging
         if (sanitizedEvents.length > 0) {
-          const sampleIds = sanitizedEvents.slice(0, Math.min(5, sanitizedEvents.length)).map((e) => e.id);
+          const sampleIds = sanitizedEvents
+            .slice(0, Math.min(5, sanitizedEvents.length))
+            .map((e) => e.id);
           console.log(`Sample event IDs: ${sampleIds.join(", ")}`);
         }
       }
@@ -756,87 +866,138 @@ export class FilterProcessor {
       console.error(`Error publishing events to user ${userId}:`, error);
     }
   }
+
   /**
    * Fetch all events from the API or database.
    */
   private async fetchAllEvents(): Promise<Event[]> {
     try {
-      // Try fetching from API endpoint first (like your WebSocket server did)
       const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
       const maxRetries = 5;
       const retryDelay = 2000; // 2 seconds
+      const pageSize = 1000; // Number of events per page
+      let allEvents: Event[] = [];
+      let currentPage = 1;
+      let hasMorePages = true;
 
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(
-              `Attempt ${attempt}/${maxRetries} - Fetching events from API at ${backendUrl}/api/internal/events`
-            );
-          }
-
-          const response = await fetch(`${backendUrl}/api/internal/events`, {
-            headers: {
-              Accept: "application/json",
-            },
-          });
-
-          if (!response.ok) {
-            throw new Error(`API returned status ${response.status}`);
-          }
-
-          const events = await response.json();
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(`Received ${events.length} events from API`);
-          }
-
-          const validEvents = events
-            .filter((event: any) => event.location?.coordinates)
-            .map((event: any) => ({
-              id: event.id,
-              emoji: event.emoji,
-              title: event.title,
-              description: event.description,
-              location: event.location,
-              eventDate: event.eventDate || event.start_date || event.startDate,
-              endDate: event.endDate || event.end_date,
-              createdAt: event.created_at || event.createdAt,
-              updatedAt: event.updated_at || event.updatedAt,
-              categories: event.categories || [],
-              embedding: event.embedding,
-              status: event.status,
-            }));
-
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(`Transformed ${validEvents.length} valid events for spatial index`);
-            if (validEvents.length > 0) {
-              console.log("Sample coordinates:", {
-                id: validEvents[0].id,
-                coordinates: validEvents[0].location.coordinates,
-              });
+      while (hasMorePages) {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            if (process.env.NODE_ENV !== "production") {
+              console.log(
+                `Attempt ${attempt}/${maxRetries} - Fetching page ${currentPage} from API at ${backendUrl}/api/internal/events`
+              );
             }
-          }
 
-          return validEvents;
-        } catch (error) {
-          console.error(`Attempt ${attempt}/${maxRetries} failed:`, error);
+            const response = await fetch(
+              `${backendUrl}/api/internal/events?page=${currentPage}&limit=${pageSize}`,
+              {
+                headers: {
+                  Accept: "application/json",
+                },
+              }
+            );
 
-          if (attempt === maxRetries) {
-            console.error("Max API retries reached, falling back to database query");
-            break;
-          }
+            if (!response.ok) {
+              throw new Error(`API returned status ${response.status}`);
+            }
 
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(`Waiting ${retryDelay}ms before next attempt...`);
+            const data = await response.json();
+            const { events, total, hasMore } = data;
+
+            if (process.env.NODE_ENV !== "production") {
+              console.log(`Received ${events.length} events from page ${currentPage}`);
+              console.log(`Total events: ${total}, Has more pages: ${hasMore}`);
+            }
+
+            // Process and validate events
+            const validEvents = events
+              .filter((event: any) => event.location?.coordinates)
+              .map((event: any) => ({
+                id: event.id,
+                emoji: event.emoji,
+                title: event.title,
+                description: event.description,
+                location: event.location,
+                eventDate: event.eventDate || event.start_date || event.startDate,
+                endDate: event.endDate || event.end_date,
+                createdAt: event.created_at || event.createdAt,
+                updatedAt: event.updated_at || event.updatedAt,
+                categories: event.categories || [],
+                embedding: event.embedding,
+                status: event.status,
+              }));
+
+            // Add to our collection
+            allEvents = [...allEvents, ...validEvents];
+
+            // Update pagination state
+            hasMorePages = hasMore;
+            currentPage++;
+
+            // If we're in production and have enough events, start processing
+            if (process.env.NODE_ENV === "production" && allEvents.length >= pageSize) {
+              this.processInitialEventsBatch(allEvents);
+              allEvents = []; // Clear the array to free memory
+            }
+
+            break; // Success, exit retry loop
+          } catch (error) {
+            console.error(
+              `Attempt ${attempt}/${maxRetries} failed for page ${currentPage}:`,
+              error
+            );
+
+            if (attempt === maxRetries) {
+              console.error("Max API retries reached for page", currentPage);
+              hasMorePages = false; // Stop pagination on persistent failure
+              break;
+            }
+
+            if (process.env.NODE_ENV !== "production") {
+              console.log(`Waiting ${retryDelay}ms before next attempt...`);
+            }
+            await new Promise((resolve) => setTimeout(resolve, retryDelay));
           }
-          await new Promise((resolve) => setTimeout(resolve, retryDelay));
         }
       }
 
-      return [];
+      // Process any remaining events
+      if (allEvents.length > 0) {
+        this.processInitialEventsBatch(allEvents);
+      }
+
+      return allEvents;
     } catch (error) {
       console.error("Error fetching events:", error);
       return [];
     }
   }
-}
 
+  /**
+   * Process a batch of events for initial loading
+   */
+  private processInitialEventsBatch(events: Event[]): void {
+    try {
+      // Format for RBush
+      const items = events.map((event) => this.eventToSpatialItem(event));
+
+      // Bulk load for performance
+      this.spatialIndex.load(items);
+
+      // Cache the full events
+      events.forEach((event) => {
+        this.eventCache.set(event.id, event);
+      });
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`Processed batch of ${items.length} events`);
+        if (items.length > 0) {
+          console.log("Sample spatial item:", items[0]);
+        }
+      }
+    } catch (error) {
+      console.error("Error processing initial events batch:", error);
+    }
+  }
+}

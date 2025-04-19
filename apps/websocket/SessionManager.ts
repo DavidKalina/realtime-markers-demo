@@ -60,10 +60,10 @@ const redisConfig = {
     return delay;
   },
   reconnectOnError: (err: Error) => {
-    console.log('Redis reconnectOnError triggered:', {
+    console.log("Redis reconnectOnError triggered:", {
       message: err.message,
       stack: err.stack,
-      name: err.name
+      name: err.name,
     });
     return true;
   },
@@ -72,7 +72,7 @@ const redisConfig = {
   commandTimeout: 5000,
   lazyConnect: true,
   authRetry: true,
-  enableReadyCheck: true
+  enableReadyCheck: true,
 };
 
 export class SessionManager {
@@ -88,45 +88,45 @@ export class SessionManager {
     this.redisSub = new Redis(redisConfig);
 
     // Add error handling for subscriber
-    this.redisSub.on('error', (error: Error & { code?: string }) => {
-      console.error('[SessionManager] Redis subscriber error:', {
+    this.redisSub.on("error", (error: Error & { code?: string }) => {
+      console.error("[SessionManager] Redis subscriber error:", {
         message: error.message,
         code: error.code,
-        stack: error.stack
+        stack: error.stack,
       });
     });
 
-    this.redisSub.on('connect', () => {
-      console.log('[SessionManager] Redis subscriber connected successfully');
+    this.redisSub.on("connect", () => {
+      console.log("[SessionManager] Redis subscriber connected successfully");
     });
 
-    this.redisSub.on('ready', () => {
+    this.redisSub.on("ready", () => {
       // Subscribe to all job updates
       this.redisSub.psubscribe("job:*:updates", (err, count) => {
         if (err) {
-          console.error('[SessionManager] Error subscribing to job updates:', err);
+          console.error("[SessionManager] Error subscribing to job updates:", err);
         }
       });
     });
 
     // Handle messages from Redis
-    this.redisSub.on('pmessage', (pattern, channel, message) => {
-      this.handleRedisMessage(channel, message).catch(err => {
-        console.error('[SessionManager] Error handling Redis message:', err);
+    this.redisSub.on("pmessage", (pattern, channel, message) => {
+      this.handleRedisMessage(channel, message).catch((err) => {
+        console.error("[SessionManager] Error handling Redis message:", err);
       });
     });
 
     // Also subscribe to the specific job channel
     this.redisSub.subscribe("job:updates", (err, count) => {
       if (err) {
-        console.error('[SessionManager] Error subscribing to job:updates:', err);
+        console.error("[SessionManager] Error subscribing to job:updates:", err);
       }
     });
 
     // Handle messages from the specific channel
-    this.redisSub.on('message', (channel, message) => {
-      this.handleRedisMessage(channel, message).catch(err => {
-        console.error('[SessionManager] Error handling Redis message:', err);
+    this.redisSub.on("message", (channel, message) => {
+      this.handleRedisMessage(channel, message).catch((err) => {
+        console.error("[SessionManager] Error handling Redis message:", err);
       });
     });
   }
@@ -242,6 +242,9 @@ export class SessionManager {
     // Update session in Redis
     await this.redis.set(`session:${sessionId}`, JSON.stringify(session));
 
+    // Add session to job's session set
+    await this.redis.sadd(`job:${jobId}:sessions`, sessionId);
+
     // Send update to all clients in the session
     this.sendSessionUpdate(sessionId);
 
@@ -271,6 +274,9 @@ export class SessionManager {
     // Update session in Redis
     await this.redis.set(`session:${sessionId}`, JSON.stringify(session));
 
+    // Remove session from job's session set
+    await this.redis.srem(`job:${jobId}:sessions`, sessionId);
+
     // Send update to all clients in the session
     this.sendSessionUpdate(sessionId);
 
@@ -287,6 +293,11 @@ export class SessionManager {
     }
 
     const session: SessionData = JSON.parse(sessionData);
+
+    // Remove session from all job session sets
+    for (const job of session.jobs) {
+      await this.redis.srem(`job:${job.id}:sessions`, sessionId);
+    }
 
     // Clear jobs
     session.jobs = [];
@@ -326,7 +337,6 @@ export class SessionManager {
       },
     });
 
-
     // Send to all connected clients in this session
     for (const clientId of clients) {
       const client = this.clients.get(clientId);
@@ -334,7 +344,10 @@ export class SessionManager {
         try {
           client.send(message);
         } catch (error) {
-          console.error(`[SessionManager] Failed to send session update to client ${clientId}:`, error);
+          console.error(
+            `[SessionManager] Failed to send session update to client ${clientId}:`,
+            error
+          );
         }
       }
     }
@@ -345,7 +358,10 @@ export class SessionManager {
    */
   private async handleRedisMessage(channel: string, message: string): Promise<void> {
     // Handle both job:*:updates and job:updates channels
-    if (!channel.startsWith("job:") || (!channel.endsWith(":updates") && channel !== "job:updates")) {
+    if (
+      !channel.startsWith("job:") ||
+      (!channel.endsWith(":updates") && channel !== "job:updates")
+    ) {
       return;
     }
 
@@ -354,14 +370,15 @@ export class SessionManager {
       const jobId = jobUpdate.id;
 
       if (!jobId) {
-        console.error('[SessionManager] Job update missing jobId:', jobUpdate);
+        console.error("[SessionManager] Job update missing jobId:", jobUpdate);
         return;
       }
 
-      // Find all sessions containing this job
-      const allSessions = await this.redis.keys("session:*");
+      // Get all sessions containing this job using the job-session mapping
+      const sessionIds = await this.redis.smembers(`job:${jobId}:sessions`);
 
-      for (const sessionKey of allSessions) {
+      for (const sessionId of sessionIds) {
+        const sessionKey = `session:${sessionId}`;
         const sessionData = await this.redis.get(sessionKey);
         if (!sessionData) {
           continue;
@@ -388,7 +405,6 @@ export class SessionManager {
           await this.redis.set(sessionKey, JSON.stringify(session));
 
           // Send update to all clients in the session
-          const sessionId = sessionKey.replace("session:", "");
           await this.sendSessionUpdate(sessionId);
         }
       }
