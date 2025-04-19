@@ -1,5 +1,6 @@
 // hooks/useGravitationalCamera.ts
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
+import { throttle } from "lodash"; // Import throttle
 import { Marker } from "@/hooks/useMapWebsocket";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import {
@@ -16,7 +17,7 @@ import {
 } from "./gravitationalCameraConfig";
 import {
   calculatePanningVelocity,
-  findNearestMarker,
+  findNearestMarker, // Assuming this iterates through markers
   needsCentering,
   getDistanceSquared,
 } from "./gravitationalCameraUtils";
@@ -31,166 +32,193 @@ interface ViewportSample {
 }
 
 export function useGravitationalCamera(markers: Marker[], config: Partial<GravitationConfig> = {}) {
-  const didMountRef = useRef(false);
+  // --- Refs for Core Components & State ---
   const cameraRef = useRef<MapboxGL.Camera>(null);
-  const isAnimatingRef = useRef<boolean>(false);
+  const isAnimatingRef = useRef<boolean>(false); // Is the camera *currently* animating due to this hook or events?
+  const isPullingRef = useRef<boolean>(false); // Is a gravitational pull animation *currently* in progress?
+  const configRef = useRef<GravitationConfig>(DEFAULT_CONFIG); // Holds the merged config
+  const markersRef = useRef<Marker[]>(markers); // Ref to access latest markers in throttled func
 
-  // Memoize the config
-  const gravitationConfig = useMemo(
-    () => ({
-      ...DEFAULT_CONFIG,
-      ...config,
-    }),
-    [config]
-  );
-
-  // Store config in ref for use in callbacks
-  const configRef = useRef(gravitationConfig);
+  // --- Configuration ---
+  const gravitationConfig = useMemo(() => ({ ...DEFAULT_CONFIG, ...config }), [config]);
+  // Update config ref whenever memoized config changes
   useEffect(() => {
     configRef.current = gravitationConfig;
   }, [gravitationConfig]);
+  // Update markers ref whenever markers array changes
+  useEffect(() => {
+    markersRef.current = markers;
+  }, [markers]);
 
-  // State management
-  const [isGravitatingEnabled, setIsGravitatingEnabled] = useState(true);
-  const [isGravitating, setIsGravitating] = useState(false);
-  const [isHighVelocity, setIsHighVelocity] = useState(false);
+  // --- Component State (for external feedback/control) ---
+  const [isGravitatingEnabled, setIsGravitatingEnabled] = useState(true); // Can be toggled externally
+  const [isGravitating, setIsGravitating] = useState(false); // True only during the pull animation
+  const [isHighVelocity, setIsHighVelocity] = useState(false); // True only during a high-vel pull animation
+
+  // --- Event Broker ---
   const { publish, subscribe } = useEventBroker();
 
-  // Refs for tracking state
-  const lastPullTimeRef = useRef<number>(0);
-  const isPullingRef = useRef<boolean>(false);
+  // --- Internal State Refs ---
+  const lastPullTimeRef = useRef<number>(0); // Timestamp of last pull completion
+  const didMountRef = useRef<boolean>(false); // Track initial mount
   const currentViewportRef = useRef<{
     north: number;
     south: number;
     east: number;
     west: number;
   } | null>(null);
-  const viewportSamplesRef = useRef<ViewportSample[]>([]);
-  const isUserPanningRef = useRef<boolean>(false);
-  const panningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const currentZoomLevelRef = useRef<number | null>(null);
-  const isUserZoomingRef = useRef<boolean>(false);
-  const zoomingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const viewportSamplesRef = useRef<ViewportSample[]>([]); // For velocity calculation
+  const isUserPanningRef = useRef<boolean>(false); // Is user actively panning right now?
+  const panningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // Timeout for end of panning
+  const currentZoomLevelRef = useRef<number | null>(null); // Current map zoom
+  const isUserZoomingRef = useRef<boolean>(false); // Is user actively zooming right now?
+  const zoomingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // Timeout for end of zooming
 
-  // Get viewport center
-  const getViewportCenter = useCallback(() => {
+  // --- Utility Functions ---
+  const getViewportCenter = useCallback((): { latitude: number; longitude: number } | null => {
     if (!currentViewportRef.current) return null;
     const { north, south, east, west } = currentViewportRef.current;
-    return {
-      latitude: (north + south) / 2,
-      longitude: (east + west) / 2,
-    };
+    return { latitude: (north + south) / 2, longitude: (east + west) / 2 };
   }, []);
 
-  // Create panning and zooming handlers
+  // --- User Interaction Handlers ---
   const { handlePanningStart, handlePanningEnd } = useMemo(
     () => createPanningHandlers(isUserPanningRef, panningTimeoutRef, viewportSamplesRef),
-    []
+    [] // These handlers have no external dependencies
   );
-
   const { handleZoomingStart, handleZoomingEnd } = useMemo(
     () => createZoomingHandlers(isUserZoomingRef, zoomingTimeoutRef),
-    []
+    [] // These handlers have no external dependencies
   );
 
-  // Apply gravitational pull
-  const applyGravitationalPull = useCallback(() => {
-    const now = Date.now();
-    if (
-      !isGravitatingEnabled ||
-      isPullingRef.current ||
-      now - lastPullTimeRef.current < gravitationConfig.cooldownPeriod ||
-      isAnimatingRef.current
-    ) {
-      return;
-    }
+  // --- Core Logic: Function to trigger the animation ---
+  const triggerGravitationalPullAnimation = useCallback(
+    (targetCoordinates: [number, number], isCluster: boolean) => {
+      const config = configRef.current;
+      if (!cameraRef.current) return; // Camera must exist
 
-    const viewportCenter = getViewportCenter();
-    if (!viewportCenter) return;
-
-    const nearestItem = findNearestMarker(markers, viewportCenter);
-    if (!nearestItem) return;
-
-    // Check if the nearest item is within the maximum distance threshold
-    const distanceSq = getDistanceSquared(viewportCenter, nearestItem.coordinates);
-    const maxDistanceSq =
-      gravitationConfig.maxDistanceForPull * gravitationConfig.maxDistanceForPull;
-    if (distanceSq > maxDistanceSq) return;
-
-    // Check if centering is needed
-    if (
-      !needsCentering(nearestItem.coordinates, viewportCenter, gravitationConfig.centeringThreshold)
-    ) {
-      return;
-    }
-
-    if (!isPullingRef.current) {
       isPullingRef.current = true;
-      setIsGravitating(true);
+      isAnimatingRef.current = true; // Mark as animating
+      setIsGravitating(true); // Update state for external feedback
 
+      // Calculate velocity and determine duration
       const velocity = calculatePanningVelocity(
         viewportSamplesRef.current,
-        gravitationConfig.velocityMeasurementWindow
+        config.velocityMeasurementWindow
       );
-      const isHighVelocityPan = velocity >= gravitationConfig.highVelocityThreshold;
-      setIsHighVelocity(isHighVelocityPan);
-
+      const isHighVelocityPan = velocity >= config.highVelocityThreshold;
+      setIsHighVelocity(isHighVelocityPan); // Update state
       const animationDuration = isHighVelocityPan
-        ? gravitationConfig.highVelocityAnimationDuration
-        : gravitationConfig.animationDuration;
+        ? config.highVelocityAnimationDuration
+        : config.animationDuration;
 
+      // Publish start event
       publish<
         BaseEvent & { target: [number, number]; isHighVelocity: boolean; isCluster: boolean }
       >(EventTypes.GRAVITATIONAL_PULL_STARTED, {
         timestamp: Date.now(),
         source: "GravitationalCamera",
-        target: nearestItem.coordinates,
+        target: targetCoordinates,
         isHighVelocity: isHighVelocityPan,
-        isCluster: nearestItem.isCluster,
+        isCluster,
       });
 
-      if (cameraRef.current) {
-        isAnimatingRef.current = true;
+      // Execute camera animation
+      cameraRef.current.setCamera({
+        centerCoordinate: targetCoordinates,
+        animationDuration: animationDuration,
+        animationMode: config.gravityAnimationMode,
+        // Consider adding zoom level adjustment here if needed based on nearestItem type or distance
+        // zoomLevel: determineZoomLevel(...), // If you reintroduce this logic
+      });
 
-        cameraRef.current.setCamera({
-          centerCoordinate: nearestItem.coordinates,
-          animationDuration: animationDuration,
-          animationMode: gravitationConfig.gravityAnimationMode,
+      // Setup completion timeout
+      setTimeout(() => {
+        isPullingRef.current = false;
+        setIsGravitating(false);
+        setIsHighVelocity(false);
+        lastPullTimeRef.current = Date.now(); // Update cooldown timer *after* animation
+        isAnimatingRef.current = false; // Allow other animations/checks
+
+        publish<BaseEvent>(EventTypes.GRAVITATIONAL_PULL_COMPLETED, {
+          timestamp: Date.now(),
+          source: "GravitationalCamera",
         });
+      }, animationDuration + ANIMATION_CONSTANTS.ANIMATION_BUFFER); // Buffer ensures completion
+    },
+    [publish]
+  ); // Depends only on publish
 
-        setTimeout(() => {
-          isPullingRef.current = false;
-          setIsGravitating(false);
-          setIsHighVelocity(false);
-          lastPullTimeRef.current = Date.now();
+  // --- Core Logic: Throttled Check Function ---
+  // This function performs the checks and decides *whether* to trigger the pull
+  const throttledCheckAndPull = useMemo(() => {
+    // Throttle ensures this logic runs at most once per interval during continuous calls
+    return throttle(
+      () => {
+        const config = configRef.current;
+        const now = Date.now();
 
-          publish<BaseEvent>(EventTypes.GRAVITATIONAL_PULL_COMPLETED, {
-            timestamp: Date.now(),
-            source: "GravitationalCamera",
-          });
+        // --- Early Exit Checks ---
+        if (
+          !isGravitatingEnabled || // Feature disabled
+          isPullingRef.current || // Already pulling
+          isAnimatingRef.current || // Another animation is running
+          isUserPanningRef.current || // User is actively panning
+          isUserZoomingRef.current || // User is actively zooming
+          now - lastPullTimeRef.current < config.cooldownPeriod // Within cooldown period
+        ) {
+          return;
+        }
 
-          isAnimatingRef.current = false;
-        }, animationDuration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
-      }
-    }
-  }, [isGravitatingEnabled, markers, getViewportCenter, gravitationConfig, publish]);
+        const viewportCenter = getViewportCenter();
+        if (!viewportCenter) return; // Need viewport center
 
-  // Handle viewport changes
+        const currentMarkers = markersRef.current; // Get latest markers
+        if (currentMarkers.length === 0) return; // No markers to pull towards
+
+        // --- Find Nearest Marker (Potentially expensive O(N)) ---
+        // This is the core calculation being throttled
+        const nearestItem = findNearestMarker(currentMarkers, viewportCenter);
+        if (!nearestItem) return; // No nearest marker found
+
+        // Check distance threshold
+        const distanceSq = getDistanceSquared(viewportCenter, nearestItem.coordinates);
+        const maxDistanceSq = config.maxDistanceForPull * config.maxDistanceForPull;
+        if (distanceSq > maxDistanceSq) {
+          return; // Nearest marker is too far away
+        }
+
+        // Check if centering is needed
+        if (!needsCentering(nearestItem.coordinates, viewportCenter, config.centeringThreshold)) {
+          return; // Already centered enough
+        }
+
+        // --- Conditions met, trigger the pull animation ---
+        triggerGravitationalPullAnimation(nearestItem.coordinates, nearestItem.isCluster);
+      },
+      // Throttle interval: Adjust based on desired responsiveness vs. performance
+      ANIMATION_CONSTANTS.THROTTLE_INTERVAL,
+      // Options: leading: false (don't run immediately), trailing: true (run after last call in interval)
+      { leading: false, trailing: true }
+    );
+  }, [isGravitatingEnabled, getViewportCenter, triggerGravitationalPullAnimation]); // Recreate throttle func if these change
+
+  // --- Main Viewport Change Handler ---
   const handleViewportChange = useCallback(
     (feature: any) => {
+      // --- Update Interaction State ---
       if (!isUserPanningRef.current) {
-        handlePanningStart();
+        handlePanningStart(); // Detect start of pan immediately
       }
+      handlePanningEnd(); // Schedule check for end of pan
 
+      // --- Update Viewport & Zoom Refs ---
       if (
         feature?.properties?.visibleBounds &&
         Array.isArray(feature.properties.visibleBounds) &&
-        feature.properties.visibleBounds.length === 2 &&
-        Array.isArray(feature.properties.visibleBounds[0]) &&
-        Array.isArray(feature.properties.visibleBounds[1])
+        feature.properties.visibleBounds.length === 2 // Basic validation
       ) {
         const [[west, north], [east, south]] = feature.properties.visibleBounds;
-        const previousBounds = currentViewportRef.current;
         currentViewportRef.current = {
           north,
           south,
@@ -198,42 +226,33 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
           west: Math.min(west, east),
         };
 
+        // Update Zoom Level & Detect Zooming
         if (feature.properties.zoomLevel !== undefined) {
-          if (currentZoomLevelRef.current !== feature.properties.zoomLevel) {
-            handleZoomingStart();
-            handleZoomingEnd();
-          }
-          currentZoomLevelRef.current = feature.properties.zoomLevel;
-        } else if (previousBounds) {
-          const oldWidth = previousBounds.east - previousBounds.west;
-          const oldHeight = previousBounds.north - previousBounds.south;
-          const newWidth = currentViewportRef.current.east - currentViewportRef.current.west;
-          const newHeight = currentViewportRef.current.north - currentViewportRef.current.south;
-
+          const newZoom = feature.properties.zoomLevel;
           if (
-            Math.abs(newWidth / oldWidth - 1) > 0.1 ||
-            Math.abs(newHeight / oldHeight - 1) > 0.1
+            currentZoomLevelRef.current !== null &&
+            Math.abs(currentZoomLevelRef.current - newZoom) > 0.01
           ) {
-            handleZoomingStart();
-            handleZoomingEnd();
+            if (!isUserZoomingRef.current) handleZoomingStart();
+            handleZoomingEnd(); // Schedule check for end of zoom
           }
+          currentZoomLevelRef.current = newZoom;
         }
+        // else: Missing zoom level, might need fallback zoom detection if critical
 
-        const center = getViewportCenter();
+        // --- Update Velocity Samples ---
+        const center = getViewportCenter(); // Recalculate based on updated viewportRef
         if (center) {
-          const newSample = {
-            center,
-            timestamp: Date.now(),
-          };
-
-          viewportSamplesRef.current.push(newSample);
-          if (viewportSamplesRef.current.length > gravitationConfig.velocitySampleSize) {
+          viewportSamplesRef.current.push({ center, timestamp: Date.now() });
+          // Keep buffer size manageable
+          if (viewportSamplesRef.current.length > configRef.current.velocitySampleSize) {
             viewportSamplesRef.current.shift();
           }
         }
 
-        handlePanningEnd();
-        applyGravitationalPull();
+        // --- Trigger Throttled Check ---
+        // Call the throttled function. It will only execute if the throttle interval has passed.
+        throttledCheckAndPull();
       }
     },
     [
@@ -242,38 +261,42 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
       handleZoomingStart,
       handleZoomingEnd,
       getViewportCenter,
-      applyGravitationalPull,
-      gravitationConfig.velocitySampleSize,
+      throttledCheckAndPull, // Include throttled func in deps
     ]
   );
 
-  // Handle marker changes
+  // --- Effect for Marker Data Changes ---
   useEffect(() => {
+    // Check if gravitational pull should be applied after markers change,
+    // but only after initial mount and after a small delay (debounced).
     if (!didMountRef.current) {
       didMountRef.current = true;
       return;
     }
 
-    if (!isPullingRef.current && isGravitatingEnabled) {
-      const timeoutId = setTimeout(() => {
-        applyGravitationalPull();
-      }, 50);
+    const handler = setTimeout(() => {
+      // Call the throttled check function in case the marker change
+      // makes a pull necessary (e.g., nearest marker changed).
+      throttledCheckAndPull();
+    }, ANIMATION_CONSTANTS.MARKER_UPDATE_DEBOUNCE); // Debounce marker updates
 
-      return () => clearTimeout(timeoutId);
-    }
-  }, [markers, applyGravitationalPull, isGravitatingEnabled]);
+    return () => clearTimeout(handler);
+  }, [markers, throttledCheckAndPull]); // Depend on markers and the throttled function instance
 
-  // Toggle gravitational effect
+  // --- External Control: Toggle ---
   const toggleGravitation = useCallback(() => {
-    setIsGravitatingEnabled((prev) => !prev);
-    publish<BaseEvent & { enabled: boolean }>(EventTypes.GRAVITATIONAL_PULL_TOGGLED, {
-      timestamp: Date.now(),
-      source: "GravitationalCamera",
-      enabled: !isGravitatingEnabled,
+    setIsGravitatingEnabled((prev) => {
+      const newState = !prev;
+      publish<BaseEvent & { enabled: boolean }>(EventTypes.GRAVITATIONAL_PULL_TOGGLED, {
+        timestamp: Date.now(),
+        source: "GravitationalCamera",
+        enabled: newState,
+      });
+      return newState;
     });
-  }, [isGravitatingEnabled, publish]);
+  }, [publish]);
 
-  // Camera animation methods
+  // --- External Control: Camera Animations ---
   const animateToLocation = useCallback((coordinates: [number, number], duration = 1000) => {
     if (cameraRef.current) {
       isAnimatingRef.current = true;
@@ -282,7 +305,6 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
         animationDuration: duration,
         animationMode: "flyTo",
       });
-
       setTimeout(() => {
         isAnimatingRef.current = false;
       }, duration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
@@ -293,32 +315,27 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     (coordinates: [number, number], duration = 3000, targetZoom?: number) => {
       if (cameraRef.current) {
         isAnimatingRef.current = true;
+        const config = configRef.current; // Access via ref
         cameraRef.current.setCamera({
           centerCoordinate: coordinates,
           zoomLevel: Math.min(
-            targetZoom ?? gravitationConfig.gravityZoomLevel,
+            targetZoom ?? config.gravityZoomLevel,
             ANIMATION_CONSTANTS.SAFE_ZOOM_LEVEL
           ),
           animationDuration: duration,
           animationMode: "flyTo",
         });
-
         setTimeout(() => {
           isAnimatingRef.current = false;
         }, duration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
       }
     },
-    [gravitationConfig.gravityZoomLevel]
-  );
+    []
+  ); // No dependency on config state needed
 
   const animateToBounds = useCallback(
     (
-      bounds: {
-        north: number;
-        south: number;
-        east: number;
-        west: number;
-      },
+      bounds: { north: number; south: number; east: number; west: number },
       padding = 50,
       duration = 1000
     ) => {
@@ -330,7 +347,6 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
           padding,
           duration
         );
-
         setTimeout(() => {
           isAnimatingRef.current = false;
         }, duration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
@@ -339,27 +355,26 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
     []
   );
 
-  // Event listeners
+  // --- Event Listener Subscriptions ---
   useEffect(() => {
     const unsubscribeAnimateToLocation = subscribe<CameraAnimateToLocationEvent>(
       EventTypes.CAMERA_ANIMATE_TO_LOCATION,
       (event) => {
-        const duration = event.duration || 1000;
-        const cameraSettings: any = {
+        const duration = event.duration ?? 1000; // Use default if undefined
+        const config = configRef.current; // Access via ref
+        const cameraSettings: MapboxGL.CameraStop = {
+          // Use correct type if possible
           centerCoordinate: event.coordinates,
           animationDuration: duration,
           animationMode: "flyTo",
         };
-
-        // Only include zoomLevel if zoom changes are explicitly allowed
         if (event.allowZoomChange === true) {
-          cameraSettings.zoomLevel = event.zoomLevel || gravitationConfig.gravityZoomLevel;
+          // Use ?? for default value
+          cameraSettings.zoomLevel = event.zoomLevel ?? config.gravityZoomLevel;
         }
-
         if (cameraRef.current) {
           isAnimatingRef.current = true;
           cameraRef.current.setCamera(cameraSettings);
-
           setTimeout(() => {
             isAnimatingRef.current = false;
           }, duration + ANIMATION_CONSTANTS.ANIMATION_BUFFER);
@@ -369,48 +384,46 @@ export function useGravitationalCamera(markers: Marker[], config: Partial<Gravit
 
     const unsubscribeAnimateToBounds = subscribe<CameraAnimateToBoundsEvent>(
       EventTypes.CAMERA_ANIMATE_TO_BOUNDS,
-      (event) => {
-        const duration = event.duration || 1000;
-        const padding = event.padding || 50;
-        animateToBounds(event.bounds, padding, duration);
-      }
+      (event) => animateToBounds(event.bounds, event.padding ?? 50, event.duration ?? 1000)
     );
 
     return () => {
       unsubscribeAnimateToLocation();
       unsubscribeAnimateToBounds();
     };
-  }, [subscribe, animateToLocationWithZoom, animateToBounds, gravitationConfig.gravityZoomLevel]);
+  }, [subscribe, animateToBounds]); // `animateToBounds` is stable due to useCallback([])
 
-  // Cleanup
+  // --- Cleanup ---
   useEffect(() => {
+    // Ensure throttle function is cancelled on unmount
+    const cancelThrottle = throttledCheckAndPull.cancel;
     return () => {
-      if (panningTimeoutRef.current) {
-        clearTimeout(panningTimeoutRef.current);
-      }
-      if (zoomingTimeoutRef.current) {
-        clearTimeout(zoomingTimeoutRef.current);
-      }
+      if (panningTimeoutRef.current) clearTimeout(panningTimeoutRef.current);
+      if (zoomingTimeoutRef.current) clearTimeout(zoomingTimeoutRef.current);
+      cancelThrottle(); // Cancel any pending throttled execution
     };
-  }, []);
+  }, [throttledCheckAndPull]); // Depend on the throttled function instance
 
-  // Return API
+  // --- Returned API ---
   const api = useMemo(
     () => ({
       cameraRef,
+      // Note: mapViewRef is not used internally here, only passed through if needed externally
+      // If you add logic needing it (like queryRenderedFeatures), pass it in as prop/arg
       isGravitatingEnabled,
-      isGravitating,
-      isHighVelocity,
+      isGravitating, // Reflects pull animation state
+      isHighVelocity, // Reflects pull animation state
       toggleGravitation,
-      handleViewportChange,
+      handleViewportChange, // The main callback for MapView's onRegionDidChange/onCameraChanged
       animateToLocation,
       animateToLocationWithZoom,
       animateToBounds,
-      updateConfig: (newConfig: Partial<GravitationConfig>) => {
-        Object.assign(configRef.current, newConfig);
-      },
+      // No visibleMarkers exposed, as it's an internal detail now
+      // Expose methods to update config if needed, but direct mutation via ref is simpler internally
+      // updateConfig: (newConfig: Partial<GravitationConfig>) => { ... }, // Can be added if needed
     }),
     [
+      // Dependencies should be stable values or state affecting the API shape/callbacks
       isGravitatingEnabled,
       isGravitating,
       isHighVelocity,

@@ -46,10 +46,12 @@ export const DEFAULT_CONFIG: GravitationConfig = {
 
 // Animation constants
 export const ANIMATION_CONSTANTS = {
-  PANNING_TIMEOUT: 100,
-  ZOOMING_TIMEOUT: 100,
-  ANIMATION_BUFFER: 50,
-  SAFE_ZOOM_LEVEL: 14,
-  MAX_ZOOM_LEVEL: 16,
-  MIN_ZOOM_LEVEL: 10,
-};
+  PANNING_TIMEOUT: 200, // ms to wait after panning stops
+  ZOOMING_TIMEOUT: 200, // ms to wait after zooming stops
+  ANIMATION_BUFFER: 50, // ms buffer for animation completion
+  SAFE_ZOOM_LEVEL: 15, // Maximum zoom level for gravitational pull
+  MAX_ZOOM_LEVEL: 20, // Maximum allowed zoom level
+  MIN_ZOOM_LEVEL: 0, // Minimum allowed zoom level
+  THROTTLE_INTERVAL: 100, // ms between throttled checks
+  MARKER_UPDATE_DEBOUNCE: 50, // ms to debounce marker updates
+} as const;
