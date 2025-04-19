@@ -7,8 +7,7 @@ import { DEFAULT_CAMERA_SETTINGS, createCameraSettings } from "@/config/cameraCo
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
-import { useGravitationalCamera } from "@/hooks/useGravitationalCamera";
-import { useLocationCamera } from "@/hooks/useLocationCamera";
+import { useMapCamera } from "@/hooks/useMapCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
 import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
@@ -47,23 +46,10 @@ const styles = {
   },
 };
 
-// Configuration constants
-const GRAVITATIONAL_CAMERA_CONFIG = {
-  animationDuration: 500,
-  cooldownPeriod: 2000,
-  gravityZoomLevel: 14,
-  centeringThreshold: 0.003,
-  maxDistanceForPull: 0.1, // Approximately 11km at equator
-  velocitySampleSize: 3,
-  velocityMeasurementWindow: 200,
-  highVelocityThreshold: 0.001,
-  highVelocityAnimationDuration: 400,
-  gravityAnimationMode: "easeTo" as const,
-};
-
 function HomeScreen() {
   const [isMapReady, setIsMapReady] = useState(false);
   const mapRef = useRef<MapboxGL.MapView>(null);
+  const cameraRef = useRef<MapboxGL.Camera>(null);
   const { publish } = useEventBroker();
   const { mapStyle } = useMapStyle();
 
@@ -80,18 +66,8 @@ function HomeScreen() {
     process.env.EXPO_PUBLIC_WEB_SOCKET_URL!
   );
 
-  // Gravitational camera hook with memoized config
-  const { cameraRef, handleViewportChange: handleGravitationalViewportChange } =
-    useGravitationalCamera(markers, GRAVITATIONAL_CAMERA_CONFIG);
-
-  // Use the new location camera hook
-  useLocationCamera({
-    userLocation,
-    isLoadingLocation,
-    isMapReady,
-    cameraRef,
-    isUserInteracting: false,
-  });
+  // Use the new map camera hook
+  const { animateToLocation, animateToBounds, isAnimating } = useMapCamera({ cameraRef });
 
   // Track if we've done initial centering
   const hasCenteredOnUserRef = useRef(false);
@@ -238,13 +214,12 @@ function HomeScreen() {
         const viewport = processViewportBounds(properties.visibleBounds);
         if (viewport) {
           updateViewport(viewport);
-          handleGravitationalViewportChange(feature);
         }
       } catch (error) {
         console.error("Error processing viewport change:", error);
       }
     },
-    [updateViewport, handleGravitationalViewportChange, processViewportBounds]
+    [updateViewport, processViewportBounds]
   );
 
   // Memoize map ready handler
