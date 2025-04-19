@@ -159,7 +159,7 @@ export class ImageProcessingService implements IImageProcessingService {
                     - '1': Primarily a **vertical line**. It might have a small horizontal base or a very small flag/serif at the top.
                     - '7': Has a **distinct, long horizontal line across the top**, connected to a diagonal descending line.
                     - **DO NOT confuse a small top serif/flag on a '1' with the long horizontal top bar of a '7'. Look closely at the image.**
-                 * **Plausibility Check:** Consider the likely time for an afternoon Easter service.
+                 * **Plausibility Check:** Assess if the extracted time seems reasonable for this type of event based on the overall context of the flyer.
                  * **Other Digit Checks:** Also verify: 11 vs 1, 12 vs 2, 4 vs 9.
                  * **Format:** Verify AM/PM indicators. Include minutes if present (e.g., :00). State time precisely as seen (e.g., 1:00 PM).
                - Any timezone information (EST, PST, GMT, etc.)
