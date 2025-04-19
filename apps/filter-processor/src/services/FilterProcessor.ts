@@ -874,7 +874,7 @@ export class FilterProcessor {
     try {
       const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
       const maxRetries = 5;
-      const retryDelay = 2000; // 2 seconds
+      const initialRetryDelay = 2000; // 2 seconds
       const pageSize = 1000; // Number of events per page
       let allEvents: Event[] = [];
       let currentPage = 1;
@@ -903,6 +903,12 @@ export class FilterProcessor {
             }
 
             const data = await response.json();
+
+            // Validate response format
+            if (!data || !Array.isArray(data.events)) {
+              throw new Error("Invalid response format from backend");
+            }
+
             const { events, total, hasMore } = data;
 
             if (process.env.NODE_ENV !== "production") {
@@ -954,6 +960,8 @@ export class FilterProcessor {
               break;
             }
 
+            // Exponential backoff
+            const retryDelay = initialRetryDelay * Math.pow(2, attempt - 1);
             if (process.env.NODE_ENV !== "production") {
               console.log(`Waiting ${retryDelay}ms before next attempt...`);
             }
