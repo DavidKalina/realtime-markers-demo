@@ -45,7 +45,6 @@ interface ClusteredMapMarkersProps {
   viewport: MapboxViewport;
 }
 
-
 const SingleMarkerView = React.memo(
   ({
     marker,
@@ -66,7 +65,7 @@ const SingleMarkerView = React.memo(
       const hapticDelay = index * 300; // Match the animation delay
 
       const timer = setTimeout(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       }, hapticDelay);
 
       return () => clearTimeout(timer);
@@ -130,7 +129,7 @@ const ClusterView = React.memo(
       const hapticDelay = index * 50; // Match the animation delay
 
       const timer = setTimeout(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
       }, hapticDelay);
 
       return () => clearTimeout(timer);
@@ -203,8 +202,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           // Select the item in the store
           selectMapItem(item);
 
-
-
           // Convert to the EventBroker's expected format
           if (item.type === "marker") {
             // Create the marker event item
@@ -230,7 +227,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               markerData: item.data,
             });
 
-
             // Center camera on the item without changing zoom
             publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
               timestamp: Date.now(),
@@ -240,7 +236,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               zoomLevel: 16, // Use a higher zoom level for markers
               allowZoomChange: true, // Allow zoom changes
             });
-
           } else {
             // Create the cluster event item
             const clusterEventItem: EventClusterItem = {
@@ -267,7 +262,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
                 childMarkers: item.childrenIds, // Ensure childMarkers are included
               },
             });
-
 
             // Center camera on the item without changing zoom
             publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {

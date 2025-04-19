@@ -29,17 +29,17 @@ const COLOR_SCHEMES = {
   small: {
     fill: COLORS.background,
     stroke: COLORS.textPrimary,
-    text: COLORS.textPrimary
+    text: COLORS.textPrimary,
   },
   medium: {
     fill: COLORS.background,
     stroke: COLORS.textPrimary,
-    text: COLORS.textPrimary
+    text: COLORS.textPrimary,
   },
   large: {
     fill: COLORS.background,
     stroke: COLORS.accent, // Use accent color for large clusters
-    text: COLORS.textPrimary
+    text: COLORS.textPrimary,
   },
 };
 
@@ -52,7 +52,7 @@ const calculateMarkerSize = (count: number) => {
   const growthRate = 0.2; // Increased growth rate for more dramatic scaling
 
   // Logarithmic scaling to prevent too large sizes
-  const scale = Math.min(baseSize + (Math.log10(count) * growthRate), maxSize);
+  const scale = Math.min(baseSize + Math.log10(count) * growthRate, maxSize);
   return scale;
 };
 
@@ -103,6 +103,8 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     const [isDropComplete, setIsDropComplete] = useState(false);
     const prevSelectedRef = useRef(isSelected);
     const prevHighlightedRef = useRef(isHighlighted);
+    const animationTimersRef = useRef<Array<NodeJS.Timeout>>([]);
+    const animationIntervalsRef = useRef<Array<NodeJS.Timeout>>([]);
 
     // Calculate base scale based on count
     const baseScale = useMemo(() => calculateMarkerSize(count), [count]);
@@ -118,6 +120,7 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     const fanRotation = useSharedValue(0);
     const fanScale = useSharedValue(1);
     const pulseScale = useSharedValue(1);
+    const burstScale = useSharedValue(1);
 
     // Memoize color scheme based on count
     const colorScheme = useMemo(() => {
@@ -131,17 +134,46 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
 
     // Use shared SVG components
     const ShadowSvg = useMemo(() => <ShadowSVG />, []);
-    const MarkerSvg = useMemo(() => (
-      <MarkerSVG
-        fill={colorScheme.fill}
-        stroke={colorScheme.stroke}
-        strokeWidth={count > 5 ? "4" : "3"}
-        highlightStrokeWidth={count > 5 ? "3" : "2.5"}
-        circleRadius={count > 5 ? "14" : "12"}
-        circleStroke={count > 15 ? COLORS.accent : COLORS.buttonBorder}
-        circleStrokeWidth={count > 15 ? "2" : "1"}
-      />
-    ), [colorScheme, count]);
+    const MarkerSvg = useMemo(
+      () => (
+        <MarkerSVG
+          fill={colorScheme.fill}
+          stroke={colorScheme.stroke}
+          strokeWidth={count > 5 ? "4" : "3"}
+          highlightStrokeWidth={count > 5 ? "3" : "2.5"}
+          circleRadius={count > 5 ? "14" : "12"}
+          circleStroke={count > 15 ? COLORS.accent : COLORS.buttonBorder}
+          circleStrokeWidth={count > 15 ? "2" : "1"}
+        />
+      ),
+      [colorScheme, count]
+    );
+
+    // Cleanup function for all animations and timers
+    const cleanupAnimations = useCallback(() => {
+      // Cancel all animations
+      createAnimationCleanup([
+        dropY,
+        scale,
+        rotation,
+        shadowOpacity,
+        rippleScale,
+        rippleOpacity,
+        bounceY,
+        fanRotation,
+        fanScale,
+        pulseScale,
+        burstScale,
+      ])();
+
+      // Clear all timers
+      animationTimersRef.current.forEach((timer) => clearTimeout(timer));
+      animationTimersRef.current = [];
+
+      // Clear all intervals
+      animationIntervalsRef.current.forEach((interval) => clearInterval(interval));
+      animationIntervalsRef.current = [];
+    }, []);
 
     // Set up drop-in animation on mount
     useEffect(() => {
@@ -149,21 +181,12 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
       const startDelay = index * 200;
 
       // Drop animation sequence
-      dropY.value = withDelay(
-        startDelay,
-        withSpring(0, ANIMATIONS.DROP_IN)
-      );
+      dropY.value = withDelay(startDelay, withSpring(0, ANIMATIONS.DROP_IN));
 
       // Scale and rotation
-      scale.value = withDelay(
-        startDelay,
-        withSpring(1, ANIMATIONS.DROP_IN)
-      );
+      scale.value = withDelay(startDelay, withSpring(1, ANIMATIONS.DROP_IN));
 
-      rotation.value = withDelay(
-        startDelay,
-        withSpring(0, ANIMATIONS.DROP_IN)
-      );
+      rotation.value = withDelay(startDelay, withSpring(0, ANIMATIONS.DROP_IN));
 
       // After drop is complete
       const dropCompleteTimer = setTimeout(() => {
@@ -180,15 +203,12 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
         const bounceTimer = setTimeout(() => {
           startPeriodicBounce();
         }, 300);
-
-        return () => clearTimeout(bounceTimer);
+        animationTimersRef.current.push(bounceTimer);
       }, startDelay + 1200);
+      animationTimersRef.current.push(dropCompleteTimer);
 
-      return () => {
-        clearTimeout(dropCompleteTimer);
-        createAnimationCleanup([dropY, scale, rotation, shadowOpacity, rippleScale, rippleOpacity])();
-      };
-    }, [index]);
+      return cleanupAnimations;
+    }, [index, cleanupAnimations]);
 
     // Start periodic bounce animation
     const startPeriodicBounce = useCallback(() => {
@@ -201,8 +221,7 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
       const timer = setTimeout(() => {
         startPeriodicBounce();
       }, 6000);
-
-      return () => clearTimeout(timer);
+      animationTimersRef.current.push(timer);
     }, []);
 
     // Handle selection state changes
@@ -223,7 +242,7 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
       if (Platform.OS !== "web") {
         Haptics.impactAsync(
           isSelected ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
-        ).catch(() => { });
+        ).catch(() => {});
       }
 
       scale.value = withSequence(
@@ -264,50 +283,53 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
             withTiming(1, ANIMATIONS.FAN_IN)
           );
         }, 4000);
+        animationIntervalsRef.current.push(fanTimer);
 
-        return () => clearInterval(fanTimer);
+        return () => {
+          clearInterval(fanTimer);
+        };
       }
     }, [isDropComplete]);
 
     // Add pulsing animation for larger clusters
     useEffect(() => {
-      if (count > 15) { // Only for very large clusters
+      if (count > 15) {
         pulseScale.value = withRepeat(
           withSequence(
-            withTiming(1.15, { duration: 300 }), // Faster, more intense pulse
-            withTiming(0.95, { duration: 300 }), // Quick shrink
-            withTiming(1.1, { duration: 200 }),  // Medium pulse
-            withTiming(1, { duration: 200 })     // Back to normal
+            withTiming(1.15, { duration: 300 }),
+            withTiming(0.95, { duration: 300 }),
+            withTiming(1.1, { duration: 200 }),
+            withTiming(1, { duration: 200 })
           ),
           -1,
           true
         );
       } else if (count > 5) {
-        // Keep the gentler pulse for medium clusters
         pulseScale.value = withRepeat(
-          withSequence(
-            withTiming(1.08, { duration: 1000 }),
-            withTiming(1, { duration: 1000 })
-          ),
+          withSequence(withTiming(1.08, { duration: 1000 }), withTiming(1, { duration: 1000 })),
           -1,
           true
         );
       }
+
+      return () => {
+        cancelAnimation(pulseScale);
+      };
     }, [count]);
 
     // Add a secondary "burst" effect for very large clusters
-    const burstScale = useSharedValue(1);
     useEffect(() => {
       if (count > 15) {
         burstScale.value = withRepeat(
-          withSequence(
-            withTiming(1.2, { duration: 400 }),  // Quick burst
-            withTiming(1, { duration: 400 })     // Quick return
-          ),
+          withSequence(withTiming(1.2, { duration: 400 }), withTiming(1, { duration: 400 })),
           -1,
           true
         );
       }
+
+      return () => {
+        cancelAnimation(burstScale);
+      };
     }, [count]);
 
     // Animated styles
@@ -321,10 +343,7 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
 
     const shadowStyle = useAnimatedStyle(() => ({
       opacity: shadowOpacity.value,
-      transform: [
-        { translateX: SHADOW_OFFSET.x },
-        { translateY: SHADOW_OFFSET.y },
-      ],
+      transform: [{ translateX: SHADOW_OFFSET.x }, { translateY: SHADOW_OFFSET.y }],
     }));
 
     const rippleStyle = useAnimatedStyle(() => ({
@@ -335,33 +354,22 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     return (
       <View style={styles.container}>
         {/* Marker Shadow */}
-        <Animated.View style={[styles.shadowContainer, shadowStyle]}>
-          {ShadowSvg}
-        </Animated.View>
+        <Animated.View style={[styles.shadowContainer, shadowStyle]}>{ShadowSvg}</Animated.View>
 
         {/* Marker */}
-        <TouchableOpacity
-          onPress={handlePress}
-          activeOpacity={0.7}
-          style={styles.touchableArea}
-        >
+        <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={styles.touchableArea}>
           <Animated.View style={[styles.markerContainer, markerStyle]}>
             {MarkerSvg}
 
             {/* Cluster Count Text */}
             <View style={styles.countContainer}>
-              <Text style={[
-                styles.countText,
-                { fontSize: count > 99 ? 14 : count > 9 ? 16 : 18 }
-              ]}>
+              <Text style={[styles.countText, { fontSize: count > 99 ? 14 : count > 9 ? 16 : 18 }]}>
                 {formattedCount}
               </Text>
             </View>
 
             {/* Impact ripple effect that appears after drop */}
-            {isDropComplete && (
-              <Animated.View style={[styles.rippleEffect, rippleStyle]} />
-            )}
+            {isDropComplete && <Animated.View style={[styles.rippleEffect, rippleStyle]} />}
           </Animated.View>
         </TouchableOpacity>
       </View>

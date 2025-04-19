@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { StyleSheet, Text, TouchableOpacity, View, Platform } from "react-native";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -81,27 +81,40 @@ const createAnimationCleanup = (animations: Animated.SharedValue<number>[]) => {
 };
 
 export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
-  ({
-    event,
-    isSelected,
-    isHighlighted = false,
-    onPress,
-    index = 0,
-  }) => {
+  ({ event, isSelected, isHighlighted = false, onPress, index = 0 }) => {
     // State for random color selection
     const [markerColor] = useState(() => {
       return event.color || markerColors[Math.floor(Math.random() * markerColors.length)];
     });
     const [isDropComplete, setIsDropComplete] = useState(false);
+    const animationTimersRef = useRef<Array<NodeJS.Timeout>>([]);
 
     // Animation values
     const dropY = useSharedValue(-300);
     const scale = useSharedValue(0.5);
-    const rotation = useSharedValue(-0.1); // Slight initial rotation
+    const rotation = useSharedValue(-0.1);
     const shadowOpacity = useSharedValue(0);
     const rippleScale = useSharedValue(0);
     const rippleOpacity = useSharedValue(0.8);
     const bounceY = useSharedValue(0);
+
+    // Cleanup function for all animations and timers
+    const cleanupAnimations = useCallback(() => {
+      // Cancel all animations
+      createAnimationCleanup([
+        dropY,
+        scale,
+        rotation,
+        shadowOpacity,
+        rippleScale,
+        rippleOpacity,
+        bounceY,
+      ])();
+
+      // Clear all timers
+      animationTimersRef.current.forEach((timer) => clearTimeout(timer));
+      animationTimersRef.current = [];
+    }, []);
 
     // Set up drop-in animation on mount
     useEffect(() => {
@@ -109,21 +122,12 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       const startDelay = index * 200;
 
       // Drop animation sequence
-      dropY.value = withDelay(
-        startDelay,
-        withSpring(0, ANIMATIONS.DROP_IN)
-      );
+      dropY.value = withDelay(startDelay, withSpring(0, ANIMATIONS.DROP_IN));
 
       // Scale and rotation
-      scale.value = withDelay(
-        startDelay,
-        withSpring(1, ANIMATIONS.DROP_IN)
-      );
+      scale.value = withDelay(startDelay, withSpring(1, ANIMATIONS.DROP_IN));
 
-      rotation.value = withDelay(
-        startDelay,
-        withSpring(0, ANIMATIONS.DROP_IN)
-      );
+      rotation.value = withDelay(startDelay, withSpring(0, ANIMATIONS.DROP_IN));
 
       // After drop is complete
       const dropCompleteTimer = setTimeout(() => {
@@ -140,15 +144,12 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
         const bounceTimer = setTimeout(() => {
           startPeriodicBounce();
         }, 300);
-
-        return () => clearTimeout(bounceTimer);
+        animationTimersRef.current.push(bounceTimer);
       }, startDelay + 1200);
+      animationTimersRef.current.push(dropCompleteTimer);
 
-      return () => {
-        clearTimeout(dropCompleteTimer);
-        createAnimationCleanup([dropY, scale, rotation, shadowOpacity, rippleScale, rippleOpacity])();
-      };
-    }, [index]);
+      return cleanupAnimations;
+    }, [index, cleanupAnimations]);
 
     // Start periodic bounce animation
     const startPeriodicBounce = useCallback(() => {
@@ -161,8 +162,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       const timer = setTimeout(() => {
         startPeriodicBounce();
       }, 6000);
-
-      return () => clearTimeout(timer);
+      animationTimersRef.current.push(timer);
     }, []);
 
     // Handle selection state changes
@@ -177,7 +177,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
     // Handle press with haptic feedback
     const handlePress = useCallback(() => {
       if (Platform.OS !== "web") {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       }
 
       scale.value = withSequence(
@@ -199,10 +199,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
 
     const shadowStyle = useAnimatedStyle(() => ({
       opacity: shadowOpacity.value,
-      transform: [
-        { translateX: SHADOW_OFFSET.x },
-        { translateY: SHADOW_OFFSET.y },
-      ],
+      transform: [{ translateX: SHADOW_OFFSET.x }, { translateY: SHADOW_OFFSET.y }],
     }));
 
     const rippleStyle = useAnimatedStyle(() => ({
@@ -213,31 +210,28 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
 
     // Remove the old SVG components and use the shared ones
     const ShadowSvg = useMemo(() => <ShadowSVG />, []);
-    const MarkerSvg = useMemo(() => (
-      <MarkerSVG
-        fill="#1a1a1a"
-        stroke="white"
-        strokeWidth="3"
-        highlightStrokeWidth="2.5"
-        circleRadius="12"
-        circleStroke="#E2E8F0"
-        circleStrokeWidth="1"
-      />
-    ), []);
+    const MarkerSvg = useMemo(
+      () => (
+        <MarkerSVG
+          fill="#1a1a1a"
+          stroke="white"
+          strokeWidth="3"
+          highlightStrokeWidth="2.5"
+          circleRadius="12"
+          circleStroke="#E2E8F0"
+          circleStrokeWidth="1"
+        />
+      ),
+      []
+    );
 
     return (
       <View style={styles.container}>
         {/* Marker Shadow */}
-        <Animated.View style={[styles.shadowContainer, shadowStyle]}>
-          {ShadowSvg}
-        </Animated.View>
+        <Animated.View style={[styles.shadowContainer, shadowStyle]}>{ShadowSvg}</Animated.View>
 
         {/* Marker */}
-        <TouchableOpacity
-          onPress={handlePress}
-          activeOpacity={0.7}
-          style={styles.touchableArea}
-        >
+        <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={styles.touchableArea}>
           <Animated.View style={[styles.markerContainer, markerStyle]}>
             {MarkerSvg}
 
@@ -247,9 +241,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
             </View>
 
             {/* Impact ripple effect that appears after drop */}
-            {isDropComplete && (
-              <Animated.View style={[styles.rippleEffect, rippleStyle]} />
-            )}
+            {isDropComplete && <Animated.View style={[styles.rippleEffect, rippleStyle]} />}
           </Animated.View>
         </TouchableOpacity>
       </View>
