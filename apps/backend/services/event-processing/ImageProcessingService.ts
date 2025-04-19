@@ -155,7 +155,7 @@ export class ImageProcessingService implements IImageProcessingService {
                - Event Title
                - Event Date and Time (be specific about year, month, day, time):
                  * DOUBLE CHECK TIME DIGITS - carefully distinguish between:
-                   - 1 vs 7 (look for the horizontal line in 7)
+                   - 1 vs 7 (look for the horizontal line at the bottom of the 1. look for the horizontal line at the top of the 7)
                    - 11 vs 1 (check for double digits)
                    - 12 vs 2 (check for double digits)
                    - 4 vs 9 (check for the closed loop in 9)
