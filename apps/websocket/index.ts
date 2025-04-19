@@ -44,6 +44,9 @@ const MessageTypes = {
   // Leveling system
   LEVEL_UPDATE: "level-update",
   XP_AWARDED: "xp-awarded",
+
+  // New message type for error handling
+  ERROR: "error",
 };
 
 // --- In-Memory State ---
@@ -66,53 +69,60 @@ const redisConfig = {
 const redisPub = new Redis(redisConfig);
 
 // Add error handling for Redis publisher
-redisPub.on('error', (error) => {
-  console.error('Redis publisher error:', error);
+redisPub.on("error", (error) => {
+  console.error("Redis publisher error:", error);
 });
 
-redisPub.on('connect', () => {
-  console.log('Redis publisher connected successfully');
+redisPub.on("connect", () => {
+  console.log("Redis publisher connected successfully");
 });
 
-redisPub.on('ready', () => {
-  console.log('Redis publisher is ready to accept commands');
+redisPub.on("ready", () => {
+  console.log("Redis publisher is ready to accept commands");
 });
 
 // Subscribe to discovered events
 const redisSub = new Redis(redisConfig);
 
 // Add error handling for Redis subscriber
-redisSub.on('error', (error) => {
-  console.error('Redis subscriber error:', error);
+redisSub.on("error", (error) => {
+  console.error("Redis subscriber error:", error);
 });
 
-redisSub.on('connect', () => {
-  console.log('Redis subscriber connected successfully');
+redisSub.on("connect", () => {
+  console.log("Redis subscriber connected successfully");
 });
 
-redisSub.on('ready', () => {
-  console.log('Redis subscriber is ready to accept commands');
+redisSub.on("ready", () => {
+  console.log("Redis subscriber is ready to accept commands");
 });
 
 // Subscribe to channels
-redisSub.subscribe('discovered_events', (err, count) => {
+redisSub.subscribe("discovered_events", (err, count) => {
   if (err) {
-    console.error('Error subscribing to discovered_events:', err);
+    console.error("Error subscribing to discovered_events:", err);
   } else {
     console.log(`Subscribed to discovered_events, total subscriptions: ${count}`);
   }
 });
 
-redisSub.subscribe('level-update', (err, count) => {
+redisSub.subscribe("level-update", (err, count) => {
   if (err) {
-    console.error('Error subscribing to level-update:', err);
+    console.error("Error subscribing to level-update:", err);
   } else {
     console.log(`Subscribed to level-update, total subscriptions: ${count}`);
   }
 });
 
-redisSub.on("message", (channel, message) => {
+redisSub.subscribe("event:deleted", (err, count) => {
+  if (err) {
+    console.error("Error subscribing to event:deleted:", err);
+  } else {
+    console.log(`Subscribed to event:deleted, total subscriptions: ${count}`);
+  }
+});
 
+redisSub.on("message", (channel, message) => {
   console.log(`Received message from ${channel}: ${message}`);
 
   if (channel === "discovered_events") {
@@ -122,7 +132,7 @@ redisSub.on("message", (channel, message) => {
       const formattedMessage = JSON.stringify({
         type: MessageTypes.EVENT_DISCOVERED,
         event: data.event,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       // Broadcast to all connected clients
@@ -174,6 +184,26 @@ redisSub.on("message", (channel, message) => {
       }
     } catch (error) {
       console.error("Error processing level update:", error);
+    }
+  } else if (channel === "event:deleted") {
+    try {
+      const data = JSON.parse(message);
+      const formattedMessage = JSON.stringify({
+        type: MessageTypes.DELETE_EVENT,
+        id: data.id,
+        timestamp: data.timestamp || new Date().toISOString(),
+      });
+
+      // Broadcast to all connected clients
+      for (const [clientId, client] of clients.entries()) {
+        try {
+          client.send(formattedMessage);
+        } catch (error) {
+          console.error(`Error sending deletion event to client ${clientId}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error("Error processing deletion event:", error);
     }
   }
 });
@@ -472,7 +502,7 @@ const server = {
       updateHealthStats();
     },
 
-    message(ws: ServerWebSocket<WebSocketData>, message: string | Uint8Array) {
+    message: async (ws: ServerWebSocket<WebSocketData>, message: string | Uint8Array) => {
       // Update last activity timestamp
       ws.data.lastActivity = Date.now();
 
@@ -480,8 +510,15 @@ const server = {
         const data = JSON.parse(message.toString());
 
         if (data.type === MessageTypes.CLIENT_IDENTIFICATION) {
-          if (!data.userId) {
-            console.error(`Missing userId in client identification from ${ws.data.clientId}`);
+          if (!data.userId || !isValidUserId(data.userId)) {
+            console.error(`Invalid userId in client identification from ${ws.data.clientId}`);
+            ws.send(
+              JSON.stringify({
+                type: MessageTypes.ERROR,
+                message: "Invalid userId format",
+                timestamp: new Date().toISOString(),
+              })
+            );
             return;
           }
 
@@ -502,7 +539,7 @@ const server = {
           console.log(`Client ${ws.data.clientId} identified as user ${userId}`);
 
           // Fetch user's filters from backend and publish to filter-changes
-          fetchUserFiltersAndPublish(userId);
+          await fetchUserFiltersAndPublish(userId);
 
           updateHealthStats();
         }
@@ -530,6 +567,14 @@ const server = {
             maxY: data.viewport.north,
           };
 
+          // Store viewport in Redis with expiration
+          await redisPub.set(
+            `viewport:${userId}`,
+            JSON.stringify(viewport),
+            "EX",
+            3600 // 1 hour expiration
+          );
+
           // Publish viewport update to Filter Processor
           redisPub.publish(
             "viewport-updates",
@@ -555,7 +600,7 @@ const server = {
           ].includes(data.type)
         ) {
           // Forward to session manager
-          sessionManager.handleMessage(ws, message.toString());
+          await sessionManager.handleMessage(ws, message.toString());
         }
 
         // Log unknown message types
@@ -567,7 +612,7 @@ const server = {
       }
     },
 
-    close(ws: ServerWebSocket<WebSocketData>) {
+    close: async (ws: ServerWebSocket<WebSocketData>) => {
       try {
         const { clientId, userId } = ws.data;
 
@@ -590,6 +635,17 @@ const server = {
             if (userClients.size === 0) {
               userToClients.delete(userId);
               releaseRedisSubscriber(userId);
+
+              // Remove viewport data from both Redis keys
+              const viewportKey = `viewport:${userId}`;
+              await Promise.all([
+                redisPub.zrem("viewport:geo", viewportKey),
+                redisPub.del(viewportKey),
+              ]);
+
+              if (process.env.NODE_ENV !== "production") {
+                console.log(`Cleaned up viewport data for user ${userId}`);
+              }
             }
           }
         }
@@ -622,3 +678,10 @@ async function startServer() {
 }
 
 startServer();
+
+// Add userId validation function
+function isValidUserId(userId: string): boolean {
+  // UUID v4 format validation
+  const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidV4Regex.test(userId);
+}

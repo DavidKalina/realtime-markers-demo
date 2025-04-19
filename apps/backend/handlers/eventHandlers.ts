@@ -122,20 +122,16 @@ export const processEventImageHandler: EventHandler = async (c) => {
     const userLng = formData.get("userLng");
     const user = c.get("user");
 
-
     console.log("userLat", userLat);
     console.log("userLng", userLng);
 
     const userCoordinates =
       userLat && userLng
         ? {
-          lat: parseFloat(userLat.toString()),
-          lng: parseFloat(userLng.toString()),
-        }
+            lat: parseFloat(userLat.toString()),
+            lng: parseFloat(userLng.toString()),
+          }
         : null;
-
-
-
 
     if (!user || !user?.userId) {
       return c.json({ error: "Missing user id" }, 404);
@@ -148,10 +144,13 @@ export const processEventImageHandler: EventHandler = async (c) => {
     // Check if user has reached their scan limit
     const hasReachedLimit = await planService.hasReachedScanLimit(user.userId);
     if (hasReachedLimit) {
-      return c.json({
-        error: "Scan limit reached",
-        message: "You have reached your weekly scan limit. Please upgrade to Pro for more scans."
-      }, 403);
+      return c.json(
+        {
+          error: "Scan limit reached",
+          message: "You have reached your weekly scan limit. Please upgrade to Pro for more scans.",
+        },
+        403
+      );
     }
 
     // Increment scan count before processing
@@ -341,7 +340,12 @@ export const getAllEventsHandler: EventHandler = async (c) => {
       offset: offset ? parseInt(offset) : undefined,
     });
 
-    return c.json(eventsData);
+    // Return data in the format expected by the filter processor
+    return c.json({
+      events: eventsData,
+      total: eventsData.length,
+      hasMore: false, // Since we're not implementing pagination in the backend yet
+    });
   } catch (error) {
     console.error("Error fetching events:", error);
     return c.json({ error: "Failed to fetch events" }, 500);

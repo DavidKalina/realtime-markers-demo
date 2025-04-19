@@ -4,7 +4,7 @@ import { createHash } from "crypto";
 import { CacheService } from "../shared/CacheService";
 import type { IImageProcessingService } from "./interfaces/IImageProcesssingService";
 import type { ImageProcessingResult } from "./dto/ImageProcessingResult";
-import { OpenAIService } from "../shared/OpenAIService";
+import { OpenAIModel, OpenAIService } from "../shared/OpenAIService";
 import jsQR from "jsqr";
 import { Jimp } from "jimp";
 
@@ -143,7 +143,7 @@ export class ImageProcessingService implements IImageProcessingService {
       // In the callVisionAPI method, update the prompt:
       // In the callVisionAPI method, update the prompt:
       const response = await OpenAIService.executeChatCompletion({
-        model: this.VISION_MODEL,
+        model: this.VISION_MODEL as OpenAIModel,
         messages: [
           {
             role: "user",
@@ -153,7 +153,15 @@ export class ImageProcessingService implements IImageProcessingService {
                 text: `Please analyze this event flyer and extract as much detail as possible:
                - Check if there's a QR code present in the image (yes/no)
                - Event Title
-               - Event Date and Time (be specific about year, month, day, time)
+               - Event Date and Time (be specific about year, month, day, time):
+                 * DOUBLE CHECK TIME DIGITS - carefully distinguish between:
+                   - 1 vs 7 (look for the horizontal line at the bottom of the 1. look for the horizontal line at the top of the 7)
+                   - 11 vs 1 (check for double digits)
+                   - 12 vs 2 (check for double digits)
+                   - 4 vs 9 (check for the closed loop in 9)
+                 * Verify AM/PM indicators
+                 * Include minutes if present
+                 * Be precise about time format (e.g., 1:00 PM vs 13:00)
                - Any timezone information (EST, PST, GMT, etc.)
                - Full Location Details:
                  * PRIMARY VENUE: Focus on the most prominently displayed location in the image
