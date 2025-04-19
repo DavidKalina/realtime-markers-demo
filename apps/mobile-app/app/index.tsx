@@ -67,7 +67,7 @@ function HomeScreen() {
   );
 
   // Use the new map camera hook
-  const { animateToLocation, animateToBounds, isAnimating } = useMapCamera({ cameraRef });
+  useMapCamera({ cameraRef });
 
   // Track if we've done initial centering
   const hasCenteredOnUserRef = useRef(false);
