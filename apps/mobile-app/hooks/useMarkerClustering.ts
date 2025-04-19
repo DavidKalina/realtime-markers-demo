@@ -1,12 +1,14 @@
 // hooks/useMarkerClustering.ts
 import { useMemo, useRef, useEffect } from "react";
 import Supercluster from "supercluster";
-import { Marker } from "@/hooks/useMapWebsocket";
-import { MapboxViewport } from "@/types/types";
+import type { Marker } from "@/hooks/useMapWebsocket";
+import type { MapboxViewport } from "@/types/types";
+import type { Point as GeoJSONPoint } from "geojson";
 
-// Type for cluster properties
+// --- Original Type Definitions (Ensuring Compatibility) ---
+
 interface ClusterProperties {
-  cluster: boolean;
+  cluster: true;
   cluster_id: number;
   point_count: number;
   point_count_abbreviated: string;
@@ -14,17 +16,23 @@ interface ClusterProperties {
   childMarkers: string[];
 }
 
-// Type for cluster feature
+interface PointProperties {
+  cluster?: false;
+  id: string;
+  data: Marker["data"];
+}
+
+type OutputPointGeometry = {
+  type: "Point";
+  coordinates: [number, number];
+};
+
 export interface ClusterFeature {
   type: "Feature";
   properties: ClusterProperties;
-  geometry: {
-    type: "Point";
-    coordinates: [number, number];
-  };
+  geometry: OutputPointGeometry;
 }
 
-// Type for point feature
 export interface PointFeature {
   type: "Feature";
   properties: {
@@ -32,28 +40,61 @@ export interface PointFeature {
     id: string;
     data: Marker["data"];
   };
-  geometry: {
-    type: "Point";
-    coordinates: [number, number];
-  };
+  geometry: OutputPointGeometry;
 }
 
-// Type for the result of the hook
 export interface ClusteringResult {
   clusters: (ClusterFeature | PointFeature)[];
 }
 
-// Helper function to generate a stable cluster ID using a hash
-const generateClusterId = (markers: Marker[]): string => {
-  // Use a simple but effective hash function
-  const hash = markers.reduce((acc, marker) => {
-    // XOR the current hash with the marker ID's hash
-    return acc ^ marker.id.split('').reduce((charAcc, char) => {
-      return ((charAcc << 5) - charAcc) + char.charCodeAt(0) | 0;
-    }, 0);
-  }, 0);
+// --- Internal Types ---
 
+interface SuperclusterClusterPropertiesInternal {
+  cluster: true;
+  cluster_id: number;
+  point_count: number;
+  point_count_abbreviated: string;
+}
+
+type InputPointFeatureInternal = GeoJSON.Feature<GeoJSONPoint, PointProperties>;
+
+type SuperclusterClusterFeatureInternal = GeoJSON.Feature<
+  GeoJSONPoint,
+  SuperclusterClusterPropertiesInternal
+>;
+
+// --- Helper Functions ---
+
+const generateStableClusterId = (markerIds: string[]): string => {
+  const sortedIds = [...markerIds].sort();
+  let hash = 0;
+  for (const id of sortedIds) {
+    for (let i = 0; i < id.length; i++) {
+      hash = (hash << 5) - hash + id.charCodeAt(i);
+      hash |= 0;
+    }
+    hash ^= sortedIds.length;
+  }
   return `cluster-${hash}`;
+};
+
+// --- Hook Implementation ---
+
+// Define Supercluster options with correct generics
+// P = PointProperties (input point props, also stored for leaves)
+// C = SuperclusterClusterPropertiesInternal (props supercluster adds to clusters)
+const SUPERCLUSTER_OPTIONS: Supercluster.Options<
+  PointProperties,
+  SuperclusterClusterPropertiesInternal
+> = {
+  radius: 80,
+  maxZoom: 16,
+  minZoom: 0,
+  minPoints: 2,
+  // Correct map function logic: Returns the properties needed for leaves.
+  // **Workaround:** Cast to 'any' to bypass TS error where it incorrectly expects
+  // the return type to match the second generic (C) instead of P or a derivative of P.
+  map: ((props: PointProperties): PointProperties => props) as any,
 };
 
 export const useMarkerClustering = (
@@ -61,109 +102,121 @@ export const useMarkerClustering = (
   viewport: MapboxViewport | null,
   currentZoom: number
 ): ClusteringResult => {
-  // Create a stable reference to supercluster instance
-  const superclusterRef = useRef<Supercluster>();
-  const lastZoomRef = useRef<number>(currentZoom);
-  const debouncedZoomRef = useRef<number>(currentZoom);
+  // useRef type matches the generics used in SUPERCLUSTER_OPTIONS
+  const superclusterRef = useRef<Supercluster<
+    PointProperties,
+    SuperclusterClusterPropertiesInternal
+  > | null>(null);
 
-  // Initialize supercluster only once
-  if (!superclusterRef.current) {
-    superclusterRef.current = new Supercluster({
-      radius: 100,
-      maxZoom: 16,
-      minPoints: 2,
-      map: (props) => ({
-        id: props.id,
-        data: props.data,
-      }),
-    });
-  }
-
-  // Debounce zoom level changes
-  useEffect(() => {
-    const zoomDiff = Math.abs(currentZoom - lastZoomRef.current);
-    // Only update if zoom difference is significant (more than 0.1)
-    if (zoomDiff > 0.1) {
-      debouncedZoomRef.current = currentZoom;
-      lastZoomRef.current = currentZoom;
-    }
-  }, [currentZoom]);
-
-  // Convert markers to GeoJSON format and memoize
-  const points = useMemo(() => {
+  // Memoize GeoJSON points
+  const points: InputPointFeatureInternal[] = useMemo(() => {
     return markers.map(
       (marker) =>
-      ({
-        type: "Feature",
-        properties: {
-          cluster: false,
-          id: marker.id,
-          data: marker.data,
-        },
-        geometry: {
-          type: "Point",
-          coordinates: marker.coordinates,
-        },
-      } as PointFeature)
+        ({
+          type: "Feature",
+          properties: {
+            cluster: false, // Explicitly false for input
+            id: marker.id,
+            data: marker.data,
+          },
+          geometry: {
+            type: "Point",
+            coordinates: marker.coordinates,
+          },
+        } as InputPointFeatureInternal)
     );
   }, [markers]);
 
-  // Memoize the bounds calculation
-  const bounds = useMemo(() => {
-    if (!viewport) return null;
-    return [viewport.west, viewport.south, viewport.east, viewport.north] as [
-      number,
-      number,
-      number,
-      number
-    ];
-  }, [viewport]);
-
-  // Load points into supercluster only when points change
-  useMemo(() => {
-    if (superclusterRef.current && points.length > 0) {
-      superclusterRef.current.load(points);
+  // Effect to initialize and load points
+  useEffect(() => {
+    if (!superclusterRef.current) {
+      superclusterRef.current = new Supercluster(SUPERCLUSTER_OPTIONS);
     }
+    superclusterRef.current.load(points);
   }, [points]);
 
-  // Generate clusters based on viewport and zoom
-  const clusters = useMemo(() => {
-    if (!viewport || !bounds || points.length === 0 || !superclusterRef.current) return [];
+  // Memoize bounds
+  const bounds: [number, number, number, number] | null = useMemo(() => {
+    if (!viewport) return null;
+    return [viewport.west, viewport.south, viewport.east, viewport.north];
+  }, [viewport]);
 
-    // Get raw clusters from supercluster
-    const rawClusters = superclusterRef.current.getClusters(bounds, Math.floor(debouncedZoomRef.current)) as (
-      | ClusterFeature
-      | PointFeature
+  // Memoize integer zoom
+  const integerZoom = useMemo(() => Math.floor(currentZoom), [currentZoom]);
+
+  // Memoize raw clusters/points from supercluster
+  const rawClustersAndPoints = useMemo(() => {
+    const sc = superclusterRef.current;
+    if (!sc || !bounds || points.length === 0) {
+      return [];
+    }
+    // Expecting clusters with SuperclusterClusterPropertiesInternal
+    // and points with PointProperties (due to our map function logic)
+    return sc.getClusters(bounds, integerZoom) as (
+      | SuperclusterClusterFeatureInternal
+      | InputPointFeatureInternal
     )[];
+  }, [bounds, integerZoom, points.length]);
 
-    // Process clusters to add stable IDs and child markers
-    return rawClusters.map(cluster => {
-      if (cluster.properties.cluster) {
-        // For clusters, get the leaf markers and generate a stable ID
-        const clusterFeature = cluster as ClusterFeature;
-        const leaves = superclusterRef.current!.getLeaves(
-          clusterFeature.properties.cluster_id,
-          Infinity
-        );
-        const markerIds = leaves.map(leaf => (leaf as PointFeature).properties.id);
-        const stableId = generateClusterId(markerIds.map(id => markers.find(m => m.id === id)!));
+  // Memoize final processed clusters mapped to output format
+  const processedClusters = useMemo((): (ClusterFeature | PointFeature)[] => {
+    const sc = superclusterRef.current;
+    if (!sc) return [];
 
+    return rawClustersAndPoints.map((feature): ClusterFeature | PointFeature => {
+      if (feature.properties?.cluster === true) {
+        // Cluster
+        const clusterFeatureInternal = feature as SuperclusterClusterFeatureInternal;
+        const clusterId = clusterFeatureInternal.properties.cluster_id;
+        let childMarkerIds: string[] = [];
 
+        try {
+          // Expect leaves to have PointProperties because map returned PointProperties
+          const leaves = sc.getLeaves(clusterId, Infinity) as InputPointFeatureInternal[];
+          childMarkerIds = leaves.map((leaf) => leaf.properties.id);
+        } catch (error) {
+          console.error(`Error getting leaves for cluster ${clusterId}:`, error);
+        }
+
+        const stableId = generateStableClusterId(childMarkerIds);
+        const outputGeometry: OutputPointGeometry = {
+          type: "Point",
+          coordinates: clusterFeatureInternal.geometry.coordinates as [number, number],
+        };
 
         return {
-          ...clusterFeature,
+          type: "Feature",
           properties: {
-            ...clusterFeature.properties,
+            // Conforms to ClusterProperties
+            ...clusterFeatureInternal.properties, // Includes cluster, cluster_id, point_count, etc.
             stableId,
-            childMarkers: markerIds,
+            childMarkers: childMarkerIds,
           },
+          geometry: outputGeometry,
+        };
+      } else {
+        // Point
+        const pointFeatureInternal = feature as InputPointFeatureInternal;
+        const outputGeometry: OutputPointGeometry = {
+          type: "Point",
+          coordinates: pointFeatureInternal.geometry.coordinates as [number, number],
+        };
+
+        return {
+          type: "Feature",
+          properties: {
+            // Conforms to PointFeature['properties']
+            cluster: false, // Explicitly false
+            id: pointFeatureInternal.properties.id,
+            data: pointFeatureInternal.properties.data,
+          },
+          geometry: outputGeometry,
         };
       }
-      return cluster;
     });
-  }, [viewport, bounds, points.length, debouncedZoomRef.current, markers]);
+  }, [rawClustersAndPoints]);
 
   return {
-    clusters,
+    clusters: processedClusters,
   };
 };
