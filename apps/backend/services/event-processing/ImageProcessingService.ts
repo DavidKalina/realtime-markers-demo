@@ -156,6 +156,9 @@ export class ImageProcessingService implements IImageProcessingService {
                - Event Date and Time (be specific about year, month, day, time):
                  * DOUBLE CHECK TIME DIGITS - carefully distinguish between:
                    - 1 vs 7 (look for the horizontal line at the bottom of the 1. look for the horizontal line at the top of the 7)
+                      - "1" is usually a straight vertical line, sometimes with a small horizontal base line at the bottom. 
+                      - "7" typically has a long horizontal stroke at the top, followed by a diagonal descending line. 
+                      - 🔍 If the top line is clearly extended, it’s likely a 7. If there’s only a bottom line or a very short top line, it’s more likely a 1
                    - 11 vs 1 (check for double digits)
                    - 12 vs 2 (check for double digits)
                    - 4 vs 9 (check for the closed loop in 9)
