@@ -32,6 +32,8 @@ export interface Marker {
     location?: string;
     distance?: string;
     time?: string;
+    eventDate?: string;
+    endDate?: string;
     description?: string;
     categories?: string[];
     isVerified?: boolean;
@@ -176,7 +178,9 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         emoji: event.emoji || "📍",
         color: event.color || "red",
         description: event.description,
-        categories: event.categories?.map((c: any) => c.id || c),
+        eventDate: event.eventDate,
+        endDate: event.endDate,
+        categories: event.categories?.map((c: any) => c.name || c),
         isVerified: event.isVerified,
         created_at: event.createdAt,
         updated_at: event.updatedAt,
@@ -233,9 +237,8 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       try {
         const data = JSON.parse(event.data);
 
-
-        if (!data || typeof data !== 'object') {
-          console.warn('[useMapWebsocket] Received invalid message data');
+        if (!data || typeof data !== "object") {
+          console.warn("[useMapWebsocket] Received invalid message data");
           return;
         }
 
@@ -250,7 +253,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           case MessageTypes.REPLACE_ALL:
           case MessageTypes.VIEWPORT_UPDATE: {
             if (!Array.isArray(data.events)) {
-              console.warn('[useMapWebsocket] Invalid events array in REPLACE_ALL/VIEWPORT_UPDATE');
+              console.warn("[useMapWebsocket] Invalid events array in REPLACE_ALL/VIEWPORT_UPDATE");
               return;
             }
 
@@ -261,16 +264,22 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
               // Signal that search is complete
               if (currentViewportRef.current) {
-                eventBroker.emit<ViewportEvent & { searching: boolean }>(EventTypes.VIEWPORT_CHANGED, {
-                  timestamp: Date.now(),
-                  source: "useMapWebSocket",
-                  viewport: currentViewportRef.current,
-                  markers: newMarkers,
-                  searching: false,
-                });
+                eventBroker.emit<ViewportEvent & { searching: boolean }>(
+                  EventTypes.VIEWPORT_CHANGED,
+                  {
+                    timestamp: Date.now(),
+                    source: "useMapWebSocket",
+                    viewport: currentViewportRef.current,
+                    markers: newMarkers,
+                    searching: false,
+                  }
+                );
               }
             } catch (error) {
-              console.error('[useMapWebsocket] Error processing REPLACE_ALL/VIEWPORT_UPDATE:', error);
+              console.error(
+                "[useMapWebsocket] Error processing REPLACE_ALL/VIEWPORT_UPDATE:",
+                error
+              );
             }
             break;
           }
@@ -278,7 +287,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           // Handle adding a new event
           case MessageTypes.ADD_EVENT: {
             if (!data.event) {
-              console.warn('[useMapWebsocket] Missing event data in ADD_EVENT');
+              console.warn("[useMapWebsocket] Missing event data in ADD_EVENT");
               return;
             }
 
@@ -292,7 +301,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                 count: 1,
               });
             } catch (error) {
-              console.error('[useMapWebsocket] Error processing ADD_EVENT:', error);
+              console.error("[useMapWebsocket] Error processing ADD_EVENT:", error);
             }
             break;
           }
@@ -300,7 +309,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           // Handle updating an existing event
           case MessageTypes.UPDATE_EVENT: {
             if (!data.event) {
-              console.warn('[useMapWebsocket] Missing event data in UPDATE_EVENT');
+              console.warn("[useMapWebsocket] Missing event data in UPDATE_EVENT");
               return;
             }
 
@@ -310,7 +319,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                 prev.map((marker) => (marker.id === updatedMarker.id ? updatedMarker : marker))
               );
             } catch (error) {
-              console.error('[useMapWebsocket] Error processing UPDATE_EVENT:', error);
+              console.error("[useMapWebsocket] Error processing UPDATE_EVENT:", error);
             }
             break;
           }
@@ -318,7 +327,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           // Handle deleting an event
           case MessageTypes.DELETE_EVENT: {
             if (!data.id) {
-              console.warn('[useMapWebsocket] Missing id in DELETE_EVENT');
+              console.warn("[useMapWebsocket] Missing id in DELETE_EVENT");
               return;
             }
 
@@ -341,7 +350,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                 count: 1,
               });
             } catch (error) {
-              console.error('[useMapWebsocket] Error processing DELETE_EVENT:', error);
+              console.error("[useMapWebsocket] Error processing DELETE_EVENT:", error);
             }
             break;
           }
@@ -349,7 +358,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           // Handle discovered events
           case MessageTypes.EVENT_DISCOVERED: {
             if (!data.event) {
-              console.warn('[useMapWebsocket] Missing event data in EVENT_DISCOVERED');
+              console.warn("[useMapWebsocket] Missing event data in EVENT_DISCOVERED");
               return;
             }
 
@@ -360,7 +369,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                 event: data.event,
               });
             } catch (error) {
-              console.error('[useMapWebsocket] Error processing EVENT_DISCOVERED:', error);
+              console.error("[useMapWebsocket] Error processing EVENT_DISCOVERED:", error);
             }
             break;
           }
@@ -368,7 +377,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           // Handle level updates
           case MessageTypes.LEVEL_UPDATE: {
             try {
-              console.log('[useMapWebsocket] Processing level update:', data);
+              console.log("[useMapWebsocket] Processing level update:", data);
               eventBroker.emit<LevelUpdateEvent>(EventTypes.LEVEL_UPDATE, {
                 timestamp: Date.now(),
                 source: "useMapWebSocket",
@@ -382,7 +391,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                 },
               });
             } catch (error) {
-              console.error('[useMapWebsocket] Error processing LEVEL_UPDATE:', error);
+              console.error("[useMapWebsocket] Error processing LEVEL_UPDATE:", error);
             }
             break;
           }
@@ -390,7 +399,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           // Handle XP awarded events
           case MessageTypes.XP_AWARDED: {
             try {
-              console.log('[useMapWebsocket] Processing XP award:', data);
+              console.log("[useMapWebsocket] Processing XP award:", data);
               eventBroker.emit<XPAwardedEvent>(EventTypes.XP_AWARDED, {
                 timestamp: Date.now(),
                 source: "useMapWebSocket",
@@ -402,14 +411,14 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                 },
               });
             } catch (error) {
-              console.error('[useMapWebsocket] Error processing XP_AWARDED:', error);
+              console.error("[useMapWebsocket] Error processing XP_AWARDED:", error);
             }
             break;
           }
 
           // Fallback for other message types
           default: {
-            console.debug('[useMapWebsocket] Unhandled message type:', data.type);
+            console.debug("[useMapWebsocket] Unhandled message type:", data.type);
             break;
           }
         }
@@ -458,7 +467,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                 userId: user.id,
               })
             );
-
           } else {
             console.warn("Unable to identify WebSocket connection: user not authenticated");
           }
@@ -471,8 +479,8 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           // First connection is complete
           isFirstConnectionRef.current = false;
         } catch (error) {
-          console.error('[useMapWebsocket] Error in onopen handler:', error);
-          setError(error instanceof Error ? error : new Error('Unknown error in onopen handler'));
+          console.error("[useMapWebsocket] Error in onopen handler:", error);
+          setError(error instanceof Error ? error : new Error("Unknown error in onopen handler"));
         }
       };
 
@@ -501,7 +509,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
             connectWebSocket();
           }, reconnectDelay);
         } catch (error) {
-          console.error('[useMapWebsocket] Error in onclose handler:', error);
+          console.error("[useMapWebsocket] Error in onclose handler:", error);
         }
       };
 
@@ -516,7 +524,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
             error: errorObj,
           });
         } catch (error) {
-          console.error('[useMapWebsocket] Error in onerror handler:', error);
+          console.error("[useMapWebsocket] Error in onerror handler:", error);
         }
       };
     } catch (err) {

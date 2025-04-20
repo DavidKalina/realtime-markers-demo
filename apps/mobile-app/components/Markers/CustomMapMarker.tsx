@@ -1,24 +1,19 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { StyleSheet, Text, TouchableOpacity, View, Platform } from "react-native";
 import * as Haptics from "expo-haptics";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSequence,
-  withSpring,
-  withDelay,
-  withRepeat,
   cancelAnimation,
   Easing,
-  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
-import { ShadowSVG, MarkerSVG, MARKER_WIDTH, MARKER_HEIGHT, SHADOW_OFFSET } from "./MarkerSVGs";
-
-// Define marker colors
-const markerColors = [
-  "#1a1a1a", // Updated to match status bar color
-];
+import { MARKER_HEIGHT, MARKER_WIDTH, MarkerSVG, SHADOW_OFFSET, ShadowSVG } from "./MarkerSVGs";
+import { TimePopup } from "./TimePopup";
+import { Marker } from "@/hooks/useMapWebsocket";
 
 // Animation configurations
 const ANIMATIONS = {
@@ -53,20 +48,8 @@ const ANIMATIONS = {
   },
 };
 
-export interface EventType {
-  title: string;
-  emoji: string;
-  location: string;
-  distance: string;
-  time: string;
-  description: string;
-  categories: string[];
-  isVerified?: boolean;
-  color?: string;
-}
-
 interface EmojiMapMarkerProps {
-  event: EventType;
+  event: Marker;
   isSelected: boolean;
   isHighlighted?: boolean;
   onPress: () => void;
@@ -82,10 +65,9 @@ const createAnimationCleanup = (animations: Animated.SharedValue<number>[]) => {
 
 export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
   ({ event, isSelected, isHighlighted = false, onPress, index = 0 }) => {
+    console.log(event);
     // State for random color selection
-    const [markerColor] = useState(() => {
-      return event.color || markerColors[Math.floor(Math.random() * markerColors.length)];
-    });
+
     const [isDropComplete, setIsDropComplete] = useState(false);
     const animationTimersRef = useRef<Array<NodeJS.Timeout>>([]);
 
@@ -227,6 +209,16 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
 
     return (
       <View style={styles.container}>
+        {/* Popup */}
+        <Animated.View style={[styles.popupContainer]}>
+          <TimePopup
+            time={event.data.eventDate || ""}
+            endDate={event.data.endDate || ""}
+            title={event.data.title || ""}
+            categories={event.data.categories || []}
+          />
+        </Animated.View>
+
         {/* Marker Shadow */}
         <Animated.View style={[styles.shadowContainer, shadowStyle]}>{ShadowSvg}</Animated.View>
 
@@ -237,7 +229,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
 
             {/* Emoji */}
             <View style={styles.emojiContainer}>
-              <Text style={styles.emojiText}>{event.emoji}</Text>
+              <Text style={styles.emojiText}>{event.data.emoji}</Text>
             </View>
 
             {/* Impact ripple effect that appears after drop */}
@@ -252,8 +244,8 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
     return (
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.isHighlighted === nextProps.isHighlighted &&
-      prevProps.event.emoji === nextProps.event.emoji &&
-      prevProps.event.title === nextProps.event.title
+      prevProps.event.data.emoji === nextProps.event.data.emoji &&
+      prevProps.event.data.title === nextProps.event.data.title
     );
   }
 );
@@ -306,5 +298,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     opacity: 0.7,
     bottom: 12,
+  },
+  popupContainer: {
+    position: "absolute",
+    width: "100%",
+    zIndex: 1,
   },
 });

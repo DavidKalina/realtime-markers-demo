@@ -289,9 +289,7 @@ function HomeScreen() {
   // Memoize markers component for better performance
   const markersComponent = useMemo(() => {
     if (!shouldRenderMarkers || !currentViewport) return null;
-    return (
-      <ClusteredMapMarkers markers={markers} viewport={currentViewport} currentZoom={zoomLevel} />
-    );
+    return <ClusteredMapMarkers viewport={currentViewport} currentZoom={zoomLevel} />;
   }, [shouldRenderMarkers, markers, currentViewport, zoomLevel]);
 
   // Memoize user location layer

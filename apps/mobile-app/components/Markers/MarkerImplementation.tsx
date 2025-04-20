@@ -87,17 +87,7 @@ const SingleMarkerView = React.memo(
           layout={LinearTransition.springify()}
         >
           <EmojiMapMarker
-            event={{
-              title: marker.data.title || "Unnamed Event",
-              emoji: marker.data.emoji || "📍",
-              location: marker.data.location || "Unknown location",
-              distance: marker.data.distance || "Unknown distance",
-              time: marker.data.time || new Date().toLocaleDateString(),
-              description: marker.data.description || "",
-              categories: marker.data.categories || [],
-              isVerified: marker.data.isVerified || false,
-              color: marker.data.color,
-            }}
+            event={marker}
             isSelected={isSelected}
             isHighlighted={false}
             onPress={onPress}
