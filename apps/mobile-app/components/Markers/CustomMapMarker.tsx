@@ -65,7 +65,6 @@ const createAnimationCleanup = (animations: Animated.SharedValue<number>[]) => {
 
 export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
   ({ event, isSelected, isHighlighted = false, onPress, index = 0 }) => {
-    console.log(event);
     // State for random color selection
 
     const [isDropComplete, setIsDropComplete] = useState(false);
@@ -215,7 +214,6 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
             time={event.data.eventDate || ""}
             endDate={event.data.endDate || ""}
             title={event.data.title || ""}
-            categories={event.data.categories || []}
           />
         </Animated.View>
 

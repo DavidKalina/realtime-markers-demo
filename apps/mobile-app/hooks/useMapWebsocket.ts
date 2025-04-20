@@ -377,7 +377,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           // Handle level updates
           case MessageTypes.LEVEL_UPDATE: {
             try {
-              console.log("[useMapWebsocket] Processing level update:", data);
               eventBroker.emit<LevelUpdateEvent>(EventTypes.LEVEL_UPDATE, {
                 timestamp: Date.now(),
                 source: "useMapWebSocket",
@@ -399,7 +398,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           // Handle XP awarded events
           case MessageTypes.XP_AWARDED: {
             try {
-              console.log("[useMapWebsocket] Processing XP award:", data);
               eventBroker.emit<XPAwardedEvent>(EventTypes.XP_AWARDED, {
                 timestamp: Date.now(),
                 source: "useMapWebSocket",
