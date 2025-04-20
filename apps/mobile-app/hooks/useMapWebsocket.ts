@@ -568,6 +568,21 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     };
   }, [connectWebSocket]);
 
+  // Listen for force viewport update events
+  useEffect(() => {
+    const handleForceViewportUpdate = () => {
+      if (currentViewportRef.current) {
+        updateViewport(currentViewportRef.current);
+      }
+    };
+
+    const unsubscribe = eventBroker.on(EventTypes.FORCE_VIEWPORT_UPDATE, handleForceViewportUpdate);
+
+    return () => {
+      unsubscribe();
+    };
+  }, [updateViewport]);
+
   return {
     markers,
     isConnected,

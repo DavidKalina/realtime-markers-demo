@@ -2,6 +2,7 @@ import { create } from "zustand";
 import apiClient from "@/services/ApiClient";
 import { Filter } from "@/services/ApiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { eventBroker, EventTypes } from "@/services/EventBroker";
 
 const ACTIVE_FILTERS_KEY = "@active_filters";
 
@@ -48,8 +49,8 @@ export const useFilterStore = create<FilterState>((set, get) => ({
       // If no active filters and we have filters available, apply the oldest one
       if (activeIds.length === 0 && userFilters.length > 0) {
         // Sort filters by creation date and get the oldest one
-        const oldestFilter = userFilters.sort((a, b) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        const oldestFilter = userFilters.sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         )[0];
 
         // Apply the oldest filter
@@ -62,12 +63,12 @@ export const useFilterStore = create<FilterState>((set, get) => ({
       set({
         filters: userFilters,
         // Only keep active filter IDs that still exist in the fetched filters
-        activeFilterIds: activeIds.filter(id =>
-          userFilters.some(filter => filter.id === id)
-        )
+        activeFilterIds: activeIds.filter((id) => userFilters.some((filter) => filter.id === id)),
       });
     } catch (err) {
-      set({ error: `Failed to load filters: ${err instanceof Error ? err.message : "Unknown error"}` });
+      set({
+        error: `Failed to load filters: ${err instanceof Error ? err.message : "Unknown error"}`,
+      });
       console.error("Error fetching filters:", err);
     } finally {
       set({ isLoading: false });
@@ -81,14 +82,14 @@ export const useFilterStore = create<FilterState>((set, get) => ({
 
       set((state) => ({
         filters: [...state.filters, newFilter],
-        isLoading: false
+        isLoading: false,
       }));
       return newFilter;
     } catch (err) {
       console.error("Error creating filter:", err);
       set({
         error: `Failed to create filter: ${err instanceof Error ? err.message : "Unknown error"}`,
-        isLoading: false
+        isLoading: false,
       });
       throw err;
     }
@@ -101,14 +102,14 @@ export const useFilterStore = create<FilterState>((set, get) => ({
 
       set((state) => ({
         filters: state.filters.map((f) => (f.id === updatedFilter.id ? updatedFilter : f)),
-        isLoading: false
+        isLoading: false,
       }));
       return updatedFilter;
     } catch (err) {
       console.error("Error updating filter:", err);
       set({
         error: `Failed to update filter: ${err instanceof Error ? err.message : "Unknown error"}`,
-        isLoading: false
+        isLoading: false,
       });
       throw err;
     }
@@ -121,13 +122,13 @@ export const useFilterStore = create<FilterState>((set, get) => ({
       set((state) => ({
         filters: state.filters.filter((f) => f.id !== id),
         activeFilterIds: state.activeFilterIds.filter((filterId) => filterId !== id),
-        isLoading: false
+        isLoading: false,
       }));
     } catch (err) {
       console.error("Error deleting filter:", err);
       set({
         error: `Failed to delete filter: ${err instanceof Error ? err.message : "Unknown error"}`,
-        isLoading: false
+        isLoading: false,
       });
       throw err;
     }
@@ -143,6 +144,12 @@ export const useFilterStore = create<FilterState>((set, get) => ({
       } else {
         await AsyncStorage.removeItem(ACTIVE_FILTERS_KEY);
       }
+
+      // Emit event to force viewport update
+      eventBroker.emit(EventTypes.FORCE_VIEWPORT_UPDATE, {
+        timestamp: Date.now(),
+        source: "useFilterStore",
+      });
     } catch (err) {
       console.error("Error applying filters:", err);
       throw err;
@@ -162,7 +169,9 @@ export const useFilterStore = create<FilterState>((set, get) => ({
       await AsyncStorage.removeItem(ACTIVE_FILTERS_KEY);
     } catch (err) {
       console.error("Error clearing filters:", err);
-      set({ error: `Failed to clear filters: ${err instanceof Error ? err.message : "Unknown error"}` });
+      set({
+        error: `Failed to clear filters: ${err instanceof Error ? err.message : "Unknown error"}`,
+      });
       throw err;
     } finally {
       set({ isClearing: false });
@@ -172,4 +181,4 @@ export const useFilterStore = create<FilterState>((set, get) => ({
   setActiveFilterIds: (ids: string[]) => {
     set({ activeFilterIds: ids });
   },
-})); 
+}));

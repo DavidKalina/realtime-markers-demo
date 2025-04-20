@@ -8,6 +8,7 @@ export enum EventTypes {
   WEBSOCKET_DISCONNECTED = "websocket_disconnected",
   MARKERS_UPDATED = "markers_updated",
   EVENT_DISCOVERED = "event_discovered",
+  FORCE_VIEWPORT_UPDATE = "force_viewport_update",
   // New consolidated map item events
   MAP_ITEM_SELECTED = "map:item:selected",
   MAP_ITEM_DESELECTED = "map:item:deselected",
