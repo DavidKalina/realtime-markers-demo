@@ -12,10 +12,17 @@ import * as Location from "expo-location";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes, BaseEvent } from "@/services/EventBroker";
 import MapboxGL from "@rnmapbox/maps";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Define the event types
 interface UserLocationEvent extends BaseEvent {
   coordinates: [number, number];
+}
+
+// Define the cached location type
+interface CachedLocation {
+  coordinates: [number, number];
+  timestamp: number;
 }
 
 // Define the context type
@@ -68,6 +75,46 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
   // Get the event broker
   const { publish } = useEventBroker();
 
+  // Load cached location on mount
+  useEffect(() => {
+    const loadCachedLocation = async () => {
+      try {
+        const cachedLocationStr = await AsyncStorage.getItem("cachedLocation");
+        if (cachedLocationStr) {
+          const cachedLocation: CachedLocation = JSON.parse(cachedLocationStr);
+          const oneHourAgo = Date.now() - 60 * 60 * 1000;
+
+          // Only use cached location if it's less than 1 hour old
+          if (cachedLocation.timestamp > oneHourAgo) {
+            setUserLocation(cachedLocation.coordinates);
+            publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
+              timestamp: Date.now(),
+              source: "LocationContext",
+              coordinates: cachedLocation.coordinates,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error loading cached location:", error);
+      }
+    };
+
+    loadCachedLocation();
+  }, [publish]);
+
+  // Cache location when it's updated
+  const cacheLocation = useCallback(async (coordinates: [number, number]) => {
+    try {
+      const cachedLocation: CachedLocation = {
+        coordinates,
+        timestamp: Date.now(),
+      };
+      await AsyncStorage.setItem("cachedLocation", JSON.stringify(cachedLocation));
+    } catch (error) {
+      console.error("Error caching location:", error);
+    }
+  }, []);
+
   // Get user location function - using useCallback to memoize the function
   const getUserLocation = useCallback(async () => {
     try {
@@ -103,6 +150,7 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
 
         const userCoords: [number, number] = [location.coords.longitude, location.coords.latitude];
         setUserLocation(userCoords);
+        await cacheLocation(userCoords);
 
         publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
           timestamp: Date.now(),
@@ -117,8 +165,12 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
           const mapboxLocation = await MapboxGL.locationManager.getLastKnownLocation();
 
           if (mapboxLocation) {
-            const userCoords: [number, number] = [mapboxLocation.coords.longitude, mapboxLocation.coords.latitude];
+            const userCoords: [number, number] = [
+              mapboxLocation.coords.longitude,
+              mapboxLocation.coords.latitude,
+            ];
             setUserLocation(userCoords);
+            await cacheLocation(userCoords);
 
             publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
               timestamp: Date.now(),
@@ -148,12 +200,14 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
       publish<BaseEvent & { error: string }>(EventTypes.ERROR_OCCURRED, {
         timestamp: Date.now(),
         source: "LocationContext",
-        error: `Failed to get user location: ${error instanceof Error ? error.message : "unknown error"}`,
+        error: `Failed to get user location: ${
+          error instanceof Error ? error.message : "unknown error"
+        }`,
       });
     } finally {
       setIsLoadingLocation(false);
     }
-  }, [publish]);
+  }, [publish, cacheLocation]);
 
   // Function to start foreground location tracking - using useCallback
   const startLocationTracking = useCallback(async () => {
@@ -206,7 +260,9 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
       publish<BaseEvent & { error: string }>(EventTypes.ERROR_OCCURRED, {
         timestamp: Date.now(),
         source: "LocationContext",
-        error: `Failed to start location tracking: ${error instanceof Error ? error.message : "unknown error"}`,
+        error: `Failed to start location tracking: ${
+          error instanceof Error ? error.message : "unknown error"
+        }`,
       });
     }
   }, [locationSubscription, locationPermissionGranted, getUserLocation, publish]);
