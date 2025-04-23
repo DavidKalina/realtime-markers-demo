@@ -10,12 +10,12 @@ import Header from "../Layout/Header";
 import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 import Tabs, { TabItem } from "../Layout/Tabs";
 
-type TabType = 'saved' | 'discovered';
+type TabType = "saved" | "discovered";
 
 // Main SavedEventsView component
 const SavedEventsView: React.FC = () => {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabType>('saved');
+  const [activeTab, setActiveTab] = useState<TabType>("saved");
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -34,11 +34,7 @@ const SavedEventsView: React.FC = () => {
 
   return (
     <ScreenLayout>
-      <Header
-        title="My Events"
-        onBack={handleBack}
-        rightIcon={activeTab === 'saved' ? <Heart size={20} color={COLORS.accent} fill={COLORS.accent} /> : <Scan size={20} color={COLORS.accent} />}
-      />
+      <Header title="My Events" onBack={handleBack} />
 
       <Tabs<TabType>
         items={tabItems}
@@ -48,11 +44,7 @@ const SavedEventsView: React.FC = () => {
       />
 
       <View style={styles.contentArea}>
-        {activeTab === 'saved' ? (
-          <SavedEventsList />
-        ) : (
-          <DiscoveredEventsList />
-        )}
+        {activeTab === "saved" ? <SavedEventsList /> : <DiscoveredEventsList />}
       </View>
     </ScreenLayout>
   );
@@ -70,53 +62,53 @@ const SavedEventsList: React.FC = () => {
   const [lastLoadMoreAttempt, setLastLoadMoreAttempt] = useState<number>(0);
   const pageSize = 10;
 
-  const fetchEvents = useCallback(async (refresh = false) => {
-    try {
-      if (refresh) {
-        setIsRefreshing(true);
-        setCursor(undefined);
-        setHasMore(true);
-        setEvents([]);
-      } else if (!refresh && isLoading === false) {
-        setIsFetchingMore(true);
-      }
+  const fetchEvents = useCallback(
+    async (refresh = false) => {
+      try {
+        if (refresh) {
+          setIsRefreshing(true);
+          setCursor(undefined);
+          setHasMore(true);
+          setEvents([]);
+        } else if (!refresh && isLoading === false) {
+          setIsFetchingMore(true);
+        }
 
-      const response = await apiClient.getSavedEvents({
-        limit: pageSize,
-        cursor: refresh ? undefined : cursor,
-      });
-
-      setHasMore(!!response.nextCursor);
-      setCursor(response.nextCursor);
-
-      if (refresh) {
-        setEvents(response.events);
-      } else {
-        const existingEventsMap = new Map(
-          events.map(event => [
-            `${event.id}-${event.eventDate}-${event.location}`,
-            event
-          ])
-        );
-
-        const newEvents = response.events.filter(event => {
-          const key = `${event.id}-${event.eventDate}-${event.location}`;
-          return !existingEventsMap.has(key);
+        const response = await apiClient.getSavedEvents({
+          limit: pageSize,
+          cursor: refresh ? undefined : cursor,
         });
 
-        setEvents(prev => [...prev, ...newEvents]);
-      }
+        setHasMore(!!response.nextCursor);
+        setCursor(response.nextCursor);
 
-      setError(null);
-    } catch (err) {
-      setError('Failed to load saved events. Please try again.');
-      console.error('Error fetching saved events:', err);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-      setIsFetchingMore(false);
-    }
-  }, [cursor, events.length]);
+        if (refresh) {
+          setEvents(response.events);
+        } else {
+          const existingEventsMap = new Map(
+            events.map((event) => [`${event.id}-${event.eventDate}-${event.location}`, event])
+          );
+
+          const newEvents = response.events.filter((event) => {
+            const key = `${event.id}-${event.eventDate}-${event.location}`;
+            return !existingEventsMap.has(key);
+          });
+
+          setEvents((prev) => [...prev, ...newEvents]);
+        }
+
+        setError(null);
+      } catch (err) {
+        setError("Failed to load saved events. Please try again.");
+        console.error("Error fetching saved events:", err);
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+        setIsFetchingMore(false);
+      }
+    },
+    [cursor, events.length]
+  );
 
   useEffect(() => {
     setCursor(undefined);
@@ -172,53 +164,53 @@ const DiscoveredEventsList: React.FC = () => {
   const [lastLoadMoreAttempt, setLastLoadMoreAttempt] = useState<number>(0);
   const pageSize = 10;
 
-  const fetchEvents = useCallback(async (refresh = false) => {
-    try {
-      if (refresh) {
-        setIsRefreshing(true);
-        setCursor(undefined);
-        setHasMore(true);
-        setEvents([]);
-      } else if (!refresh && isLoading === false) {
-        setIsFetchingMore(true);
-      }
+  const fetchEvents = useCallback(
+    async (refresh = false) => {
+      try {
+        if (refresh) {
+          setIsRefreshing(true);
+          setCursor(undefined);
+          setHasMore(true);
+          setEvents([]);
+        } else if (!refresh && isLoading === false) {
+          setIsFetchingMore(true);
+        }
 
-      const response = await apiClient.getUserDiscoveredEvents({
-        limit: pageSize,
-        cursor: refresh ? undefined : cursor,
-      });
-
-      setHasMore(!!response.nextCursor);
-      setCursor(response.nextCursor);
-
-      if (refresh) {
-        setEvents(response.events);
-      } else {
-        const existingEventsMap = new Map(
-          events.map(event => [
-            `${event.id}-${event.eventDate}-${event.location}`,
-            event
-          ])
-        );
-
-        const newEvents = response.events.filter(event => {
-          const key = `${event.id}-${event.eventDate}-${event.location}`;
-          return !existingEventsMap.has(key);
+        const response = await apiClient.getUserDiscoveredEvents({
+          limit: pageSize,
+          cursor: refresh ? undefined : cursor,
         });
 
-        setEvents(prev => [...prev, ...newEvents]);
-      }
+        setHasMore(!!response.nextCursor);
+        setCursor(response.nextCursor);
 
-      setError(null);
-    } catch (err) {
-      setError('Failed to load discovered events. Please try again.');
-      console.error('Error fetching discovered events:', err);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-      setIsFetchingMore(false);
-    }
-  }, [cursor, events.length]);
+        if (refresh) {
+          setEvents(response.events);
+        } else {
+          const existingEventsMap = new Map(
+            events.map((event) => [`${event.id}-${event.eventDate}-${event.location}`, event])
+          );
+
+          const newEvents = response.events.filter((event) => {
+            const key = `${event.id}-${event.eventDate}-${event.location}`;
+            return !existingEventsMap.has(key);
+          });
+
+          setEvents((prev) => [...prev, ...newEvents]);
+        }
+
+        setError(null);
+      } catch (err) {
+        setError("Failed to load discovered events. Please try again.");
+        console.error("Error fetching discovered events:", err);
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+        setIsFetchingMore(false);
+      }
+    },
+    [cursor, events.length]
+  );
 
   useEffect(() => {
     setCursor(undefined);

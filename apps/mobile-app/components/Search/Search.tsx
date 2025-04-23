@@ -4,14 +4,7 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Search as SearchIcon, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Keyboard,
-  KeyboardEvent,
-  Platform,
-  StyleSheet,
-  TextInput,
-  View
-} from "react-native";
+import { Keyboard, KeyboardEvent, Platform, StyleSheet, TextInput, View } from "react-native";
 import EventList from "../EventList/EventList";
 import Input from "../Input/Input";
 import Header from "../Layout/Header";
@@ -65,7 +58,6 @@ const SearchView = () => {
     searchInputRef.current?.focus();
   }, [clearSearch]);
 
-
   // Set up keyboard listeners
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -97,11 +89,7 @@ const SearchView = () => {
 
   return (
     <ScreenLayout>
-      <Header
-        title="Search Events"
-        onBack={handleBack}
-        rightIcon={<SearchIcon size={18} color="#93c5fd" />}
-      />
+      <Header title="Search Events" onBack={handleBack} />
 
       <View style={styles.contentArea}>
         {/* Enhanced Search Input */}

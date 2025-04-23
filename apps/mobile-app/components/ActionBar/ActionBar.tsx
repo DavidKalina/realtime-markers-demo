@@ -18,9 +18,9 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles";
 import { useUserLocation } from "@/contexts/LocationContext";
+import { useRouter } from "expo-router";
 
 interface ActionBarProps {
-  onActionPress: (action: string) => void;
   isStandalone?: boolean;
   animatedStyle?: any;
   availableActions?: string[]; // Prop to control which actions are available
@@ -69,7 +69,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
     }));
 
     // Memoize the icon color based on active state
-    const iconColor = useMemo(() => isActive ? "#93c5fd" : "#fff", [isActive]);
+    const iconColor = useMemo(() => (isActive ? "#93c5fd" : "#fff"), [isActive]);
 
     // Handle button press with animation
     const handlePress = useCallback(() => {
@@ -158,22 +158,18 @@ const LABEL_MAP = {
   search: "Search",
   scan: "Scan",
   locate: "Locate",
-  saved: "Saved",
+  saved: "Events",
   user: "Me",
 };
 
 export const ActionBar: React.FC<ActionBarProps> = React.memo(
-  ({
-    onActionPress,
-    isStandalone = false,
-    animatedStyle,
-    availableActions = DEFAULT_AVAILABLE_ACTIONS,
-  }) => {
+  ({ isStandalone = false, animatedStyle, availableActions = DEFAULT_AVAILABLE_ACTIONS }) => {
     const activeActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const { publish } = useEventBroker();
     const [activeAction, setActiveAction] = useState<string | null>(null);
     const insets = useSafeAreaInsets();
     const { userLocation } = useUserLocation();
+    const router = useRouter();
 
     // Memoize the camera animation event to prevent recreation
     const cameraAnimationEvent = useMemo(() => {
@@ -209,7 +205,27 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
         // Special handling for locate action
         if (action === "locate" && cameraAnimationEvent) {
           // Emit event to animate camera to user location
-          publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, cameraAnimationEvent);
+          publish<CameraAnimateToLocationEvent>(
+            EventTypes.CAMERA_ANIMATE_TO_LOCATION,
+            cameraAnimationEvent
+          );
+        }
+
+        // Handle navigation
+        switch (action) {
+          case "search":
+            router.push("/search");
+            break;
+          case "scan":
+            router.push("/scan");
+            break;
+          case "saved":
+            router.push("/saved");
+            break;
+          case "user":
+            router.push("/user");
+            break;
+          // locate is handled above with camera animation
         }
 
         // Use a ref to track and clean up the timeout
@@ -217,11 +233,8 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           setActiveAction(null);
           activeActionTimeoutRef.current = null;
         }, 500);
-
-        // Call the callback
-        onActionPress(action);
       },
-      [publish, cameraAnimationEvent, onActionPress]
+      [publish, cameraAnimationEvent, router]
     );
 
     // Create individual action handlers with proper memoization to avoid recreating functions
@@ -257,7 +270,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
         },
         {
           key: "saved",
-          label: "Events",
+          label: LABEL_MAP.saved,
           icon: ICON_MAP.saved,
           action: actionHandlers.saved,
         },
@@ -347,7 +360,6 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     return (
       prevProps.isStandalone === nextProps.isStandalone &&
       prevProps.animatedStyle === nextProps.animatedStyle &&
-      prevProps.onActionPress === nextProps.onActionPress &&
       ((!prevProps.availableActions && !nextProps.availableActions) ||
         prevProps.availableActions?.join(",") === nextProps.availableActions?.join(","))
     );

@@ -196,8 +196,8 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(({ time, title, en
 
         if (eventEndDate && now > eventDate && now < eventEndDate) {
           const diff = eventEndDate.getTime() - now.getTime();
-          const hours = Math.ceil(diff / (1000 * 60 * 60));
-          setTimeLeft(`${hours} ${hours === 1 ? "hour" : "hours"} left`);
+          const hours = (diff / (1000 * 60 * 60)).toFixed(1);
+          setTimeLeft(`${hours} ${hours === "1.0" ? "hour" : "hours"} left`);
           setIsExpired(false);
           return;
         }
@@ -210,7 +210,7 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(({ time, title, en
 
         const diff = eventDate.getTime() - now.getTime();
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const hours = (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60);
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
         if (diff < 0) {
@@ -219,8 +219,8 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(({ time, title, en
         } else if (days > 0) {
           setTimeLeft(`in ${days} ${days === 1 ? "day" : "days"}`);
           setIsExpired(false);
-        } else if (hours > 0) {
-          setTimeLeft(`in ${hours} ${hours === 1 ? "hour" : "hours"}`);
+        } else if (hours >= 1) {
+          setTimeLeft(`in ${hours.toFixed(1)} ${hours === 1 ? "hour" : "hours"}`);
           setIsExpired(false);
         } else {
           setTimeLeft(`in ${minutes} ${minutes === 1 ? "min" : "mins"}`);
@@ -296,6 +296,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+    maxWidth: 150,
     minHeight: 20,
     paddingHorizontal: 4,
   },

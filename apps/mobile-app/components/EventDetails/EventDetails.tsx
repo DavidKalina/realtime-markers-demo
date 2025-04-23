@@ -1,23 +1,104 @@
-import { ArrowLeft } from "lucide-react-native";
-import React from "react";
-import { SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Navigation2,
+  Share,
+  X,
+  ZoomIn,
+  Tag,
+  Info,
+  QrCode,
+  Scan,
+  ExternalLink,
+  User,
+} from "lucide-react-native";
+import React, { useState, useEffect } from "react";
+import {
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
+  Image,
+  ActivityIndicator,
+  Modal,
+  Dimensions,
+  Linking,
+} from "react-native";
+import Animated, {
+  FadeIn,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing,
+  FadeInDown,
+} from "react-native-reanimated";
 import { ErrorEventDetails } from "./ErrorEventDetails";
-import EventDetailsHeader from "./EventDetailsHeader";
 import LoadingEventDetails from "./LoadingEventDetails";
 import NoEventDetailsAvailable from "./NoEventDetailsAvailable";
-import SaveCount from "./SaveCount";
-import ShareEvent from "./ShareEvent";
 import { styles } from "./styles";
 import { useEventDetails } from "./useEventDetails";
-import AdminOriginalImageViewer from "../AdminOriginalImageViewer/AdminOriginalImageViewer";
+import ScreenLayout from "../Layout/ScreenLayout";
+import Header from "../Layout/Header";
+import { COLORS } from "../Layout/ScreenLayout";
+import { formatDate } from "@/utils/dateTimeFormatting";
+import apiClient from "@/services/ApiClient";
+import SaveButton from "./SaveButton";
+import * as Haptics from "expo-haptics";
+import QRCode from "react-native-qrcode-svg";
 
 interface EventDetailsProps {
   eventId: string;
   onBack?: () => void;
 }
 
+const EmojiContainer = ({ emoji = "📍" }: { emoji?: string }) => {
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          translateY: withRepeat(
+            withSequence(
+              withTiming(-4, {
+                duration: 1000,
+                easing: Easing.inOut(Easing.quad),
+              }),
+              withTiming(0, {
+                duration: 1000,
+                easing: Easing.inOut(Easing.quad),
+              })
+            ),
+            -1,
+            true
+          ),
+        },
+      ],
+    };
+  });
+
+  return (
+    <View style={styles.emojiWrapper}>
+      <Animated.View style={[styles.emojiContainer, animatedStyle]}>
+        <Text style={styles.emoji}>{emoji}</Text>
+      </Animated.View>
+    </View>
+  );
+};
+
+const ShareButton = ({ onPress }: { onPress: () => void }) => (
+  <TouchableOpacity onPress={onPress} style={styles.shareIconButton}>
+    <Share size={22} color={COLORS.accent} />
+  </TouchableOpacity>
+);
+
 const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
   const {
     handleBack,
     loading,
@@ -28,7 +109,6 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     handleOpenMaps,
     handleShare,
     handleToggleSave,
-    saveCount,
     savingState,
     isAdmin,
     isSaved,
@@ -36,51 +116,304 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     distanceInfo,
     userLocation,
   } = useEventDetails(eventId, onBack);
+
+  // Fetch image when event is loaded
+  useEffect(() => {
+    if (!event?.id) return;
+
+    let isMounted = true;
+
+    const fetchImage = async () => {
+      setImageLoading(true);
+      setImageError(null);
+
+      try {
+        const localUri = await apiClient.streamEventImage(event.id);
+        if (isMounted) {
+          setImageUrl(localUri);
+        }
+      } catch (err) {
+        console.error("Error fetching event image:", err);
+        if (isMounted) {
+          setImageError("Could not load event image");
+        }
+      } finally {
+        if (isMounted) {
+          setImageLoading(false);
+        }
+      }
+    };
+
+    fetchImage();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [event?.id]);
+
+  const handleImagePress = () => {
+    if (imageUrl) {
+      setModalVisible(true);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+  };
+
+  if (loading) {
+    return <LoadingEventDetails />;
+  }
+
+  if (error) {
+    return <ErrorEventDetails error={error} handleRetry={handleRetry} />;
+  }
+
+  if (!event) {
+    return <NoEventDetailsAvailable />;
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#333" />
+    <ScreenLayout>
+      <StatusBar barStyle="light-content" />
 
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <ArrowLeft size={22} color="#f8f9fa" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Event Details</Text>
-      </View>
+      {/* Header with back button */}
+      <Header
+        title="Event Details"
+        onBack={handleBack}
+        rightIcon={<ShareButton onPress={handleShare} />}
+      />
 
-      <View style={styles.contentArea}>
-        {loading ? (
-          <LoadingEventDetails />
-        ) : error ? (
-          <ErrorEventDetails handleRetry={handleRetry} error={error} />
-        ) : !event ? (
-          <NoEventDetailsAvailable />
-        ) : (
-          <Animated.View entering={FadeIn.duration(300)} style={styles.eventContainer}>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.scrollContent}
-            >
-              <EventDetailsHeader
-                event={event}
-                isSaved={isSaved}
-                savingState={savingState}
-                handleToggleSave={handleToggleSave}
-                handleOpenMaps={handleOpenMaps}
-                handleGetDirections={handleGetDirections}
-                userLocation={userLocation}
-              />
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.contentContainer}
+      >
+        {/* Event Image with Emoji */}
+        <View style={styles.imageWrapper}>
+          <Animated.View entering={FadeIn.duration(500)} style={styles.imageContainer}>
+            {imageLoading ? (
+              <View style={[styles.eventImage, styles.placeholderImage]}>
+                <ActivityIndicator size="large" color={COLORS.accent} />
+                <Text style={styles.placeholderText}>Loading image...</Text>
+              </View>
+            ) : imageError ? (
+              <View style={[styles.eventImage, styles.placeholderImage]}>
+                <Text style={styles.placeholderText}>{imageError}</Text>
+              </View>
+            ) : imageUrl ? (
+              <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
+                <Image source={{ uri: imageUrl }} style={styles.eventImage} resizeMode="contain" />
+                <View style={styles.viewOverlay}>
+                  <ZoomIn size={20} color="#ffffff" />
+                  <Text style={styles.viewText}>View Full Image</Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.eventImage, styles.placeholderImage]}>
+                <Text style={styles.placeholderText}>No Image Available</Text>
+              </View>
+            )}
+          </Animated.View>
+          <EmojiContainer emoji={event.emoji} />
+        </View>
 
-              {saveCount > 0 && <SaveCount saveCount={saveCount} />}
+        {/* Event Title and Save Button */}
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>{event.title}</Text>
+          <SaveButton isSaved={isSaved} savingState={savingState} onSave={handleToggleSave} />
+        </View>
 
+        {/* Event Details */}
+        <Animated.View
+          entering={FadeInDown.duration(600).delay(300).springify()}
+          style={styles.detailsContainer}
+        >
+          {/* Description */}
+          {event.description && (
+            <View style={styles.detailRow}>
+              <View style={styles.iconContainer}>
+                <Info size={18} color={COLORS.accent} strokeWidth={2.5} />
+              </View>
+              <View style={styles.descriptionContainer}>
+                <Text style={styles.detailText}>{event.description}</Text>
+              </View>
+            </View>
+          )}
 
-              {isAdmin && <AdminOriginalImageViewer eventId={event.id!} isAdmin={isAdmin} />}
-            </ScrollView>
+          {/* Date and Time */}
+          <View style={styles.detailRow}>
+            <View style={styles.iconContainer}>
+              <Calendar size={18} color={COLORS.accent} strokeWidth={2.5} />
+            </View>
+            <Text style={styles.detailText}>
+              {formatDate(event.eventDate, event.timezone).split("at")[0].trim()}
+              <Text style={styles.detailTextSecondary}>{"\n"}1:00 PM MDT</Text>
+            </Text>
+          </View>
 
-            <ShareEvent handleShare={handleShare} />
+          {/* Location */}
+          <TouchableOpacity style={styles.detailRow} onPress={handleOpenMaps}>
+            <View style={styles.iconContainer}>
+              <MapPin size={18} color={COLORS.accent} strokeWidth={2.5} />
+            </View>
+            <View style={styles.locationContainer}>
+              <Text style={styles.detailText}>
+                {event.location}
+                {distanceInfo && (
+                  <Text style={styles.detailTextSecondary}>
+                    {"\n"}
+                    {distanceInfo}
+                  </Text>
+                )}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Categories */}
+        {event.categories && event.categories.length > 0 && (
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(500).springify()}
+            style={styles.categoriesSection}
+          >
+            <View style={styles.categoriesHeader}>
+              <View style={styles.iconContainer}>
+                <Tag size={18} color={COLORS.accent} strokeWidth={2.5} />
+              </View>
+              <Text style={styles.categoriesTitle}>Categories</Text>
+              <Text style={[styles.detailTextSecondary, { marginLeft: 6 }]}>
+                ({event.categories.length})
+              </Text>
+            </View>
+            <View style={styles.categoriesContainer}>
+              {event.categories.map((category, index) => (
+                <View key={index} style={styles.categoryTag}>
+                  <Text style={styles.categoryText}>{category}</Text>
+                </View>
+              ))}
+            </View>
           </Animated.View>
         )}
-      </View>
-    </SafeAreaView>
+
+        {/* Action Buttons */}
+        <Animated.View
+          entering={FadeInDown.duration(600).delay(400).springify()}
+          style={styles.detailsContainer}
+        >
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleGetDirections}
+              disabled={!userLocation}
+            >
+              <Navigation2 size={22} color={COLORS.accent} strokeWidth={2.5} />
+              <Text style={styles.actionButtonText}>Get Directions</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+              <Share size={22} color={COLORS.accent} strokeWidth={2.5} />
+              <Text style={styles.actionButtonText}>Share Event</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* QR Code Section */}
+        {(event.qrCodeData || event.detectedQrData) && (
+          <Animated.View entering={FadeInDown.duration(600).delay(600).springify()}>
+            <View style={styles.qrSection}>
+              <View style={styles.qrHeader}>
+                <View style={styles.qrIconContainer}>
+                  <QrCode size={20} color={COLORS.accent} strokeWidth={2.5} />
+                </View>
+                <Text style={styles.qrTitle}>
+                  {event.qrDetectedInImage ? "Original Event QR Code" : "Event QR Code"}
+                </Text>
+              </View>
+              <View style={styles.qrContent}>
+                <View style={styles.qrCodeWrapper}>
+                  <QRCode
+                    value={event.qrCodeData || event.detectedQrData || ""}
+                    size={200}
+                    backgroundColor="#ffffff"
+                    color="#000000"
+                  />
+                </View>
+                <Text style={styles.qrDescription}>
+                  {event.qrDetectedInImage
+                    ? "This QR code was detected in the original event flyer"
+                    : "Scan this QR code to access additional event information"}
+                </Text>
+                {(event.qrCodeData || event.detectedQrData) && (
+                  <TouchableOpacity
+                    style={styles.qrButton}
+                    onPress={() => {
+                      const url = event.qrCodeData || event.detectedQrData;
+                      if (url && url.startsWith("http")) {
+                        Linking.openURL(url);
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <ExternalLink size={20} color={COLORS.accent} strokeWidth={2.5} />
+                    <Text style={styles.qrButtonText}>Open QR Code Link</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Discovered By Section */}
+        {event.creator && (
+          <Animated.View entering={FadeInDown.duration(600).delay(700).springify()}>
+            <View style={styles.discoveredBySection}>
+              <View style={styles.discoveredByHeader}>
+                <View style={styles.discoveredByIconContainer}>
+                  <Scan size={20} color={COLORS.accent} strokeWidth={2.5} />
+                </View>
+                <Text style={styles.discoveredByTitle}>Discovered by</Text>
+                <Text style={styles.discoveredByName}>
+                  {event.creator.displayName || "Anonymous User"}
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Fullscreen Image Modal */}
+        <Modal
+          visible={modalVisible}
+          transparent={true}
+          animationType="fade"
+          statusBarTranslucent={true}
+          onRequestClose={handleCloseModal}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                onPress={handleCloseModal}
+                style={styles.closeButton}
+                activeOpacity={0.7}
+              >
+                <X size={22} color="#f8f9fa" />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.modalContent}
+              activeOpacity={1}
+              onPress={handleCloseModal}
+            >
+              {imageUrl && (
+                <Image source={{ uri: imageUrl }} style={styles.fullImage} resizeMode="contain" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </Modal>
+      </ScrollView>
+    </ScreenLayout>
   );
 };
 

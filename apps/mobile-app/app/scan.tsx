@@ -21,11 +21,11 @@ import {
   Text,
   TouchableOpacity,
   View,
-  AppState
+  AppState,
 } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { debounce } from "lodash";
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from "@react-navigation/native";
 import { ImagePoofIntoEmojiTransformation } from "@/components/ImagePoofIntoEmojiTransformation/ImagePoofIntoEmojiTransformation";
 import ScreenLayout from "@/components/Layout/ScreenLayout";
 import Header from "@/components/Layout/Header";
@@ -123,8 +123,8 @@ export default function ScanScreen() {
 
   // Handle app state changes
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'background' || nextAppState === 'inactive') {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "background" || nextAppState === "inactive") {
         performFullCleanup();
       }
     });
@@ -191,17 +191,11 @@ export default function ScanScreen() {
 
       const payload: Record<string, any> = {};
 
-
-
-
       payload.imageFile = {
         uri: processedUri || uri,
         name: "image.jpg",
         type: "image/jpeg",
       } as any;
-
-
-
 
       // Add location data if available
       if (userLocation) {
@@ -211,8 +205,6 @@ export default function ScanScreen() {
 
       // Add source information to track analytics
       payload.source = imageSource || "unknown";
-
-
 
       // Upload using API client
       const result = await apiClient.processEventImage(payload);
@@ -236,7 +228,7 @@ export default function ScanScreen() {
         });
 
         // Wait for network to stabilize before retrying
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
         return uploadImageAndQueue(uri);
       }
 
@@ -348,7 +340,6 @@ export default function ScanScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
-
 
   // Update handleCapture to check remaining scans
   const handleCapture = async () => {
@@ -520,7 +511,6 @@ export default function ScanScreen() {
         <Header
           title={`Processing ${imageSource === "gallery" ? "Gallery Image" : "Document"}`}
           onBack={handleCancel}
-          rightIcon={<Feather name="file" size={20} color={COLORS.accent} />}
         />
 
         {/* Content area with transformation animation */}
@@ -540,11 +530,7 @@ export default function ScanScreen() {
   // Main camera view
   return (
     <ScreenLayout>
-      <Header
-        title="Scan Document"
-        onBack={handleBack}
-        rightIcon={<Feather name="camera" size={20} color={COLORS.accent} />}
-      />
+      <Header title="Scan Document" onBack={handleBack} />
 
       {/* Camera container with fixed dimensions */}
       <View style={styles.contentArea}>
@@ -566,10 +552,7 @@ export default function ScanScreen() {
 
               {/* No Scans Available Overlay */}
               {showNoScansOverlay && (
-                <Animated.View
-                  style={styles.noScansOverlay}
-                  entering={FadeIn.duration(300)}
-                >
+                <Animated.View style={styles.noScansOverlay} entering={FadeIn.duration(300)}>
                   <View style={styles.noScansContent}>
                     <View style={styles.noScansIconContainer}>
                       <Feather name="alert-triangle" size={32} color={COLORS.warningText} />
@@ -619,12 +602,9 @@ export default function ScanScreen() {
 
         {/* Subtle scan counter badge */}
         {planDetails && hasRemainingScans && (
-          <Animated.View
-            style={styles.scanCountBadge}
-            entering={FadeIn.duration(300)}
-          >
+          <Animated.View style={styles.scanCountBadge} entering={FadeIn.duration(300)}>
             <Text style={styles.scanCountText}>
-              {planDetails.remainingScans} scan{planDetails.remainingScans !== 1 ? 's' : ''} left
+              {planDetails.remainingScans} scan{planDetails.remainingScans !== 1 ? "s" : ""} left
             </Text>
           </Animated.View>
         )}

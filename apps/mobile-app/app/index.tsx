@@ -1,5 +1,4 @@
 import { AuthWrapper } from "@/components/AuthWrapper";
-import EventAssistant from "@/components/EventAssistant/EventAssistant";
 import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import DiscoveryIndicator from "@/components/DiscoveryIndicator/DiscoveryIndicator";
@@ -17,6 +16,7 @@ import { Animated, Platform, View, StatusBar as RNStatusBar } from "react-native
 import StatusBar from "@/components/StatusBar/StatusBar";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ActionBar } from "@/components/ActionBar/ActionBar";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -281,7 +281,7 @@ function HomeScreen() {
     if (!shouldRenderUI) return null;
     return (
       <View style={styles.assistantOverlay}>
-        <EventAssistant />
+        <ActionBar />
       </View>
     );
   }, [shouldRenderUI]);
