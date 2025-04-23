@@ -142,6 +142,9 @@ const FriendRequestsList: React.FC = () => {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionStates, setActionStates] = useState<
+    Record<string, { status: "success" | "error"; message: string } | null>
+  >({});
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -171,12 +174,28 @@ const FriendRequestsList: React.FC = () => {
     fetchRequests();
   }, []);
 
+  const showActionFeedback = (requestId: string, status: "success" | "error", message: string) => {
+    setActionStates((prev) => ({
+      ...prev,
+      [requestId]: { status, message },
+    }));
+    // Clear the message after 2 seconds
+    setTimeout(() => {
+      setActionStates((prev) => ({
+        ...prev,
+        [requestId]: null,
+      }));
+    }, 2000);
+  };
+
   const handleAcceptRequest = async (requestId: string) => {
     try {
       await apiClient.acceptFriendRequest(requestId);
       setRequests(requests.filter((request) => request.id !== requestId));
+      showActionFeedback(requestId, "success", "Friend request accepted");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
+      showActionFeedback(requestId, "error", "Failed to accept request");
       console.error("Error accepting friend request:", err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
@@ -186,8 +205,10 @@ const FriendRequestsList: React.FC = () => {
     try {
       await apiClient.rejectFriendRequest(requestId);
       setRequests(requests.filter((request) => request.id !== requestId));
+      showActionFeedback(requestId, "success", "Friend request rejected");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
+      showActionFeedback(requestId, "error", "Failed to reject request");
       console.error("Error rejecting friend request:", err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
@@ -197,8 +218,10 @@ const FriendRequestsList: React.FC = () => {
     try {
       await apiClient.cancelFriendRequest(requestId);
       setRequests(requests.filter((request) => request.id !== requestId));
+      showActionFeedback(requestId, "success", "Friend request canceled");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
+      showActionFeedback(requestId, "error", "Failed to cancel request");
       console.error("Error canceling friend request:", err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
@@ -284,29 +307,42 @@ const FriendRequestsList: React.FC = () => {
           </View>
           <View style={styles.divider} />
           <View style={styles.requestActions}>
-            {request.type === "incoming" ? (
-              <>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.acceptButton]}
-                  onPress={() => handleAcceptRequest(request.id)}
-                >
-                  <Text style={styles.acceptButtonText}>Accept</Text>
-                </TouchableOpacity>
+            {actionStates[request.id] && (
+              <Text
+                style={[
+                  styles.actionFeedback,
+                  actionStates[request.id]?.status === "success"
+                    ? styles.successText
+                    : styles.errorText,
+                ]}
+              >
+                {actionStates[request.id]?.message}
+              </Text>
+            )}
+            {!actionStates[request.id] &&
+              (request.type === "incoming" ? (
+                <>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.acceptButton]}
+                    onPress={() => handleAcceptRequest(request.id)}
+                  >
+                    <Text style={styles.acceptButtonText}>Accept</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.rejectButton]}
+                    onPress={() => handleRejectRequest(request.id)}
+                  >
+                    <Text style={styles.rejectButtonText}>Reject</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
                 <TouchableOpacity
                   style={[styles.actionButton, styles.rejectButton]}
-                  onPress={() => handleRejectRequest(request.id)}
+                  onPress={() => handleCancelRequest(request.id)}
                 >
-                  <Text style={styles.rejectButtonText}>Reject</Text>
+                  <Text style={styles.rejectButtonText}>Cancel</Text>
                 </TouchableOpacity>
-              </>
-            ) : (
-              <TouchableOpacity
-                style={[styles.actionButton, styles.rejectButton]}
-                onPress={() => handleCancelRequest(request.id)}
-              >
-                <Text style={styles.rejectButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            )}
+              ))}
           </View>
         </Card>
       ))}
@@ -574,6 +610,15 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 14,
     fontFamily: "SpaceMono",
+  },
+  actionFeedback: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "SpaceMono",
+    textAlign: "right",
+  },
+  successText: {
+    color: "#40c057",
   },
 });
 
