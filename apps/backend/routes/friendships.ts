@@ -29,7 +29,9 @@ friendshipsRouter.post("/requests/code", handlers.sendFriendRequestByCodeHandler
 friendshipsRouter.post("/requests/username", handlers.sendFriendRequestByUsernameHandler);
 friendshipsRouter.post("/requests/:id/accept", handlers.acceptFriendRequestHandler);
 friendshipsRouter.post("/requests/:id/reject", handlers.rejectFriendRequestHandler);
+friendshipsRouter.post("/requests/:id/cancel", handlers.cancelFriendRequestHandler);
 friendshipsRouter.get("/requests/pending", handlers.getPendingFriendRequestsHandler);
+friendshipsRouter.get("/requests/outgoing", handlers.getOutgoingFriendRequestsHandler);
 
 // Friends list endpoints
 friendshipsRouter.get("/", handlers.getFriendsHandler);

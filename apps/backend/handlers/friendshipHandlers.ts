@@ -191,6 +191,57 @@ export const getPendingFriendRequestsHandler: FriendshipHandler = async (c) => {
   }
 };
 
+export const getOutgoingFriendRequestsHandler: FriendshipHandler = async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    const friendshipService = c.get("friendshipService");
+    const outgoingRequests = await friendshipService.getOutgoingFriendRequests(user.userId);
+
+    return c.json(outgoingRequests);
+  } catch (error) {
+    console.error("Error fetching outgoing friend requests:", error);
+    return c.json(
+      {
+        error: "Failed to fetch outgoing friend requests",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
+export const cancelFriendRequestHandler: FriendshipHandler = async (c) => {
+  try {
+    const user = c.get("user");
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    const friendshipId = c.req.param("id");
+    if (!friendshipId) {
+      return c.json({ error: "Friendship ID is required" }, 400);
+    }
+
+    const friendshipService = c.get("friendshipService");
+    const friendship = await friendshipService.cancelFriendRequest(friendshipId, user.userId);
+
+    return c.json(friendship);
+  } catch (error) {
+    console.error("Error canceling friend request:", error);
+    return c.json(
+      {
+        error: "Failed to cancel friend request",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
 export const updateContactsHandler: FriendshipHandler = async (c) => {
   try {
     const user = c.get("user");

@@ -1,4 +1,4 @@
-import apiClient from "@/services/ApiClient";
+import apiClient, { Friend, FriendRequest } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Search, User, UserPlus, Users } from "lucide-react-native";
@@ -11,19 +11,6 @@ import Input from "../Input/Input";
 import Card from "../Layout/Card";
 
 type TabType = "friends" | "requests" | "add";
-type Friend = {
-  id: string;
-  displayName?: string;
-  email: string;
-  avatarUrl?: string;
-};
-
-type FriendRequest = {
-  id: string;
-  requester: Friend;
-  status: "PENDING" | "ACCEPTED" | "REJECTED";
-  createdAt: string;
-};
 
 const FriendsView: React.FC = () => {
   const router = useRouter();
@@ -132,8 +119,8 @@ const FriendsList: React.FC = () => {
     <View>
       {friends.map((friend) => (
         <Card key={friend.id} style={styles.friendCard}>
-          <View style={styles.friendContent}>
-            <View style={styles.avatarContainer}>
+          <View style={styles.friendHeader}>
+            <View style={styles.friendIconContainer}>
               <Text style={styles.avatarText}>
                 {friend.displayName?.[0]?.toUpperCase() || friend.email[0].toUpperCase()}
               </Text>
@@ -150,17 +137,30 @@ const FriendsList: React.FC = () => {
 };
 
 const FriendRequestsList: React.FC = () => {
-  const [requests, setRequests] = useState<FriendRequest[]>([]);
+  const [requests, setRequests] = useState<(FriendRequest & { type: "incoming" | "outgoing" })[]>(
+    []
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRequests = async () => {
       try {
-        const response = await apiClient.getPendingFriendRequests();
-        setRequests(response);
+        const [incomingResponse, outgoingResponse] = await Promise.all([
+          apiClient.getPendingFriendRequests(),
+          apiClient.getOutgoingFriendRequests(),
+        ]);
+
+        // Combine and label the requests
+        const combinedRequests = [
+          ...incomingResponse.map((req) => ({ ...req, type: "incoming" as const })),
+          ...outgoingResponse.map((req) => ({ ...req, type: "outgoing" as const })),
+        ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        setRequests(combinedRequests);
         setError(null);
       } catch (err) {
+        console.log("ERROR", err);
         setError("Failed to load friend requests. Please try again.");
         console.error("Error fetching friend requests:", err);
       } finally {
@@ -189,6 +189,17 @@ const FriendRequestsList: React.FC = () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error("Error rejecting friend request:", err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
+  const handleCancelRequest = async (requestId: string) => {
+    try {
+      await apiClient.cancelFriendRequest(requestId);
+      setRequests(requests.filter((request) => request.id !== requestId));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      console.error("Error canceling friend request:", err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
@@ -224,7 +235,9 @@ const FriendRequestsList: React.FC = () => {
         <View style={styles.emptyContainer}>
           <UserPlus size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />
           <Text style={styles.emptyTitle}>No pending requests</Text>
-          <Text style={styles.emptyDescription}>Friend requests you receive will appear here</Text>
+          <Text style={styles.emptyDescription}>
+            Friend requests you send or receive will appear here
+          </Text>
         </View>
       </Card>
     );
@@ -234,35 +247,68 @@ const FriendRequestsList: React.FC = () => {
     <View>
       {requests.map((request) => (
         <Card key={request.id} style={styles.requestCard}>
-          <View style={styles.requestContent}>
-            <View style={styles.avatarContainer}>
-              <Text style={styles.avatarText}>
-                {request.requester.displayName?.[0]?.toUpperCase() ||
-                  request.requester.email[0].toUpperCase()}
+          <View style={styles.requestHeader}>
+            <View style={styles.requestTypeContainer}>
+              <Text
+                style={[
+                  styles.requestTypeText,
+                  request.type === "outgoing" ? styles.outgoingText : styles.incomingText,
+                ]}
+              >
+                {request.type === "outgoing" ? "OUTGOING" : "INCOMING"}
               </Text>
             </View>
-            <View style={styles.requestInfo}>
-              <Text style={styles.friendName}>
-                {request.requester.displayName || request.requester.email}
+          </View>
+          <View style={styles.friendHeader}>
+            <View style={styles.friendIconContainer}>
+              <Text style={styles.avatarText}>
+                {request.type === "outgoing"
+                  ? request.addressee.displayName?.[0]?.toUpperCase() ||
+                    request.addressee.email[0].toUpperCase()
+                  : request.requester.displayName?.[0]?.toUpperCase() ||
+                    request.requester.email[0].toUpperCase()}
               </Text>
-              {request.requester.displayName && (
-                <Text style={styles.friendEmail}>{request.requester.email}</Text>
+            </View>
+            <View style={styles.friendInfo}>
+              <Text style={styles.friendName}>
+                {request.type === "outgoing"
+                  ? request.addressee.displayName || request.addressee.email
+                  : request.requester.displayName || request.requester.email}
+              </Text>
+              {(request.type === "outgoing"
+                ? request.addressee.displayName
+                : request.requester.displayName) && (
+                <Text style={styles.friendEmail}>
+                  {request.type === "outgoing" ? request.addressee.email : request.requester.email}
+                </Text>
               )}
             </View>
           </View>
+          <View style={styles.divider} />
           <View style={styles.requestActions}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.acceptButton]}
-              onPress={() => handleAcceptRequest(request.id)}
-            >
-              <Text style={styles.acceptButtonText}>Accept</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.rejectButton]}
-              onPress={() => handleRejectRequest(request.id)}
-            >
-              <Text style={styles.rejectButtonText}>Reject</Text>
-            </TouchableOpacity>
+            {request.type === "incoming" ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.acceptButton]}
+                  onPress={() => handleAcceptRequest(request.id)}
+                >
+                  <Text style={styles.acceptButtonText}>Accept</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.rejectButton]}
+                  onPress={() => handleRejectRequest(request.id)}
+                >
+                  <Text style={styles.rejectButtonText}>Reject</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.rejectButton]}
+                onPress={() => handleCancelRequest(request.id)}
+              >
+                <Text style={styles.rejectButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </Card>
       ))}
@@ -298,7 +344,7 @@ const AddFriends: React.FC = () => {
 
   return (
     <View>
-      <Card>
+      <Card style={styles.searchCard}>
         <View style={styles.searchContainer}>
           <Input
             icon={Search}
@@ -315,10 +361,20 @@ const AddFriends: React.FC = () => {
       </Card>
       <Card style={styles.helpCard}>
         <Text style={styles.helpTitle}>How to add friends</Text>
-        <Text style={styles.helpText}>
-          • Enter their username{"\n"}• Enter their friend code{"\n"}• Share your friend code with
-          them
-        </Text>
+        <View style={styles.helpContent}>
+          <View style={styles.helpItem}>
+            <UserPlus size={16} color={COLORS.accent} />
+            <Text style={styles.helpText}>Enter their username</Text>
+          </View>
+          <View style={styles.helpItem}>
+            <User size={16} color={COLORS.accent} />
+            <Text style={styles.helpText}>Enter their friend code</Text>
+          </View>
+          <View style={styles.helpItem}>
+            <Users size={16} color={COLORS.accent} />
+            <Text style={styles.helpText}>Share your friend code with them</Text>
+          </View>
+        </View>
       </Card>
     </View>
   );
@@ -382,16 +438,18 @@ const styles = StyleSheet.create({
   },
   friendCard: {
     marginBottom: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
   },
-  friendContent: {
+  friendHeader: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
   },
-  avatarContainer: {
+  friendIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 12,
     backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
@@ -399,7 +457,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.buttonBorder,
   },
   avatarText: {
-    color: COLORS.textPrimary,
+    color: COLORS.accent,
     fontSize: 16,
     fontFamily: "SpaceMono",
     fontWeight: "600",
@@ -413,31 +471,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "SpaceMono",
     fontWeight: "600",
+    marginBottom: 4,
   },
   friendEmail: {
     color: COLORS.textSecondary,
     fontSize: 13,
     fontFamily: "SpaceMono",
-    marginTop: 2,
   },
   requestCard: {
     marginBottom: 8,
-  },
-  requestContent: {
-    flexDirection: "row",
-    alignItems: "center",
     padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
   },
-  requestInfo: {
-    marginLeft: 12,
-    flex: 1,
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.divider,
+    marginVertical: 12,
   },
   requestActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
     gap: 8,
-    paddingHorizontal: 12,
-    paddingBottom: 12,
   },
   actionButton: {
     paddingHorizontal: 16,
@@ -465,25 +520,61 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontWeight: "600",
   },
-  searchContainer: {
+  searchCard: {
     padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  searchContainer: {
+    width: "100%",
   },
   helpCard: {
     marginTop: 12,
     padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
   },
   helpTitle: {
     color: COLORS.textPrimary,
     fontSize: 16,
     fontFamily: "SpaceMono",
     fontWeight: "600",
-    marginBottom: 12,
+    marginBottom: 16,
+  },
+  helpContent: {
+    gap: 12,
+  },
+  helpItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   helpText: {
     color: COLORS.textSecondary,
     fontSize: 14,
     fontFamily: "SpaceMono",
-    lineHeight: 24,
+  },
+  requestHeader: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginBottom: 12,
+  },
+  requestTypeContainer: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: COLORS.buttonBackground,
+  },
+  requestTypeText: {
+    fontSize: 12,
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
+  },
+  outgoingText: {
+    color: COLORS.textSecondary,
+  },
+  incomingText: {
+    color: COLORS.accent,
   },
 });
 

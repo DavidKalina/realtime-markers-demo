@@ -237,9 +237,23 @@ const AccountDetails = React.memo(
               <Text style={styles.detailValue}>{memberSince}</Text>
             </View>
           </Animated.View>
-          {profileData?.bio && (
+          {profileData?.friendCode && (
             <Animated.View
               entering={FadeInDown.duration(600).delay(800).springify()}
+              style={styles.detailItem}
+            >
+              <View style={styles.detailIconContainer}>
+                <Users size={18} color="#93c5fd" />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Friend Code</Text>
+                <Text style={styles.detailValue}>{profileData.friendCode}</Text>
+              </View>
+            </Animated.View>
+          )}
+          {profileData?.bio && (
+            <Animated.View
+              entering={FadeInDown.duration(600).delay(900).springify()}
               style={styles.detailItem}
             >
               <View style={styles.detailIconContainer}>

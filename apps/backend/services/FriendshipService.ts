@@ -116,6 +116,33 @@ export class FriendshipService {
   }
 
   /**
+   * Get outgoing friend requests for a user
+   */
+  async getOutgoingFriendRequests(userId: string): Promise<Friendship[]> {
+    return this.friendshipRepository.find({
+      where: { requesterId: userId, status: FriendshipStatus.PENDING },
+      relations: ["addressee"],
+    });
+  }
+
+  /**
+   * Cancel an outgoing friend request
+   */
+  async cancelFriendRequest(friendshipId: string, userId: string): Promise<Friendship> {
+    const friendship = await this.friendshipRepository.findOne({
+      where: { id: friendshipId, requesterId: userId, status: FriendshipStatus.PENDING },
+    });
+
+    if (!friendship) {
+      throw new Error("Friend request not found");
+    }
+
+    // Delete the friendship record
+    await this.friendshipRepository.remove(friendship);
+    return friendship;
+  }
+
+  /**
    * Update user's contacts
    */
   async updateContacts(userId: string, contacts: User["contacts"]): Promise<User> {

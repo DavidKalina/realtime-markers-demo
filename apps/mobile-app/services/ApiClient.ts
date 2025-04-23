@@ -183,21 +183,22 @@ interface StripeCheckoutSession {
   clientSecret: string;
 }
 
-interface Friend {
+export interface Friend {
   id: string;
   displayName?: string;
   email: string;
   avatarUrl?: string;
 }
 
-interface FriendRequest {
+export interface FriendRequest {
   id: string;
   requester: Friend;
+  addressee: Friend;
   status: "PENDING" | "ACCEPTED" | "REJECTED";
   createdAt: string;
 }
 
-interface Contact {
+export interface Contact {
   name?: string;
   email?: string;
   phone?: string;
@@ -1180,9 +1181,8 @@ class ApiClient {
 
   // Get pending friend requests
   async getPendingFriendRequests(): Promise<FriendRequest[]> {
-    const url = `${this.baseUrl}/api/friendships/requests/pending`;
-    const response = await this.fetchWithAuth(url);
-    return this.handleResponse<FriendRequest[]>(response);
+    const response = await this.fetchWithAuth(`${this.baseUrl}/api/friendships/requests/pending`);
+    return this.handleResponse(response);
   }
 
   // Update contacts
@@ -1234,20 +1234,40 @@ class ApiClient {
 
   // Accept friend request
   async acceptFriendRequest(requestId: string): Promise<FriendRequest> {
-    const url = `${this.baseUrl}/api/friendships/requests/${requestId}/accept`;
-    const response = await this.fetchWithAuth(url, {
-      method: "POST",
-    });
-    return this.handleResponse<FriendRequest>(response);
+    const response = await this.fetchWithAuth(
+      `${this.baseUrl}/api/friendships/requests/${requestId}/accept`,
+      {
+        method: "POST",
+      }
+    );
+    return this.handleResponse(response);
   }
 
   // Reject friend request
   async rejectFriendRequest(requestId: string): Promise<FriendRequest> {
-    const url = `${this.baseUrl}/api/friendships/requests/${requestId}/reject`;
-    const response = await this.fetchWithAuth(url, {
-      method: "POST",
-    });
-    return this.handleResponse<FriendRequest>(response);
+    const response = await this.fetchWithAuth(
+      `${this.baseUrl}/api/friendships/requests/${requestId}/reject`,
+      {
+        method: "POST",
+      }
+    );
+    return this.handleResponse(response);
+  }
+
+  async getOutgoingFriendRequests(): Promise<FriendRequest[]> {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/api/friendships/requests/outgoing`);
+
+    return this.handleResponse(response);
+  }
+
+  async cancelFriendRequest(requestId: string): Promise<FriendRequest> {
+    const response = await this.fetchWithAuth(
+      `${this.baseUrl}/api/friendships/requests/${requestId}/cancel`,
+      {
+        method: "POST",
+      }
+    );
+    return this.handleResponse(response);
   }
 
   async getFriendsSavedEvents(options?: { limit?: number; cursor?: string }): Promise<{

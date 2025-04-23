@@ -22,19 +22,20 @@ import { COLORS } from "../Layout/ScreenLayout";
 interface EventListProps {
   events: EventType[];
   isLoading: boolean;
-  isFetchingMore: boolean;
+  isFetchingMore?: boolean;
   error: string | null;
   hasSearched?: boolean;
   onRefresh?: () => void;
   onLoadMore?: () => void;
   onRetry?: () => void;
-  emptyStateTitle?: string;
-  emptyStateDescription?: string;
-  emptyStateIcon?: React.ReactNode;
+  emptyStateTitle: string;
+  emptyStateDescription: string;
+  emptyStateIcon: React.ReactNode;
   showDistance?: boolean;
   showChevron?: boolean;
   keyboardHeight?: number;
   keyboardVisible?: boolean;
+  renderExtraContent?: (event: EventType) => React.ReactNode;
 }
 
 // Memoize the loading component
@@ -111,6 +112,7 @@ const EventList: React.FC<EventListProps> = ({
   showChevron = false,
   keyboardHeight = 0,
   keyboardVisible = false,
+  renderExtraContent,
 }) => {
   const router = useRouter();
   const scrollY = useSharedValue(0);
@@ -133,17 +135,18 @@ const EventList: React.FC<EventListProps> = ({
   });
 
   const renderItem = useCallback(
-    ({ item, index }: { item: EventType; index: number }) => (
+    ({ item: event, index }: { item: EventType; index: number }) => (
       <EventItem
-        event={item}
+        event={event}
         onPress={handleSelectEvent}
         index={index}
         variant="default"
         showChevron={showChevron}
         showDistance={showDistance}
+        footerContent={renderExtraContent?.(event)}
       />
     ),
-    [handleSelectEvent, showChevron, showDistance]
+    [handleSelectEvent, showChevron, showDistance, renderExtraContent]
   );
 
   // Memoize the content container style
@@ -286,6 +289,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
+  },
+  eventCard: {
+    margin: 8,
+  },
+  eventCardContent: {
+    flex: 1,
   },
 });
 

@@ -34,6 +34,7 @@ interface EventItemProps {
   variant?: "default" | "compact" | "featured";
   showChevron?: boolean;
   showDistance?: boolean;
+  footerContent?: React.ReactNode;
 }
 
 const EventItem: React.FC<EventItemProps> = ({
@@ -43,6 +44,7 @@ const EventItem: React.FC<EventItemProps> = ({
   variant = "default",
   showChevron = true,
   showDistance = false,
+  footerContent,
 }) => {
   const scale = useSharedValue(1);
 
@@ -130,6 +132,7 @@ const EventItem: React.FC<EventItemProps> = ({
           )}
         </View>
       </TouchableOpacity>
+      {footerContent && <View style={styles.footerContainer}>{footerContent}</View>}
     </Animated.View>
   );
 };
@@ -202,6 +205,12 @@ const defaultStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.buttonBorder,
   },
+  footerContainer: {
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+    marginTop: 12,
+    paddingTop: 12,
+  },
 });
 
 const compactStyles = StyleSheet.create({
@@ -225,6 +234,11 @@ const compactStyles = StyleSheet.create({
     ...defaultStyles.resultDetailText,
     fontSize: 12,
   },
+  footerContainer: {
+    ...defaultStyles.footerContainer,
+    marginTop: 8,
+    paddingTop: 8,
+  },
 });
 
 const featuredStyles = StyleSheet.create({
@@ -247,6 +261,11 @@ const featuredStyles = StyleSheet.create({
   resultDetailText: {
     ...defaultStyles.resultDetailText,
     fontSize: 14,
+  },
+  footerContainer: {
+    ...defaultStyles.footerContainer,
+    marginTop: 16,
+    paddingTop: 16,
   },
 });
 

@@ -342,15 +342,14 @@ const FriendsSavedEventsList: React.FC = () => {
     }
   }, [isFetchingMore, isRefreshing, hasMore, cursor, fetchEvents, lastLoadMoreAttempt]);
 
-  const renderEventItem = useCallback((event: EventType) => {
-    return (
-      <>
-        <Text style={styles.savedByText}>
-          Saved by {event.savedBy?.displayName || event.savedBy?.email}
-        </Text>
-      </>
-    );
-  }, []);
+  const renderEventItem = useCallback(
+    (event: EventType) => (
+      <Text style={styles.savedByText}>
+        Saved by {event.savedBy?.displayName || event.savedBy?.email}
+      </Text>
+    ),
+    []
+  );
 
   return (
     <EventList
@@ -365,6 +364,7 @@ const FriendsSavedEventsList: React.FC = () => {
       emptyStateDescription="Events saved by your friends will appear here. Add more friends to discover events together!"
       emptyStateIcon={<Users size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />}
       showChevron={true}
+      renderExtraContent={renderEventItem}
     />
   );
 };
@@ -377,12 +377,6 @@ const styles = StyleSheet.create({
   tabsContainer: {
     marginHorizontal: 16,
     marginVertical: 12,
-  },
-  savedByContainer: {
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-    marginTop: 8,
   },
   savedByText: {
     fontSize: 13,
