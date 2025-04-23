@@ -4,6 +4,16 @@ import { DataSource } from "typeorm";
 import { User, UserRole } from "../entities/User";
 import * as bcrypt from "bcrypt";
 
+// Helper function to generate a unique friend code
+const generateFriendCode = () => {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
+
 export async function seedUsers(dataSource: DataSource): Promise<void> {
   const userRepository = dataSource.getRepository(User);
 
@@ -22,6 +32,8 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
       email: "david@example.com",
       password: "password123!",
       displayName: "David K",
+      username: "davidk",
+      friendCode: "DAVID1",
       bio: "System administrator",
       role: UserRole.ADMIN,
       isVerified: true,
@@ -33,6 +45,8 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
       email: "josh@example.com",
       password: "password123!",
       displayName: "Josh K",
+      username: "joshk",
+      friendCode: "JOSH01",
       bio: "System administrator",
       role: UserRole.USER,
       isVerified: true,
@@ -44,6 +58,8 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
       email: "james@example.com",
       password: "password123!",
       displayName: "James H.",
+      username: "jamesh",
+      friendCode: "JAMES1",
       bio: "Content moderator",
       role: UserRole.ADMIN,
       isVerified: true,
@@ -55,6 +71,8 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
       email: "jared@example.com",
       password: "password123!",
       displayName: "Jared B.",
+      username: "jaredb",
+      friendCode: "JARED1",
       bio: "Regular user account",
       role: UserRole.ADMIN,
       isVerified: true,
@@ -74,11 +92,14 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
       user.email = userData.email;
       user.passwordHash = passwordHash;
       user.displayName = userData.displayName;
+      user.username = userData.username;
+      user.friendCode = userData.friendCode;
       user.bio = userData.bio;
       user.role = userData.role;
       user.isVerified = userData.isVerified;
-      user.discoveryCount = 0
-      user.scanCount = 0
+      user.discoveryCount = userData.discoveryCount;
+      user.saveCount = userData.saveCount;
+      user.scanCount = userData.scanCount;
 
       return user;
     })

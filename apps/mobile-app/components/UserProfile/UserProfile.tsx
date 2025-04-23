@@ -75,216 +75,233 @@ const COLORS = {
 };
 
 // Memoized Profile Header
-const ProfileHeader = React.memo(({ user, userInitials, profileData }: {
-  user: any;
-  userInitials: string;
-  profileData: any;
-}) => (
-  <Card delay={100}>
-    <View style={styles.profileHeader}>
-      <View style={styles.avatarOuterContainer}>
-        <Text style={styles.avatarText}>{userInitials}</Text>
+const ProfileHeader = React.memo(
+  ({ user, userInitials, profileData }: { user: any; userInitials: string; profileData: any }) => (
+    <Card delay={100}>
+      <View style={styles.profileHeader}>
+        <View style={styles.avatarOuterContainer}>
+          <Text style={styles.avatarText}>{userInitials}</Text>
+        </View>
+        <View style={styles.userInfoContainer}>
+          <Text style={styles.userName}>{user?.displayName || user?.email}</Text>
+          {user?.isVerified && (
+            <Animated.View
+              entering={FadeInDown.duration(600).delay(200).springify()}
+              style={styles.verifiedBadge}
+            >
+              <Shield size={12} color="#40c057" />
+              <Text style={styles.verifiedText}>VERIFIED</Text>
+            </Animated.View>
+          )}
+        </View>
       </View>
-      <View style={styles.userInfoContainer}>
-        <Text style={styles.userName}>{user?.displayName || user?.email}</Text>
-        {user?.isVerified && (
-          <Animated.View
-            entering={FadeInDown.duration(600).delay(200).springify()}
-            style={styles.verifiedBadge}
-          >
-            <Shield size={12} color="#40c057" />
-            <Text style={styles.verifiedText}>VERIFIED</Text>
-          </Animated.View>
-        )}
-      </View>
-    </View>
-    <Animated.View
-      entering={FadeInDown.duration(600).delay(300).springify()}
-      style={[styles.statsContainer, { justifyContent: "center", gap: 32 }]}
-    >
-      <View style={styles.statItem}>
-        <Text style={styles.statValue}>{profileData?.scanCount || 0}</Text>
-        <Text style={styles.statLabel}>Scans</Text>
-      </View>
-      <View style={styles.statDivider} />
-      <View style={styles.statItem}>
-        <Text style={styles.statValue}>{profileData?.saveCount || 0}</Text>
-        <Text style={styles.statLabel}>Saved</Text>
-      </View>
-    </Animated.View>
-  </Card>
-));
+      <Animated.View
+        entering={FadeInDown.duration(600).delay(300).springify()}
+        style={[styles.statsContainer, { justifyContent: "center", gap: 32 }]}
+      >
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{profileData?.scanCount || 0}</Text>
+          <Text style={styles.statLabel}>Scans</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{profileData?.saveCount || 0}</Text>
+          <Text style={styles.statLabel}>Saved</Text>
+        </View>
+      </Animated.View>
+    </Card>
+  )
+);
 
 // Memoized Plan Section
-const PlanSection = React.memo(({ planDetails, progressWidth, handleUpgradePlan }: {
-  planDetails: any;
-  progressWidth: number;
-  handleUpgradePlan: () => void;
-}) => (
-  <Card delay={350}>
-    <View style={styles.planHeader}>
-      <View style={styles.planBadge}>
-        {planDetails?.planType === PlanType.PRO ? (
-          <Crown size={16} color="#fbbf24" />
-        ) : (
-          <Zap size={16} color="#93c5fd" />
+const PlanSection = React.memo(
+  ({
+    planDetails,
+    progressWidth,
+    handleUpgradePlan,
+  }: {
+    planDetails: any;
+    progressWidth: number;
+    handleUpgradePlan: () => void;
+  }) => (
+    <Card delay={350}>
+      <View style={styles.planHeader}>
+        <View style={styles.planBadge}>
+          {planDetails?.planType === PlanType.PRO ? (
+            <Crown size={16} color="#fbbf24" />
+          ) : (
+            <Zap size={16} color="#93c5fd" />
+          )}
+          <Text
+            style={[
+              styles.planBadgeText,
+              planDetails?.planType === PlanType.PRO && styles.planBadgeTextPro,
+            ]}
+          >
+            {planDetails?.planType || "FREE"}
+          </Text>
+        </View>
+        {planDetails?.planType === PlanType.FREE && (
+          <TouchableOpacity
+            style={styles.upgradeButton}
+            onPress={handleUpgradePlan}
+            activeOpacity={0.8}
+          >
+            <Crown size={16} color="#fbbf24" style={{ marginRight: 4 }} />
+            <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+          </TouchableOpacity>
         )}
-        <Text
-          style={[
-            styles.planBadgeText,
-            planDetails?.planType === PlanType.PRO && styles.planBadgeTextPro,
-          ]}
-        >
-          {planDetails?.planType || "FREE"}
+      </View>
+      <View style={styles.usageContainer}>
+        <View style={styles.usageHeader}>
+          <Text style={styles.usageLabel}>Weekly Scans</Text>
+          <Text style={styles.usageCount}>
+            {planDetails?.weeklyScanCount || 0} / {planDetails?.scanLimit || 10}
+          </Text>
+        </View>
+        <View style={styles.progressBarContainer}>
+          <View
+            style={[
+              styles.progressBar,
+              {
+                width: `${progressWidth}%`,
+              },
+            ]}
+          />
+        </View>
+        <Text style={styles.usageNote}>
+          {planDetails?.remainingScans || 0} scans remaining this week
         </Text>
       </View>
-      {planDetails?.planType === PlanType.FREE && (
-        <TouchableOpacity
-          style={styles.upgradeButton}
-          onPress={handleUpgradePlan}
-          activeOpacity={0.8}
-        >
-          <Crown size={16} color="#fbbf24" style={{ marginRight: 4 }} />
-          <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-    <View style={styles.usageContainer}>
-      <View style={styles.usageHeader}>
-        <Text style={styles.usageLabel}>Weekly Scans</Text>
-        <Text style={styles.usageCount}>
-          {planDetails?.weeklyScanCount || 0} / {planDetails?.scanLimit || 10}
-        </Text>
-      </View>
-      <View style={styles.progressBarContainer}>
-        <View
-          style={[
-            styles.progressBar,
-            {
-              width: `${progressWidth}%`,
-            },
-          ]}
-        />
-      </View>
-      <Text style={styles.usageNote}>
-        {planDetails?.remainingScans || 0} scans remaining this week
-      </Text>
-    </View>
-  </Card>
-));
+    </Card>
+  )
+);
 
 // Memoized Account Details
-const AccountDetails = React.memo(({ loading, profileData, user, memberSince, mapStyleButtons }: {
-  loading: boolean;
-  profileData: any;
-  user: any;
-  memberSince: string;
-  mapStyleButtons: JSX.Element;
-}) => (
-  <Card delay={400}>
-    <Text style={styles.sectionTitle}>Account Information</Text>
-    {loading ? (
-      <ActivityIndicator size="large" color="#93c5fd" style={{ marginVertical: 20 }} />
-    ) : (
-      <Animated.View layout={LinearTransition.springify()}>
-        <Animated.View
-          entering={FadeInDown.duration(600).delay(500).springify()}
-          style={styles.detailItem}
-        >
-          <View style={styles.detailIconContainer}>
-            <Mail size={18} color="#93c5fd" />
-          </View>
-          <View style={styles.detailContent}>
-            <Text style={styles.detailLabel}>Email</Text>
-            <Text style={styles.detailValue}>{profileData?.email || user?.email}</Text>
-          </View>
-        </Animated.View>
-        <Animated.View
-          entering={FadeInDown.duration(600).delay(600).springify()}
-          style={styles.detailItem}
-        >
-          <View style={styles.detailIconContainer}>
-            <User size={18} color="#93c5fd" />
-          </View>
-          <View style={styles.detailContent}>
-            <Text style={styles.detailLabel}>Role</Text>
-            <Text style={styles.detailValue}>
-              {profileData?.role || user?.role || "User"}
-            </Text>
-          </View>
-        </Animated.View>
-        <Animated.View
-          entering={FadeInDown.duration(600).delay(700).springify()}
-          style={styles.detailItem}
-        >
-          <View style={styles.detailIconContainer}>
-            <Calendar size={18} color="#93c5fd" />
-          </View>
-          <View style={styles.detailContent}>
-            <Text style={styles.detailLabel}>Member Since</Text>
-            <Text style={styles.detailValue}>{memberSince}</Text>
-          </View>
-        </Animated.View>
-        {profileData?.bio && (
+const AccountDetails = React.memo(
+  ({
+    loading,
+    profileData,
+    user,
+    memberSince,
+    mapStyleButtons,
+  }: {
+    loading: boolean;
+    profileData: any;
+    user: any;
+    memberSince: string;
+    mapStyleButtons: JSX.Element;
+  }) => (
+    <Card delay={400}>
+      <Text style={styles.sectionTitle}>Account Information</Text>
+      {loading ? (
+        <ActivityIndicator size="large" color="#93c5fd" style={{ marginVertical: 20 }} />
+      ) : (
+        <Animated.View layout={LinearTransition.springify()}>
           <Animated.View
-            entering={FadeInDown.duration(600).delay(800).springify()}
+            entering={FadeInDown.duration(600).delay(500).springify()}
+            style={styles.detailItem}
+          >
+            <View style={styles.detailIconContainer}>
+              <Mail size={18} color="#93c5fd" />
+            </View>
+            <View style={styles.detailContent}>
+              <Text style={styles.detailLabel}>Email</Text>
+              <Text style={styles.detailValue}>{profileData?.email || user?.email}</Text>
+            </View>
+          </Animated.View>
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(600).springify()}
             style={styles.detailItem}
           >
             <View style={styles.detailIconContainer}>
               <User size={18} color="#93c5fd" />
             </View>
             <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Bio</Text>
-              <Text style={styles.detailValue}>{profileData.bio}</Text>
+              <Text style={styles.detailLabel}>Role</Text>
+              <Text style={styles.detailValue}>{profileData?.role || user?.role || "User"}</Text>
             </View>
           </Animated.View>
-        )}
-        <Animated.View
-          entering={FadeInDown.duration(600).delay(900).springify()}
-          style={styles.detailItem}
-        >
-          <View style={styles.detailIconContainer}>
-            <Moon size={18} color="#93c5fd" />
-          </View>
-          <View style={[styles.detailContent, { gap: 8 }]}>
-            <Text style={styles.detailLabel}>Map Style</Text>
-            {mapStyleButtons}
-          </View>
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(700).springify()}
+            style={styles.detailItem}
+          >
+            <View style={styles.detailIconContainer}>
+              <Calendar size={18} color="#93c5fd" />
+            </View>
+            <View style={styles.detailContent}>
+              <Text style={styles.detailLabel}>Member Since</Text>
+              <Text style={styles.detailValue}>{memberSince}</Text>
+            </View>
+          </Animated.View>
+          {profileData?.bio && (
+            <Animated.View
+              entering={FadeInDown.duration(600).delay(800).springify()}
+              style={styles.detailItem}
+            >
+              <View style={styles.detailIconContainer}>
+                <User size={18} color="#93c5fd" />
+              </View>
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Bio</Text>
+                <Text style={styles.detailValue}>{profileData.bio}</Text>
+              </View>
+            </Animated.View>
+          )}
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(900).springify()}
+            style={styles.detailItem}
+          >
+            <View style={styles.detailIconContainer}>
+              <Moon size={18} color="#93c5fd" />
+            </View>
+            <View style={[styles.detailContent, { gap: 8 }]}>
+              <Text style={styles.detailLabel}>Map Style</Text>
+              {mapStyleButtons}
+            </View>
+          </Animated.View>
         </Animated.View>
-      </Animated.View>
-    )}
-  </Card>
-));
+      )}
+    </Card>
+  )
+);
 
 // Memoized Actions Section
-const ActionsSection = React.memo(({ handleLogout, setShowDeleteDialog }: {
-  handleLogout: () => void;
-  setShowDeleteDialog: (show: boolean) => void;
-}) => (
-  <Card delay={1000}>
-    <View style={styles.actionsSection}>
-      <TouchableOpacity
-        style={styles.logoutButton}
-        onPress={handleLogout}
-        activeOpacity={0.8}
-      >
-        <LogOut size={18} color="#f97583" style={{ marginRight: 8 }} />
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          setShowDeleteDialog(true);
-        }}
-        activeOpacity={0.8}
-      >
-        <Trash2 size={18} color="#dc2626" style={{ marginRight: 8 }} />
-        <Text style={styles.deleteText}>Delete Account</Text>
-      </TouchableOpacity>
-    </View>
-  </Card>
-));
+const ActionsSection = React.memo(
+  ({
+    handleLogout,
+    setShowDeleteDialog,
+    handleFriends,
+  }: {
+    handleLogout: () => void;
+    setShowDeleteDialog: (show: boolean) => void;
+    handleFriends: () => void;
+  }) => (
+    <Card delay={1000}>
+      <View style={styles.actionsSection}>
+        <TouchableOpacity style={styles.friendsButton} onPress={handleFriends} activeOpacity={0.8}>
+          <User size={18} color="#93c5fd" style={{ marginRight: 8 }} />
+          <Text style={styles.friendsText}>Friends</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
+          <LogOut size={18} color="#f97583" style={{ marginRight: 8 }} />
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            setShowDeleteDialog(true);
+          }}
+          activeOpacity={0.8}
+        >
+          <Trash2 size={18} color="#dc2626" style={{ marginRight: 8 }} />
+          <Text style={styles.deleteText}>Delete Account</Text>
+        </TouchableOpacity>
+      </View>
+    </Card>
+  )
+);
 
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const router = useRouter();
@@ -327,10 +344,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   }, []);
 
   // Handle map style change
-  const handleMapStyleChange = useCallback(async (style: MapStyleType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await setMapStyle(style);
-  }, [setMapStyle]);
+  const handleMapStyleChange = useCallback(
+    async (style: MapStyleType) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await setMapStyle(style);
+    },
+    [setMapStyle]
+  );
 
   // Handle plan upgrade
   const handleUpgradePlan = useCallback(async () => {
@@ -363,7 +383,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         // Fetch both profile and plan details in parallel
         const [profileResponse, planResponse] = await Promise.all([
           apiClient.getUserProfile(),
-          apiClient.getPlanDetails()
+          apiClient.getPlanDetails(),
         ]);
 
         if (isMounted) {
@@ -372,7 +392,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           setLoading(false);
         }
       } catch (error: any) {
-        if (error.name !== 'AbortError') {
+        if (error.name !== "AbortError") {
           console.error("Error fetching user data:", error);
           if (isMounted) {
             setLoading(false);
@@ -394,12 +414,16 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     if (paymentStatus === "success" && planDetails) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Update plan details locally instead of refetching
-      setPlanDetails(prev => prev ? {
-        ...prev,
-        planType: PlanType.PRO,
-        scanLimit: 100, // Assuming PRO plan has 100 scans
-        remainingScans: 100 - (prev.weeklyScanCount || 0)
-      } : null);
+      setPlanDetails((prev) =>
+        prev
+          ? {
+              ...prev,
+              planType: PlanType.PRO,
+              scanLimit: 100, // Assuming PRO plan has 100 scans
+              remainingScans: 100 - (prev.weeklyScanCount || 0),
+            }
+          : null
+      );
     } else if (paymentStatus === "cancel") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
@@ -421,9 +445,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const memberSince = useMemo(() => {
     return profileData?.createdAt
       ? new Date(profileData.createdAt).toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric",
-      })
+          month: "long",
+          year: "numeric",
+        })
       : "Loading...";
   }, [profileData?.createdAt]);
 
@@ -436,60 +460,54 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   }, [planDetails?.weeklyScanCount, planDetails?.scanLimit]);
 
   // Memoize map style buttons to prevent unnecessary re-renders
-  const mapStyleButtons = useMemo(() => (
-    <View style={styles.mapStyleButtons}>
-      <TouchableOpacity
-        style={[
-          styles.mapStyleButton,
-          currentStyle === "light" && styles.mapStyleButtonActive,
-        ]}
-        onPress={() => handleMapStyleChange("light")}
-      >
-        <Text
-          style={[
-            styles.mapStyleButtonText,
-            currentStyle === "light" && styles.mapStyleButtonTextActive,
-          ]}
+  const mapStyleButtons = useMemo(
+    () => (
+      <View style={styles.mapStyleButtons}>
+        <TouchableOpacity
+          style={[styles.mapStyleButton, currentStyle === "light" && styles.mapStyleButtonActive]}
+          onPress={() => handleMapStyleChange("light")}
         >
-          Light
-        </Text>
-      </TouchableOpacity>
+          <Text
+            style={[
+              styles.mapStyleButtonText,
+              currentStyle === "light" && styles.mapStyleButtonTextActive,
+            ]}
+          >
+            Light
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[
-          styles.mapStyleButton,
-          currentStyle === "dark" && styles.mapStyleButtonActive,
-        ]}
-        onPress={() => handleMapStyleChange("dark")}
-      >
-        <Text
-          style={[
-            styles.mapStyleButtonText,
-            currentStyle === "dark" && styles.mapStyleButtonTextActive,
-          ]}
+        <TouchableOpacity
+          style={[styles.mapStyleButton, currentStyle === "dark" && styles.mapStyleButtonActive]}
+          onPress={() => handleMapStyleChange("dark")}
         >
-          Dark
-        </Text>
-      </TouchableOpacity>
+          <Text
+            style={[
+              styles.mapStyleButtonText,
+              currentStyle === "dark" && styles.mapStyleButtonTextActive,
+            ]}
+          >
+            Dark
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[
-          styles.mapStyleButton,
-          currentStyle === "street" && styles.mapStyleButtonActive,
-        ]}
-        onPress={() => handleMapStyleChange("street")}
-      >
-        <Text
-          style={[
-            styles.mapStyleButtonText,
-            currentStyle === "street" && styles.mapStyleButtonTextActive,
-          ]}
+        <TouchableOpacity
+          style={[styles.mapStyleButton, currentStyle === "street" && styles.mapStyleButtonActive]}
+          onPress={() => handleMapStyleChange("street")}
         >
-          Colorful
-        </Text>
-      </TouchableOpacity>
-    </View>
-  ), [currentStyle, handleMapStyleChange]);
+          <Text
+            style={[
+              styles.mapStyleButtonText,
+              currentStyle === "street" && styles.mapStyleButtonTextActive,
+            ]}
+          >
+            Colorful
+          </Text>
+        </TouchableOpacity>
+      </View>
+    ),
+    [currentStyle, handleMapStyleChange]
+  );
 
   // Handle back button
   const handleBack = () => {
@@ -531,6 +549,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     }
   };
 
+  // Handle friends navigation
+  const handleFriends = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/friends");
+  };
+
   return (
     <ScreenLayout>
       <Header title="Profile" onBack={handleBack} />
@@ -541,11 +565,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         onScroll={scrollHandler}
         scrollEventThrottle={16}
       >
-        <ProfileHeader
-          user={user}
-          userInitials={userInitials}
-          profileData={profileData}
-        />
+        <ProfileHeader user={user} userInitials={userInitials} profileData={profileData} />
         <PlanSection
           planDetails={planDetails}
           progressWidth={progressWidth}
@@ -561,6 +581,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         <ActionsSection
           handleLogout={handleLogout}
           setShowDeleteDialog={setShowDeleteDialog}
+          handleFriends={handleFriends}
         />
         <Animated.View
           entering={FadeInDown.duration(600).delay(1100).springify()}
@@ -1083,6 +1104,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "SpaceMono",
     marginTop: 4,
+  },
+
+  friendsButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+  },
+
+  friendsText: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
   },
 });
 

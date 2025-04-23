@@ -181,6 +181,26 @@ interface StripeCheckoutSession {
   clientSecret: string;
 }
 
+interface Friend {
+  id: string;
+  displayName?: string;
+  email: string;
+  avatarUrl?: string;
+}
+
+interface FriendRequest {
+  id: string;
+  requester: Friend;
+  status: "PENDING" | "ACCEPTED" | "REJECTED";
+  createdAt: string;
+}
+
+interface Contact {
+  name?: string;
+  email?: string;
+  phone?: string;
+}
+
 class ApiClient {
   public baseUrl: string;
   private user: User | null = null;
@@ -1144,6 +1164,85 @@ class ApiClient {
     }
 
     return data;
+  }
+
+  // Get all friends
+  async getFriends(): Promise<Friend[]> {
+    const url = `${this.baseUrl}/api/friendships`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<Friend[]>(response);
+  }
+
+  // Get pending friend requests
+  async getPendingFriendRequests(): Promise<FriendRequest[]> {
+    const url = `${this.baseUrl}/api/friendships/requests/pending`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<FriendRequest[]>(response);
+  }
+
+  // Update contacts
+  async updateContacts(contacts: Contact[]): Promise<void> {
+    const url = `${this.baseUrl}/api/friendships/contacts`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ contacts }),
+    });
+    return this.handleResponse<void>(response);
+  }
+
+  // Find potential friends from contacts
+  async findPotentialFriends(): Promise<Friend[]> {
+    const url = `${this.baseUrl}/api/friendships/contacts/potential`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<Friend[]>(response);
+  }
+
+  // Send friend request
+  async sendFriendRequest(addresseeId: string): Promise<FriendRequest> {
+    const url = `${this.baseUrl}/api/friendships/requests`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ addresseeId }),
+    });
+    return this.handleResponse<FriendRequest>(response);
+  }
+
+  // Send friend request by friend code
+  async sendFriendRequestByCode(friendCode: string): Promise<FriendRequest> {
+    const url = `${this.baseUrl}/api/friendships/requests/code`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ friendCode }),
+    });
+    return this.handleResponse<FriendRequest>(response);
+  }
+
+  // Send friend request by username
+  async sendFriendRequestByUsername(username: string): Promise<FriendRequest> {
+    const url = `${this.baseUrl}/api/friendships/requests/username`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ username }),
+    });
+    return this.handleResponse<FriendRequest>(response);
+  }
+
+  // Accept friend request
+  async acceptFriendRequest(requestId: string): Promise<FriendRequest> {
+    const url = `${this.baseUrl}/api/friendships/requests/${requestId}/accept`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+    });
+    return this.handleResponse<FriendRequest>(response);
+  }
+
+  // Reject friend request
+  async rejectFriendRequest(requestId: string): Promise<FriendRequest> {
+    const url = `${this.baseUrl}/api/friendships/requests/${requestId}/reject`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+    });
+    return this.handleResponse<FriendRequest>(response);
   }
 }
 
