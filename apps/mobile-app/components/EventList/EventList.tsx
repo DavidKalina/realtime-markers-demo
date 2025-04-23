@@ -22,20 +22,19 @@ import { COLORS } from "../Layout/ScreenLayout";
 interface EventListProps {
   events: EventType[];
   isLoading: boolean;
-  isFetchingMore?: boolean;
+  isFetchingMore: boolean;
   error: string | null;
   hasSearched?: boolean;
   onRefresh?: () => void;
   onLoadMore?: () => void;
   onRetry?: () => void;
-  emptyStateTitle: string;
-  emptyStateDescription: string;
-  emptyStateIcon: React.ReactNode;
+  emptyStateTitle?: string;
+  emptyStateDescription?: string;
+  emptyStateIcon?: React.ReactNode;
   showDistance?: boolean;
   showChevron?: boolean;
   keyboardHeight?: number;
   keyboardVisible?: boolean;
-  renderExtraContent?: (event: EventType) => React.ReactNode;
 }
 
 // Memoize the loading component
@@ -96,37 +95,6 @@ const ListHeaderComponent = React.memo(
   )
 );
 
-const EventCard: React.FC<{
-  event: EventType;
-  showDistance?: boolean;
-  showChevron?: boolean;
-  renderExtraContent?: (event: EventType) => React.ReactNode;
-}> = ({ event, showDistance, showChevron, renderExtraContent }) => {
-  const router = useRouter();
-
-  const handlePress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (event.id) {
-      router.push(`/details?eventId=${event.id}`);
-    }
-  }, [router, event.id]);
-
-  return (
-    <Card style={styles.eventCard}>
-      <TouchableOpacity style={styles.eventCardContent} onPress={handlePress} activeOpacity={0.8}>
-        <EventItem
-          event={event}
-          variant="default"
-          showChevron={showChevron}
-          showDistance={showDistance}
-          onPress={handlePress}
-        />
-      </TouchableOpacity>
-      {renderExtraContent && renderExtraContent(event)}
-    </Card>
-  );
-};
-
 const EventList: React.FC<EventListProps> = ({
   events,
   isLoading,
@@ -143,7 +111,6 @@ const EventList: React.FC<EventListProps> = ({
   showChevron = false,
   keyboardHeight = 0,
   keyboardVisible = false,
-  renderExtraContent,
 }) => {
   const router = useRouter();
   const scrollY = useSharedValue(0);
@@ -166,15 +133,17 @@ const EventList: React.FC<EventListProps> = ({
   });
 
   const renderItem = useCallback(
-    ({ item: event }: { item: EventType }) => (
-      <EventCard
-        event={event}
-        showDistance={showDistance}
+    ({ item, index }: { item: EventType; index: number }) => (
+      <EventItem
+        event={item}
+        onPress={handleSelectEvent}
+        index={index}
+        variant="default"
         showChevron={showChevron}
-        renderExtraContent={renderExtraContent}
+        showDistance={showDistance}
       />
     ),
-    [showDistance, showChevron, renderExtraContent]
+    [handleSelectEvent, showChevron, showDistance]
   );
 
   // Memoize the content container style
@@ -317,12 +286,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
-  },
-  eventCard: {
-    marginBottom: 16,
-  },
-  eventCardContent: {
-    padding: 16,
   },
 });
 

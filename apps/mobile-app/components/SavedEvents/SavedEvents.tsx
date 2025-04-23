@@ -344,11 +344,11 @@ const FriendsSavedEventsList: React.FC = () => {
 
   const renderEventItem = useCallback((event: EventType) => {
     return (
-      <View style={styles.savedByContainer}>
+      <>
         <Text style={styles.savedByText}>
           Saved by {event.savedBy?.displayName || event.savedBy?.email}
         </Text>
-      </View>
+      </>
     );
   }, []);
 
@@ -365,7 +365,6 @@ const FriendsSavedEventsList: React.FC = () => {
       emptyStateDescription="Events saved by your friends will appear here. Add more friends to discover events together!"
       emptyStateIcon={<Users size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />}
       showChevron={true}
-      renderExtraContent={renderEventItem}
     />
   );
 };
