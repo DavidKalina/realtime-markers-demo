@@ -76,31 +76,44 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
   const { publish } = useEventBroker();
 
   // Load cached location on mount
-  useEffect(() => {
-    const loadCachedLocation = async () => {
-      try {
-        const cachedLocationStr = await AsyncStorage.getItem("cachedLocation");
-        if (cachedLocationStr) {
-          const cachedLocation: CachedLocation = JSON.parse(cachedLocationStr);
-          const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  const loadCachedLocation = useCallback(async () => {
+    try {
+      const cachedLocationStr = await AsyncStorage.getItem("cachedLocation");
+      if (cachedLocationStr) {
+        const cachedLocation: CachedLocation = JSON.parse(cachedLocationStr);
+        const oneHourAgo = Date.now() - 60 * 60 * 1000;
+        const isCacheValid = cachedLocation.timestamp > oneHourAgo;
 
-          // Only use cached location if it's less than 1 hour old
-          if (cachedLocation.timestamp > oneHourAgo) {
-            setUserLocation(cachedLocation.coordinates);
-            publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
-              timestamp: Date.now(),
-              source: "LocationContext",
-              coordinates: cachedLocation.coordinates,
-            });
-          }
+        console.log("[LocationContext] Checking cached location:", {
+          hasCache: true,
+          cacheAge: Math.round((Date.now() - cachedLocation.timestamp) / 1000 / 60) + " minutes",
+          isValid: isCacheValid,
+          coordinates: cachedLocation.coordinates,
+        });
+
+        if (isCacheValid) {
+          setUserLocation(cachedLocation.coordinates);
+          setLocationPermissionGranted(true);
+          publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
+            timestamp: Date.now(),
+            source: "LocationContext",
+            coordinates: cachedLocation.coordinates,
+          });
+          return true;
         }
-      } catch (error) {
-        console.error("Error loading cached location:", error);
+      } else {
+        console.log("[LocationContext] No cached location found");
       }
-    };
-
-    loadCachedLocation();
+      return false;
+    } catch (error) {
+      console.error("[LocationContext] Error loading cached location:", error);
+      return false;
+    }
   }, [publish]);
+
+  useEffect(() => {
+    loadCachedLocation();
+  }, [loadCachedLocation]);
 
   // Cache location when it's updated
   const cacheLocation = useCallback(async (coordinates: [number, number]) => {
@@ -110,8 +123,12 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
         timestamp: Date.now(),
       };
       await AsyncStorage.setItem("cachedLocation", JSON.stringify(cachedLocation));
+      console.log("[LocationContext] Cached new location:", {
+        coordinates,
+        timestamp: new Date(cachedLocation.timestamp).toISOString(),
+      });
     } catch (error) {
-      console.error("Error caching location:", error);
+      console.error("[LocationContext] Error caching location:", error);
     }
   }, []);
 
@@ -119,10 +136,12 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
   const getUserLocation = useCallback(async () => {
     try {
       setIsLoadingLocation(true);
+      console.log("[LocationContext] Requesting new location...");
 
       const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== "granted") {
+        console.log("[LocationContext] Location permission denied");
         setLocationPermissionGranted(false);
         Alert.alert(
           "Permission Denied",
@@ -291,7 +310,10 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
 
     const initLocation = async () => {
       if (isMounted) {
-        await getUserLocation();
+        const hasValidCache = await loadCachedLocation();
+        if (!hasValidCache) {
+          await getUserLocation();
+        }
       }
     };
 
@@ -300,7 +322,7 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
     return () => {
       isMounted = false;
     };
-  }, [getUserLocation]);
+  }, [getUserLocation, loadCachedLocation]);
 
   // Create the context value object using useMemo to prevent unnecessary re-renders
   const contextValue = useMemo(

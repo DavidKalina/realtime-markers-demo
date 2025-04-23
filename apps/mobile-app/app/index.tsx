@@ -77,7 +77,19 @@ function HomeScreen() {
   useEffect(() => {
     if (!userLocation && !isLoadingLocation && !initialLocationRequestedRef.current) {
       initialLocationRequestedRef.current = true;
-      getUserLocation();
+      console.log("[HomeScreen] Checking if location request is needed:", {
+        hasUserLocation: !!userLocation,
+        isLoadingLocation,
+        initialLocationRequested: initialLocationRequestedRef.current,
+      });
+
+      // Only request location if we don't have a valid cached location
+      if (!userLocation) {
+        console.log("[HomeScreen] Requesting new location...");
+        getUserLocation();
+      } else {
+        console.log("[HomeScreen] Using existing location");
+      }
     }
   }, [userLocation, isLoadingLocation, getUserLocation]);
 
