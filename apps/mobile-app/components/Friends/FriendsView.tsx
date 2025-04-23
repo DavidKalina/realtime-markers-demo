@@ -179,6 +179,14 @@ const FriendRequestsList: React.FC = () => {
       ...prev,
       [requestId]: { status, message },
     }));
+
+    // Only remove the request after showing the success message
+    if (status === "success") {
+      setTimeout(() => {
+        setRequests((prev) => prev.filter((request) => request.id !== requestId));
+      }, 1000);
+    }
+
     // Clear the message after 2 seconds
     setTimeout(() => {
       setActionStates((prev) => ({
@@ -191,7 +199,6 @@ const FriendRequestsList: React.FC = () => {
   const handleAcceptRequest = async (requestId: string) => {
     try {
       await apiClient.acceptFriendRequest(requestId);
-      setRequests(requests.filter((request) => request.id !== requestId));
       showActionFeedback(requestId, "success", "Friend request accepted");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
@@ -204,7 +211,6 @@ const FriendRequestsList: React.FC = () => {
   const handleRejectRequest = async (requestId: string) => {
     try {
       await apiClient.rejectFriendRequest(requestId);
-      setRequests(requests.filter((request) => request.id !== requestId));
       showActionFeedback(requestId, "success", "Friend request rejected");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
@@ -217,7 +223,6 @@ const FriendRequestsList: React.FC = () => {
   const handleCancelRequest = async (requestId: string) => {
     try {
       await apiClient.cancelFriendRequest(requestId);
-      setRequests(requests.filter((request) => request.id !== requestId));
       showActionFeedback(requestId, "success", "Friend request canceled");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
