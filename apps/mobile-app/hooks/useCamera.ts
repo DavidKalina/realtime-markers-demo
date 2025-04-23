@@ -40,11 +40,14 @@ export const useCamera = () => {
   const cameraInitialized = useRef(false);
 
   // Memoize camera configuration
-  const cameraConfig = useMemo(() => ({
-    quality: CAMERA_CONFIG.PHOTO_QUALITY,
-    exif: true,
-    flashMode,
-  }), [flashMode]);
+  const cameraConfig = useMemo(
+    () => ({
+      quality: CAMERA_CONFIG.PHOTO_QUALITY,
+      exif: true,
+      flashMode,
+    }),
+    [flashMode]
+  );
 
   // Release camera resources
   const releaseCamera = useCallback(() => {
@@ -102,11 +105,16 @@ export const useCamera = () => {
 
   // Monitor app state for background/foreground transitions
   useEffect(() => {
-    const subscription = AppState.addEventListener("change", (nextAppState) => {
+    const subscription = AppState.addEventListener("change", async (nextAppState) => {
       const isActive = nextAppState === "active";
       setAppActive(isActive);
 
       if (isActive && appState.current !== "active" && isFocused) {
+        // When app comes back to foreground, refresh permission state
+        if (permission) {
+          setHasPermission(permission.granted);
+        }
+
         setIsCameraReady(false);
 
         // Small delay before re-initializing camera
@@ -127,11 +135,11 @@ export const useCamera = () => {
       subscription.remove();
       releaseCamera();
     };
-  }, [isFocused, releaseCamera]);
+  }, [isFocused, releaseCamera, permission]);
 
   // Handle camera readiness with better logging
   const onCameraReady = useCallback(() => {
-    console.log('[Camera] Camera ready callback triggered');
+    console.log("[Camera] Camera ready callback triggered");
     setIsCameraReady(true);
     cameraInitialized.current = true;
   }, []);
@@ -139,12 +147,12 @@ export const useCamera = () => {
   // Update camera active state based on all required conditions
   useEffect(() => {
     const shouldBeActive = isFocused && appActive && hasPermission === true;
-    console.log('[Camera] Camera state conditions:', {
+    console.log("[Camera] Camera state conditions:", {
       isFocused,
       appActive,
       hasPermission,
       shouldBeActive,
-      currentlyActive: isCameraActive
+      currentlyActive: isCameraActive,
     });
 
     if (shouldBeActive !== isCameraActive) {
@@ -177,29 +185,29 @@ export const useCamera = () => {
 
   // Take picture - robust version with better error handling and flash support
   const takePicture = useCallback(async () => {
-    console.log('[Camera] Taking picture:', {
+    console.log("[Camera] Taking picture:", {
       hasRef: !!cameraRef.current,
       isCapturing,
       isCameraReady,
-      isCameraActive
+      isCameraActive,
     });
 
     if (!cameraRef.current || isCapturing || !isCameraReady || !isCameraActive) {
-      console.log('[Camera] Cannot take picture:', {
+      console.log("[Camera] Cannot take picture:", {
         noRef: !cameraRef.current,
         isCapturing,
         notReady: !isCameraReady,
-        notActive: !isCameraActive
+        notActive: !isCameraActive,
       });
       return null;
     }
 
     try {
-      console.log('[Camera] Starting capture...');
+      console.log("[Camera] Starting capture...");
       setIsCapturing(true);
 
       const photo = await (cameraRef.current as any).takePictureAsync(cameraConfig);
-      console.log('[Camera] Picture taken successfully');
+      console.log("[Camera] Picture taken successfully");
 
       // Return the URI directly
       return photo.uri;
@@ -213,7 +221,7 @@ export const useCamera = () => {
 
       return null;
     } finally {
-      console.log('[Camera] Capture complete');
+      console.log("[Camera] Capture complete");
       setIsCapturing(false);
     }
   }, [cameraRef, isCapturing, isCameraReady, isCameraActive, cameraConfig]);
@@ -224,31 +232,41 @@ export const useCamera = () => {
   }, []);
 
   // Memoize image processing configuration
-  const processImageConfig = useMemo(() => ({
-    resize: { width: CAMERA_CONFIG.PROCESSED_WIDTH } as unknown as ImageManipulator.Action,
-    compress: CAMERA_CONFIG.PROCESSED_QUALITY,
-    format: ImageManipulator.SaveFormat.JPEG,
-  }), []);
+  const processImageConfig = useMemo(
+    () => ({
+      resize: { width: CAMERA_CONFIG.PROCESSED_WIDTH } as unknown as ImageManipulator.Action,
+      compress: CAMERA_CONFIG.PROCESSED_QUALITY,
+      format: ImageManipulator.SaveFormat.JPEG,
+    }),
+    []
+  );
 
   // For useCamera.ts - Updated processImage function with proper type checking
-  const processImage = useCallback(async (uri: string) => {
-    try {
-      // Get file info with proper type checking
-      const fileInfo = await FileSystem.getInfoAsync(uri);
+  const processImage = useCallback(
+    async (uri: string) => {
+      try {
+        // Get file info with proper type checking
+        const fileInfo = await FileSystem.getInfoAsync(uri);
 
-      // Use Image Manipulator for consistent processing
-      const processed = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: CAMERA_CONFIG.PROCESSED_WIDTH } } as unknown as ImageManipulator.Action],
-        { compress: processImageConfig.compress, format: processImageConfig.format }
-      );
+        // Use Image Manipulator for consistent processing
+        const processed = await ImageManipulator.manipulateAsync(
+          uri,
+          [
+            {
+              resize: { width: CAMERA_CONFIG.PROCESSED_WIDTH },
+            } as unknown as ImageManipulator.Action,
+          ],
+          { compress: processImageConfig.compress, format: processImageConfig.format }
+        );
 
-      return processed.uri;
-    } catch (error) {
-      console.error("Error processing image:", error);
-      return uri; // Fall back to original if processing fails
-    }
-  }, [processImageConfig]);
+        return processed.uri;
+      } catch (error) {
+        console.error("Error processing image:", error);
+        return uri; // Fall back to original if processing fails
+      }
+    },
+    [processImageConfig]
+  );
 
   // Discard captured image and return to camera
   const discardImage = useCallback(() => {
