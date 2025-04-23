@@ -236,7 +236,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                 <Info size={18} color={COLORS.accent} strokeWidth={2.5} />
               </View>
               <View style={styles.descriptionContainer}>
-                <Text style={styles.detailText}>{event.description}</Text>
+                <Text style={styles.detailText} numberOfLines={3} ellipsizeMode="tail">
+                  {event.description}
+                </Text>
               </View>
             </View>
           )}
