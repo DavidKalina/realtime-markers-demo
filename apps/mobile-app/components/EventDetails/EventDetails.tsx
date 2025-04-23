@@ -220,7 +220,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
         {/* Event Title and Save Button */}
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>{event.title}</Text>
+          <Text numberOfLines={2} style={styles.title}>
+            {event.title}
+          </Text>
           <SaveButton isSaved={isSaved} savingState={savingState} onSave={handleToggleSave} />
         </View>
 

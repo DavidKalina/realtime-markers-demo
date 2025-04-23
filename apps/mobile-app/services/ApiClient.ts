@@ -52,6 +52,8 @@ export interface User {
   level?: number;
   nextLevelXp?: number;
   xpProgress?: number;
+  friendCode?: string;
+  username?: string;
 }
 
 export interface AuthTokens {
@@ -179,6 +181,27 @@ interface PlanDetails {
 
 interface StripeCheckoutSession {
   clientSecret: string;
+}
+
+export interface Friend {
+  id: string;
+  displayName?: string;
+  email: string;
+  avatarUrl?: string;
+}
+
+export interface FriendRequest {
+  id: string;
+  requester: Friend;
+  addressee: Friend;
+  status: "PENDING" | "ACCEPTED" | "REJECTED";
+  createdAt: string;
+}
+
+export interface Contact {
+  name?: string;
+  email?: string;
+  phone?: string;
 }
 
 class ApiClient {
@@ -404,25 +427,28 @@ class ApiClient {
       title: apiEvent.title,
       description: apiEvent.description || "",
       eventDate: apiEvent.eventDate,
-      endDate: apiEvent.endDate ?? undefined,
-      time: new Date(apiEvent.eventDate).toLocaleString(),
+      endDate: apiEvent.endDate,
+      time: new Date(apiEvent.eventDate).toLocaleTimeString(),
       coordinates: apiEvent.location.coordinates,
-      location: apiEvent.address || "Location not specified",
+      location: apiEvent.address || "",
       locationNotes: apiEvent.locationNotes || "",
       distance: "",
       emoji: apiEvent.emoji || "📍",
+      emojiDescription: apiEvent.emojiDescription,
       categories: apiEvent.categories?.map((c) => c.name) || [],
-      creator: apiEvent?.creator,
-      scanCount: apiEvent.scanCount ?? 1,
-      saveCount: apiEvent.saveCount ?? 0,
-      timezone: apiEvent.timezone ?? "",
+      creator: apiEvent.creator,
+      scanCount: apiEvent.scanCount || 0,
+      saveCount: apiEvent.saveCount || 0,
+      timezone: apiEvent.timezone || "UTC",
       qrUrl: apiEvent.qrUrl,
       qrCodeData: apiEvent.qrCodeData,
       qrImagePath: apiEvent.qrImagePath,
-      hasQrCode: apiEvent?.hasQrCode,
-      qrGeneratedAt: apiEvent?.qrGeneratedAt,
-      qrDetectedInImage: apiEvent?.qrDetectedInImage,
-      detectedQrData: apiEvent?.detectedQrData,
+      hasQrCode: apiEvent.hasQrCode,
+      qrGeneratedAt: apiEvent.qrGeneratedAt,
+      qrDetectedInImage: apiEvent.qrDetectedInImage,
+      detectedQrData: apiEvent.detectedQrData,
+      createdAt: apiEvent.createdAt,
+      updatedAt: apiEvent.updatedAt,
     };
   }
 
@@ -1144,6 +1170,131 @@ class ApiClient {
     }
 
     return data;
+  }
+
+  // Get all friends
+  async getFriends(): Promise<Friend[]> {
+    const url = `${this.baseUrl}/api/friendships`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<Friend[]>(response);
+  }
+
+  // Get pending friend requests
+  async getPendingFriendRequests(): Promise<FriendRequest[]> {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/api/friendships/requests/pending`);
+    return this.handleResponse(response);
+  }
+
+  // Update contacts
+  async updateContacts(contacts: Contact[]): Promise<void> {
+    const url = `${this.baseUrl}/api/friendships/contacts`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ contacts }),
+    });
+    return this.handleResponse<void>(response);
+  }
+
+  // Find potential friends from contacts
+  async findPotentialFriends(): Promise<Friend[]> {
+    const url = `${this.baseUrl}/api/friendships/contacts/potential`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<Friend[]>(response);
+  }
+
+  // Send friend request
+  async sendFriendRequest(addresseeId: string): Promise<FriendRequest> {
+    const url = `${this.baseUrl}/api/friendships/requests`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ addresseeId }),
+    });
+    return this.handleResponse<FriendRequest>(response);
+  }
+
+  // Send friend request by friend code
+  async sendFriendRequestByCode(friendCode: string): Promise<FriendRequest> {
+    const url = `${this.baseUrl}/api/friendships/requests/code`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ friendCode }),
+    });
+    return this.handleResponse<FriendRequest>(response);
+  }
+
+  // Send friend request by username
+  async sendFriendRequestByUsername(username: string): Promise<FriendRequest> {
+    const url = `${this.baseUrl}/api/friendships/requests/username`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ username }),
+    });
+    return this.handleResponse<FriendRequest>(response);
+  }
+
+  // Accept friend request
+  async acceptFriendRequest(requestId: string): Promise<FriendRequest> {
+    const response = await this.fetchWithAuth(
+      `${this.baseUrl}/api/friendships/requests/${requestId}/accept`,
+      {
+        method: "POST",
+      }
+    );
+    return this.handleResponse(response);
+  }
+
+  // Reject friend request
+  async rejectFriendRequest(requestId: string): Promise<FriendRequest> {
+    const response = await this.fetchWithAuth(
+      `${this.baseUrl}/api/friendships/requests/${requestId}/reject`,
+      {
+        method: "POST",
+      }
+    );
+    return this.handleResponse(response);
+  }
+
+  async getOutgoingFriendRequests(): Promise<FriendRequest[]> {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/api/friendships/requests/outgoing`);
+
+    return this.handleResponse(response);
+  }
+
+  async cancelFriendRequest(requestId: string): Promise<FriendRequest> {
+    const response = await this.fetchWithAuth(
+      `${this.baseUrl}/api/friendships/requests/${requestId}/cancel`,
+      {
+        method: "POST",
+      }
+    );
+    return this.handleResponse(response);
+  }
+
+  async getFriendsSavedEvents(options?: { limit?: number; cursor?: string }): Promise<{
+    events: EventType[];
+    nextCursor?: string;
+  }> {
+    const queryParams = new URLSearchParams();
+
+    if (options?.limit) queryParams.append("limit", options.limit.toString());
+    if (options?.cursor) queryParams.append("cursor", options.cursor);
+
+    const url = `${this.baseUrl}/api/events/saved/friends?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+
+    const data = await this.handleResponse<{
+      events: ApiEvent[];
+      nextCursor?: string;
+    }>(response);
+
+    // Map API events to frontend event type and include savedBy information
+    return {
+      events: data.events.map((event) => ({
+        ...this.mapEventToEventType(event),
+        savedBy: (event as any).savedBy,
+      })),
+      nextCursor: data.nextCursor,
+    };
   }
 }
 

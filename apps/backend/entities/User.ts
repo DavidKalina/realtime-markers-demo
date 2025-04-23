@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 import { Event } from "./Event";
+import { Friendship } from "./Friendship";
 import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
 import { UserLevel } from "./UserLevel";
@@ -33,6 +34,17 @@ export class User {
   @Index({ unique: true })
   @Column({ type: "varchar", unique: true })
   email!: string;
+
+  @Index({ unique: true })
+  @Column({ type: "varchar", unique: true, nullable: true })
+  username?: string;
+
+  @Index({ unique: true })
+  @Column({ type: "varchar", unique: true, nullable: true })
+  friendCode?: string;
+
+  @Column({ type: "varchar", nullable: true })
+  phone?: string;
 
   @Column({ type: "varchar", select: false })
   passwordHash!: string;
@@ -84,6 +96,14 @@ export class User {
   @Column({ name: "current_title", type: "varchar", nullable: true })
   currentTitle?: string;
 
+  @Column({ name: "contacts", type: "jsonb", nullable: true })
+  contacts?: {
+    email?: string;
+    phone?: string;
+    name?: string;
+    lastImportedAt?: Date;
+  }[];
+
   @OneToMany(() => UserLevel, (userLevel) => userLevel.user)
   userLevels!: UserLevel[];
 
@@ -93,9 +113,15 @@ export class User {
   @OneToMany(() => Event, (event) => event.creator)
   createdEvents!: Event[];
 
-  // Saves relationship
   @OneToMany(() => UserEventSave, (save) => save.user)
   savedEvents!: UserEventSave[];
+
+  // Friendship relationships
+  @OneToMany(() => Friendship, (friendship) => friendship.requester)
+  sentFriendRequests!: Friendship[];
+
+  @OneToMany(() => Friendship, (friendship) => friendship.addressee)
+  receivedFriendRequests!: Friendship[];
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

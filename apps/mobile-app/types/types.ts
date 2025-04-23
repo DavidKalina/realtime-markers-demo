@@ -43,6 +43,14 @@ export interface EventType {
     id: string;
     name: string;
   };
+  createdAt: string;
+  updatedAt: string;
+  discoveryCount?: number;
+  savedBy?: {
+    id: string;
+    displayName: string;
+    email: string;
+  };
 }
 
 // Mapbox viewport format for map integration

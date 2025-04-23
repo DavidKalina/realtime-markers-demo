@@ -26,8 +26,11 @@ export class CacheService {
     visionMisses: 0,
     redisHits: 0,
     redisMisses: 0,
-    lastReset: Date.now()
+    lastReset: Date.now(),
   };
+
+  private static readonly FRIENDS_TTL = 300; // 5 minutes
+  private static readonly FRIEND_REQUESTS_TTL = 60; // 1 minute
 
   static initRedis(options: { host: string; port: number; password: string }) {
     this.redisClient = new Redis(options);
@@ -47,24 +50,24 @@ export class CacheService {
       embedding: {
         hits: this.cacheStats.embeddingHits,
         misses: this.cacheStats.embeddingMisses,
-        hitRate: totalEmbedding ? (this.cacheStats.embeddingHits / totalEmbedding) * 100 : 0
+        hitRate: totalEmbedding ? (this.cacheStats.embeddingHits / totalEmbedding) * 100 : 0,
       },
       category: {
         hits: this.cacheStats.categoryHits,
         misses: this.cacheStats.categoryMisses,
-        hitRate: totalCategory ? (this.cacheStats.categoryHits / totalCategory) * 100 : 0
+        hitRate: totalCategory ? (this.cacheStats.categoryHits / totalCategory) * 100 : 0,
       },
       vision: {
         hits: this.cacheStats.visionHits,
         misses: this.cacheStats.visionMisses,
-        hitRate: totalVision ? (this.cacheStats.visionHits / totalVision) * 100 : 0
+        hitRate: totalVision ? (this.cacheStats.visionHits / totalVision) * 100 : 0,
       },
       redis: {
         hits: this.cacheStats.redisHits,
         misses: this.cacheStats.redisMisses,
-        hitRate: totalRedis ? (this.cacheStats.redisHits / totalRedis) * 100 : 0
+        hitRate: totalRedis ? (this.cacheStats.redisHits / totalRedis) * 100 : 0,
       },
-      uptime: Date.now() - this.cacheStats.lastReset
+      uptime: Date.now() - this.cacheStats.lastReset,
     };
   }
 
@@ -78,7 +81,7 @@ export class CacheService {
       visionMisses: 0,
       redisHits: 0,
       redisMisses: 0,
-      lastReset: Date.now()
+      lastReset: Date.now(),
     };
   }
 
@@ -272,11 +275,10 @@ export class CacheService {
       });
 
       // Warm up recent events
-      const recentEvents = await dataSource.getRepository(Event)
-        .find({
-          order: { eventDate: "DESC" },
-          take: 100
-        });
+      const recentEvents = await dataSource.getRepository(Event).find({
+        order: { eventDate: "DESC" },
+        take: 100,
+      });
 
       for (const event of recentEvents) {
         await this.setCachedEvent(event.id, event, 3600); // 1 hour TTL
@@ -286,7 +288,7 @@ export class CacheService {
       for (const event of recentEvents) {
         const textForEmbedding = `
           TITLE: ${event.title} ${event.title} ${event.title}
-          CATEGORIES: ${event.categories?.map(c => c.name).join(", ")}
+          CATEGORIES: ${event.categories?.map((c) => c.name).join(", ")}
           DESCRIPTION: ${event.description || ""}
         `.trim();
 
@@ -312,7 +314,7 @@ export class CacheService {
   static async getCachedClusterHub(markerIds: string[]): Promise<any | null> {
     if (!this.redisClient) return null;
 
-    const key = `cluster-hub:${markerIds.sort().join(',')}`;
+    const key = `cluster-hub:${markerIds.sort().join(",")}`;
     const cached = await this.redisClient.get(key);
     if (cached) {
       return JSON.parse(cached);
@@ -320,17 +322,21 @@ export class CacheService {
     return null;
   }
 
-  static async setCachedClusterHub(markerIds: string[], data: any, ttlSeconds: number = 300): Promise<void> {
+  static async setCachedClusterHub(
+    markerIds: string[],
+    data: any,
+    ttlSeconds: number = 300
+  ): Promise<void> {
     if (!this.redisClient) return;
 
-    const key = `cluster-hub:${markerIds.sort().join(',')}`;
+    const key = `cluster-hub:${markerIds.sort().join(",")}`;
     await this.redisClient.set(key, JSON.stringify(data), "EX", ttlSeconds);
   }
 
   static async invalidateClusterHubCache(markerIds: string[]): Promise<void> {
     if (!this.redisClient) return;
 
-    const key = `cluster-hub:${markerIds.sort().join(',')}`;
+    const key = `cluster-hub:${markerIds.sort().join(",")}`;
     await this.redisClient.del(key);
   }
 
@@ -341,5 +347,103 @@ export class CacheService {
     if (keys.length > 0) {
       await this.redisClient.del(...keys);
     }
+  }
+
+  /**
+   * Get cached friends list for a user
+   */
+  static async getCachedFriends(userId: string): Promise<any | null> {
+    if (!this.redisClient) return null;
+
+    const cached = await this.redisClient.get(`friends:${userId}`);
+    if (cached) {
+      this.cacheStats.redisHits++;
+      return JSON.parse(cached);
+    }
+    this.cacheStats.redisMisses++;
+    return null;
+  }
+
+  /**
+   * Cache a user's friends list
+   */
+  static async setCachedFriends(userId: string, friends: any[]): Promise<void> {
+    if (!this.redisClient) return;
+
+    try {
+      await this.redisClient.set(
+        `friends:${userId}`,
+        JSON.stringify(friends),
+        "EX",
+        this.FRIENDS_TTL
+      );
+    } catch (error) {
+      console.error(`Error caching friends for user ${userId}:`, error);
+    }
+  }
+
+  /**
+   * Get cached friend requests for a user
+   */
+  static async getCachedFriendRequests(
+    userId: string,
+    type: "incoming" | "outgoing"
+  ): Promise<any | null> {
+    if (!this.redisClient) return null;
+
+    const cached = await this.redisClient.get(`friend-requests:${type}:${userId}`);
+    if (cached) {
+      this.cacheStats.redisHits++;
+      return JSON.parse(cached);
+    }
+    this.cacheStats.redisMisses++;
+    return null;
+  }
+
+  /**
+   * Cache friend requests for a user
+   */
+  static async setCachedFriendRequests(
+    userId: string,
+    type: "incoming" | "outgoing",
+    requests: any[]
+  ): Promise<void> {
+    if (!this.redisClient) return;
+
+    try {
+      await this.redisClient.set(
+        `friend-requests:${type}:${userId}`,
+        JSON.stringify(requests),
+        "EX",
+        this.FRIEND_REQUESTS_TTL
+      );
+    } catch (error) {
+      console.error(`Error caching ${type} friend requests for user ${userId}:`, error);
+    }
+  }
+
+  /**
+   * Invalidate all friend-related caches for a user
+   */
+  static async invalidateFriendCaches(userId: string): Promise<void> {
+    if (!this.redisClient) return;
+
+    try {
+      const keys = await this.redisClient.keys(`friends:${userId}`);
+      keys.push(...(await this.redisClient.keys(`friend-requests:*:${userId}`)));
+
+      if (keys.length > 0) {
+        await this.redisClient.del(...keys);
+      }
+    } catch (error) {
+      console.error(`Error invalidating friend caches for user ${userId}:`, error);
+    }
+  }
+
+  /**
+   * Invalidate friend caches for both users involved in a friendship action
+   */
+  static async invalidateFriendshipCaches(userId1: string, userId2: string): Promise<void> {
+    await Promise.all([this.invalidateFriendCaches(userId1), this.invalidateFriendCaches(userId2)]);
   }
 }
