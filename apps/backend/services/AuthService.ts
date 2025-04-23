@@ -7,6 +7,8 @@ import { User } from "../entities/User";
 import { UserPreferencesService } from "./UserPreferences";
 import { addDays, format } from "date-fns";
 import { LevelingService } from "./LevelingService";
+import { FriendshipService } from "./FriendshipService";
+import { DataSource } from "typeorm";
 
 export interface UserRegistrationData {
   email: string;
@@ -27,15 +29,18 @@ export class AuthService {
   private refreshTokenExpiry: SignOptions["expiresIn"];
   private userPreferencesService: UserPreferencesService;
   private levelingService: LevelingService;
+  private dataSource: DataSource;
 
   constructor(
     userRepository: Repository<User>,
     userPreferencesService: UserPreferencesService,
-    levelingService: LevelingService
+    levelingService: LevelingService,
+    dataSource: DataSource
   ) {
     this.userRepository = userRepository;
     this.userPreferencesService = userPreferencesService;
     this.levelingService = levelingService;
+    this.dataSource = dataSource;
     this.jwtSecret = process.env.JWT_SECRET!;
     if (!this.jwtSecret) {
       throw new Error("JWT_SECRET environment variable must be set");
@@ -246,11 +251,20 @@ export class AuthService {
         "saveCount",
         "totalXp",
         "currentTitle",
+        "friendCode",
+        "username",
       ],
     });
 
     if (!user) {
       return null;
+    }
+
+    // Generate a friend code if the user doesn't have one
+    if (!user.friendCode) {
+      const friendshipService = new FriendshipService(this.dataSource);
+      user.friendCode = await friendshipService.generateFriendCode(userId);
+      await this.userRepository.save(user);
     }
 
     // Get level information from LevelingService

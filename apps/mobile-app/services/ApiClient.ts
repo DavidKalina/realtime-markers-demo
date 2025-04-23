@@ -52,6 +52,8 @@ export interface User {
   level?: number;
   nextLevelXp?: number;
   xpProgress?: number;
+  friendCode?: string;
+  username?: string;
 }
 
 export interface AuthTokens {
