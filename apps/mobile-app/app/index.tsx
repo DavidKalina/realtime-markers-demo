@@ -17,6 +17,7 @@ import StatusBar from "@/components/StatusBar/StatusBar";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -71,27 +72,62 @@ function HomeScreen() {
 
   // Track if we've done initial centering
   const hasCenteredOnUserRef = useRef(false);
-  const initialLocationRequestedRef = useRef(false);
+  const [hasRequestedInitialLocation, setHasRequestedInitialLocation] = useState(false);
+
+  // Load initial location request state
+  useEffect(() => {
+    const loadInitialLocationState = async () => {
+      try {
+        const hasRequested = await AsyncStorage.getItem("hasRequestedInitialLocation");
+        if (hasRequested === "true") {
+          setHasRequestedInitialLocation(true);
+        }
+      } catch (error) {
+        console.error("[HomeScreen] Error loading initial location state:", error);
+      }
+    };
+    loadInitialLocationState();
+  }, []);
 
   // Get user location only when needed
   useEffect(() => {
-    if (!userLocation && !isLoadingLocation && !initialLocationRequestedRef.current) {
-      initialLocationRequestedRef.current = true;
-      console.log("[HomeScreen] Checking if location request is needed:", {
+    let timeoutId: NodeJS.Timeout;
+
+    const checkLocation = async () => {
+      console.log("[HomeScreen] Location effect triggered:", {
         hasUserLocation: !!userLocation,
         isLoadingLocation,
-        initialLocationRequested: initialLocationRequestedRef.current,
+        hasRequestedInitialLocation,
+        timestamp: new Date().toISOString(),
       });
 
-      // Only request location if we don't have a valid cached location
-      if (!userLocation) {
-        console.log("[HomeScreen] Requesting new location...");
-        getUserLocation();
-      } else {
-        console.log("[HomeScreen] Using existing location");
+      if (!userLocation && !isLoadingLocation && !hasRequestedInitialLocation) {
+        console.log("[HomeScreen] Checking if location request is needed:", {
+          hasUserLocation: !!userLocation,
+          isLoadingLocation,
+          hasRequestedInitialLocation,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Only request location if we don't have a valid cached location
+        if (!userLocation) {
+          console.log("[HomeScreen] Requesting new location...");
+          setHasRequestedInitialLocation(true);
+          await AsyncStorage.setItem("hasRequestedInitialLocation", "true");
+          getUserLocation();
+        } else {
+          console.log("[HomeScreen] Using existing location:", userLocation);
+        }
       }
-    }
-  }, [userLocation, isLoadingLocation, getUserLocation]);
+    };
+
+    // Debounce the effect to prevent multiple rapid triggers
+    timeoutId = setTimeout(checkLocation, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [userLocation, isLoadingLocation, getUserLocation, hasRequestedInitialLocation]);
 
   // Update camera position only once when user location becomes available
   useEffect(() => {

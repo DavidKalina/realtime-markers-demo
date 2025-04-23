@@ -78,31 +78,65 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
   // Load cached location on mount
   const loadCachedLocation = useCallback(async () => {
     try {
+      console.log("[LocationContext] Attempting to load cached location...");
       const cachedLocationStr = await AsyncStorage.getItem("cachedLocation");
+      console.log("[LocationContext] Raw cached location string:", cachedLocationStr);
+
       if (cachedLocationStr) {
-        const cachedLocation: CachedLocation = JSON.parse(cachedLocationStr);
-        const oneHourAgo = Date.now() - 60 * 60 * 1000;
-        const isCacheValid = cachedLocation.timestamp > oneHourAgo;
+        try {
+          const cachedLocation: CachedLocation = JSON.parse(cachedLocationStr);
+          const oneHourAgo = Date.now() - 60 * 60 * 1000;
+          const isCacheValid = cachedLocation.timestamp > oneHourAgo;
 
-        console.log("[LocationContext] Checking cached location:", {
-          hasCache: true,
-          cacheAge: Math.round((Date.now() - cachedLocation.timestamp) / 1000 / 60) + " minutes",
-          isValid: isCacheValid,
-          coordinates: cachedLocation.coordinates,
-        });
+          // Additional validation for physical devices
+          const isValidCoordinates =
+            Array.isArray(cachedLocation.coordinates) &&
+            cachedLocation.coordinates.length === 2 &&
+            typeof cachedLocation.coordinates[0] === "number" &&
+            typeof cachedLocation.coordinates[1] === "number" &&
+            !isNaN(cachedLocation.coordinates[0]) &&
+            !isNaN(cachedLocation.coordinates[1]);
 
-        if (isCacheValid) {
-          setUserLocation(cachedLocation.coordinates);
-          setLocationPermissionGranted(true);
-          publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
-            timestamp: Date.now(),
-            source: "LocationContext",
+          console.log("[LocationContext] Parsed cached location:", {
+            hasCache: true,
+            cacheAge: Math.round((Date.now() - cachedLocation.timestamp) / 1000 / 60) + " minutes",
+            isValid: isCacheValid,
+            isValidCoordinates,
             coordinates: cachedLocation.coordinates,
+            timestamp: new Date(cachedLocation.timestamp).toISOString(),
           });
-          return true;
+
+          if (isCacheValid && isValidCoordinates) {
+            // Batch state updates together
+            Promise.all([
+              new Promise<void>((resolve) => {
+                setUserLocation(cachedLocation.coordinates);
+                resolve();
+              }),
+              new Promise<void>((resolve) => {
+                setLocationPermissionGranted(true);
+                resolve();
+              }),
+            ]).then(() => {
+              publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
+                timestamp: Date.now(),
+                source: "LocationContext",
+                coordinates: cachedLocation.coordinates,
+              });
+            });
+            return true;
+          } else {
+            console.log("[LocationContext] Cache is invalid:", {
+              isCacheValid,
+              isValidCoordinates,
+              reason: !isCacheValid ? "Cache expired" : "Invalid coordinates",
+            });
+          }
+        } catch (parseError) {
+          console.error("[LocationContext] Error parsing cached location:", parseError);
         }
       } else {
-        console.log("[LocationContext] No cached location found");
+        console.log("[LocationContext] No cached location found in AsyncStorage");
       }
       return false;
     } catch (error) {
@@ -118,14 +152,38 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
   // Cache location when it's updated
   const cacheLocation = useCallback(async (coordinates: [number, number]) => {
     try {
+      // Validate coordinates before caching
+      if (
+        !Array.isArray(coordinates) ||
+        coordinates.length !== 2 ||
+        typeof coordinates[0] !== "number" ||
+        typeof coordinates[1] !== "number" ||
+        isNaN(coordinates[0]) ||
+        isNaN(coordinates[1])
+      ) {
+        console.error("[LocationContext] Invalid coordinates received:", coordinates);
+        return;
+      }
+
       const cachedLocation: CachedLocation = {
         coordinates,
         timestamp: Date.now(),
       };
-      await AsyncStorage.setItem("cachedLocation", JSON.stringify(cachedLocation));
-      console.log("[LocationContext] Cached new location:", {
+      const locationString = JSON.stringify(cachedLocation);
+      console.log("[LocationContext] Attempting to cache location:", {
         coordinates,
         timestamp: new Date(cachedLocation.timestamp).toISOString(),
+        stringLength: locationString.length,
+      });
+
+      await AsyncStorage.setItem("cachedLocation", locationString);
+
+      // Verify the cache was written
+      const verifyCache = await AsyncStorage.getItem("cachedLocation");
+      console.log("[LocationContext] Cache verification:", {
+        success: verifyCache !== null,
+        cached: verifyCache === locationString,
+        verificationTimestamp: new Date().toISOString(),
       });
     } catch (error) {
       console.error("[LocationContext] Error caching location:", error);
