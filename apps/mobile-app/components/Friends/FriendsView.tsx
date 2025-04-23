@@ -247,17 +247,15 @@ const FriendRequestsList: React.FC = () => {
     <View>
       {requests.map((request) => (
         <Card key={request.id} style={styles.requestCard}>
-          <View style={styles.requestHeader}>
-            <View style={styles.requestTypeContainer}>
-              <Text
-                style={[
-                  styles.requestTypeText,
-                  request.type === "outgoing" ? styles.outgoingText : styles.incomingText,
-                ]}
-              >
-                {request.type === "outgoing" ? "OUTGOING" : "INCOMING"}
-              </Text>
-            </View>
+          <View style={styles.requestTypeContainer}>
+            <Text
+              style={[
+                styles.requestTypeText,
+                request.type === "outgoing" ? styles.outgoingText : styles.incomingText,
+              ]}
+            >
+              {request.type === "outgoing" ? "OUTGOING" : "INCOMING"}
+            </Text>
           </View>
           <View style={styles.friendHeader}>
             <View style={styles.friendIconContainer}>
@@ -438,18 +436,47 @@ const styles = StyleSheet.create({
   },
   friendCard: {
     marginBottom: 8,
-    padding: 12,
+    padding: 10,
     borderWidth: 1,
     borderColor: COLORS.divider,
+  },
+  requestCard: {
+    marginBottom: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+    position: "relative",
+  },
+  requestTypeContainer: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: COLORS.buttonBackground,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  requestTypeText: {
+    fontSize: 10,
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
+  },
+  outgoingText: {
+    color: COLORS.textSecondary,
+  },
+  incomingText: {
+    color: COLORS.accent,
   },
   friendHeader: {
     flexDirection: "row",
     alignItems: "center",
   },
   friendIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
@@ -458,46 +485,40 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: COLORS.accent,
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: "SpaceMono",
     fontWeight: "600",
   },
   friendInfo: {
-    marginLeft: 12,
+    marginLeft: 10,
     flex: 1,
   },
   friendName: {
     color: COLORS.textPrimary,
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: "SpaceMono",
     fontWeight: "600",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   friendEmail: {
     color: COLORS.textSecondary,
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "SpaceMono",
-  },
-  requestCard: {
-    marginBottom: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: COLORS.divider,
   },
   divider: {
     height: 1,
     backgroundColor: COLORS.divider,
-    marginVertical: 12,
+    marginVertical: 8,
   },
   requestActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    gap: 8,
+    gap: 6,
   },
   actionButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
     borderWidth: 1,
   },
   acceptButton: {
@@ -506,7 +527,7 @@ const styles = StyleSheet.create({
   },
   acceptButtonText: {
     color: "#40c057",
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: "SpaceMono",
     fontWeight: "600",
   },
@@ -516,7 +537,7 @@ const styles = StyleSheet.create({
   },
   rejectButtonText: {
     color: "#dc2626",
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: "SpaceMono",
     fontWeight: "600",
   },
@@ -553,28 +574,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 14,
     fontFamily: "SpaceMono",
-  },
-  requestHeader: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    marginBottom: 12,
-  },
-  requestTypeContainer: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    backgroundColor: COLORS.buttonBackground,
-  },
-  requestTypeText: {
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-  },
-  outgoingText: {
-    color: COLORS.textSecondary,
-  },
-  incomingText: {
-    color: COLORS.accent,
   },
 });
 
