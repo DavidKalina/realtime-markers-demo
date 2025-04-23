@@ -755,7 +755,8 @@ class ApiClient {
 
       // Log pagination details for debugging
       console.log(
-        `Search query: "${query}" | Results: ${data.results.length} | Next cursor: ${data.nextCursor || "none"
+        `Search query: "${query}" | Results: ${data.results.length} | Next cursor: ${
+          data.nextCursor || "none"
         }`
       );
 
@@ -843,7 +844,9 @@ class ApiClient {
   }
 
   // Upload an image for event processing
-  async processEventImage(payload: Record<string, any>): Promise<{ jobId: string; status: string }> {
+  async processEventImage(
+    payload: Record<string, any>
+  ): Promise<{ jobId: string; status: string }> {
     const formData = new FormData();
     formData.append("image", payload.imageFile);
     formData.append("userLat", payload.userLat);

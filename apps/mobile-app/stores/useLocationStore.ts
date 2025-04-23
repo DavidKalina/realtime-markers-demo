@@ -242,10 +242,10 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
         selectedCluster:
           item?.type === "cluster"
             ? {
-              id: item.id,
-              count: item.count,
-              coordinates: item.coordinates,
-            }
+                id: item.id,
+                count: item.count,
+                coordinates: item.coordinates,
+              }
             : null,
         selectedItemType: item?.type || null,
       };
@@ -275,11 +275,11 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
       // Create the unified map item
       const selectedItem = selectedMarker
         ? {
-          id: selectedMarker.id,
-          type: "marker" as const,
-          coordinates: selectedMarker.coordinates,
-          data: selectedMarker.data,
-        }
+            id: selectedMarker.id,
+            type: "marker" as const,
+            coordinates: selectedMarker.coordinates,
+            data: selectedMarker.data,
+          }
         : null;
 
       return {
@@ -310,11 +310,11 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
       const childMarkers = cluster.properties.childMarkers || [];
 
       // Log the cluster data being stored
-      console.log('Storing Cluster in LocationStore:', {
+      console.log("Storing Cluster in LocationStore:", {
         clusterId,
         count,
         childMarkersCount: childMarkers.length,
-        childMarkers
+        childMarkers,
       });
 
       // Create the unified cluster item

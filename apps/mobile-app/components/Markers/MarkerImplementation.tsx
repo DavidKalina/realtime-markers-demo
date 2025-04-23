@@ -18,6 +18,7 @@ import { ClusterMarker } from "./ClusterMarker";
 import { EmojiMapMarker } from "./CustomMapMarker";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
+import { useRouter } from "expo-router";
 
 // Define the map item types from the store (ideally these would be imported from a types file)
 interface BaseMapItem {
@@ -166,6 +167,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
   ({ markers: propMarkers, currentZoom = 14, viewport }) => {
     // Get marker data from store
     const storeMarkers = useLocationStore((state) => state.markers);
+    const router = useRouter();
 
     // Use the unified selection approach
     const selectedItem = useLocationStore((state) => state.selectedItem);
@@ -226,6 +228,13 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               zoomLevel: 16, // Use a higher zoom level for markers
               allowZoomChange: true, // Allow zoom changes
             });
+
+            // Wait for camera animation to complete, then add a longer delay before navigating
+            setTimeout(() => {
+              setTimeout(() => {
+                router.push(`details?eventId=${item.id}` as never);
+              }, 500);
+            }, 400);
           } else {
             // Create the cluster event item
             const clusterEventItem: EventClusterItem = {
@@ -262,10 +271,17 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
               zoomLevel: currentZoom, // Keep the same zoom level
               allowZoomChange: false, // Explicitly prevent zoom changes
             });
+
+            // Wait for camera animation to complete, then add a longer delay before navigating
+            setTimeout(() => {
+              setTimeout(() => {
+                router.push("cluster" as never);
+              }, 500);
+            }, 400);
           }
         };
       },
-      [currentZoom, publish, selectMapItem, selectedItem?.id]
+      [currentZoom, publish, selectMapItem, selectedItem?.id, router]
     );
 
     // Memoize the cluster processing function with stable references

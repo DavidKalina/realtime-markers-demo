@@ -11,7 +11,7 @@ import Animated, {
   useAnimatedStyle,
   withRepeat,
   withSequence,
-  withTiming
+  withTiming,
 } from "react-native-reanimated";
 
 interface CameraPermissionProps {
@@ -32,10 +32,24 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
   useEffect(() => {
     const checkInitialPermission = async () => {
       try {
-        // Force a permission check on mount
-        await requestPermission();
+        // Add a timeout to prevent getting stuck
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Permission check timed out")), 5000);
+        });
+
+        // Race between permission check and timeout
+        const result = (await Promise.race([requestPermission(), timeoutPromise])) as {
+          granted: boolean;
+          canAskAgain: boolean;
+        };
+
+        if (!result.granted) {
+          setIsProcessing(false);
+        }
       } catch (error) {
         console.error("Initial permission check failed:", error);
+        // Reset processing state if we get an error
+        setIsProcessing(false);
       }
     };
 
@@ -48,18 +62,28 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
       if (nextAppState === "active" && hasSettingsOpened) {
         setHasSettingsOpened(false);
 
-        // Check if permissions have changed
-        setTimeout(() => {
-          requestPermission()
-            .then((result) => {
-              if (result.granted) {
-                onPermissionGranted();
-              }
-            })
-            .catch((err) => {
-              console.error("Error checking permissions:", err);
+        // Check if permissions have changed with timeout
+        const checkPermissionWithTimeout = async () => {
+          try {
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error("Permission check timed out")), 5000);
             });
-        }, 500);
+
+            const result = (await Promise.race([requestPermission(), timeoutPromise])) as {
+              granted: boolean;
+              canAskAgain: boolean;
+            };
+
+            if (result.granted) {
+              onPermissionGranted();
+            }
+          } catch (err) {
+            console.error("Error checking permissions:", err);
+            setIsProcessing(false);
+          }
+        };
+
+        setTimeout(checkPermissionWithTimeout, 500);
       }
     });
 
@@ -82,11 +106,19 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
     }
   }, [permission?.granted, onPermissionGranted]);
 
-  // Handle permission request with error handling
+  // Handle permission request with error handling and timeout
   const handleRequestPermission = async () => {
     try {
       setIsProcessing(true);
-      const result = await requestPermission();
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Permission request timed out")), 5000);
+      });
+
+      const result = (await Promise.race([requestPermission(), timeoutPromise])) as {
+        granted: boolean;
+        canAskAgain: boolean;
+      };
 
       // If permission was denied and can't ask again, we'll need to go to settings
       if (!result.granted && !result.canAskAgain) {
@@ -98,13 +130,18 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
     }
   };
 
-  // Custom retry using the provided retry function
+  // Custom retry using the provided retry function with timeout
   const handleRetryPermission = async () => {
     if (onRetryPermission) {
       setIsProcessing(true);
 
       try {
-        const granted = await onRetryPermission();
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Permission retry timed out")), 5000);
+        });
+
+        const granted = (await Promise.race([onRetryPermission(), timeoutPromise])) as boolean;
+
         if (granted) {
           // If successful, call the granted callback
           onPermissionGranted();
@@ -115,16 +152,32 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
       } catch (error) {
         console.error("Error during permission retry:", error);
         setIsProcessing(false);
+        setCheckCount((prev) => prev + 1);
       }
     } else {
-      // Fall back to regular permission check
+      // Fall back to regular permission check with timeout
       setIsProcessing(true);
-      requestPermission().finally(() => {
-        setTimeout(() => {
+      try {
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Permission check timed out")), 5000);
+        });
+
+        const result = (await Promise.race([requestPermission(), timeoutPromise])) as {
+          granted: boolean;
+          canAskAgain: boolean;
+        };
+
+        if (!result.granted) {
           setIsProcessing(false);
+        }
+      } catch (error) {
+        console.error("Error during permission check:", error);
+        setIsProcessing(false);
+      } finally {
+        setTimeout(() => {
           setCheckCount((prev) => prev + 1);
         }, 500);
-      });
+      }
     }
   };
 
@@ -266,9 +319,7 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
       style={styles.processingContainer}
       entering={FadeIn.duration(400).easing(Easing.out(Easing.ease))}
     >
-      <Animated.View
-        entering={FadeInDown.duration(400).delay(200).easing(Easing.out(Easing.ease))}
-      >
+      <Animated.View entering={FadeInDown.duration(400).delay(200).easing(Easing.out(Easing.ease))}>
         <Feather name="check-circle" size={64} color="#69db7c" />
       </Animated.View>
       <Animated.Text

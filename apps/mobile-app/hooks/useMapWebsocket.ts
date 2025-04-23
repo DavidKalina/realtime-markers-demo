@@ -210,26 +210,30 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   }, []);
 
   // Update viewport function - memoized
-  const updateViewport = useCallback(
-    (viewport: MapboxViewport) => {
-      // Store the viewport in both state and ref
-      setCurrentViewport(viewport);
-      currentViewportRef.current = viewport;
+  const updateViewport = useCallback((viewport: MapboxViewport) => {
+    // Store the viewport in both state and ref
+    setCurrentViewport(viewport);
+    currentViewportRef.current = viewport;
 
-      // First emit that the viewport is changing and we're starting to search
-      eventBroker.emit<ViewportEvent & { searching: boolean }>(EventTypes.VIEWPORT_CHANGED, {
-        timestamp: Date.now(),
-        source: "useMapWebSocket",
+    // First emit that the viewport is changing and we're starting to search
+    eventBroker.emit<ViewportEvent & { searching: boolean }>(EventTypes.VIEWPORT_CHANGED, {
+      timestamp: Date.now(),
+      source: "useMapWebSocket",
+      viewport: viewport,
+      markers: markersRef.current,
+      searching: true, // Explicitly indicate search is starting
+    });
+
+    // Send the viewport update to the server
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      const message = {
+        type: MessageTypes.VIEWPORT_UPDATE,
         viewport: viewport,
-        markers: markersRef.current,
-        searching: true, // Explicitly indicate search is starting
-      });
-
-      // Send the viewport update to the server
-      sendViewportUpdate();
-    },
-    [sendViewportUpdate]
-  );
+        force: true, // Add force flag to ensure server processes the update
+      };
+      wsRef.current.send(JSON.stringify(message));
+    }
+  }, []);
 
   // Message handler function - memoized to prevent recreation on each render
   const handleWebSocketMessage = useCallback(
@@ -567,6 +571,23 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       }
     };
   }, [connectWebSocket]);
+
+  // Listen for force viewport update events
+  useEffect(() => {
+    const handleForceViewportUpdate = () => {
+      if (currentViewportRef.current) {
+        // Force a new viewport update even if the viewport hasn't changed
+        const viewport = { ...currentViewportRef.current };
+        updateViewport(viewport);
+      }
+    };
+
+    const unsubscribe = eventBroker.on(EventTypes.FORCE_VIEWPORT_UPDATE, handleForceViewportUpdate);
+
+    return () => {
+      unsubscribe();
+    };
+  }, [updateViewport]);
 
   return {
     markers,

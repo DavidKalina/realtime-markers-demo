@@ -27,7 +27,7 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withSequence,
-  withTiming
+  withTiming,
 } from "react-native-reanimated";
 import EventItem from "../EventItem/EventItem";
 import ScreenLayout from "../Layout/ScreenLayout";
@@ -141,6 +141,25 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 12,
   },
+  featuredSection: {
+    marginBottom: 24,
+    marginTop: 16,
+  },
+  featuredTitle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  featuredTitleIcon: {
+    fontSize: 24,
+  },
+  featuredTitleText: {
+    color: COLORS.textPrimary,
+    fontSize: 20,
+    fontFamily: "SpaceMono",
+    fontWeight: "700",
+  },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -176,32 +195,25 @@ const styles = StyleSheet.create({
   // Featured event styles
   featuredImageContainer: {
     width: "100%",
-    height: 140,
+    height: 100,
     backgroundColor: COLORS.cardBackground,
     overflow: "hidden",
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
   },
   featuredImage: {
     width: "100%",
     height: "100%",
     resizeMode: "cover",
   },
-  featuredEmojiContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   featuredTag: {
     position: "absolute",
-    top: 12,
-    left: 12,
+    top: 6,
+    left: 6,
     backgroundColor: "rgba(147, 197, 253, 0.15)",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 16,
+    paddingVertical: 2,
+    paddingHorizontal: 5,
+    borderRadius: 8,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
@@ -209,34 +221,56 @@ const styles = StyleSheet.create({
   },
   featuredTagText: {
     color: COLORS.accent,
-    fontSize: 11,
+    fontSize: 9,
     fontFamily: "SpaceMono",
     fontWeight: "700",
-    marginLeft: 4,
+    marginLeft: 2,
     letterSpacing: 0.5,
   },
   featuredEventContent: {
-    padding: 14,
+    padding: 16,
+    position: "relative",
+  },
+  featuredEventHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 12,
+    paddingRight: 70,
+  },
+  featuredEventEmoji: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   featuredEventTitle: {
     color: COLORS.textPrimary,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
     fontFamily: "SpaceMono",
     letterSpacing: -0.2,
-    marginBottom: 6,
-    lineHeight: 24,
+    flex: 1,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    marginBottom: 12,
   },
   featuredEventDescription: {
     color: COLORS.textSecondary,
-    fontSize: 12,
+    fontSize: 15,
     fontFamily: "SpaceMono",
-    lineHeight: 16,
-    marginBottom: 10,
+    lineHeight: 22,
+    marginBottom: 12,
+    letterSpacing: 0.3,
   },
   featuredEventDetails: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 8,
   },
   featuredEventDetail: {
@@ -253,8 +287,34 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 12,
     fontFamily: "SpaceMono",
-    marginLeft: 6,
+    marginLeft: 4,
   },
+  timeBadge: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  timeBadgeToday: {
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    borderColor: "rgba(147, 197, 253, 0.3)",
+  },
+  timeBadgeText: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
+    letterSpacing: 0.5,
+  },
+  timeBadgeTextToday: {
+    color: COLORS.accent,
+  },
+
   // Tab styles
   tabsContainer: {
     backgroundColor: "rgba(0, 0, 0, 0.2)",
@@ -513,10 +573,7 @@ const AnimatedEventCard = memo<{
   index: number;
 }>(({ event, onPress, index }) => {
   return (
-    <Animated.View
-      entering={FadeInDown.delay(index * 100).springify()}
-      layout={Layout.springify()}
-    >
+    <Animated.View entering={FadeInDown.delay(index * 100).springify()} layout={Layout.springify()}>
       <EventItem
         event={event}
         onPress={onPress}
@@ -533,21 +590,19 @@ const HighlightCard = memo<{
   event: EventType;
   onPress: () => void;
 }>(({ event, onPress }) => (
-  <TouchableOpacity
-    style={styles.highlightCard}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
+  <TouchableOpacity style={styles.highlightCard} onPress={onPress} activeOpacity={0.7}>
     <View style={styles.highlightImageContainer}>
       {event.imageUrl ? (
         <Image source={{ uri: event.imageUrl }} style={styles.highlightImage} />
       ) : (
-        <View style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: COLORS.cardBackground
-        }}>
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: COLORS.cardBackground,
+          }}
+        >
           <Text style={styles.eventEmojiText}>{event.emoji || "🎉"}</Text>
         </View>
       )}
@@ -575,7 +630,7 @@ const HighlightCard = memo<{
 // Replace the parseLocation function with this simpler truncate function
 const truncateText = (text: string, maxLength: number = 20): string => {
   if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + '...';
+  return text.substring(0, maxLength) + "...";
 };
 
 const ClusterDescription = memo<{
@@ -588,92 +643,70 @@ const ClusterDescription = memo<{
   );
 });
 
+// Add this helper function before the FeaturedEvent component
+const getRelativeTimeString = (date: Date): string => {
+  const now = new Date();
+  const diffTime = date.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (
+    date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear()
+  ) {
+    return "TODAY";
+  }
+
+  if (diffDays <= 7) {
+    return `${diffDays}D`;
+  }
+
+  const diffWeeks = Math.ceil(diffDays / 7);
+  return `${diffWeeks}W`;
+};
+
 // Memoized FeaturedEvent component
 const FeaturedEvent = memo<{
   event: EventType;
   onPress: () => void;
 }>(({ event, onPress }) => {
-  const emojiScale = useSharedValue(1);
-  const emojiOffset = useSharedValue(0);
-
-  useEffect(() => {
-    emojiScale.value = withRepeat(
-      withSequence(
-        withTiming(1.1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-    emojiOffset.value = withRepeat(
-      withSequence(
-        withTiming(-5, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 1000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  const emojiAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { scale: emojiScale.value },
-        { translateY: emojiOffset.value }
-      ]
-    };
-  });
+  const eventDate = new Date(event.eventDate);
+  const timeString = getRelativeTimeString(eventDate);
+  const isToday = timeString === "TODAY";
 
   return (
-    <Card onPress={onPress} noBorder noShadow>
-      <View style={styles.featuredImageContainer}>
-        {event.imageUrl ? (
-          <Image source={{ uri: event.imageUrl }} style={styles.featuredImage} />
-        ) : (
-          <View style={styles.featuredEmojiContainer}>
-            <Animated.View style={emojiAnimatedStyle}>
-              <Text style={{ fontSize: 40 }}>{event.emoji || "🎉"}</Text>
-            </Animated.View>
-          </View>
-        )}
-        <View style={styles.featuredTag}>
-          <Star size={12} color={COLORS.accent} />
-          <Text style={styles.featuredTagText}>FEATURED</Text>
-        </View>
-        {event.category && (
-          <View style={[styles.featuredTag, {
-            top: 12,
-            right: 12,
-            left: 'auto',
-            backgroundColor: "rgba(255, 255, 255, 0.15)",
-            borderColor: "rgba(255, 255, 255, 0.3)",
-          }]}>
-            <Tag size={12} color={COLORS.textPrimary} />
-            <Text style={[styles.featuredTagText, { color: COLORS.textPrimary }]}>
-              {event.category.name}
-            </Text>
-          </View>
-        )}
-      </View>
-
+    <Card>
       <View style={styles.featuredEventContent}>
-        <Text style={styles.featuredEventTitle} numberOfLines={2}>
-          {event.title}
-        </Text>
+        <View style={[styles.timeBadge, isToday && styles.timeBadgeToday]}>
+          <Text style={[styles.timeBadgeText, isToday && styles.timeBadgeTextToday]}>
+            {timeString}
+          </Text>
+        </View>
+
+        <View style={styles.featuredEventHeader}>
+          <View style={styles.featuredEventEmoji}>
+            <Text style={{ fontSize: 16 }}>{event.emoji || "🎉"}</Text>
+          </View>
+          <Text style={styles.featuredEventTitle} numberOfLines={1}>
+            {event.title}
+          </Text>
+        </View>
+
+        <View style={styles.divider} />
+
         {event.description && (
           <Text style={styles.featuredEventDescription} numberOfLines={2}>
             {event.description}
           </Text>
         )}
+
         <View style={styles.featuredEventDetails}>
           <View style={styles.featuredEventDetail}>
-            <Calendar size={14} color={COLORS.textSecondary} />
-            <Text style={styles.featuredEventDetailText}>
-              {new Date(event.eventDate).toLocaleDateString()}
-            </Text>
+            <Calendar size={10} color={COLORS.textSecondary} />
+            <Text style={styles.featuredEventDetailText}>{eventDate.toLocaleDateString()}</Text>
           </View>
           <View style={styles.featuredEventDetail}>
-            <MapPin size={14} color={COLORS.textSecondary} />
+            <MapPin size={10} color={COLORS.textSecondary} />
             <Text style={styles.featuredEventDetailText} numberOfLines={1}>
               {truncateText(event.location)}
             </Text>
@@ -685,86 +718,87 @@ const FeaturedEvent = memo<{
 });
 
 // Memoized EventsListSection component
-const EventsListSection = memo<EventsListSectionProps>(({
-  title,
-  icon: Icon,
-  events,
-  onEventPress,
-  onPageChange,
-  currentPage,
-  useScrollView = false
-}) => {
-  const flatListRef = useRef<FlatList>(null);
+const EventsListSection = memo<EventsListSectionProps>(
+  ({
+    title,
+    icon: Icon,
+    events,
+    onEventPress,
+    onPageChange,
+    currentPage,
+    useScrollView = false,
+  }) => {
+    const flatListRef = useRef<FlatList>(null);
 
-  useEffect(() => {
-    if (currentPage !== undefined && flatListRef.current) {
-      flatListRef.current.scrollToIndex({
-        index: currentPage,
-        animated: true,
-      });
-    }
-  }, [currentPage]);
+    useEffect(() => {
+      if (currentPage !== undefined && flatListRef.current) {
+        flatListRef.current.scrollToIndex({
+          index: currentPage,
+          animated: true,
+        });
+      }
+    }, [currentPage]);
 
-  const renderItem = useCallback(({ item, index }: { item: EventType; index: number }) => (
-    <AnimatedEventCard
-      event={item}
-      onPress={() => onEventPress(item)}
-      index={index}
-    />
-  ), [onEventPress]);
+    const renderItem = useCallback(
+      ({ item, index }: { item: EventType; index: number }) => (
+        <AnimatedEventCard event={item} onPress={() => onEventPress(item)} index={index} />
+      ),
+      [onEventPress]
+    );
 
-  const keyExtractor = useCallback((item: EventType) => item.id, []);
+    const keyExtractor = useCallback((item: EventType) => item.id, []);
 
-  return (
-    <View style={styles.eventsListContainer}>
-      <View style={styles.listHeader}>
-        <Icon size={18} color={COLORS.accent} />
-        <Text style={styles.listHeaderText}>{title}</Text>
+    return (
+      <View style={styles.eventsListContainer}>
+        <View style={styles.listHeader}>
+          <Icon size={18} color={COLORS.accent} />
+          <Text style={styles.listHeaderText}>{title}</Text>
+        </View>
+        <View style={styles.eventsListInner}>
+          {events.length === 0 ? (
+            <View style={[styles.emptyListContainer, { height: 450 }]}>
+              <Text style={styles.emptyListText}>No events found</Text>
+            </View>
+          ) : useScrollView ? (
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 16 }}
+            >
+              {events.map((event, index) => (
+                <AnimatedEventCard
+                  key={event.id}
+                  event={event}
+                  onPress={() => onEventPress(event)}
+                  index={index}
+                />
+              ))}
+            </ScrollView>
+          ) : (
+            <FlatList
+              ref={flatListRef}
+              data={events}
+              renderItem={renderItem}
+              keyExtractor={keyExtractor}
+              showsVerticalScrollIndicator={false}
+              scrollEnabled={true}
+              nestedScrollEnabled={true}
+              contentContainerStyle={{ paddingBottom: 16 }}
+              initialNumToRender={5}
+              maxToRenderPerBatch={5}
+              windowSize={5}
+              removeClippedSubviews={true}
+              getItemLayout={(data, index) => ({
+                length: 80,
+                offset: 80 * index,
+                index,
+              })}
+            />
+          )}
+        </View>
       </View>
-      <View style={styles.eventsListInner}>
-        {events.length === 0 ? (
-          <View style={[styles.emptyListContainer, { height: 450 }]}>
-            <Text style={styles.emptyListText}>No events found</Text>
-          </View>
-        ) : useScrollView ? (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 16 }}
-          >
-            {events.map((event, index) => (
-              <AnimatedEventCard
-                key={event.id}
-                event={event}
-                onPress={() => onEventPress(event)}
-                index={index}
-              />
-            ))}
-          </ScrollView>
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={events}
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={true}
-            nestedScrollEnabled={true}
-            contentContainerStyle={{ paddingBottom: 16 }}
-            initialNumToRender={5}
-            maxToRenderPerBatch={5}
-            windowSize={5}
-            removeClippedSubviews={true}
-            getItemLayout={(data, index) => ({
-              length: 80,
-              offset: 80 * index,
-              index,
-            })}
-          />
-        )}
-      </View>
-    </View>
-  );
-});
+    );
+  }
+);
 
 // Main component
 const ClusterEventsView: React.FC = () => {
@@ -782,18 +816,10 @@ const ClusterEventsView: React.FC = () => {
   // Animation for header
   const headerAnimatedStyle = useAnimatedStyle(() => {
     return {
-      opacity: interpolate(
-        scrollY.value,
-        [0, 50],
-        [1, 0.98]
-      ),
+      opacity: interpolate(scrollY.value, [0, 50], [1, 0.98]),
       transform: [
         {
-          translateY: interpolate(
-            scrollY.value,
-            [0, 50],
-            [0, -2]
-          ),
+          translateY: interpolate(scrollY.value, [0, 50], [0, -2]),
         },
       ],
     };
@@ -816,10 +842,13 @@ const ClusterEventsView: React.FC = () => {
     setActiveTab(tab);
   }, []);
 
-  const handleEventPress = useCallback((event: EventType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push(`/details?eventId=${event.id}` as never);
-  }, [router]);
+  const handleEventPress = useCallback(
+    (event: EventType) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      router.push(`/details?eventId=${event.id}` as never);
+    },
+    [router]
+  );
 
   // Memoized fetch function
   const fetchClusterHubData = useCallback(async () => {
@@ -856,10 +885,7 @@ const ClusterEventsView: React.FC = () => {
         {hubData.eventsByCategory.map((_, index) => (
           <View
             key={index}
-            style={[
-              styles.dot,
-              index === currentCategoryIndex && styles.activeDot,
-            ]}
+            style={[styles.dot, index === currentCategoryIndex && styles.activeDot]}
           />
         ))}
       </View>
@@ -874,10 +900,7 @@ const ClusterEventsView: React.FC = () => {
         {hubData.eventsByLocation.map((_, index) => (
           <View
             key={index}
-            style={[
-              styles.dot,
-              index === currentLocationIndex && styles.activeDot,
-            ]}
+            style={[styles.dot, index === currentLocationIndex && styles.activeDot]}
           />
         ))}
       </View>
@@ -885,30 +908,42 @@ const ClusterEventsView: React.FC = () => {
   }, [hubData?.eventsByLocation, currentLocationIndex]);
 
   // Move these hook declarations outside of useMemo
-  const renderCategoryItem = useCallback(({ item }: { item: { category: CategoryType; events: EventType[] } }) => (
-    <View style={{ width: SCREEN_WIDTH - 32 }}>
-      <EventsListSection
-        title={item.category.name}
-        icon={Tag}
-        events={item.events}
-        onEventPress={handleEventPress}
-      />
-    </View>
-  ), [handleEventPress]);
+  const renderCategoryItem = useCallback(
+    ({ item }: { item: { category: CategoryType; events: EventType[] } }) => (
+      <View style={{ width: SCREEN_WIDTH - 32 }}>
+        <EventsListSection
+          title={item.category.name}
+          icon={Tag}
+          events={item.events}
+          onEventPress={handleEventPress}
+        />
+      </View>
+    ),
+    [handleEventPress]
+  );
 
-  const renderLocationItem = useCallback(({ item }: { item: { location: string; events: EventType[] } }) => (
-    <View style={{ width: SCREEN_WIDTH - 32 }}>
-      <EventsListSection
-        title={item.location}
-        icon={MapPin}
-        events={item.events}
-        onEventPress={handleEventPress}
-      />
-    </View>
-  ), [handleEventPress]);
+  const renderLocationItem = useCallback(
+    ({ item }: { item: { location: string; events: EventType[] } }) => (
+      <View style={{ width: SCREEN_WIDTH - 32 }}>
+        <EventsListSection
+          title={item.location}
+          icon={MapPin}
+          events={item.events}
+          onEventPress={handleEventPress}
+        />
+      </View>
+    ),
+    [handleEventPress]
+  );
 
-  const categoryKeyExtractor = useCallback((item: { category: CategoryType; events: EventType[] }) => item.category.id, []);
-  const locationKeyExtractor = useCallback((item: { location: string; events: EventType[] }) => item.location, []);
+  const categoryKeyExtractor = useCallback(
+    (item: { category: CategoryType; events: EventType[] }) => item.category.id,
+    []
+  );
+  const locationKeyExtractor = useCallback(
+    (item: { location: string; events: EventType[] }) => item.location,
+    []
+  );
 
   // Now useMemo can use these memoized functions
   const renderActiveTabContent = useMemo(() => {
@@ -926,9 +961,7 @@ const ClusterEventsView: React.FC = () => {
               keyExtractor={categoryKeyExtractor}
               renderItem={renderCategoryItem}
               onMomentumScrollEnd={(event) => {
-                const newIndex = Math.round(
-                  event.nativeEvent.contentOffset.x / SCREEN_WIDTH
-                );
+                const newIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
                 if (newIndex !== currentCategoryIndex) {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setCurrentCategoryIndex(newIndex);
@@ -958,9 +991,7 @@ const ClusterEventsView: React.FC = () => {
               keyExtractor={locationKeyExtractor}
               renderItem={renderLocationItem}
               onMomentumScrollEnd={(event) => {
-                const newIndex = Math.round(
-                  event.nativeEvent.contentOffset.x / SCREEN_WIDTH
-                );
+                const newIndex = Math.round(event.nativeEvent.contentOffset.x / SCREEN_WIDTH);
                 if (newIndex !== currentLocationIndex) {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setCurrentLocationIndex(newIndex);
@@ -992,7 +1023,19 @@ const ClusterEventsView: React.FC = () => {
       default:
         return null;
     }
-  }, [hubData, activeTab, currentCategoryIndex, currentLocationIndex, handleEventPress, renderCategoryPageIndicator, renderLocationPageIndicator, renderCategoryItem, renderLocationItem, categoryKeyExtractor, locationKeyExtractor]);
+  }, [
+    hubData,
+    activeTab,
+    currentCategoryIndex,
+    currentLocationIndex,
+    handleEventPress,
+    renderCategoryPageIndicator,
+    renderLocationPageIndicator,
+    renderCategoryItem,
+    renderLocationItem,
+    categoryKeyExtractor,
+    locationKeyExtractor,
+  ]);
 
   // Memoized main content
   const renderContent = useMemo(() => {
@@ -1009,10 +1052,15 @@ const ClusterEventsView: React.FC = () => {
     return (
       <>
         <Animated.View
-          style={styles.sectionContainer}
+          style={styles.featuredSection}
           entering={FadeInDown.duration(600).delay(100).springify()}
           layout={LinearTransition.springify()}
         >
+          <View style={styles.featuredTitle}>
+            <Text style={styles.featuredTitleIcon}>⭐️</Text>
+            <Text style={styles.featuredTitleText}>Featured</Text>
+          </View>
+
           {hubData.featuredEvent ? (
             <FeaturedEvent
               event={hubData.featuredEvent}
@@ -1020,8 +1068,8 @@ const ClusterEventsView: React.FC = () => {
             />
           ) : (
             <Card>
-              <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: COLORS.textSecondary, fontFamily: 'SpaceMono' }}>
+              <View style={{ padding: 24, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ color: COLORS.textSecondary, fontFamily: "SpaceMono" }}>
                   No featured event available
                 </Text>
               </View>
@@ -1077,11 +1125,7 @@ const ClusterEventsView: React.FC = () => {
 
   return (
     <ScreenLayout>
-      <Header
-        title="Cluster"
-        onBack={handleBack}
-        style={headerAnimatedStyle}
-      />
+      <Header title="Cluster" onBack={handleBack} style={headerAnimatedStyle} />
 
       <Animated.ScrollView
         style={styles.mainScrollView}
