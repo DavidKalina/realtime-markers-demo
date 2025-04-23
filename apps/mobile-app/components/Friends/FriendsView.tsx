@@ -358,6 +358,16 @@ const FriendRequestsList: React.FC = () => {
 const AddFriends: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const [feedback, setFeedback] = useState<{ status: "success" | "error"; message: string } | null>(
+    null
+  );
+
+  const showFeedback = (status: "success" | "error", message: string) => {
+    setFeedback({ status, message });
+    setTimeout(() => {
+      setFeedback(null);
+    }, 2000);
+  };
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -368,12 +378,18 @@ const AddFriends: React.FC = () => {
         // Handle email search
       } else if (searchQuery.length === 6 && /^[A-Z0-9]+$/.test(searchQuery)) {
         await apiClient.sendFriendRequestByCode(searchQuery);
+        showFeedback("success", "Friend request sent");
+        setSearchQuery(""); // Clear input on success
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
         await apiClient.sendFriendRequestByUsername(searchQuery);
+        showFeedback("success", "Friend request sent");
+        setSearchQuery(""); // Clear input on success
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to send friend request";
+      showFeedback("error", errorMessage);
       console.error("Error sending friend request:", err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
@@ -396,6 +412,16 @@ const AddFriends: React.FC = () => {
             autoCorrect={false}
             loading={isSearching}
           />
+          {feedback && (
+            <Text
+              style={[
+                styles.feedbackText,
+                feedback.status === "success" ? styles.successText : styles.errorText,
+              ]}
+            >
+              {feedback.message}
+            </Text>
+          )}
         </View>
       </Card>
       <Card style={styles.helpCard}>
@@ -621,6 +647,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "SpaceMono",
     textAlign: "right",
+  },
+  feedbackText: {
+    marginTop: 8,
+    fontSize: 13,
+    fontFamily: "SpaceMono",
+    textAlign: "center",
   },
   successText: {
     color: "#40c057",
