@@ -2,6 +2,7 @@ import { DataSource, Repository } from "typeorm";
 import { User } from "../entities/User";
 import { Friendship, FriendshipStatus } from "../entities/Friendship";
 import { In, Not } from "typeorm";
+import { CacheService } from "./shared/CacheService";
 
 export class FriendshipService {
   private userRepository: Repository<User>;
@@ -45,7 +46,19 @@ export class FriendshipService {
       status: FriendshipStatus.PENDING,
     });
 
-    return this.friendshipRepository.save(friendship);
+    const savedFriendship = await this.friendshipRepository.save(friendship);
+
+    // Invalidate friend request caches for both users
+    await Promise.all([
+      CacheService.setCachedFriendRequests(requesterId, "outgoing", [
+        ...(await this.getOutgoingFriendRequests(requesterId)),
+      ]),
+      CacheService.setCachedFriendRequests(addresseeId, "incoming", [
+        ...(await this.getPendingFriendRequests(addresseeId)),
+      ]),
+    ]);
+
+    return savedFriendship;
   }
 
   /**
@@ -65,7 +78,12 @@ export class FriendshipService {
     }
 
     friendship.status = FriendshipStatus.ACCEPTED;
-    return this.friendshipRepository.save(friendship);
+    const savedFriendship = await this.friendshipRepository.save(friendship);
+
+    // Invalidate caches for both users
+    await CacheService.invalidateFriendshipCaches(friendship.requesterId, friendship.addresseeId);
+
+    return savedFriendship;
   }
 
   /**
@@ -85,13 +103,31 @@ export class FriendshipService {
     }
 
     friendship.status = FriendshipStatus.REJECTED;
-    return this.friendshipRepository.save(friendship);
+    const savedFriendship = await this.friendshipRepository.save(friendship);
+
+    // Invalidate friend request caches for both users
+    await Promise.all([
+      CacheService.setCachedFriendRequests(friendship.requesterId, "outgoing", [
+        ...(await this.getOutgoingFriendRequests(friendship.requesterId)),
+      ]),
+      CacheService.setCachedFriendRequests(friendship.addresseeId, "incoming", [
+        ...(await this.getPendingFriendRequests(friendship.addresseeId)),
+      ]),
+    ]);
+
+    return savedFriendship;
   }
 
   /**
    * Get all friends for a user
    */
   async getFriends(userId: string): Promise<User[]> {
+    // Check cache first
+    const cachedFriends = await CacheService.getCachedFriends(userId);
+    if (cachedFriends) {
+      return cachedFriends;
+    }
+
     const friendships = await this.friendshipRepository.find({
       where: [
         { requesterId: userId, status: FriendshipStatus.ACCEPTED },
@@ -100,29 +136,56 @@ export class FriendshipService {
       relations: ["requester", "addressee"],
     });
 
-    return friendships.map((friendship) =>
+    const friends = friendships.map((friendship) =>
       friendship.requesterId === userId ? friendship.addressee : friendship.requester
     );
+
+    // Cache the results
+    await CacheService.setCachedFriends(userId, friends);
+
+    return friends;
   }
 
   /**
    * Get pending friend requests for a user
    */
   async getPendingFriendRequests(userId: string): Promise<Friendship[]> {
-    return this.friendshipRepository.find({
+    // Check cache first
+    const cachedRequests = await CacheService.getCachedFriendRequests(userId, "incoming");
+    if (cachedRequests) {
+      return cachedRequests;
+    }
+
+    const requests = await this.friendshipRepository.find({
       where: { addresseeId: userId, status: FriendshipStatus.PENDING },
       relations: ["requester"],
     });
+
+    // Cache the results
+    await CacheService.setCachedFriendRequests(userId, "incoming", requests);
+
+    return requests;
   }
 
   /**
    * Get outgoing friend requests for a user
    */
   async getOutgoingFriendRequests(userId: string): Promise<Friendship[]> {
-    return this.friendshipRepository.find({
+    // Check cache first
+    const cachedRequests = await CacheService.getCachedFriendRequests(userId, "outgoing");
+    if (cachedRequests) {
+      return cachedRequests;
+    }
+
+    const requests = await this.friendshipRepository.find({
       where: { requesterId: userId, status: FriendshipStatus.PENDING },
       relations: ["addressee"],
     });
+
+    // Cache the results
+    await CacheService.setCachedFriendRequests(userId, "outgoing", requests);
+
+    return requests;
   }
 
   /**
@@ -139,6 +202,17 @@ export class FriendshipService {
 
     // Delete the friendship record
     await this.friendshipRepository.remove(friendship);
+
+    // Invalidate friend request caches for both users
+    await Promise.all([
+      CacheService.setCachedFriendRequests(friendship.requesterId, "outgoing", [
+        ...(await this.getOutgoingFriendRequests(friendship.requesterId)),
+      ]),
+      CacheService.setCachedFriendRequests(friendship.addresseeId, "incoming", [
+        ...(await this.getPendingFriendRequests(friendship.addresseeId)),
+      ]),
+    ]);
+
     return friendship;
   }
 
