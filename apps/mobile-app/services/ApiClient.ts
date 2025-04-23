@@ -426,25 +426,28 @@ class ApiClient {
       title: apiEvent.title,
       description: apiEvent.description || "",
       eventDate: apiEvent.eventDate,
-      endDate: apiEvent.endDate ?? undefined,
-      time: new Date(apiEvent.eventDate).toLocaleString(),
+      endDate: apiEvent.endDate,
+      time: new Date(apiEvent.eventDate).toLocaleTimeString(),
       coordinates: apiEvent.location.coordinates,
-      location: apiEvent.address || "Location not specified",
+      location: apiEvent.address || "",
       locationNotes: apiEvent.locationNotes || "",
       distance: "",
       emoji: apiEvent.emoji || "📍",
+      emojiDescription: apiEvent.emojiDescription,
       categories: apiEvent.categories?.map((c) => c.name) || [],
-      creator: apiEvent?.creator,
-      scanCount: apiEvent.scanCount ?? 1,
-      saveCount: apiEvent.saveCount ?? 0,
-      timezone: apiEvent.timezone ?? "",
+      creator: apiEvent.creator,
+      scanCount: apiEvent.scanCount || 0,
+      saveCount: apiEvent.saveCount || 0,
+      timezone: apiEvent.timezone || "UTC",
       qrUrl: apiEvent.qrUrl,
       qrCodeData: apiEvent.qrCodeData,
       qrImagePath: apiEvent.qrImagePath,
-      hasQrCode: apiEvent?.hasQrCode,
-      qrGeneratedAt: apiEvent?.qrGeneratedAt,
-      qrDetectedInImage: apiEvent?.qrDetectedInImage,
-      detectedQrData: apiEvent?.detectedQrData,
+      hasQrCode: apiEvent.hasQrCode,
+      qrGeneratedAt: apiEvent.qrGeneratedAt,
+      qrDetectedInImage: apiEvent.qrDetectedInImage,
+      detectedQrData: apiEvent.detectedQrData,
+      createdAt: apiEvent.createdAt,
+      updatedAt: apiEvent.updatedAt,
     };
   }
 
@@ -1245,6 +1248,33 @@ class ApiClient {
       method: "POST",
     });
     return this.handleResponse<FriendRequest>(response);
+  }
+
+  async getFriendsSavedEvents(options?: { limit?: number; cursor?: string }): Promise<{
+    events: EventType[];
+    nextCursor?: string;
+  }> {
+    const queryParams = new URLSearchParams();
+
+    if (options?.limit) queryParams.append("limit", options.limit.toString());
+    if (options?.cursor) queryParams.append("cursor", options.cursor);
+
+    const url = `${this.baseUrl}/api/events/saved/friends?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+
+    const data = await this.handleResponse<{
+      events: ApiEvent[];
+      nextCursor?: string;
+    }>(response);
+
+    // Map API events to frontend event type and include savedBy information
+    return {
+      events: data.events.map((event) => ({
+        ...this.mapEventToEventType(event),
+        savedBy: (event as any).savedBy,
+      })),
+      nextCursor: data.nextCursor,
+    };
   }
 }
 

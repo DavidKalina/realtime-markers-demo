@@ -13,6 +13,7 @@ import { LevelingService } from "./LevelingService";
 import { CacheService } from "./shared/CacheService";
 import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
+import { Friendship } from "../entities/Friendship";
 
 interface SearchResult {
   event: Event;
@@ -1036,8 +1037,8 @@ export class EventService {
       // Combine event names and descriptions to create context
       const eventContext = events
         .slice(0, 10) // Take up to 10 events for more comprehensive context
-        .map((event) => `${event.title}${event.description ? `: ${event.description}` : ''}`)
-        .join('\n');
+        .map((event) => `${event.title}${event.description ? `: ${event.description}` : ""}`)
+        .join("\n");
 
       const response = await OpenAIService.executeChatCompletion({
         model: OpenAIModel.GPT4OMini,
@@ -1054,19 +1055,19 @@ export class EventService {
             
             The name should be memorable and relevant to the events' themes.
             The description should be punchy and intriguing - think of it like a movie tagline that makes people want to learn more.
-            The emoji should be a single, well-known emoji that clearly represents the cluster's theme or mood.`
+            The emoji should be a single, well-known emoji that clearly represents the cluster's theme or mood.`,
           },
           {
             role: "user",
-            content: `Based on these events, create a name, tagline, and emoji for this cluster:\n\n${eventContext}`
-          }
+            content: `Based on these events, create a name, tagline, and emoji for this cluster:\n\n${eventContext}`,
+          },
         ],
         temperature: 0.7,
         max_tokens: 200,
-        response_format: { type: "json_object" }
+        response_format: { type: "json_object" },
       });
 
-      const result = JSON.parse(response.choices[0]?.message?.content || '{}');
+      const result = JSON.parse(response.choices[0]?.message?.content || "{}");
       clusterName = result.name || "";
       clusterDescription = result.description || "";
       clusterEmoji = result.emoji || "🎉"; // Default to party emoji if none provided
@@ -1144,5 +1145,108 @@ export class EventService {
     await CacheService.setCachedClusterHub(markerIds, result);
 
     return result;
+  }
+
+  /**
+   * Get events saved by user's friends
+   *
+   * @param userId The ID of the user
+   * @param options Pagination options
+   * @returns An array of events saved by friends with pagination info
+   */
+  async getFriendsSavedEvents(
+    userId: string,
+    options: { limit?: number; cursor?: string } = {}
+  ): Promise<{ events: Event[]; nextCursor?: string }> {
+    const { limit = 10, cursor } = options;
+
+    // Parse cursor if provided
+    let cursorData: { savedAt: Date; eventId: string } | undefined;
+    if (cursor) {
+      try {
+        const jsonStr = Buffer.from(cursor, "base64").toString("utf-8");
+        cursorData = JSON.parse(jsonStr);
+      } catch (e) {
+        console.error("Invalid cursor format:", e);
+      }
+    }
+
+    // Build query to get events saved by friends
+    let queryBuilder = this.dataSource
+      .getRepository(UserEventSave)
+      .createQueryBuilder("save")
+      .leftJoinAndSelect("save.event", "event")
+      .leftJoinAndSelect("event.categories", "categories")
+      .leftJoinAndSelect("event.creator", "creator")
+      .leftJoinAndSelect("save.user", "saver")
+      // Join with friendships to get events saved by friends
+      .innerJoin(
+        Friendship,
+        "friendship",
+        "(friendship.requesterId = :userId AND friendship.addresseeId = save.userId AND friendship.status = 'ACCEPTED') OR " +
+          "(friendship.addresseeId = :userId AND friendship.requesterId = save.userId AND friendship.status = 'ACCEPTED')",
+        { userId }
+      )
+      .where("save.userId != :userId", { userId }); // Exclude user's own saves
+
+    // Add cursor conditions if cursor is provided
+    if (cursorData) {
+      queryBuilder = queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where("save.savedAt < :savedAt", {
+            savedAt: cursorData.savedAt,
+          }).orWhere(
+            new Brackets((qb2) => {
+              qb2
+                .where("save.savedAt = :savedAt", {
+                  savedAt: cursorData.savedAt,
+                })
+                .andWhere("event.id < :eventId", {
+                  eventId: cursorData.eventId,
+                });
+            })
+          );
+        })
+      );
+    }
+
+    // Execute query
+    const saves = await queryBuilder
+      .orderBy("save.savedAt", "DESC")
+      .addOrderBy("event.id", "DESC")
+      .take(limit + 1)
+      .getMany();
+
+    // Process results
+    const hasMore = saves.length > limit;
+    const results = saves.slice(0, limit);
+
+    // Extract events and add saver information
+    const events = results.map((save) => {
+      const event = save.event;
+      // Add who saved it
+      (event as any).savedBy = {
+        id: save.user.id,
+        displayName: save.user.displayName || save.user.email,
+        email: save.user.email,
+      };
+      return event;
+    });
+
+    // Generate next cursor if we have more results
+    let nextCursor: string | undefined;
+    if (hasMore && results.length > 0) {
+      const lastResult = results[results.length - 1];
+      const cursorObj = {
+        savedAt: lastResult.savedAt,
+        eventId: lastResult.eventId,
+      };
+      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString("base64");
+    }
+
+    return {
+      events,
+      nextCursor,
+    };
   }
 }

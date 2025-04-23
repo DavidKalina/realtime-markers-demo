@@ -556,3 +556,33 @@ export const getClusterHubDataHandler: EventHandler = async (c) => {
     );
   }
 };
+
+export const getFriendsSavedEventsHandler: EventHandler = async (c) => {
+  try {
+    const user = c.get("user");
+    const limit = c.req.query("limit");
+    const cursor = c.req.query("cursor");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    const eventService = c.get("eventService");
+
+    const savedEvents = await eventService.getFriendsSavedEvents(user.userId, {
+      limit: limit ? parseInt(limit) : undefined,
+      cursor: cursor,
+    });
+
+    return c.json(savedEvents);
+  } catch (error) {
+    console.error("Error fetching friends' saved events:", error);
+    return c.json(
+      {
+        error: "Failed to fetch friends' saved events",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};

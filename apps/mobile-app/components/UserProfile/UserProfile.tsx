@@ -14,6 +14,8 @@ import {
   Trash2,
   User,
   Zap,
+  Users,
+  ChevronRight,
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import {
@@ -26,6 +28,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Pressable,
 } from "react-native";
 import Animated, {
   BounceIn,
@@ -271,18 +274,12 @@ const ActionsSection = React.memo(
   ({
     handleLogout,
     setShowDeleteDialog,
-    handleFriends,
   }: {
     handleLogout: () => void;
     setShowDeleteDialog: (show: boolean) => void;
-    handleFriends: () => void;
   }) => (
     <Card delay={1000}>
       <View style={styles.actionsSection}>
-        <TouchableOpacity style={styles.friendsButton} onPress={handleFriends} activeOpacity={0.8}>
-          <User size={18} color="#93c5fd" style={{ marginRight: 8 }} />
-          <Text style={styles.friendsText}>Friends</Text>
-        </TouchableOpacity>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
           <LogOut size={18} color="#f97583" style={{ marginRight: 8 }} />
           <Text style={styles.logoutText}>Logout</Text>
@@ -302,6 +299,31 @@ const ActionsSection = React.memo(
     </Card>
   )
 );
+
+const FriendsSection = () => {
+  const router = useRouter();
+
+  return (
+    <Card delay={450}>
+      <Pressable
+        style={styles.friendsCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push("/friends");
+        }}
+      >
+        <View style={styles.friendsContent}>
+          <Users size={24} color={COLORS.textPrimary} />
+          <View style={styles.friendsTextContainer}>
+            <Text style={styles.friendsTitle}>Friends</Text>
+            <Text style={styles.friendsSubtitle}>View and manage your friends</Text>
+          </View>
+          <ChevronRight size={24} color={COLORS.textPrimary} />
+        </View>
+      </Pressable>
+    </Card>
+  );
+};
 
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const router = useRouter();
@@ -549,12 +571,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     }
   };
 
-  // Handle friends navigation
-  const handleFriends = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/friends");
-  };
-
   return (
     <ScreenLayout>
       <Header title="Profile" onBack={handleBack} />
@@ -571,6 +587,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           progressWidth={progressWidth}
           handleUpgradePlan={handleUpgradePlan}
         />
+        <FriendsSection />
         <AccountDetails
           loading={loading}
           profileData={profileData}
@@ -578,11 +595,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           memberSince={memberSince}
           mapStyleButtons={mapStyleButtons}
         />
-        <ActionsSection
-          handleLogout={handleLogout}
-          setShowDeleteDialog={setShowDeleteDialog}
-          handleFriends={handleFriends}
-        />
+        <ActionsSection handleLogout={handleLogout} setShowDeleteDialog={setShowDeleteDialog} />
         <Animated.View
           entering={FadeInDown.duration(600).delay(1100).springify()}
           style={styles.versionContainer}
@@ -1106,22 +1119,33 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  friendsButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
+  friendsCard: {
     borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    padding: 16,
   },
 
-  friendsText: {
+  friendsContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  friendsTextContainer: {
+    flex: 1,
+    marginLeft: 16,
+  },
+
+  friendsTitle: {
+    fontSize: 16,
+    fontWeight: "700",
     color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: "600",
+    fontFamily: "SpaceMono",
+    marginBottom: 4,
+  },
+
+  friendsSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
   },
 });
