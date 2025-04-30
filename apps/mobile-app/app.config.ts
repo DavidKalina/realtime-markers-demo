@@ -21,8 +21,9 @@ export default {
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription:
-          "MapMoji needs your location to show you nearby content",
-        NSLocationAlwaysUsageDescription: "MapMoji needs your location to show you nearby content",
+          "MapMoji uses your location to find the nearest address when you scan an event flyer, and to center the map on your current position",
+        NSLocationAlwaysUsageDescription:
+          "MapMoji uses your location to find the nearest address when you scan an event flyer, and to center the map on your current position",
         NSCameraUsageDescription:
           "MapMoji needs camera access to take photos of event flyers and add them to the map",
         NSAppTransportSecurity: {
