@@ -24,8 +24,7 @@ export default {
           "MapMoji needs your location to show you nearby content",
         NSLocationAlwaysUsageDescription: "MapMoji needs your location to show you nearby content",
         NSCameraUsageDescription:
-          "MapMoji needs camera access to let you take photos of events and locations to share with other users",
-        NSMicrophoneUsageDescription: "MapMoji needs microphone access for video recording",
+          "MapMoji needs camera access to take photos of event flyers and add them to the map",
         NSAppTransportSecurity: {
           NSAllowsArbitraryLoads: false,
         },
@@ -100,9 +99,9 @@ export default {
       [
         "expo-camera",
         {
-          cameraPermission: "Allow $(PRODUCT_NAME) to access your camera",
-          microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone",
-          recordAudioAndroid: true,
+          cameraPermission:
+            "Allow $(PRODUCT_NAME) to access your camera to take photos of event flyers",
+          recordAudioAndroid: false,
         },
       ],
     ],
