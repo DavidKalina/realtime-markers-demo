@@ -21,11 +21,11 @@ export default {
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription:
-          "MapMoji uses your location to find the nearest address when you scan an event flyer, and to center the map on your current position",
+          "MapMoji uses your location while the app is in use to center the map on your current position and improve address search results when scanning event flyers. Coordinates are sent to our server for better relevance.",
         NSLocationAlwaysUsageDescription:
-          "MapMoji uses your location to find the nearest address when you scan an event flyer, and to center the map on your current position",
+          "MapMoji may access your location in the background to support location-based flyer scanning and event discovery. Your coordinates are securely sent to our server to improve results.",
         NSCameraUsageDescription:
-          "MapMoji needs camera access to take photos of event flyers and add them to the map",
+          "MapMoji needs camera access to scan event flyers. Images are processed on our server and may be stored to display event details to other users.",
         NSAppTransportSecurity: {
           NSAllowsArbitraryLoads: false,
         },
