@@ -23,7 +23,8 @@ export default {
         NSLocationWhenInUseUsageDescription:
           "MapMoji needs your location to show you nearby content",
         NSLocationAlwaysUsageDescription: "MapMoji needs your location to show you nearby content",
-        NSCameraUsageDescription: "MapMoji needs camera access to let you take photos",
+        NSCameraUsageDescription:
+          "MapMoji needs camera access to let you take photos of events and locations to share with other users",
         NSMicrophoneUsageDescription: "MapMoji needs microphone access for video recording",
         NSAppTransportSecurity: {
           NSAllowsArbitraryLoads: false,
