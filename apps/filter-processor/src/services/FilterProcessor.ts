@@ -420,7 +420,19 @@ export class FilterProcessor {
       // For each intersecting viewport, check if the event matches user filters
       for (const { userId, viewport } of intersectingViewports) {
         const filters = this.userFilters.get(userId);
-        if (!filters || !this.eventMatchesFilters(record, filters)) {
+        if (!filters) continue;
+
+        // For private events, check if user is authorized
+        if ("privateStatus" in record) {
+          const isCreator = record.creatorId === userId;
+          const isInvited = record.invitedUsers?.some((user) => user.id === userId);
+
+          if (!isCreator && !isInvited) {
+            continue; // Skip this user if not authorized
+          }
+        }
+
+        if (!this.eventMatchesFilters(record, filters)) {
           continue;
         }
 
@@ -511,11 +523,36 @@ export class FilterProcessor {
   }
 
   private eventMatchesFilters(event: Event, filters: Filter[]): boolean {
-    // If no filters, match everything
-    if (filters.length === 0) return true;
+    // If no filters, match everything except private events
+    if (filters.length === 0) {
+      // Private events should only be visible to their creators and invited users
+      if ("privateStatus" in event) {
+        return false; // Don't show private events in default view
+      }
+      return true;
+    }
 
     // Event matches if it satisfies ANY filter
     return filters.some((filter) => {
+      // Check if this is a private event
+      if ("privateStatus" in event) {
+        // For private events, check if the user is the creator or invited
+        const privateEvent = event as any; // Type assertion for private event
+        const userId = filter.userId; // We need to add userId to Filter type
+
+        if (!userId) {
+          return false; // No user ID provided, can't show private event
+        }
+
+        // Check if user is creator or invited
+        const isCreator = privateEvent.creatorId === userId;
+        const isInvited = privateEvent.invitedUsers?.some((user: any) => user.id === userId);
+
+        if (!isCreator && !isInvited) {
+          return false; // User is not authorized to see this private event
+        }
+      }
+
       const criteria = filter.criteria;
       let compositeScore = 0;
       let totalWeight = 0;
@@ -825,9 +862,42 @@ export class FilterProcessor {
   /**
    * Strip sensitive data from events before sending to client
    */
-  private stripSensitiveData(event: Event): Omit<Event, "embedding"> {
-    const { embedding, ...eventWithoutEmbedding } = event;
-    return eventWithoutEmbedding;
+  private stripSensitiveData(event: Event): Event {
+    // Create a copy of the event
+    const sanitized = { ...event };
+
+    // Remove sensitive fields
+    delete sanitized.embedding;
+    delete sanitized.confidenceScore;
+
+    // For private events, ensure we only send necessary data
+    if ("privateStatus" in sanitized) {
+      // Keep only essential private event fields
+      const privateEvent = sanitized as any;
+      const essentialFields = {
+        id: privateEvent.id,
+        title: privateEvent.title,
+        description: privateEvent.description,
+        eventDate: privateEvent.eventDate,
+        endDate: privateEvent.endDate,
+        timezone: privateEvent.timezone,
+        address: privateEvent.address,
+        location: privateEvent.location,
+        status: privateEvent.status,
+        privateStatus: privateEvent.privateStatus,
+        imageUrl: privateEvent.imageUrl,
+        imageDescription: privateEvent.imageDescription,
+        categories: privateEvent.categories,
+        createdAt: privateEvent.createdAt,
+        updatedAt: privateEvent.updatedAt,
+        locationNotes: privateEvent.locationNotes,
+      };
+
+      // Return only essential fields
+      return essentialFields as Event;
+    }
+
+    return sanitized;
   }
 
   // Enhanced publishFilteredEvents with more detailed reporting

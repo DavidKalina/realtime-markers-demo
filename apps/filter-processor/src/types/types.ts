@@ -63,6 +63,13 @@ export interface Event {
   updatedAt: Date | string;
   tags?: string[]; // Added for tag filtering support
   locationNotes?: string;
+  // Private event fields
+  privateStatus?: "DRAFT" | "SCHEDULED" | "COMPLETED" | "CANCELLED";
+  isProcessedByAI?: boolean;
+  imageUrl?: string;
+  imageDescription?: string;
+  isImageProcessed?: boolean;
+  invitedUsers?: User[];
 }
 
 // Update the FilterCriteria interface
@@ -86,8 +93,8 @@ export interface Filter {
   userId: string;
   name: string;
   isActive: boolean;
-  semanticQuery?: string; // Add this
-  embedding?: string; // Add this
+  semanticQuery?: string;
+  embedding?: string;
   criteria: FilterCriteria;
   createdAt: Date;
   updatedAt: Date;

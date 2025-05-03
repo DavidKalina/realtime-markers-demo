@@ -41,6 +41,7 @@ import { LevelingService } from "./services/LevelingService";
 import { seedLevels } from "./seeds/seedLevels";
 import { friendshipsRouter } from "./routes/friendships";
 import { FriendshipService } from "./services/FriendshipService";
+import privateEventsRouter from "./routes/privateEvents";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -380,6 +381,7 @@ app.route("/api/plans", plansRouter);
 app.route("/api/stripe", stripeRouter);
 app.route("/api/internal", internalRouter);
 app.route("/api/friendships", friendshipsRouter);
+app.route("/api/events/private", privateEventsRouter);
 
 // =============================================================================
 // Jobs API - Server-Sent Events
