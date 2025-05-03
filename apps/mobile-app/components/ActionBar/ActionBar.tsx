@@ -46,9 +46,6 @@ const BUTTON_RELEASE_ANIMATION = {
   easing: Easing.bezier(0.25, 0.1, 0.25, 1),
 };
 
-const ENTER_ANIMATION = BounceIn.duration(300).springify().damping(11).stiffness(100);
-const EXIT_ANIMATION = FadeOut.duration(200).easing(Easing.in(Easing.cubic));
-
 // Create a separate component for each action button to properly handle hooks
 const ActionButton: React.FC<ActionButtonProps> = React.memo(
   ({ actionKey, label, icon, onPress, isActive, disabled }) => {
@@ -114,20 +111,18 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
     }, [icon, iconColor]);
 
     return (
-      <Animated.View style={animatedStyle} entering={ENTER_ANIMATION} exiting={EXIT_ANIMATION}>
-        <TouchableOpacity
-          style={buttonStyle}
-          disabled={disabled}
-          onPress={handlePress}
-          activeOpacity={0.7} // More responsive feel
-          accessibilityRole="button"
-          accessibilityLabel={`${label} button`}
-          accessibilityState={{ disabled: !!disabled, selected: isActive }}
-        >
-          {iconWithWrapper}
-          <Text style={labelStyle}>{label}</Text>
-        </TouchableOpacity>
-      </Animated.View>
+      <TouchableOpacity
+        style={buttonStyle}
+        disabled={disabled}
+        onPress={handlePress}
+        activeOpacity={0.7} // More responsive feel
+        accessibilityRole="button"
+        accessibilityLabel={`${label} button`}
+        accessibilityState={{ disabled: !!disabled, selected: isActive }}
+      >
+        {iconWithWrapper}
+        <Text style={labelStyle}>{label}</Text>
+      </TouchableOpacity>
     );
   },
   // Custom equality function to prevent unnecessary re-renders

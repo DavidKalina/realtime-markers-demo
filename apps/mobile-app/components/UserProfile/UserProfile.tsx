@@ -388,27 +388,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     [setMapStyle]
   );
 
-  // Handle plan upgrade
-  const handleUpgradePlan = useCallback(async () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const response = await apiClient.createStripeCheckoutSession();
-
-      if (!response.checkoutUrl) {
-        throw new Error("No checkout URL received");
-      }
-
-      // Open the checkout URL in a WebView
-      router.push({
-        pathname: "/checkout",
-        params: { checkoutUrl: response.checkoutUrl },
-      });
-    } catch (error) {
-      console.error("Error creating checkout session:", error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  }, [router]);
-
   // Combined data fetching with caching
   useEffect(() => {
     let isMounted = true;
@@ -599,7 +578,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         <PlanSection
           planDetails={planDetails}
           progressWidth={progressWidth}
-          handleUpgradePlan={handleUpgradePlan}
+          handleUpgradePlan={() => {}}
         />
         <FriendsSection />
         <AccountDetails

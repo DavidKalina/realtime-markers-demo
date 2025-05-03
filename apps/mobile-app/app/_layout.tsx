@@ -93,7 +93,6 @@ function RootLayout() {
           <Stack.Screen name="filter" options={{ headerShown: false }} />
           <Stack.Screen name="search" options={{ headerShown: false }} />
           <Stack.Screen name="details" options={{ headerShown: false }} />
-          <Stack.Screen name="checkout" options={{ headerShown: false }} />
           <Stack.Screen name="friends" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" />
         </Stack>
