@@ -1,11 +1,11 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { MapStyleType, useMapStyle } from "@/contexts/MapStyleContext";
 import { apiClient, PlanType } from "@/services/ApiClient";
-import { initStripe } from "@stripe/stripe-react-native";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Calendar,
+  ChevronRight,
   Crown,
   LogOut,
   Mail,
@@ -13,43 +13,33 @@ import {
   Shield,
   Trash2,
   User,
-  Zap,
   Users,
-  ChevronRight,
+  Zap,
 } from "lucide-react-native";
-import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  Pressable,
 } from "react-native";
 import Animated, {
   BounceIn,
   BounceOut,
-  Extrapolation,
   FadeInDown,
-  interpolate,
   LinearTransition,
   useAnimatedScrollHandler,
-  useAnimatedStyle,
   useSharedValue,
 } from "react-native-reanimated";
 import Card from "../Layout/Card";
 import Header from "../Layout/Header";
 import ScreenLayout from "../Layout/ScreenLayout";
-
-// Initialize Stripe
-initStripe({
-  publishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
-  merchantIdentifier: "merchant.com.mapmoji.app",
-});
 
 interface UserProfileProps {
   onBack?: () => void;
