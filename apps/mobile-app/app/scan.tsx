@@ -321,26 +321,6 @@ export default function ScanScreen() {
     return planDetails.remainingScans > 0;
   }, [planDetails]);
 
-  const handleUpgrade = async () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const response = await apiClient.createStripeCheckoutSession();
-
-      if (!response.checkoutUrl) {
-        throw new Error("No checkout URL received");
-      }
-
-      // Open the checkout URL in a WebView
-      router.push({
-        pathname: "/checkout",
-        params: { checkoutUrl: response.checkoutUrl },
-      });
-    } catch (error) {
-      console.error("Error creating checkout session:", error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  };
-
   // Update handleCapture to check remaining scans
   const handleCapture = async () => {
     if (!isMounted.current) return;
@@ -563,7 +543,7 @@ export default function ScanScreen() {
                     </Text>
                     <TouchableOpacity
                       style={styles.upgradeButton}
-                      onPress={handleUpgrade}
+                      onPress={() => {}}
                       activeOpacity={0.7}
                     >
                       <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
