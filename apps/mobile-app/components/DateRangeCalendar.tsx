@@ -360,6 +360,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: COLORS.cardBackground,
+    maxWidth: 500,
     borderRadius: 20,
     overflow: "hidden",
     width: "90%",
