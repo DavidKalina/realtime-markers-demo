@@ -210,21 +210,16 @@ export class EventProcessingService {
     eventInput: PrivateEventInput,
     locationContext?: LocationContext
   ): Promise<ScanResult> {
-    // Step 1: Extract event details (no image processing needed)
-    const extractionResult = await this.eventExtractionService.extractEventDetails(
-      `${eventInput.title}\n${eventInput.description}\n${eventInput.address}`,
-      locationContext
-    );
-
-    // Step 2: Generate embedding
+    // Skip extraction and use provided input directly
     const eventDetailsWithCategories = {
-      ...extractionResult.event,
-      ...eventInput, // Override with provided input
+      ...eventInput,
       isPrivate: true,
     };
+
+    // Generate embedding
     const finalEmbedding = await this.generateEmbedding(eventDetailsWithCategories);
 
-    // Step 3: Check for duplicates
+    // Check for duplicates
     const similarity = await this.dependencies.eventSimilarityService.findSimilarEvents(
       finalEmbedding,
       {

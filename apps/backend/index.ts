@@ -220,16 +220,6 @@ const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource
     try {
       await AppDataSource.initialize();
       console.log("Database connection established");
-
-      // Seed the database with test users
-      try {
-        await seedLevels(AppDataSource);
-        await seedUsers(AppDataSource);
-      } catch (seedError) {
-        console.error("Error seeding users:", seedError);
-        // Continue with application startup even if seeding fails
-      }
-
       return AppDataSource;
     } catch (error) {
       console.error(`Database initialization attempt ${i + 1} failed:`, error);
@@ -265,8 +255,6 @@ async function initializeServices() {
   console.log("Initializing database connection...");
   const dataSource = await initializeDatabase();
   console.log("Database connection established, now initializing services");
-
-  await seedDatabase(dataSource);
 
   // Initialize config service
   const configService = ConfigService.getInstance();

@@ -17,6 +17,7 @@ import { GoogleGeocodingService } from "./services/shared/GoogleGeocodingService
 import { OpenAIService } from "./services/shared/OpenAIService";
 import { StorageService } from "./services/shared/StorageService";
 import { isEventTemporalyRelevant } from "./utils/isEventTemporalyRelevant";
+import { User } from "./entities/User";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -448,6 +449,24 @@ async function initializeWorker() {
       } else if (job.type === "process_private_event") {
         console.log(`[Worker] Processing private event job ${jobId}`);
 
+        // Check if creator exists
+        if (job.data.creatorId) {
+          const creator = await AppDataSource.getRepository(User).findOne({
+            where: { id: job.data.creatorId },
+          });
+
+          if (!creator) {
+            await jobQueue.updateJobStatus(jobId, {
+              status: "failed",
+              progress: 1,
+              error: "Creator not found",
+              message: "The specified creator does not exist in the system.",
+              completed: new Date().toISOString(),
+            });
+            return;
+          }
+        }
+
         // Process the private event
         const scanResult = await eventProcessingService.processPrivateEvent(job.data.eventDetails, {
           userCoordinates: job.data.userCoordinates,
@@ -467,7 +486,7 @@ async function initializeWorker() {
           confidenceScore: scanResult.confidence,
           address: scanResult.eventDetails.address,
           locationNotes: scanResult.eventDetails.locationNotes || "",
-          categoryIds: scanResult.eventDetails.categories?.map((cat) => cat.id),
+          categoryIds: [], // Skip categories for now
           creatorId: job.data.creatorId,
           embedding: scanResult.embedding,
           isPrivate: true,

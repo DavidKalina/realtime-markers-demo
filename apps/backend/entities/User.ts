@@ -36,23 +36,23 @@ export class User {
   email!: string;
 
   @Index({ unique: true })
-  @Column({ type: "varchar", unique: true, nullable: true })
+  @Column({ name: "username", type: "varchar", unique: true, nullable: true })
   username?: string;
 
   @Index({ unique: true })
-  @Column({ type: "varchar", unique: true, nullable: true })
+  @Column({ name: "friend_code", type: "varchar", unique: true, nullable: true })
   friendCode?: string;
 
   @Column({ type: "varchar", nullable: true })
   phone?: string;
 
-  @Column({ type: "varchar", select: false })
+  @Column({ name: "password_hash", type: "varchar", select: false })
   passwordHash!: string;
 
-  @Column({ type: "varchar", nullable: true })
+  @Column({ name: "display_name", type: "varchar", nullable: true })
   displayName?: string;
 
-  @Column({ type: "varchar", nullable: true })
+  @Column({ name: "avatar_url", type: "varchar", nullable: true })
   avatarUrl?: string;
 
   @Column({ type: "text", nullable: true })
@@ -66,6 +66,7 @@ export class User {
   role!: UserRole;
 
   @Column({
+    name: "plan_type",
     type: "enum",
     enum: PlanType,
     default: PlanType.FREE,

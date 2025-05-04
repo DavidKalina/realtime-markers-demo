@@ -10,6 +10,8 @@ import { Filter } from "./entities/Filter";
 import { Level } from "./entities/Level";
 import { UserLevel } from "./entities/UserLevel";
 import { Friendship } from "./entities/Friendship";
+import { EventShare } from "./entities/EventShare";
+import { InitialSchemaAndSeed1710000000000 } from "./migrations/1710000000000-InitialSchemaAndSeed";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -24,9 +26,12 @@ const AppDataSource = new DataSource({
     Filter,
     Level,
     UserLevel,
+    EventShare,
     Friendship,
   ],
-  synchronize: true, // This auto-creates the tables
+  migrations: [InitialSchemaAndSeed1710000000000],
+  migrationsTableName: "migrations",
+  migrationsRun: true, // Automatically run migrations on startup
   logging: ["query", "error", "schema"], // More detailed logging
   ssl: false,
   poolSize: 20,
