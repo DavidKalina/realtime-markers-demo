@@ -326,19 +326,14 @@ export class FilterProcessor {
       // Get all events from the spatial index
       const allEvents = Array.from(this.eventCache.values());
 
-      console.log(allEvents);
-
       // Apply user's filters
       const userFilters = this.userFilters.get(userId) || [];
       const filteredEvents = allEvents.filter((event) =>
         this.eventMatchesFilters(event, userFilters, userId)
       );
 
-      // Filter private events for this specific user
-      this.filterPrivateEvents(filteredEvents, userId).then((eventsWithPrivacy) => {
-        // Publish the filtered events
-        this.publishFilteredEvents(userId, "all", eventsWithPrivacy);
-      });
+      // Publish the filtered events
+      this.publishFilteredEvents(userId, "all", filteredEvents);
     } catch (error) {
       console.error("Error sending all filtered events:", error);
     }
@@ -1109,116 +1104,6 @@ export class FilterProcessor {
     } catch (error) {
       console.error("Error fetching events:", error);
       return [];
-    }
-  }
-
-  /**
-   * Filter out private events that the user doesn't have access to
-   */
-  private async filterPrivateEvents(events: Event[], userId: string): Promise<Event[]> {
-    try {
-      const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
-      const privateEvents = events.filter((event) => event.isPrivate);
-
-      if (privateEvents.length === 0) {
-        return events; // No private events to filter
-      }
-
-      // Fetch all shares for private events in one batch
-      const eventIds = privateEvents.map((event) => event.id);
-
-      // Implement retry logic with exponential backoff
-      const maxRetries = 3;
-      const initialRetryDelay = 1000; // 1 second
-      let lastError: any = null;
-
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          const response = await fetch(`${backendUrl}/api/internal/events/shares/batch`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify({ eventIds }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-
-            // Check if we hit rate limit
-            if (response.status === 429) {
-              const retryAfter = parseInt(response.headers.get("retry-after") || "60");
-              console.log(`Rate limited. Retry after ${retryAfter} seconds`);
-
-              if (attempt < maxRetries) {
-                const delay = retryAfter * 1000; // Convert to milliseconds
-                console.log(`Waiting ${delay}ms before retry attempt ${attempt + 1}`);
-                await new Promise((resolve) => setTimeout(resolve, delay));
-                continue;
-              }
-            }
-
-            throw new Error(
-              `HTTP error! status: ${response.status}, message: ${
-                errorData.message || "Unknown error"
-              }`
-            );
-          }
-
-          const shares = await response.json();
-
-          // Create a map of event IDs to their shared user IDs
-          const eventSharesMap = new Map<string, string[]>();
-          shares.forEach((share: any) => {
-            if (!eventSharesMap.has(share.eventId)) {
-              eventSharesMap.set(share.eventId, []);
-            }
-            eventSharesMap.get(share.eventId)!.push(share.sharedWithId);
-          });
-
-          // Filter events based on privacy and access
-          return events.filter((event) => {
-            if (!event.isPrivate) {
-              return true; // Keep all public events
-            }
-
-            // For private events, check if the user has access
-            const sharedUserIds = eventSharesMap.get(event.id) || [];
-
-            // Log access check details for debugging
-            console.log(`Access check for private event ${event.id}:`, {
-              eventCreatorId: event.creatorId,
-              userId,
-              sharedUserIds,
-              isCreator: userId === event.creatorId,
-              isShared: sharedUserIds.includes(userId),
-            });
-
-            // Show to creator OR shared users
-            return userId === event.creatorId || sharedUserIds.includes(userId);
-          });
-        } catch (error) {
-          lastError = error;
-          console.error(`Attempt ${attempt}/${maxRetries} failed:`, error);
-
-          if (attempt < maxRetries) {
-            const delay = initialRetryDelay * Math.pow(2, attempt - 1);
-            console.log(`Waiting ${delay}ms before retry attempt ${attempt + 1}`);
-            await new Promise((resolve) => setTimeout(resolve, delay));
-          }
-        }
-      }
-
-      // If we've exhausted all retries, log the error and keep all events
-      console.error("All retry attempts failed for fetching event shares:", lastError);
-      console.warn("Keeping all events due to persistent share fetch failure");
-      return events;
-    } catch (error) {
-      console.error("Error filtering private events:", error);
-      // Instead of filtering out all private events, keep them and log the error
-      console.warn("Keeping all events due to error in filtering");
-      return events;
     }
   }
 

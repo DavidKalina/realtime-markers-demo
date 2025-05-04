@@ -52,7 +52,7 @@ export class EventService {
   private eventSimilarityService: EventSimilarityService;
   private levelingService: LevelingService;
 
-  constructor(private dataSource: DataSource, redis: Redis) {
+  constructor(private dataSource: DataSource, private redis: Redis) {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
     this.userEventSaveRepository = dataSource.getRepository(UserEventSave);
@@ -312,6 +312,23 @@ export class EventService {
 
     // Invalidate cache for this event
     await CacheService.invalidateEventCache(eventId);
+
+    // Get the updated event with its shares
+    const event = await this.eventRepository.findOne({
+      where: { id: eventId },
+      relations: ["categories", "creator", "shares", "shares.sharedWith"],
+    });
+
+    if (event) {
+      // Publish the updated event to Redis
+      await this.redis.publish(
+        "event_changes",
+        JSON.stringify({
+          operation: "UPDATE",
+          record: event,
+        })
+      );
+    }
   }
 
   /**
@@ -327,6 +344,23 @@ export class EventService {
 
     // Invalidate cache for this event
     await CacheService.invalidateEventCache(eventId);
+
+    // Get the updated event with its shares
+    const event = await this.eventRepository.findOne({
+      where: { id: eventId },
+      relations: ["categories", "creator", "shares", "shares.sharedWith"],
+    });
+
+    if (event) {
+      // Publish the updated event to Redis
+      await this.redis.publish(
+        "event_changes",
+        JSON.stringify({
+          operation: "UPDATE",
+          record: event,
+        })
+      );
+    }
   }
 
   /**
