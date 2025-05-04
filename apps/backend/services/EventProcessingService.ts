@@ -210,11 +210,19 @@ export class EventProcessingService {
     eventInput: PrivateEventInput,
     locationContext?: LocationContext
   ): Promise<ScanResult> {
-    // Skip extraction and use provided input directly
-    const eventDetailsWithCategories = {
-      ...eventInput,
-      isPrivate: true,
-    };
+    // Generate emoji if not provided
+    let eventDetailsWithCategories = { ...eventInput };
+    if (!eventInput.emoji || eventInput.emoji === "📍") {
+      const emojiResult = await this.eventExtractionService.generateEventEmoji(
+        eventInput.title,
+        eventInput.description
+      );
+      eventDetailsWithCategories = {
+        ...eventInput,
+        emoji: emojiResult.emoji,
+        emojiDescription: emojiResult.emojiDescription,
+      };
+    }
 
     // Generate embedding
     const finalEmbedding = await this.generateEmbedding(eventDetailsWithCategories);
