@@ -240,6 +240,26 @@ export class InitialSchemaAndSeed1710000000000 implements MigrationInterface {
         role: UserRole.ADMIN,
         isVerified: true,
       },
+      {
+        email: "josh@example.com",
+        passwordHash: passwordHash,
+        displayName: "Josh K",
+        username: "joshk",
+        friendCode: "JOSH1",
+        bio: "Content moderator",
+        role: UserRole.ADMIN,
+        isVerified: true,
+      },
+      {
+        email: "jared@example.com",
+        passwordHash: passwordHash,
+        displayName: "Jared B.",
+        username: "jaredb",
+        friendCode: "JARRED1",
+        bio: "Content moderator",
+        role: UserRole.ADMIN,
+        isVerified: true,
+      },
     ];
 
     for (const user of users) {

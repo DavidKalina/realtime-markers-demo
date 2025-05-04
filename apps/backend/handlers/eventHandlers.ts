@@ -335,15 +335,37 @@ export const getAllEventsHandler: EventHandler = async (c) => {
     const offset = c.req.query("offset");
     const eventService = c.get("eventService");
 
+    console.log("Fetching all events with limit:", limit, "offset:", offset);
+
     const eventsData = await eventService.getEvents({
       limit: limit ? parseInt(limit) : undefined,
       offset: offset ? parseInt(offset) : undefined,
     });
 
+    console.log(`Retrieved ${eventsData.length} events from database`);
+
+    // For each private event, get its shares
+    const eventsWithShares = await Promise.all(
+      eventsData.map(async (event) => {
+        if (event.isPrivate) {
+          console.log(`Fetching shares for private event ${event.id}`);
+          const shares = await eventService.getEventShares(event.id);
+          console.log(`Found ${shares.length} shares for event ${event.id}`);
+          return {
+            ...event,
+            sharedWith: shares,
+          };
+        }
+        return event;
+      })
+    );
+
+    console.log(`Returning ${eventsWithShares.length} events with shares`);
+
     // Return data in the format expected by the filter processor
     return c.json({
-      events: eventsData,
-      total: eventsData.length,
+      events: eventsWithShares,
+      total: eventsWithShares.length,
       hasMore: false, // Since we're not implementing pagination in the backend yet
     });
   } catch (error) {

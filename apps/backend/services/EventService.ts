@@ -92,17 +92,49 @@ export class EventService {
     };
   }
 
-  async getEvents(options: { limit?: number; offset?: number } = {}) {
-    const { limit = 10, offset = 0 } = options;
+  async getEvents(
+    options: {
+      limit?: number;
+      offset?: number;
+      userId?: string;
+    } = {}
+  ): Promise<Event[]> {
+    try {
+      console.log("Getting events with options:", options);
 
-    return this.eventRepository.find({
-      relations: ["categories"],
-      take: limit,
-      skip: offset,
-      order: {
-        eventDate: "DESC",
-      },
-    });
+      const queryBuilder = this.eventRepository
+        .createQueryBuilder("event")
+        .leftJoinAndSelect("event.categories", "category")
+        .leftJoinAndSelect("event.creator", "creator")
+        .leftJoinAndSelect("event.shares", "shares")
+        .leftJoinAndSelect("shares.sharedWith", "sharedWith");
+
+      if (options.limit) {
+        queryBuilder.take(options.limit);
+      }
+
+      if (options.offset) {
+        queryBuilder.skip(options.offset);
+      }
+
+      const events = await queryBuilder.getMany();
+      console.log(`Retrieved ${events.length} events from database`);
+
+      // Log sample event for debugging
+      if (events.length > 0) {
+        console.log("Sample event:", {
+          id: events[0].id,
+          isPrivate: events[0].isPrivate,
+          creatorId: events[0].creatorId,
+          shares: events[0].shares,
+        });
+      }
+
+      return events;
+    } catch (error) {
+      console.error("Error in getEvents:", error);
+      throw error;
+    }
   }
 
   async getEventById(id: string): Promise<Event | null> {

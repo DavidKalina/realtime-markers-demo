@@ -520,13 +520,16 @@ async function initializeWorker() {
           creatorId: job.data.creatorId,
           embedding: scanResult.embedding,
           isPrivate: true,
-          sharedWithIds: job.data.sharedWithIds,
+          sharedWithIds: job.data.sharedWithIds || [], // Ensure we pass the shared user IDs
         });
 
         // Create discovery record and increment user stats if they are the creator
         if (job.data.creatorId) {
           await eventService.createDiscoveryRecord(job.data.creatorId, newEvent.id);
         }
+
+        // Get the shares for the event to include in notifications
+        const eventShares = await eventService.getEventShares(newEvent.id);
 
         // Publish notifications
         await redisClient.publish(
@@ -536,9 +539,7 @@ async function initializeWorker() {
             record: {
               ...newEvent,
               // Add shared users metadata for private events
-              ...(newEvent.isPrivate && {
-                sharedWith: await eventService.getEventShares(newEvent.id),
-              }),
+              sharedWith: eventShares,
             },
           })
         );
@@ -564,9 +565,7 @@ async function initializeWorker() {
               updatedAt: newEvent.updatedAt,
               isPrivate: newEvent.isPrivate,
               // Add shared users metadata for private events
-              ...(newEvent.isPrivate && {
-                sharedWith: await eventService.getEventShares(newEvent.id),
-              }),
+              sharedWith: eventShares,
             },
             timestamp: new Date().toISOString(),
           })

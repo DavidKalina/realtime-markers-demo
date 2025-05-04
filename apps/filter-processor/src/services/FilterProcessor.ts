@@ -314,30 +314,22 @@ export class FilterProcessor {
 
   private sendAllFilteredEvents(userId: string): void {
     try {
-      const filters = this.userFilters.get(userId) || [];
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`Applying ${filters.length} filters for user ${userId}`);
-      }
-
-      // Get all events from cache
+      // Get all events from the spatial index
       const allEvents = Array.from(this.eventCache.values());
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`Total events before filtering: ${allEvents.length}`);
-      }
 
-      // Apply filters
-      const filteredEvents = allEvents.filter((event) => this.eventMatchesFilters(event, filters));
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`Events after filtering: ${filteredEvents.length}`);
-        console.log(
-          `Filter results: ${filteredEvents.length}/${allEvents.length} events passed filters`
-        );
-      }
+      // Apply user's filters
+      const userFilters = this.userFilters.get(userId) || [];
+      const filteredEvents = allEvents.filter((event) =>
+        this.eventMatchesFilters(event, userFilters)
+      );
 
-      // Send to user's channel
-      this.publishFilteredEvents(userId, "replace-all", filteredEvents);
+      // Filter private events for this specific user
+      this.filterPrivateEvents(filteredEvents, userId).then((eventsWithPrivacy) => {
+        // Publish the filtered events
+        this.publishFilteredEvents(userId, "all", eventsWithPrivacy);
+      });
     } catch (error) {
-      console.error(`Error sending filtered events to user ${userId}:`, error);
+      console.error("Error sending all filtered events:", error);
     }
   }
 
@@ -357,15 +349,15 @@ export class FilterProcessor {
         .map((item) => this.eventCache.get(item.id))
         .filter(Boolean) as Event[];
 
-      // Apply attribute filters
-      const filteredEvents = eventsInViewport.filter((event) =>
-        this.eventMatchesFilters(event, filters)
+      // Apply attribute filters and privacy check
+      const filteredEvents = eventsInViewport.filter(
+        (event) => this.eventMatchesFilters(event, filters) && this.isEventAccessible(event, userId)
       );
 
       // Send to user's channel
-      this.publishFilteredEvents(userId, "viewport-update", filteredEvents);
+      this.publishFilteredEvents(userId, "viewport", filteredEvents);
     } catch (error) {
-      console.error(`❌ Error sending viewport events for user ${userId}:`, error);
+      console.error(`Error sending viewport events for user ${userId}:`, error);
     }
   }
 
@@ -395,10 +387,8 @@ export class FilterProcessor {
         return;
       }
 
-      // For CREATE/UPDATE operations
-      if (operation === "UPDATE") {
-        this.removeEventFromIndex(record.id);
-      }
+      // Always remove from index before adding/updating
+      this.removeEventFromIndex(record.id);
 
       // Add to spatial index and cache
       const spatialItem = this.eventToSpatialItem(record);
@@ -424,16 +414,9 @@ export class FilterProcessor {
           continue;
         }
 
-        // Check if event is private and user has access
-        if (record.isPrivate) {
-          // Check if user has access using the sharedWith metadata
-          const hasAccess = record.sharedWith?.some(
-            (share) => share.sharedWithId === userId || record.creatorId === userId
-          );
-
-          if (!hasAccess) {
-            continue; // Skip this user if they don't have access
-          }
+        // Apply privacy filter
+        if (!this.isEventAccessible(record, userId)) {
+          continue;
         }
 
         // Strip sensitive data before publishing
@@ -787,6 +770,20 @@ export class FilterProcessor {
     });
   }
 
+  /**
+   * Check if an event is accessible to a user (privacy filter)
+   */
+  private isEventAccessible(event: Event, userId: string): boolean {
+    // Public events are always accessible
+    if (!event.isPrivate) return true;
+
+    // Private events are accessible to creator and shared users
+    return (
+      event.creatorId === userId ||
+      (event.sharedWith?.some((share) => share.sharedWithId === userId) ?? false)
+    );
+  }
+
   private calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
     const R = 6371000; // Earth radius in meters
     const dLat = this.toRadians(lat2 - lat1);
@@ -848,15 +845,48 @@ export class FilterProcessor {
       // Strip sensitive data from all events
       const sanitizedEvents = events.map((event) => this.stripSensitiveData(event));
 
-      // Publish the filtered events to the user's channel
-      this.redisPub.publish(
-        `user:${userId}:filtered-events`,
-        JSON.stringify({
-          type,
+      const channel = `user:${userId}:filtered-events`;
+
+      // For viewport updates, send all events in one message to replace existing ones
+      if (type === "viewport") {
+        const message = {
+          type: "replace-all",
           events: sanitizedEvents,
           count: sanitizedEvents.length,
           timestamp: new Date().toISOString(),
-        })
+        };
+
+        console.log(`[Publish] Publishing viewport update to channel ${channel}:`, {
+          type: message.type,
+          eventCount: sanitizedEvents.length,
+          eventIds: sanitizedEvents.map((e) => e.id),
+          messageSize: JSON.stringify(message).length,
+        });
+
+        // Publish the filtered events to the user's channel
+        this.redisPub.publish(channel, JSON.stringify(message));
+      } else {
+        // For other types (like new events), send each event individually
+        for (const event of sanitizedEvents) {
+          const message = {
+            type: "add-event",
+            event,
+            timestamp: new Date().toISOString(),
+          };
+
+          console.log(`[Publish] Publishing event to channel ${channel}:`, {
+            type: message.type,
+            eventId: event.id,
+            messageSize: JSON.stringify(message).length,
+          });
+
+          // Publish the event to the user's channel
+          this.redisPub.publish(channel, JSON.stringify(message));
+        }
+      }
+
+      console.log(
+        `[Publish] Successfully published ${sanitizedEvents.length} events to ${channel}`
       );
 
       // Update stats
@@ -864,18 +894,18 @@ export class FilterProcessor {
 
       // If this was a replace-all operation, log additional details
       if (process.env.NODE_ENV !== "production" && type === "replace-all") {
-        console.log(`Sent complete replacement set to user ${userId}`);
+        console.log(`[Publish] Sent complete replacement set to user ${userId}`);
 
         // Log sample of event IDs for debugging
         if (sanitizedEvents.length > 0) {
           const sampleIds = sanitizedEvents
             .slice(0, Math.min(5, sanitizedEvents.length))
             .map((e) => e.id);
-          console.log(`Sample event IDs: ${sampleIds.join(", ")}`);
+          console.log(`[Publish] Sample event IDs: ${sampleIds.join(", ")}`);
         }
       }
     } catch (error) {
-      console.error(`Error publishing events to user ${userId}:`, error);
+      console.error(`[Publish] Error publishing events to user ${userId}:`, error);
     }
   }
 
@@ -885,24 +915,21 @@ export class FilterProcessor {
   private async fetchAllEvents(): Promise<Event[]> {
     try {
       const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
-      const maxRetries = 5;
-      const initialRetryDelay = 2000; // 2 seconds
-      const pageSize = 1000; // Number of events per page
-      let allEvents: Event[] = [];
+      const pageSize = 100;
       let currentPage = 1;
       let hasMorePages = true;
+      let allEvents: Event[] = [];
 
       while (hasMorePages) {
+        const maxRetries = 3;
+        const initialRetryDelay = 1000;
+
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            if (process.env.NODE_ENV !== "production") {
-              console.log(
-                `Attempt ${attempt}/${maxRetries} - Fetching page ${currentPage} from API at ${backendUrl}/api/internal/events`
-              );
-            }
-
             const response = await fetch(
-              `${backendUrl}/api/internal/events?page=${currentPage}&limit=${pageSize}`,
+              `${backendUrl}/api/internal/events?limit=${pageSize}&offset=${
+                (currentPage - 1) * pageSize
+              }`,
               {
                 headers: {
                   Accept: "application/json",
@@ -911,7 +938,7 @@ export class FilterProcessor {
             );
 
             if (!response.ok) {
-              throw new Error(`API returned status ${response.status}`);
+              throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             const data = await response.json();
@@ -945,13 +972,12 @@ export class FilterProcessor {
                 embedding: event.embedding,
                 status: event.status,
                 isPrivate: event.isPrivate || false,
+                creatorId: event.creatorId,
+                sharedWith: event.sharedWith || [],
               }));
 
-            // Filter out private events that the user doesn't have access to
-            const filteredEvents = await this.filterPrivateEvents(validEvents);
-
             // Add to our collection
-            allEvents = [...allEvents, ...filteredEvents];
+            allEvents = [...allEvents, ...validEvents];
 
             // Update pagination state
             hasMorePages = hasMore;
@@ -1001,7 +1027,7 @@ export class FilterProcessor {
   /**
    * Filter out private events that the user doesn't have access to
    */
-  private async filterPrivateEvents(events: Event[]): Promise<Event[]> {
+  private async filterPrivateEvents(events: Event[], userId: string): Promise<Event[]> {
     try {
       const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
       const privateEvents = events.filter((event) => event.isPrivate);
@@ -1012,44 +1038,99 @@ export class FilterProcessor {
 
       // Fetch all shares for private events in one batch
       const eventIds = privateEvents.map((event) => event.id);
-      const response = await fetch(`${backendUrl}/api/internal/events/shares/batch`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ eventIds }),
-      });
 
-      if (!response.ok) {
-        console.error("Failed to fetch event shares batch");
-        return events.filter((event) => !event.isPrivate); // Return only public events if fetch fails
+      // Implement retry logic with exponential backoff
+      const maxRetries = 3;
+      const initialRetryDelay = 1000; // 1 second
+      let lastError: any = null;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await fetch(`${backendUrl}/api/internal/events/shares/batch`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({ eventIds }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+
+            // Check if we hit rate limit
+            if (response.status === 429) {
+              const retryAfter = parseInt(response.headers.get("retry-after") || "60");
+              console.log(`Rate limited. Retry after ${retryAfter} seconds`);
+
+              if (attempt < maxRetries) {
+                const delay = retryAfter * 1000; // Convert to milliseconds
+                console.log(`Waiting ${delay}ms before retry attempt ${attempt + 1}`);
+                await new Promise((resolve) => setTimeout(resolve, delay));
+                continue;
+              }
+            }
+
+            throw new Error(
+              `HTTP error! status: ${response.status}, message: ${
+                errorData.message || "Unknown error"
+              }`
+            );
+          }
+
+          const shares = await response.json();
+
+          // Create a map of event IDs to their shared user IDs
+          const eventSharesMap = new Map<string, string[]>();
+          shares.forEach((share: any) => {
+            if (!eventSharesMap.has(share.eventId)) {
+              eventSharesMap.set(share.eventId, []);
+            }
+            eventSharesMap.get(share.eventId)!.push(share.sharedWithId);
+          });
+
+          // Filter events based on privacy and access
+          return events.filter((event) => {
+            if (!event.isPrivate) {
+              return true; // Keep all public events
+            }
+
+            // For private events, check if the user has access
+            const sharedUserIds = eventSharesMap.get(event.id) || [];
+
+            // Log access check details for debugging
+            console.log(`Access check for private event ${event.id}:`, {
+              eventCreatorId: event.creatorId,
+              userId,
+              sharedUserIds,
+              isCreator: userId === event.creatorId,
+              isShared: sharedUserIds.includes(userId),
+            });
+
+            // Show to creator OR shared users
+            return userId === event.creatorId || sharedUserIds.includes(userId);
+          });
+        } catch (error) {
+          lastError = error;
+          console.error(`Attempt ${attempt}/${maxRetries} failed:`, error);
+
+          if (attempt < maxRetries) {
+            const delay = initialRetryDelay * Math.pow(2, attempt - 1);
+            console.log(`Waiting ${delay}ms before retry attempt ${attempt + 1}`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+        }
       }
 
-      const shares = await response.json();
-
-      // Create a map of event IDs to their shared user IDs
-      const eventSharesMap = new Map<string, string[]>();
-      shares.forEach((share: any) => {
-        if (!eventSharesMap.has(share.eventId)) {
-          eventSharesMap.set(share.eventId, []);
-        }
-        eventSharesMap.get(share.eventId)!.push(share.sharedWithId);
-      });
-
-      // Filter events based on privacy and access
-      return events.filter((event) => {
-        if (!event.isPrivate) {
-          return true; // Keep all public events
-        }
-
-        // For private events, check if the user has access
-        const sharedUserIds = eventSharesMap.get(event.id) || [];
-        return sharedUserIds.includes(event.creatorId || ""); // Only show to creator and shared users
-      });
+      // If we've exhausted all retries, log the error and keep all events
+      console.error("All retry attempts failed for fetching event shares:", lastError);
+      console.warn("Keeping all events due to persistent share fetch failure");
+      return events;
     } catch (error) {
       console.error("Error filtering private events:", error);
-      return events.filter((event) => !event.isPrivate); // Return only public events if there's an error
+      // Instead of filtering out all private events, keep them and log the error
+      console.warn("Keeping all events due to error in filtering");
+      return events;
     }
   }
 
@@ -1058,19 +1139,27 @@ export class FilterProcessor {
    */
   private processInitialEventsBatch(events: Event[]): void {
     try {
+      // Remove duplicates based on event ID
+      const uniqueEvents = Array.from(new Map(events.map((event) => [event.id, event])).values());
+
       // Format for RBush
-      const items = events.map((event) => this.eventToSpatialItem(event));
+      const items = uniqueEvents.map((event) => this.eventToSpatialItem(event));
+
+      // Remove any existing items with the same IDs
+      items.forEach((item) => {
+        this.removeEventFromIndex(item.id);
+      });
 
       // Bulk load for performance
       this.spatialIndex.load(items);
 
       // Cache the full events
-      events.forEach((event) => {
+      uniqueEvents.forEach((event) => {
         this.eventCache.set(event.id, event);
       });
 
       if (process.env.NODE_ENV !== "production") {
-        console.log(`Processed batch of ${items.length} events`);
+        console.log(`Processed batch of ${items.length} unique events`);
         if (items.length > 0) {
           console.log("Sample spatial item:", items[0]);
         }
