@@ -95,6 +95,14 @@ export class FilterProcessor {
         console.log("Initializing spatial index...");
       }
 
+      // Clear existing cache and spatial index
+      this.eventCache.clear();
+      this.spatialIndex.clear();
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Cache] Cleared existing cache and spatial index");
+      }
+
       // Fetch events from the API or database
       const events = await this.fetchAllEvents();
 
@@ -129,13 +137,14 @@ export class FilterProcessor {
       // Bulk load for performance
       this.spatialIndex.load(items);
 
-      // Also cache the full events
+      // Cache the full events
       validEvents.forEach((event) => {
         this.eventCache.set(event.id, event);
       });
 
       if (process.env.NODE_ENV !== "production") {
-        console.log(`Spatial index initialized with ${items.length} events`);
+        console.log(`[Cache] Initialized with ${items.length} events`);
+        console.log(`[Cache] Current cache size: ${this.eventCache.size}`);
         if (items.length > 0) {
           console.log("Sample spatial item:", items[0]);
         }
@@ -317,10 +326,12 @@ export class FilterProcessor {
       // Get all events from the spatial index
       const allEvents = Array.from(this.eventCache.values());
 
+      console.log(allEvents);
+
       // Apply user's filters
       const userFilters = this.userFilters.get(userId) || [];
       const filteredEvents = allEvents.filter((event) =>
-        this.eventMatchesFilters(event, userFilters)
+        this.eventMatchesFilters(event, userFilters, userId)
       );
 
       // Filter private events for this specific user
@@ -344,15 +355,60 @@ export class FilterProcessor {
       // Query spatial index for events in viewport
       const spatialItems = this.spatialIndex.search(viewport);
 
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Viewport] Raw spatial items:", {
+          count: spatialItems.length,
+          ids: spatialItems.map((item) => item.id),
+        });
+      }
+
+      // Deduplicate spatial items by ID
+      const uniqueSpatialItems = Array.from(
+        new Map(spatialItems.map((item) => [item.id, item])).values()
+      );
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Viewport] Unique spatial items:", {
+          count: uniqueSpatialItems.length,
+          ids: uniqueSpatialItems.map((item) => item.id),
+        });
+      }
+
       // Get the full events from cache
-      const eventsInViewport = spatialItems
+      const eventsInViewport = uniqueSpatialItems
         .map((item) => this.eventCache.get(item.id))
         .filter(Boolean) as Event[];
 
-      // Apply attribute filters and privacy check
-      const filteredEvents = eventsInViewport.filter(
-        (event) => this.eventMatchesFilters(event, filters) && this.isEventAccessible(event, userId)
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Viewport] Events from cache:", {
+          count: eventsInViewport.length,
+          ids: eventsInViewport.map((event) => event.id),
+        });
+      }
+
+      // First apply privacy filter
+      const accessibleEvents = eventsInViewport.filter((event) =>
+        this.isEventAccessible(event, userId)
       );
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Viewport] Accessible events:", {
+          count: accessibleEvents.length,
+          ids: accessibleEvents.map((event) => event.id),
+        });
+      }
+
+      // Then apply user's filters
+      const filteredEvents = accessibleEvents.filter((event) =>
+        this.eventMatchesFilters(event, filters)
+      );
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Viewport] Final filtered events:", {
+          count: filteredEvents.length,
+          ids: filteredEvents.map((event) => event.id),
+        });
+      }
 
       // Send to user's channel
       this.publishFilteredEvents(userId, "viewport", filteredEvents);
@@ -369,11 +425,19 @@ export class FilterProcessor {
     try {
       const { operation, record } = event;
 
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[Cache] Processing ${operation} for event ${record.id}`);
+      }
+
       // Handle deletion
       if (operation === "DELETE") {
         // Remove from spatial index and cache
         this.removeEventFromIndex(record.id);
         this.eventCache.delete(record.id);
+
+        if (process.env.NODE_ENV !== "production") {
+          console.log(`[Cache] Deleted event ${record.id} from cache`);
+        }
 
         // Publish deletion event to all users
         await this.redisPub.publish(
@@ -387,13 +451,23 @@ export class FilterProcessor {
         return;
       }
 
-      // Always remove from index before adding/updating
-      this.removeEventFromIndex(record.id);
+      // For CREATE/UPDATE operations
+      if (operation === "UPDATE") {
+        this.removeEventFromIndex(record.id);
+        if (process.env.NODE_ENV !== "production") {
+          console.log(`[Cache] Removed event ${record.id} from spatial index for update`);
+        }
+      }
 
       // Add to spatial index and cache
       const spatialItem = this.eventToSpatialItem(record);
       this.spatialIndex.insert(spatialItem);
       this.eventCache.set(record.id, record);
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[Cache] Added/Updated event ${record.id} in cache`);
+        console.log(`[Cache] Current cache size: ${this.eventCache.size}`);
+      }
 
       // Calculate event's spatial bounds for interest matching
       const [lng, lat] = record.location.coordinates;
@@ -407,17 +481,23 @@ export class FilterProcessor {
       // Get all active viewports that intersect with this event
       const intersectingViewports = await this.getIntersectingViewports(eventBounds);
 
+      // Track which users we've sent the event to
+      const sentToUsers = new Set<string>();
+
       // For each intersecting viewport, check if the event matches user filters
       for (const { userId, viewport } of intersectingViewports) {
-        const filters = this.userFilters.get(userId);
-        if (!filters || !this.eventMatchesFilters(record, filters)) {
+        // Skip if we've already sent to this user
+        if (sentToUsers.has(userId)) {
           continue;
         }
 
-        // Apply privacy filter
-        if (!this.isEventAccessible(record, userId)) {
+        const filters = this.userFilters.get(userId);
+        if (!filters || !this.eventMatchesFilters(record, filters, userId)) {
           continue;
         }
+
+        // Mark this user as having received the event
+        sentToUsers.add(userId);
 
         // Strip sensitive data before publishing
         const sanitizedEvent = this.stripSensitiveData(record);
@@ -505,9 +585,14 @@ export class FilterProcessor {
     }
   }
 
-  private eventMatchesFilters(event: Event, filters: Filter[]): boolean {
+  private eventMatchesFilters(event: Event, filters: Filter[], userId?: string): boolean {
     // If no filters, match everything
     if (filters.length === 0) return true;
+
+    // First check privacy if userId is provided
+    if (userId && !this.isEventAccessible(event, userId)) {
+      return false;
+    }
 
     // Event matches if it satisfies ANY filter
     return filters.some((filter) => {
@@ -976,8 +1061,11 @@ export class FilterProcessor {
                 sharedWith: event.sharedWith || [],
               }));
 
-            // Add to our collection
-            allEvents = [...allEvents, ...validEvents];
+            // Add to our collection, ensuring no duplicates
+            const newEvents = validEvents.filter(
+              (event: Event) => !allEvents.some((existing) => existing.id === event.id)
+            );
+            allEvents = [...allEvents, ...newEvents];
 
             // Update pagination state
             hasMorePages = hasMore;
@@ -1142,6 +1230,12 @@ export class FilterProcessor {
       // Remove duplicates based on event ID
       const uniqueEvents = Array.from(new Map(events.map((event) => [event.id, event])).values());
 
+      if (process.env.NODE_ENV !== "production") {
+        console.log(
+          `[Cache] Processing batch of ${events.length} events, ${uniqueEvents.length} unique`
+        );
+      }
+
       // Format for RBush
       const items = uniqueEvents.map((event) => this.eventToSpatialItem(event));
 
@@ -1159,7 +1253,8 @@ export class FilterProcessor {
       });
 
       if (process.env.NODE_ENV !== "production") {
-        console.log(`Processed batch of ${items.length} unique events`);
+        console.log(`[Cache] Added ${items.length} events to cache`);
+        console.log(`[Cache] Current cache size: ${this.eventCache.size}`);
         if (items.length > 0) {
           console.log("Sample spatial item:", items[0]);
         }
