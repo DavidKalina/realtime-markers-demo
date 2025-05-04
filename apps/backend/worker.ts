@@ -449,6 +449,20 @@ async function initializeWorker() {
       } else if (job.type === "process_private_event") {
         console.log(`[Worker] Processing private event job ${jobId}`);
 
+        // Validate UUID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+        if (job.data.creatorId && !uuidRegex.test(job.data.creatorId)) {
+          await jobQueue.updateJobStatus(jobId, {
+            status: "failed",
+            progress: 1,
+            error: "Invalid creator ID format",
+            message: "The creator ID is not in a valid UUID format.",
+            completed: new Date().toISOString(),
+          });
+          return;
+        }
+
         // Check if creator exists
         if (job.data.creatorId) {
           const creator = await AppDataSource.getRepository(User).findOne({
@@ -464,6 +478,22 @@ async function initializeWorker() {
               completed: new Date().toISOString(),
             });
             return;
+          }
+        }
+
+        // Validate shared user IDs if present
+        if (job.data.sharedWithIds) {
+          for (const userId of job.data.sharedWithIds) {
+            if (!uuidRegex.test(userId)) {
+              await jobQueue.updateJobStatus(jobId, {
+                status: "failed",
+                progress: 1,
+                error: "Invalid shared user ID format",
+                message: `The shared user ID ${userId} is not in a valid UUID format.`,
+                completed: new Date().toISOString(),
+              });
+              return;
+            }
           }
         }
 

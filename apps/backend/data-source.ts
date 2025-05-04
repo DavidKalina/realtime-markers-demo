@@ -12,6 +12,7 @@ import { UserLevel } from "./entities/UserLevel";
 import { Friendship } from "./entities/Friendship";
 import { EventShare } from "./entities/EventShare";
 import { InitialSchemaAndSeed1710000000000 } from "./migrations/1710000000000-InitialSchemaAndSeed";
+import { AddLevelingSystem1710000000003 } from "./migrations/AddLevelingSystem1710000000003";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -29,7 +30,7 @@ const AppDataSource = new DataSource({
     EventShare,
     Friendship,
   ],
-  migrations: [InitialSchemaAndSeed1710000000000],
+  migrations: [InitialSchemaAndSeed1710000000000, AddLevelingSystem1710000000003],
   migrationsTableName: "migrations",
   migrationsRun: true, // Automatically run migrations on startup
   logging: ["query", "error", "schema"], // More detailed logging

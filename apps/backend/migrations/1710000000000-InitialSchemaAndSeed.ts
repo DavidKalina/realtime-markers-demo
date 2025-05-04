@@ -176,35 +176,6 @@ export class InitialSchemaAndSeed1710000000000 implements MigrationInterface {
       CREATE INDEX IF NOT EXISTS "IDX_filters_is_active" ON "filters" ("is_active");
     `);
 
-    // Create levels table
-    await queryRunner.query(`
-      CREATE TABLE "levels" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "level" integer NOT NULL,
-        "title" character varying NOT NULL,
-        "xpRequired" integer NOT NULL,
-        "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
-        "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_levels" PRIMARY KEY ("id"),
-        CONSTRAINT "UQ_levels_level" UNIQUE ("level")
-      )
-    `);
-
-    // Create user_levels table
-    await queryRunner.query(`
-      CREATE TABLE "user_levels" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "user_id" uuid NOT NULL,
-        "level_id" uuid NOT NULL,
-        "current_xp" integer NOT NULL DEFAULT 0,
-        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
-        "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_user_levels" PRIMARY KEY ("id"),
-        CONSTRAINT "FK_user_levels_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_user_levels_level" FOREIGN KEY ("level_id") REFERENCES "levels"("id") ON DELETE CASCADE
-      )
-    `);
-
     // Create friendships table
     await queryRunner.query(`
       CREATE TABLE "friendships" (

@@ -57,12 +57,113 @@ export class AddLevelingSystem1710000000003 implements MigrationInterface {
       ON DELETE CASCADE
     `);
 
-    // Add leveling columns to users table
-    await queryRunner.query(`
-      ALTER TABLE "users"
-      ADD COLUMN "total_xp" integer NOT NULL DEFAULT 0,
-      ADD COLUMN "current_title" character varying
-    `);
+    // Seed levels
+    const levels = [
+      {
+        levelNumber: 1,
+        title: "Novice Explorer",
+        requiredXp: 0,
+        rewards: [],
+      },
+      {
+        levelNumber: 2,
+        title: "Event Scout",
+        requiredXp: 100,
+        rewards: [
+          {
+            type: "SCAN_LIMIT_INCREASE",
+            value: 5,
+          },
+        ],
+      },
+      {
+        levelNumber: 3,
+        title: "Community Guide",
+        requiredXp: 250,
+        rewards: [
+          {
+            type: "SPECIAL_BADGE",
+            value: "scout_badge",
+          },
+        ],
+      },
+      {
+        levelNumber: 4,
+        title: "Discovery Aficionado",
+        requiredXp: 500,
+        rewards: [],
+      },
+      {
+        levelNumber: 5,
+        title: "Event Maestro",
+        requiredXp: 1000,
+        rewards: [
+          {
+            type: "SCAN_LIMIT_INCREASE",
+            value: 10,
+          },
+          {
+            type: "CUSTOM_THEME",
+            value: "explorer_theme",
+          },
+        ],
+      },
+      {
+        levelNumber: 6,
+        title: "Urban Legend",
+        requiredXp: 2000,
+        rewards: [],
+      },
+      {
+        levelNumber: 7,
+        title: "Local Hero",
+        requiredXp: 3500,
+        rewards: [
+          {
+            type: "EMOJI_PACK",
+            value: "adventure_emojis",
+          },
+        ],
+      },
+      {
+        levelNumber: 8,
+        title: "Grand Explorer",
+        requiredXp: 5000,
+        rewards: [],
+      },
+      {
+        levelNumber: 9,
+        title: "Discovery Master",
+        requiredXp: 7500,
+        rewards: [],
+      },
+      {
+        levelNumber: 10,
+        title: "Event Visionary",
+        requiredXp: 10000,
+        rewards: [
+          {
+            type: "SCAN_LIMIT_INCREASE",
+            value: 25,
+          },
+          {
+            type: "PREMIUM_FEATURE",
+            value: "advanced_filters",
+          },
+        ],
+      },
+    ];
+
+    // Insert levels
+    for (const level of levels) {
+      await queryRunner.query(
+        `
+        INSERT INTO "levels" ("level_number", "title", "required_xp", "rewards")
+        VALUES ($1, $2, $3, $4)
+      `,
+        [level.levelNumber, level.title, level.requiredXp, JSON.stringify(level.rewards)]
+      );
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -91,12 +192,5 @@ export class AddLevelingSystem1710000000003 implements MigrationInterface {
     await queryRunner.query(`
       DROP TABLE "levels"
     `);
-
-    // Remove leveling columns from users table
-    await queryRunner.query(`
-      ALTER TABLE "users"
-      DROP COLUMN "total_xp",
-      DROP COLUMN "current_title"
-    `);
   }
-} 
+}
