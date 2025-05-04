@@ -1,24 +1,48 @@
-import { Entity, Column, ManyToMany, JoinTable, OneToMany } from "typeorm";
-import { Event } from "./Event";
-import { User } from "./User";
+import { type Point } from "geojson";
+import { Column, Entity, JoinTable, ManyToMany, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Category } from "./Category";
+import { User } from "./User";
 import { UserEventSave } from "./UserEventSave";
 
-export enum PrivateEventStatus {
-  DRAFT = "DRAFT",
-  SCHEDULED = "SCHEDULED",
-  COMPLETED = "COMPLETED",
-  CANCELLED = "CANCELLED",
-}
-
 @Entity("private_events")
-export class PrivateEvent extends Event {
+export class PrivateEvent {
+  @PrimaryGeneratedColumn("uuid")
+  id!: string;
+
+  @Column({ name: "event_id", type: "uuid" })
+  eventId!: string;
+
+  @Column({ type: "varchar", default: "📍" })
+  emoji?: string;
+
+  @Column({ type: "varchar", nullable: true, name: "emoji_description" })
+  emojiDescription?: string;
+
+  @Column({ type: "varchar" })
+  title!: string;
+
+  @Column({ type: "text", nullable: true })
+  description?: string;
+
+  @Column({ name: "event_date", type: "timestamptz" })
+  date!: Date;
+
+  @Column({ type: "varchar", nullable: true, default: "UTC" })
+  timezone?: string;
+
+  @Column({ type: "text", nullable: true })
+  address?: string;
+
+  @Column({ type: "text", nullable: true, name: "location_notes" })
+  locationNotes?: string;
+
   @Column({
-    type: "enum",
-    enum: PrivateEventStatus,
-    default: PrivateEventStatus.DRAFT,
+    type: "geometry",
+    spatialFeatureType: "Point",
+    srid: 4326,
+    nullable: false,
   })
-  privateStatus!: PrivateEventStatus;
+  location!: Point;
 
   @Column({ type: "boolean", default: false })
   isProcessedByAI!: boolean;
@@ -48,9 +72,9 @@ export class PrivateEvent extends Event {
     joinColumn: { name: "event_id", referencedColumnName: "id" },
     inverseJoinColumn: { name: "category_id", referencedColumnName: "id" },
   })
-  declare categories: Category[];
+  categories!: Category[];
 
   // Save relationship
   @OneToMany(() => UserEventSave, (save) => save.event)
-  declare saves: UserEventSave[];
+  saves!: UserEventSave[];
 }

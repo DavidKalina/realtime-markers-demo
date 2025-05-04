@@ -1,23 +1,18 @@
 import {
-  addDays,
   addMonths,
   eachDayOfInterval,
   endOfMonth,
   format,
   isSameMonth,
   isToday,
-  parseISO,
   startOfMonth,
   subMonths,
-  setHours,
-  setMinutes,
 } from "date-fns";
 import * as Haptics from "expo-haptics";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { COLORS } from "./Layout/ScreenLayout";
-import ClockTimePicker from "./ClockTimePicker";
 
 // Helper for dimmed text color
 const getDimmedTextColor = (baseColor: string, opacity: number = 0.5) => {
@@ -42,35 +37,24 @@ const getRgbaBackground = (hexColor: string, opacity: number) => {
 };
 
 interface DateTimeSelectorProps {
-  startDate?: string;
-  endDate?: string;
-  onDateRangeSelect: (startDate: string | null, endDate: string | null) => void;
+  selectedDate?: string;
+  onDateSelect: (date: string | null) => void;
   isLoading?: boolean;
 }
 
 const DateTimeSelector: React.FC<DateTimeSelectorProps> = ({
-  startDate,
-  endDate,
-  onDateRangeSelect,
+  selectedDate,
+  onDateSelect,
   isLoading = false,
 }) => {
-  const [selectedStartDate, setSelectedStartDate] = useState<string | undefined>(startDate);
-  const [selectedEndDate, setSelectedEndDate] = useState<string | undefined>(endDate);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
-  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
-  // Initialize with default 2-week range if no dates are provided
+  // Initialize with today's date if no date is provided
   React.useEffect(() => {
-    if (!selectedStartDate || !selectedEndDate) {
+    if (!selectedDate) {
       const today = new Date();
-      const twoWeeksFromNow = addDays(today, 14);
-      setSelectedStartDate(format(today, "yyyy-MM-dd'T'HH:mm"));
-      setSelectedEndDate(format(twoWeeksFromNow, "yyyy-MM-dd'T'HH:mm"));
-      onDateRangeSelect(
-        format(today, "yyyy-MM-dd'T'HH:mm"),
-        format(twoWeeksFromNow, "yyyy-MM-dd'T'HH:mm")
-      );
+      const dateString = format(today, "yyyy-MM-dd");
+      onDateSelect(dateString);
     }
   }, []);
 
@@ -95,67 +79,16 @@ const DateTimeSelector: React.FC<DateTimeSelectorProps> = ({
     return eachDayOfInterval({ start, end });
   }, [currentMonth]);
 
-  // Handle time selection
-  const handleStartTimeChange = useCallback(
-    (newTime: string) => {
-      setShowStartTimePicker(false);
-      if (selectedStartDate) {
-        const date = parseISO(selectedStartDate);
-        const newDate = parseISO(newTime);
-        const updatedDate = setHours(setMinutes(date, newDate.getMinutes()), newDate.getHours());
-        const newDateString = format(updatedDate, "yyyy-MM-dd'T'HH:mm");
-        setSelectedStartDate(newDateString);
-        onDateRangeSelect(newDateString, selectedEndDate || null);
-      }
-    },
-    [selectedStartDate, selectedEndDate, onDateRangeSelect]
-  );
-
-  const handleEndTimeChange = useCallback(
-    (newTime: string) => {
-      setShowEndTimePicker(false);
-      if (selectedEndDate) {
-        const date = parseISO(selectedEndDate);
-        const newDate = parseISO(newTime);
-        const updatedDate = setHours(setMinutes(date, newDate.getMinutes()), newDate.getHours());
-        const newDateString = format(updatedDate, "yyyy-MM-dd'T'HH:mm");
-        setSelectedEndDate(newDateString);
-        onDateRangeSelect(selectedStartDate || null, newDateString);
-      }
-    },
-    [selectedStartDate, selectedEndDate, onDateRangeSelect]
-  );
-
   // Handle date selection
   const handleDayPress = useCallback(
     (date: Date) => {
       if (isPastDate(date)) return;
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const dateString = format(date, "yyyy-MM-dd'T'HH:mm");
-
-      if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
-        // Start new selection
-        setSelectedStartDate(dateString);
-        setSelectedEndDate(undefined);
-        onDateRangeSelect(dateString, null);
-      } else {
-        // Complete selection
-        const start = parseISO(selectedStartDate);
-        const end = parseISO(dateString);
-
-        if (end < start) {
-          // If end date is before start date, swap them
-          setSelectedEndDate(selectedStartDate);
-          setSelectedStartDate(dateString);
-          onDateRangeSelect(dateString, selectedStartDate);
-        } else {
-          setSelectedEndDate(dateString);
-          onDateRangeSelect(selectedStartDate, dateString);
-        }
-      }
+      const dateString = format(date, "yyyy-MM-dd");
+      onDateSelect(dateString);
     },
-    [selectedStartDate, selectedEndDate, isPastDate, onDateRangeSelect]
+    [isPastDate, onDateSelect]
   );
 
   // Handle month navigation
@@ -171,43 +104,17 @@ const DateTimeSelector: React.FC<DateTimeSelectorProps> = ({
     setCurrentMonth((prev) => addMonths(prev, 1));
   }, []);
 
-  // Format date range text
-  const dateRangeText = useMemo(() => {
-    if (!selectedStartDate || !selectedEndDate) return "";
-
-    const start = parseISO(selectedStartDate);
-    const end = parseISO(selectedEndDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return "1 day";
-    if (diffDays === 1) return "1 day";
-    if (diffDays < 7) return `${diffDays} days`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks`;
-    return `${Math.floor(diffDays / 30)} months`;
-  }, [selectedStartDate, selectedEndDate]);
-
   // Get day styles based on selection state
   const getDayStyles = useCallback(
     (date: Date) => {
       const dateString = format(date, "yyyy-MM-dd");
-      const isSelected = dateString === selectedStartDate || dateString === selectedEndDate;
-      const isInRange =
-        selectedStartDate &&
-        selectedEndDate &&
-        date > parseISO(selectedStartDate) &&
-        date < parseISO(selectedEndDate);
-      const isStart = dateString === selectedStartDate;
-      const isEnd = dateString === selectedEndDate;
+      const isSelected = dateString === selectedDate;
       const isDisabled = isPastDate(date);
 
       return {
         container: [
           styles.dayContainer,
           isSelected && styles.selectedDay,
-          isInRange && styles.rangeDay,
-          isStart && styles.startDay,
-          isEnd && styles.endDay,
           isDisabled && styles.disabledDay,
         ],
         text: [
@@ -219,7 +126,7 @@ const DateTimeSelector: React.FC<DateTimeSelectorProps> = ({
         ],
       };
     },
-    [selectedStartDate, selectedEndDate, currentMonth, isPastDate]
+    [selectedDate, currentMonth, isPastDate]
   );
 
   return (
@@ -272,53 +179,15 @@ const DateTimeSelector: React.FC<DateTimeSelectorProps> = ({
         </View>
       </View>
 
-      <View style={styles.dateRangeInfo}>
-        {selectedStartDate && selectedEndDate ? (
-          <>
-            <View style={styles.timeSelectionContainer}>
-              <TouchableOpacity
-                style={styles.timeButton}
-                onPress={() => setShowStartTimePicker(true)}
-                disabled={isLoading}
-              >
-                <Text style={styles.timeButtonText}>
-                  {format(parseISO(selectedStartDate), "h:mm a")}
-                </Text>
-              </TouchableOpacity>
-              <Text style={styles.dateRangeText}>
-                {format(parseISO(selectedStartDate), "MMM d")} -{" "}
-                {format(parseISO(selectedEndDate), "MMM d")}
-              </Text>
-              <TouchableOpacity
-                style={styles.timeButton}
-                onPress={() => setShowEndTimePicker(true)}
-                disabled={isLoading}
-              >
-                <Text style={styles.timeButtonText}>
-                  {format(parseISO(selectedEndDate), "h:mm a")}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.dateRangeDuration}>{dateRangeText}</Text>
-          </>
+      <View style={styles.dateInfo}>
+        {selectedDate ? (
+          <Text style={styles.selectedDateText}>
+            {format(new Date(selectedDate), "MMMM d, yyyy")}
+          </Text>
         ) : (
-          <Text style={styles.placeholderText}>Select a date range</Text>
+          <Text style={styles.placeholderText}>Select a date</Text>
         )}
       </View>
-
-      <ClockTimePicker
-        time={selectedStartDate || format(new Date(), "yyyy-MM-dd'T'HH:mm")}
-        onChange={handleStartTimeChange}
-        onClose={() => setShowStartTimePicker(false)}
-        isVisible={showStartTimePicker}
-      />
-
-      <ClockTimePicker
-        time={selectedEndDate || format(new Date(), "yyyy-MM-dd'T'HH:mm")}
-        onChange={handleEndTimeChange}
-        onClose={() => setShowEndTimePicker(false)}
-        isVisible={showEndTimePicker}
-      />
     </View>
   );
 };
@@ -398,17 +267,6 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontWeight: "600",
   },
-  rangeDay: {
-    backgroundColor: getRgbaBackground(COLORS.accent, 0.15),
-  },
-  startDay: {
-    borderTopLeftRadius: 10,
-    borderBottomLeftRadius: 10,
-  },
-  endDay: {
-    borderTopRightRadius: 10,
-    borderBottomRightRadius: 10,
-  },
   otherMonthDay: {
     color: COLORS.textSecondary,
   },
@@ -416,24 +274,18 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontWeight: "600",
   },
-  dateRangeInfo: {
+  dateInfo: {
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: COLORS.divider,
     alignItems: "center",
   },
-  dateRangeText: {
+  selectedDateText: {
     fontSize: 15,
     fontWeight: "700",
     color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
     letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  dateRangeDuration: {
-    fontSize: 13,
-    color: COLORS.accent,
-    fontFamily: "SpaceMono",
   },
   placeholderText: {
     fontSize: 13,
@@ -445,26 +297,6 @@ const styles = StyleSheet.create({
   },
   disabledDayText: {
     color: COLORS.textSecondary,
-  },
-  timeSelectionContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  timeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: COLORS.buttonBackground,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-    marginHorizontal: 8,
-  },
-  timeButtonText: {
-    fontSize: 14,
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
   },
 });
 

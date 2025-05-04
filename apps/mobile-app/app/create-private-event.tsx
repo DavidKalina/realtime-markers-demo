@@ -17,8 +17,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { usePrivateEvent } from "@/hooks/usePrivateEvent";
 import { format, parseISO } from "date-fns";
-import ClockDial from "@/components/ClockDial";
+import ClockDial from "@/components/DigitalClock";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import DigitalClock from "@/components/DigitalClock";
 
 const CreatePrivateEvent = () => {
   const router = useRouter();
@@ -159,17 +160,18 @@ const CreatePrivateEvent = () => {
   );
 
   const handleSubmit = async () => {
-    if (!title || !startDate || !endDate || !selectedLocation || selectedFriendIds.length === 0) {
+    if (!title || !startDate || !selectedLocation) {
       console.error("Missing required fields");
       return;
     }
 
+    console.log("startDate", startDate);
     try {
       const event = await createEvent({
         title,
         description,
         startDate,
-        endDate,
+        endDate: "",
         location: selectedLocation,
         invitedUserIds: selectedFriendIds,
       });
@@ -244,15 +246,20 @@ const CreatePrivateEvent = () => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Date & Time</Text>
-          <DateTimeSelector
-            startDate={startDate || undefined}
-            endDate={endDate || undefined}
-            onDateRangeSelect={handleDateRangeSelect}
-            isLoading={isSubmitting}
-          />
+          <DateTimeSelector isLoading={isSubmitting} onDateSelect={setStartDate} />
 
           <GestureHandlerRootView>
-            <ClockDial onValueChange={() => {}} />
+            <DigitalClock
+              onValueChange={(hours, minutes) => {
+                if (startDate) {
+                  const date = parseISO(startDate);
+                  const newDate = new Date(date);
+                  newDate.setHours(hours);
+                  newDate.setMinutes(minutes);
+                  setStartDate(newDate.toISOString());
+                }
+              }}
+            />
           </GestureHandlerRootView>
 
           {startDate && endDate && (
@@ -276,22 +283,10 @@ const CreatePrivateEvent = () => {
         <TouchableOpacity
           style={[
             styles.submitButton,
-            (!title ||
-              !startDate ||
-              !endDate ||
-              !selectedLocation ||
-              selectedFriendIds.length === 0) &&
-              styles.submitButtonDisabled,
+            (!title || !startDate || !endDate || !selectedLocation) && styles.submitButtonDisabled,
           ]}
           onPress={handleSubmit}
-          disabled={
-            !title ||
-            !startDate ||
-            !endDate ||
-            !selectedLocation ||
-            selectedFriendIds.length === 0 ||
-            isSubmitting
-          }
+          disabled={!title || !startDate || !selectedLocation || isSubmitting}
           activeOpacity={0.7}
         >
           <Text style={styles.submitButtonText}>

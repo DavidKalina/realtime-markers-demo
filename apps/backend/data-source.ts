@@ -10,6 +10,7 @@ import { Filter } from "./entities/Filter";
 import { Level } from "./entities/Level";
 import { UserLevel } from "./entities/UserLevel";
 import { Friendship } from "./entities/Friendship";
+import { PrivateEvent } from "./entities/PrivateEvent";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -25,6 +26,7 @@ const AppDataSource = new DataSource({
     Level,
     UserLevel,
     Friendship,
+    PrivateEvent,
   ],
   synchronize: true, // This auto-creates the tables
   logging: ["query", "error", "schema"], // More detailed logging

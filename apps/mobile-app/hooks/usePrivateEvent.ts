@@ -8,12 +8,12 @@ const privateEventSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   eventDate: z.string().min(1, "Start date is required"),
-  endDate: z.string().min(1, "End date is required"),
+  endDate: z.string().optional(),
   location: z.object({
     type: z.literal("Point"),
     coordinates: z.tuple([z.number(), z.number()]),
   }),
-  invitedUserIds: z.array(z.string()).min(1, "At least one friend must be invited"),
+  invitedUserIds: z.array(z.string()).optional(),
   emoji: z.string().default("🎉"),
   isProcessedByAI: z.boolean().default(true),
 });
@@ -43,6 +43,8 @@ export const usePrivateEvent = () => {
           coordinates: formData.location.coordinates,
         },
       });
+
+      console.log("validatedData", validatedData);
 
       // Create the event using the API client
       const event = await apiClient.createPrivateEvent(validatedData);

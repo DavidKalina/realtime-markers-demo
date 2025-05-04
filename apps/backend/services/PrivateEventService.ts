@@ -1,5 +1,5 @@
 import { DataSource, Repository } from "typeorm";
-import { PrivateEvent, PrivateEventStatus } from "../entities/PrivateEvent";
+import { PrivateEvent } from "../entities/PrivateEvent";
 import { User } from "../entities/User";
 import { Category } from "../entities/Category";
 import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
@@ -7,15 +7,17 @@ import { type Point } from "geojson";
 import { CacheService } from "./shared/CacheService";
 import { OpenAIService, OpenAIModel } from "./shared/OpenAIService";
 import { In } from "typeorm";
+import { Event } from "../entities/Event";
 
 interface CreatePrivateEventInput {
   emoji: string;
   emojiDescription?: string;
   title: string;
   description?: string;
-  eventDate: Date;
-  endDate?: Date;
+  date: Date;
   location?: Point;
+  address?: string;
+  locationNotes?: string;
   locationClues?: string[];
   categoryIds?: string[];
   creatorId: string;
@@ -27,7 +29,7 @@ interface CreatePrivateEventInput {
 }
 
 interface UpdatePrivateEventInput extends Partial<CreatePrivateEventInput> {
-  privateStatus?: PrivateEventStatus;
+  isProcessedByAI?: boolean;
 }
 
 export class PrivateEventService {
@@ -48,52 +50,33 @@ export class PrivateEventService {
    */
   async createEvent(input: CreatePrivateEventInput): Promise<PrivateEvent> {
     return this.dataSource.transaction(async (transactionalEntityManager) => {
-      // Resolve location if locationClues are provided
-      let location: Point | undefined;
-      let address: string | undefined;
-      let locationNotes: string | undefined;
+      // Create base event first
+      const baseEvent = transactionalEntityManager.create(Event, {
+        emoji: input.emoji,
+        emojiDescription: input.emojiDescription,
+        title: input.title,
+        description: input.description,
+        date: input.date,
+        location: input.location,
+        address: input.address,
+        timezone: input.timezone,
+        creatorId: input.creatorId,
+      });
+      const savedEvent = await transactionalEntityManager.save(baseEvent);
 
-      if (input.locationClues?.length) {
-        const locationResult = await this.locationService.resolveLocation(input.locationClues);
-        location = locationResult.coordinates;
-        address = locationResult.address;
-        locationNotes = locationResult.locationNotes;
-      } else if (input.location) {
-        location = input.location;
-        // Get address from coordinates
-        const addressResult = await this.locationService.reverseGeocodeCityState(
-          input.location.coordinates[1],
-          input.location.coordinates[0]
-        );
-        address = addressResult;
-      }
-
-      // Get invited users
-      const invitedUsers = await this.userRepository.findByIds(input.invitedUserIds);
-
-      // Get categories if provided
-      let categories: Category[] = [];
-      if (input.categoryIds?.length) {
-        categories = await this.categoryRepository.findByIds(input.categoryIds);
-      }
-
-      // Create the event
-      const event = this.privateEventRepository.create({
-        ...input,
-        location,
-        address,
-        locationNotes,
-        invitedUsers,
-        categories,
-        privateStatus: PrivateEventStatus.DRAFT,
+      // Create private event
+      const privateEvent = transactionalEntityManager.create(PrivateEvent, {
+        eventId: savedEvent.id,
+        isProcessedByAI: input.isProcessedByAI,
+        imageUrl: input.imageUrl,
+        imageDescription: input.imageDescription,
+        invitedUsers: await this.userRepository.findByIds(input.invitedUserIds),
+        categories: input.categoryIds
+          ? await this.categoryRepository.findByIds(input.categoryIds)
+          : [],
       });
 
-      // If AI processing is requested, process the event
-      if (input.isProcessedByAI) {
-        await this.processEventWithAI(event);
-      }
-
-      return transactionalEntityManager.save(event);
+      return transactionalEntityManager.save(privateEvent);
     });
   }
 
@@ -162,13 +145,11 @@ export class PrivateEventService {
       // Update other fields
       if (input.title) event.title = input.title;
       if (input.description !== undefined) event.description = input.description;
-      if (input.eventDate) event.eventDate = input.eventDate;
-      if (input.endDate !== undefined) event.endDate = input.endDate;
+      if (input.date) event.date = input.date;
       if (input.emoji) event.emoji = input.emoji;
       if (input.emojiDescription !== undefined) event.emojiDescription = input.emojiDescription;
       if (input.imageUrl !== undefined) event.imageUrl = input.imageUrl;
       if (input.imageDescription !== undefined) event.imageDescription = input.imageDescription;
-      if (input.privateStatus) event.privateStatus = input.privateStatus;
       if (input.timezone) event.timezone = input.timezone;
 
       // If AI processing is requested, process the event
@@ -209,11 +190,11 @@ export class PrivateEventService {
     const { limit = 10, offset = 0 } = options;
 
     const [events, total] = await this.privateEventRepository.findAndCount({
-      where: { creatorId },
+      where: { eventId: creatorId },
       relations: ["categories", "invitedUsers"],
       take: limit,
       skip: offset,
-      order: { eventDate: "DESC" },
+      order: { date: "DESC" },
     });
 
     return { events, total };
@@ -235,7 +216,7 @@ export class PrivateEventService {
       .leftJoinAndSelect("event.creator", "creator")
       .take(limit)
       .skip(offset)
-      .orderBy("event.eventDate", "DESC")
+      .orderBy("event.date", "DESC")
       .getManyAndCount();
 
     return { events, total };
@@ -272,7 +253,7 @@ export class PrivateEventService {
             Title: ${event.title}
             Description: ${event.description || ""}
             Location: ${event.address || ""}
-            Date: ${event.eventDate}
+            Date: ${event.date}
             Current Emoji: ${event.emoji}
             Current Categories: ${event.categories.map((c) => c.name).join(", ")}`,
           },
