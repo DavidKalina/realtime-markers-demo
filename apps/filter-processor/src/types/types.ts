@@ -63,6 +63,11 @@ export interface Event {
   updatedAt: Date | string;
   tags?: string[]; // Added for tag filtering support
   locationNotes?: string;
+  isPrivate: boolean;
+  sharedWith?: Array<{
+    sharedWithId: string;
+    sharedById: string;
+  }>;
 }
 
 // Update the FilterCriteria interface

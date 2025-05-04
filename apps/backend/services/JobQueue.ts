@@ -1,6 +1,7 @@
 // src/services/JobQueue.ts
 import { Redis } from "ioredis";
 import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 
 export class JobQueue {
   private redis: Redis;
@@ -73,7 +74,7 @@ export class JobQueue {
       previousStatus: job.status,
       newStatus: updates.status,
       progress: updates.progress,
-      timestamp: updatedJob.updated
+      timestamp: updatedJob.updated,
     });
 
     await this.redis.set(`job:${jobId}`, JSON.stringify(updatedJob));
@@ -84,7 +85,63 @@ export class JobQueue {
       updated: updatedJob.updated,
     });
 
-    console.log(`[JobQueue] Publishing job update to Redis channel job:${jobId}:updates:`, updateMessage);
+    console.log(
+      `[JobQueue] Publishing job update to Redis channel job:${jobId}:updates:`,
+      updateMessage
+    );
     await this.redis.publish(`job:${jobId}:updates`, updateMessage);
+  }
+
+  /**
+   * Enqueue a private event processing job
+   * @param eventDetails The details of the private event
+   * @param creatorId The ID of the user creating the event
+   * @param sharedWithIds Array of user IDs to share the event with
+   * @param userCoordinates Optional user coordinates for location context
+   */
+  async enqueuePrivateEventJob(
+    eventDetails: {
+      emoji: string;
+      emojiDescription?: string;
+      title: string;
+      date: string;
+      endDate?: string;
+      address: string;
+      location: { type: "Point"; coordinates: [number, number] };
+      description: string;
+      categories?: { id: string }[];
+      timezone?: string;
+      locationNotes?: string;
+    },
+    creatorId: string,
+    sharedWithIds: string[],
+    userCoordinates?: { lat: number; lng: number }
+  ): Promise<string> {
+    const jobId = crypto.randomUUID();
+
+    // Create the job data
+    const jobData = {
+      type: "process_private_event",
+      data: {
+        eventDetails,
+        creatorId,
+        sharedWithIds,
+        userCoordinates,
+      },
+    };
+
+    // Store the job data
+    await this.redis.set(`job:${jobId}`, JSON.stringify(jobData));
+
+    // Add to pending jobs queue
+    await this.redis.lpush("jobs:pending", jobId);
+
+    // Initialize job status
+    await this.updateJobStatus(jobId, {
+      status: "pending",
+      progress: 0,
+    });
+
+    return jobId;
   }
 }

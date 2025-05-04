@@ -1,7 +1,7 @@
 import { type Point } from "geojson";
 import { Redis } from "ioredis";
 import pgvector from "pgvector";
-import { Brackets, DataSource, Repository, type DeepPartial } from "typeorm";
+import { Brackets, DataSource, Repository, type DeepPartial, In } from "typeorm";
 import { Category } from "../entities/Category";
 import { Event, EventStatus } from "../entities/Event";
 import type { Filter } from "../entities/Filter";
@@ -14,6 +14,7 @@ import { CacheService } from "./shared/CacheService";
 import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
 import { Friendship } from "../entities/Friendship";
+import { EventShare } from "../entities/EventShare";
 
 interface SearchResult {
   event: Event;
@@ -38,12 +39,15 @@ interface CreateEventInput {
   detectedQrData?: string;
   originalImageUrl?: string | null;
   embedding: number[];
+  isPrivate?: boolean;
+  sharedWithIds?: string[]; // Optional array of user IDs to share the event with
 }
 
 export class EventService {
   private eventRepository: Repository<Event>;
   private categoryRepository: Repository<Category>;
   private userEventSaveRepository: Repository<UserEventSave>;
+  private eventShareRepository: Repository<EventShare>;
   private locationService: GoogleGeocodingService;
   private eventSimilarityService: EventSimilarityService;
   private levelingService: LevelingService;
@@ -52,6 +56,7 @@ export class EventService {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
     this.userEventSaveRepository = dataSource.getRepository(UserEventSave);
+    this.eventShareRepository = dataSource.getRepository(EventShare);
     this.locationService = GoogleGeocodingService.getInstance();
     this.eventSimilarityService = new EventSimilarityService(this.eventRepository);
     this.levelingService = new LevelingService(dataSource, redis);
@@ -218,6 +223,7 @@ export class EventService {
       qrDetectedInImage: input.qrDetectedInImage || false,
       detectedQrData: input.detectedQrData,
       originalImageUrl: input.originalImageUrl || undefined,
+      isPrivate: input.isPrivate || false,
     };
 
     // Create event instance
@@ -227,7 +233,13 @@ export class EventService {
       event.categories = categories;
     }
 
+    // Save the event first to get its ID
     const savedEvent = await this.eventRepository.save(event);
+
+    // If the event is private and there are users to share with, create the shares
+    if (savedEvent.isPrivate && input.sharedWithIds?.length) {
+      await this.shareEventWithUsers(savedEvent.id, input.creatorId, input.sharedWithIds);
+    }
 
     // Award XP for creating an event
     await this.levelingService.awardXp(input.creatorId, 30);
@@ -235,6 +247,102 @@ export class EventService {
     await CacheService.invalidateSearchCache();
 
     return savedEvent;
+  }
+
+  /**
+   * Share an event with multiple users
+   * @param eventId The ID of the event to share
+   * @param sharedById The ID of the user doing the sharing
+   * @param sharedWithIds Array of user IDs to share the event with
+   */
+  async shareEventWithUsers(
+    eventId: string,
+    sharedById: string,
+    sharedWithIds: string[]
+  ): Promise<void> {
+    // Create share records for each user
+    const shares = sharedWithIds.map((sharedWithId) => ({
+      eventId,
+      sharedWithId,
+      sharedById,
+    }));
+
+    // Use a transaction to ensure all shares are created or none
+    await this.dataSource.transaction(async (transactionalEntityManager) => {
+      await transactionalEntityManager
+        .createQueryBuilder()
+        .insert()
+        .into(EventShare)
+        .values(shares)
+        .orIgnore() // Ignore if share already exists
+        .execute();
+    });
+
+    // Invalidate cache for this event
+    await CacheService.invalidateEventCache(eventId);
+  }
+
+  /**
+   * Remove sharing access for specific users
+   * @param eventId The ID of the event
+   * @param sharedWithIds Array of user IDs to remove access for
+   */
+  async removeEventShares(eventId: string, sharedWithIds: string[]): Promise<void> {
+    await this.eventShareRepository.delete({
+      eventId,
+      sharedWithId: In(sharedWithIds),
+    });
+
+    // Invalidate cache for this event
+    await CacheService.invalidateEventCache(eventId);
+  }
+
+  /**
+   * Get all users an event is shared with
+   * @param eventId The ID of the event
+   * @returns Array of user IDs the event is shared with
+   */
+  async getEventSharedWithUsers(eventId: string): Promise<string[]> {
+    const shares = await this.eventShareRepository.find({
+      where: { eventId },
+      select: ["sharedWithId"],
+    });
+
+    return shares.map((share) => share.sharedWithId);
+  }
+
+  /**
+   * Check if a user has access to a private event
+   * @param eventId The ID of the event
+   * @param userId The ID of the user to check
+   * @returns Boolean indicating if the user has access
+   */
+  async hasEventAccess(eventId: string, userId: string): Promise<boolean> {
+    const event = await this.eventRepository.findOne({
+      where: { id: eventId },
+      select: ["id", "isPrivate", "creatorId"],
+    });
+
+    if (!event) {
+      return false;
+    }
+
+    // If event is not private, everyone has access
+    if (!event.isPrivate) {
+      return true;
+    }
+
+    // Creator always has access
+    if (event.creatorId === userId) {
+      return true;
+    }
+
+    // Check if user is in the shared list
+    const share = await this.eventShareRepository.findOne({
+      where: { eventId, sharedWithId: userId },
+    });
+
+    return !!share;
   }
 
   async updateEvent(id: string, eventData: Partial<CreateEventInput>): Promise<Event | null> {
@@ -1248,5 +1356,21 @@ export class EventService {
       events,
       nextCursor,
     };
+  }
+
+  /**
+   * Get all shares for an event
+   * @param eventId The ID of the event
+   * @returns Array of event shares
+   */
+  async getEventShares(eventId: string): Promise<{ sharedWithId: string; sharedById: string }[]> {
+    const shares = await this.dataSource
+      .getRepository(EventShare)
+      .createQueryBuilder("share")
+      .where("share.eventId = :eventId", { eventId })
+      .select(["share.sharedWithId", "share.sharedById"])
+      .getMany();
+
+    return shares;
   }
 }

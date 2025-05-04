@@ -424,6 +424,18 @@ export class FilterProcessor {
           continue;
         }
 
+        // Check if event is private and user has access
+        if (record.isPrivate) {
+          // Check if user has access using the sharedWith metadata
+          const hasAccess = record.sharedWith?.some(
+            (share) => share.sharedWithId === userId || record.creatorId === userId
+          );
+
+          if (!hasAccess) {
+            continue; // Skip this user if they don't have access
+          }
+        }
+
         // Strip sensitive data before publishing
         const sanitizedEvent = this.stripSensitiveData(record);
 
@@ -932,10 +944,14 @@ export class FilterProcessor {
                 categories: event.categories || [],
                 embedding: event.embedding,
                 status: event.status,
+                isPrivate: event.isPrivate || false,
               }));
 
+            // Filter out private events that the user doesn't have access to
+            const filteredEvents = await this.filterPrivateEvents(validEvents);
+
             // Add to our collection
-            allEvents = [...allEvents, ...validEvents];
+            allEvents = [...allEvents, ...filteredEvents];
 
             // Update pagination state
             hasMorePages = hasMore;
@@ -979,6 +995,61 @@ export class FilterProcessor {
     } catch (error) {
       console.error("Error fetching events:", error);
       return [];
+    }
+  }
+
+  /**
+   * Filter out private events that the user doesn't have access to
+   */
+  private async filterPrivateEvents(events: Event[]): Promise<Event[]> {
+    try {
+      const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
+      const privateEvents = events.filter((event) => event.isPrivate);
+
+      if (privateEvents.length === 0) {
+        return events; // No private events to filter
+      }
+
+      // Fetch all shares for private events in one batch
+      const eventIds = privateEvents.map((event) => event.id);
+      const response = await fetch(`${backendUrl}/api/internal/events/shares/batch`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ eventIds }),
+      });
+
+      if (!response.ok) {
+        console.error("Failed to fetch event shares batch");
+        return events.filter((event) => !event.isPrivate); // Return only public events if fetch fails
+      }
+
+      const shares = await response.json();
+
+      // Create a map of event IDs to their shared user IDs
+      const eventSharesMap = new Map<string, string[]>();
+      shares.forEach((share: any) => {
+        if (!eventSharesMap.has(share.eventId)) {
+          eventSharesMap.set(share.eventId, []);
+        }
+        eventSharesMap.get(share.eventId)!.push(share.sharedWithId);
+      });
+
+      // Filter events based on privacy and access
+      return events.filter((event) => {
+        if (!event.isPrivate) {
+          return true; // Keep all public events
+        }
+
+        // For private events, check if the user has access
+        const sharedUserIds = eventSharesMap.get(event.id) || [];
+        return sharedUserIds.includes(event.creatorId || ""); // Only show to creator and shared users
+      });
+    } catch (error) {
+      console.error("Error filtering private events:", error);
+      return events.filter((event) => !event.isPrivate); // Return only public events if there's an error
     }
   }
 

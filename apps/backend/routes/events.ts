@@ -36,6 +36,7 @@ eventsRouter.post("/process", handlers.processEventImageHandler);
 eventsRouter.post("/clusters/names", handlers.generateClusterNamesHandler);
 eventsRouter.post("/cluster-hub", handlers.getClusterHubDataHandler);
 eventsRouter.get("/process/:jobId", handlers.getProcessingStatusHandler);
+eventsRouter.post("/private", handlers.createPrivateEventHandler);
 eventsRouter.post("/", handlers.createEventHandler);
 
 // Dynamic routes with IDs

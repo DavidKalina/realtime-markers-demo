@@ -47,6 +47,22 @@ interface ScanResult {
   embedding: number[];
 }
 
+interface PrivateEventInput {
+  emoji: string;
+  emojiDescription?: string;
+  title: string;
+  date: string;
+  endDate?: string;
+  address: string;
+  location: Point;
+  description: string;
+  categories?: Category[];
+  timezone?: string;
+  locationNotes?: string;
+  isPrivate: boolean;
+  sharedWithIds?: string[];
+}
+
 export class EventProcessingService {
   private imageProcessingService: IImageProcessingService;
   private locationResolutionService: ILocationResolutionService;
@@ -190,12 +206,62 @@ export class EventProcessingService {
     };
   }
 
+  async processPrivateEvent(
+    eventInput: PrivateEventInput,
+    locationContext?: LocationContext
+  ): Promise<ScanResult> {
+    // Step 1: Extract event details (no image processing needed)
+    const extractionResult = await this.eventExtractionService.extractEventDetails(
+      `${eventInput.title}\n${eventInput.description}\n${eventInput.address}`,
+      locationContext
+    );
+
+    // Step 2: Generate embedding
+    const eventDetailsWithCategories = {
+      ...extractionResult.event,
+      ...eventInput, // Override with provided input
+      isPrivate: true,
+    };
+    const finalEmbedding = await this.generateEmbedding(eventDetailsWithCategories);
+
+    // Step 3: Check for duplicates
+    const similarity = await this.dependencies.eventSimilarityService.findSimilarEvents(
+      finalEmbedding,
+      {
+        title: eventDetailsWithCategories.title,
+        date: eventDetailsWithCategories.date,
+        endDate: eventDetailsWithCategories.endDate,
+        coordinates: eventDetailsWithCategories.location.coordinates as [number, number],
+        address: eventDetailsWithCategories.address,
+        description: eventDetailsWithCategories.description,
+        timezone: eventDetailsWithCategories.timezone,
+      }
+    );
+
+    const isDuplicate = similarity.isDuplicate;
+
+    if (isDuplicate && similarity.matchingEventId) {
+      await this.dependencies.eventSimilarityService.handleDuplicateScan(
+        similarity.matchingEventId
+      );
+    }
+
+    return {
+      confidence: 1.0, // Private events are manually created, so confidence is always high
+      eventDetails: eventDetailsWithCategories,
+      similarity,
+      isDuplicate: isDuplicate || false,
+      qrCodeDetected: false,
+      embedding: finalEmbedding,
+    };
+  }
+
   private async generateEmbedding(eventDetails: EventDetails): Promise<number[]> {
     // Use the same format as EventService
     const textForEmbedding = `
       TITLE: ${eventDetails.title} ${eventDetails.title} ${eventDetails.title}
       EMOJI: ${eventDetails.emoji} - ${eventDetails.emojiDescription || ""}
-      CATEGORIES: ${eventDetails.categories?.map(c => c.name).join(", ") || ""}
+      CATEGORIES: ${eventDetails.categories?.map((c) => c.name).join(", ") || ""}
       DESCRIPTION: ${eventDetails.description || ""}
       LOCATION: ${eventDetails.address || ""}
       LOCATION_NOTES: ${eventDetails.locationNotes || ""}

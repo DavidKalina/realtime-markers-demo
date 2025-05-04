@@ -586,3 +586,76 @@ export const getFriendsSavedEventsHandler: EventHandler = async (c) => {
     );
   }
 };
+
+export const createPrivateEventHandler: EventHandler = async (c) => {
+  try {
+    const data = await c.req.json();
+    const jobQueue = c.get("jobQueue");
+    const user = c.get("user");
+
+    // Validate input
+    if (!data.title || !data.date || !data.location?.coordinates) {
+      return c.json({ error: "Missing required fields", receivedData: data }, 400);
+    }
+
+    // Ensure location is in GeoJSON format
+    if (data.location && !data.location.type) {
+      data.location = {
+        type: "Point",
+        coordinates: data.location.coordinates,
+      };
+    }
+
+    if (!user?.userId) {
+      return c.json({ error: "Missing user id" }, 401);
+    }
+
+    // Validate shared users if provided
+    if (data.sharedWithIds && !Array.isArray(data.sharedWithIds)) {
+      return c.json({ error: "sharedWithIds must be an array" }, 400);
+    }
+
+    // Create job for private event processing
+    const jobId = await jobQueue.enqueuePrivateEventJob(
+      {
+        emoji: data.emoji || "📍",
+        emojiDescription: data.emojiDescription,
+        title: data.title,
+        date: data.date,
+        endDate: data.endDate,
+        address: data.address,
+        location: data.location,
+        description: data.description,
+        categories: data.categories,
+        timezone: data.timezone,
+        locationNotes: data.locationNotes,
+      },
+      user.userId,
+      data.sharedWithIds || [],
+      data.userCoordinates
+    );
+
+    return c.json(
+      {
+        status: "processing",
+        jobId,
+        message: "Your private event is being processed. Check status at /api/jobs/" + jobId,
+        _links: {
+          self: `/api/events/process/${jobId}`,
+          status: `/api/jobs/${jobId}`,
+          stream: `/api/jobs/${jobId}/stream`,
+        },
+      },
+      202
+    );
+  } catch (error) {
+    console.error("Error creating private event:", error);
+    return c.json(
+      {
+        error: "Failed to create private event",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};

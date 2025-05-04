@@ -371,7 +371,6 @@ async function initializeWorker() {
           // Create discovery record and increment user stats if they are the creator
           if (job.data.creatorId) {
             await eventService.createDiscoveryRecord(job.data.creatorId, newEvent.id);
-
           }
 
           // Publish notifications
@@ -379,7 +378,13 @@ async function initializeWorker() {
             "event_changes",
             JSON.stringify({
               operation: "INSERT",
-              record: newEvent,
+              record: {
+                ...newEvent,
+                // Add shared users metadata for private events
+                ...(newEvent.isPrivate && {
+                  sharedWith: await eventService.getEventShares(newEvent.id),
+                }),
+              },
             })
           );
 
@@ -403,6 +408,11 @@ async function initializeWorker() {
                 creatorId: newEvent.creatorId,
                 createdAt: newEvent.createdAt,
                 updatedAt: newEvent.updatedAt,
+                isPrivate: newEvent.isPrivate,
+                // Add shared users metadata for private events
+                ...(newEvent.isPrivate && {
+                  sharedWith: await eventService.getEventShares(newEvent.id),
+                }),
               },
               timestamp: new Date().toISOString(),
             })
@@ -435,6 +445,97 @@ async function initializeWorker() {
             completed: new Date().toISOString(),
           });
         }
+      } else if (job.type === "process_private_event") {
+        console.log(`[Worker] Processing private event job ${jobId}`);
+
+        // Process the private event
+        const scanResult = await eventProcessingService.processPrivateEvent(job.data.eventDetails, {
+          userCoordinates: job.data.userCoordinates,
+        });
+
+        // Create the event
+        const newEvent = await eventService.createEvent({
+          emoji: scanResult.eventDetails.emoji,
+          emojiDescription: scanResult.eventDetails.emojiDescription,
+          title: scanResult.eventDetails.title,
+          eventDate: new Date(scanResult.eventDetails.date),
+          endDate: scanResult.eventDetails.endDate
+            ? new Date(scanResult.eventDetails.endDate)
+            : undefined,
+          location: scanResult.eventDetails.location,
+          description: scanResult.eventDetails.description,
+          confidenceScore: scanResult.confidence,
+          address: scanResult.eventDetails.address,
+          locationNotes: scanResult.eventDetails.locationNotes || "",
+          categoryIds: scanResult.eventDetails.categories?.map((cat) => cat.id),
+          creatorId: job.data.creatorId,
+          embedding: scanResult.embedding,
+          isPrivate: true,
+          sharedWithIds: job.data.sharedWithIds,
+        });
+
+        // Create discovery record and increment user stats if they are the creator
+        if (job.data.creatorId) {
+          await eventService.createDiscoveryRecord(job.data.creatorId, newEvent.id);
+        }
+
+        // Publish notifications
+        await redisClient.publish(
+          "event_changes",
+          JSON.stringify({
+            operation: "INSERT",
+            record: {
+              ...newEvent,
+              // Add shared users metadata for private events
+              ...(newEvent.isPrivate && {
+                sharedWith: await eventService.getEventShares(newEvent.id),
+              }),
+            },
+          })
+        );
+
+        await redisClient.publish(
+          "discovered_events",
+          JSON.stringify({
+            type: "EVENT_DISCOVERED",
+            event: {
+              id: newEvent.id,
+              title: newEvent.title,
+              emoji: newEvent.emoji,
+              location: newEvent.location,
+              description: newEvent.description,
+              eventDate: newEvent.eventDate,
+              endDate: newEvent.endDate,
+              address: newEvent.address,
+              locationNotes: newEvent.locationNotes,
+              categories: newEvent.categories,
+              confidenceScore: newEvent.confidenceScore,
+              creatorId: newEvent.creatorId,
+              createdAt: newEvent.createdAt,
+              updatedAt: newEvent.updatedAt,
+              isPrivate: newEvent.isPrivate,
+              // Add shared users metadata for private events
+              ...(newEvent.isPrivate && {
+                sharedWith: await eventService.getEventShares(newEvent.id),
+              }),
+            },
+            timestamp: new Date().toISOString(),
+          })
+        );
+
+        // Mark as completed with success
+        await jobQueue.updateJobStatus(jobId, {
+          status: "completed",
+          progress: 1,
+          eventId: newEvent.id,
+          result: {
+            eventId: newEvent.id,
+            title: scanResult.eventDetails.title,
+            coordinates: newEvent.location.coordinates,
+            message: "Private event successfully created!",
+          },
+          completed: new Date().toISOString(),
+        });
       } else {
         throw new Error(`Unknown job type: ${job.type}`);
       }
