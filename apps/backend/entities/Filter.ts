@@ -16,30 +16,30 @@ export class Filter {
   id!: string;
 
   @Index()
-  @Column({ type: "uuid" })
+  @Column({ type: "uuid", name: "user_id" })
   userId!: string;
 
   @ManyToOne(() => User, { onDelete: "CASCADE" })
-  @JoinColumn({ name: "userId" })
+  @JoinColumn({ name: "user_id" })
   user?: User;
 
-  @Column({ type: "varchar" })
+  @Column({ type: "varchar", name: "name" })
   name!: string;
 
   @Index()
-  @Column({ type: "boolean", default: true })
+  @Column({ type: "boolean", default: true, name: "is_active" })
   isActive!: boolean;
 
-  @Column({ type: "text", nullable: true })
+  @Column({ type: "text", nullable: true, name: "semantic_query" })
   semanticQuery?: string; // Natural language query from user
 
-  @Column({ type: "text", nullable: true })
+  @Column({ type: "text", nullable: true, name: "embedding" })
   embedding?: string; // Vector embedding stored in pgvector format
 
-  @Column({ type: "varchar", nullable: true })
+  @Column({ type: "varchar", nullable: true, name: "emoji" })
   emoji?: string; // AI-generated emoji for the filter
 
-  @Column({ type: "jsonb" })
+  @Column({ type: "jsonb", name: "criteria" })
   criteria!: {
     dateRange?: {
       start?: string;
