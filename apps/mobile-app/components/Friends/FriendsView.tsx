@@ -2,13 +2,14 @@ import apiClient, { Friend, FriendRequest } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Search, User, UserPlus, Users } from "lucide-react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Header from "../Layout/Header";
 import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 import Tabs, { TabItem } from "../Layout/Tabs";
 import Input from "../Input/Input";
 import Card from "../Layout/Card";
+import { useFriendships } from "@/hooks/useFriendships";
 
 type TabType = "friends" | "requests" | "add";
 
@@ -55,26 +56,7 @@ const FriendsView: React.FC = () => {
 };
 
 const FriendsList: React.FC = () => {
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchFriends = async () => {
-      try {
-        const response = await apiClient.getFriends();
-        setFriends(response);
-        setError(null);
-      } catch (err) {
-        setError("Failed to load friends. Please try again.");
-        console.error("Error fetching friends:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchFriends();
-  }, []);
+  const { friends, isLoading, error, refetch } = useFriendships();
 
   if (isLoading) {
     return (
@@ -89,11 +71,7 @@ const FriendsList: React.FC = () => {
       <Card>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => setIsLoading(true)}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity style={styles.retryButton} onPress={refetch} activeOpacity={0.8}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -137,42 +115,10 @@ const FriendsList: React.FC = () => {
 };
 
 const FriendRequestsList: React.FC = () => {
-  const [requests, setRequests] = useState<(FriendRequest & { type: "incoming" | "outgoing" })[]>(
-    []
-  );
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { requests, isLoading, error, refetch } = useFriendships();
   const [actionStates, setActionStates] = useState<
     Record<string, { status: "success" | "error"; message: string } | null>
   >({});
-
-  useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const [incomingResponse, outgoingResponse] = await Promise.all([
-          apiClient.getPendingFriendRequests(),
-          apiClient.getOutgoingFriendRequests(),
-        ]);
-
-        // Combine and label the requests
-        const combinedRequests = [
-          ...incomingResponse.map((req) => ({ ...req, type: "incoming" as const })),
-          ...outgoingResponse.map((req) => ({ ...req, type: "outgoing" as const })),
-        ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-        setRequests(combinedRequests);
-        setError(null);
-      } catch (err) {
-        console.log("ERROR", err);
-        setError("Failed to load friend requests. Please try again.");
-        console.error("Error fetching friend requests:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchRequests();
-  }, []);
 
   const showActionFeedback = (requestId: string, status: "success" | "error", message: string) => {
     setActionStates((prev) => ({
@@ -183,7 +129,7 @@ const FriendRequestsList: React.FC = () => {
     // Only remove the request after showing the success message
     if (status === "success") {
       setTimeout(() => {
-        setRequests((prev) => prev.filter((request) => request.id !== requestId));
+        refetch();
       }, 1000);
     }
 
@@ -245,11 +191,7 @@ const FriendRequestsList: React.FC = () => {
       <Card>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => setIsLoading(true)}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity style={styles.retryButton} onPress={refetch} activeOpacity={0.8}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>

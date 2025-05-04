@@ -322,4 +322,16 @@ export class PrivateEventService {
   ) {
     return this.locationService.resolveLocation([query], userContext);
   }
+
+  /**
+   * Search for locations using Google Places API
+   * Returns a list of location suggestions that can be used for autocomplete
+   */
+  async searchLocations(query: string, userCoordinates?: { lat: number; lng: number }) {
+    return this.locationService.searchLocations(query, userCoordinates);
+  }
+
+  async getLocationFromCoordinates(lat: number, lng: number) {
+    return this.locationService.getLocationFromCoordinates(lat, lng);
+  }
 }

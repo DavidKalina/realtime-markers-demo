@@ -1,4 +1,4 @@
-import React, { forwardRef, useState } from "react";
+import React, { forwardRef, useState, useCallback, useEffect, useRef } from "react";
 import {
   StyleSheet,
   TextInput,
@@ -40,6 +40,7 @@ interface SelectInputProps {
   options: SelectOption[];
   value?: string;
   onChange: (value: string) => void;
+  onSelect?: (value: string) => void;
   placeholder?: string;
 }
 
@@ -54,6 +55,7 @@ const SelectInput = forwardRef<TextInput, SelectInputProps>(
       options,
       value,
       onChange,
+      onSelect,
       placeholder = "Select an option",
       ...props
     },
@@ -61,22 +63,60 @@ const SelectInput = forwardRef<TextInput, SelectInputProps>(
   ) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [debouncedQuery, setDebouncedQuery] = useState("");
+    const debounceTimer = useRef<NodeJS.Timeout>();
 
     const selectedOption = options.find((opt) => opt.value === value);
+
+    // Reset search query when dropdown closes
+    useEffect(() => {
+      if (!isOpen && selectedOption) {
+        setSearchQuery(selectedOption.label);
+        setDebouncedQuery(selectedOption.label);
+      }
+    }, [isOpen, selectedOption]);
+
+    // Debounce the search query
+    useEffect(() => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+
+      debounceTimer.current = setTimeout(() => {
+        setDebouncedQuery(searchQuery);
+      }, 300); // 300ms delay
+
+      return () => {
+        if (debounceTimer.current) {
+          clearTimeout(debounceTimer.current);
+        }
+      };
+    }, [searchQuery]);
+
+    // Call onChange with debounced query
+    useEffect(() => {
+      if (debouncedQuery !== "") {
+        onChange(debouncedQuery);
+      }
+    }, [debouncedQuery, onChange]);
 
     const filteredOptions = options.filter((opt) =>
       opt.label.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const handleSelect = (option: SelectOption) => {
-      onChange(option.value);
+      if (onSelect) {
+        onSelect(option.value);
+      }
+      setSearchQuery(option.label);
+      setDebouncedQuery(option.label);
       setIsOpen(false);
-      setSearchQuery("");
     };
 
     const handleClear = () => {
       onChange("");
       setSearchQuery("");
+      setDebouncedQuery("");
     };
 
     return (
@@ -100,10 +140,10 @@ const SelectInput = forwardRef<TextInput, SelectInputProps>(
               style={[
                 styles.input,
                 error && styles.errorInput,
-                !selectedOption && styles.placeholder,
+                !selectedOption && !searchQuery && styles.placeholder,
               ]}
             >
-              {selectedOption ? selectedOption.label : placeholder}
+              {selectedOption ? selectedOption.label : searchQuery || placeholder}
             </Text>
           </TouchableOpacity>
           {loading ? (
@@ -144,23 +184,39 @@ const SelectInput = forwardRef<TextInput, SelectInputProps>(
                   placeholderTextColor={COLORS.textSecondary}
                 />
               </View>
-              <FlatList
-                data={filteredOptions}
-                keyExtractor={(item) => item.value}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={[styles.option, item.value === value && styles.selectedOption]}
-                    onPress={() => handleSelect(item)}
-                  >
-                    <Text
-                      style={[styles.optionText, item.value === value && styles.selectedOptionText]}
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={COLORS.accent} />
+                  <Text style={styles.loadingText}>Searching...</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={filteredOptions}
+                  keyExtractor={(item) => item.value}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[styles.option, item.value === value && styles.selectedOption]}
+                      onPress={() => handleSelect(item)}
                     >
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                style={styles.optionsList}
-              />
+                      <Text
+                        style={[
+                          styles.optionText,
+                          item.value === value && styles.selectedOptionText,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  style={styles.optionsList}
+                  ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
+                      <Text style={styles.emptyText}>No results found</Text>
+                    </View>
+                  }
+                />
+              )}
             </View>
           </TouchableOpacity>
         </Modal>
@@ -238,7 +294,7 @@ const styles = StyleSheet.create({
     maxHeight: 300,
   },
   option: {
-    padding: 16,
+    padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
@@ -247,12 +303,32 @@ const styles = StyleSheet.create({
   },
   optionText: {
     color: COLORS.textPrimary,
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: "SpaceMono",
   },
   selectedOptionText: {
     color: COLORS.accent,
     fontWeight: "600",
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  loadingText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+  },
+  emptyContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  emptyText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontFamily: "SpaceMono",
   },
 });
 

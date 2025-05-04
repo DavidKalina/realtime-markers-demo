@@ -100,4 +100,57 @@ export const privateEventHandlers = {
       return c.json({ error: "Failed to fetch invited events" }, 500);
     }
   },
+
+  // Search for locations
+  async searchLocationsHandler(c: Context) {
+    try {
+      const query = c.req.query("q");
+      if (!query) {
+        return c.json({ error: "Search query is required" }, 400);
+      }
+
+      // Get user coordinates if provided
+      const lat = c.req.query("lat");
+      const lng = c.req.query("lng");
+      const userCoordinates =
+        lat && lng
+          ? {
+              lat: parseFloat(lat),
+              lng: parseFloat(lng),
+            }
+          : undefined;
+
+      const locations = await privateEventService.searchLocations(query, userCoordinates);
+      return c.json(locations);
+    } catch (error) {
+      console.error("Error searching locations:", error);
+      return c.json({ error: "Failed to search locations" }, 500);
+    }
+  },
+
+  // Get location from coordinates
+  async getLocationFromCoordinatesHandler(c: Context) {
+    try {
+      const lat = c.req.query("lat");
+      const lng = c.req.query("lng");
+
+      if (!lat || !lng) {
+        return c.json({ error: "Latitude and longitude are required" }, 400);
+      }
+
+      const location = await privateEventService.getLocationFromCoordinates(
+        parseFloat(lat),
+        parseFloat(lng)
+      );
+
+      if (!location) {
+        return c.json({ error: "Location not found" }, 404);
+      }
+
+      return c.json(location);
+    } catch (error) {
+      console.error("Error getting location from coordinates:", error);
+      return c.json({ error: "Failed to get location from coordinates" }, 500);
+    }
+  },
 };

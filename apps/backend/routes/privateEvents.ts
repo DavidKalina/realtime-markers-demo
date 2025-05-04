@@ -21,22 +21,31 @@ privateEventsRouter.use(
 );
 privateEventsRouter.use("*", authMiddleware);
 
+// Search for locations (more specific route)
+privateEventsRouter.get("/locations/search", privateEventHandlers.searchLocationsHandler);
+
+// Get location from coordinates (more specific route)
+privateEventsRouter.get(
+  "/locations/coordinates",
+  privateEventHandlers.getLocationFromCoordinatesHandler
+);
+
+// Get events created by a user (more specific route)
+privateEventsRouter.get("/creator/:userId", privateEventHandlers.getEventsByCreatorHandler);
+
+// Get events where a user is invited (more specific route)
+privateEventsRouter.get("/invited/:userId", privateEventHandlers.getInvitedEventsHandler);
+
 // Create a new private event
 privateEventsRouter.post("/", privateEventHandlers.createPrivateEventHandler);
 
-// Get a private event by ID
+// Get a private event by ID (more general route)
 privateEventsRouter.get("/:id", privateEventHandlers.getPrivateEventByIdHandler);
 
-// Update a private event
+// Update a private event (more general route)
 privateEventsRouter.put("/:id", privateEventHandlers.updatePrivateEventHandler);
 
-// Delete a private event
+// Delete a private event (more general route)
 privateEventsRouter.delete("/:id", privateEventHandlers.deletePrivateEventHandler);
-
-// Get events created by a user
-privateEventsRouter.get("/creator/:userId", privateEventHandlers.getEventsByCreatorHandler);
-
-// Get events where a user is invited
-privateEventsRouter.get("/invited/:userId", privateEventHandlers.getInvitedEventsHandler);
 
 export default privateEventsRouter;

@@ -9,12 +9,15 @@ import {
   parseISO,
   startOfMonth,
   subMonths,
+  setHours,
+  setMinutes,
 } from "date-fns";
 import * as Haptics from "expo-haptics";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { COLORS } from "./Layout/ScreenLayout";
+import ClockTimePicker from "./ClockTimePicker";
 
 // Helper for dimmed text color
 const getDimmedTextColor = (baseColor: string, opacity: number = 0.5) => {
@@ -54,15 +57,20 @@ const DateTimeSelector: React.FC<DateTimeSelectorProps> = ({
   const [selectedStartDate, setSelectedStartDate] = useState<string | undefined>(startDate);
   const [selectedEndDate, setSelectedEndDate] = useState<string | undefined>(endDate);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
   // Initialize with default 2-week range if no dates are provided
   React.useEffect(() => {
     if (!selectedStartDate || !selectedEndDate) {
       const today = new Date();
       const twoWeeksFromNow = addDays(today, 14);
-      setSelectedStartDate(format(today, "yyyy-MM-dd"));
-      setSelectedEndDate(format(twoWeeksFromNow, "yyyy-MM-dd"));
-      onDateRangeSelect(format(today, "yyyy-MM-dd"), format(twoWeeksFromNow, "yyyy-MM-dd"));
+      setSelectedStartDate(format(today, "yyyy-MM-dd'T'HH:mm"));
+      setSelectedEndDate(format(twoWeeksFromNow, "yyyy-MM-dd'T'HH:mm"));
+      onDateRangeSelect(
+        format(today, "yyyy-MM-dd'T'HH:mm"),
+        format(twoWeeksFromNow, "yyyy-MM-dd'T'HH:mm")
+      );
     }
   }, []);
 
@@ -87,13 +95,44 @@ const DateTimeSelector: React.FC<DateTimeSelectorProps> = ({
     return eachDayOfInterval({ start, end });
   }, [currentMonth]);
 
+  // Handle time selection
+  const handleStartTimeChange = useCallback(
+    (newTime: string) => {
+      setShowStartTimePicker(false);
+      if (selectedStartDate) {
+        const date = parseISO(selectedStartDate);
+        const newDate = parseISO(newTime);
+        const updatedDate = setHours(setMinutes(date, newDate.getMinutes()), newDate.getHours());
+        const newDateString = format(updatedDate, "yyyy-MM-dd'T'HH:mm");
+        setSelectedStartDate(newDateString);
+        onDateRangeSelect(newDateString, selectedEndDate || null);
+      }
+    },
+    [selectedStartDate, selectedEndDate, onDateRangeSelect]
+  );
+
+  const handleEndTimeChange = useCallback(
+    (newTime: string) => {
+      setShowEndTimePicker(false);
+      if (selectedEndDate) {
+        const date = parseISO(selectedEndDate);
+        const newDate = parseISO(newTime);
+        const updatedDate = setHours(setMinutes(date, newDate.getMinutes()), newDate.getHours());
+        const newDateString = format(updatedDate, "yyyy-MM-dd'T'HH:mm");
+        setSelectedEndDate(newDateString);
+        onDateRangeSelect(selectedStartDate || null, newDateString);
+      }
+    },
+    [selectedStartDate, selectedEndDate, onDateRangeSelect]
+  );
+
   // Handle date selection
   const handleDayPress = useCallback(
     (date: Date) => {
       if (isPastDate(date)) return;
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const dateString = format(date, "yyyy-MM-dd");
+      const dateString = format(date, "yyyy-MM-dd'T'HH:mm");
 
       if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
         // Start new selection
@@ -236,16 +275,50 @@ const DateTimeSelector: React.FC<DateTimeSelectorProps> = ({
       <View style={styles.dateRangeInfo}>
         {selectedStartDate && selectedEndDate ? (
           <>
-            <Text style={styles.dateRangeText}>
-              {format(parseISO(selectedStartDate), "MMM d")} -{" "}
-              {format(parseISO(selectedEndDate), "MMM d")}
-            </Text>
+            <View style={styles.timeSelectionContainer}>
+              <TouchableOpacity
+                style={styles.timeButton}
+                onPress={() => setShowStartTimePicker(true)}
+                disabled={isLoading}
+              >
+                <Text style={styles.timeButtonText}>
+                  {format(parseISO(selectedStartDate), "h:mm a")}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.dateRangeText}>
+                {format(parseISO(selectedStartDate), "MMM d")} -{" "}
+                {format(parseISO(selectedEndDate), "MMM d")}
+              </Text>
+              <TouchableOpacity
+                style={styles.timeButton}
+                onPress={() => setShowEndTimePicker(true)}
+                disabled={isLoading}
+              >
+                <Text style={styles.timeButtonText}>
+                  {format(parseISO(selectedEndDate), "h:mm a")}
+                </Text>
+              </TouchableOpacity>
+            </View>
             <Text style={styles.dateRangeDuration}>{dateRangeText}</Text>
           </>
         ) : (
           <Text style={styles.placeholderText}>Select a date range</Text>
         )}
       </View>
+
+      <ClockTimePicker
+        time={selectedStartDate || format(new Date(), "yyyy-MM-dd'T'HH:mm")}
+        onChange={handleStartTimeChange}
+        onClose={() => setShowStartTimePicker(false)}
+        isVisible={showStartTimePicker}
+      />
+
+      <ClockTimePicker
+        time={selectedEndDate || format(new Date(), "yyyy-MM-dd'T'HH:mm")}
+        onChange={handleEndTimeChange}
+        onClose={() => setShowEndTimePicker(false)}
+        isVisible={showEndTimePicker}
+      />
     </View>
   );
 };
@@ -372,6 +445,26 @@ const styles = StyleSheet.create({
   },
   disabledDayText: {
     color: COLORS.textSecondary,
+  },
+  timeSelectionContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  timeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: COLORS.buttonBackground,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+    marginHorizontal: 8,
+  },
+  timeButtonText: {
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
   },
 });
 

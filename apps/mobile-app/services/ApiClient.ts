@@ -198,6 +198,45 @@ export interface FriendRequest {
   createdAt: string;
 }
 
+// Add interface for location search results
+export interface LocationSearchResult {
+  placeId: string;
+  name: string;
+  address: string;
+  coordinates: [number, number]; // [longitude, latitude]
+  types: string[];
+  rating?: number;
+  userRatingsTotal?: number;
+}
+
+// Add PrivateEvent interface
+export interface PrivateEvent {
+  id: string;
+  emoji: string;
+  emojiDescription?: string;
+  title: string;
+  description?: string;
+  eventDate: string;
+  endDate?: string;
+  location?: {
+    type: string;
+    coordinates: [number, number]; // [longitude, latitude]
+  };
+  locationClues?: string[];
+  address?: string;
+  locationNotes?: string;
+  categories?: { id: string; name: string }[];
+  creatorId: string;
+  invitedUserIds: string[];
+  imageUrl?: string;
+  imageDescription?: string;
+  timezone?: string;
+  isProcessedByAI?: boolean;
+  privateStatus?: "DRAFT" | "PUBLISHED" | "CANCELLED";
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Contact {
   name?: string;
   email?: string;
@@ -1295,6 +1334,70 @@ class ApiClient {
       })),
       nextCursor: data.nextCursor,
     };
+  }
+
+  // Add location search method
+  async searchLocations(
+    query: string,
+    userCoordinates?: { lat: number; lng: number }
+  ): Promise<LocationSearchResult[]> {
+    const queryParams = new URLSearchParams({ q: query });
+
+    if (userCoordinates) {
+      queryParams.append("lat", userCoordinates.lat.toString());
+      queryParams.append("lng", userCoordinates.lng.toString());
+    }
+
+    const url = `${this.baseUrl}/api/events/private/locations/search?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<LocationSearchResult[]>(response);
+  }
+
+  // Get location from coordinates
+  async getLocationFromCoordinates(
+    lat: number,
+    lng: number
+  ): Promise<{
+    address: string;
+    city: string;
+    state: string;
+    country: string;
+    postalCode: string;
+    formattedAddress: string;
+    placeId: string;
+    types: string[];
+    locationType: string;
+  } | null> {
+    const queryParams = new URLSearchParams({
+      lat: lat.toString(),
+      lng: lng.toString(),
+    });
+
+    const url = `${
+      this.baseUrl
+    }/api/events/private/locations/coordinates?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{
+      address: string;
+      city: string;
+      state: string;
+      country: string;
+      postalCode: string;
+      formattedAddress: string;
+      placeId: string;
+      types: string[];
+      locationType: string;
+    } | null>(response);
+  }
+
+  // Add createPrivateEvent method to ApiClient class
+  async createPrivateEvent(eventData: Partial<PrivateEvent>): Promise<PrivateEvent> {
+    const url = `${this.baseUrl}/api/events/private`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify(eventData),
+    });
+    return this.handleResponse<PrivateEvent>(response);
   }
 }
 
