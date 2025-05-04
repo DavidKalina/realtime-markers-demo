@@ -156,7 +156,7 @@ export const useMarkerClustering = (
       | SuperclusterClusterFeatureInternal
       | InputPointFeatureInternal
     )[];
-  }, [bounds, integerZoom, points.length]);
+  }, [bounds, integerZoom, points]);
 
   // Memoize final processed clusters mapped to output format
   const processedClusters = useMemo((): (ClusterFeature | PointFeature)[] => {
