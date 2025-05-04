@@ -18,6 +18,9 @@ import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
+import AnimatedReanimated, { runOnJS } from "react-native-reanimated";
+import { useRouter } from "expo-router";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -53,6 +56,7 @@ function HomeScreen() {
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const { publish } = useEventBroker();
   const { mapStyle } = useMapStyle();
+  const router = useRouter();
 
   // Store references
   const { selectMapItem, setZoomLevel, zoomLevel } = useLocationStore();
@@ -357,6 +361,51 @@ function HomeScreen() {
     [insets.top]
   );
 
+  const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
+  const [showRipple, setShowRipple] = useState(false);
+  const [longPressCoordinates, setLongPressCoordinates] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  // Add long press handler
+  const handleMapLongPress = useCallback((event: any) => {
+    "worklet";
+    if (event?.properties) {
+      const { screenPointX, screenPointY } = event.properties;
+      const coordinates = event.geometry?.coordinates;
+
+      if (typeof screenPointX === "number" && typeof screenPointY === "number") {
+        runOnJS(setRipplePosition)({ x: screenPointX, y: screenPointY });
+        runOnJS(setShowRipple)(true);
+
+        // Store coordinates for later use
+        if (coordinates && Array.isArray(coordinates) && coordinates.length === 2) {
+          runOnJS(setLongPressCoordinates)({
+            latitude: coordinates[1],
+            longitude: coordinates[0],
+          });
+        }
+      }
+    }
+  }, []);
+
+  const handleRippleComplete = useCallback(() => {
+    console.log("Ripple animation completed");
+    setShowRipple(false);
+
+    if (longPressCoordinates) {
+      router.push({
+        pathname: "/create-private-event",
+        params: {
+          latitude: longPressCoordinates.latitude.toString(),
+          longitude: longPressCoordinates.longitude.toString(),
+        },
+      });
+      setLongPressCoordinates(null);
+    }
+  }, [router, longPressCoordinates]);
+
   return (
     <AuthWrapper>
       <View style={styles.container}>
@@ -374,6 +423,7 @@ function HomeScreen() {
         <MapboxGL.MapView
           onTouchStart={handleUserPan}
           onPress={handleMapPress}
+          onLongPress={handleMapLongPress}
           scaleBarEnabled={false}
           rotateEnabled={false}
           pitchEnabled={false}
@@ -399,6 +449,14 @@ function HomeScreen() {
           {/* User location layer */}
           {userLocationLayer}
         </MapboxGL.MapView>
+
+        {showRipple && (
+          <MapRippleEffect
+            isVisible={showRipple}
+            position={ripplePosition}
+            onAnimationComplete={handleRippleComplete}
+          />
+        )}
 
         {mapOverlays}
         {assistantOverlay}
