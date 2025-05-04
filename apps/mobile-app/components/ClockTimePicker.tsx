@@ -13,8 +13,8 @@ import { format, parseISO, setHours, setMinutes } from "date-fns";
 import * as Haptics from "expo-haptics";
 
 const { width } = Dimensions.get("window");
-const DIAL_SIZE = width * 0.7;
-const MARKER_SIZE = 40;
+const DIAL_SIZE = width * 0.6;
+const MARKER_SIZE = 4;
 
 interface ClockTimePickerProps {
   time: string;
@@ -104,12 +104,12 @@ const ClockTimePicker: React.FC<ClockTimePickerProps> = ({
     transform: [{ rotate: `${rotation.value}deg` }],
   }));
 
-  // Generate time markers
+  // Generate hour markers
   const markers = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => {
       const angle = (i * 30 * Math.PI) / 180;
-      const x = Math.sin(angle) * (DIAL_SIZE / 2 - MARKER_SIZE / 2);
-      const y = -Math.cos(angle) * (DIAL_SIZE / 2 - MARKER_SIZE / 2);
+      const x = Math.sin(angle) * (DIAL_SIZE / 2 - 20);
+      const y = -Math.cos(angle) * (DIAL_SIZE / 2 - 20);
 
       return (
         <View
@@ -140,10 +140,10 @@ const ClockTimePicker: React.FC<ClockTimePickerProps> = ({
         </View>
 
         <View style={styles.dialContainer}>
+          <View style={styles.dialBackground}>{markers}</View>
           <PanGestureHandler onGestureEvent={onGestureEvent}>
             <Animated.View style={[styles.dial, dialStyle]}>
-              {markers}
-              <View style={styles.centerPoint} />
+              <View style={styles.dialIndicator} />
             </Animated.View>
           </PanGestureHandler>
 
@@ -170,14 +170,14 @@ const styles = StyleSheet.create({
   modalContainer: {
     backgroundColor: COLORS.cardBackground,
     borderRadius: 20,
-    width: DIAL_SIZE + 40,
+    width: width * 0.9,
     padding: 20,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 30,
   },
   title: {
     fontSize: 18,
@@ -192,15 +192,35 @@ const styles = StyleSheet.create({
   },
   dialContainer: {
     alignItems: "center",
+    marginBottom: 20,
   },
-  dial: {
+  dialBackground: {
     width: DIAL_SIZE,
     height: DIAL_SIZE,
     borderRadius: DIAL_SIZE / 2,
-    borderWidth: 2,
-    borderColor: COLORS.accent,
+    backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+  },
+  dial: {
+    position: "absolute",
+    width: DIAL_SIZE,
+    height: DIAL_SIZE,
+    borderRadius: DIAL_SIZE / 2,
+    backgroundColor: COLORS.accent,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dialIndicator: {
+    position: "absolute",
+    top: 0,
+    width: 4,
+    height: DIAL_SIZE / 2,
+    backgroundColor: COLORS.cardBackground,
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
   },
   marker: {
     position: "absolute",
@@ -212,29 +232,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   markerText: {
+    position: "absolute",
     color: COLORS.textPrimary,
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: "SpaceMono",
-  },
-  centerPoint: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: COLORS.accent,
-    borderWidth: 2,
-    borderColor: COLORS.cardBackground,
+    transform: [{ translateY: -20 }],
   },
   selectedTimeContainer: {
-    marginTop: 20,
-    padding: 10,
+    marginTop: 30,
+    padding: 15,
     backgroundColor: COLORS.buttonBackground,
-    borderRadius: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
   selectedTime: {
     fontSize: 24,
     fontWeight: "600",
     color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
+    textAlign: "center",
   },
 });
 

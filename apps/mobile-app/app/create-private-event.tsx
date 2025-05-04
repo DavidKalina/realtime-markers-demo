@@ -17,6 +17,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { usePrivateEvent } from "@/hooks/usePrivateEvent";
 import { format, parseISO } from "date-fns";
+import ClockDial from "@/components/ClockDial";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const CreatePrivateEvent = () => {
   const router = useRouter();
@@ -248,6 +250,10 @@ const CreatePrivateEvent = () => {
             onDateRangeSelect={handleDateRangeSelect}
             isLoading={isSubmitting}
           />
+
+          <GestureHandlerRootView>
+            <ClockDial onValueChange={() => {}} />
+          </GestureHandlerRootView>
 
           {startDate && endDate && (
             <View style={styles.timeSelectorsContainer}>
