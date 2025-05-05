@@ -230,6 +230,7 @@ const styles = StyleSheet.create({
   },
   submitButtonContainer: {
     marginTop: 20,
+    paddingBottom: 40,
   },
   submitButton: {
     borderRadius: 12,
