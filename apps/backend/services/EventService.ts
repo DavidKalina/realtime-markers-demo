@@ -100,8 +100,6 @@ export class EventService {
     } = {}
   ): Promise<Event[]> {
     try {
-      console.log("Getting events with options:", options);
-
       const queryBuilder = this.eventRepository
         .createQueryBuilder("event")
         .leftJoinAndSelect("event.categories", "category")
@@ -119,16 +117,6 @@ export class EventService {
 
       const events = await queryBuilder.getMany();
       console.log(`Retrieved ${events.length} events from database`);
-
-      // Log sample event for debugging
-      if (events.length > 0) {
-        console.log("Sample event:", {
-          id: events[0].id,
-          isPrivate: events[0].isPrivate,
-          creatorId: events[0].creatorId,
-          shares: events[0].shares,
-        });
-      }
 
       return events;
     } catch (error) {

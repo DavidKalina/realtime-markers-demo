@@ -98,21 +98,7 @@ function HomeScreen() {
     let timeoutId: NodeJS.Timeout;
 
     const checkLocation = async () => {
-      console.log("[HomeScreen] Location effect triggered:", {
-        hasUserLocation: !!userLocation,
-        isLoadingLocation,
-        hasRequestedInitialLocation,
-        timestamp: new Date().toISOString(),
-      });
-
       if (!userLocation && !isLoadingLocation && !hasRequestedInitialLocation) {
-        console.log("[HomeScreen] Checking if location request is needed:", {
-          hasUserLocation: !!userLocation,
-          isLoadingLocation,
-          hasRequestedInitialLocation,
-          timestamp: new Date().toISOString(),
-        });
-
         // Only request location if we don't have a valid cached location
         if (!userLocation) {
           console.log("[HomeScreen] Requesting new location...");

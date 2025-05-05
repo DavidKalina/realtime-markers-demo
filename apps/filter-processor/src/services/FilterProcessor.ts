@@ -141,14 +141,6 @@ export class FilterProcessor {
       validEvents.forEach((event) => {
         this.eventCache.set(event.id, event);
       });
-
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`[Cache] Initialized with ${items.length} events`);
-        console.log(`[Cache] Current cache size: ${this.eventCache.size}`);
-        if (items.length > 0) {
-          console.log("Sample spatial item:", items[0]);
-        }
-      }
     } catch (error) {
       console.error("Error initializing spatial index:", error);
       throw error;
@@ -936,13 +928,6 @@ export class FilterProcessor {
           timestamp: new Date().toISOString(),
         };
 
-        console.log(`[Publish] Publishing viewport update to channel ${channel}:`, {
-          type: message.type,
-          eventCount: sanitizedEvents.length,
-          eventIds: sanitizedEvents.map((e) => e.id),
-          messageSize: JSON.stringify(message).length,
-        });
-
         // Publish the filtered events to the user's channel
         this.redisPub.publish(channel, JSON.stringify(message));
       } else {
@@ -954,35 +939,16 @@ export class FilterProcessor {
             timestamp: new Date().toISOString(),
           };
 
-          console.log(`[Publish] Publishing event to channel ${channel}:`, {
-            type: message.type,
-            eventId: event.id,
-            messageSize: JSON.stringify(message).length,
-          });
-
           // Publish the event to the user's channel
           this.redisPub.publish(channel, JSON.stringify(message));
         }
       }
-
-      console.log(
-        `[Publish] Successfully published ${sanitizedEvents.length} events to ${channel}`
-      );
 
       // Update stats
       this.stats.totalFilteredEventsPublished += sanitizedEvents.length;
 
       // If this was a replace-all operation, log additional details
       if (process.env.NODE_ENV !== "production" && type === "replace-all") {
-        console.log(`[Publish] Sent complete replacement set to user ${userId}`);
-
-        // Log sample of event IDs for debugging
-        if (sanitizedEvents.length > 0) {
-          const sampleIds = sanitizedEvents
-            .slice(0, Math.min(5, sanitizedEvents.length))
-            .map((e) => e.id);
-          console.log(`[Publish] Sample event IDs: ${sampleIds.join(", ")}`);
-        }
       }
     } catch (error) {
       console.error(`[Publish] Error publishing events to user ${userId}:`, error);
@@ -1029,11 +995,6 @@ export class FilterProcessor {
             }
 
             const { events, total, hasMore } = data;
-
-            if (process.env.NODE_ENV !== "production") {
-              console.log(`Received ${events.length} events from page ${currentPage}`);
-              console.log(`Total events: ${total}, Has more pages: ${hasMore}`);
-            }
 
             // Process and validate events
             const validEvents = events
@@ -1087,9 +1048,7 @@ export class FilterProcessor {
 
             // Exponential backoff
             const retryDelay = initialRetryDelay * Math.pow(2, attempt - 1);
-            if (process.env.NODE_ENV !== "production") {
-              console.log(`Waiting ${retryDelay}ms before next attempt...`);
-            }
+
             await new Promise((resolve) => setTimeout(resolve, retryDelay));
           }
         }
@@ -1115,12 +1074,6 @@ export class FilterProcessor {
       // Remove duplicates based on event ID
       const uniqueEvents = Array.from(new Map(events.map((event) => [event.id, event])).values());
 
-      if (process.env.NODE_ENV !== "production") {
-        console.log(
-          `[Cache] Processing batch of ${events.length} events, ${uniqueEvents.length} unique`
-        );
-      }
-
       // Format for RBush
       const items = uniqueEvents.map((event) => this.eventToSpatialItem(event));
 
@@ -1138,11 +1091,6 @@ export class FilterProcessor {
       });
 
       if (process.env.NODE_ENV !== "production") {
-        console.log(`[Cache] Added ${items.length} events to cache`);
-        console.log(`[Cache] Current cache size: ${this.eventCache.size}`);
-        if (items.length > 0) {
-          console.log("Sample spatial item:", items[0]);
-        }
       }
     } catch (error) {
       console.error("Error processing initial events batch:", error);

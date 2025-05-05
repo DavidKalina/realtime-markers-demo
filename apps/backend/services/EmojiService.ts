@@ -1,6 +1,5 @@
 import AppDataSource from "../data-source";
 import { Emoji } from "../entities/Emoji";
-import { Like } from "typeorm";
 import { CacheService } from "./shared/CacheService";
 
 export class EmojiService {
@@ -56,13 +55,10 @@ export class EmojiService {
 
     queryBuilder.orderBy("emoji.rank", "DESC").addOrderBy("emoji.id", "ASC").take(limit);
 
-    console.log("[EmojiService] Executing query with SQL:", queryBuilder.getSql());
     const emojis = await queryBuilder.getMany();
-    console.log("[EmojiService] Retrieved", emojis.length, "emojis");
 
     // Cache the results
     await CacheService.setCachedData(cacheKey, JSON.stringify(emojis), EmojiService.EMOJI_LIST_TTL);
-    console.log("[EmojiService] Cached results for key:", cacheKey);
 
     return emojis;
   }
@@ -74,28 +70,23 @@ export class EmojiService {
     keywords: string[];
     rank?: number;
   }): Promise<Emoji> {
-    console.log("[EmojiService] Creating new emoji:", emojiData);
     const emoji = this.emojiRepository.create(emojiData);
     const savedEmoji = await this.emojiRepository.save(emoji);
-    console.log("[EmojiService] Created emoji with ID:", savedEmoji.id);
 
     // Invalidate relevant caches
     await this.invalidateEmojiCaches();
-    console.log("[EmojiService] Invalidated emoji caches after creation");
 
     return savedEmoji;
   }
 
   async updateEmoji(id: number, emojiData: Partial<Emoji>): Promise<Emoji | null> {
-    console.log("[EmojiService] Updating emoji ID:", id, "with data:", emojiData);
+    console.log("[] Updating emoji ID:", id, "with data:", emojiData);
     await this.emojiRepository.update(id, emojiData);
     const emoji = await this.emojiRepository.findOneBy({ id });
 
     if (emoji) {
-      console.log("[EmojiService] Successfully updated emoji ID:", id);
       // Invalidate relevant caches
       await this.invalidateEmojiCaches();
-      console.log("[EmojiService] Invalidated emoji caches after update");
     } else {
       console.log("[EmojiService] Emoji not found for update, ID:", id);
     }
@@ -109,10 +100,8 @@ export class EmojiService {
     const success = (result.affected ?? 0) > 0;
 
     if (success) {
-      console.log("[EmojiService] Successfully deleted emoji ID:", id);
       // Invalidate relevant caches
       await this.invalidateEmojiCaches();
-      console.log("[EmojiService] Invalidated emoji caches after deletion");
     } else {
       console.log("[EmojiService] Emoji not found for deletion, ID:", id);
     }
@@ -121,7 +110,6 @@ export class EmojiService {
   }
 
   private async invalidateEmojiCaches(): Promise<void> {
-    console.log("[EmojiService] Starting cache invalidation");
     // Invalidate all emoji-related caches
     const keys = (await CacheService.getRedisClient()?.keys("emojis:*")) || [];
     if (keys.length > 0) {
