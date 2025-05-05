@@ -17,8 +17,9 @@ import {
   Platform,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from "react-native";
-import { Friend } from "@/services/ApiClient";
+import { Friend, apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useAnimatedStyle,
@@ -75,6 +76,17 @@ const CreatePrivateEvent = () => {
   const handleSubmit = async () => {
     if (isSubmitting) return;
 
+    // Validate required fields
+    if (!eventName.trim()) {
+      Alert.alert("Error", "Please enter an event name");
+      return;
+    }
+
+    if (!coordinates) {
+      Alert.alert("Error", "Location is required");
+      return;
+    }
+
     // Trigger haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
@@ -84,19 +96,41 @@ const CreatePrivateEvent = () => {
       withSpring(1, { damping: 15, stiffness: 200 })
     );
 
-    // Delay the submit action until after animation
-    setTimeout(() => {
-      setIsSubmitting(true);
-      // TODO: Add your submit logic here
-      console.log("Submitting event:", {
-        eventName,
-        eventDescription,
-        date,
-        selectedFriends,
-        coordinates,
+    setIsSubmitting(true);
+
+    try {
+      const result = await apiClient.createPrivateEvent({
+        title: eventName.trim(),
+        description: eventDescription.trim(),
+        date: date.toISOString(),
+        location: {
+          type: "Point",
+          coordinates: [coordinates.longitude, coordinates.latitude],
+        },
+        sharedWithIds: selectedFriends.map((friend) => friend.id),
+        userCoordinates: {
+          lat: coordinates.latitude,
+          lng: coordinates.longitude,
+        },
       });
+
+      // Show success message
+      Alert.alert(
+        "Success",
+        "Your private event is being created. You'll be notified when it's ready.",
+        [
+          {
+            text: "OK",
+            onPress: () => router.back(),
+          },
+        ]
+      );
+    } catch (error) {
+      console.error("Error creating private event:", error);
+      Alert.alert("Error", "Failed to create private event. Please try again.");
+    } finally {
       setIsSubmitting(false);
-    }, 150);
+    }
   };
 
   console.log("DATE", date);

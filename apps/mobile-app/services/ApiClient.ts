@@ -869,6 +869,55 @@ class ApiClient {
     return this.handleResponse<ApiEvent>(response);
   }
 
+  // Create a private event
+  async createPrivateEvent(eventData: {
+    title: string;
+    date: string;
+    endDate?: string;
+    location: {
+      type?: string;
+      coordinates: [number, number];
+    };
+    address?: string;
+    description?: string;
+    categories?: { id: string; name: string }[];
+    timezone?: string;
+    locationNotes?: string;
+    emoji?: string;
+    emojiDescription?: string;
+    sharedWithIds?: string[];
+    userCoordinates?: {
+      lat: number;
+      lng: number;
+    };
+  }): Promise<{
+    status: string;
+    jobId: string;
+    message: string;
+    _links: {
+      self: string;
+      status: string;
+      stream: string;
+    };
+  }> {
+    const url = `${this.baseUrl}/api/events/private`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify(eventData),
+    });
+
+    return this.handleResponse<{
+      status: string;
+      jobId: string;
+      message: string;
+      _links: {
+        self: string;
+        status: string;
+        stream: string;
+      };
+    }>(response);
+  }
+
   // Upload an image for event processing
   async processEventImage(
     payload: Record<string, any>
