@@ -134,16 +134,6 @@ const PlanSection = React.memo(
             {planDetails?.planType || "FREE"}
           </Text>
         </View>
-        {planDetails?.planType === PlanType.FREE && (
-          <TouchableOpacity
-            style={styles.upgradeButton}
-            onPress={handleUpgradePlan}
-            activeOpacity={0.8}
-          >
-            <Crown size={16} color="#fbbf24" style={{ marginRight: 4 }} />
-            <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
-          </TouchableOpacity>
-        )}
       </View>
       <View style={styles.usageContainer}>
         <View style={styles.usageHeader}>
