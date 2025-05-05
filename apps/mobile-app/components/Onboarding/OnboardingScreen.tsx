@@ -36,6 +36,11 @@ const ONBOARDING_STEPS = [
     description: "Get XP for each unique event you scan. The more you scan, the more you earn!",
     emoji: "✨",
   },
+  {
+    title: "Create Private Events",
+    description: "Long press the map to create private events to share with your friends.",
+    emoji: "🔒",
+  },
 ];
 
 export const OnboardingScreen: React.FC = () => {
