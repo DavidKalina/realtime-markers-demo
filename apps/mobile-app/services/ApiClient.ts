@@ -1427,6 +1427,16 @@ class ApiClient {
     });
     return this.handleResponse<{ success: boolean }>(response);
   }
+
+  // Add updateEvent method
+  async updateEvent(eventId: string, eventData: Partial<ApiEvent>): Promise<ApiEvent> {
+    await this.ensureInitialized();
+    const response = await this.fetchWithAuth(`${this.baseUrl}/api/events/${eventId}`, {
+      method: "PUT",
+      body: JSON.stringify(eventData),
+    });
+    return this.handleResponse<ApiEvent>(response);
+  }
 }
 
 // Export as singleton

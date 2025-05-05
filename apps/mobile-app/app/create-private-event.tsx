@@ -72,6 +72,8 @@ const CreatePrivateEvent = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const buttonScale = useSharedValue(1);
 
+  console.log(params);
+
   // Add effect to initialize selected friends in edit mode
   useEffect(() => {
     const initializeSelectedFriends = async () => {
@@ -116,12 +118,6 @@ const CreatePrivateEvent = () => {
       return;
     }
 
-    // Remove emoji validation since it's now optional
-    // if (!selectedEmoji) {
-    //   Alert.alert("Error", "Please select an emoji");
-    //   return;
-    // }
-
     // Trigger haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
@@ -134,36 +130,48 @@ const CreatePrivateEvent = () => {
     setIsSubmitting(true);
 
     try {
-      const result = await apiClient.createPrivateEvent({
+      const eventData = {
         title: eventName.trim(),
         description: eventDescription.trim(),
         emoji: selectedEmoji || "📍", // Use default emoji if none selected
         date: date.toISOString(),
         location: {
           type: "Point",
-          coordinates: [coordinates.longitude, coordinates.latitude],
+          coordinates: [coordinates.longitude, coordinates.latitude] as [number, number],
         },
         sharedWithIds: selectedFriends.map((friend) => friend.id),
         userCoordinates: {
           lat: coordinates.latitude,
           lng: coordinates.longitude,
         },
-      });
+      };
 
-      // Show success message
-      Alert.alert(
-        "Success",
-        "Your private event is being created. You'll be notified when it's ready.",
-        [
+      if (params.id) {
+        // Update existing event
+        await apiClient.updateEvent(params.id as string, eventData);
+        Alert.alert("Success", "Your private event has been updated.", [
           {
             text: "OK",
             onPress: () => router.back(),
           },
-        ]
-      );
+        ]);
+      } else {
+        // Create new event
+        const result = await apiClient.createPrivateEvent(eventData);
+        Alert.alert(
+          "Success",
+          "Your private event is being created. You'll be notified when it's ready.",
+          [
+            {
+              text: "OK",
+              onPress: () => router.back(),
+            },
+          ]
+        );
+      }
     } catch (error) {
-      console.error("Error creating private event:", error);
-      Alert.alert("Error", "Failed to create private event. Please try again.");
+      console.error("Error with private event:", error);
+      Alert.alert("Error", "Failed to process private event. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

@@ -180,6 +180,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     router.push({
       pathname: "/create-private-event",
       params: {
+        id: event.id,
         title: event.title,
         description: event.description,
         eventDate: event.eventDate,
