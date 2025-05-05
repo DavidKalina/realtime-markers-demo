@@ -403,6 +403,7 @@ export class EventService {
     try {
       const event = await this.getEventById(id);
       if (!event) return null;
+      if (!event.creatorId) return null;
 
       // Handle basic fields
       if (eventData.title) event.title = eventData.title;
@@ -439,6 +440,10 @@ export class EventService {
           where: { id: In(eventData.categoryIds) },
         });
         event.categories = categories;
+      }
+
+      if (eventData.sharedWithIds) {
+        await this.shareEventWithUsers(id, event.creatorId, eventData.sharedWithIds);
       }
 
       const updatedEvent = await this.eventRepository.save(event);
