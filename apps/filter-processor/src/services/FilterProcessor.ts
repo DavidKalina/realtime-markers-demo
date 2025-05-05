@@ -422,10 +422,6 @@ export class FilterProcessor {
         this.removeEventFromIndex(record.id);
         this.eventCache.delete(record.id);
 
-        if (process.env.NODE_ENV !== "production") {
-          console.log(`[Cache] Deleted event ${record.id} from cache`);
-        }
-
         // Publish deletion event to all users
         await this.redisPub.publish(
           "event:deleted",
@@ -440,10 +436,37 @@ export class FilterProcessor {
 
       // For CREATE/UPDATE operations
       if (operation === "UPDATE") {
-        this.removeEventFromIndex(record.id);
-        if (process.env.NODE_ENV !== "production") {
-          console.log(`[Cache] Removed event ${record.id} from spatial index for update`);
+        // Get the existing spatial item
+        const currentItems = this.spatialIndex.all();
+        const existingItem = currentItems.find((item) => item.id === record.id);
+
+        // Create new spatial item
+        const newSpatialItem = this.eventToSpatialItem(record);
+
+        if (existingItem) {
+          // Update existing item in spatial index
+          this.spatialIndex.remove(existingItem);
+          this.spatialIndex.insert(newSpatialItem);
+        } else {
+          // If item doesn't exist, insert it
+          this.spatialIndex.insert(newSpatialItem);
         }
+
+        // Update cache
+        this.eventCache.set(record.id, record);
+
+        const updatedRecord = this.stripSensitiveData(record);
+
+        await this.redisPub.publish(
+          "event:updated",
+          JSON.stringify({
+            operation: "UPDATE",
+            event: updatedRecord,
+            timestamp: new Date().toISOString(),
+          })
+        );
+        this.stats.totalFilteredEventsPublished++;
+        return;
       }
 
       // Add to spatial index and cache
@@ -634,7 +657,10 @@ export class FilterProcessor {
             return false;
           }
 
-          // Normalize filter dates to cover the full day
+          // Get the event's timezone or default to UTC
+          const eventTimezone = event.timezone || "UTC";
+
+          // Normalize filter dates to cover the full day in the event's timezone
           const filterStartDate = new Date(start + "T00:00:00.000Z");
           const filterEndDate = new Date(end + "T23:59:59.999Z");
 
@@ -678,30 +704,52 @@ export class FilterProcessor {
             return false;
           }
 
+          // Convert event dates to the event's timezone for comparison
+          const eventStartInTimezone = new Date(
+            eventStartDate.toLocaleString("en-US", { timeZone: eventTimezone })
+          );
+          const eventEndInTimezone = new Date(
+            eventEndDate.toLocaleString("en-US", { timeZone: eventTimezone })
+          );
+          const filterStartInTimezone = new Date(
+            filterStartDate.toLocaleString("en-US", { timeZone: eventTimezone })
+          );
+          const filterEndInTimezone = new Date(
+            filterEndDate.toLocaleString("en-US", { timeZone: eventTimezone })
+          );
+
           if (process.env.NODE_ENV !== "production") {
             console.log("Date Range Analysis:", {
               eventId: event.id,
               eventTitle: event.title,
-              eventStartDate: eventStartDate.toISOString(),
-              eventEndDate: eventEndDate.toISOString(),
-              filterStartDate: filterStartDate.toISOString(),
-              filterEndDate: filterEndDate.toISOString(),
+              eventStartDate: eventStartInTimezone.toISOString(),
+              eventEndDate: eventEndInTimezone.toISOString(),
+              filterStartDate: filterStartInTimezone.toISOString(),
+              filterEndDate: filterEndInTimezone.toISOString(),
               isMultiDay: event.endDate !== null,
-              timezone: event.timezone || "UTC",
-              isRejected: eventStartDate > filterEndDate || eventEndDate < filterStartDate,
+              timezone: eventTimezone,
+              isRejected:
+                eventStartInTimezone > filterEndInTimezone ||
+                eventEndInTimezone < filterStartInTimezone,
               rejectionReason:
-                eventStartDate > filterEndDate
+                eventStartInTimezone > filterEndInTimezone
                   ? "start after filter end"
-                  : eventEndDate < filterStartDate
+                  : eventEndInTimezone < filterStartInTimezone
                   ? "end before filter start"
                   : "none",
+              rawDates: {
+                eventStart: eventStartDate.toISOString(),
+                eventEnd: eventEndDate.toISOString(),
+                filterStart: filterStartDate.toISOString(),
+                filterEnd: filterEndDate.toISOString(),
+              },
             });
           }
 
           // Check if event overlaps with filter date range
           // Event must overlap with the filter date range
-          const eventStartsBeforeFilterEnd = eventStartDate <= filterEndDate;
-          const eventEndsAfterFilterStart = eventEndDate >= filterStartDate;
+          const eventStartsBeforeFilterEnd = eventStartInTimezone <= filterEndInTimezone;
+          const eventEndsAfterFilterStart = eventEndInTimezone >= filterStartInTimezone;
           const isInRange = eventStartsBeforeFilterEnd && eventEndsAfterFilterStart;
 
           if (!isInRange) {
@@ -709,13 +757,24 @@ export class FilterProcessor {
               console.log("Date Range Rejection:", {
                 eventId: event.id,
                 eventTitle: event.title,
-                eventStartDate: eventStartDate.toISOString(),
-                eventEndDate: eventEndDate.toISOString(),
-                filterStartDate: filterStartDate.toISOString(),
-                filterEndDate: filterEndDate.toISOString(),
+                eventStartDate: eventStartInTimezone.toISOString(),
+                eventEndDate: eventEndInTimezone.toISOString(),
+                filterStartDate: filterStartInTimezone.toISOString(),
+                filterEndDate: filterEndInTimezone.toISOString(),
                 reason: !eventStartsBeforeFilterEnd
                   ? "starts after filter end"
                   : "ends before filter start",
+                currentDate: new Date().toISOString(),
+                timezone: eventTimezone,
+                isMultiDay: event.endDate !== null,
+                eventDuration: eventEndInTimezone.getTime() - eventStartInTimezone.getTime(),
+                filterDuration: filterEndInTimezone.getTime() - filterStartInTimezone.getTime(),
+                rawDates: {
+                  eventStart: eventStartDate.toISOString(),
+                  eventEnd: eventEndDate.toISOString(),
+                  filterStart: filterStartDate.toISOString(),
+                  filterEnd: filterEndDate.toISOString(),
+                },
               });
             }
             return false;

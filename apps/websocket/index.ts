@@ -122,6 +122,14 @@ redisSub.subscribe("event:deleted", (err, count) => {
   }
 });
 
+redisSub.subscribe("event:updated", (err, count) => {
+  if (err) {
+    console.error("Error subscribing to event:updated:", err);
+  } else {
+    console.log(`Subscribed to event:updated, total subscriptions: ${count}`);
+  }
+});
+
 redisSub.on("message", (channel, message) => {
   console.log(`Received message from ${channel}: ${message}`);
 
@@ -184,6 +192,28 @@ redisSub.on("message", (channel, message) => {
       }
     } catch (error) {
       console.error("Error processing level update:", error);
+    }
+  } else if (channel === "event:updated") {
+    try {
+      const data = JSON.parse(message);
+      console.log("Received event update:", data);
+
+      const formattedMessage = JSON.stringify({
+        type: MessageTypes.UPDATE_EVENT,
+        ...data,
+        timestamp: data.timestamp || new Date().toISOString(),
+      });
+
+      // Broadcast to all connected clients
+      for (const [clientId, client] of clients.entries()) {
+        try {
+          client.send(formattedMessage);
+        } catch (error) {
+          console.error(`Error sending event update to client ${clientId}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error("Error processing event update:", error);
     }
   } else if (channel === "event:deleted") {
     try {

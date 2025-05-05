@@ -321,6 +321,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
           // Handle updating an existing event
           case MessageTypes.UPDATE_EVENT: {
+            console.log("Received update event:", data);
             if (!data.event) {
               console.warn("[useMapWebsocket] Missing event data in UPDATE_EVENT");
               return;
@@ -328,9 +329,25 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
             try {
               const updatedMarker = convertEventToMarker(data.event);
+
               setMarkers((prev) =>
                 prev.map((marker) => (marker.id === updatedMarker.id ? updatedMarker : marker))
               );
+
+              // Force a viewport update to trigger re-render
+              if (currentViewportRef.current) {
+                // Create a new viewport object to ensure state update
+                const newViewport = { ...currentViewportRef.current };
+                updateViewport(newViewport);
+              }
+
+              // Emit marker updated event
+              eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
+                timestamp: Date.now(),
+                source: "useMapWebSocket",
+                markers: [updatedMarker],
+                count: 1,
+              });
             } catch (error) {
               console.error("[useMapWebsocket] Error processing UPDATE_EVENT:", error);
             }

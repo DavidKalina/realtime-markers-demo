@@ -406,6 +406,8 @@ export class EventService {
 
       // Handle basic fields
       if (eventData.title) event.title = eventData.title;
+      if (eventData.emoji) event.emoji = eventData.emoji;
+      if (eventData.emojiDescription) event.emojiDescription = eventData.emojiDescription;
       if (eventData.description !== undefined) event.description = eventData.description;
       if (eventData.eventDate) event.eventDate = eventData.eventDate;
       if (eventData.endDate !== undefined) event.endDate = eventData.endDate;
