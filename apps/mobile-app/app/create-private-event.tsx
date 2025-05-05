@@ -218,6 +218,11 @@ const CreatePrivateEvent = () => {
                 onChangeText={setEventDescription}
               />
               <EmojiPicker value={selectedEmoji} onEmojiSelect={handleEmojiSelect} />
+              {!selectedEmoji && (
+                <View style={styles.callout}>
+                  <Text style={styles.calloutText}>No emoji selected - AI will infer one</Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.section}>
@@ -326,6 +331,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "SpaceMono",
     marginTop: 4,
+  },
+  callout: {
+    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    padding: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(147, 197, 253, 0.2)",
+  },
+  calloutText: {
+    color: COLORS.accent,
+    fontSize: 12,
+    fontFamily: "SpaceMono",
   },
 });
 
