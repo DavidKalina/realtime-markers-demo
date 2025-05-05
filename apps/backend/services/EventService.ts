@@ -442,11 +442,20 @@ export class EventService {
         event.categories = categories;
       }
 
-      if (eventData.sharedWithIds) {
+      // Handle privacy and shares
+      if (eventData.isPrivate !== undefined) {
+        event.isPrivate = eventData.isPrivate;
+      }
+
+      // Only update shares if the event is private
+      if (event.isPrivate && eventData.sharedWithIds) {
         // First remove all existing shares
         await this.removeEventShares(id, await this.getEventSharedWithUsers(id));
         // Then add the new shares
         await this.shareEventWithUsers(id, event.creatorId, eventData.sharedWithIds);
+      } else if (!event.isPrivate) {
+        // If event is not private, remove all shares
+        await this.removeEventShares(id, await this.getEventSharedWithUsers(id));
       }
 
       const updatedEvent = await this.eventRepository.save(event);

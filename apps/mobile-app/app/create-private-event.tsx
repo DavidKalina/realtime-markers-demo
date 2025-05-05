@@ -144,6 +144,7 @@ const CreatePrivateEvent = () => {
           lat: coordinates.latitude,
           lng: coordinates.longitude,
         },
+        isPrivate: true,
       };
 
       if (params.id) {
