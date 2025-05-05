@@ -120,7 +120,17 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
   const daysInMonth = useMemo(() => {
     const start = startOfMonth(currentMonth);
     const end = endOfMonth(currentMonth);
-    return eachDayOfInterval({ start, end });
+
+    // Get the first day of the month (0-6, where 0 is Sunday)
+    const firstDayOfMonth = start.getDay();
+
+    // Get all days in the current month
+    const days = eachDayOfInterval({ start, end });
+
+    // Add padding days at the start to align with the week grid
+    const paddingDays = Array(firstDayOfMonth).fill(null);
+
+    return [...paddingDays, ...days];
   }, [currentMonth]);
 
   // Handle date selection
@@ -296,6 +306,9 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
 
         <View style={styles.daysGrid}>
           {daysInMonth.map((date, index) => {
+            if (date === null) {
+              return <View key={`empty-${index}`} style={styles.dayContainer} />;
+            }
             const { container, text } = getDayStyles(date);
             return (
               <TouchableOpacity
