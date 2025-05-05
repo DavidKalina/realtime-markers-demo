@@ -13,10 +13,10 @@ const AmPmToggle: React.FC<{
   date: Date;
   onChange: (date: Date) => void;
 }> = ({ date, onChange }) => {
-  const isPM = date.getUTCHours() >= 12;
+  const isPM = date.getHours() >= 12;
 
   const handleAmPmChange = (isPM: boolean) => {
-    const currentHour = date.getUTCHours();
+    const currentHour = date.getHours();
     const newHour = isPM
       ? currentHour < 12
         ? currentHour + 12
@@ -25,7 +25,7 @@ const AmPmToggle: React.FC<{
       ? currentHour - 12
       : currentHour;
     const newDate = new Date(date);
-    newDate.setUTCHours(newHour);
+    newDate.setHours(newHour);
     onChange(newDate);
   };
 
@@ -50,21 +50,21 @@ const AmPmToggle: React.FC<{
 };
 
 const SwipeableClock: React.FC<SwipeableClockProps> = ({ date, onChange }) => {
-  const hours = date.getUTCHours();
-  const minutes = date.getUTCMinutes();
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
   const displayHours = hours % 12 || 12; // Convert 24h to 12h format
 
   const updateHours = (newHours: number) => {
     const normalizedHours = ((newHours % 24) + 24) % 24;
     const newDate = new Date(date);
-    newDate.setUTCHours(normalizedHours);
+    newDate.setHours(normalizedHours);
     onChange(newDate);
   };
 
   const updateMinutes = (newMinutes: number) => {
     const normalizedMinutes = ((newMinutes % 60) + 60) % 60;
     const newDate = new Date(date);
-    newDate.setUTCMinutes(normalizedMinutes);
+    newDate.setMinutes(normalizedMinutes);
     onChange(newDate);
   };
 

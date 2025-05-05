@@ -28,6 +28,8 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import EmojiPicker from "@/components/Input/EmojiPicker";
+import { formatDate, getUserLocalTime, getUserTimezone } from "@/utils/dateTimeFormatting";
+import { formatInTimeZone } from "date-fns-tz";
 
 // Unified color theme matching Login screen
 const COLORS = {
@@ -71,8 +73,6 @@ const CreatePrivateEvent = () => {
   const [selectedEmoji, setSelectedEmoji] = useState((params.emoji as string) || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const buttonScale = useSharedValue(1);
-
-  console.log(params);
 
   // Add effect to initialize selected friends in edit mode
   useEffect(() => {
@@ -177,6 +177,16 @@ const CreatePrivateEvent = () => {
     }
   };
 
+  // Add formatted date display
+  const formattedDate = formatDate(date.toISOString());
+  const userLocalTime = getUserLocalTime(date.toISOString());
+
+  // Convert date to user's local timezone for display
+  const userTimezone = getUserTimezone();
+  const localDate = new Date(date);
+  localDate.setHours(date.getHours());
+  localDate.setMinutes(date.getMinutes());
+
   return (
     <ScreenLayout>
       <Header
@@ -222,7 +232,11 @@ const CreatePrivateEvent = () => {
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Date & Time</Text>
               <EmbeddedDateRangeCalendar date={date} onDateChange={setDate} />
-              <SwipeableClock date={date} onChange={setDate} />
+              <SwipeableClock date={localDate} onChange={setDate} />
+              <View style={styles.dateDisplay}>
+                <Text style={styles.dateText}>{formattedDate}</Text>
+                {userLocalTime && <Text style={styles.localTimeText}>{userLocalTime}</Text>}
+              </View>
             </View>
 
             <View style={styles.submitButtonContainer}>
@@ -293,6 +307,25 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontFamily: "SpaceMono",
     letterSpacing: 0.5,
+  },
+  dateDisplay: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+  },
+  dateText: {
+    color: COLORS.textPrimary,
+    fontSize: 16,
+    fontFamily: "SpaceMono",
+  },
+  localTimeText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+    marginTop: 4,
   },
 });
 

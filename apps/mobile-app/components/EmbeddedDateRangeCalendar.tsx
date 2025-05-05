@@ -67,10 +67,13 @@ const EmbeddedDateRangeCalendar: React.FC<EmbeddedDateRangeCalendarProps> = ({
   // Handle date selection
   const handleDayPress = useCallback(
     (selectedDate: Date) => {
-      // Preserve the time from the current date
+      // Create a new date object and preserve the time from the current date
       const newDate = new Date(selectedDate);
-      newDate.setHours(date.getHours());
-      newDate.setMinutes(date.getMinutes());
+      // Get the local hours and minutes from the current date
+      const currentHours = date.getHours();
+      const currentMinutes = date.getMinutes();
+      // Set the hours and minutes in the local timezone
+      newDate.setHours(currentHours, currentMinutes, 0, 0);
       onDateChange(newDate);
     },
     [date, onDateChange]

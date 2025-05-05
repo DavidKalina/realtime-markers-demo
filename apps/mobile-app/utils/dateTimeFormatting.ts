@@ -3,7 +3,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { getCalendars } from "expo-localization";
 
 // Helper to safely get user timezone in React Native
-const getUserTimezone = () => {
+export const getUserTimezone = () => {
   try {
     // Get calendar information which contains timezone
     const deviceCalendars = getCalendars();

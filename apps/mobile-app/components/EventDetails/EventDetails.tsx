@@ -206,8 +206,6 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     return <Text>No event details available</Text>;
   }
 
-  console.log(event);
-
   return (
     <ScreenLayout>
       <StatusBar barStyle="light-content" />
