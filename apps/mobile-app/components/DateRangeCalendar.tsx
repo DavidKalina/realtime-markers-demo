@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   todayText: {
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: "600",
   },
   footer: {
