@@ -155,6 +155,14 @@ const CustomEmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, value })
                 </View>
               ) : null
             }
+            initialNumToRender={2}
+            windowSize={3}
+            removeClippedSubviews={true}
+            getItemLayout={(_, index) => ({
+              length: CONTAINER_WIDTH,
+              offset: CONTAINER_WIDTH * index,
+              index,
+            })}
           />
         )}
       </View>

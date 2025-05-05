@@ -61,7 +61,7 @@ const CreatePrivateEvent = () => {
     }
   }, [params.latitude, params.longitude]);
 
-  const [date, setDate] = useState(new Date("2025-07-23T06:49:00.000Z"));
+  const [date, setDate] = useState(new Date());
   const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
   const [eventName, setEventName] = useState("");
   const [eventDescription, setEventDescription] = useState("");
