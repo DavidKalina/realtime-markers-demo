@@ -95,6 +95,7 @@ export interface ApiEvent {
   qrDetectedInImage?: boolean;
   detectedQrData?: string | null;
   isPrivate?: boolean;
+  shares?: { sharedWithId: string; sharedById: string }[]; // Add shares information
 }
 
 interface ClusterFeature {
@@ -470,6 +471,7 @@ class ApiClient {
       detectedQrData: apiEvent.detectedQrData,
       createdAt: apiEvent.createdAt,
       updatedAt: apiEvent.updatedAt,
+      sharedWithIds: apiEvent.shares?.map((share) => share.sharedWithId) || [],
     };
   }
 

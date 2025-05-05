@@ -136,7 +136,7 @@ export class EventService {
       // If not in cache, get from database
       const evt = await this.eventRepository.findOne({
         where: { id },
-        relations: ["categories", "creator"],
+        relations: ["categories", "creator", "shares", "shares.sharedWith"],
       });
 
       // If found, cache it with a shorter TTL for frequently accessed events

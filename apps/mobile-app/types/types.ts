@@ -52,6 +52,7 @@ export interface EventType {
     email: string;
   };
   isPrivate?: boolean;
+  sharedWithIds?: string[]; // Add shared user IDs
 }
 
 // Mapbox viewport format for map integration

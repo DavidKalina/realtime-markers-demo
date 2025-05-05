@@ -61,13 +61,36 @@ const CreatePrivateEvent = () => {
     }
   }, [params.latitude, params.longitude]);
 
-  const [date, setDate] = useState(new Date());
+  // Initialize state with values from params if they exist
+  const [date, setDate] = useState(
+    params.eventDate ? new Date(params.eventDate as string) : new Date()
+  );
   const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
-  const [eventName, setEventName] = useState("");
-  const [eventDescription, setEventDescription] = useState("");
-  const [selectedEmoji, setSelectedEmoji] = useState("");
+  const [eventName, setEventName] = useState((params.title as string) || "");
+  const [eventDescription, setEventDescription] = useState((params.description as string) || "");
+  const [selectedEmoji, setSelectedEmoji] = useState((params.emoji as string) || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const buttonScale = useSharedValue(1);
+
+  // Add effect to initialize selected friends in edit mode
+  useEffect(() => {
+    const initializeSelectedFriends = async () => {
+      if (params.title && params.sharedWithIds) {
+        try {
+          // Get all friends
+          const friends = await apiClient.getFriends();
+          // Filter friends to only those that are in sharedWithIds
+          const sharedWithIds = (params.sharedWithIds as string).split(",");
+          const selectedFriends = friends.filter((friend) => sharedWithIds.includes(friend.id));
+          setSelectedFriends(selectedFriends);
+        } catch (error) {
+          console.error("Error initializing selected friends:", error);
+        }
+      }
+    };
+
+    initializeSelectedFriends();
+  }, [params.title, params.sharedWithIds]);
 
   const buttonAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -93,10 +116,11 @@ const CreatePrivateEvent = () => {
       return;
     }
 
-    if (!selectedEmoji) {
-      Alert.alert("Error", "Please select an emoji");
-      return;
-    }
+    // Remove emoji validation since it's now optional
+    // if (!selectedEmoji) {
+    //   Alert.alert("Error", "Please select an emoji");
+    //   return;
+    // }
 
     // Trigger haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -113,7 +137,7 @@ const CreatePrivateEvent = () => {
       const result = await apiClient.createPrivateEvent({
         title: eventName.trim(),
         description: eventDescription.trim(),
-        emoji: selectedEmoji,
+        emoji: selectedEmoji || "📍", // Use default emoji if none selected
         date: date.toISOString(),
         location: {
           type: "Point",
@@ -147,7 +171,10 @@ const CreatePrivateEvent = () => {
 
   return (
     <ScreenLayout>
-      <Header title="Create Private Event" onBack={() => router.back()} />
+      <Header
+        title={params.title ? "Update Private Event" : "Create Private Event"}
+        onBack={() => router.back()}
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoidingView}
@@ -200,7 +227,9 @@ const CreatePrivateEvent = () => {
                 {isSubmitting ? (
                   <ActivityIndicator size="small" color="#000" />
                 ) : (
-                  <Text style={styles.submitButtonText}>Create Event</Text>
+                  <Text style={styles.submitButtonText}>
+                    {params.title ? "Update Event" : "Create Event"}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>

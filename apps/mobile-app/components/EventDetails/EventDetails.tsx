@@ -43,6 +43,7 @@ import LoadingEventDetails from "./LoadingEventDetails";
 import SaveButton from "./SaveButton";
 import { styles } from "./styles";
 import { useEventDetails } from "./useEventDetails";
+import { useRouter } from "expo-router";
 
 interface EventDetailsProps {
   eventId: string;
@@ -89,6 +90,7 @@ const ShareButton = ({ onPress }: { onPress: () => void }) => (
 );
 
 const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
+  const router = useRouter();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -170,6 +172,25 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
       setIsDeleting(false);
       setDeleteModalVisible(false);
     }
+  };
+
+  const handleEditEvent = () => {
+    if (!event) return;
+
+    router.push({
+      pathname: "/create-private-event",
+      params: {
+        title: event.title,
+        description: event.description,
+        eventDate: event.eventDate,
+        emoji: event.emoji,
+        latitude: event.coordinates[1].toString(), // latitude is second coordinate
+        longitude: event.coordinates[0].toString(), // longitude is first coordinate
+        address: event.location,
+        locationNotes: event.locationNotes,
+        sharedWithIds: event.sharedWithIds,
+      },
+    });
   };
 
   if (loading) {
@@ -337,10 +358,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
             <View style={styles.adminActionsContainer}>
               <TouchableOpacity
                 style={[styles.adminButton, { backgroundColor: COLORS.accent }]}
-                onPress={() => {
-                  // TODO: Implement edit functionality
-                  console.log("Edit event");
-                }}
+                onPress={handleEditEvent}
               >
                 <Text style={[styles.adminButtonText, { color: "#ffffff" }]}>Edit Event</Text>
               </TouchableOpacity>
