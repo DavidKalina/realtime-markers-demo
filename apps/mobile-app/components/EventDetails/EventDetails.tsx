@@ -14,7 +14,7 @@ import {
   X,
   ZoomIn,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -44,6 +44,10 @@ import SaveButton from "./SaveButton";
 import { styles } from "./styles";
 import { useEventDetails } from "./useEventDetails";
 import { useRouter } from "expo-router";
+import MapboxGL from "@rnmapbox/maps";
+import { useMapStyle } from "@/contexts/MapStyleContext";
+import { EmojiMapMarker } from "../Markers/CustomMapMarker";
+import { useFlyOverCamera } from "@/hooks/useFlyOverCamera";
 
 interface EventDetailsProps {
   eventId: string;
@@ -91,6 +95,7 @@ const ShareButton = ({ onPress }: { onPress: () => void }) => (
 
 const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   const router = useRouter();
+  const { mapStyle } = useMapStyle();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -115,6 +120,11 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     distanceInfo,
     userLocation,
   } = useEventDetails(eventId, onBack);
+
+  // Add map refs for private event preview
+  const mapRef = useRef<MapboxGL.MapView>(null);
+  const cameraRef = useRef<MapboxGL.Camera>(null);
+  const { flyOver, stopFlyOver } = useFlyOverCamera({ cameraRef });
 
   // Fetch image when event is loaded
   useEffect(() => {
@@ -149,6 +159,29 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
       isMounted = false;
     };
   }, [event?.id]);
+
+  // Add effect to trigger fly-over animation when event is loaded
+  useEffect(() => {
+    if (event?.coordinates && event.isPrivate) {
+      // Small delay to ensure map is ready
+      const timer = setTimeout(() => {
+        flyOver(event.coordinates, {
+          minPitch: 45,
+          maxPitch: 75,
+          minZoom: 15,
+          maxZoom: 17,
+          minBearing: -30,
+          maxBearing: 30,
+          speed: 0.3, // Slower speed for smoother movement
+        });
+      }, 500);
+
+      return () => {
+        clearTimeout(timer);
+        stopFlyOver();
+      };
+    }
+  }, [event?.coordinates, event?.isPrivate, flyOver, stopFlyOver]);
 
   const handleImagePress = () => {
     if (imageUrl) {
@@ -206,6 +239,10 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     return <Text>No event details available</Text>;
   }
 
+  // Ensure coordinates are in the correct format [longitude, latitude]
+  const coordinates = event.coordinates;
+  console.log("Event coordinates:", coordinates);
+
   return (
     <ScreenLayout>
       <StatusBar barStyle="light-content" />
@@ -218,10 +255,51 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
       >
-        {/* Event Image with Emoji */}
+        {/* Event Image with Emoji or Map Preview for Private Events */}
         <View style={styles.imageWrapper}>
           <Animated.View entering={FadeIn.duration(500)} style={styles.imageContainer}>
-            {imageLoading ? (
+            {event.isPrivate ? (
+              <View style={[styles.eventImage, styles.mapPreview]}>
+                <MapboxGL.MapView
+                  pitchEnabled={false}
+                  zoomEnabled={false}
+                  compassEnabled={false}
+                  scrollEnabled={false}
+                  rotateEnabled={false}
+                  scaleBarEnabled={false}
+                  ref={mapRef}
+                  style={styles.mapPreview}
+                  styleURL={mapStyle}
+                  logoEnabled={false}
+                  attributionEnabled={false}
+                >
+                  <MapboxGL.Camera
+                    ref={cameraRef}
+                    zoomLevel={14}
+                    centerCoordinate={coordinates}
+                    animationDuration={0}
+                  />
+
+                  <MapboxGL.MarkerView coordinate={coordinates} anchor={{ x: 0.5, y: 1.0 }}>
+                    <EmojiMapMarker
+                      event={{
+                        id: event.id,
+                        coordinates: coordinates,
+                        data: {
+                          title: event.title,
+                          emoji: event.emoji,
+                          isPrivate: true,
+                          eventDate: event.eventDate,
+                          color: "#4a148c",
+                        },
+                      }}
+                      isSelected={false}
+                      onPress={() => {}}
+                    />
+                  </MapboxGL.MarkerView>
+                </MapboxGL.MapView>
+              </View>
+            ) : imageLoading ? (
               <View style={[styles.eventImage, styles.placeholderImage]}>
                 <ActivityIndicator size="large" color={COLORS.accent} />
                 <Text style={styles.placeholderText}>Loading image...</Text>

@@ -127,6 +127,7 @@ export class InitialSchemaAndSeed1710000000000 implements MigrationInterface {
         "user_id" uuid NOT NULL,
         "event_id" uuid NOT NULL,
         "saved_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "notes" text,
         "created_at" TIMESTAMP NOT NULL DEFAULT now(),
         "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "PK_user_event_saves" PRIMARY KEY ("id"),

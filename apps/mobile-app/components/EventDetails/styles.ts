@@ -42,6 +42,7 @@ export const styles = StyleSheet.create({
     width: "100%",
     height: 240,
     backgroundColor: COLORS.buttonBackground,
+    overflow: "hidden",
   },
   eventImage: {
     width: "100%",
@@ -486,5 +487,25 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     fontFamily: "SpaceMono",
+  },
+  mapPreview: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 0,
+    overflow: "visible",
+  },
+  markerContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: COLORS.accent,
+    zIndex: 1000,
+  },
+  markerEmoji: {
+    fontSize: 20,
   },
 });
