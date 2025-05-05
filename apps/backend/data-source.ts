@@ -16,6 +16,7 @@ import { InitialSchemaAndSeed1710000000000 } from "./migrations/1710000000000-In
 import { AddLevelingSystem1710000000003 } from "./migrations/AddLevelingSystem1710000000003";
 import { AddEmojiTable1710000000004 } from "./migrations/1710000000004-AddEmojiTable";
 import { SeedEmojis1710000000005 } from "./migrations/1710000000005-SeedEmojis";
+import { RemoveNotesFromUserEventSaves1710000000007 } from "./migrations/1710000000007-RemoveNotesFromUserEventSaves";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -39,6 +40,7 @@ const AppDataSource = new DataSource({
     AddLevelingSystem1710000000003,
     AddEmojiTable1710000000004,
     SeedEmojis1710000000005,
+    RemoveNotesFromUserEventSaves1710000000007,
   ],
   migrationsTableName: "migrations",
   migrationsRun: true, // Automatically run migrations on startup

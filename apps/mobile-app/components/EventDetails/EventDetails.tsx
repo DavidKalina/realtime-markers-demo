@@ -162,7 +162,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
   // Add effect to trigger fly-over animation when event is loaded
   useEffect(() => {
-    if (event?.coordinates && event.isPrivate) {
+    if (event?.coordinates) {
       // Small delay to ensure map is ready
       const timer = setTimeout(() => {
         flyOver(event.coordinates, {
@@ -181,7 +181,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
         stopFlyOver();
       };
     }
-  }, [event?.coordinates, event?.isPrivate, flyOver, stopFlyOver]);
+  }, [event?.coordinates, flyOver, stopFlyOver]);
 
   const handleImagePress = () => {
     if (imageUrl) {
@@ -258,69 +258,70 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
         {/* Event Image with Emoji or Map Preview for Private Events */}
         <View style={styles.imageWrapper}>
           <Animated.View entering={FadeIn.duration(500)} style={styles.imageContainer}>
-            {event.isPrivate ? (
-              <View style={[styles.eventImage, styles.mapPreview]}>
-                <MapboxGL.MapView
-                  pitchEnabled={false}
-                  zoomEnabled={false}
-                  compassEnabled={false}
-                  scrollEnabled={false}
-                  rotateEnabled={false}
-                  scaleBarEnabled={false}
-                  ref={mapRef}
-                  style={styles.mapPreview}
-                  styleURL={mapStyle}
-                  logoEnabled={false}
-                  attributionEnabled={false}
-                >
-                  <MapboxGL.Camera
-                    ref={cameraRef}
-                    zoomLevel={14}
-                    centerCoordinate={coordinates}
-                    animationDuration={0}
-                  />
+            <View style={[styles.eventImage, styles.mapPreview]}>
+              <MapboxGL.MapView
+                pitchEnabled={false}
+                zoomEnabled={false}
+                compassEnabled={false}
+                scrollEnabled={false}
+                rotateEnabled={false}
+                scaleBarEnabled={false}
+                ref={mapRef}
+                style={styles.mapPreview}
+                styleURL={mapStyle}
+                logoEnabled={false}
+                attributionEnabled={false}
+              >
+                <MapboxGL.Camera
+                  ref={cameraRef}
+                  zoomLevel={14}
+                  centerCoordinate={coordinates}
+                  animationDuration={0}
+                />
 
-                  <MapboxGL.MarkerView coordinate={coordinates} anchor={{ x: 0.5, y: 1.0 }}>
-                    <EmojiMapMarker
-                      event={{
-                        id: event.id,
-                        coordinates: coordinates,
-                        data: {
-                          title: event.title,
-                          emoji: event.emoji,
-                          isPrivate: true,
-                          eventDate: event.eventDate,
-                          color: "#4a148c",
-                        },
-                      }}
-                      isSelected={false}
-                      onPress={() => {}}
+                <MapboxGL.MarkerView coordinate={coordinates} anchor={{ x: 0.5, y: 1.0 }}>
+                  <EmojiMapMarker
+                    event={{
+                      id: event.id,
+                      coordinates: coordinates,
+                      data: {
+                        title: event.title,
+                        emoji: event.emoji,
+                        isPrivate: event.isPrivate,
+                        eventDate: event.eventDate,
+                        color: "#4a148c",
+                      },
+                    }}
+                    isSelected={false}
+                    onPress={() => {}}
+                  />
+                </MapboxGL.MarkerView>
+              </MapboxGL.MapView>
+
+              {/* Image overlay for public events */}
+              {!event.isPrivate &&
+                (imageLoading ? (
+                  <View style={styles.privateEventImageOverlay}>
+                    <ActivityIndicator size="small" color={COLORS.accent} />
+                  </View>
+                ) : imageError ? (
+                  <View style={styles.privateEventImageOverlay}>
+                    <Text style={styles.privateEventImageError}>{imageError}</Text>
+                  </View>
+                ) : imageUrl ? (
+                  <TouchableOpacity
+                    onPress={handleImagePress}
+                    activeOpacity={0.9}
+                    style={styles.privateEventImageOverlay}
+                  >
+                    <Image
+                      source={{ uri: imageUrl }}
+                      style={styles.privateEventImage}
+                      resizeMode="contain"
                     />
-                  </MapboxGL.MarkerView>
-                </MapboxGL.MapView>
-              </View>
-            ) : imageLoading ? (
-              <View style={[styles.eventImage, styles.placeholderImage]}>
-                <ActivityIndicator size="large" color={COLORS.accent} />
-                <Text style={styles.placeholderText}>Loading image...</Text>
-              </View>
-            ) : imageError ? (
-              <View style={[styles.eventImage, styles.placeholderImage]}>
-                <Text style={styles.placeholderText}>{imageError}</Text>
-              </View>
-            ) : imageUrl ? (
-              <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
-                <Image source={{ uri: imageUrl }} style={styles.eventImage} resizeMode="contain" />
-                <View style={styles.viewOverlay}>
-                  <ZoomIn size={20} color="#ffffff" />
-                  <Text style={styles.viewText}>View Full Image</Text>
-                </View>
-              </TouchableOpacity>
-            ) : (
-              <View style={[styles.eventImage, styles.placeholderImage]}>
-                <Text style={styles.placeholderText}>No Image Available</Text>
-              </View>
-            )}
+                  </TouchableOpacity>
+                ) : null)}
+            </View>
           </Animated.View>
           <EmojiContainer emoji={event.emoji} />
         </View>

@@ -506,6 +506,36 @@ export const styles = StyleSheet.create({
     zIndex: 1000,
   },
   markerEmoji: {
-    fontSize: 20,
+    fontSize: 24,
+  },
+  privateEventImageOverlay: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    backgroundColor: COLORS.background,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  privateEventImage: {
+    width: "100%",
+    height: "100%",
+  },
+  privateEventImageError: {
+    color: COLORS.textPrimary,
+    fontSize: 12,
+    textAlign: "center",
+    padding: 8,
   },
 });

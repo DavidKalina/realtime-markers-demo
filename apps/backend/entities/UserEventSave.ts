@@ -34,9 +34,6 @@ export class UserEventSave {
   @JoinColumn({ name: "event_id" })
   event!: Event;
 
-  @Column({ name: "notes", type: "text", nullable: true })
-  notes?: string;
-
   @Index(["userId", "savedAt"])
   @CreateDateColumn({ name: "saved_at", type: "timestamptz" })
   savedAt!: Date;
