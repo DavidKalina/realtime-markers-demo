@@ -27,6 +27,7 @@ import Animated, {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
+import EmojiPicker from "@/components/Input/EmojiPicker";
 
 // Unified color theme matching Login screen
 const COLORS = {
@@ -64,6 +65,7 @@ const CreatePrivateEvent = () => {
   const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
   const [eventName, setEventName] = useState("");
   const [eventDescription, setEventDescription] = useState("");
+  const [selectedEmoji, setSelectedEmoji] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const buttonScale = useSharedValue(1);
 
@@ -72,6 +74,10 @@ const CreatePrivateEvent = () => {
       transform: [{ scale: buttonScale.value }],
     };
   });
+
+  const handleEmojiSelect = (emoji: string) => {
+    setSelectedEmoji(emoji);
+  };
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
@@ -84,6 +90,11 @@ const CreatePrivateEvent = () => {
 
     if (!coordinates) {
       Alert.alert("Error", "Location is required");
+      return;
+    }
+
+    if (!selectedEmoji) {
+      Alert.alert("Error", "Please select an emoji");
       return;
     }
 
@@ -102,6 +113,7 @@ const CreatePrivateEvent = () => {
       const result = await apiClient.createPrivateEvent({
         title: eventName.trim(),
         description: eventDescription.trim(),
+        emoji: selectedEmoji,
         date: date.toISOString(),
         location: {
           type: "Point",
@@ -133,10 +145,6 @@ const CreatePrivateEvent = () => {
     }
   };
 
-  console.log("DATE", date);
-  console.log("Hours:", date.getHours());
-  console.log("Minutes:", date.getMinutes());
-
   return (
     <ScreenLayout>
       <Header title="Create Private Event" onBack={() => router.back()} />
@@ -164,6 +172,7 @@ const CreatePrivateEvent = () => {
                 value={eventDescription}
                 onChangeText={setEventDescription}
               />
+              <EmojiPicker value={selectedEmoji} onEmojiSelect={handleEmojiSelect} />
             </View>
 
             <View style={styles.section}>

@@ -39,6 +39,7 @@ export interface Marker {
     isVerified?: boolean;
     created_at?: string;
     updated_at?: string;
+    isPrivate?: boolean;
     [key: string]: any;
   };
 }
@@ -184,6 +185,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         isVerified: event.isVerified,
         created_at: event.createdAt,
         updated_at: event.updatedAt,
+        isPrivate: event.isPrivate,
         status: event.status,
         ...event.metadata,
       },

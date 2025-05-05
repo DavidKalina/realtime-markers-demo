@@ -51,6 +51,7 @@ export interface EventType {
     displayName: string;
     email: string;
   };
+  isPrivate?: boolean;
 }
 
 // Mapbox viewport format for map integration

@@ -94,6 +94,7 @@ export interface ApiEvent {
   qrGeneratedAt?: string | null;
   qrDetectedInImage?: boolean;
   detectedQrData?: string | null;
+  isPrivate?: boolean;
 }
 
 interface ClusterFeature {
@@ -202,6 +203,24 @@ export interface Contact {
   name?: string;
   email?: string;
   phone?: string;
+}
+
+// Add these interfaces before the ApiClient class
+export interface Emoji {
+  id: number;
+  emoji: string;
+  name: string;
+  category_id: number | null;
+  keywords: string[];
+  created_at: string;
+  rank?: number;
+}
+
+export interface EmojiSearchParams {
+  search_query?: string;
+  category_id?: number | null;
+  limit?: number;
+  last_emoji_id?: number | null;
 }
 
 class ApiClient {
@@ -422,6 +441,7 @@ class ApiClient {
   }
 
   private mapEventToEventType(apiEvent: ApiEvent): EventType {
+    console.log(apiEvent);
     return {
       id: apiEvent.id,
       title: apiEvent.title,
@@ -446,6 +466,7 @@ class ApiClient {
       hasQrCode: apiEvent.hasQrCode,
       qrGeneratedAt: apiEvent.qrGeneratedAt,
       qrDetectedInImage: apiEvent.qrDetectedInImage,
+      isPrivate: apiEvent.isPrivate,
       detectedQrData: apiEvent.detectedQrData,
       createdAt: apiEvent.createdAt,
       updatedAt: apiEvent.updatedAt,
@@ -1344,6 +1365,57 @@ class ApiClient {
       })),
       nextCursor: data.nextCursor,
     };
+  }
+
+  // Get emojis with optional filtering
+  async getEmojis(params: EmojiSearchParams = {}): Promise<Emoji[]> {
+    const queryParams = new URLSearchParams();
+
+    if (params.search_query) queryParams.append("search_query", params.search_query);
+    if (params.category_id !== undefined && params.category_id !== null) {
+      queryParams.append("category_id", params.category_id.toString());
+    }
+    if (params.limit) queryParams.append("limit", params.limit.toString());
+    if (params.last_emoji_id) queryParams.append("last_emoji_id", params.last_emoji_id.toString());
+
+    const url = `${this.baseUrl}/api/emojis?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<Emoji[]>(response);
+  }
+
+  // Create a new emoji
+  async createEmoji(emojiData: {
+    emoji: string;
+    name: string;
+    category_id?: number | null;
+    keywords: string[];
+    rank?: number;
+  }): Promise<Emoji> {
+    const url = `${this.baseUrl}/api/emojis`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify(emojiData),
+    });
+    return this.handleResponse<Emoji>(response);
+  }
+
+  // Update an existing emoji
+  async updateEmoji(id: number, emojiData: Partial<Emoji>): Promise<Emoji> {
+    const url = `${this.baseUrl}/api/emojis/${id}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "PUT",
+      body: JSON.stringify(emojiData),
+    });
+    return this.handleResponse<Emoji>(response);
+  }
+
+  // Delete an emoji
+  async deleteEmoji(id: number): Promise<{ success: boolean }> {
+    const url = `${this.baseUrl}/api/emojis/${id}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    return this.handleResponse<{ success: boolean }>(response);
   }
 }
 

@@ -189,21 +189,23 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       borderColor: "#fff", // Use consistent dark gray
     }));
 
+    console.log(JSON.stringify(event.data, null, 2));
+
     // Remove the old SVG components and use the shared ones
     const ShadowSvg = useMemo(() => <ShadowSVG />, []);
     const MarkerSvg = useMemo(
       () => (
         <MarkerSVG
-          fill="#1a1a1a"
-          stroke="white"
+          fill={event.data.isPrivate ? "#4a148c" : "#1a1a1a"}
+          stroke={event.data.isPrivate ? "#b388ff" : "white"}
           strokeWidth="3"
           highlightStrokeWidth="2.5"
           circleRadius="12"
-          circleStroke="#E2E8F0"
+          circleStroke={event.data.isPrivate ? "#b388ff" : "#E2E8F0"}
           circleStrokeWidth="1"
         />
       ),
-      []
+      [event.data.isPrivate]
     );
 
     return (

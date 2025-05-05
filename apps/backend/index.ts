@@ -16,16 +16,21 @@ import { adminRouter } from "./routes/admin";
 import { authRouter } from "./routes/auth";
 import { eventsRouter } from "./routes/events";
 import { filterRouter } from "./routes/filters";
+import { friendshipsRouter } from "./routes/friendships";
 import { internalRouter } from "./routes/internalRoutes";
-import { seedDatabase } from "./seeds";
-import { seedUsers } from "./seeds/seedUsers";
+import { emojisRouter } from "./routes/emojis";
+import plansRouter from "./routes/plans";
+import stripeRouter from "./routes/stripe";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
 import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
 import { EventProcessingService } from "./services/EventProcessingService";
 import { EventService } from "./services/EventService";
+import { FriendshipService } from "./services/FriendshipService";
 import { JobQueue } from "./services/JobQueue";
+import { LevelingService } from "./services/LevelingService";
+import { PlanService } from "./services/PlanService";
 import { CacheService } from "./services/shared/CacheService";
 import { ConfigService } from "./services/shared/ConfigService";
 import { GoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
@@ -34,13 +39,6 @@ import { RateLimitService } from "./services/shared/RateLimitService";
 import { StorageService } from "./services/shared/StorageService";
 import { UserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
-import plansRouter from "./routes/plans";
-import stripeRouter from "./routes/stripe";
-import { PlanService } from "./services/PlanService";
-import { LevelingService } from "./services/LevelingService";
-import { seedLevels } from "./seeds/seedLevels";
-import { friendshipsRouter } from "./routes/friendships";
-import { FriendshipService } from "./services/FriendshipService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -368,6 +366,7 @@ app.route("/api/plans", plansRouter);
 app.route("/api/stripe", stripeRouter);
 app.route("/api/internal", internalRouter);
 app.route("/api/friendships", friendshipsRouter);
+app.route("/api/emojis", emojisRouter);
 
 // =============================================================================
 // Jobs API - Server-Sent Events
