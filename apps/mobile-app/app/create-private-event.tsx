@@ -93,6 +93,7 @@ const CreatePrivateEvent = () => {
         eventDescription,
         date,
         selectedFriends,
+        coordinates,
       });
       setIsSubmitting(false);
     }, 150);
