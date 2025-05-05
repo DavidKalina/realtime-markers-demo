@@ -1,53 +1,48 @@
+import apiClient from "@/services/ApiClient";
+import { formatDate } from "@/utils/dateTimeFormatting";
+import * as Haptics from "expo-haptics";
 import {
-  ArrowLeft,
   Calendar,
+  ExternalLink,
+  Info,
   MapPin,
   Navigation2,
-  Share,
-  X,
-  ZoomIn,
-  Tag,
-  Info,
   QrCode,
   Scan,
-  ExternalLink,
-  User,
+  Share,
+  Tag,
+  X,
+  ZoomIn,
 } from "lucide-react-native";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Image,
+  Linking,
+  Modal,
   ScrollView,
   StatusBar,
   Text,
   TouchableOpacity,
   View,
-  Image,
-  ActivityIndicator,
-  Modal,
-  Dimensions,
-  Linking,
 } from "react-native";
+import QRCode from "react-native-qrcode-svg";
 import Animated, {
+  Easing,
   FadeIn,
+  FadeInDown,
   useAnimatedStyle,
   withRepeat,
   withSequence,
   withTiming,
-  Easing,
-  FadeInDown,
 } from "react-native-reanimated";
+import Header from "../Layout/Header";
+import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 import { ErrorEventDetails } from "./ErrorEventDetails";
 import LoadingEventDetails from "./LoadingEventDetails";
-import NoEventDetailsAvailable from "./NoEventDetailsAvailable";
+import SaveButton from "./SaveButton";
 import { styles } from "./styles";
 import { useEventDetails } from "./useEventDetails";
-import ScreenLayout from "../Layout/ScreenLayout";
-import Header from "../Layout/Header";
-import { COLORS } from "../Layout/ScreenLayout";
-import { formatDate } from "@/utils/dateTimeFormatting";
-import apiClient from "@/services/ApiClient";
-import SaveButton from "./SaveButton";
-import * as Haptics from "expo-haptics";
-import QRCode from "react-native-qrcode-svg";
 
 interface EventDetailsProps {
   eventId: string;
@@ -98,6 +93,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const {
     handleBack,
@@ -161,6 +158,20 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     setModalVisible(false);
   };
 
+  const handleDeleteEvent = async () => {
+    setIsDeleting(true);
+    try {
+      await apiClient.deleteEvent(eventId);
+      handleBack?.();
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      // You might want to show an error message to the user here
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalVisible(false);
+    }
+  };
+
   if (loading) {
     return <LoadingEventDetails />;
   }
@@ -170,19 +181,17 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   }
 
   if (!event) {
-    return <NoEventDetailsAvailable />;
+    return <Text>No event details available</Text>;
   }
+
+  console.log(event);
 
   return (
     <ScreenLayout>
       <StatusBar barStyle="light-content" />
 
       {/* Header with back button */}
-      <Header
-        title="Event Details"
-        onBack={handleBack}
-        rightIcon={<ShareButton onPress={handleShare} />}
-      />
+      <Header title="Event Details" onBack={handleBack} />
 
       <ScrollView
         style={styles.container}
@@ -322,6 +331,30 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
           </View>
         </Animated.View>
 
+        {/* Admin Actions */}
+        {isAdmin && (
+          <Animated.View entering={FadeInDown.duration(600).delay(500).springify()}>
+            <View style={styles.adminActionsContainer}>
+              <TouchableOpacity
+                style={[styles.adminButton, { backgroundColor: COLORS.accent }]}
+                onPress={() => {
+                  // TODO: Implement edit functionality
+                  console.log("Edit event");
+                }}
+              >
+                <Text style={[styles.adminButtonText, { color: "#ffffff" }]}>Edit Event</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.adminButton, { backgroundColor: "#dc3545" }]}
+                onPress={() => setDeleteModalVisible(true)}
+              >
+                <Text style={[styles.adminButtonText, { color: "#ffffff" }]}>Delete Event</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        )}
+
         {/* QR Code Section */}
         {(event.qrCodeData || event.detectedQrData) && (
           <Animated.View entering={FadeInDown.duration(600).delay(600).springify()}>
@@ -414,6 +447,44 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                 <Image source={{ uri: imageUrl }} style={styles.fullImage} resizeMode="contain" />
               )}
             </TouchableOpacity>
+          </View>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          visible={deleteModalVisible}
+          transparent={true}
+          animationType="fade"
+          statusBarTranslucent={true}
+          onRequestClose={() => setDeleteModalVisible(false)}
+        >
+          <View style={styles.dialogOverlay}>
+            <View style={styles.dialogContainer}>
+              <Text style={styles.dialogTitle}>Delete Event</Text>
+              <Text style={styles.dialogText}>
+                Are you sure you want to delete this event? This action cannot be undone.
+              </Text>
+              <View style={styles.dialogButtons}>
+                <TouchableOpacity
+                  onPress={() => setDeleteModalVisible(false)}
+                  style={[styles.dialogButton, { backgroundColor: COLORS.background }]}
+                  disabled={isDeleting}
+                >
+                  <Text style={[styles.dialogButtonText, { color: COLORS.accent }]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleDeleteEvent}
+                  style={[styles.dialogButton, { backgroundColor: "#dc3545" }]}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={[styles.dialogButtonText, { color: "#ffffff" }]}>Delete</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </Modal>
       </ScrollView>

@@ -1417,6 +1417,14 @@ class ApiClient {
     });
     return this.handleResponse<{ success: boolean }>(response);
   }
+
+  async deleteEvent(eventId: string): Promise<{ success: boolean }> {
+    await this.ensureInitialized();
+    const response = await this.fetchWithAuth(`${this.baseUrl}/api/events/${eventId}`, {
+      method: "DELETE",
+    });
+    return this.handleResponse<{ success: boolean }>(response);
+  }
 }
 
 // Export as singleton

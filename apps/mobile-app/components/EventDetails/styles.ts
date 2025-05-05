@@ -249,6 +249,25 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
   },
+  adminActionsContainer: {
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+  },
+  adminButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  adminButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
+  },
   modalContent: {
     flex: 1,
     justifyContent: "center",
@@ -420,5 +439,52 @@ export const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.3,
     marginLeft: 6,
+  },
+  // Dialog modal styles
+  dialogOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dialogContainer: {
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 16,
+    padding: 24,
+    width: "85%",
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  dialogTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: 12,
+    fontFamily: "SpaceMono",
+  },
+  dialogText: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    marginBottom: 24,
+    fontFamily: "SpaceMono",
+    lineHeight: 22,
+  },
+  dialogButtons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12,
+  },
+  dialogButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  dialogButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
   },
 });
