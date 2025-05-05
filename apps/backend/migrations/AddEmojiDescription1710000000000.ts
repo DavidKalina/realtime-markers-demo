@@ -1,111 +1,115 @@
 import type { MigrationInterface, QueryRunner } from "typeorm";
-import { OpenAIService } from "../services/shared/OpenAIService";
+import { OpenAIModel, OpenAIService } from "../services/shared/OpenAIService";
 
 export class AddEmojiDescription1710000000000 implements MigrationInterface {
-    name = 'AddEmojiDescription1710000000000'
+  name = "AddEmojiDescription1710000000000";
 
-    private async updateEventDescription(
-        queryRunner: QueryRunner,
-        event: { id: string; emoji: string }
-    ): Promise<void> {
-        try {
-            const response = await OpenAIService.executeChatCompletion({
-                model: "gpt-4o-mini",
-                messages: [
-                    {
-                        role: "system",
-                        content: "You are a helpful assistant that provides brief, accurate descriptions of emoji. Respond with ONLY the description, no additional text or punctuation."
-                    },
-                    {
-                        role: "user",
-                        content: `What is a brief description of this emoji: ${event.emoji}`
-                    }
-                ],
-                temperature: 0.3,
-                max_tokens: 20
-            });
+  private async updateEventDescription(
+    queryRunner: QueryRunner,
+    event: { id: string; emoji: string }
+  ): Promise<void> {
+    try {
+      const response = await OpenAIService.executeChatCompletion({
+        model: OpenAIModel.GPT4OMini,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a helpful assistant that provides brief, accurate descriptions of emoji. Respond with ONLY the description, no additional text or punctuation.",
+          },
+          {
+            role: "user",
+            content: `What is a brief description of this emoji: ${event.emoji}`,
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 20,
+      });
 
-            const emojiDescription = response.choices[0]?.message.content?.trim();
-            if (!emojiDescription) {
-                console.warn(`No description generated for emoji: ${event.emoji}`);
-                return;
-            }
+      const emojiDescription = response.choices[0]?.message.content?.trim();
+      if (!emojiDescription) {
+        console.warn(`No description generated for emoji: ${event.emoji}`);
+        return;
+      }
 
-            // Update using parameterized query
-            await queryRunner.query(
-                "UPDATE events SET emoji_description = $1 WHERE id = $2",
-                [emojiDescription, event.id]
-            );
+      // Update using parameterized query
+      await queryRunner.query("UPDATE events SET emoji_description = $1 WHERE id = $2", [
+        emojiDescription,
+        event.id,
+      ]);
 
-            // Verify update
-            const verifyResult = await queryRunner.query(
-                "SELECT emoji_description FROM events WHERE id = $1",
-                [event.id]
-            );
+      // Verify update
+      const verifyResult = await queryRunner.query(
+        "SELECT emoji_description FROM events WHERE id = $1",
+        [event.id]
+      );
 
-            if (!verifyResult?.[0]?.emoji_description) {
-                throw new Error(`Failed to update description for event ${event.id}`);
-            }
+      if (!verifyResult?.[0]?.emoji_description) {
+        throw new Error(`Failed to update description for event ${event.id}`);
+      }
 
-            console.log(`✓ Updated ${event.emoji} → ${emojiDescription}`);
-        } catch (error) {
-            console.error(`Failed to process event ${event.id}:`, error);
-        }
+      console.log(`✓ Updated ${event.emoji} → ${emojiDescription}`);
+    } catch (error) {
+      console.error(`Failed to process event ${event.id}:`, error);
     }
+  }
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        console.log("Starting AddEmojiDescription migration...");
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    console.log("Starting AddEmojiDescription migration...");
 
-        // Add column if it doesn't exist
-        await queryRunner.query(`
+    // Add column if it doesn't exist
+    await queryRunner.query(`
             ALTER TABLE events 
             ADD COLUMN IF NOT EXISTS emoji_description VARCHAR;
         `);
 
-        // Process in smaller batches
-        const batchSize = 10;
-        let offset = 0;
+    // Process in smaller batches
+    const batchSize = 10;
+    let offset = 0;
 
-        while (true) {
-            // Get a batch of events
-            const events = await queryRunner.query(`
+    while (true) {
+      // Get a batch of events
+      const events = await queryRunner.query(
+        `
                 SELECT id, emoji 
                 FROM events 
                 WHERE emoji IS NOT NULL 
                 AND (emoji_description IS NULL OR emoji_description = '')
                 ORDER BY id
                 LIMIT $1 OFFSET $2
-            `, [batchSize, offset]);
+            `,
+        [batchSize, offset]
+      );
 
-            if (events.length === 0) {
-                break;
-            }
+      if (events.length === 0) {
+        break;
+      }
 
-            console.log(`Processing batch of ${events.length} events...`);
+      console.log(`Processing batch of ${events.length} events...`);
 
-            // Process events sequentially to avoid memory issues
-            for (const event of events) {
-                await this.updateEventDescription(queryRunner, event);
-                // Small delay between requests to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 100));
-            }
+      // Process events sequentially to avoid memory issues
+      for (const event of events) {
+        await this.updateEventDescription(queryRunner, event);
+        // Small delay between requests to avoid rate limiting
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
 
-            offset += events.length;
-            console.log(`Processed ${offset} events so far`);
-        }
+      offset += events.length;
+      console.log(`Processed ${offset} events so far`);
+    }
 
-        const finalCount = await queryRunner.query(`
+    const finalCount = await queryRunner.query(`
             SELECT COUNT(*) as count 
             FROM events 
             WHERE emoji_description IS NOT NULL
         `);
-        console.log("Migration completed. Total events with descriptions:", finalCount[0].count);
-    }
+    console.log("Migration completed. Total events with descriptions:", finalCount[0].count);
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             ALTER TABLE events 
             DROP COLUMN IF EXISTS emoji_description;
         `);
-    }
-} 
+  }
+}

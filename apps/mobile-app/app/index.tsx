@@ -1,7 +1,11 @@
+import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { AuthWrapper } from "@/components/AuthWrapper";
-import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
-import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import DiscoveryIndicator from "@/components/DiscoveryIndicator/DiscoveryIndicator";
+import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
+import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
+import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
+import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
+import StatusBar from "@/components/StatusBar/StatusBar";
 import { DEFAULT_CAMERA_SETTINGS, createCameraSettings } from "@/config/cameraConfig";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
@@ -10,14 +14,13 @@ import { useMapCamera } from "@/hooks/useMapCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
 import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
-import MapboxGL from "@rnmapbox/maps";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Platform, View, StatusBar as RNStatusBar } from "react-native";
-import StatusBar from "@/components/StatusBar/StatusBar";
-import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ActionBar } from "@/components/ActionBar/ActionBar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import MapboxGL from "@rnmapbox/maps";
+import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Platform, StatusBar as RNStatusBar, View } from "react-native";
+import { runOnJS } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -53,6 +56,7 @@ function HomeScreen() {
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const { publish } = useEventBroker();
   const { mapStyle } = useMapStyle();
+  const router = useRouter();
 
   // Store references
   const { selectMapItem, setZoomLevel, zoomLevel } = useLocationStore();
@@ -63,7 +67,7 @@ function HomeScreen() {
     useUserLocation();
 
   // WebSocket and map data
-  const { markers, isConnected, updateViewport, currentViewport } = useMapWebSocket(
+  const { markers, updateViewport, currentViewport } = useMapWebSocket(
     process.env.EXPO_PUBLIC_WEB_SOCKET_URL!
   );
 
@@ -94,21 +98,7 @@ function HomeScreen() {
     let timeoutId: NodeJS.Timeout;
 
     const checkLocation = async () => {
-      console.log("[HomeScreen] Location effect triggered:", {
-        hasUserLocation: !!userLocation,
-        isLoadingLocation,
-        hasRequestedInitialLocation,
-        timestamp: new Date().toISOString(),
-      });
-
       if (!userLocation && !isLoadingLocation && !hasRequestedInitialLocation) {
-        console.log("[HomeScreen] Checking if location request is needed:", {
-          hasUserLocation: !!userLocation,
-          isLoadingLocation,
-          hasRequestedInitialLocation,
-          timestamp: new Date().toISOString(),
-        });
-
         // Only request location if we don't have a valid cached location
         if (!userLocation) {
           console.log("[HomeScreen] Requesting new location...");
@@ -357,6 +347,51 @@ function HomeScreen() {
     [insets.top]
   );
 
+  const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
+  const [showRipple, setShowRipple] = useState(false);
+  const [longPressCoordinates, setLongPressCoordinates] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  // Add long press handler
+  const handleMapLongPress = useCallback((event: any) => {
+    "worklet";
+    if (event?.properties) {
+      const { screenPointX, screenPointY } = event.properties;
+      const coordinates = event.geometry?.coordinates;
+
+      if (typeof screenPointX === "number" && typeof screenPointY === "number") {
+        runOnJS(setRipplePosition)({ x: screenPointX, y: screenPointY });
+        runOnJS(setShowRipple)(true);
+
+        // Store coordinates for later use
+        if (coordinates && Array.isArray(coordinates) && coordinates.length === 2) {
+          runOnJS(setLongPressCoordinates)({
+            latitude: coordinates[1],
+            longitude: coordinates[0],
+          });
+        }
+      }
+    }
+  }, []);
+
+  const handleRippleComplete = useCallback(() => {
+    console.log("Ripple animation completed");
+    setShowRipple(false);
+
+    if (longPressCoordinates) {
+      router.push({
+        pathname: "/create-private-event",
+        params: {
+          latitude: longPressCoordinates.latitude.toString(),
+          longitude: longPressCoordinates.longitude.toString(),
+        },
+      });
+      setLongPressCoordinates(null);
+    }
+  }, [router, longPressCoordinates]);
+
   return (
     <AuthWrapper>
       <View style={styles.container}>
@@ -374,6 +409,7 @@ function HomeScreen() {
         <MapboxGL.MapView
           onTouchStart={handleUserPan}
           onPress={handleMapPress}
+          onLongPress={handleMapLongPress}
           scaleBarEnabled={false}
           rotateEnabled={false}
           pitchEnabled={false}
@@ -399,6 +435,14 @@ function HomeScreen() {
           {/* User location layer */}
           {userLocationLayer}
         </MapboxGL.MapView>
+
+        {showRipple && (
+          <MapRippleEffect
+            isVisible={showRipple}
+            position={ripplePosition}
+            onAnimationComplete={handleRippleComplete}
+          />
+        )}
 
         {mapOverlays}
         {assistantOverlay}

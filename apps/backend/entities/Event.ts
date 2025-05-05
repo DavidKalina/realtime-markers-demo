@@ -18,6 +18,7 @@ import { Category } from "./Category";
 import { User } from "./User";
 import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
+import { EventShare } from "./EventShare";
 
 export enum EventStatus {
   PENDING = "PENDING",
@@ -101,6 +102,9 @@ export class Event {
   @Column({ name: "has_qr_code", type: "boolean", default: false })
   hasQrCode!: boolean;
 
+  @Column({ name: "is_private", type: "boolean", default: false })
+  isPrivate!: boolean;
+
   @Column({ name: "qr_generated_at", type: "timestamptz", nullable: true })
   qrGeneratedAt?: Date;
 
@@ -130,6 +134,9 @@ export class Event {
   // Save relationship
   @OneToMany(() => UserEventSave, (save) => save.event)
   saves!: UserEventSave[];
+
+  @OneToMany(() => EventShare, (share: EventShare) => share.event)
+  shares!: EventShare[];
 
   @ManyToMany(() => Category, (category) => category.events)
   @JoinTable({

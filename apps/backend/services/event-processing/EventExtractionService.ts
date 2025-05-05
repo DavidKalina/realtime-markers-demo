@@ -42,7 +42,6 @@ export class EventExtractionService implements IEventExtractionService {
       userCityState?: string;
     }
   ): Promise<EventExtractionResult> {
-
     console.log("options", options);
     // Get current date to provide as context
     const currentDate = new Date().toISOString();
@@ -56,8 +55,6 @@ export class EventExtractionService implements IEventExtractionService {
           options.userCoordinates.lat,
           options.userCoordinates.lng
         );
-
-
       } catch (error) {
         console.error("Error reverse geocoding user coordinates:", error);
       }
@@ -67,8 +64,8 @@ export class EventExtractionService implements IEventExtractionService {
     const userLocationPrompt = userCityState
       ? `The user is currently in ${userCityState}. Consider this for location inference.`
       : options?.userCoordinates
-        ? `The user is currently located near latitude ${options.userCoordinates.lat}, longitude ${options.userCoordinates.lng}.`
-        : "";
+      ? `The user is currently located near latitude ${options.userCoordinates.lat}, longitude ${options.userCoordinates.lng}.`
+      : "";
 
     // Extract event details with enhanced location awareness
     const response = await OpenAIService.executeChatCompletion({
@@ -136,7 +133,6 @@ export class EventExtractionService implements IEventExtractionService {
       coordinates: options?.userCoordinates,
     });
 
-
     // Create Point from resolved coordinates
     const location = resolvedLocation.coordinates;
 
@@ -171,7 +167,6 @@ export class EventExtractionService implements IEventExtractionService {
       timezone: timezone,
       locationNotes: resolvedLocation.locationNotes || "",
     };
-
 
     return {
       rawExtractedData: parsedDetails,
@@ -257,5 +252,57 @@ export class EventExtractionService implements IEventExtractionService {
    */
   public async extractCategories(text: string): Promise<Category[]> {
     return this.categoryProcessingService.extractAndProcessCategories(text);
+  }
+
+  /**
+   * Generate an emoji and description for an event based on its title and description
+   * @param title The event title
+   * @param description The event description
+   * @returns Object containing the emoji and its description
+   */
+  public async generateEventEmoji(
+    title: string,
+    description: string
+  ): Promise<{ emoji: string; emojiDescription: string }> {
+    try {
+      const response = await OpenAIService.executeChatCompletion({
+        model: this.extractionModel as OpenAIModel,
+        messages: [
+          {
+            role: "system",
+            content: `You are an emoji generator for events. Your task is to generate a single, relevant emoji and a brief description of what it represents.
+            The emoji should be a single, well-known emoji that clearly represents the event's theme or mood.
+            The description should be a brief, clear explanation of what the emoji represents.
+            
+            Respond with a JSON object in this exact format:
+            {
+              "emoji": "A single, relevant emoji",
+              "emojiDescription": "A brief description of what the emoji represents (e.g. 'party popper' for 🎉)"
+            }`,
+          },
+          {
+            role: "user",
+            content: `Generate an emoji and description for this event:
+            Title: ${title}
+            Description: ${description}`,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 100,
+        response_format: { type: "json_object" },
+      });
+
+      const result = JSON.parse(response.choices[0]?.message.content?.trim() ?? "{}");
+      return {
+        emoji: result.emoji || this.defaultEmoji,
+        emojiDescription: result.emojiDescription || "",
+      };
+    } catch (error) {
+      console.error("Error generating event emoji:", error);
+      return {
+        emoji: this.defaultEmoji,
+        emojiDescription: "",
+      };
+    }
   }
 }

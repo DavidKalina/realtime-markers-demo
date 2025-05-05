@@ -39,6 +39,7 @@ export interface Marker {
     isVerified?: boolean;
     created_at?: string;
     updated_at?: string;
+    isPrivate?: boolean;
     [key: string]: any;
   };
 }
@@ -184,6 +185,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         isVerified: event.isVerified,
         created_at: event.createdAt,
         updated_at: event.updatedAt,
+        isPrivate: event.isPrivate,
         status: event.status,
         ...event.metadata,
       },
@@ -304,6 +306,13 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                 markers: [newMarker],
                 count: 1,
               });
+
+              // Always force a viewport update when a new marker is added
+              if (currentViewportRef.current) {
+                // Create a new viewport object to ensure state update
+                const newViewport = { ...currentViewportRef.current };
+                updateViewport(newViewport);
+              }
             } catch (error) {
               console.error("[useMapWebsocket] Error processing ADD_EVENT:", error);
             }

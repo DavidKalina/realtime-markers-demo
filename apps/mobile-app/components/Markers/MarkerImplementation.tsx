@@ -164,7 +164,7 @@ const ClusterView = React.memo(
 );
 
 export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.memo(
-  ({ markers: propMarkers, currentZoom = 14, viewport }) => {
+  ({ currentZoom = 14, viewport }) => {
     // Get marker data from store
     const storeMarkers = useLocationStore((state) => state.markers);
     const router = useRouter();
@@ -177,7 +177,9 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
     const { publish } = useEventBroker();
 
     // Use provided markers or fall back to store markers
-    const markers = propMarkers || storeMarkers;
+    const markers = storeMarkers;
+
+    console.log("[ClusteredMapMarkers] Markers:", markers.length);
 
     // Get clusters based on current markers, viewport, and zoom level
     const { clusters } = useMarkerClustering(markers, viewport, currentZoom);

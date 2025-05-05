@@ -16,16 +16,21 @@ import { adminRouter } from "./routes/admin";
 import { authRouter } from "./routes/auth";
 import { eventsRouter } from "./routes/events";
 import { filterRouter } from "./routes/filters";
+import { friendshipsRouter } from "./routes/friendships";
 import { internalRouter } from "./routes/internalRoutes";
-import { seedDatabase } from "./seeds";
-import { seedUsers } from "./seeds/seedUsers";
+import { emojisRouter } from "./routes/emojis";
+import plansRouter from "./routes/plans";
+import stripeRouter from "./routes/stripe";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
 import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
 import { EventProcessingService } from "./services/EventProcessingService";
 import { EventService } from "./services/EventService";
+import { FriendshipService } from "./services/FriendshipService";
 import { JobQueue } from "./services/JobQueue";
+import { LevelingService } from "./services/LevelingService";
+import { PlanService } from "./services/PlanService";
 import { CacheService } from "./services/shared/CacheService";
 import { ConfigService } from "./services/shared/ConfigService";
 import { GoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
@@ -34,13 +39,6 @@ import { RateLimitService } from "./services/shared/RateLimitService";
 import { StorageService } from "./services/shared/StorageService";
 import { UserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
-import plansRouter from "./routes/plans";
-import stripeRouter from "./routes/stripe";
-import { PlanService } from "./services/PlanService";
-import { LevelingService } from "./services/LevelingService";
-import { seedLevels } from "./seeds/seedLevels";
-import { friendshipsRouter } from "./routes/friendships";
-import { FriendshipService } from "./services/FriendshipService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -220,16 +218,6 @@ const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource
     try {
       await AppDataSource.initialize();
       console.log("Database connection established");
-
-      // Seed the database with test users
-      try {
-        await seedLevels(AppDataSource);
-        await seedUsers(AppDataSource);
-      } catch (seedError) {
-        console.error("Error seeding users:", seedError);
-        // Continue with application startup even if seeding fails
-      }
-
       return AppDataSource;
     } catch (error) {
       console.error(`Database initialization attempt ${i + 1} failed:`, error);
@@ -265,8 +253,6 @@ async function initializeServices() {
   console.log("Initializing database connection...");
   const dataSource = await initializeDatabase();
   console.log("Database connection established, now initializing services");
-
-  await seedDatabase(dataSource);
 
   // Initialize config service
   const configService = ConfigService.getInstance();
@@ -380,6 +366,7 @@ app.route("/api/plans", plansRouter);
 app.route("/api/stripe", stripeRouter);
 app.route("/api/internal", internalRouter);
 app.route("/api/friendships", friendshipsRouter);
+app.route("/api/emojis", emojisRouter);
 
 // =============================================================================
 // Jobs API - Server-Sent Events

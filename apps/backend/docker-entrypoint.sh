@@ -29,67 +29,46 @@ PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$
     CREATE EXTENSION IF NOT EXISTS postgis;
     CREATE EXTENSION IF NOT EXISTS vector;
     CREATE EXTENSION IF NOT EXISTS pg_trgm;
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 EOSQL
 
 # Start the application
 exec "$@" &
 APP_PID=$!
 
-# Wait for tables to be created
-echo "Waiting for tables to be created by TypeORM..."
-tables=("events" "user_event_saves" "user_event_discoveries" "filters")
-for table in "${tables[@]}"; do
-  for i in {1..30}; do
-    if PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '$table')" | grep -q 't'; then
-      echo "$table table exists"
-      break
-    fi
-    
-    if [ $i -eq 30 ]; then
-      echo "Timeout waiting for $table table to be created"
-    fi
-    
-    echo "Waiting for $table table to be created... (attempt $i/30)"
-    sleep 2
-  done
+# Wait for migrations to complete
+echo "Waiting for migrations to complete..."
+for i in {1..30}; do
+  if PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'migrations')" | grep -q 't'; then
+    echo "Migrations table exists"
+    break
+  fi
+  
+  if [ $i -eq 30 ]; then
+    echo "Timeout waiting for migrations table to be created"
+  fi
+  
+  echo "Waiting for migrations table to be created... (attempt $i/30)"
+  sleep 2
 done
 
 echo "Starting index creation process..."
 
-# Create special indexes
+# Create only vector-specific indexes that aren't part of the migration
 PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<EOSQL
-    -- Spatial index for PostGIS
-    CREATE INDEX IF NOT EXISTS events_location_gist_idx 
-    ON events USING GIST (location);
+    -- Vector indexes
+    DROP INDEX IF EXISTS filters_embedding_idx;
+    CREATE INDEX filters_embedding_idx 
+    ON filters 
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
 
-    -- Text search indexes
-    CREATE INDEX IF NOT EXISTS events_title_trgm_idx 
-    ON events USING gin (title gin_trgm_ops);
-
-    CREATE INDEX IF NOT EXISTS events_description_trgm_idx 
-    ON events USING gin (description gin_trgm_ops);
+    DROP INDEX IF EXISTS events_embedding_idx;
+    CREATE INDEX events_embedding_idx 
+    ON events 
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
 EOSQL
-
-# Check for vector column and create index if appropriate
-COLUMN_TYPE=$(PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "SELECT data_type FROM information_schema.columns WHERE table_name = 'events' AND column_name = 'embedding';")
-COLUMN_TYPE=$(echo "$COLUMN_TYPE" | xargs)
-
-echo "Column type for embedding: $COLUMN_TYPE"
-
-if [ "$COLUMN_TYPE" = "vector" ]; then
-    echo "Creating vector index for embedding column"
-    PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
-        DROP INDEX IF EXISTS events_embedding_idx;
-        CREATE INDEX events_embedding_idx 
-        ON events 
-        USING ivfflat (embedding vector_cosine_ops)
-        WITH (lists = 100);
-    "
-elif [ -n "$COLUMN_TYPE" ]; then
-    echo "WARNING: embedding column exists but is not of type vector (found: $COLUMN_TYPE). Vector index NOT created."
-else
-    echo "INFO: embedding column not found. Vector index NOT created."
-fi
 
 echo "Index creation completed successfully"
 

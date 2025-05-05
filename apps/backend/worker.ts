@@ -17,6 +17,7 @@ import { GoogleGeocodingService } from "./services/shared/GoogleGeocodingService
 import { OpenAIService } from "./services/shared/OpenAIService";
 import { StorageService } from "./services/shared/StorageService";
 import { isEventTemporalyRelevant } from "./utils/isEventTemporalyRelevant";
+import { User } from "./entities/User";
 
 // Configuration
 const POLLING_INTERVAL = 1000; // 1 second
@@ -371,7 +372,6 @@ async function initializeWorker() {
           // Create discovery record and increment user stats if they are the creator
           if (job.data.creatorId) {
             await eventService.createDiscoveryRecord(job.data.creatorId, newEvent.id);
-
           }
 
           // Publish notifications
@@ -379,7 +379,13 @@ async function initializeWorker() {
             "event_changes",
             JSON.stringify({
               operation: "INSERT",
-              record: newEvent,
+              record: {
+                ...newEvent,
+                // Add shared users metadata for private events
+                ...(newEvent.isPrivate && {
+                  sharedWith: await eventService.getEventShares(newEvent.id),
+                }),
+              },
             })
           );
 
@@ -403,6 +409,11 @@ async function initializeWorker() {
                 creatorId: newEvent.creatorId,
                 createdAt: newEvent.createdAt,
                 updatedAt: newEvent.updatedAt,
+                isPrivate: newEvent.isPrivate,
+                // Add shared users metadata for private events
+                ...(newEvent.isPrivate && {
+                  sharedWith: await eventService.getEventShares(newEvent.id),
+                }),
               },
               timestamp: new Date().toISOString(),
             })
@@ -435,6 +446,144 @@ async function initializeWorker() {
             completed: new Date().toISOString(),
           });
         }
+      } else if (job.type === "process_private_event") {
+        console.log(`[Worker] Processing private event job ${jobId}`);
+
+        // Validate UUID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+        if (job.data.creatorId && !uuidRegex.test(job.data.creatorId)) {
+          await jobQueue.updateJobStatus(jobId, {
+            status: "failed",
+            progress: 1,
+            error: "Invalid creator ID format",
+            message: "The creator ID is not in a valid UUID format.",
+            completed: new Date().toISOString(),
+          });
+          return;
+        }
+
+        // Check if creator exists
+        if (job.data.creatorId) {
+          const creator = await AppDataSource.getRepository(User).findOne({
+            where: { id: job.data.creatorId },
+          });
+
+          if (!creator) {
+            await jobQueue.updateJobStatus(jobId, {
+              status: "failed",
+              progress: 1,
+              error: "Creator not found",
+              message: "The specified creator does not exist in the system.",
+              completed: new Date().toISOString(),
+            });
+            return;
+          }
+        }
+
+        // Validate shared user IDs if present
+        if (job.data.sharedWithIds) {
+          for (const userId of job.data.sharedWithIds) {
+            if (!uuidRegex.test(userId)) {
+              await jobQueue.updateJobStatus(jobId, {
+                status: "failed",
+                progress: 1,
+                error: "Invalid shared user ID format",
+                message: `The shared user ID ${userId} is not in a valid UUID format.`,
+                completed: new Date().toISOString(),
+              });
+              return;
+            }
+          }
+        }
+
+        // Process the private event
+        const scanResult = await eventProcessingService.processPrivateEvent(job.data.eventDetails, {
+          userCoordinates: job.data.userCoordinates,
+        });
+
+        // Create the event
+        const newEvent = await eventService.createEvent({
+          emoji: scanResult.eventDetails.emoji,
+          emojiDescription: scanResult.eventDetails.emojiDescription,
+          title: scanResult.eventDetails.title,
+          eventDate: new Date(scanResult.eventDetails.date),
+          endDate: scanResult.eventDetails.endDate
+            ? new Date(scanResult.eventDetails.endDate)
+            : undefined,
+          location: scanResult.eventDetails.location,
+          description: scanResult.eventDetails.description,
+          confidenceScore: scanResult.confidence,
+          address: scanResult.eventDetails.address,
+          locationNotes: scanResult.eventDetails.locationNotes || "",
+          categoryIds: [], // Skip categories for now
+          creatorId: job.data.creatorId,
+          embedding: scanResult.embedding,
+          isPrivate: true,
+          sharedWithIds: job.data.sharedWithIds || [], // Ensure we pass the shared user IDs
+        });
+
+        // Create discovery record and increment user stats if they are the creator
+        if (job.data.creatorId) {
+          await eventService.createDiscoveryRecord(job.data.creatorId, newEvent.id);
+        }
+
+        // Get the shares for the event to include in notifications
+        const eventShares = await eventService.getEventShares(newEvent.id);
+
+        // Publish notifications
+        await redisClient.publish(
+          "event_changes",
+          JSON.stringify({
+            operation: "INSERT",
+            record: {
+              ...newEvent,
+              // Add shared users metadata for private events
+              sharedWith: eventShares,
+            },
+          })
+        );
+
+        await redisClient.publish(
+          "discovered_events",
+          JSON.stringify({
+            type: "EVENT_DISCOVERED",
+            event: {
+              id: newEvent.id,
+              title: newEvent.title,
+              emoji: newEvent.emoji,
+              location: newEvent.location,
+              description: newEvent.description,
+              eventDate: newEvent.eventDate,
+              endDate: newEvent.endDate,
+              address: newEvent.address,
+              locationNotes: newEvent.locationNotes,
+              categories: newEvent.categories,
+              confidenceScore: newEvent.confidenceScore,
+              creatorId: newEvent.creatorId,
+              createdAt: newEvent.createdAt,
+              updatedAt: newEvent.updatedAt,
+              isPrivate: newEvent.isPrivate,
+              // Add shared users metadata for private events
+              sharedWith: eventShares,
+            },
+            timestamp: new Date().toISOString(),
+          })
+        );
+
+        // Mark as completed with success
+        await jobQueue.updateJobStatus(jobId, {
+          status: "completed",
+          progress: 1,
+          eventId: newEvent.id,
+          result: {
+            eventId: newEvent.id,
+            title: scanResult.eventDetails.title,
+            coordinates: newEvent.location.coordinates,
+            message: "Private event successfully created!",
+          },
+          completed: new Date().toISOString(),
+        });
       } else {
         throw new Error(`Unknown job type: ${job.type}`);
       }

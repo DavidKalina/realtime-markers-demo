@@ -10,6 +10,12 @@ import { Filter } from "./entities/Filter";
 import { Level } from "./entities/Level";
 import { UserLevel } from "./entities/UserLevel";
 import { Friendship } from "./entities/Friendship";
+import { EventShare } from "./entities/EventShare";
+import { Emoji } from "./entities/Emoji";
+import { InitialSchemaAndSeed1710000000000 } from "./migrations/1710000000000-InitialSchemaAndSeed";
+import { AddLevelingSystem1710000000003 } from "./migrations/AddLevelingSystem1710000000003";
+import { AddEmojiTable1710000000004 } from "./migrations/1710000000004-AddEmojiTable";
+import { SeedEmojis1710000000005 } from "./migrations/1710000000005-SeedEmojis";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -24,9 +30,18 @@ const AppDataSource = new DataSource({
     Filter,
     Level,
     UserLevel,
+    EventShare,
     Friendship,
+    Emoji,
   ],
-  synchronize: true, // This auto-creates the tables
+  migrations: [
+    InitialSchemaAndSeed1710000000000,
+    AddLevelingSystem1710000000003,
+    AddEmojiTable1710000000004,
+    SeedEmojis1710000000005,
+  ],
+  migrationsTableName: "migrations",
+  migrationsRun: true, // Automatically run migrations on startup
   logging: ["query", "error", "schema"], // More detailed logging
   ssl: false,
   poolSize: 20,

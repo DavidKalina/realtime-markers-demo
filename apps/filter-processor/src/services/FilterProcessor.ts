@@ -95,6 +95,14 @@ export class FilterProcessor {
         console.log("Initializing spatial index...");
       }
 
+      // Clear existing cache and spatial index
+      this.eventCache.clear();
+      this.spatialIndex.clear();
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Cache] Cleared existing cache and spatial index");
+      }
+
       // Fetch events from the API or database
       const events = await this.fetchAllEvents();
 
@@ -129,17 +137,10 @@ export class FilterProcessor {
       // Bulk load for performance
       this.spatialIndex.load(items);
 
-      // Also cache the full events
+      // Cache the full events
       validEvents.forEach((event) => {
         this.eventCache.set(event.id, event);
       });
-
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`Spatial index initialized with ${items.length} events`);
-        if (items.length > 0) {
-          console.log("Sample spatial item:", items[0]);
-        }
-      }
     } catch (error) {
       console.error("Error initializing spatial index:", error);
       throw error;
@@ -314,30 +315,19 @@ export class FilterProcessor {
 
   private sendAllFilteredEvents(userId: string): void {
     try {
-      const filters = this.userFilters.get(userId) || [];
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`Applying ${filters.length} filters for user ${userId}`);
-      }
-
-      // Get all events from cache
+      // Get all events from the spatial index
       const allEvents = Array.from(this.eventCache.values());
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`Total events before filtering: ${allEvents.length}`);
-      }
 
-      // Apply filters
-      const filteredEvents = allEvents.filter((event) => this.eventMatchesFilters(event, filters));
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`Events after filtering: ${filteredEvents.length}`);
-        console.log(
-          `Filter results: ${filteredEvents.length}/${allEvents.length} events passed filters`
-        );
-      }
+      // Apply user's filters
+      const userFilters = this.userFilters.get(userId) || [];
+      const filteredEvents = allEvents.filter((event) =>
+        this.eventMatchesFilters(event, userFilters, userId)
+      );
 
-      // Send to user's channel
-      this.publishFilteredEvents(userId, "replace-all", filteredEvents);
+      // Publish the filtered events
+      this.publishFilteredEvents(userId, "all", filteredEvents);
     } catch (error) {
-      console.error(`Error sending filtered events to user ${userId}:`, error);
+      console.error("Error sending all filtered events:", error);
     }
   }
 
@@ -352,20 +342,65 @@ export class FilterProcessor {
       // Query spatial index for events in viewport
       const spatialItems = this.spatialIndex.search(viewport);
 
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Viewport] Raw spatial items:", {
+          count: spatialItems.length,
+          ids: spatialItems.map((item) => item.id),
+        });
+      }
+
+      // Deduplicate spatial items by ID
+      const uniqueSpatialItems = Array.from(
+        new Map(spatialItems.map((item) => [item.id, item])).values()
+      );
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Viewport] Unique spatial items:", {
+          count: uniqueSpatialItems.length,
+          ids: uniqueSpatialItems.map((item) => item.id),
+        });
+      }
+
       // Get the full events from cache
-      const eventsInViewport = spatialItems
+      const eventsInViewport = uniqueSpatialItems
         .map((item) => this.eventCache.get(item.id))
         .filter(Boolean) as Event[];
 
-      // Apply attribute filters
-      const filteredEvents = eventsInViewport.filter((event) =>
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Viewport] Events from cache:", {
+          count: eventsInViewport.length,
+          ids: eventsInViewport.map((event) => event.id),
+        });
+      }
+
+      // First apply privacy filter
+      const accessibleEvents = eventsInViewport.filter((event) =>
+        this.isEventAccessible(event, userId)
+      );
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Viewport] Accessible events:", {
+          count: accessibleEvents.length,
+          ids: accessibleEvents.map((event) => event.id),
+        });
+      }
+
+      // Then apply user's filters
+      const filteredEvents = accessibleEvents.filter((event) =>
         this.eventMatchesFilters(event, filters)
       );
 
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Viewport] Final filtered events:", {
+          count: filteredEvents.length,
+          ids: filteredEvents.map((event) => event.id),
+        });
+      }
+
       // Send to user's channel
-      this.publishFilteredEvents(userId, "viewport-update", filteredEvents);
+      this.publishFilteredEvents(userId, "viewport", filteredEvents);
     } catch (error) {
-      console.error(`❌ Error sending viewport events for user ${userId}:`, error);
+      console.error(`Error sending viewport events for user ${userId}:`, error);
     }
   }
 
@@ -377,11 +412,19 @@ export class FilterProcessor {
     try {
       const { operation, record } = event;
 
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[Cache] Processing ${operation} for event ${record.id}`);
+      }
+
       // Handle deletion
       if (operation === "DELETE") {
         // Remove from spatial index and cache
         this.removeEventFromIndex(record.id);
         this.eventCache.delete(record.id);
+
+        if (process.env.NODE_ENV !== "production") {
+          console.log(`[Cache] Deleted event ${record.id} from cache`);
+        }
 
         // Publish deletion event to all users
         await this.redisPub.publish(
@@ -398,12 +441,20 @@ export class FilterProcessor {
       // For CREATE/UPDATE operations
       if (operation === "UPDATE") {
         this.removeEventFromIndex(record.id);
+        if (process.env.NODE_ENV !== "production") {
+          console.log(`[Cache] Removed event ${record.id} from spatial index for update`);
+        }
       }
 
       // Add to spatial index and cache
       const spatialItem = this.eventToSpatialItem(record);
       this.spatialIndex.insert(spatialItem);
       this.eventCache.set(record.id, record);
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[Cache] Added/Updated event ${record.id} in cache`);
+        console.log(`[Cache] Current cache size: ${this.eventCache.size}`);
+      }
 
       // Calculate event's spatial bounds for interest matching
       const [lng, lat] = record.location.coordinates;
@@ -417,12 +468,23 @@ export class FilterProcessor {
       // Get all active viewports that intersect with this event
       const intersectingViewports = await this.getIntersectingViewports(eventBounds);
 
+      // Track which users we've sent the event to
+      const sentToUsers = new Set<string>();
+
       // For each intersecting viewport, check if the event matches user filters
       for (const { userId, viewport } of intersectingViewports) {
-        const filters = this.userFilters.get(userId);
-        if (!filters || !this.eventMatchesFilters(record, filters)) {
+        // Skip if we've already sent to this user
+        if (sentToUsers.has(userId)) {
           continue;
         }
+
+        const filters = this.userFilters.get(userId);
+        if (!filters || !this.eventMatchesFilters(record, filters, userId)) {
+          continue;
+        }
+
+        // Mark this user as having received the event
+        sentToUsers.add(userId);
 
         // Strip sensitive data before publishing
         const sanitizedEvent = this.stripSensitiveData(record);
@@ -510,9 +572,14 @@ export class FilterProcessor {
     }
   }
 
-  private eventMatchesFilters(event: Event, filters: Filter[]): boolean {
+  private eventMatchesFilters(event: Event, filters: Filter[], userId?: string): boolean {
     // If no filters, match everything
     if (filters.length === 0) return true;
+
+    // First check privacy if userId is provided
+    if (userId && !this.isEventAccessible(event, userId)) {
+      return false;
+    }
 
     // Event matches if it satisfies ANY filter
     return filters.some((filter) => {
@@ -775,6 +842,20 @@ export class FilterProcessor {
     });
   }
 
+  /**
+   * Check if an event is accessible to a user (privacy filter)
+   */
+  private isEventAccessible(event: Event, userId: string): boolean {
+    // Public events are always accessible
+    if (!event.isPrivate) return true;
+
+    // Private events are accessible to creator and shared users
+    return (
+      event.creatorId === userId ||
+      (event.sharedWith?.some((share) => share.sharedWithId === userId) ?? false)
+    );
+  }
+
   private calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
     const R = 6371000; // Earth radius in meters
     const dLat = this.toRadians(lat2 - lat1);
@@ -836,34 +917,41 @@ export class FilterProcessor {
       // Strip sensitive data from all events
       const sanitizedEvents = events.map((event) => this.stripSensitiveData(event));
 
-      // Publish the filtered events to the user's channel
-      this.redisPub.publish(
-        `user:${userId}:filtered-events`,
-        JSON.stringify({
-          type,
+      const channel = `user:${userId}:filtered-events`;
+
+      // For viewport updates, send all events in one message to replace existing ones
+      if (type === "viewport") {
+        const message = {
+          type: "replace-all",
           events: sanitizedEvents,
           count: sanitizedEvents.length,
           timestamp: new Date().toISOString(),
-        })
-      );
+        };
+
+        // Publish the filtered events to the user's channel
+        this.redisPub.publish(channel, JSON.stringify(message));
+      } else {
+        // For other types (like new events), send each event individually
+        for (const event of sanitizedEvents) {
+          const message = {
+            type: "add-event",
+            event,
+            timestamp: new Date().toISOString(),
+          };
+
+          // Publish the event to the user's channel
+          this.redisPub.publish(channel, JSON.stringify(message));
+        }
+      }
 
       // Update stats
       this.stats.totalFilteredEventsPublished += sanitizedEvents.length;
 
       // If this was a replace-all operation, log additional details
       if (process.env.NODE_ENV !== "production" && type === "replace-all") {
-        console.log(`Sent complete replacement set to user ${userId}`);
-
-        // Log sample of event IDs for debugging
-        if (sanitizedEvents.length > 0) {
-          const sampleIds = sanitizedEvents
-            .slice(0, Math.min(5, sanitizedEvents.length))
-            .map((e) => e.id);
-          console.log(`Sample event IDs: ${sampleIds.join(", ")}`);
-        }
       }
     } catch (error) {
-      console.error(`Error publishing events to user ${userId}:`, error);
+      console.error(`[Publish] Error publishing events to user ${userId}:`, error);
     }
   }
 
@@ -873,24 +961,21 @@ export class FilterProcessor {
   private async fetchAllEvents(): Promise<Event[]> {
     try {
       const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
-      const maxRetries = 5;
-      const initialRetryDelay = 2000; // 2 seconds
-      const pageSize = 1000; // Number of events per page
-      let allEvents: Event[] = [];
+      const pageSize = 100;
       let currentPage = 1;
       let hasMorePages = true;
+      let allEvents: Event[] = [];
 
       while (hasMorePages) {
+        const maxRetries = 3;
+        const initialRetryDelay = 1000;
+
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            if (process.env.NODE_ENV !== "production") {
-              console.log(
-                `Attempt ${attempt}/${maxRetries} - Fetching page ${currentPage} from API at ${backendUrl}/api/internal/events`
-              );
-            }
-
             const response = await fetch(
-              `${backendUrl}/api/internal/events?page=${currentPage}&limit=${pageSize}`,
+              `${backendUrl}/api/internal/events?limit=${pageSize}&offset=${
+                (currentPage - 1) * pageSize
+              }`,
               {
                 headers: {
                   Accept: "application/json",
@@ -899,7 +984,7 @@ export class FilterProcessor {
             );
 
             if (!response.ok) {
-              throw new Error(`API returned status ${response.status}`);
+              throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             const data = await response.json();
@@ -910,11 +995,6 @@ export class FilterProcessor {
             }
 
             const { events, total, hasMore } = data;
-
-            if (process.env.NODE_ENV !== "production") {
-              console.log(`Received ${events.length} events from page ${currentPage}`);
-              console.log(`Total events: ${total}, Has more pages: ${hasMore}`);
-            }
 
             // Process and validate events
             const validEvents = events
@@ -932,10 +1012,16 @@ export class FilterProcessor {
                 categories: event.categories || [],
                 embedding: event.embedding,
                 status: event.status,
+                isPrivate: event.isPrivate || false,
+                creatorId: event.creatorId,
+                sharedWith: event.sharedWith || [],
               }));
 
-            // Add to our collection
-            allEvents = [...allEvents, ...validEvents];
+            // Add to our collection, ensuring no duplicates
+            const newEvents = validEvents.filter(
+              (event: Event) => !allEvents.some((existing) => existing.id === event.id)
+            );
+            allEvents = [...allEvents, ...newEvents];
 
             // Update pagination state
             hasMorePages = hasMore;
@@ -962,9 +1048,7 @@ export class FilterProcessor {
 
             // Exponential backoff
             const retryDelay = initialRetryDelay * Math.pow(2, attempt - 1);
-            if (process.env.NODE_ENV !== "production") {
-              console.log(`Waiting ${retryDelay}ms before next attempt...`);
-            }
+
             await new Promise((resolve) => setTimeout(resolve, retryDelay));
           }
         }
@@ -987,22 +1071,26 @@ export class FilterProcessor {
    */
   private processInitialEventsBatch(events: Event[]): void {
     try {
+      // Remove duplicates based on event ID
+      const uniqueEvents = Array.from(new Map(events.map((event) => [event.id, event])).values());
+
       // Format for RBush
-      const items = events.map((event) => this.eventToSpatialItem(event));
+      const items = uniqueEvents.map((event) => this.eventToSpatialItem(event));
+
+      // Remove any existing items with the same IDs
+      items.forEach((item) => {
+        this.removeEventFromIndex(item.id);
+      });
 
       // Bulk load for performance
       this.spatialIndex.load(items);
 
       // Cache the full events
-      events.forEach((event) => {
+      uniqueEvents.forEach((event) => {
         this.eventCache.set(event.id, event);
       });
 
       if (process.env.NODE_ENV !== "production") {
-        console.log(`Processed batch of ${items.length} events`);
-        if (items.length > 0) {
-          console.log("Sample spatial item:", items[0]);
-        }
       }
     } catch (error) {
       console.error("Error processing initial events batch:", error);

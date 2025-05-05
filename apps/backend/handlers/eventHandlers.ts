@@ -335,15 +335,37 @@ export const getAllEventsHandler: EventHandler = async (c) => {
     const offset = c.req.query("offset");
     const eventService = c.get("eventService");
 
+    console.log("Fetching all events with limit:", limit, "offset:", offset);
+
     const eventsData = await eventService.getEvents({
       limit: limit ? parseInt(limit) : undefined,
       offset: offset ? parseInt(offset) : undefined,
     });
 
+    console.log(`Retrieved ${eventsData.length} events from database`);
+
+    // For each private event, get its shares
+    const eventsWithShares = await Promise.all(
+      eventsData.map(async (event) => {
+        if (event.isPrivate) {
+          console.log(`Fetching shares for private event ${event.id}`);
+          const shares = await eventService.getEventShares(event.id);
+          console.log(`Found ${shares.length} shares for event ${event.id}`);
+          return {
+            ...event,
+            sharedWith: shares,
+          };
+        }
+        return event;
+      })
+    );
+
+    console.log(`Returning ${eventsWithShares.length} events with shares`);
+
     // Return data in the format expected by the filter processor
     return c.json({
-      events: eventsData,
-      total: eventsData.length,
+      events: eventsWithShares,
+      total: eventsWithShares.length,
       hasMore: false, // Since we're not implementing pagination in the backend yet
     });
   } catch (error) {
@@ -580,6 +602,79 @@ export const getFriendsSavedEventsHandler: EventHandler = async (c) => {
     return c.json(
       {
         error: "Failed to fetch friends' saved events",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
+export const createPrivateEventHandler: EventHandler = async (c) => {
+  try {
+    const data = await c.req.json();
+    const jobQueue = c.get("jobQueue");
+    const user = c.get("user");
+
+    // Validate input
+    if (!data.title || !data.date || !data.location?.coordinates) {
+      return c.json({ error: "Missing required fields", receivedData: data }, 400);
+    }
+
+    // Ensure location is in GeoJSON format
+    if (data.location && !data.location.type) {
+      data.location = {
+        type: "Point",
+        coordinates: data.location.coordinates,
+      };
+    }
+
+    if (!user?.userId) {
+      return c.json({ error: "Missing user id" }, 401);
+    }
+
+    // Validate shared users if provided
+    if (data.sharedWithIds && !Array.isArray(data.sharedWithIds)) {
+      return c.json({ error: "sharedWithIds must be an array" }, 400);
+    }
+
+    // Create job for private event processing
+    const jobId = await jobQueue.enqueuePrivateEventJob(
+      {
+        emoji: data.emoji || "📍",
+        emojiDescription: data.emojiDescription,
+        title: data.title,
+        date: data.date,
+        endDate: data.endDate,
+        address: data.address,
+        location: data.location,
+        description: data.description,
+        categories: data.categories,
+        timezone: data.timezone,
+        locationNotes: data.locationNotes,
+      },
+      user.userId,
+      data.sharedWithIds || [],
+      data.userCoordinates
+    );
+
+    return c.json(
+      {
+        status: "processing",
+        jobId,
+        message: "Your private event is being processed. Check status at /api/jobs/" + jobId,
+        _links: {
+          self: `/api/events/process/${jobId}`,
+          status: `/api/jobs/${jobId}`,
+          stream: `/api/jobs/${jobId}/stream`,
+        },
+      },
+      202
+    );
+  } catch (error) {
+    console.error("Error creating private event:", error);
+    return c.json(
+      {
+        error: "Failed to create private event",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       500

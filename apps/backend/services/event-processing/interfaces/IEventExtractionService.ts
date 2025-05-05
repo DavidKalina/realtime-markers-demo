@@ -29,4 +29,15 @@ export interface IEventExtractionService {
    * @returns Array of category objects
    */
   extractCategories(text: string): Promise<Category[]>;
+
+  /**
+   * Generate an emoji and description for an event based on its title and description
+   * @param title The event title
+   * @param description The event description
+   * @returns Object containing the emoji and its description
+   */
+  generateEventEmoji(
+    title: string,
+    description: string
+  ): Promise<{ emoji: string; emojiDescription: string }>;
 }
