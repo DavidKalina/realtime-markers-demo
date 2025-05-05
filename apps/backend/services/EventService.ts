@@ -443,6 +443,9 @@ export class EventService {
       }
 
       if (eventData.sharedWithIds) {
+        // First remove all existing shares
+        await this.removeEventShares(id, await this.getEventSharedWithUsers(id));
+        // Then add the new shares
         await this.shareEventWithUsers(id, event.creatorId, eventData.sharedWithIds);
       }
 
