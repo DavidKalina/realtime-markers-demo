@@ -433,7 +433,9 @@ export class EventService {
 
       // Handle categories if provided
       if (eventData.categoryIds) {
-        const categories = await this.categoryRepository.findByIds(eventData.categoryIds);
+        const categories = await this.categoryRepository.find({
+          where: { id: In(eventData.categoryIds) },
+        });
         event.categories = categories;
       }
 

@@ -309,14 +309,6 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
       const coordinates = cluster.geometry.coordinates as [number, number];
       const childMarkers = cluster.properties.childMarkers || [];
 
-      // Log the cluster data being stored
-      console.log("Storing Cluster in LocationStore:", {
-        clusterId,
-        count,
-        childMarkersCount: childMarkers.length,
-        childMarkers,
-      });
-
       // Create the unified cluster item
       const selectedItem: ClusterItem = {
         id: clusterId,

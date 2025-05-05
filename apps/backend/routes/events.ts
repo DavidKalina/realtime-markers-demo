@@ -41,6 +41,7 @@ eventsRouter.post("/", handlers.createEventHandler);
 
 // Dynamic routes with IDs
 eventsRouter.delete("/:id", handlers.deleteEventHandler);
+eventsRouter.put("/:id", handlers.updateEventHandler);
 eventsRouter.post("/:id/save", handlers.toggleSaveEventHandler);
 eventsRouter.get("/:id/saved", handlers.isEventSavedHandler);
 eventsRouter.get("/:id", handlers.getEventByIdHandler);

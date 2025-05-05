@@ -287,8 +287,23 @@ export const deleteEventHandler: EventHandler = async (c) => {
     const id = c.req.param("id");
     const eventService = c.get("eventService");
     const redisPub = c.get("redisClient");
+    const user = c.get("user");
+
+    if (!user?.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
 
     const event = await eventService.getEventById(id);
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
+
+    // Check if user has access to delete the event
+    const hasAccess = await eventService.hasEventAccess(id, user.userId);
+    if (!hasAccess) {
+      return c.json({ error: "You don't have permission to delete this event" }, 403);
+    }
+
     const isSuccess = await eventService.deleteEvent(id);
 
     if (isSuccess && event) {
@@ -308,6 +323,64 @@ export const deleteEventHandler: EventHandler = async (c) => {
   } catch (error) {
     console.error("Error deleting event:", error);
     return c.json({ error: "Failed to delete event" }, 500);
+  }
+};
+
+export const updateEventHandler: EventHandler = async (c) => {
+  try {
+    const id = c.req.param("id");
+    const data = await c.req.json();
+    const eventService = c.get("eventService");
+    const redisPub = c.get("redisClient");
+    const user = c.get("user");
+
+    if (!user?.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    // Check if the event exists
+    const event = await eventService.getEventById(id);
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
+
+    // Check if user has access to update the event
+    const hasAccess = await eventService.hasEventAccess(id, user.userId);
+    if (!hasAccess) {
+      return c.json({ error: "You don't have permission to update this event" }, 403);
+    }
+
+    // Ensure location is in GeoJSON format if provided
+    if (data.location && !data.location.type) {
+      data.location = {
+        type: "Point",
+        coordinates: data.location.coordinates,
+      };
+    }
+
+    const updatedEvent = await eventService.updateEvent(id, data);
+
+    if (updatedEvent) {
+      // Publish to Redis for WebSocket service to broadcast
+      await redisPub.publish(
+        "event_changes",
+        JSON.stringify({
+          operation: "UPDATE",
+          record: updatedEvent,
+        })
+      );
+    }
+
+    return c.json(updatedEvent);
+  } catch (error) {
+    console.error("Error updating event:", error);
+    return c.json(
+      {
+        error: "Failed to update event",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
   }
 };
 

@@ -179,8 +179,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
     // Use provided markers or fall back to store markers
     const markers = storeMarkers;
 
-    console.log("[ClusteredMapMarkers] Markers:", markers.length);
-
     // Get clusters based on current markers, viewport, and zoom level
     const { clusters } = useMarkerClustering(markers, viewport, currentZoom);
 
