@@ -19,6 +19,7 @@ import { User } from "./User";
 import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
 import { EventShare } from "./EventShare";
+import { UserEventRsvp } from "./UserEventRsvp";
 
 export enum EventStatus {
   PENDING = "PENDING",
@@ -137,6 +138,9 @@ export class Event {
 
   @OneToMany(() => EventShare, (share: EventShare) => share.event)
   shares!: EventShare[];
+
+  @OneToMany(() => UserEventRsvp, (rsvp) => rsvp.event)
+  rsvps!: UserEventRsvp[];
 
   @ManyToMany(() => Category, (category) => category.events)
   @JoinTable({

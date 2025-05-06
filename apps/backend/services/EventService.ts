@@ -8,6 +8,7 @@ import type { Filter } from "../entities/Filter";
 import { User } from "../entities/User";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
 import { UserEventSave } from "../entities/UserEventSave";
+import { UserEventRsvp, RsvpStatus } from "../entities/UserEventRsvp";
 import { EventSimilarityService } from "./event-processing/EventSimilarityService";
 import { LevelingService } from "./LevelingService";
 import { CacheService } from "./shared/CacheService";
@@ -47,6 +48,7 @@ export class EventService {
   private eventRepository: Repository<Event>;
   private categoryRepository: Repository<Category>;
   private userEventSaveRepository: Repository<UserEventSave>;
+  private userEventRsvpRepository: Repository<UserEventRsvp>;
   private eventShareRepository: Repository<EventShare>;
   private locationService: GoogleGeocodingService;
   private eventSimilarityService: EventSimilarityService;
@@ -56,6 +58,7 @@ export class EventService {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
     this.userEventSaveRepository = dataSource.getRepository(UserEventSave);
+    this.userEventRsvpRepository = dataSource.getRepository(UserEventRsvp);
     this.eventShareRepository = dataSource.getRepository(EventShare);
     this.locationService = GoogleGeocodingService.getInstance();
     this.eventSimilarityService = new EventSimilarityService(this.eventRepository);
@@ -1447,5 +1450,72 @@ export class EventService {
       .getMany();
 
     return shares;
+  }
+
+  /**
+   * Toggle RSVP status for an event
+   * @param userId The ID of the user
+   * @param eventId The ID of the event
+   * @param status The RSVP status to set
+   * @returns An object containing the RSVP status and counts
+   */
+  async toggleRsvpEvent(
+    userId: string,
+    eventId: string,
+    status: RsvpStatus
+  ): Promise<{
+    status: RsvpStatus;
+    goingCount: number;
+    notGoingCount: number;
+  }> {
+    // Start a transaction to ensure data consistency
+    return this.dataSource.transaction(async (transactionalEntityManager) => {
+      // Check if the event exists
+      const event = await transactionalEntityManager.findOne(Event, {
+        where: { id: eventId },
+      });
+
+      if (!event) {
+        throw new Error("Event not found");
+      }
+
+      // Check if an RSVP already exists
+      const existingRsvp = await transactionalEntityManager.findOne(UserEventRsvp, {
+        where: { userId, eventId },
+      });
+
+      if (existingRsvp) {
+        // Update existing RSVP
+        existingRsvp.status = status;
+        await transactionalEntityManager.save(existingRsvp);
+      } else {
+        // Create new RSVP
+        const newRsvp = transactionalEntityManager.create(UserEventRsvp, {
+          userId,
+          eventId,
+          status,
+        });
+        await transactionalEntityManager.save(newRsvp);
+
+        // Award XP for RSVPing to an event
+        await this.levelingService.awardXp(userId, 5);
+      }
+
+      // Get updated counts
+      const [goingCount, notGoingCount] = await Promise.all([
+        transactionalEntityManager.count(UserEventRsvp, {
+          where: { eventId, status: RsvpStatus.GOING },
+        }),
+        transactionalEntityManager.count(UserEventRsvp, {
+          where: { eventId, status: RsvpStatus.NOT_GOING },
+        }),
+      ]);
+
+      return {
+        status,
+        goingCount,
+        notGoingCount,
+      };
+    });
   }
 }
