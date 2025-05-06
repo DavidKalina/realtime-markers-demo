@@ -194,11 +194,18 @@ export default function NotificationsScreen() {
           <Text style={styles.notificationIcon}>
             {getNotificationIcon(notification.type as NotificationType)}
           </Text>
-          <Text style={styles.notificationTitle}>{notification.title}</Text>
-          <Text style={styles.notificationTime}>
-            {new Date(notification.createdAt).toLocaleDateString()}
+          <Text style={styles.notificationTitle} numberOfLines={2}>
+            {notification.title}
           </Text>
         </View>
+        <Text style={styles.notificationTime}>
+          {new Date(notification.createdAt).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </Text>
       </View>
       <TouchableOpacity
         style={styles.deleteButton}
@@ -306,12 +313,20 @@ const styles = StyleSheet.create({
   notificationItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 8,
+    padding: 12,
     backgroundColor: COLORS.cardBackground,
-    borderRadius: 8,
-    marginBottom: 6,
+    borderRadius: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: COLORS.buttonBorder,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   unreadNotification: {
     backgroundColor: "rgba(147, 197, 253, 0.15)",
@@ -319,18 +334,30 @@ const styles = StyleSheet.create({
   },
   notificationContent: {
     flex: 1,
+    gap: 4,
   },
   notificationHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
   },
   notificationIcon: {
-    fontSize: 14,
+    fontSize: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: COLORS.buttonBackground,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+    lineHeight: 32,
+    textAlign: "center",
   },
   notificationTitle: {
     color: COLORS.textPrimary,
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: "600",
     fontFamily: "SpaceMono",
     letterSpacing: 0.2,
@@ -338,17 +365,18 @@ const styles = StyleSheet.create({
   },
   notificationTime: {
     color: COLORS.textSecondary,
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: "SpaceMono",
+    marginTop: 2,
   },
   deleteButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     backgroundColor: COLORS.buttonBackground,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 6,
+    marginLeft: 8,
     borderWidth: 1,
     borderColor: COLORS.buttonBorder,
   },
