@@ -80,22 +80,49 @@ const CreatePrivateEvent = () => {
   // Add effect to initialize selected friends in edit mode
   useEffect(() => {
     const initializeSelectedFriends = async () => {
-      if (params.title && params.sharedWithIds) {
+      if (params.id) {
         try {
-          // Get all friends
-          const friends = await apiClient.getFriends();
-          // Filter friends to only those that are in sharedWithIds
-          const sharedWithIds = (params.sharedWithIds as string).split(",");
-          const selectedFriends = friends.filter((friend) => sharedWithIds.includes(friend.id));
-          setSelectedFriends(selectedFriends);
+          // Get the event details including shares
+          const event = await apiClient.getEventById(params.id as string);
+          if (event) {
+            // Get all friends
+            const friends = await apiClient.getFriends();
+
+            // Get the shares for this event
+            const shares = await apiClient.getEventShares(params.id as string);
+
+            // Get the IDs of users the event is shared with
+            const sharedWithIds = shares.map((share) => share.sharedWithId);
+
+            // Filter friends to only those that are in sharedWithIds
+            const selectedFriends = friends.filter((friend) => sharedWithIds.includes(friend.id));
+            setSelectedFriends(selectedFriends);
+
+            // Also set other event details if they exist
+            if (event.title) setEventName(event.title);
+            if (event.description) setEventDescription(event.description);
+            if (event.emoji) setSelectedEmoji(event.emoji);
+            if (event.eventDate) setDate(new Date(event.eventDate));
+            if (
+              event.location &&
+              typeof event.location === "object" &&
+              "coordinates" in event.location
+            ) {
+              const location = event.location as { coordinates: [number, number] };
+              setCoordinates({
+                latitude: location.coordinates[1],
+                longitude: location.coordinates[0],
+              });
+            }
+          }
         } catch (error) {
-          console.error("Error initializing selected friends:", error);
+          console.error("Error initializing event details:", error);
         }
       }
     };
 
     initializeSelectedFriends();
-  }, [params.title, params.sharedWithIds]);
+  }, [params.id]);
 
   // Add effect to focus title input when component mounts
   useEffect(() => {

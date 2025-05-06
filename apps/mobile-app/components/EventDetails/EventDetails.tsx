@@ -131,7 +131,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
   // Fetch image when event is loaded
   useEffect(() => {
-    if (!event?.id) return;
+    if (!event?.id || event.isPrivate) return;
 
     let isMounted = true;
 
@@ -161,7 +161,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     return () => {
       isMounted = false;
     };
-  }, [event?.id]);
+  }, [event?.id, event?.isPrivate]);
 
   // Add effect to trigger fly-over animation when event is loaded
   useEffect(() => {
@@ -361,7 +361,12 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
         {/* Event Title and Save Button */}
         <View style={styles.titleContainer}>
-          <Text numberOfLines={2} style={styles.title}>
+          <Text
+            numberOfLines={2}
+            style={[styles.title, { maxWidth: "80%" }]}
+            adjustsFontSizeToFit={false}
+            allowFontScaling={false}
+          >
             {event.title}
           </Text>
           <RsvpButton isRsvped={isRsvped} rsvpState={rsvpState} onRsvp={handleToggleRsvp} />

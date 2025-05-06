@@ -1592,6 +1592,13 @@ class ApiClient {
     });
     return this.handleResponse<{ rsvped: boolean; rsvpCount: number }>(response);
   }
+
+  // Get event shares
+  async getEventShares(eventId: string): Promise<{ sharedWithId: string; sharedById: string }[]> {
+    const url = `${this.baseUrl}/api/events/${eventId}/shares`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{ sharedWithId: string; sharedById: string }[]>(response);
+  }
 }
 
 // Export as singleton

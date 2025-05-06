@@ -283,6 +283,23 @@ export class EventService {
     sharedById: string,
     sharedWithIds: string[]
   ): Promise<void> {
+    // Validate inputs
+    if (!eventId) {
+      throw new Error("Event ID is required for sharing");
+    }
+    if (!sharedById) {
+      throw new Error("Shared By ID is required for sharing");
+    }
+    if (!sharedWithIds || sharedWithIds.length === 0) {
+      throw new Error("Shared With IDs are required for sharing");
+    }
+
+    console.log("Sharing event with users:", {
+      eventId,
+      sharedById,
+      sharedWithIds,
+    });
+
     // Create share records for each user
     const shares = sharedWithIds.map((sharedWithId) => ({
       eventId,
@@ -292,34 +309,29 @@ export class EventService {
 
     // Use a transaction to ensure all shares are created or none
     await this.dataSource.transaction(async (transactionalEntityManager) => {
-      await transactionalEntityManager
+      // First verify the event exists
+      const event = await transactionalEntityManager.findOne(Event, {
+        where: { id: eventId },
+      });
+
+      if (!event) {
+        throw new Error(`Event with ID ${eventId} not found`);
+      }
+
+      // Then create the shares
+      const result = await transactionalEntityManager
         .createQueryBuilder()
         .insert()
         .into(EventShare)
         .values(shares)
         .orIgnore() // Ignore if share already exists
         .execute();
+
+      console.log("Share creation result:", result);
     });
 
     // Invalidate cache for this event
     await CacheService.invalidateEventCache(eventId);
-
-    // Get the updated event with its shares
-    const event = await this.eventRepository.findOne({
-      where: { id: eventId },
-      relations: ["categories", "creator", "shares", "shares.sharedWith"],
-    });
-
-    if (event) {
-      // Publish the updated event to Redis
-      await this.redis.publish(
-        "event_changes",
-        JSON.stringify({
-          operation: "UPDATE",
-          record: event,
-        })
-      );
-    }
   }
 
   /**
@@ -404,9 +416,21 @@ export class EventService {
 
   async updateEvent(id: string, eventData: Partial<CreateEventInput>): Promise<Event | null> {
     try {
+      if (!id) {
+        throw new Error("Event ID is required for update");
+      }
+
+      console.log("Updating event:", { id, eventData });
+
       const event = await this.getEventById(id);
-      if (!event) return null;
-      if (!event.creatorId) return null;
+      if (!event) {
+        console.log("Event not found:", id);
+        return null;
+      }
+      if (!event.creatorId) {
+        console.log("Event has no creator ID:", id);
+        return null;
+      }
 
       // Handle basic fields
       if (eventData.title) event.title = eventData.title;
@@ -450,31 +474,56 @@ export class EventService {
         event.isPrivate = eventData.isPrivate;
       }
 
-      // Only update shares if the event is private
-      if (event.isPrivate && eventData.sharedWithIds) {
-        // First remove all existing shares
-        await this.removeEventShares(id, await this.getEventSharedWithUsers(id));
-        // Then add the new shares
-        await this.shareEventWithUsers(id, event.creatorId, eventData.sharedWithIds);
-      } else if (!event.isPrivate) {
-        // If event is not private, remove all shares
-        await this.removeEventShares(id, await this.getEventSharedWithUsers(id));
+      // Save the event first to ensure we have a valid ID
+      const savedEvent = await this.eventRepository.save(event);
+
+      // Handle shares in a separate transaction
+      if (savedEvent.isPrivate && eventData.sharedWithIds && savedEvent.creatorId) {
+        console.log("Updating shares for event:", {
+          eventId: savedEvent.id,
+          creatorId: savedEvent.creatorId,
+          sharedWithIds: eventData.sharedWithIds,
+        });
+
+        try {
+          // First remove all existing shares
+          await this.removeEventShares(
+            savedEvent.id,
+            await this.getEventSharedWithUsers(savedEvent.id)
+          );
+          // Then add the new shares
+          await this.shareEventWithUsers(
+            savedEvent.id,
+            savedEvent.creatorId,
+            eventData.sharedWithIds
+          );
+        } catch (error) {
+          console.error("Error updating shares:", error);
+          // Don't throw the error - we still want to return the updated event
+        }
+      } else if (!savedEvent.isPrivate) {
+        try {
+          // If event is not private, remove all shares
+          await this.removeEventShares(
+            savedEvent.id,
+            await this.getEventSharedWithUsers(savedEvent.id)
+          );
+        } catch (error) {
+          console.error("Error removing shares:", error);
+          // Don't throw the error - we still want to return the updated event
+        }
       }
 
-      const updatedEvent = await this.eventRepository.save(event);
-
       // Invalidate the cache for this event
-      await CacheService.invalidateEventCache(id);
+      await CacheService.invalidateEventCache(savedEvent.id);
 
       // Invalidate search cache since we updated an event
       await CacheService.invalidateSearchCache();
 
       // Invalidate any cluster hub caches that might contain this event
-      // We don't know which clusters contain this event, so we'll need to invalidate all cluster hub caches
-      // This is a bit heavy-handed but ensures consistency
       await CacheService.invalidateAllClusterHubCaches();
 
-      return updatedEvent;
+      return savedEvent;
     } catch (error) {
       console.error(`Error updating event ${id}:`, error);
       throw error; // Re-throw to handle in the controller

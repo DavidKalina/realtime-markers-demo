@@ -337,6 +337,8 @@ export const updateEventHandler: EventHandler = async (c) => {
     const redisPub = c.get("redisClient");
     const user = c.get("user");
 
+    console.log({ id, data });
+
     if (!user?.userId) {
       return c.json({ error: "Authentication required" }, 401);
     }
@@ -880,6 +882,49 @@ export const isEventRsvpedHandler: EventHandler = async (c) => {
     return c.json(
       {
         error: "Failed to check event RSVP status",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
+export const getEventSharesHandler: EventHandler = async (c) => {
+  try {
+    const eventId = c.req.param("id");
+    const user = c.get("user");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    if (!eventId) {
+      return c.json({ error: "Missing event ID" }, 400);
+    }
+
+    const eventService = c.get("eventService");
+
+    // Check if the event exists
+    const event = await eventService.getEventById(eventId);
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
+
+    // Check if user has access to view shares
+    const hasAccess = await eventService.hasEventAccess(eventId, user.userId);
+    if (!hasAccess) {
+      return c.json({ error: "You don't have permission to view this event's shares" }, 403);
+    }
+
+    // Get the shares
+    const shares = await eventService.getEventShares(eventId);
+
+    return c.json(shares);
+  } catch (error) {
+    console.error("Error fetching event shares:", error);
+    return c.json(
+      {
+        error: "Failed to fetch event shares",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       500
