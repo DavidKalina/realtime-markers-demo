@@ -11,6 +11,7 @@ import {
 import { useRouter } from "expo-router";
 import { Bell, Trash2, Mail, MailOpen } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
+import Animated, { FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
 
 import ScreenLayout from "@/components/Layout/ScreenLayout";
 import Header from "@/components/Layout/Header";
@@ -183,37 +184,51 @@ export default function NotificationsScreen() {
     }
   };
 
-  const renderNotification = ({ item: notification }: { item: Notification }) => (
-    <TouchableOpacity
-      style={[styles.notificationItem, !notification.read && styles.unreadNotification]}
-      onPress={() => handleMarkAsRead(notification.id)}
-      activeOpacity={0.7}
+  const renderNotification = ({
+    item: notification,
+    index,
+  }: {
+    item: Notification;
+    index: number;
+  }) => (
+    <Animated.View
+      entering={FadeInDown.duration(600)
+        .delay(index * 100)
+        .springify()}
+      exiting={FadeOut.duration(200)}
+      layout={LinearTransition.springify()}
     >
-      <View style={styles.notificationContent}>
-        <View style={styles.notificationHeader}>
-          <Text style={styles.notificationIcon}>
-            {getNotificationIcon(notification.type as NotificationType)}
-          </Text>
-          <Text style={styles.notificationTitle} numberOfLines={2}>
-            {notification.title}
+      <TouchableOpacity
+        style={[styles.notificationItem, !notification.read && styles.unreadNotification]}
+        onPress={() => handleMarkAsRead(notification.id)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.notificationContent}>
+          <View style={styles.notificationHeader}>
+            <Text style={styles.notificationIcon}>
+              {getNotificationIcon(notification.type as NotificationType)}
+            </Text>
+            <Text style={styles.notificationTitle} numberOfLines={2}>
+              {notification.title}
+            </Text>
+          </View>
+          <Text style={styles.notificationTime}>
+            {new Date(notification.createdAt).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
           </Text>
         </View>
-        <Text style={styles.notificationTime}>
-          {new Date(notification.createdAt).toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </Text>
-      </View>
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => handleDeleteNotification(notification.id)}
-      >
-        <Trash2 size={18} color={COLORS.textSecondary} />
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteNotification(notification.id)}
+        >
+          <Trash2 size={18} color={COLORS.textSecondary} />
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
+    </Animated.View>
   );
 
   const tabs = [
