@@ -1,10 +1,10 @@
 import { In, Repository } from "typeorm";
 import { Category } from "../entities/Category";
 import { CacheService } from "./shared/CacheService";
-import { OpenAIService } from "./shared/OpenAIService";
+import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
 
 export class CategoryProcessingService {
-  constructor(private categoryRepository: Repository<Category>) { }
+  constructor(private categoryRepository: Repository<Category>) {}
 
   private async normalizeCategoryName(name: string): Promise<string> {
     return name.toLowerCase().trim().replace(/\s+/g, " "); // Replace multiple spaces with single space
@@ -96,7 +96,7 @@ export class CategoryProcessingService {
     }
 
     const response = await OpenAIService.executeChatCompletion({
-      model: "gpt-4o",
+      model: OpenAIModel.GPT4OMini,
       messages: [
         {
           role: "system",

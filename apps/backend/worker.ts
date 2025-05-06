@@ -516,7 +516,7 @@ async function initializeWorker() {
           confidenceScore: scanResult.confidence,
           address: scanResult.eventDetails.address,
           locationNotes: scanResult.eventDetails.locationNotes || "",
-          categoryIds: [], // Skip categories for now
+          categoryIds: scanResult.eventDetails.categories?.map((cat) => cat.id),
           creatorId: job.data.creatorId,
           embedding: scanResult.embedding,
           isPrivate: true,

@@ -143,8 +143,6 @@ export class EventProcessingService {
     // Step 3: Extract event details
     await workflow.updateProgress(3, "Extracting event details...");
 
-    console.log("locationContext", locationContext);
-
     const extractionResult = await this.eventExtractionService.extractEventDetails(
       extractedText,
       locationContext
@@ -211,33 +209,43 @@ export class EventProcessingService {
     locationContext?: LocationContext
   ): Promise<ScanResult> {
     // Generate emoji if not provided
-    let eventDetailsWithCategories = { ...eventInput };
+    let eventDetails = { ...eventInput };
     if (!eventInput.emoji || eventInput.emoji === "📍") {
       const emojiResult = await this.eventExtractionService.generateEventEmoji(
         eventInput.title,
         eventInput.description
       );
-      eventDetailsWithCategories = {
+      eventDetails = {
         ...eventInput,
         emoji: emojiResult.emoji,
         emojiDescription: emojiResult.emojiDescription,
       };
     }
 
+    const categories =
+      await this.dependencies.categoryProcessingService.extractAndProcessCategories(
+        `${eventDetails.title} ${eventDetails.description}`
+      );
+
+    eventDetails = {
+      ...eventDetails,
+      categories,
+    };
+
     // Generate embedding
-    const finalEmbedding = await this.generateEmbedding(eventDetailsWithCategories);
+    const finalEmbedding = await this.generateEmbedding(eventDetails);
 
     // Check for duplicates
     const similarity = await this.dependencies.eventSimilarityService.findSimilarEvents(
       finalEmbedding,
       {
-        title: eventDetailsWithCategories.title,
-        date: eventDetailsWithCategories.date,
-        endDate: eventDetailsWithCategories.endDate,
-        coordinates: eventDetailsWithCategories.location.coordinates as [number, number],
-        address: eventDetailsWithCategories.address,
-        description: eventDetailsWithCategories.description,
-        timezone: eventDetailsWithCategories.timezone,
+        title: eventDetails.title,
+        date: eventDetails.date,
+        endDate: eventDetails.endDate,
+        coordinates: eventDetails.location.coordinates as [number, number],
+        address: eventDetails.address,
+        description: eventDetails.description,
+        timezone: eventDetails.timezone,
       }
     );
 
@@ -251,7 +259,7 @@ export class EventProcessingService {
 
     return {
       confidence: 1.0, // Private events are manually created, so confidence is always high
-      eventDetails: eventDetailsWithCategories,
+      eventDetails,
       similarity,
       isDuplicate: isDuplicate || false,
       qrCodeDetected: false,
