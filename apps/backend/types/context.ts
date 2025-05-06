@@ -8,6 +8,7 @@ import type { StorageService } from "../services/shared/StorageService";
 import { PlanService } from "../services/PlanService";
 import { LevelingService } from "../services/LevelingService";
 import { FriendshipService } from "../services/FriendshipService";
+import { NotificationService } from "../services/NotificationService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -19,6 +20,7 @@ export interface AppVariables {
   planService: PlanService;
   levelingService: LevelingService;
   friendshipService: FriendshipService;
+  notificationService: NotificationService;
   user?: { userId: string; email: string; role: string };
 }
 

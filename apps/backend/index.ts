@@ -39,6 +39,8 @@ import { RateLimitService } from "./services/shared/RateLimitService";
 import { StorageService } from "./services/shared/StorageService";
 import { UserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
+import { NotificationService } from "./services/NotificationService";
+import { NotificationHandler } from "./services/NotificationHandler";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -302,6 +304,13 @@ async function initializeServices() {
   // Initialize the FriendshipService
   const friendshipService = new FriendshipService(dataSource);
 
+  // Initialize the NotificationService
+  const notificationService = NotificationService.getInstance(redisPub);
+
+  // Initialize and start the NotificationHandler
+  const notificationHandler = NotificationHandler.getInstance(redisPub);
+  await notificationHandler.start();
+
   function setupCleanupSchedule() {
     const CLEANUP_HOUR = 3;
     const BATCH_SIZE = 100;
@@ -338,6 +347,8 @@ async function initializeServices() {
     planService,
     levelingService,
     friendshipService,
+    notificationService,
+    notificationHandler,
   };
 }
 
@@ -354,6 +365,7 @@ app.use("*", async (c, next) => {
   c.set("planService", services.planService);
   c.set("levelingService", services.levelingService);
   c.set("friendshipService", services.friendshipService);
+  c.set("notificationService", services.notificationService);
   await next();
 });
 
