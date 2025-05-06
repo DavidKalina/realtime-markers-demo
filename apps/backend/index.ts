@@ -305,10 +305,10 @@ async function initializeServices() {
   const friendshipService = new FriendshipService(dataSource);
 
   // Initialize the NotificationService
-  const notificationService = NotificationService.getInstance(redisPub);
+  const notificationService = NotificationService.getInstance(redisPub, dataSource);
 
   // Initialize and start the NotificationHandler
-  const notificationHandler = NotificationHandler.getInstance(redisPub);
+  const notificationHandler = NotificationHandler.getInstance(redisPub, dataSource);
   await notificationHandler.start();
 
   function setupCleanupSchedule() {

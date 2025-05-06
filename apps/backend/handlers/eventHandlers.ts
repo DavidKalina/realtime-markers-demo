@@ -687,6 +687,7 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
     const data = await c.req.json();
     const jobQueue = c.get("jobQueue");
     const user = c.get("user");
+    const notificationService = c.get("notificationService");
 
     // Validate input
     if (!data.title || !data.date || !data.location?.coordinates) {
@@ -729,6 +730,30 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
       data.sharedWithIds || [],
       data.userCoordinates
     );
+
+    // Notify the creator
+    await notificationService.createNotification(
+      user.userId,
+      "EVENT_CREATED",
+      "Private Event Created",
+      `Your private event "${data.title}" is being processed`,
+      { jobId, eventTitle: data.title }
+    );
+
+    // Notify invited users
+    if (data.sharedWithIds?.length > 0) {
+      await Promise.all(
+        data.sharedWithIds.map((invitedUserId: string) =>
+          notificationService.createNotification(
+            invitedUserId,
+            "EVENT_CREATED",
+            "New Event Invitation",
+            `${user.email} has invited you to "${data.title}"`,
+            { jobId, eventTitle: data.title, creatorId: user.userId }
+          )
+        )
+      );
+    }
 
     return c.json(
       {

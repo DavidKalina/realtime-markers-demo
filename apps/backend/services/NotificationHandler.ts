@@ -1,6 +1,7 @@
 import { Redis } from "ioredis";
 import { NotificationService } from "./NotificationService";
-import type { Notification } from "./NotificationService";
+import { Notification } from "../entities/Notification";
+import { DataSource } from "typeorm";
 
 export class NotificationHandler {
   private redis: Redis;
@@ -8,9 +9,9 @@ export class NotificationHandler {
   private subscriber: Redis;
   private static instance: NotificationHandler;
 
-  private constructor(redis: Redis) {
+  private constructor(redis: Redis, dataSource: DataSource) {
     this.redis = redis;
-    this.notificationService = NotificationService.getInstance(redis);
+    this.notificationService = NotificationService.getInstance(redis, dataSource);
     this.subscriber = new Redis({
       host: process.env.REDIS_HOST,
       port: parseInt(process.env.REDIS_PORT || "6379"),
@@ -18,9 +19,9 @@ export class NotificationHandler {
     });
   }
 
-  public static getInstance(redis: Redis): NotificationHandler {
+  public static getInstance(redis: Redis, dataSource: DataSource): NotificationHandler {
     if (!NotificationHandler.instance) {
-      NotificationHandler.instance = new NotificationHandler(redis);
+      NotificationHandler.instance = new NotificationHandler(redis, dataSource);
     }
     return NotificationHandler.instance;
   }
