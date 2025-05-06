@@ -228,11 +228,21 @@ export interface EmojiSearchParams {
 export interface Notification {
   id: string;
   userId: string;
-  type: string;
+  type:
+    | "EVENT_CREATED"
+    | "EVENT_UPDATED"
+    | "EVENT_DELETED"
+    | "FRIEND_REQUEST"
+    | "FRIEND_ACCEPTED"
+    | "LEVEL_UP"
+    | "ACHIEVEMENT_UNLOCKED"
+    | "SYSTEM";
+  title: string;
   message: string;
-  read: boolean;
-  createdAt: string;
   data?: Record<string, any>;
+  createdAt: string;
+  read: boolean;
+  readAt?: string;
 }
 
 export interface NotificationOptions {
@@ -1466,8 +1476,17 @@ class ApiClient {
     if (options?.type) queryParams.append("type", options.type);
 
     const url = `${this.baseUrl}/api/notifications?${queryParams.toString()}`;
+    console.log("Fetching notifications from URL:", url);
+
     const response = await this.fetchWithAuth(url);
-    return this.handleResponse<Notification[]>(response);
+    console.log("Notifications response status:", response.status);
+
+    const data = await this.handleResponse<{ notifications: Notification[]; total: number }>(
+      response
+    );
+    console.log("Parsed notifications data:", data);
+
+    return data.notifications;
   }
 
   // Get unread notification count

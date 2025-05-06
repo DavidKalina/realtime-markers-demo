@@ -1,44 +1,119 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Bell, Trash2 } from "lucide-react-native";
+import { Bell, Trash2, Mail, MailOpen } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 
 import ScreenLayout from "@/components/Layout/ScreenLayout";
 import Header from "@/components/Layout/Header";
+import Tabs from "@/components/Layout/Tabs";
 import { COLORS } from "@/components/Layout/ScreenLayout";
 import { apiClient } from "@/services/ApiClient";
 import { Notification } from "@/services/ApiClient";
+
+const PAGE_SIZE = 20;
+
+type NotificationType =
+  | "EVENT_CREATED"
+  | "EVENT_UPDATED"
+  | "EVENT_DELETED"
+  | "FRIEND_REQUEST"
+  | "FRIEND_ACCEPTED"
+  | "LEVEL_UP"
+  | "ACHIEVEMENT_UNLOCKED"
+  | "SYSTEM";
+
+type NotificationFilter = "all" | "unread";
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
+  const [selectedType, setSelectedType] = useState<NotificationType | undefined>();
 
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const [notifs, count] = await Promise.all([
-        apiClient.getNotifications({ take: 50 }),
-        apiClient.getUnreadNotificationCount(),
-      ]);
-      setNotifications(notifs);
-      setUnreadCount(count.count);
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-    }
-  }, []);
+  const fetchNotifications = useCallback(
+    async (refresh = false) => {
+      try {
+        setLoading(true);
+        const skip = refresh ? 0 : notifications.length;
+
+        console.log("Fetching notifications with params:", {
+          skip,
+          take: PAGE_SIZE,
+          read: activeFilter === "all" ? undefined : false,
+          type: selectedType,
+        });
+
+        // First try to get unread count
+        let unreadCountResponse;
+        try {
+          unreadCountResponse = await apiClient.getUnreadNotificationCount();
+          console.log("Unread count response:", unreadCountResponse);
+          setUnreadCount(unreadCountResponse.count);
+        } catch (error) {
+          console.error("Error fetching unread count:", error);
+          setUnreadCount(0);
+        }
+
+        // Then fetch notifications
+        try {
+          const notifs = await apiClient.getNotifications({
+            skip,
+            take: PAGE_SIZE,
+            read: activeFilter === "all" ? undefined : false,
+            type: selectedType,
+          });
+
+          console.log("Fetched notifications:", {
+            count: notifs.length,
+            firstNotification: notifs[0],
+            lastNotification: notifs[notifs.length - 1],
+            total: notifs.length,
+          });
+
+          if (refresh) {
+            setNotifications(notifs);
+          } else {
+            setNotifications((prev) => [...prev, ...notifs]);
+          }
+
+          setHasMore(notifs.length === PAGE_SIZE);
+        } catch (error) {
+          console.error("Error fetching notifications:", error);
+          // If it's a refresh, clear the notifications
+          if (refresh) {
+            setNotifications([]);
+          }
+        }
+      } catch (error) {
+        console.error("Error in fetchNotifications:", error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [notifications.length, activeFilter, selectedType]
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await fetchNotifications();
+    await fetchNotifications(true);
     setRefreshing(false);
   }, [fetchNotifications]);
 
+  const onEndReached = useCallback(() => {
+    if (!loading && hasMore) {
+      fetchNotifications();
+    }
+  }, [loading, hasMore, fetchNotifications]);
+
   useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+    fetchNotifications(true);
+  }, [activeFilter, selectedType]);
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
@@ -77,6 +152,26 @@ export default function NotificationsScreen() {
     }
   };
 
+  const getNotificationIcon = (type: NotificationType) => {
+    switch (type) {
+      case "EVENT_CREATED":
+      case "EVENT_UPDATED":
+      case "EVENT_DELETED":
+        return "🎉";
+      case "FRIEND_REQUEST":
+      case "FRIEND_ACCEPTED":
+        return "👥";
+      case "LEVEL_UP":
+        return "⭐";
+      case "ACHIEVEMENT_UNLOCKED":
+        return "🏆";
+      case "SYSTEM":
+        return "🔔";
+      default:
+        return "📌";
+    }
+  };
+
   const renderNotification = ({ item: notification }: { item: Notification }) => (
     <TouchableOpacity
       style={[styles.notificationItem, !notification.read && styles.unreadNotification]}
@@ -84,6 +179,12 @@ export default function NotificationsScreen() {
       activeOpacity={0.7}
     >
       <View style={styles.notificationContent}>
+        <View style={styles.notificationHeader}>
+          <Text style={styles.notificationIcon}>
+            {getNotificationIcon(notification.type as NotificationType)}
+          </Text>
+          <Text style={styles.notificationTitle}>{notification.title}</Text>
+        </View>
         <Text style={styles.notificationMessage}>{notification.message}</Text>
         <Text style={styles.notificationTime}>
           {new Date(notification.createdAt).toLocaleDateString()}
@@ -97,6 +198,19 @@ export default function NotificationsScreen() {
       </TouchableOpacity>
     </TouchableOpacity>
   );
+
+  const tabs = [
+    {
+      icon: Mail,
+      label: "All",
+      value: "all" as NotificationFilter,
+    },
+    {
+      icon: MailOpen,
+      label: "Unread",
+      value: "unread" as NotificationFilter,
+    },
+  ];
 
   return (
     <ScreenLayout>
@@ -118,6 +232,14 @@ export default function NotificationsScreen() {
           </TouchableOpacity>
         }
       />
+      <Tabs
+        items={tabs}
+        activeTab={activeFilter}
+        onTabPress={(tab) => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setActiveFilter(tab);
+        }}
+      />
       <FlatList
         data={notifications}
         renderItem={renderNotification}
@@ -130,10 +252,14 @@ export default function NotificationsScreen() {
             tintColor={COLORS.textSecondary}
           />
         }
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.5}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Bell size={48} color={COLORS.textSecondary} />
-            <Text style={styles.emptyText}>No notifications yet</Text>
+            <Text style={styles.emptyText}>
+              {activeFilter === "unread" ? "No unread notifications" : "No notifications yet"}
+            </Text>
           </View>
         }
       />
@@ -144,49 +270,83 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   listContent: {
     flexGrow: 1,
-    padding: 16,
+    padding: 12,
   },
   notificationItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    padding: 12,
     backgroundColor: COLORS.cardBackground,
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: COLORS.buttonBorder,
   },
   unreadNotification: {
-    backgroundColor: COLORS.cardBackgroundAlt,
-    borderColor: COLORS.accent,
+    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    borderColor: "rgba(147, 197, 253, 0.3)",
   },
   notificationContent: {
     flex: 1,
   },
-  notificationMessage: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
+  notificationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 4,
+  },
+  notificationIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  notificationTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
+    letterSpacing: 0.3,
+  },
+  notificationMessage: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontFamily: "SpaceMono",
+    marginBottom: 4,
+    lineHeight: 18,
   },
   notificationTime: {
     color: COLORS.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
+    fontFamily: "SpaceMono",
   },
   deleteButton: {
-    padding: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: COLORS.buttonBackground,
+    justifyContent: "center",
+    alignItems: "center",
     marginLeft: 8,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
   clearButton: {
     position: "relative",
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: COLORS.buttonBackground,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
   badge: {
     position: "absolute",
     top: -4,
     right: -4,
     backgroundColor: COLORS.accent,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    borderRadius: 8,
+    minWidth: 18,
+    height: 18,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
@@ -194,8 +354,9 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: COLORS.background,
-    fontSize: 12,
-    fontWeight: "bold",
+    fontSize: 11,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
   },
   emptyContainer: {
     flex: 1,
@@ -205,7 +366,10 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: COLORS.textSecondary,
-    fontSize: 16,
+    fontSize: 14,
+    fontFamily: "SpaceMono",
     marginTop: 16,
+    textAlign: "center",
+    lineHeight: 20,
   },
 });

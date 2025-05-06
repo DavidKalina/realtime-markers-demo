@@ -30,6 +30,14 @@ notificationsRouter.get("/", async (c) => {
   }
   const { skip, take, read, type } = c.req.query();
 
+  console.log("Fetching notifications for user:", {
+    userId: user.userId,
+    skip,
+    take,
+    read,
+    type,
+  });
+
   const options = {
     skip: skip ? parseInt(skip) : undefined,
     take: take ? parseInt(take) : undefined,
@@ -37,7 +45,11 @@ notificationsRouter.get("/", async (c) => {
     type: type as any,
   };
 
+  console.log("Notification options:", options);
+
   const result = await notificationService.getUserNotifications(user.userId, options);
+  console.log("Notification service result:", result);
+
   return c.json(result);
 });
 

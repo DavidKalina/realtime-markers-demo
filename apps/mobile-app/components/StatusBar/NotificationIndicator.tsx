@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Text, Pressable } from "react-native";
+import { View, StyleSheet, Text, Pressable, ActivityIndicator } from "react-native";
 import Animated, {
   useAnimatedStyle,
   withSpring,
@@ -13,6 +13,7 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { eventBroker, EventTypes, BaseEvent, NotificationEvent } from "@/services/EventBroker";
+import { apiClient } from "@/services/ApiClient";
 
 const ANIMATION_CONFIG = {
   damping: 10,
@@ -38,42 +39,22 @@ const NotificationIndicator: React.FC = () => {
   const rotation = useSharedValue(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Simulate incoming notifications for testing
+  // Fetch initial unread count on mount
   useEffect(() => {
-    const testNotifications = [
-      {
-        title: "New Event Nearby! 🎉",
-        message: "A new event has been discovered in your area",
-        type: "info" as const,
-      },
-      {
-        title: "Level Up! ⭐",
-        message: "Congratulations! You've reached level 5",
-        type: "success" as const,
-      },
-      {
-        title: "Event Reminder 🔔",
-        message: "Your event 'Coffee Meetup' starts in 30 minutes",
-        type: "warning" as const,
-      },
-    ];
-
-    let index = 0;
-    const interval = setInterval(() => {
-      if (index < testNotifications.length) {
-        eventBroker.emit<NotificationEvent>(EventTypes.NOTIFICATION, {
-          timestamp: Date.now(),
-          source: "test",
-          ...testNotifications[index],
-        });
-        index++;
-      } else {
-        clearInterval(interval);
+    const fetchUnreadCount = async () => {
+      try {
+        const { count } = await apiClient.getUnreadNotificationCount();
+        setUnreadCount(count);
+      } catch (error) {
+        console.error("Error fetching unread notification count:", error);
+      } finally {
+        setIsLoading(false);
       }
-    }, 3000); // Send a new notification every 3 seconds
+    };
 
-    return () => clearInterval(interval);
+    fetchUnreadCount();
   }, []);
 
   // Handle new notifications from WebSocket
@@ -101,7 +82,6 @@ const NotificationIndicator: React.FC = () => {
         withSpring(1.2, ANIMATION_CONFIG),
         withSpring(1, ANIMATION_CONFIG)
       );
-      router.push("/notifications");
     };
 
     const unsubscribe = eventBroker.on(EventTypes.NOTIFICATION, handleNewNotification);
@@ -126,7 +106,7 @@ const NotificationIndicator: React.FC = () => {
 
     // Mark notifications as read when opening
     setUnreadCount(0);
-    router.push("/cluster");
+    router.push("/notifications");
   };
 
   // Cleanup animations on unmount
@@ -146,11 +126,15 @@ const NotificationIndicator: React.FC = () => {
       <Animated.View style={[styles.container, animatedStyle]}>
         <View style={styles.iconContainer}>
           <Ionicons name="notifications-outline" size={12} color="#F59E0B" />
-          {unreadCount > 0 && (
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size={8} color="#F59E0B" />
+            </View>
+          ) : unreadCount > 0 ? (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
             </View>
-          )}
+          ) : null}
         </View>
         <Text style={styles.text}>Notifications</Text>
       </Animated.View>
@@ -179,6 +163,15 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#F59E0B",
     letterSpacing: 0.2,
+  },
+  loadingContainer: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    width: 16,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
   },
   badge: {
     position: "absolute",
