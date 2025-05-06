@@ -94,6 +94,7 @@ function RootLayout() {
           <Stack.Screen name="search" options={{ headerShown: false }} />
           <Stack.Screen name="details" options={{ headerShown: false }} />
           <Stack.Screen name="friends" options={{ headerShown: false }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false }} />
           <Stack.Screen
             name="create-private-event"
             options={{ headerShown: false, presentation: "modal", animation: "slide_from_bottom" }}

@@ -224,6 +224,24 @@ export interface EmojiSearchParams {
   last_emoji_id?: number | null;
 }
 
+// Add these interfaces before the ApiClient class
+export interface Notification {
+  id: string;
+  userId: string;
+  type: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  data?: Record<string, any>;
+}
+
+export interface NotificationOptions {
+  skip?: number;
+  take?: number;
+  read?: boolean;
+  type?: string;
+}
+
 class ApiClient {
   public baseUrl: string;
   private user: User | null = null;
@@ -1436,6 +1454,63 @@ class ApiClient {
       body: JSON.stringify(eventData),
     });
     return this.handleResponse<ApiEvent>(response);
+  }
+
+  // Get all notifications for the current user
+  async getNotifications(options?: NotificationOptions): Promise<Notification[]> {
+    const queryParams = new URLSearchParams();
+
+    if (options?.skip) queryParams.append("skip", options.skip.toString());
+    if (options?.take) queryParams.append("take", options.take.toString());
+    if (options?.read !== undefined) queryParams.append("read", options.read.toString());
+    if (options?.type) queryParams.append("type", options.type);
+
+    const url = `${this.baseUrl}/api/notifications?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<Notification[]>(response);
+  }
+
+  // Get unread notification count
+  async getUnreadNotificationCount(): Promise<{ count: number }> {
+    const url = `${this.baseUrl}/api/notifications/unread/count`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{ count: number }>(response);
+  }
+
+  // Mark a notification as read
+  async markNotificationAsRead(notificationId: string): Promise<{ success: boolean }> {
+    const url = `${this.baseUrl}/api/notifications/${notificationId}/read`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+    });
+    return this.handleResponse<{ success: boolean }>(response);
+  }
+
+  // Delete a notification
+  async deleteNotification(notificationId: string): Promise<{ success: boolean }> {
+    const url = `${this.baseUrl}/api/notifications/${notificationId}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    return this.handleResponse<{ success: boolean }>(response);
+  }
+
+  // Clear all notifications
+  async clearAllNotifications(): Promise<{ success: boolean }> {
+    const url = `${this.baseUrl}/api/notifications`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    return this.handleResponse<{ success: boolean }>(response);
+  }
+
+  // Toggle RSVP for an event
+  async toggleRsvp(eventId: string): Promise<{ rsvped: boolean; rsvpCount: number }> {
+    const url = `${this.baseUrl}/api/events/${eventId}/rsvp`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+    });
+    return this.handleResponse<{ rsvped: boolean; rsvpCount: number }>(response);
   }
 }
 
