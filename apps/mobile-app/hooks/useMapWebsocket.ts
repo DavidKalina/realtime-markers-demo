@@ -300,19 +300,13 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
             try {
               const newMarker = convertEventToMarker(data.event);
               setMarkers((prev) => [...prev, newMarker]);
+              console.log("New marker added:", newMarker);
               eventBroker.emit<MarkersEvent>(EventTypes.MARKER_ADDED, {
                 timestamp: Date.now(),
                 source: "useMapWebSocket",
                 markers: [newMarker],
                 count: 1,
               });
-
-              // Always force a viewport update when a new marker is added
-              if (currentViewportRef.current) {
-                // Create a new viewport object to ensure state update
-                const newViewport = { ...currentViewportRef.current };
-                updateViewport(newViewport);
-              }
             } catch (error) {
               console.error("[useMapWebsocket] Error processing ADD_EVENT:", error);
             }
@@ -333,13 +327,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               setMarkers((prev) =>
                 prev.map((marker) => (marker.id === updatedMarker.id ? updatedMarker : marker))
               );
-
-              // Force a viewport update to trigger re-render
-              if (currentViewportRef.current) {
-                // Create a new viewport object to ensure state update
-                const newViewport = { ...currentViewportRef.current };
-                updateViewport(newViewport);
-              }
 
               // Emit marker updated event
               eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {

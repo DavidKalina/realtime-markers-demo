@@ -1,5 +1,5 @@
 // hooks/useMarkerClustering.ts
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo } from "react";
 import Supercluster from "supercluster";
 import type { Marker } from "@/hooks/useMapWebsocket";
 import type { MapboxViewport } from "@/types/types";
@@ -81,8 +81,6 @@ const generateStableClusterId = (markerIds: string[]): string => {
 // --- Hook Implementation ---
 
 // Define Supercluster options with correct generics
-// P = PointProperties (input point props, also stored for leaves)
-// C = SuperclusterClusterPropertiesInternal (props supercluster adds to clusters)
 const SUPERCLUSTER_OPTIONS: Supercluster.Options<
   PointProperties,
   SuperclusterClusterPropertiesInternal
@@ -91,9 +89,6 @@ const SUPERCLUSTER_OPTIONS: Supercluster.Options<
   maxZoom: 16,
   minZoom: 0,
   minPoints: 2,
-  // Correct map function logic: Returns the properties needed for leaves.
-  // **Workaround:** Cast to 'any' to bypass TS error where it incorrectly expects
-  // the return type to match the second generic (C) instead of P or a derivative of P.
   map: ((props: PointProperties): PointProperties => props) as any,
 };
 
@@ -102,12 +97,6 @@ export const useMarkerClustering = (
   viewport: MapboxViewport | null,
   currentZoom: number
 ): ClusteringResult => {
-  // useRef type matches the generics used in SUPERCLUSTER_OPTIONS
-  const superclusterRef = useRef<Supercluster<
-    PointProperties,
-    SuperclusterClusterPropertiesInternal
-  > | null>(null);
-
   // Memoize GeoJSON points
   const points: InputPointFeatureInternal[] = useMemo(() => {
     return markers.map(
@@ -115,7 +104,7 @@ export const useMarkerClustering = (
         ({
           type: "Feature",
           properties: {
-            cluster: false, // Explicitly false for input
+            cluster: false,
             id: marker.id,
             data: marker.data,
           },
@@ -127,12 +116,11 @@ export const useMarkerClustering = (
     );
   }, [markers]);
 
-  // Effect to initialize and load points
-  useEffect(() => {
-    if (!superclusterRef.current) {
-      superclusterRef.current = new Supercluster(SUPERCLUSTER_OPTIONS);
-    }
-    superclusterRef.current.load(points);
+  // Memoize the Supercluster instance with the current points
+  const supercluster = useMemo(() => {
+    const sc = new Supercluster(SUPERCLUSTER_OPTIONS);
+    sc.load(points);
+    return sc;
   }, [points]);
 
   // Memoize bounds
@@ -146,23 +134,17 @@ export const useMarkerClustering = (
 
   // Memoize raw clusters/points from supercluster
   const rawClustersAndPoints = useMemo(() => {
-    const sc = superclusterRef.current;
-    if (!sc || !bounds || points.length === 0) {
+    if (!bounds || points.length === 0) {
       return [];
     }
-    // Expecting clusters with SuperclusterClusterPropertiesInternal
-    // and points with PointProperties (due to our map function logic)
-    return sc.getClusters(bounds, integerZoom) as (
+    return supercluster.getClusters(bounds, integerZoom) as (
       | SuperclusterClusterFeatureInternal
       | InputPointFeatureInternal
     )[];
-  }, [bounds, integerZoom, points]);
+  }, [bounds, integerZoom, supercluster]);
 
   // Memoize final processed clusters mapped to output format
   const processedClusters = useMemo((): (ClusterFeature | PointFeature)[] => {
-    const sc = superclusterRef.current;
-    if (!sc) return [];
-
     return rawClustersAndPoints.map((feature): ClusterFeature | PointFeature => {
       if (feature.properties?.cluster === true) {
         // Cluster
@@ -171,8 +153,7 @@ export const useMarkerClustering = (
         let childMarkerIds: string[] = [];
 
         try {
-          // Expect leaves to have PointProperties because map returned PointProperties
-          const leaves = sc.getLeaves(clusterId, Infinity) as InputPointFeatureInternal[];
+          const leaves = supercluster.getLeaves(clusterId, Infinity) as InputPointFeatureInternal[];
           childMarkerIds = leaves.map((leaf) => leaf.properties.id);
         } catch (error) {
           console.error(`Error getting leaves for cluster ${clusterId}:`, error);
@@ -187,8 +168,7 @@ export const useMarkerClustering = (
         return {
           type: "Feature",
           properties: {
-            // Conforms to ClusterProperties
-            ...clusterFeatureInternal.properties, // Includes cluster, cluster_id, point_count, etc.
+            ...clusterFeatureInternal.properties,
             stableId,
             childMarkers: childMarkerIds,
           },
@@ -205,8 +185,7 @@ export const useMarkerClustering = (
         return {
           type: "Feature",
           properties: {
-            // Conforms to PointFeature['properties']
-            cluster: false, // Explicitly false
+            cluster: false,
             id: pointFeatureInternal.properties.id,
             data: pointFeatureInternal.properties.data,
           },
@@ -214,7 +193,7 @@ export const useMarkerClustering = (
         };
       }
     });
-  }, [rawClustersAndPoints]);
+  }, [rawClustersAndPoints, supercluster]);
 
   return {
     clusters: processedClusters,
