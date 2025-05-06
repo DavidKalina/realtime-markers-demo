@@ -300,6 +300,9 @@ export const deleteEventHandler: EventHandler = async (c) => {
 
     // Check if user has access to delete the event
     const hasAccess = await eventService.hasEventAccess(id, user.userId);
+
+    console.log("hasAccess", hasAccess);
+
     if (!hasAccess) {
       return c.json({ error: "You don't have permission to delete this event" }, 403);
     }
