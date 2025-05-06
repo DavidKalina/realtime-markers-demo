@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { Bell, Trash2, Mail, MailOpen } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
@@ -31,6 +39,7 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
   const [selectedType, setSelectedType] = useState<NotificationType | undefined>();
@@ -93,6 +102,7 @@ export default function NotificationsScreen() {
         console.error("Error in fetchNotifications:", error);
       } finally {
         setLoading(false);
+        setInitialLoading(false);
       }
     },
     [notifications.length, activeFilter, selectedType]
@@ -112,6 +122,7 @@ export default function NotificationsScreen() {
   }, [loading, hasMore, fetchNotifications]);
 
   useEffect(() => {
+    setInitialLoading(true);
     fetchNotifications(true);
   }, [activeFilter, selectedType]);
 
@@ -232,42 +243,63 @@ export default function NotificationsScreen() {
           </TouchableOpacity>
         }
       />
-      <Tabs
-        items={tabs}
-        activeTab={activeFilter}
-        onTabPress={(tab) => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          setActiveFilter(tab);
-        }}
-      />
-      <FlatList
-        data={notifications}
-        renderItem={renderNotification}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={COLORS.textSecondary}
-          />
-        }
-        onEndReached={onEndReached}
-        onEndReachedThreshold={0.5}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Bell size={48} color={COLORS.textSecondary} />
-            <Text style={styles.emptyText}>
-              {activeFilter === "unread" ? "No unread notifications" : "No notifications yet"}
-            </Text>
+      <View style={styles.contentArea}>
+        <Tabs
+          items={tabs}
+          activeTab={activeFilter}
+          onTabPress={(tab) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setActiveFilter(tab);
+          }}
+        />
+        {initialLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.accent} />
+            <Text style={styles.loadingText}>Loading notifications...</Text>
           </View>
-        }
-      />
+        ) : (
+          <FlatList
+            data={notifications}
+            renderItem={renderNotification}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={COLORS.textSecondary}
+              />
+            }
+            onEndReached={onEndReached}
+            onEndReachedThreshold={0.5}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Bell size={48} color={COLORS.textSecondary} />
+                <Text style={styles.emptyText}>
+                  {activeFilter === "unread" ? "No unread notifications" : "No notifications yet"}
+                </Text>
+              </View>
+            }
+            ListFooterComponent={
+              loading && !initialLoading ? (
+                <View style={styles.footerLoading}>
+                  <ActivityIndicator size="small" color={COLORS.accent} />
+                </View>
+              ) : null
+            }
+          />
+        )}
+      </View>
     </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
+  contentArea: {
+    flex: 1,
+    paddingTop: 8,
+    paddingHorizontal: 16,
+  },
   listContent: {
     flexGrow: 1,
     padding: 12,
@@ -371,5 +403,22 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: "center",
     lineHeight: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 48,
+  },
+  loadingText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+    marginTop: 16,
+    textAlign: "center",
+  },
+  footerLoading: {
+    paddingVertical: 16,
+    alignItems: "center",
   },
 });

@@ -1,7 +1,8 @@
 import React, { useMemo } from "react";
-import { StatusBar as RNStatusBar, StyleSheet, View } from "react-native";
+import { StatusBar as RNStatusBar, StyleSheet, View, Text } from "react-native";
 import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@/contexts/AuthContext";
 import ConnectionIndicator from "./ConnectionIndicator";
 import DateRangeIndicator from "./DateRangeIndicator";
 import EmojiIndicator from "./EmojiIndicator";
@@ -25,6 +26,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
   children,
 }) => {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
 
   const indicators = useMemo(
     () => [
@@ -51,6 +53,9 @@ const StatusBar: React.FC<StatusBarProps> = ({
       <RNStatusBar barStyle="light-content" backgroundColor={backgroundColor} translucent />
       <XPBar backgroundColor={backgroundColor} />
       <View style={styles.indicatorsRow}>
+        <Animated.View entering={FadeIn.delay(300).springify()} style={styles.usernameContainer}>
+          <Text style={styles.username}>{user?.displayName || user?.email}</Text>
+        </Animated.View>
         <Animated.View style={styles.indicatorsContainer} layout={LinearTransition.duration(300)}>
           {indicators.map((indicator, index) => (
             <React.Fragment key={index}>
@@ -97,6 +102,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 12,
     paddingVertical: 6,
+  },
+  usernameContainer: {
+    flex: 1,
+  },
+  username: {
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 14,
+    fontWeight: "500",
+    fontFamily: "SpaceMono",
   },
   indicatorsContainer: {
     flexDirection: "row",

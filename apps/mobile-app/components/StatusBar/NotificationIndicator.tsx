@@ -125,18 +125,18 @@ const NotificationIndicator: React.FC = () => {
     <Pressable onPress={handlePress}>
       <Animated.View style={[styles.container, animatedStyle]}>
         <View style={styles.iconContainer}>
-          <Ionicons name="notifications-outline" size={12} color="#F59E0B" />
           {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size={8} color="#F59E0B" />
-            </View>
-          ) : unreadCount > 0 ? (
+            <ActivityIndicator size={12} color="#F59E0B" />
+          ) : (
+            <Ionicons name="notifications-outline" size={12} color="#F59E0B" />
+          )}
+          {!isLoading && unreadCount > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
             </View>
-          ) : null}
+          )}
         </View>
-        <Text style={styles.text}>Notifications</Text>
+        <Text style={styles.text}>Messages</Text>
       </Animated.View>
     </Pressable>
   );
