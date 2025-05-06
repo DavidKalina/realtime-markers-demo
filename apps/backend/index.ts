@@ -41,6 +41,7 @@ import { UserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
 import { NotificationService } from "./services/NotificationService";
 import { NotificationHandler } from "./services/NotificationHandler";
+import { notificationsRouter } from "./routes/notifications";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -379,6 +380,7 @@ app.route("/api/stripe", stripeRouter);
 app.route("/api/internal", internalRouter);
 app.route("/api/friendships", friendshipsRouter);
 app.route("/api/emojis", emojisRouter);
+app.route("/api/notifications", notificationsRouter);
 
 // =============================================================================
 // Jobs API - Server-Sent Events
