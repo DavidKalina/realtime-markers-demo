@@ -737,7 +737,7 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
       "EVENT_CREATED",
       "Private Event Created",
       `Your private event "${data.title}" is being processed`,
-      { jobId, eventTitle: data.title }
+      { jobId, eventTitle: data.title, coordinates: data.location.coordinates, id: data.id }
     );
 
     // Notify invited users
@@ -749,7 +749,13 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
             "EVENT_CREATED",
             "New Event Invitation",
             `${user.email} has invited you to "${data.title}"`,
-            { jobId, eventTitle: data.title, creatorId: user.userId }
+            {
+              jobId,
+              eventTitle: data.title,
+              creatorId: user.userId,
+              id: data.id,
+              coordinates: data.location.coordinates,
+            }
           )
         )
       );

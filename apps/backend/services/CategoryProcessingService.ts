@@ -96,7 +96,7 @@ export class CategoryProcessingService {
     }
 
     const response = await OpenAIService.executeChatCompletion({
-      model: OpenAIModel.GPT4OMini,
+      model: OpenAIModel.GPT4O,
       messages: [
         {
           role: "system",

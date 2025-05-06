@@ -194,12 +194,6 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
     setSelectedStartDate(format(today, "yyyy-MM-dd"));
     setSelectedEndDate(format(twoWeeksFromNow, "yyyy-MM-dd"));
     onDateRangeSelect(format(today, "yyyy-MM-dd"), format(twoWeeksFromNow, "yyyy-MM-dd"));
-
-    // Force viewport update after reset
-    eventBroker.emit(EventTypes.FORCE_VIEWPORT_UPDATE, {
-      timestamp: Date.now(),
-      source: "DateRangeCalendar",
-    });
   }, [onDateRangeSelect]);
 
   // Format date range text
