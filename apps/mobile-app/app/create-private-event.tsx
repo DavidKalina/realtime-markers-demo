@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from "react-native";
 import { Friend, apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
@@ -46,6 +47,8 @@ const COLORS = {
 const CreatePrivateEvent = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const titleInputRef = useRef<TextInput>(null);
+  const descriptionInputRef = useRef<TextInput>(null);
   const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(
     null
   );
@@ -94,6 +97,13 @@ const CreatePrivateEvent = () => {
     initializeSelectedFriends();
   }, [params.title, params.sharedWithIds]);
 
+  // Add effect to focus title input when component mounts
+  useEffect(() => {
+    if (titleInputRef.current) {
+      titleInputRef.current.focus();
+    }
+  }, []);
+
   const buttonAnimatedStyle = useAnimatedStyle(() => {
     return {
       transform: [{ scale: buttonScale.value }],
@@ -102,6 +112,12 @@ const CreatePrivateEvent = () => {
 
   const handleEmojiSelect = (emoji: string) => {
     setSelectedEmoji(emoji);
+  };
+
+  const handleTitleSubmit = () => {
+    if (descriptionInputRef.current) {
+      descriptionInputRef.current.focus();
+    }
   };
 
   const handleSubmit = async () => {
@@ -207,16 +223,23 @@ const CreatePrivateEvent = () => {
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Event Details</Text>
               <Input
+                ref={titleInputRef}
                 placeholder="Event Name"
                 icon={Book}
                 value={eventName}
                 onChangeText={setEventName}
+                onSubmitEditing={handleTitleSubmit}
+                returnKeyType="next"
+                autoFocus={true}
+                blurOnSubmit={false}
               />
               <TextArea
+                ref={descriptionInputRef}
                 placeholder="Event Description"
                 icon={List}
                 value={eventDescription}
                 onChangeText={setEventDescription}
+                blurOnSubmit={false}
               />
               <EmojiPicker value={selectedEmoji} onEmojiSelect={handleEmojiSelect} />
               {!selectedEmoji && (
