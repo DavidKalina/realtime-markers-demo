@@ -2,6 +2,7 @@ import { Redis } from "ioredis";
 import { DataSource, Repository } from "typeorm";
 import { Notification } from "../entities/Notification";
 import type { NotificationType } from "../entities/Notification";
+import { CacheService } from "./shared/CacheService";
 
 export interface NotificationData {
   id: string;
@@ -72,6 +73,9 @@ export class NotificationService {
       JSON.stringify(notificationData)
     );
 
+    // Invalidate cache
+    await CacheService.invalidateNotificationCache(userId);
+
     // Publish the notification to Redis
     await this.redis.publish(
       "notifications",
@@ -96,6 +100,22 @@ export class NotificationService {
       type?: NotificationType;
     } = {}
   ): Promise<{ notifications: Notification[]; total: number }> {
+    // Try to get from cache first if no filters are applied
+    if (
+      options.skip === undefined &&
+      options.take === undefined &&
+      options.read === undefined &&
+      options.type === undefined
+    ) {
+      const cached = await CacheService.getCachedNotifications(userId);
+      if (cached) {
+        return {
+          notifications: cached.notifications,
+          total: cached.total,
+        };
+      }
+    }
+
     const queryBuilder = this.notificationRepository
       .createQueryBuilder("notification")
       .where("notification.userId = :userId", { userId });
@@ -121,6 +141,19 @@ export class NotificationService {
     queryBuilder.orderBy("notification.createdAt", "DESC");
 
     const notifications = await queryBuilder.getMany();
+
+    // Cache the results if no filters are applied
+    if (
+      options.skip === undefined &&
+      options.take === undefined &&
+      options.read === undefined &&
+      options.type === undefined
+    ) {
+      await CacheService.setCachedNotifications(userId, {
+        notifications,
+        total,
+      });
+    }
 
     return { notifications, total };
   }
@@ -158,6 +191,9 @@ export class NotificationService {
         notificationId,
         JSON.stringify(notificationData)
       );
+
+      // Invalidate cache
+      await CacheService.invalidateNotificationCache(userId);
     }
   }
 
@@ -170,6 +206,9 @@ export class NotificationService {
 
     // Delete from Redis
     await this.redis.hdel(`notifications:${userId}`, notificationId);
+
+    // Invalidate cache
+    await CacheService.invalidateNotificationCache(userId);
   }
 
   /**
@@ -181,6 +220,9 @@ export class NotificationService {
 
     // Delete from Redis
     await this.redis.del(`notifications:${userId}`);
+
+    // Invalidate cache
+    await CacheService.invalidateNotificationCache(userId);
   }
 
   /**
