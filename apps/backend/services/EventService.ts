@@ -1518,4 +1518,16 @@ export class EventService {
       };
     });
   }
+
+  /**
+   * Get a user's RSVP status for an event
+   * @param userId The ID of the user
+   * @param eventId The ID of the event
+   * @returns The RSVP status or null if no RSVP exists
+   */
+  async getUserRsvpStatus(userId: string, eventId: string): Promise<UserEventRsvp | null> {
+    return this.dataSource.getRepository(UserEventRsvp).findOne({
+      where: { userId, eventId },
+    });
+  }
 }

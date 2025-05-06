@@ -16,7 +16,8 @@ export type NotificationType =
   | "FRIEND_ACCEPTED"
   | "LEVEL_UP"
   | "ACHIEVEMENT_UNLOCKED"
-  | "SYSTEM";
+  | "SYSTEM"
+  | "EVENT_RSVP_TOGGLED";
 
 @Entity("notifications")
 export class Notification {
@@ -29,6 +30,7 @@ export class Notification {
       "EVENT_CREATED",
       "EVENT_UPDATED",
       "EVENT_DELETED",
+      "EVENT_RSVP_TOGGLED",
       "FRIEND_REQUEST",
       "FRIEND_ACCEPTED",
       "LEVEL_UP",

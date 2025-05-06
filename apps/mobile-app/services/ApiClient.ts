@@ -878,6 +878,13 @@ class ApiClient {
     return this.handleResponse<{ isSaved: boolean }>(response);
   }
 
+  async isEventRsvped(eventId: string): Promise<{ isRsvped: boolean }> {
+    const url = `${this.baseUrl}/api/events/${eventId}/rsvped`;
+    const response = await this.fetchWithAuth(url);
+
+    return this.handleResponse<{ isRsvped: boolean }>(response);
+  }
+
   async getSavedEvents(options?: { limit?: number; cursor?: string }): Promise<{
     events: EventType[];
     nextCursor?: string;
@@ -888,6 +895,30 @@ class ApiClient {
     if (options?.cursor) queryParams.append("cursor", options.cursor);
 
     const url = `${this.baseUrl}/api/events/saved?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+
+    const data = await this.handleResponse<{
+      events: ApiEvent[];
+      nextCursor?: string;
+    }>(response);
+
+    // Map API events to frontend event type
+    return {
+      events: data.events.map(this.mapEventToEventType),
+      nextCursor: data.nextCursor,
+    };
+  }
+
+  async getRsvpedEvents(options?: { limit?: number; cursor?: string }): Promise<{
+    events: EventType[];
+    nextCursor?: string;
+  }> {
+    const queryParams = new URLSearchParams();
+
+    if (options?.limit) queryParams.append("limit", options.limit.toString());
+    if (options?.cursor) queryParams.append("cursor", options.cursor);
+
+    const url = `${this.baseUrl}/api/events/rsvped?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
 
     const data = await this.handleResponse<{
@@ -1526,8 +1557,38 @@ class ApiClient {
   // Toggle RSVP for an event
   async toggleRsvp(eventId: string): Promise<{ rsvped: boolean; rsvpCount: number }> {
     const url = `${this.baseUrl}/api/events/${eventId}/rsvp`;
+
+    // First check current RSVP status
+    const { isRsvped } = await this.isEventRsvped(eventId);
+
+    // Toggle to the opposite status
     const response = await this.fetchWithAuth(url, {
       method: "POST",
+      body: JSON.stringify({ status: isRsvped ? "NOT_GOING" : "GOING" }),
+    });
+
+    const data = await this.handleResponse<{
+      status: string;
+      goingCount: number;
+      notGoingCount: number;
+    }>(response);
+
+    // Convert the backend response to the expected frontend format
+    return {
+      rsvped: data.status === "GOING",
+      rsvpCount: data.goingCount,
+    };
+  }
+
+  async rsvpToEvent(eventId: string): Promise<{ rsvped: boolean; rsvpCount: number }> {
+    return this.toggleRsvp(eventId);
+  }
+
+  async cancelRsvp(eventId: string): Promise<{ rsvped: boolean; rsvpCount: number }> {
+    const url = `${this.baseUrl}/api/events/${eventId}/rsvp`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ status: "NOT_GOING" }),
     });
     return this.handleResponse<{ rsvped: boolean; rsvpCount: number }>(response);
   }

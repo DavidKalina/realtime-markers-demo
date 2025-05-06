@@ -195,11 +195,10 @@ export default function NotificationsScreen() {
             {getNotificationIcon(notification.type as NotificationType)}
           </Text>
           <Text style={styles.notificationTitle}>{notification.title}</Text>
+          <Text style={styles.notificationTime}>
+            {new Date(notification.createdAt).toLocaleDateString()}
+          </Text>
         </View>
-        <Text style={styles.notificationMessage}>{notification.message}</Text>
-        <Text style={styles.notificationTime}>
-          {new Date(notification.createdAt).toLocaleDateString()}
-        </Text>
       </View>
       <TouchableOpacity
         style={styles.deleteButton}
@@ -307,7 +306,7 @@ const styles = StyleSheet.create({
   notificationItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    padding: 10,
     backgroundColor: COLORS.cardBackground,
     borderRadius: 12,
     marginBottom: 8,
@@ -324,11 +323,10 @@ const styles = StyleSheet.create({
   notificationHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
+    gap: 8,
   },
   notificationIcon: {
-    fontSize: 18,
-    marginRight: 8,
+    fontSize: 16,
   },
   notificationTitle: {
     color: COLORS.textPrimary,
@@ -336,13 +334,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontFamily: "SpaceMono",
     letterSpacing: 0.3,
-  },
-  notificationMessage: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    fontFamily: "SpaceMono",
-    marginBottom: 4,
-    lineHeight: 18,
+    flex: 1,
   },
   notificationTime: {
     color: COLORS.textSecondary,

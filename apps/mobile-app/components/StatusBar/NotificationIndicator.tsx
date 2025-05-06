@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { View, StyleSheet, Text, Pressable, ActivityIndicator } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -10,7 +10,7 @@ import Animated, {
   cancelAnimation,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { eventBroker, EventTypes, BaseEvent, NotificationEvent } from "@/services/EventBroker";
 import { apiClient } from "@/services/ApiClient";
@@ -41,21 +41,43 @@ const NotificationIndicator: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch initial unread count on mount
-  useEffect(() => {
-    const fetchUnreadCount = async () => {
-      try {
-        const { count } = await apiClient.getUnreadNotificationCount();
-        setUnreadCount(count);
-      } catch (error) {
-        console.error("Error fetching unread notification count:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true; // Flag to prevent state updates if the component is unmounted before fetch completes
 
-    fetchUnreadCount();
-  }, []);
+      const fetchUnreadCount = async () => {
+        console.log("Fetching unread count on focus..."); // Optional: for debugging
+        // Set loading to true each time we fetch on focus
+        if (isActive) {
+          setIsLoading(true);
+        }
+        try {
+          const { count } = await apiClient.getUnreadNotificationCount();
+          if (isActive) {
+            setUnreadCount(count);
+          }
+        } catch (error) {
+          console.error("Error fetching unread notification count on focus:", error);
+          // Optionally set count to 0 or handle error state
+          if (isActive) {
+            setUnreadCount(0); // Example: reset on error
+          }
+        } finally {
+          if (isActive) {
+            setIsLoading(false);
+          }
+        }
+      };
+
+      fetchUnreadCount();
+
+      // Cleanup function: runs when the screen loses focus or component unmounts
+      return () => {
+        isActive = false;
+        console.log("Screen lost focus or unmounted during fetch."); // Optional: for debugging
+      };
+    }, []) // Dependencies for the useCallback. Usually empty unless fetchUnreadCount depends on props/state.
+  );
 
   // Handle new notifications from WebSocket
   useEffect(() => {
