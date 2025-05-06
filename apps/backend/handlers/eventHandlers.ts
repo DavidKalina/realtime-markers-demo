@@ -687,6 +687,7 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
     const data = await c.req.json();
     const jobQueue = c.get("jobQueue");
     const user = c.get("user");
+    const notificationService = c.get("notificationService");
 
     // Validate input
     if (!data.title || !data.date || !data.location?.coordinates) {
@@ -730,6 +731,30 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
       data.userCoordinates
     );
 
+    // Notify the creator
+    await notificationService.createNotification(
+      user.userId,
+      "EVENT_CREATED",
+      "Private Event Created",
+      `Your private event "${data.title}" is being processed`,
+      { jobId, eventTitle: data.title }
+    );
+
+    // Notify invited users
+    if (data.sharedWithIds?.length > 0) {
+      await Promise.all(
+        data.sharedWithIds.map((invitedUserId: string) =>
+          notificationService.createNotification(
+            invitedUserId,
+            "EVENT_CREATED",
+            "New Event Invitation",
+            `${user.email} has invited you to "${data.title}"`,
+            { jobId, eventTitle: data.title, creatorId: user.userId }
+          )
+        )
+      );
+    }
+
     return c.json(
       {
         status: "processing",
@@ -748,6 +773,104 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
     return c.json(
       {
         error: "Failed to create private event",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
+export const toggleRsvpEventHandler: EventHandler = async (c) => {
+  try {
+    const eventId = c.req.param("id");
+    const user = c.get("user");
+    const { status } = await c.req.json();
+
+    const notificationService = c.get("notificationService");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    if (!eventId) {
+      return c.json({ error: "Missing event ID" }, 400);
+    }
+
+    if (!status || !["GOING", "NOT_GOING"].includes(status)) {
+      return c.json({ error: "Invalid RSVP status" }, 400);
+    }
+
+    const eventService = c.get("eventService");
+
+    // Check if the event exists
+    const event = await eventService.getEventById(eventId);
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
+
+    // Toggle RSVP status
+    const result = await eventService.toggleRsvpEvent(user.userId, eventId, status);
+
+    // Notify creator RSVP status
+
+    if (result.status === "GOING") {
+      notificationService.createNotification(
+        event.creatorId || "",
+        "EVENT_RSVP_TOGGLED",
+        `${user.email} is going to ${event.title}`,
+        `${user.email} is going to ${event.title}`
+      );
+    }
+
+    return c.json({
+      eventId,
+      ...result,
+    });
+  } catch (error) {
+    console.error("Error toggling event RSVP status:", error);
+    return c.json(
+      {
+        error: "Failed to toggle event RSVP status",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
+export const isEventRsvpedHandler: EventHandler = async (c) => {
+  try {
+    const eventId = c.req.param("id");
+    const user = c.get("user");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    if (!eventId) {
+      return c.json({ error: "Missing event ID" }, 400);
+    }
+
+    const eventService = c.get("eventService");
+
+    // Check if the event exists
+    const event = await eventService.getEventById(eventId);
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
+
+    // Check if user has RSVP'd
+    const rsvp = await eventService.getUserRsvpStatus(user.userId, eventId);
+    const isRsvped = rsvp?.status === "GOING";
+
+    return c.json({
+      isRsvped,
+    });
+  } catch (error) {
+    console.error("Error checking event RSVP status:", error);
+    return c.json(
+      {
+        error: "Failed to check event RSVP status",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       500

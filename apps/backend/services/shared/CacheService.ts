@@ -5,6 +5,12 @@ import { DataSource } from "typeorm";
 import { OpenAIService } from "./OpenAIService";
 import { Category } from "../../entities/Category";
 import { Event } from "../../entities/Event";
+import { Notification } from "../../entities/Notification";
+
+interface CachedNotifications {
+  notifications: Notification[];
+  total: number;
+}
 
 export class CacheService {
   private static embeddingCache = new Map<string, number[]>();
@@ -445,5 +451,51 @@ export class CacheService {
    */
   static async invalidateFriendshipCaches(userId1: string, userId2: string): Promise<void> {
     await Promise.all([this.invalidateFriendCaches(userId1), this.invalidateFriendCaches(userId2)]);
+  }
+
+  /**
+   * Get cached notifications for a user
+   */
+  static async getCachedNotifications(userId: string): Promise<CachedNotifications | null> {
+    if (!this.redisClient) return null;
+
+    const cached = await this.redisClient.get(`notifications:cache:${userId}`);
+    if (cached) {
+      this.cacheStats.redisHits++;
+      return JSON.parse(cached);
+    }
+    this.cacheStats.redisMisses++;
+    return null;
+  }
+
+  /**
+   * Cache notifications for a user
+   */
+  static async setCachedNotifications(userId: string, data: CachedNotifications): Promise<void> {
+    if (!this.redisClient) return;
+
+    try {
+      await this.redisClient.set(
+        `notifications:cache:${userId}`,
+        JSON.stringify(data),
+        "EX",
+        300 // 5 minutes TTL
+      );
+    } catch (error) {
+      console.error(`Error caching notifications for user ${userId}:`, error);
+    }
+  }
+
+  /**
+   * Invalidate notification cache for a user
+   */
+  static async invalidateNotificationCache(userId: string): Promise<void> {
+    if (!this.redisClient) return;
+
+    try {
+      await this.redisClient.del(`notifications:cache:${userId}`);
+    } catch (error) {
+      console.error(`Error invalidating notification cache for user ${userId}:`, error);
+    }
   }
 }

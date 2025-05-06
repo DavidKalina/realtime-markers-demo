@@ -41,6 +41,7 @@ import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 import { ErrorEventDetails } from "./ErrorEventDetails";
 import LoadingEventDetails from "./LoadingEventDetails";
 import SaveButton from "./SaveButton";
+import RsvpButton from "./RsvpButton";
 import { styles } from "./styles";
 import { useEventDetails } from "./useEventDetails";
 import { useRouter } from "expo-router";
@@ -102,6 +103,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRsvped, setIsRsvped] = useState(false);
+  const [rsvpState, setRsvpState] = useState<"idle" | "loading">("idle");
 
   const {
     handleBack,
@@ -182,6 +185,36 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
       };
     }
   }, [event?.coordinates, flyOver, stopFlyOver]);
+
+  // Add RSVP check effect
+  useEffect(() => {
+    const checkRsvpStatus = async () => {
+      try {
+        const { isRsvped } = await apiClient.isEventRsvped(eventId);
+        setIsRsvped(isRsvped);
+      } catch (error) {
+        console.error("Error checking RSVP status:", error);
+      }
+    };
+
+    checkRsvpStatus();
+  }, [eventId]);
+
+  // Add RSVP handler
+  const handleToggleRsvp = async () => {
+    if (rsvpState === "loading") return;
+
+    setRsvpState("loading");
+    try {
+      const { rsvped } = await apiClient.toggleRsvp(eventId);
+      setIsRsvped(rsvped);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch (error) {
+      console.error("Error toggling RSVP:", error);
+    } finally {
+      setRsvpState("idle");
+    }
+  };
 
   const handleImagePress = () => {
     if (imageUrl) {
@@ -331,6 +364,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
           <Text numberOfLines={2} style={styles.title}>
             {event.title}
           </Text>
+          <RsvpButton isRsvped={isRsvped} rsvpState={rsvpState} onRsvp={handleToggleRsvp} />
           <SaveButton isSaved={isSaved} savingState={savingState} onSave={handleToggleSave} />
         </View>
 

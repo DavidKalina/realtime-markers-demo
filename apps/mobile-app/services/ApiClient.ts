@@ -224,6 +224,34 @@ export interface EmojiSearchParams {
   last_emoji_id?: number | null;
 }
 
+// Add these interfaces before the ApiClient class
+export interface Notification {
+  id: string;
+  userId: string;
+  type:
+    | "EVENT_CREATED"
+    | "EVENT_UPDATED"
+    | "EVENT_DELETED"
+    | "FRIEND_REQUEST"
+    | "FRIEND_ACCEPTED"
+    | "LEVEL_UP"
+    | "ACHIEVEMENT_UNLOCKED"
+    | "SYSTEM";
+  title: string;
+  message: string;
+  data?: Record<string, any>;
+  createdAt: string;
+  read: boolean;
+  readAt?: string;
+}
+
+export interface NotificationOptions {
+  skip?: number;
+  take?: number;
+  read?: boolean;
+  type?: string;
+}
+
 class ApiClient {
   public baseUrl: string;
   private user: User | null = null;
@@ -850,6 +878,13 @@ class ApiClient {
     return this.handleResponse<{ isSaved: boolean }>(response);
   }
 
+  async isEventRsvped(eventId: string): Promise<{ isRsvped: boolean }> {
+    const url = `${this.baseUrl}/api/events/${eventId}/rsvped`;
+    const response = await this.fetchWithAuth(url);
+
+    return this.handleResponse<{ isRsvped: boolean }>(response);
+  }
+
   async getSavedEvents(options?: { limit?: number; cursor?: string }): Promise<{
     events: EventType[];
     nextCursor?: string;
@@ -860,6 +895,30 @@ class ApiClient {
     if (options?.cursor) queryParams.append("cursor", options.cursor);
 
     const url = `${this.baseUrl}/api/events/saved?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+
+    const data = await this.handleResponse<{
+      events: ApiEvent[];
+      nextCursor?: string;
+    }>(response);
+
+    // Map API events to frontend event type
+    return {
+      events: data.events.map(this.mapEventToEventType),
+      nextCursor: data.nextCursor,
+    };
+  }
+
+  async getRsvpedEvents(options?: { limit?: number; cursor?: string }): Promise<{
+    events: EventType[];
+    nextCursor?: string;
+  }> {
+    const queryParams = new URLSearchParams();
+
+    if (options?.limit) queryParams.append("limit", options.limit.toString());
+    if (options?.cursor) queryParams.append("cursor", options.cursor);
+
+    const url = `${this.baseUrl}/api/events/rsvped?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
 
     const data = await this.handleResponse<{
@@ -1436,6 +1495,102 @@ class ApiClient {
       body: JSON.stringify(eventData),
     });
     return this.handleResponse<ApiEvent>(response);
+  }
+
+  // Get all notifications for the current user
+  async getNotifications(options?: NotificationOptions): Promise<Notification[]> {
+    const queryParams = new URLSearchParams();
+
+    if (options?.skip) queryParams.append("skip", options.skip.toString());
+    if (options?.take) queryParams.append("take", options.take.toString());
+    if (options?.read !== undefined) queryParams.append("read", options.read.toString());
+    if (options?.type) queryParams.append("type", options.type);
+
+    const url = `${this.baseUrl}/api/notifications?${queryParams.toString()}`;
+    console.log("Fetching notifications from URL:", url);
+
+    const response = await this.fetchWithAuth(url);
+    console.log("Notifications response status:", response.status);
+
+    const data = await this.handleResponse<{ notifications: Notification[]; total: number }>(
+      response
+    );
+    console.log("Parsed notifications data:", data);
+
+    return data.notifications;
+  }
+
+  // Get unread notification count
+  async getUnreadNotificationCount(): Promise<{ count: number }> {
+    const url = `${this.baseUrl}/api/notifications/unread/count`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{ count: number }>(response);
+  }
+
+  // Mark a notification as read
+  async markNotificationAsRead(notificationId: string): Promise<{ success: boolean }> {
+    const url = `${this.baseUrl}/api/notifications/${notificationId}/read`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+    });
+    return this.handleResponse<{ success: boolean }>(response);
+  }
+
+  // Delete a notification
+  async deleteNotification(notificationId: string): Promise<{ success: boolean }> {
+    const url = `${this.baseUrl}/api/notifications/${notificationId}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    return this.handleResponse<{ success: boolean }>(response);
+  }
+
+  // Clear all notifications
+  async clearAllNotifications(): Promise<{ success: boolean }> {
+    const url = `${this.baseUrl}/api/notifications`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    return this.handleResponse<{ success: boolean }>(response);
+  }
+
+  // Toggle RSVP for an event
+  async toggleRsvp(eventId: string): Promise<{ rsvped: boolean; rsvpCount: number }> {
+    const url = `${this.baseUrl}/api/events/${eventId}/rsvp`;
+
+    // First check current RSVP status
+    const { isRsvped } = await this.isEventRsvped(eventId);
+
+    // Toggle to the opposite status
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ status: isRsvped ? "NOT_GOING" : "GOING" }),
+    });
+
+    const data = await this.handleResponse<{
+      status: string;
+      goingCount: number;
+      notGoingCount: number;
+    }>(response);
+
+    // Convert the backend response to the expected frontend format
+    return {
+      rsvped: data.status === "GOING",
+      rsvpCount: data.goingCount,
+    };
+  }
+
+  async rsvpToEvent(eventId: string): Promise<{ rsvped: boolean; rsvpCount: number }> {
+    return this.toggleRsvp(eventId);
+  }
+
+  async cancelRsvp(eventId: string): Promise<{ rsvped: boolean; rsvpCount: number }> {
+    const url = `${this.baseUrl}/api/events/${eventId}/rsvp`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ status: "NOT_GOING" }),
+    });
+    return this.handleResponse<{ rsvped: boolean; rsvpCount: number }>(response);
   }
 }
 

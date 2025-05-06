@@ -14,6 +14,7 @@ import { Friendship } from "./Friendship";
 import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
 import { UserLevel } from "./UserLevel";
+import { UserEventRsvp } from "./UserEventRsvp";
 
 export enum UserRole {
   USER = "USER",
@@ -116,6 +117,9 @@ export class User {
 
   @OneToMany(() => UserEventSave, (save) => save.user)
   savedEvents!: UserEventSave[];
+
+  @OneToMany(() => UserEventRsvp, (rsvp) => rsvp.user)
+  rsvps!: UserEventRsvp[];
 
   // Friendship relationships
   @OneToMany(() => Friendship, (friendship) => friendship.requester)

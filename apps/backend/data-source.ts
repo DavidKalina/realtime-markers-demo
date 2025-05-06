@@ -2,21 +2,26 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { Category } from "./entities/Category";
+import { Emoji } from "./entities/Emoji";
 import { Event } from "./entities/Event";
+import { EventShare } from "./entities/EventShare";
+import { Filter } from "./entities/Filter";
+import { Friendship } from "./entities/Friendship";
+import { Level } from "./entities/Level";
+import { Notification } from "./entities/Notification";
 import { User } from "./entities/User";
 import { UserEventDiscovery } from "./entities/UserEventDiscovery";
+import { UserEventRsvp } from "./entities/UserEventRsvp";
 import { UserEventSave } from "./entities/UserEventSave";
-import { Filter } from "./entities/Filter";
-import { Level } from "./entities/Level";
 import { UserLevel } from "./entities/UserLevel";
-import { Friendship } from "./entities/Friendship";
-import { EventShare } from "./entities/EventShare";
-import { Emoji } from "./entities/Emoji";
 import { InitialSchemaAndSeed1710000000000 } from "./migrations/1710000000000-InitialSchemaAndSeed";
-import { AddLevelingSystem1710000000003 } from "./migrations/AddLevelingSystem1710000000003";
 import { AddEmojiTable1710000000004 } from "./migrations/1710000000004-AddEmojiTable";
 import { SeedEmojis1710000000005 } from "./migrations/1710000000005-SeedEmojis";
 import { RemoveNotesFromUserEventSaves1710000000007 } from "./migrations/1710000000007-RemoveNotesFromUserEventSaves";
+import { CreateNotificationsTable1710000000009 } from "./migrations/1710000000009-CreateNotificationsTable";
+import { AddLevelingSystem1710000000003 } from "./migrations/AddLevelingSystem1710000000003";
+import { AddRsvpFeature1710000000008 } from "./migrations/1710000000008-AddRsvpFeature";
+import { AddEventRsvpToggledNotificationType1710000000010 } from "./migrations/1710000000010-AddEventRsvpToggledNotificationType";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -34,6 +39,8 @@ const AppDataSource = new DataSource({
     EventShare,
     Friendship,
     Emoji,
+    Notification,
+    UserEventRsvp,
   ],
   migrations: [
     InitialSchemaAndSeed1710000000000,
@@ -41,6 +48,9 @@ const AppDataSource = new DataSource({
     AddEmojiTable1710000000004,
     SeedEmojis1710000000005,
     RemoveNotesFromUserEventSaves1710000000007,
+    AddRsvpFeature1710000000008,
+    CreateNotificationsTable1710000000009,
+    AddEventRsvpToggledNotificationType1710000000010,
   ],
   migrationsTableName: "migrations",
   migrationsRun: true, // Automatically run migrations on startup

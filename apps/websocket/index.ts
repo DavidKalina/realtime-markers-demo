@@ -29,6 +29,9 @@ const MessageTypes = {
   // Discovery events
   EVENT_DISCOVERED: "event_discovered",
 
+  // Notifications
+  NEW_NOTIFICATION: "new_notification",
+
   ADD_JOB: "add_job",
   JOB_ADDED: "job_added",
   CANCEL_JOB: "cancel_job",
@@ -106,6 +109,14 @@ redisSub.subscribe("discovered_events", (err, count) => {
   }
 });
 
+redisSub.subscribe("notifications", (err, count) => {
+  if (err) {
+    console.error("Error subscribing to notifications:", err);
+  } else {
+    console.log(`Subscribed to notifications, total subscriptions: ${count}`);
+  }
+});
+
 redisSub.subscribe("level-update", (err, count) => {
   if (err) {
     console.error("Error subscribing to level-update:", err);
@@ -153,6 +164,40 @@ redisSub.on("message", (channel, message) => {
       }
     } catch (error) {
       console.error("Error processing discovery event:", error);
+    }
+  } else if (channel === "notifications") {
+    try {
+      const data = JSON.parse(message);
+      console.log("Received notification:", data);
+
+      // Format the notification message
+      const formattedMessage = JSON.stringify({
+        type: MessageTypes.NEW_NOTIFICATION,
+        notification: data.notification,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Forward to the specific user's clients
+      const userId = data.notification.userId;
+      const userClients = userToClients.get(userId);
+
+      if (userClients) {
+        for (const clientId of userClients) {
+          const client = clients.get(clientId);
+          if (client) {
+            try {
+              client.send(formattedMessage);
+              console.log(`Sent notification to client ${clientId}`);
+            } catch (error) {
+              console.error(`Error sending notification to client ${clientId}:`, error);
+            }
+          }
+        }
+      } else {
+        console.log(`No clients found for user ${userId}`);
+      }
+    } catch (error) {
+      console.error("Error processing notification:", error);
     }
   } else if (channel === "level-update") {
     try {

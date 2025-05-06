@@ -43,6 +43,8 @@ eventsRouter.post("/", handlers.createEventHandler);
 eventsRouter.delete("/:id", handlers.deleteEventHandler);
 eventsRouter.put("/:id", handlers.updateEventHandler);
 eventsRouter.post("/:id/save", handlers.toggleSaveEventHandler);
+eventsRouter.post("/:id/rsvp", handlers.toggleRsvpEventHandler);
+eventsRouter.get("/:id/rsvped", handlers.isEventRsvpedHandler);
 eventsRouter.get("/:id/saved", handlers.isEventSavedHandler);
 eventsRouter.get("/:id", handlers.getEventByIdHandler);
 
