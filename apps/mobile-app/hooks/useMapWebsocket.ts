@@ -300,7 +300,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
             try {
               const newMarker = convertEventToMarker(data.event);
               setMarkers((prev) => [...prev, newMarker]);
-              console.log("New marker added:", newMarker);
               eventBroker.emit<MarkersEvent>(EventTypes.MARKER_ADDED, {
                 timestamp: Date.now(),
                 source: "useMapWebSocket",

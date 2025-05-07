@@ -161,6 +161,16 @@ const PlanSection = React.memo(
 );
 
 // Memoized Account Details
+interface AccountDetailsProps {
+  loading: boolean;
+  profileData: any;
+  user: any;
+  memberSince: string;
+  mapStyleButtons: JSX.Element;
+  isPitched: boolean;
+  togglePitch: () => Promise<void>;
+}
+
 const AccountDetails = React.memo(
   ({
     loading,
@@ -168,13 +178,9 @@ const AccountDetails = React.memo(
     user,
     memberSince,
     mapStyleButtons,
-  }: {
-    loading: boolean;
-    profileData: any;
-    user: any;
-    memberSince: string;
-    mapStyleButtons: JSX.Element;
-  }) => (
+    isPitched,
+    togglePitch,
+  }: AccountDetailsProps) => (
     <Card delay={400}>
       <Text style={styles.sectionTitle}>Account Information</Text>
       {loading ? (
@@ -255,6 +261,19 @@ const AccountDetails = React.memo(
             <View style={[styles.detailContent, { gap: 8 }]}>
               <Text style={styles.detailLabel}>Map Style</Text>
               {mapStyleButtons}
+              <TouchableOpacity
+                style={[styles.mapStyleButton, isPitched && styles.mapStyleButtonActive]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  togglePitch();
+                }}
+              >
+                <Text
+                  style={[styles.mapStyleButtonText, isPitched && styles.mapStyleButtonTextActive]}
+                >
+                  {isPitched ? "3D View" : "2D View"}
+                </Text>
+              </TouchableOpacity>
             </View>
           </Animated.View>
         </Animated.View>
@@ -262,6 +281,9 @@ const AccountDetails = React.memo(
     </Card>
   )
 );
+
+// Add display name for better debugging
+AccountDetails.displayName = "AccountDetails";
 
 // Memoized Actions Section
 const ActionsSection = React.memo(
@@ -322,7 +344,7 @@ const FriendsSection = () => {
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { currentStyle, setMapStyle } = useMapStyle();
+  const { currentStyle, setMapStyle, isPitched, togglePitch } = useMapStyle();
   const { paymentStatus } = useLocalSearchParams<{ paymentStatus?: string }>();
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState<any>(null);
@@ -567,6 +589,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           user={user}
           memberSince={memberSince}
           mapStyleButtons={mapStyleButtons}
+          isPitched={isPitched}
+          togglePitch={togglePitch}
         />
         <ActionsSection handleLogout={handleLogout} setShowDeleteDialog={setShowDeleteDialog} />
         <Animated.View

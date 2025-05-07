@@ -55,7 +55,7 @@ function HomeScreen() {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const { publish } = useEventBroker();
-  const { mapStyle } = useMapStyle();
+  const { mapStyle, isPitched } = useMapStyle();
   const router = useRouter();
 
   // Store references
@@ -412,7 +412,7 @@ function HomeScreen() {
           onLongPress={handleMapLongPress}
           scaleBarEnabled={false}
           rotateEnabled={false}
-          pitchEnabled={false}
+          pitchEnabled={isPitched}
           ref={mapRef}
           style={styles.map}
           styleURL={mapStyle}
@@ -425,7 +425,10 @@ function HomeScreen() {
           <MapboxGL.Camera
             minZoomLevel={5}
             ref={cameraRef}
-            defaultSettings={defaultCameraSettings}
+            defaultSettings={{
+              ...defaultCameraSettings,
+              pitch: isPitched ? 45 : 0,
+            }}
             animationDuration={0}
           />
 
