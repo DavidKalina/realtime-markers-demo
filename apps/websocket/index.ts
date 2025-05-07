@@ -158,10 +158,23 @@ redisSub.on("message", (channel, message) => {
 
       console.log("data.event.creatorId", data.event.creatorId);
 
-      const clientToSend = clients.get(data.event.creatorId);
+      // Get all clients for the creator user
+      const userClients = userToClients.get(data.event.creatorId);
 
-      if (clientToSend) {
-        clientToSend.send(formattedMessage);
+      if (userClients) {
+        for (const clientId of userClients) {
+          const client = clients.get(clientId);
+          if (client) {
+            try {
+              client.send(formattedMessage);
+              console.log(`Sent discovery event to client ${clientId}`);
+            } catch (error) {
+              console.error(`Error sending discovery event to client ${clientId}:`, error);
+            }
+          }
+        }
+      } else {
+        console.log(`No clients found for user ${data.event.creatorId}`);
       }
     } catch (error) {
       console.error("Error processing discovery event:", error);
