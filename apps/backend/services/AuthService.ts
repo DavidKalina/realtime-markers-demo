@@ -9,6 +9,7 @@ import { addDays, format } from "date-fns";
 import { LevelingService } from "./LevelingService";
 import { FriendshipService } from "./FriendshipService";
 import { DataSource } from "typeorm";
+import { OpenAIService, OpenAIModel } from "./shared/OpenAIService";
 
 export interface UserRegistrationData {
   email: string;
@@ -54,6 +55,43 @@ export class AuthService {
   }
 
   /**
+   * Check if a username or display name is appropriate using OpenAI
+   */
+  private async isContentAppropriate(content: string): Promise<boolean> {
+    try {
+      const prompt = `Please analyze if the following username/display name is appropriate for a general audience platform. Consider:
+1. No profanity or offensive language
+2. No hate speech or discriminatory content
+3. No impersonation of public figures
+4. No explicit sexual content
+5. No promotion of harmful activities
+
+Content to analyze: "${content}"
+
+Respond with a JSON object containing:
+{
+  "isAppropriate": boolean,
+  "reason": string
+}`;
+
+      const response = await OpenAIService.executeChatCompletion({
+        model: OpenAIModel.GPT4OMini,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+      });
+
+      const result = JSON.parse(response.choices[0].message.content);
+      return result.isAppropriate;
+    } catch (error) {
+      console.error("Error checking content appropriateness:", error);
+      // If we can't check appropriateness, default to allowing the content
+      // This is safer than blocking legitimate users if the service is down
+      return true;
+    }
+  }
+
+  /**
    * Register a new user
    */
   async register(userData: UserRegistrationData): Promise<User> {
@@ -64,6 +102,14 @@ export class AuthService {
 
     if (existingUser) {
       throw new Error("User with this email already exists");
+    }
+
+    // Check content appropriateness if display name is provided
+    if (userData.displayName) {
+      const isAppropriate = await this.isContentAppropriate(userData.displayName);
+      if (!isAppropriate) {
+        throw new Error("Display name contains inappropriate content");
+      }
     }
 
     // Hash password
@@ -294,6 +340,22 @@ export class AuthService {
     delete userData.role; // Role should be updated through admin functions
     delete userData.id;
     delete userData.email; // Email changes should have their own flow with verification
+
+    // Check content appropriateness if display name is being updated
+    if (userData.displayName) {
+      const isAppropriate = await this.isContentAppropriate(userData.displayName);
+      if (!isAppropriate) {
+        throw new Error("Display name contains inappropriate content");
+      }
+    }
+
+    // Check content appropriateness if username is being updated
+    if (userData.username) {
+      const isAppropriate = await this.isContentAppropriate(userData.username);
+      if (!isAppropriate) {
+        throw new Error("Username contains inappropriate content");
+      }
+    }
 
     await this.userRepository.update(userId, userData);
     return this.getUserProfile(userId);
