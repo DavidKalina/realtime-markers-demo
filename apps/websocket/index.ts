@@ -154,13 +154,10 @@ redisSub.on("message", (channel, message) => {
         timestamp: new Date().toISOString(),
       });
 
-      // Broadcast to all connected clients
-      for (const [clientId, client] of clients.entries()) {
-        try {
-          client.send(formattedMessage);
-        } catch (error) {
-          console.error(`Error sending discovery event to client ${clientId}:`, error);
-        }
+      const clientToSend = clients.get(data.event.creatorId);
+
+      if (clientToSend) {
+        clientToSend.send(formattedMessage);
       }
     } catch (error) {
       console.error("Error processing discovery event:", error);
