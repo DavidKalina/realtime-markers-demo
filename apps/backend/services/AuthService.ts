@@ -75,6 +75,7 @@ export class AuthService {
       email: userData.email,
       passwordHash,
       displayName: userData.displayName || userData.email.split("@")[0],
+      username: userData.displayName || userData.email.split("@")[0],
       isVerified: false, // Set to false by default - would need email verification process
     });
 

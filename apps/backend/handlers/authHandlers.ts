@@ -6,7 +6,6 @@ import dataSource from "../data-source";
 import { User } from "../entities/User";
 import { AuthService } from "../services/AuthService";
 import { UserPreferencesService } from "../services/UserPreferences";
-import { CacheService } from "../services/shared/CacheService";
 import { LevelingService } from "../services/LevelingService";
 import Redis from "ioredis";
 
@@ -25,10 +24,10 @@ const redisConfig = {
     return delay;
   },
   reconnectOnError: (err: Error) => {
-    console.log('Redis reconnectOnError triggered:', {
+    console.log("Redis reconnectOnError triggered:", {
       message: err.message,
       stack: err.stack,
-      name: err.name
+      name: err.name,
     });
     return true;
   },
@@ -37,33 +36,38 @@ const redisConfig = {
   commandTimeout: 5000,
   lazyConnect: true,
   authRetry: true,
-  enableReadyCheck: true
+  enableReadyCheck: true,
 };
 
 // Initialize Redis client
 const redisClient = new Redis(redisConfig);
 
 // Add error handling for Redis
-redisClient.on('error', (error: Error & { code?: string }) => {
-  console.error('Redis connection error:', {
+redisClient.on("error", (error: Error & { code?: string }) => {
+  console.error("Redis connection error:", {
     message: error.message,
     code: error.code,
-    stack: error.stack
+    stack: error.stack,
   });
 });
 
-redisClient.on('connect', () => {
-  console.log('Redis connected successfully');
+redisClient.on("connect", () => {
+  console.log("Redis connected successfully");
 });
 
-redisClient.on('ready', () => {
-  console.log('Redis is ready to accept commands');
+redisClient.on("ready", () => {
+  console.log("Redis is ready to accept commands");
 });
 
 // Initialize services
 const userPreferencesService = new UserPreferencesService(dataSource, redisClient);
 const levelingService = new LevelingService(dataSource, redisClient);
-const authService = new AuthService(userRepository, userPreferencesService, levelingService);
+const authService = new AuthService(
+  userRepository,
+  userPreferencesService,
+  levelingService,
+  dataSource
+);
 
 export type AuthHandler = (c: Context<AppContext>) => Promise<Response> | Response;
 
