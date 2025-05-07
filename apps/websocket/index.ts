@@ -154,6 +154,10 @@ redisSub.on("message", (channel, message) => {
         timestamp: new Date().toISOString(),
       });
 
+      console.log(data);
+
+      console.log("data.event.creatorId", data.event.creatorId);
+
       const clientToSend = clients.get(data.event.creatorId);
 
       if (clientToSend) {
