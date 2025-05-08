@@ -103,6 +103,21 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
       (event: NotificationEvent) => {
         setItems((prev) => {
           console.log("EVENT", event);
+
+          // Check for duplicate notifications based on content
+          const isDuplicate = prev?.some(
+            (item) =>
+              item.type === "notification" &&
+              item.notification?.title === event.title &&
+              item.notification?.message === event.message &&
+              item.notification?.type === event.notificationType
+          );
+
+          if (isDuplicate) {
+            console.log("Skipping duplicate notification");
+            return prev;
+          }
+
           const newItem: IndicatorItem = {
             id: Crypto.randomUUID(),
             type: "notification",
