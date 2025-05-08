@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useXPGainAnimation } from "./useXPGainAnimation";
+import { COLORS } from "../Layout/ScreenLayout";
 
 interface XPBarProps {
   backgroundColor?: string;
@@ -46,7 +47,7 @@ const XPBar: React.FC<XPBarProps> = React.memo(
       return {
         width: `${progress}%`,
         height: "100%",
-        backgroundColor: "#4ADE80",
+        backgroundColor: COLORS.accent,
         borderRadius: 1.5,
       };
     }, []);
