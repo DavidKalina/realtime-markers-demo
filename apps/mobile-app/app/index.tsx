@@ -412,7 +412,7 @@ function HomeScreen() {
           onLongPress={handleMapLongPress}
           scaleBarEnabled={false}
           rotateEnabled={false}
-          pitchEnabled={isPitched}
+          pitchEnabled={false}
           ref={mapRef}
           style={styles.map}
           styleURL={mapStyle}
