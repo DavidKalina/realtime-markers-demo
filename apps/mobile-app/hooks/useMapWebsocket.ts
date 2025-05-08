@@ -9,6 +9,7 @@ import {
   DiscoveryEvent,
   LevelUpdateEvent,
   XPAwardedEvent,
+  NotificationEvent,
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -73,6 +74,9 @@ const MessageTypes = {
 
   // New event type for discovered events
   EVENT_DISCOVERED: "event_discovered",
+
+  // Notifications
+  NOTIFICATION: "new_notification",
 
   // Leveling system events
   LEVEL_UPDATE: "level-update",
@@ -242,6 +246,8 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
+
+        console.log("DATA", data.type);
 
         if (!data || typeof data !== "object") {
           console.warn("[useMapWebsocket] Received invalid message data");
@@ -426,6 +432,24 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               });
             } catch (error) {
               console.error("[useMapWebsocket] Error processing XP_AWARDED:", error);
+            }
+            break;
+          }
+
+          // Handle notifications
+          case MessageTypes.NOTIFICATION: {
+            try {
+              console.log("Processing notification:", data);
+              eventBroker.emit<NotificationEvent>(EventTypes.NOTIFICATION, {
+                timestamp: Date.now(),
+                source: "useMapWebSocket",
+                title: data.notification?.title || "Notification",
+                message: data.notification?.message || "",
+                notificationType: data.notification?.type || "info",
+                duration: data.notification?.duration || 5000,
+              });
+            } catch (error) {
+              console.error("[useMapWebsocket] Error processing NOTIFICATION:", error);
             }
             break;
           }

@@ -209,7 +209,7 @@ export interface JobQueueClearedEvent extends BaseEvent {
 export interface NotificationEvent extends BaseEvent {
   title: string;
   message: string;
-  type: "info" | "success" | "warning" | "error";
+  notificationType: "info" | "success" | "warning" | "error";
   duration?: number; // How long to show the notification in milliseconds
 }
 

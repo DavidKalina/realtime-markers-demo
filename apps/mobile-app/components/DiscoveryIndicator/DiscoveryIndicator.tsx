@@ -4,24 +4,32 @@ import {
   DiscoveredEventData,
   DiscoveryEvent,
   EventTypes,
+  NotificationEvent,
 } from "@/services/EventBroker";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
+import * as Crypto from "expo-crypto";
 
 interface DiscoveryIndicatorProps {
   position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
 }
 
-interface DiscoveryItem {
+interface IndicatorItem {
   id: string;
-  event: DiscoveredEventData;
+  type: "discovery" | "notification";
+  event?: DiscoveredEventData;
+  notification?: {
+    title: string;
+    message: string;
+    type: "info" | "success" | "warning" | "error";
+  };
   timestamp: number;
 }
 
 const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top-right" }) => {
-  const [discoveries, setDiscoveries] = useState<DiscoveryItem[]>([]);
+  const [items, setItems] = useState<IndicatorItem[]>([]);
   const { subscribe, publish } = useEventBroker();
 
   const positionStyle = useMemo(() => {
@@ -58,137 +66,181 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
     }
   }, [position]);
 
-  // Subscribe to discovery events
+  // Subscribe to discovery events and notifications
   useEffect(() => {
-    const unsubscribe = subscribe(EventTypes.EVENT_DISCOVERED, (event: DiscoveryEvent) => {
-      setDiscoveries((prev) => {
+    const unsubscribeDiscovery = subscribe(EventTypes.EVENT_DISCOVERED, (event: DiscoveryEvent) => {
+      setItems((prev) => {
         // Don't add duplicates
         if (prev && prev.some((d) => d.id === event.event.id)) {
           return prev;
         }
 
-        const newDiscovery: DiscoveryItem = {
+        const newItem: IndicatorItem = {
           id: event.event.id,
+          type: "discovery",
           event: { ...event.event },
           timestamp: new Date().getTime(),
         };
 
-        // Add new discovery to the front of the array
-        const newDiscoveries = [newDiscovery, ...(prev || [])];
+        // Add new item to the front of the array
+        const newItems = [newItem, ...(prev || [])];
 
         // Auto-dismiss after 10 seconds
         setTimeout(() => {
-          // Just remove the item - the exiting animation will handle the fade out
-          setDiscoveries((current) => {
+          setItems((current) => {
             if (!current) return [];
-            return current.filter((item) => item.id !== newDiscovery.id);
+            return current.filter((item) => item.id !== newItem.id);
           });
         }, 10000);
 
         // Limit the number of displayed items
-        return newDiscoveries.slice(0, 10);
+        return newItems.slice(0, 10);
       });
     });
 
+    const unsubscribeNotification = subscribe(
+      EventTypes.NOTIFICATION,
+      (event: NotificationEvent) => {
+        setItems((prev) => {
+          console.log("EVENT", event);
+          const newItem: IndicatorItem = {
+            id: Crypto.randomUUID(),
+            type: "notification",
+            notification: {
+              title: event.title,
+              message: event.message,
+              type: event.notificationType || "info",
+            },
+            timestamp: new Date().getTime(),
+          };
+
+          // Add new item to the front of the array
+          const newItems = [newItem, ...(prev || [])];
+
+          // Auto-dismiss after the specified duration or default to 5 seconds
+          setTimeout(() => {
+            setItems((current) => {
+              if (!current) return [];
+              return current.filter((item) => item.id !== newItem.id);
+            });
+          }, event.duration || 5000);
+
+          // Limit the number of displayed items
+          return newItems.slice(0, 10);
+        });
+      }
+    );
+
     return () => {
-      unsubscribe();
+      unsubscribeDiscovery();
+      unsubscribeNotification();
     };
   }, [subscribe]);
 
-  const handlePress = (discovery: DiscoveryItem) => {
-    if (discovery?.event?.location?.coordinates) {
+  const handlePress = (item: IndicatorItem) => {
+    if (item.type === "discovery" && item.event?.location?.coordinates) {
       publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
-        coordinates: discovery.event.location.coordinates,
+        coordinates: item.event.location.coordinates,
         timestamp: new Date().getTime(),
         source: "discovery_indicator",
         zoomLevel: 20,
       });
     }
 
-    // Mark as fading out but don't change opacity - let the exiting animation handle it
-    // Just remove the item - the exiting animation will handle the fade out
+    // Remove the item after a short delay
     setTimeout(() => {
-      setDiscoveries((current) => current.filter((item) => item.id !== discovery.id));
+      setItems((current) => current.filter((i) => i.id !== item.id));
     }, 50);
+  };
+
+  const getNotificationIcon = (type: "info" | "success" | "warning" | "error") => {
+    switch (type) {
+      case "success":
+        return "checkmark-circle";
+      case "warning":
+        return "warning";
+      case "error":
+        return "alert-circle";
+      default:
+        return "information-circle";
+    }
+  };
+
+  const getNotificationColor = (type: "info" | "success" | "warning" | "error") => {
+    switch (type) {
+      case "success":
+        return "#4CAF50";
+      case "warning":
+        return "#FFC107";
+      case "error":
+        return "#F44336";
+      default:
+        return "#2196F3";
+    }
+  };
+
+  const renderItem = (item: IndicatorItem, index: number) => {
+    const isNotification = item.type === "notification";
+    const iconColor = isNotification
+      ? getNotificationColor(item.notification!.type)
+      : "rgba(255, 255, 255, 0.9)";
+    const iconName = isNotification
+      ? getNotificationIcon(item.notification!.type)
+      : "chevron-forward";
+
+    return (
+      <Animated.View
+        key={item.id}
+        style={[styles.itemContainer, index > 0 && { marginTop: 8 }]}
+        entering={FadeInDown.springify()
+          .damping(15)
+          .mass(0.8)
+          .delay(index * 100)}
+        exiting={FadeOutUp.springify()
+          .damping(15)
+          .mass(0.8)
+          .delay(index * 100)}
+        layout={LinearTransition.springify()}
+      >
+        <Pressable onPress={() => handlePress(item)} style={styles.pressable}>
+          <View style={[styles.indicator, isNotification && styles.notificationIndicator]}>
+            <View
+              style={[styles.iconContainer, isNotification && { backgroundColor: "transparent" }]}
+            >
+              {isNotification ? (
+                <Ionicons name={iconName} size={20} color={iconColor} />
+              ) : (
+                <Text style={styles.emojiText}>{item.event?.emoji || "🎉"}</Text>
+              )}
+            </View>
+
+            <View style={{ flex: 1, justifyContent: "center" }}>
+              <Text style={styles.titleText} numberOfLines={1}>
+                {isNotification ? item.notification!.title : "New Discovery"}
+              </Text>
+              {isNotification && item.notification!.message && (
+                <Text style={styles.messageText} numberOfLines={1}>
+                  {item.notification!.message}
+                </Text>
+              )}
+            </View>
+
+            {!isNotification && (
+              <View style={styles.tapIndicator}>
+                <Ionicons name={iconName} size={16} color="rgba(255, 255, 255, 0.6)" />
+              </View>
+            )}
+          </View>
+        </Pressable>
+      </Animated.View>
+    );
   };
 
   return (
     <View style={[styles.container, position === "custom" ? null : positionStyle]}>
-      {position === "custom" ? (
-        <View style={styles.wrapper}>
-          {discoveries &&
-            discoveries.map((item, index) => (
-              <Animated.View
-                key={item.id}
-                style={[styles.itemContainer, index > 0 && { marginTop: 8 }]}
-                entering={FadeInDown.springify()
-                  .damping(15)
-                  .mass(0.8)
-                  .delay(index * 100)}
-                exiting={FadeOutUp.springify()
-                  .damping(15)
-                  .mass(0.8)
-                  .delay(index * 100)}
-                layout={LinearTransition.springify()}
-              >
-                <Pressable onPress={() => handlePress(item)} style={styles.pressable}>
-                  <View style={styles.indicator}>
-                    <View style={styles.iconContainer}>
-                      <Text style={styles.emojiText}>{item.event?.emoji || "🎉"}</Text>
-                    </View>
-
-                    <View style={{ flex: 1, justifyContent: "center" }}>
-                      <Text style={styles.titleText} numberOfLines={1}>
-                        New Discovery
-                      </Text>
-                    </View>
-
-                    <View style={styles.tapIndicator}>
-                      <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.6)" />
-                    </View>
-                  </View>
-                </Pressable>
-              </Animated.View>
-            ))}
-        </View>
-      ) : (
-        <Animated.View style={styles.wrapper}>
-          {discoveries &&
-            discoveries.map((item, index) => (
-              <Animated.View
-                key={item.id}
-                style={[styles.itemContainer, index > 0 && { marginTop: 8 }]}
-                entering={FadeInDown.springify()
-                  .damping(15)
-                  .mass(0.8)
-                  .delay(index * 100)}
-                exiting={FadeOutUp.springify()
-                  .damping(15)
-                  .mass(0.8)
-                  .delay(index * 100)}
-                layout={LinearTransition.springify()}
-              >
-                <Pressable onPress={() => handlePress(item)} style={styles.pressable}>
-                  <View style={styles.indicator}>
-                    <View style={styles.iconContainer}>
-                      <Text style={styles.emojiText}>{item.event?.emoji || "🎉"}</Text>
-                    </View>
-
-                    <View style={{ flex: 1, justifyContent: "center" }}>
-                      <Text style={styles.titleText} numberOfLines={1}>
-                        New Discovery
-                      </Text>
-                    </View>
-
-                    <View style={styles.tapIndicator}>
-                      <Ionicons name="chevron-forward" size={16} color="rgba(255, 255, 255, 0.6)" />
-                    </View>
-                  </View>
-                </Pressable>
-              </Animated.View>
-            ))}
-        </Animated.View>
-      )}
+      <View style={styles.wrapper}>
+        {items && items.map((item, index) => renderItem(item, index))}
+      </View>
     </View>
   );
 };
@@ -199,10 +251,10 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   wrapper: {
-    width: 180,
+    width: 280,
   },
   itemContainer: {
-    width: 180,
+    width: 280,
   },
   pressable: {
     width: "100%",
@@ -214,8 +266,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 8,
     paddingRight: 8,
-    width: 160,
-    height: 40,
+    width: 260,
+    minHeight: 40,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
     shadowColor: "#000",
@@ -223,6 +275,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
+  },
+  notificationIndicator: {
+    backgroundColor: "rgba(26, 26, 26, 0.95)",
   },
   iconContainer: {
     width: 24,
@@ -241,6 +296,12 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontWeight: "600",
     letterSpacing: 0.5,
+  },
+  messageText: {
+    color: "rgba(255, 255, 255, 0.6)",
+    fontSize: 10,
+    fontFamily: "SpaceMono",
+    marginTop: 2,
   },
   emojiText: {
     fontSize: 12,

@@ -30,7 +30,7 @@ const MessageTypes = {
   EVENT_DISCOVERED: "event_discovered",
 
   // Notifications
-  NEW_NOTIFICATION: "new_notification",
+  NOTIFICATION: "notification",
 
   ADD_JOB: "add_job",
   JOB_ADDED: "job_added",
@@ -182,13 +182,15 @@ redisSub.on("message", (channel, message) => {
   } else if (channel === "notifications") {
     try {
       const data = JSON.parse(message);
-      console.log("Received notification:", data);
 
       // Format the notification message
       const formattedMessage = JSON.stringify({
-        type: MessageTypes.NEW_NOTIFICATION,
-        notification: data.notification,
-        timestamp: new Date().toISOString(),
+        type: MessageTypes.NOTIFICATION,
+        title: data.notification.title,
+        message: data.notification.message,
+        notificationType: data.notification.type || "info",
+        timestamp: new Date().getTime(),
+        source: "websocket_server",
       });
 
       // Forward to the specific user's clients

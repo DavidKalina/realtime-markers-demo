@@ -8,6 +8,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
+import { Easing } from "react-native";
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
@@ -81,23 +82,39 @@ function RootLayout() {
       }}
     >
       <Providers>
-        <Stack>
-          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-          <Stack.Screen name="register" options={{ headerShown: false }} />
-          <Stack.Screen name="login" options={{ headerShown: false }} />
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="scan" options={{ headerShown: false }} />
-          <Stack.Screen name="user" options={{ headerShown: false }} />
-          <Stack.Screen name="saved" options={{ headerShown: false }} />
-          <Stack.Screen name="cluster" options={{ headerShown: false }} />
-          <Stack.Screen name="filter" options={{ headerShown: false }} />
-          <Stack.Screen name="search" options={{ headerShown: false }} />
-          <Stack.Screen name="details" options={{ headerShown: false }} />
-          <Stack.Screen name="friends" options={{ headerShown: false }} />
-          <Stack.Screen name="notifications" options={{ headerShown: false }} />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: "fade_from_bottom",
+            animationDuration: 200,
+            gestureEnabled: true,
+            gestureDirection: "horizontal",
+            contentStyle: {
+              backgroundColor: "transparent",
+            },
+          }}
+        >
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="register" />
+          <Stack.Screen name="login" />
+          <Stack.Screen name="index" />
+          <Stack.Screen name="scan" />
+          <Stack.Screen name="user" />
+          <Stack.Screen name="saved" />
+          <Stack.Screen name="cluster" />
+          <Stack.Screen name="filter" />
+          <Stack.Screen name="search" />
+          <Stack.Screen name="details" />
+          <Stack.Screen name="friends" />
+          <Stack.Screen name="notifications" />
           <Stack.Screen
             name="create-private-event"
-            options={{ headerShown: false, presentation: "modal", animation: "slide_from_bottom" }}
+            options={{
+              presentation: "modal",
+              animation: "slide_from_bottom",
+              gestureEnabled: true,
+              gestureDirection: "vertical",
+            }}
           />
           <Stack.Screen name="+not-found" />
         </Stack>
