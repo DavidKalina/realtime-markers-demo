@@ -14,6 +14,7 @@ import Animated, {
 import { MARKER_HEIGHT, MARKER_WIDTH, MarkerSVG, SHADOW_OFFSET, ShadowSVG } from "./MarkerSVGs";
 import { TimePopup } from "./TimePopup";
 import { Marker } from "@/hooks/useMapWebsocket";
+import { COLORS } from "../Layout/ScreenLayout";
 
 // Animation configurations
 const ANIMATIONS = {
@@ -194,12 +195,12 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
     const MarkerSvg = useMemo(
       () => (
         <MarkerSVG
-          fill={event.data.isPrivate ? "#4a148c" : "#1a1a1a"}
-          stroke={event.data.isPrivate ? "#b388ff" : "white"}
+          fill={event.data.isPrivate ? COLORS.accent : "#1a1a1a"}
+          stroke={event.data.isPrivate ? COLORS.accentDark : "white"}
           strokeWidth="3"
           highlightStrokeWidth="2.5"
           circleRadius="12"
-          circleStroke={event.data.isPrivate ? "#b388ff" : "#E2E8F0"}
+          circleStroke={event.data.isPrivate ? COLORS.accentDark : "#E2E8F0"}
           circleStrokeWidth="1"
         />
       ),
