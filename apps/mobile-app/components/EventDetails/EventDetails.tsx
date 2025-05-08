@@ -49,6 +49,7 @@ import MapboxGL from "@rnmapbox/maps";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { EmojiMapMarker } from "../Markers/CustomMapMarker";
 import { useFlyOverCamera } from "@/hooks/useFlyOverCamera";
+import EventMapPreview from "./EventMapPreview";
 
 interface EventDetailsProps {
   eventId: string;
@@ -274,7 +275,6 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
   // Ensure coordinates are in the correct format [longitude, latitude]
   const coordinates = event.coordinates;
-  console.log("Event coordinates:", coordinates);
 
   return (
     <ScreenLayout>
@@ -291,70 +291,21 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
         {/* Event Image with Emoji or Map Preview for Private Events */}
         <View style={styles.imageWrapper}>
           <Animated.View entering={FadeIn.duration(500)} style={styles.imageContainer}>
-            <View style={[styles.eventImage, styles.mapPreview]}>
-              <MapboxGL.MapView
-                pitchEnabled={false}
-                zoomEnabled={false}
-                compassEnabled={false}
-                scrollEnabled={false}
-                rotateEnabled={false}
-                scaleBarEnabled={false}
-                ref={mapRef}
-                style={styles.mapPreview}
-                styleURL={mapStyle}
-                logoEnabled={false}
-                attributionEnabled={false}
-              >
-                <MapboxGL.Camera
-                  ref={cameraRef}
-                  zoomLevel={14}
-                  centerCoordinate={coordinates}
-                  animationDuration={0}
-                />
-
-                <MapboxGL.MarkerView coordinate={coordinates} anchor={{ x: 0.5, y: 1.0 }}>
-                  <EmojiMapMarker
-                    event={{
-                      id: event.id,
-                      coordinates: coordinates,
-                      data: {
-                        title: event.title,
-                        emoji: event.emoji,
-                        isPrivate: event.isPrivate,
-                        eventDate: event.eventDate,
-                        color: "#4a148c",
-                      },
-                    }}
-                    isSelected={false}
-                    onPress={() => {}}
-                  />
-                </MapboxGL.MarkerView>
-              </MapboxGL.MapView>
-
-              {/* Image overlay for public events */}
-              {!event.isPrivate &&
-                (imageLoading ? (
-                  <View style={styles.privateEventImageOverlay}>
-                    <ActivityIndicator size="small" color={COLORS.accent} />
-                  </View>
-                ) : imageError ? (
-                  <View style={styles.privateEventImageOverlay}>
-                    <Text style={styles.privateEventImageError}>{imageError}</Text>
-                  </View>
-                ) : imageUrl ? (
-                  <TouchableOpacity
-                    onPress={handleImagePress}
-                    activeOpacity={0.9}
-                    style={styles.privateEventImageOverlay}
-                  >
-                    <Image
-                      source={{ uri: imageUrl }}
-                      style={styles.privateEventImage}
-                      resizeMode="contain"
-                    />
-                  </TouchableOpacity>
-                ) : null)}
-            </View>
+            <EventMapPreview
+              coordinates={coordinates}
+              eventId={event.id}
+              title={event.title}
+              emoji={event.emoji}
+              isPrivate={event.isPrivate}
+              eventDate={event.eventDate}
+              imageUrl={imageUrl}
+              imageLoading={imageLoading}
+              imageError={imageError}
+              onImagePress={handleImagePress}
+              mapStyle={mapStyle}
+              mapRef={mapRef}
+              cameraRef={cameraRef}
+            />
           </Animated.View>
           <EmojiContainer emoji={event.emoji} />
         </View>

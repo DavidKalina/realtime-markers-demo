@@ -32,6 +32,9 @@ import Card from "../Layout/Card";
 // import Header from "../Layout/Header"; // We'll integrate header functionality
 import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 import Tabs, { TabItem } from "../Layout/Tabs";
+import EventMapPreview from "../EventDetails/EventMapPreview";
+import MapboxGL from "@rnmapbox/maps";
+import { useFlyOverCamera } from "../../hooks/useFlyOverCamera";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -553,6 +556,15 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontWeight: "600",
   },
+  // Add new styles for map preview
+  mapPreviewContainer: {
+    marginTop: 16,
+    height: 200,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
 });
 
 // Memoized TabButton component (no change)
@@ -622,7 +634,7 @@ const getRelativeTimeString = (date: Date): string => {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" }); // Fallback
 };
 
-// Memoized FeaturedEvent component (no change to internal structure, just used differently)
+// Memoized FeaturedEvent component
 const FeaturedEvent = memo<{
   event: EventType;
   onPress: () => void;
@@ -630,6 +642,55 @@ const FeaturedEvent = memo<{
   const eventDate = new Date(event.eventDate);
   const timeString = getRelativeTimeString(eventDate);
   const isToday = timeString === "TODAY";
+  const mapRef = useRef<MapboxGL.MapView>(null);
+  const cameraRef = useRef<MapboxGL.Camera>(null);
+
+  // Initialize fly over camera
+  const { flyOver, stopFlyOver } = useFlyOverCamera({ cameraRef });
+
+  // Start fly over animation when component mounts
+  useEffect(() => {
+    // Add a small delay to ensure map is initialized
+    const timer = setTimeout(() => {
+      if (event.coordinates && cameraRef.current) {
+        console.log("Starting fly over animation for coordinates:", event.coordinates);
+        flyOver(event.coordinates, {
+          duration: 2000,
+          minPitch: 45,
+          maxPitch: 75,
+          minZoom: 15,
+          maxZoom: 17,
+          minBearing: -30,
+          maxBearing: 30,
+          speed: 0.5,
+        });
+      } else {
+        console.log("Cannot start fly over - missing coordinates or camera ref");
+      }
+    }, 1000); // 1 second delay
+
+    // Cleanup animation when component unmounts
+    return () => {
+      clearTimeout(timer);
+      stopFlyOver();
+    };
+  }, [event.coordinates, flyOver, stopFlyOver]);
+
+  const handleMapReady = useCallback(() => {
+    console.log("Map is ready");
+    if (event.coordinates && cameraRef.current) {
+      flyOver(event.coordinates, {
+        duration: 2000,
+        minPitch: 45,
+        maxPitch: 75,
+        minZoom: 15,
+        maxZoom: 17,
+        minBearing: -30,
+        maxBearing: 30,
+        speed: 0.5,
+      });
+    }
+  }, [event.coordinates, flyOver]);
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
@@ -659,6 +720,22 @@ const FeaturedEvent = memo<{
               {event.description}
             </Text>
           )}
+
+          {/* Map Preview */}
+          <View style={styles.mapPreviewContainer}>
+            <EventMapPreview
+              coordinates={event.coordinates}
+              eventId={event.id}
+              title={event.title}
+              emoji={event.emoji || "🎉"}
+              isPrivate={event.isPrivate}
+              eventDate={event.eventDate}
+              mapStyle={MapboxGL.StyleURL.Dark}
+              mapRef={mapRef}
+              cameraRef={cameraRef}
+              onMapReady={handleMapReady}
+            />
+          </View>
         </View>
       </View>
     </TouchableOpacity>

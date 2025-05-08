@@ -427,7 +427,7 @@ function HomeScreen() {
             ref={cameraRef}
             defaultSettings={{
               ...defaultCameraSettings,
-              pitch: isPitched ? 45 : 0,
+              pitch: isPitched ? 52 : 0,
             }}
             animationDuration={0}
           />
