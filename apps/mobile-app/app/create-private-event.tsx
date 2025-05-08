@@ -297,10 +297,6 @@ const CreatePrivateEvent = () => {
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Date & Time</Text>
               <EmbeddedDateRangeCalendar date={date} onDateChange={setDate} />
-              <View style={styles.dateDisplay}>
-                <Text style={styles.dateText}>{formattedDate}</Text>
-                {userLocalTime && <Text style={styles.localTimeText}>{userLocalTime}</Text>}
-              </View>
             </View>
 
             <View style={styles.submitButtonContainer}>

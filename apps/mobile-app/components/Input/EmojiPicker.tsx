@@ -7,9 +7,11 @@ import {
   FlatList,
   ActivityIndicator,
   Dimensions,
+  TextInput,
 } from "react-native";
 import Animated from "react-native-reanimated";
 import { useEmojis } from "@/hooks/useEmojis";
+import { Search } from "lucide-react-native";
 
 interface EmojiPickerProps {
   onEmojiSelect?: (emoji: string) => void;
@@ -59,15 +61,36 @@ const EmojiPage = React.memo(({ emojis, selectedEmoji, onEmojiPress, breathingSt
   </View>
 ));
 
+// Add useDebounce hook
+const useDebounce = <T,>(value: T, delay: number): T => {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
 const CustomEmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, value }) => {
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(value);
   const [category, setCategory] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const flatListRef = useRef<FlatList>(null);
+
+  // Add debounced search query
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   const breathingStyle = undefined;
 
   const { emojis, loading, error, hasMore, loadMore, search, changeCategory, currentSearchTerm } =
-    useEmojis(0, EMOJIS_PER_FETCH, category, "");
+    useEmojis(0, EMOJIS_PER_FETCH, category, debouncedSearchQuery);
 
   useEffect(() => {
     if (value) {
@@ -126,8 +149,29 @@ const CustomEmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, value })
     return pages;
   }, [emojis]);
 
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+  };
+
+  // Add effect to handle debounced search
+  useEffect(() => {
+    handleSearch(debouncedSearchQuery);
+  }, [debouncedSearchQuery]);
+
   return (
     <View style={styles.wrapper}>
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputContainer}>
+          <Search size={18} color="#93c5fd" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search emojis..."
+            placeholderTextColor="#808080"
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+          />
+        </View>
+      </View>
       <View style={styles.container}>
         {loading && emojis.length === 0 ? (
           <View style={styles.loaderContainer}>
@@ -176,6 +220,29 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     gap: 8,
+  },
+  searchContainer: {
+    width: CONTAINER_WIDTH,
+    marginBottom: 8,
+  },
+  searchInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#2c2c2c",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 45,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: "#f8f9fa",
+    fontSize: 16,
+    fontFamily: "SpaceMono",
   },
   container: {
     backgroundColor: "#2c2c2c",
