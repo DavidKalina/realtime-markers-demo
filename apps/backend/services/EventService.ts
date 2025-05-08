@@ -1248,7 +1248,7 @@ export class EventService {
     // Get all events from the marker IDs
     const events = await this.eventRepository
       .createQueryBuilder("event")
-      .leftJoinAndSelect("event.categories", "category")
+      .leftJoinAndSelect("event.categories", "category") // Ensure this correctly loads categories
       .where("event.id IN (:...markerIds)", { markerIds })
       .getMany();
 
@@ -1264,14 +1264,14 @@ export class EventService {
       };
     }
 
-    // Generate cluster name and description using 4o-mini model
+    // Generate cluster name and description
     let clusterName = "";
     let clusterDescription = "";
-    let clusterEmoji = "🎉";
+    let clusterEmoji = "🎉"; // Default emoji
+
     try {
-      // Combine event names and descriptions to create context
       const eventContext = events
-        .slice(0, 10) // Take up to 10 events for more comprehensive context
+        .slice(0, 10)
         .map((event) => `${event.title}${event.description ? `: ${event.description}` : ""}`)
         .join("\n");
 
@@ -1303,56 +1303,94 @@ export class EventService {
       });
 
       const result = JSON.parse(response.choices[0]?.message?.content || "{}");
-      clusterName = result.name || "";
-      clusterDescription = result.description || "";
-      clusterEmoji = result.emoji || "🎉"; // Default to party emoji if none provided
+      clusterName = result.name || events[0]?.title || "Event Cluster";
+      clusterDescription =
+        result.description || events[0]?.description || "Check out these exciting events!";
+      clusterEmoji = result.emoji || "🎉";
     } catch (error) {
       console.error("Error generating cluster name and description:", error);
-      // Fallback to using the first event's title and description
-      clusterName = events[0]?.title || "";
-      clusterDescription = events[0]?.description || "";
+      clusterName = events[0]?.title || "Event Cluster";
+      clusterDescription = events[0]?.description || "Check out these exciting events!";
+      // clusterEmoji remains default "🎉"
     }
 
     // 1. Get featured event (oldest event for now)
     const featuredEvent = events.reduce((oldest, current) => {
-      return oldest.eventDate < current.eventDate ? oldest : current;
+      // Compare dates properly
+      const oldestDate = new Date(oldest.eventDate);
+      const currentDate = new Date(current.eventDate);
+      return oldestDate.getTime() < currentDate.getTime() ? oldest : current;
     });
 
-    // 2. Get events by category
-    const categoryMap = new Map<string, { category: Category; events: Event[] }>();
+    // 2. Get events by category (IMPROVED LOGIC)
+    // First, group all events by all their categories to count initial popularity
+    const allCategoryDataMap = new Map<string, { category: Category; events: Event[] }>();
     events.forEach((event) => {
-      event.categories.forEach((category) => {
-        if (!categoryMap.has(category.id)) {
-          categoryMap.set(category.id, { category, events: [] });
-        }
-        categoryMap.get(category.id)!.events.push(event);
-      });
+      // Ensure event.categories is an array before iterating
+      if (event.categories && Array.isArray(event.categories)) {
+        event.categories.forEach((category) => {
+          if (!allCategoryDataMap.has(category.id)) {
+            allCategoryDataMap.set(category.id, { category, events: [] });
+          }
+          // Collect all events for each category at this stage
+          allCategoryDataMap.get(category.id)!.events.push(event);
+        });
+      }
     });
 
-    // Sort categories by number of events and take top 4
-    const eventsByCategory = Array.from(categoryMap.values())
-      .sort((a, b) => b.events.length - a.events.length)
-      .slice(0, 10);
+    // Determine the top N categories based on raw event counts (before deduplication)
+    const sortedTopCategoryCandidates = Array.from(allCategoryDataMap.values())
+      .sort((a, b) => b.events.length - a.events.length) // Sort by most events first
+      .slice(0, 10); // Take the top 10 candidates
+
+    const finalEventsByCategory: { category: Category; events: Event[] }[] = [];
+    const assignedEventIds = new Set<string>(); // To track events already assigned
+
+    for (const candidate of sortedTopCategoryCandidates) {
+      const exclusiveEventsForThisCategory: Event[] = [];
+      // Iterate through all events originally mapped to this candidate category
+      for (const event of candidate.events) {
+        if (!assignedEventIds.has(event.id)) {
+          // If the event hasn't been assigned to a previous (higher-priority) category,
+          // it belongs to this current category.
+          exclusiveEventsForThisCategory.push(event);
+          // Mark it as assigned immediately so it's not picked up by other categories
+          // within this same candidate's event list (if an event somehow appeared twice
+          // in candidate.events) or by subsequent, lower-priority categories.
+          assignedEventIds.add(event.id);
+        }
+      }
+
+      // Only add the category to the final list if it has any exclusive events
+      if (exclusiveEventsForThisCategory.length > 0) {
+        finalEventsByCategory.push({
+          category: candidate.category,
+          events: exclusiveEventsForThisCategory,
+        });
+      }
+    }
+    // `finalEventsByCategory` now holds categories with exclusive event lists.
+    // Assign it to the variable name expected in the return object.
+    const eventsByCategory = finalEventsByCategory;
 
     // 3. Get events by location
     const locationMap = new Map<string, Event[]>();
     events.forEach((event) => {
       if (event.address) {
-        // Extract city and state from address
-        const locationMatch = event.address.match(/([^,]+),\s*([A-Z]{2})/);
+        const locationMatch = event.address.match(/([^,]+,\s*[A-Z]{2})/); // e.g., "Provo, UT"
         if (locationMatch) {
-          const location = locationMatch[0]; // e.g., "Provo, UT"
+          const location = locationMatch[0];
           if (!locationMap.has(location)) {
             locationMap.set(location, []);
           }
           locationMap.get(location)!.push(event);
         }
+        // Consider adding a fallback or more general location parsing if addresses vary widely
       }
     });
 
-    // Convert to array and sort by number of events
     const eventsByLocation = Array.from(locationMap.entries())
-      .map(([location, events]) => ({ location, events }))
+      .map(([location, locEvents]) => ({ location, events: locEvents }))
       .sort((a, b) => b.events.length - a.events.length);
 
     // 4. Get events happening today
@@ -1368,7 +1406,7 @@ export class EventService {
 
     const result = {
       featuredEvent,
-      eventsByCategory,
+      eventsByCategory, // Use the processed list
       eventsByLocation,
       eventsToday,
       clusterName,
@@ -1376,7 +1414,7 @@ export class EventService {
       clusterEmoji,
     };
 
-    // Cache the result for 5 minutes
+    // Cache the result
     await CacheService.setCachedClusterHub(markerIds, result);
 
     return result;
