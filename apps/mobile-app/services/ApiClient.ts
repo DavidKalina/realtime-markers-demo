@@ -165,6 +165,15 @@ interface ClusterHubData {
   clusterEmoji: string;
   clusterName: string;
   clusterDescription: string;
+  featuredCreator?: {
+    id: string;
+    displayName: string;
+    email: string;
+    eventCount: number;
+    creatorDescription: string;
+    title: string;
+    friendCode: string;
+  };
 }
 
 // Add these interfaces before the ApiClient class
@@ -1245,6 +1254,15 @@ class ApiClient {
     clusterEmoji: string;
     clusterName: string;
     clusterDescription: string;
+    featuredCreator?: {
+      id: string;
+      displayName: string;
+      email: string;
+      eventCount: number;
+      title: string;
+      friendCode: string;
+      creatorDescription: string;
+    };
   }> {
     const url = `${this.baseUrl}/api/events/cluster-hub`;
 
@@ -1271,6 +1289,7 @@ class ApiClient {
           events: locationGroup.events.map(this.mapEventToEventType),
         })),
         eventsToday: data.eventsToday.map(this.mapEventToEventType),
+        ...(data.featuredCreator && { featuredCreator: data.featuredCreator }),
       };
     } catch (error) {
       console.error("Error fetching cluster hub data:", error);

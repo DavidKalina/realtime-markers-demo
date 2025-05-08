@@ -1238,6 +1238,15 @@ export class EventService {
     clusterName: string;
     clusterDescription: string;
     clusterEmoji: string;
+    featuredCreator?: {
+      id: string;
+      displayName: string;
+      email: string;
+      eventCount: number;
+      creatorDescription: string;
+      title: string;
+      friendCode: string;
+    };
   }> {
     // Try to get from cache first
     const cachedData = await CacheService.getCachedClusterHub(markerIds);
@@ -1248,7 +1257,8 @@ export class EventService {
     // Get all events from the marker IDs
     const events = await this.eventRepository
       .createQueryBuilder("event")
-      .leftJoinAndSelect("event.categories", "category") // Ensure this correctly loads categories
+      .leftJoinAndSelect("event.categories", "category")
+      .leftJoinAndSelect("event.creator", "creator") // Ensure we load creator information
       .where("event.id IN (:...markerIds)", { markerIds })
       .getMany();
 
@@ -1264,6 +1274,39 @@ export class EventService {
       };
     }
 
+    // Track creator contributions
+    const creatorMap = new Map<string, { user: User; eventCount: number }>();
+    events.forEach((event) => {
+      if (event.creator) {
+        const creatorId = event.creator.id;
+        if (!creatorMap.has(creatorId)) {
+          creatorMap.set(creatorId, { user: event.creator, eventCount: 0 });
+        }
+        creatorMap.get(creatorId)!.eventCount++;
+      }
+    });
+
+    // Find the most prolific creator
+    let featuredCreator;
+    if (creatorMap.size > 0) {
+      const [mostProlificCreator] = Array.from(creatorMap.entries())
+        .sort(([, a], [, b]) => b.eventCount - a.eventCount)
+        .slice(0, 1);
+
+      if (mostProlificCreator) {
+        const [, creatorData] = mostProlificCreator;
+        featuredCreator = {
+          id: creatorData.user.id,
+          displayName: creatorData.user.displayName || creatorData.user.email,
+          email: creatorData.user.email,
+          eventCount: creatorData.eventCount,
+          title: creatorData.user.currentTitle || "Explorer",
+          friendCode: creatorData.user.friendCode || "NONE",
+          creatorDescription: "", // Will be filled by LLM
+        };
+      }
+    }
+
     // Generate cluster name and description
     let clusterName = "";
     let clusterDescription = "";
@@ -1275,26 +1318,36 @@ export class EventService {
         .map((event) => `${event.title}${event.description ? `: ${event.description}` : ""}`)
         .join("\n");
 
+      const creatorContext = featuredCreator
+        ? `\n\nFeatured Creator: ${featuredCreator.displayName} has created ${featuredCreator.eventCount} events in this cluster.`
+        : "";
+
       const response = await OpenAIService.executeChatCompletion({
         model: OpenAIModel.GPT4OMini,
         messages: [
           {
             role: "system",
-            content: `You are a creative tagline and emoji generator. Create a short, engaging description and matching emoji for a cluster of events.
-            Respond with a JSON object in this exact format:
-            {
-              "name": "A short, catchy name (2-3 words) that captures the essence of these events",
-              "description": "A concise, engaging tagline (1-2 sentences max) that sparks interest and highlights what makes these events special",
-              "emoji": "A single, relevant emoji that visually represents the cluster theme"
-            }
-            
-            The name should be memorable and relevant to the events' themes.
-            The description should be punchy and intriguing - think of it like a movie tagline that makes people want to learn more.
-            The emoji should be a single, well-known emoji that clearly represents the cluster's theme or mood.`,
+            content: `
+You are a 'Spark,' an AI that uncovers and describes exciting 'Hotspots' where interesting things are happening.
+Your goal is to make each cluster of events sound like a unique find, a vibrant corner of the world beckoning exploration.
+Frame it with a sense of adventure and discovery, but keep it concise and catchy.
+
+If a 'Featured Creator' is present, portray them as a 'Pioneer' or 'Catalyst' who has significantly shaped this hotspot's character.
+Your response MUST be a JSON object in this exact format:
+{
+  "name": "A snappy, evocative 'Hotspot Name' (2-3 words) that hints at the adventure or core activity.",
+  "description": "A brief, punchy 'Discovery Blurb' (1-2 short sentences) that makes people curious and eager to check out what's going on.",
+  "emoji": "A single emoji that serves as a 'Discovery Marker' or 'Map Pin' for this hotspot.",
+  "creatorDescription": "IF a creator is present: A concise, impactful acknowledgement of the 'Pioneer/Catalyst' (1 sentence). How have they ignited activity here?"
+}
+
+Use the provided event details as clues to define the hotspot's unique flavor.
+The name should be intriguing. The blurb should feel like an invitation to an adventure.
+`,
           },
           {
             role: "user",
-            content: `Based on these events, create a name, tagline, and emoji for this cluster:\n\n${eventContext}`,
+            content: `Based on these events${creatorContext}, create a name, tagline, and emoji for this cluster:\n\n${eventContext}`,
           },
         ],
         temperature: 0.7,
@@ -1307,6 +1360,10 @@ export class EventService {
       clusterDescription =
         result.description || events[0]?.description || "Check out these exciting events!";
       clusterEmoji = result.emoji || "🎉";
+
+      if (featuredCreator) {
+        featuredCreator.creatorDescription = result.creatorDescription || "";
+      }
     } catch (error) {
       console.error("Error generating cluster name and description:", error);
       clusterName = events[0]?.title || "Event Cluster";
@@ -1406,12 +1463,13 @@ export class EventService {
 
     const result = {
       featuredEvent,
-      eventsByCategory, // Use the processed list
+      eventsByCategory,
       eventsByLocation,
       eventsToday,
       clusterName,
       clusterDescription,
       clusterEmoji,
+      ...(featuredCreator && { featuredCreator }),
     };
 
     // Cache the result
