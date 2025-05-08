@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
   },
   dismissButtonContainer: {
-    padding: 16,
+    padding: 24,
     borderTopWidth: 1,
     borderTopColor: COLORS.divider,
     backgroundColor: COLORS.background,
@@ -219,8 +219,8 @@ const styles = StyleSheet.create({
   },
   dismissButtonText: {
     color: "#000",
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "800",
     fontFamily: "SpaceMono",
   },
 });
