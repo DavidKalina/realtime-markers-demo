@@ -12,10 +12,17 @@ import {
   setHours,
   setMinutes,
 } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { COLORS } from "./Layout/ScreenLayout";
+import { GestureDetector, Gesture, GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  runOnJS,
+} from "react-native-reanimated";
 
 // Helper for dimmed text color
 const getDimmedTextColor = (baseColor: string, opacity: number = 0.5) => {
@@ -43,6 +50,119 @@ interface EmbeddedDateRangeCalendarProps {
   date: Date;
   onDateChange: (date: Date) => void;
 }
+
+const TimeSelector: React.FC<{
+  date: Date;
+  onTimeChange: (date: Date) => void;
+}> = ({ date, onTimeChange }) => {
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const displayHours = hours % 12 || 12;
+  const isPM = hours >= 12;
+
+  const hoursOffset = useSharedValue(0);
+  const minutesOffset = useSharedValue(0);
+
+  const updateHours = useCallback(
+    (newHours: number) => {
+      const normalizedHours = ((newHours % 24) + 24) % 24;
+      const newDate = new Date(date);
+      newDate.setHours(normalizedHours);
+      onTimeChange(newDate);
+    },
+    [date, onTimeChange]
+  );
+
+  const updateMinutes = useCallback(
+    (newMinutes: number) => {
+      const normalizedMinutes = ((newMinutes % 60) + 60) % 60;
+      const newDate = new Date(date);
+      newDate.setMinutes(normalizedMinutes);
+      onTimeChange(newDate);
+    },
+    [date, onTimeChange]
+  );
+
+  const toggleAmPm = useCallback(() => {
+    const newHour = isPM ? hours - 12 : hours + 12;
+    const newDate = new Date(date);
+    newDate.setHours(newHour);
+    onTimeChange(newDate);
+  }, [date, hours, isPM, onTimeChange]);
+
+  const hoursGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      "worklet";
+      hoursOffset.value = e.translationY;
+    })
+    .onEnd((e) => {
+      "worklet";
+      if (Math.abs(e.translationY) > 20) {
+        const direction = e.translationY > 0 ? -1 : 1;
+        runOnJS(updateHours)(hours + direction);
+      }
+      hoursOffset.value = withSpring(0, {
+        damping: 15,
+        stiffness: 150,
+      });
+    });
+
+  const minutesGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      "worklet";
+      minutesOffset.value = e.translationY;
+    })
+    .onEnd((e) => {
+      "worklet";
+      if (Math.abs(e.translationY) > 20) {
+        const direction = e.translationY > 0 ? -1 : 1;
+        runOnJS(updateMinutes)(minutes + direction);
+      }
+      minutesOffset.value = withSpring(0, {
+        damping: 15,
+        stiffness: 150,
+      });
+    });
+
+  const hoursAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: hoursOffset.value }],
+  }));
+
+  const minutesAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: minutesOffset.value }],
+  }));
+
+  return (
+    <View style={styles.timeSelector}>
+      <View style={styles.timeBlockContainer}>
+        <View style={styles.timeBlockMask}>
+          <GestureDetector gesture={hoursGesture}>
+            <Animated.View style={[styles.timeBlock, hoursAnimatedStyle]}>
+              <Text style={styles.timeText}>{displayHours.toString().padStart(2, "0")}</Text>
+            </Animated.View>
+          </GestureDetector>
+        </View>
+      </View>
+      <Text style={styles.timeSeparator}>:</Text>
+      <View style={styles.timeBlockContainer}>
+        <View style={styles.timeBlockMask}>
+          <GestureDetector gesture={minutesGesture}>
+            <Animated.View style={[styles.timeBlock, minutesAnimatedStyle]}>
+              <Text style={styles.timeText}>{minutes.toString().padStart(2, "0")}</Text>
+            </Animated.View>
+          </GestureDetector>
+        </View>
+      </View>
+      <TouchableOpacity
+        style={[styles.amPmButton, isPM && styles.amPmButtonActive]}
+        onPress={toggleAmPm}
+        activeOpacity={0.8}
+      >
+        <Text style={[styles.amPmText, isPM && styles.amPmTextActive]}>{isPM ? "PM" : "AM"}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const EmbeddedDateRangeCalendar: React.FC<EmbeddedDateRangeCalendarProps> = ({
   date,
@@ -138,7 +258,9 @@ const EmbeddedDateRangeCalendar: React.FC<EmbeddedDateRangeCalendarProps> = ({
             color={canGoBack ? COLORS.accent : getDimmedTextColor(COLORS.textPrimary, 0.4)}
           />
         </TouchableOpacity>
-        <Text style={styles.monthText}>{format(currentMonth, "MMMM yyyy")}</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.monthText}>{format(currentMonth, "MMMM yyyy")}</Text>
+        </View>
         <TouchableOpacity
           onPress={handleNextMonth}
           style={styles.monthNavButton}
@@ -173,6 +295,12 @@ const EmbeddedDateRangeCalendar: React.FC<EmbeddedDateRangeCalendarProps> = ({
           );
         })}
       </View>
+
+      <View style={styles.timeSelectorContainer}>
+        <GestureHandlerRootView>
+          <TimeSelector date={date} onTimeChange={onDateChange} />
+        </GestureHandlerRootView>
+      </View>
     </View>
   );
 };
@@ -190,6 +318,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
+  },
+  headerContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
   },
   monthText: {
     fontSize: 16,
@@ -261,6 +396,75 @@ const styles = StyleSheet.create({
   },
   disabledDayText: {
     color: COLORS.textSecondary,
+  },
+  timeSelectorContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+  },
+  timeSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  timeBlockContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: COLORS.cardBackground,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+    overflow: "hidden",
+  },
+  timeBlockMask: {
+    width: "100%",
+    height: "100%",
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  timeBlock: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timeText: {
+    fontSize: 20,
+    fontFamily: "SpaceMono",
+    color: COLORS.textPrimary,
+    textAlign: "center",
+    fontWeight: "600",
+    letterSpacing: 1,
+  },
+  timeSeparator: {
+    fontSize: 20,
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  amPmButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: COLORS.buttonBackground,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+  },
+  amPmButtonActive: {
+    backgroundColor: COLORS.accent,
+  },
+  amPmText: {
+    fontSize: 12,
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
+  },
+  amPmTextActive: {
+    color: COLORS.background,
   },
 });
 

@@ -1,4 +1,3 @@
-import SwipeableClock from "@/components/Clock/SwipeableClock";
 import EmbeddedDateRangeCalendar from "@/components/EmbeddedDateRangeCalendar";
 import Input from "@/components/Input/Input";
 import TextArea from "@/components/Input/TextArea";
@@ -298,7 +297,6 @@ const CreatePrivateEvent = () => {
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Date & Time</Text>
               <EmbeddedDateRangeCalendar date={date} onDateChange={setDate} />
-              <SwipeableClock date={localDate} onChange={setDate} />
               <View style={styles.dateDisplay}>
                 <Text style={styles.dateText}>{formattedDate}</Text>
                 {userLocalTime && <Text style={styles.localTimeText}>{userLocalTime}</Text>}
