@@ -189,8 +189,6 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       borderColor: "#fff", // Use consistent dark gray
     }));
 
-    console.log(JSON.stringify(event.data, null, 2));
-
     // Remove the old SVG components and use the shared ones
     const ShadowSvg = useMemo(() => <ShadowSVG />, []);
     const MarkerSvg = useMemo(
