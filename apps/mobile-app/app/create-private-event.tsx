@@ -67,9 +67,11 @@ const CreatePrivateEvent = () => {
   }, [params.latitude, params.longitude]);
 
   // Initialize state with values from params if they exist
-  const [date, setDate] = useState(
-    params.eventDate ? new Date(params.eventDate as string) : new Date()
-  );
+  const [date, setDate] = useState(() => {
+    const now = new Date();
+    const minDate = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes from now
+    return params.eventDate ? new Date(params.eventDate as string) : minDate;
+  });
   const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
   const [eventName, setEventName] = useState((params.title as string) || "");
   const [eventDescription, setEventDescription] = useState((params.description as string) || "");
@@ -158,6 +160,14 @@ const CreatePrivateEvent = () => {
 
     if (!coordinates) {
       Alert.alert("Error", "Location is required");
+      return;
+    }
+
+    // Check if the selected date is at least 5 minutes in the future
+    const now = new Date();
+    const minDate = new Date(now.getTime() + 5 * 60 * 1000);
+    if (date < minDate) {
+      Alert.alert("Error", "Event must be scheduled at least 5 minutes in the future");
       return;
     }
 
