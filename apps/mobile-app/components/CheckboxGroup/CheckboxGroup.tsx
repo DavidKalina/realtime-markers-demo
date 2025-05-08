@@ -81,18 +81,28 @@ export const CheckboxGroup: React.FC<CheckboxGroupProps> = ({
               <Text style={styles.errorText}>Error loading friends</Text>
             </View>
           ) : (
-            <FlatList
-              data={friends}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <FriendCard
-                  friend={item}
-                  isSelected={selectedFriends.some((f) => f.id === item.id)}
-                  onToggle={() => toggleFriend(item)}
-                />
-              )}
-              contentContainerStyle={styles.listContent}
-            />
+            <>
+              <FlatList
+                data={friends}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <FriendCard
+                    friend={item}
+                    isSelected={selectedFriends.some((f) => f.id === item.id)}
+                    onToggle={() => toggleFriend(item)}
+                  />
+                )}
+                contentContainerStyle={styles.listContent}
+              />
+              <View style={styles.dismissButtonContainer}>
+                <TouchableOpacity
+                  style={styles.dismissButton}
+                  onPress={() => setIsModalVisible(false)}
+                >
+                  <Text style={styles.dismissButtonText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </>
           )}
         </View>
       </Modal>
@@ -193,6 +203,24 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#f97583",
     fontSize: 16,
+    fontFamily: "SpaceMono",
+  },
+  dismissButtonContainer: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+    backgroundColor: COLORS.background,
+  },
+  dismissButton: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+  },
+  dismissButtonText: {
+    color: "#000",
+    fontSize: 16,
+    fontWeight: "600",
     fontFamily: "SpaceMono",
   },
 });

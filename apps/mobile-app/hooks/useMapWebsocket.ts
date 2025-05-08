@@ -247,8 +247,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       try {
         const data = JSON.parse(event.data);
 
-        console.log("DATA", data.type);
-
         if (!data || typeof data !== "object") {
           console.warn("[useMapWebsocket] Received invalid message data");
           return;
@@ -320,7 +318,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
           // Handle updating an existing event
           case MessageTypes.UPDATE_EVENT: {
-            console.log("Received update event:", data);
             if (!data.event) {
               console.warn("[useMapWebsocket] Missing event data in UPDATE_EVENT");
               return;
@@ -439,7 +436,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           // Handle notifications
           case MessageTypes.NOTIFICATION: {
             try {
-              console.log("Processing notification:", data);
               eventBroker.emit<NotificationEvent>(EventTypes.NOTIFICATION, {
                 timestamp: Date.now(),
                 source: "useMapWebSocket",
