@@ -418,19 +418,25 @@ export class FilterProcessor {
 
       // Handle deletion
       if (operation === "DELETE") {
+        // Get all users who might be seeing this event
+        const affectedUsers = await this.getAffectedUsers(record);
+
         // Remove from spatial index and cache
         this.removeEventFromIndex(record.id);
         this.eventCache.delete(record.id);
 
-        // Publish deletion event to all users
-        await this.redisPub.publish(
-          "event:deleted",
-          JSON.stringify({
-            id: record.id,
-            timestamp: new Date().toISOString(),
-          })
-        );
-        this.stats.totalFilteredEventsPublished++;
+        // Send delete event to affected users
+        for (const userId of affectedUsers) {
+          await this.redisPub.publish(
+            `user:${userId}:filtered-events`,
+            JSON.stringify({
+              type: "delete-event",
+              id: record.id,
+              timestamp: new Date().toISOString(),
+            })
+          );
+          this.stats.totalFilteredEventsPublished++;
+        }
         return;
       }
 
@@ -455,20 +461,49 @@ export class FilterProcessor {
         // Update cache
         this.eventCache.set(record.id, record);
 
-        const updatedRecord = this.stripSensitiveData(record);
+        // Get all users who might be affected by this update
+        const affectedUsers = await this.getAffectedUsers(record);
 
-        await this.redisPub.publish(
-          "event:updated",
-          JSON.stringify({
-            operation: "UPDATE",
-            event: updatedRecord,
-            timestamp: new Date().toISOString(),
-          })
-        );
-        this.stats.totalFilteredEventsPublished++;
+        // For each affected user, determine if they should receive an update
+        for (const userId of affectedUsers) {
+          const filters = this.userFilters.get(userId) || [];
+          const viewport = this.userViewports.get(userId);
+
+          // Check if event matches user's filters
+          const matchesFilters = this.eventMatchesFilters(record, filters, userId);
+
+          // Check if event is in user's viewport
+          const inViewport = viewport ? this.isEventInViewport(record, viewport) : true;
+
+          if (matchesFilters && inViewport) {
+            // Event is visible to user - send update
+            const sanitizedEvent = this.stripSensitiveData(record);
+            await this.redisPub.publish(
+              `user:${userId}:filtered-events`,
+              JSON.stringify({
+                type: "update-event",
+                event: sanitizedEvent,
+                timestamp: new Date().toISOString(),
+              })
+            );
+            this.stats.totalFilteredEventsPublished++;
+          } else {
+            // Event is no longer visible to user - send delete
+            await this.redisPub.publish(
+              `user:${userId}:filtered-events`,
+              JSON.stringify({
+                type: "delete-event",
+                id: record.id,
+                timestamp: new Date().toISOString(),
+              })
+            );
+            this.stats.totalFilteredEventsPublished++;
+          }
+        }
         return;
       }
 
+      // For CREATE operations
       // Add to spatial index and cache
       const spatialItem = this.eventToSpatialItem(record);
       this.spatialIndex.insert(spatialItem);
@@ -479,8 +514,48 @@ export class FilterProcessor {
         console.log(`[Cache] Current cache size: ${this.eventCache.size}`);
       }
 
-      // Calculate event's spatial bounds for interest matching
-      const [lng, lat] = record.location.coordinates;
+      // Get all users who might be affected by this new event
+      const affectedUsers = await this.getAffectedUsers(record);
+
+      // For each affected user, determine if they should receive the event
+      for (const userId of affectedUsers) {
+        const filters = this.userFilters.get(userId) || [];
+        const viewport = this.userViewports.get(userId);
+
+        // Check if event matches user's filters
+        const matchesFilters = this.eventMatchesFilters(record, filters, userId);
+
+        // Check if event is in user's viewport
+        const inViewport = viewport ? this.isEventInViewport(record, viewport) : true;
+
+        if (matchesFilters && inViewport) {
+          // Event is visible to user - send add
+          const sanitizedEvent = this.stripSensitiveData(record);
+          await this.redisPub.publish(
+            `user:${userId}:filtered-events`,
+            JSON.stringify({
+              type: "add-event",
+              event: sanitizedEvent,
+              timestamp: new Date().toISOString(),
+            })
+          );
+          this.stats.totalFilteredEventsPublished++;
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error processing event:", error);
+    }
+  }
+
+  /**
+   * Get all users who might be affected by an event change
+   */
+  private async getAffectedUsers(event: Event): Promise<Set<string>> {
+    const affectedUsers = new Set<string>();
+
+    try {
+      // Calculate event's spatial bounds
+      const [lng, lat] = event.location.coordinates;
       const eventBounds = {
         minX: lng,
         minY: lat,
@@ -488,44 +563,26 @@ export class FilterProcessor {
         maxY: lat,
       };
 
-      // Get all active viewports that intersect with this event
+      // Get all viewports that intersect with this event
       const intersectingViewports = await this.getIntersectingViewports(eventBounds);
 
-      // Track which users we've sent the event to
-      const sentToUsers = new Set<string>();
+      // Add users from intersecting viewports
+      for (const { userId } of intersectingViewports) {
+        affectedUsers.add(userId);
+      }
 
-      // For each intersecting viewport, check if the event matches user filters
-      for (const { userId, viewport } of intersectingViewports) {
-        // Skip if we've already sent to this user
-        if (sentToUsers.has(userId)) {
-          continue;
+      // Add users who might see the event regardless of viewport
+      // (e.g., users with no viewport set or users with filters that match)
+      for (const [userId, filters] of this.userFilters.entries()) {
+        if (this.eventMatchesFilters(event, filters, userId)) {
+          affectedUsers.add(userId);
         }
-
-        const filters = this.userFilters.get(userId);
-        if (!filters || !this.eventMatchesFilters(record, filters, userId)) {
-          continue;
-        }
-
-        // Mark this user as having received the event
-        sentToUsers.add(userId);
-
-        // Strip sensitive data before publishing
-        const sanitizedEvent = this.stripSensitiveData(record);
-
-        // Publish to user's specific channel
-        await this.redisPub.publish(
-          `user:${userId}:filtered-events`,
-          JSON.stringify({
-            type: operation === "INSERT" ? "add-event" : "update-event",
-            event: sanitizedEvent,
-            timestamp: new Date().toISOString(),
-          })
-        );
-        this.stats.totalFilteredEventsPublished++;
       }
     } catch (error) {
-      console.error("❌ Error processing event:", error);
+      console.error("Error getting affected users:", error);
     }
+
+    return affectedUsers;
   }
 
   /**
