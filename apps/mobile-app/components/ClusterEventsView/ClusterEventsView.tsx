@@ -950,6 +950,22 @@ const ClusterEventsView: React.FC = () => {
         return;
       }
 
+      // Add a check to prevent unnecessary API calls
+      const currentMarkerIds = hubData
+        ? selectedItem?.type === "cluster"
+          ? (selectedItem as any).childrenIds || []
+          : markers.map((marker) => marker.id)
+        : [];
+
+      // If the marker IDs haven't changed, don't make a new request
+      if (
+        currentMarkerIds.length === markerIds.length &&
+        currentMarkerIds.every((id: string, index: number) => id === markerIds[index])
+      ) {
+        setIsLoading(false);
+        return;
+      }
+
       const data = await apiClient.getClusterHubData(markerIds);
       setHubData(data);
     } catch (error) {
@@ -958,10 +974,17 @@ const ClusterEventsView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [markers, selectedItem]);
+  }, [markers, selectedItem, hubData]);
+
+  // Add a ref to track if we've already fetched data
+  const hasFetchedData = useRef(false);
 
   useEffect(() => {
-    fetchClusterHubData();
+    // Only fetch if we haven't fetched data yet or if the dependencies have changed
+    if (!hasFetchedData.current || markers.length > 0 || selectedItem) {
+      fetchClusterHubData();
+      hasFetchedData.current = true;
+    }
   }, [fetchClusterHubData]);
 
   // Memoized page indicators
