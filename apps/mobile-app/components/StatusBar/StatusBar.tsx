@@ -9,6 +9,7 @@ import EmojiIndicator from "./EmojiIndicator";
 import JobIndicator from "./JobIndicator";
 import NotificationIndicator from "./NotificationIndicator";
 import XPBar from "./XPBar";
+import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
 
 interface StatusBarProps {
   backgroundColor?: string;
@@ -82,14 +83,16 @@ const StatusBar: React.FC<StatusBarProps> = ({
           ))}
         </Animated.View>
       </View>
+      <View style={styles.discoveryContainer}>
+        <DiscoveryIndicator position="bottom-left" />
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    width: "100%",
-    position: "absolute" as const,
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -123,6 +126,12 @@ const styles = StyleSheet.create({
     height: 22,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     marginHorizontal: 2,
+  },
+  discoveryContainer: {
+    position: "absolute",
+    left: 0,
+    bottom: -20, // Reduced from -40 to -20 to bring notifications closer to status bar
+    zIndex: 999,
   },
 });
 

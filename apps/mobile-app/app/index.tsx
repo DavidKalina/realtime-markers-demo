@@ -12,7 +12,7 @@ import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useMapCamera } from "@/hooks/useMapCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
-import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
+import { BaseEvent, EventTypes, MapItemEvent, NotificationEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MapboxGL from "@rnmapbox/maps";
@@ -43,13 +43,6 @@ const styles = {
   },
   mapContainer: {
     flex: 1,
-  },
-  discoveryContainer: {
-    position: "absolute" as const,
-    left: 0,
-    right: 0,
-    zIndex: 999,
-    top: 80, // base spacing after status bar
   },
   statusBarSpacer: {
     height: 80, // Match the height of the StatusBar component
@@ -378,15 +371,6 @@ function HomeScreen() {
 
   const insets = useSafeAreaInsets();
 
-  // Calculate the discovery container position based on safe area and status bar
-  const discoveryContainerStyle = useMemo(
-    () => ({
-      ...styles.discoveryContainer,
-      top: 80, // base spacing after status bar
-    }),
-    []
-  );
-
   const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
   const [showRipple, setShowRipple] = useState(false);
   const [longPressCoordinates, setLongPressCoordinates] = useState<{
@@ -432,6 +416,75 @@ function HomeScreen() {
     }
   }, [router, longPressCoordinates]);
 
+  // Add test notifications useEffect
+  useEffect(() => {
+    // Simulate notifications with different types and delays
+    const notifications = [
+      {
+        title: "Welcome!",
+        message: "You're now connected to the network",
+        type: "success" as const,
+        delay: 1000,
+      },
+      {
+        title: "New Event Nearby",
+        message: "A new event has been discovered in your area",
+        type: "info" as const,
+        delay: 3000,
+      },
+      {
+        title: "Location Services",
+        message: "Please enable location services for better experience",
+        type: "warning" as const,
+        delay: 5000,
+      },
+      {
+        title: "Connection Error",
+        message: "Unable to connect to the server",
+        type: "error" as const,
+        delay: 7000,
+      },
+    ];
+
+    // Simulate a discovery event
+    const discoveryEvent = {
+      event: {
+        id: "test-discovery-1",
+        emoji: "🎉",
+        location: {
+          coordinates: [0, 0],
+        },
+      },
+      timestamp: Date.now(),
+      source: "test",
+    };
+
+    // Schedule notifications
+    const timeouts = notifications.map((notification) => {
+      return setTimeout(() => {
+        publish<NotificationEvent>(EventTypes.NOTIFICATION, {
+          title: notification.title,
+          message: notification.message,
+          notificationType: notification.type,
+          duration: 5000,
+          timestamp: Date.now(),
+          source: "test",
+        });
+      }, notification.delay);
+    });
+
+    // Schedule discovery event
+    const discoveryTimeout = setTimeout(() => {
+      publish(EventTypes.EVENT_DISCOVERED, discoveryEvent);
+    }, 2000);
+
+    // Cleanup timeouts
+    return () => {
+      timeouts.forEach(clearTimeout);
+      clearTimeout(discoveryTimeout);
+    };
+  }, [publish]); // Add publish to dependencies
+
   return (
     <AuthWrapper>
       <View style={styles.container}>
@@ -441,9 +494,6 @@ function HomeScreen() {
           <>
             <StatusBar />
             <View style={styles.statusBarSpacer} />
-            <View style={discoveryContainerStyle}>
-              <DiscoveryIndicator position="top-left" />
-            </View>
           </>
         )}
 
