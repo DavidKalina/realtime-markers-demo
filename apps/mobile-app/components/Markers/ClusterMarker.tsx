@@ -58,15 +58,6 @@ const calculateMarkerSize = (count: number) => {
 
 // Animation configurations
 const ANIMATIONS = {
-  DROP_IN: {
-    stiffness: 300,
-    damping: 15,
-    mass: 1,
-  },
-  BOUNCE: {
-    duration: 600,
-    easing: Easing.inOut(Easing.sin),
-  },
   SCALE_PRESS: {
     duration: 100,
   },
@@ -100,7 +91,6 @@ const createAnimationCleanup = (animations: Animated.SharedValue<number>[]) => {
 export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
   ({ count, onPress, isSelected = false, isHighlighted = false, index = 0 }) => {
     // Component state
-    const [isDropComplete, setIsDropComplete] = useState(false);
     const prevSelectedRef = useRef(isSelected);
     const prevHighlightedRef = useRef(isHighlighted);
     const animationTimersRef = useRef<Array<NodeJS.Timeout>>([]);
@@ -110,13 +100,10 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     const baseScale = useMemo(() => calculateMarkerSize(count), [count]);
 
     // Animation values
-    const dropY = useSharedValue(-300);
-    const scale = useSharedValue(0.5);
-    const rotation = useSharedValue(-0.1);
-    const shadowOpacity = useSharedValue(0);
+    const scale = useSharedValue(1);
+    const shadowOpacity = useSharedValue(0.3);
     const rippleScale = useSharedValue(0);
     const rippleOpacity = useSharedValue(0.8);
-    const bounceY = useSharedValue(0);
     const fanRotation = useSharedValue(0);
     const fanScale = useSharedValue(1);
     const pulseScale = useSharedValue(1);
@@ -153,13 +140,10 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     const cleanupAnimations = useCallback(() => {
       // Cancel all animations
       createAnimationCleanup([
-        dropY,
         scale,
-        rotation,
         shadowOpacity,
         rippleScale,
         rippleOpacity,
-        bounceY,
         fanRotation,
         fanScale,
         pulseScale,
@@ -175,54 +159,17 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
       animationIntervalsRef.current = [];
     }, []);
 
-    // Set up drop-in animation on mount
+    // Set up initial animations on mount
     useEffect(() => {
-      // Delay based on index for staggered entrance
-      const startDelay = index * 200;
+      // Show shadow immediately
+      shadowOpacity.value = withTiming(0.3, ANIMATIONS.SHADOW);
 
-      // Drop animation sequence
-      dropY.value = withDelay(startDelay, withSpring(0, ANIMATIONS.DROP_IN));
-
-      // Scale and rotation
-      scale.value = withDelay(startDelay, withSpring(1, ANIMATIONS.DROP_IN));
-
-      rotation.value = withDelay(startDelay, withSpring(0, ANIMATIONS.DROP_IN));
-
-      // After drop is complete
-      const dropCompleteTimer = setTimeout(() => {
-        setIsDropComplete(true);
-
-        // Show shadow
-        shadowOpacity.value = withTiming(0.3, ANIMATIONS.SHADOW);
-
-        // Show ripple effect
-        rippleScale.value = withTiming(5, ANIMATIONS.RIPPLE);
-        rippleOpacity.value = withTiming(0, ANIMATIONS.RIPPLE);
-
-        // Periodic gentle bounce
-        const bounceTimer = setTimeout(() => {
-          startPeriodicBounce();
-        }, 300);
-        animationTimersRef.current.push(bounceTimer);
-      }, startDelay + 1200);
-      animationTimersRef.current.push(dropCompleteTimer);
+      // Show ripple effect
+      rippleScale.value = withTiming(5, ANIMATIONS.RIPPLE);
+      rippleOpacity.value = withTiming(0, ANIMATIONS.RIPPLE);
 
       return cleanupAnimations;
-    }, [index, cleanupAnimations]);
-
-    // Start periodic bounce animation
-    const startPeriodicBounce = useCallback(() => {
-      bounceY.value = withSequence(
-        withTiming(-5, ANIMATIONS.BOUNCE),
-        withTiming(0, ANIMATIONS.BOUNCE)
-      );
-
-      // Set up periodic repeating
-      const timer = setTimeout(() => {
-        startPeriodicBounce();
-      }, 6000);
-      animationTimersRef.current.push(timer);
-    }, []);
+    }, [cleanupAnimations]);
 
     // Handle selection state changes
     useEffect(() => {
@@ -255,8 +202,21 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
 
     // Add fanning animation effect
     useEffect(() => {
-      if (isDropComplete) {
-        // Fan out and in sequence
+      // Fan out and in sequence
+      fanRotation.value = withSequence(
+        withTiming(0.2, ANIMATIONS.FAN_OUT),
+        withTiming(-0.2, ANIMATIONS.FAN_OUT),
+        withTiming(0, ANIMATIONS.FAN_IN)
+      );
+
+      fanScale.value = withSequence(
+        withTiming(1.1, ANIMATIONS.FAN_OUT),
+        withTiming(1.1, { duration: 200 }),
+        withTiming(1, ANIMATIONS.FAN_IN)
+      );
+
+      // Repeat the fanning animation every 4 seconds
+      const fanTimer = setInterval(() => {
         fanRotation.value = withSequence(
           withTiming(0.2, ANIMATIONS.FAN_OUT),
           withTiming(-0.2, ANIMATIONS.FAN_OUT),
@@ -268,28 +228,13 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
           withTiming(1.1, { duration: 200 }),
           withTiming(1, ANIMATIONS.FAN_IN)
         );
+      }, 4000);
+      animationIntervalsRef.current.push(fanTimer);
 
-        // Repeat the fanning animation every 4 seconds
-        const fanTimer = setInterval(() => {
-          fanRotation.value = withSequence(
-            withTiming(0.2, ANIMATIONS.FAN_OUT),
-            withTiming(-0.2, ANIMATIONS.FAN_OUT),
-            withTiming(0, ANIMATIONS.FAN_IN)
-          );
-
-          fanScale.value = withSequence(
-            withTiming(1.1, ANIMATIONS.FAN_OUT),
-            withTiming(1.1, { duration: 200 }),
-            withTiming(1, ANIMATIONS.FAN_IN)
-          );
-        }, 4000);
-        animationIntervalsRef.current.push(fanTimer);
-
-        return () => {
-          clearInterval(fanTimer);
-        };
-      }
-    }, [isDropComplete]);
+      return () => {
+        clearInterval(fanTimer);
+      };
+    }, []);
 
     // Add pulsing animation for larger clusters
     useEffect(() => {
@@ -335,9 +280,8 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     // Animated styles
     const markerStyle = useAnimatedStyle(() => ({
       transform: [
-        { translateY: dropY.value + bounceY.value },
         { scale: scale.value * fanScale.value * baseScale * pulseScale.value * burstScale.value },
-        { rotate: `${rotation.value + fanRotation.value}rad` },
+        { rotate: `${fanRotation.value}rad` },
       ],
     }));
 
@@ -368,8 +312,8 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
               </Text>
             </View>
 
-            {/* Impact ripple effect that appears after drop */}
-            {isDropComplete && <Animated.View style={[styles.rippleEffect, rippleStyle]} />}
+            {/* Impact ripple effect */}
+            <Animated.View style={[styles.rippleEffect, rippleStyle]} />
           </Animated.View>
         </TouchableOpacity>
       </View>
