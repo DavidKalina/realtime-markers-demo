@@ -247,27 +247,50 @@ function HomeScreen() {
 
   const [viewportRectangle, setViewportRectangle] = useState<MapboxViewport | null>(null);
 
-  // Add a function to calculate a larger, centered viewport rectangle
-  const calculateViewportRectangle = useCallback((viewport: MapboxViewport): MapboxViewport => {
-    const width = viewport.east - viewport.west;
-    const height = viewport.north - viewport.south;
-    const scale = 0.8;
-    const newWidth = width * scale;
-    const newHeight = height * scale;
-    const centerX = (viewport.east + viewport.west) / 2;
-    let centerY = (viewport.north + viewport.south) / 2;
-    // Lower the rectangle by 5% of its height
-    const verticalOffset = -0.03 * newHeight;
-    centerY += verticalOffset;
-    return {
-      north: centerY + newHeight / 2,
-      south: centerY - newHeight / 2,
-      east: centerX + newWidth / 2,
-      west: centerX - newWidth / 2,
-    };
-  }, []);
+  // Inside your HomeScreen component in index.tsx
 
-  // Modify the handleMapViewportChange function
+  // Inside your HomeScreen component in index.tsx
+
+  // Inside your HomeScreen component in index.tsx
+
+  const calculateViewportRectangle = useCallback(
+    (viewport: MapboxViewport, isPitched: boolean): MapboxViewport => {
+      const geoWidth = viewport.east - viewport.west;
+      const geoHeight = viewport.north - viewport.south;
+
+      let scaleFactor = 0.8;
+      let verticalOffsetFactor = -0.03;
+
+      if (isPitched) {
+        // Reduce this value slightly to make the rectangle a bit smaller
+        scaleFactor = 0.55; // PREVIOUSLY 0.6, try a value like 0.55
+
+        verticalOffsetFactor = -0.25; // Keep this or adjust if positioning also needs a tweak
+      }
+
+      const newWidth = geoWidth * scaleFactor;
+      const newHeight = geoHeight * scaleFactor;
+
+      const centerX = (viewport.east + viewport.west) / 2;
+      let centerY = (viewport.north + viewport.south) / 2;
+
+      const verticalOffset = newHeight * verticalOffsetFactor;
+      centerY += verticalOffset;
+
+      return {
+        north: centerY + newHeight / 2,
+        south: centerY - newHeight / 2,
+        east: centerX + newWidth / 2,
+        west: centerX - newWidth / 2,
+      };
+    },
+    []
+  );
+
+  // Inside your HomeScreen component in index.tsx
+  // Ensure isPitched is in scope, e.g., from:
+  // const { mapStyle, isPitched } = useMapStyle();
+
   const handleMapViewportChange = useCallback(
     (feature: unknown) => {
       try {
@@ -278,18 +301,18 @@ function HomeScreen() {
 
         const viewport = processViewportBounds(properties.visibleBounds);
         if (viewport) {
-          // Calculate and set the smaller viewport rectangle
-          const rectangle = calculateViewportRectangle(viewport);
+          // Pass the current isPitched state to the calculation function
+          const rectangle = calculateViewportRectangle(viewport, isPitched); // MODIFIED LINE
           setViewportRectangle(rectangle);
 
-          // Use the smaller rectangle for updates
+          // Use the adjusted rectangle for updates
           updateViewport(rectangle);
         }
       } catch (error) {
         console.error("Error processing viewport change:", error);
       }
     },
-    [updateViewport, processViewportBounds, calculateViewportRectangle]
+    [updateViewport, processViewportBounds, calculateViewportRectangle, isPitched] // MODIFIED LINE: Added isPitched
   );
 
   // Memoize map ready handler
