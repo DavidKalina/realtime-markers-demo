@@ -1,5 +1,5 @@
 // hooks/useMarkerClustering.ts
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect, useState } from "react";
 import Supercluster from "supercluster";
 import type { Marker } from "@/hooks/useMapWebsocket";
 import type { MapboxViewport } from "@/types/types";
@@ -78,6 +78,24 @@ const generateStableClusterId = (markerIds: string[]): string => {
   return `cluster-${hash}`;
 };
 
+// Debounce helper function
+const debounce = <T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): ((...args: Parameters<T>) => void) => {
+  let timeout: NodeJS.Timeout | null = null;
+
+  return (...args: Parameters<T>) => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+
+    timeout = setTimeout(() => {
+      func(...args);
+    }, wait);
+  };
+};
+
 // --- Hook Implementation ---
 
 // Define Supercluster options with correct generics
@@ -97,6 +115,21 @@ export const useMarkerClustering = (
   viewport: MapboxViewport | null,
   currentZoom: number
 ): ClusteringResult => {
+  // State to hold the debounced clustering results
+  const [debouncedClusters, setDebouncedClusters] = useState<(ClusterFeature | PointFeature)[]>([]);
+
+  // Refs to store the latest values
+  const markersRef = useRef(markers);
+  const viewportRef = useRef(viewport);
+  const zoomRef = useRef(currentZoom);
+
+  // Update refs when props change
+  useEffect(() => {
+    markersRef.current = markers;
+    viewportRef.current = viewport;
+    zoomRef.current = currentZoom;
+  }, [markers, viewport, currentZoom]);
+
   // Memoize GeoJSON points
   const points: InputPointFeatureInternal[] = useMemo(() => {
     return markers.map(
@@ -132,70 +165,89 @@ export const useMarkerClustering = (
   // Memoize integer zoom
   const integerZoom = useMemo(() => Math.floor(currentZoom), [currentZoom]);
 
-  // Memoize raw clusters/points from supercluster
-  const rawClustersAndPoints = useMemo(() => {
-    if (!bounds || points.length === 0) {
-      return [];
-    }
-    return supercluster.getClusters(bounds, integerZoom) as (
-      | SuperclusterClusterFeatureInternal
-      | InputPointFeatureInternal
-    )[];
-  }, [bounds, integerZoom, supercluster]);
-
-  // Memoize final processed clusters mapped to output format
-  const processedClusters = useMemo((): (ClusterFeature | PointFeature)[] => {
-    return rawClustersAndPoints.map((feature): ClusterFeature | PointFeature => {
-      if (feature.properties?.cluster === true) {
-        // Cluster
-        const clusterFeatureInternal = feature as SuperclusterClusterFeatureInternal;
-        const clusterId = clusterFeatureInternal.properties.cluster_id;
-        let childMarkerIds: string[] = [];
-
-        try {
-          const leaves = supercluster.getLeaves(clusterId, Infinity) as InputPointFeatureInternal[];
-          childMarkerIds = leaves.map((leaf) => leaf.properties.id);
-        } catch (error) {
-          console.error(`Error getting leaves for cluster ${clusterId}:`, error);
+  // Create a debounced update function
+  const debouncedUpdate = useRef(
+    debounce(
+      (
+        bounds: [number, number, number, number] | null,
+        zoom: number,
+        supercluster: Supercluster,
+        points: InputPointFeatureInternal[]
+      ) => {
+        if (!bounds || points.length === 0) {
+          setDebouncedClusters([]);
+          return;
         }
 
-        const stableId = generateStableClusterId(childMarkerIds);
-        const outputGeometry: OutputPointGeometry = {
-          type: "Point",
-          coordinates: clusterFeatureInternal.geometry.coordinates as [number, number],
-        };
+        const rawClusters = supercluster.getClusters(bounds, zoom) as (
+          | SuperclusterClusterFeatureInternal
+          | InputPointFeatureInternal
+        )[];
 
-        return {
-          type: "Feature",
-          properties: {
-            ...clusterFeatureInternal.properties,
-            stableId,
-            childMarkers: childMarkerIds,
-          },
-          geometry: outputGeometry,
-        };
-      } else {
-        // Point
-        const pointFeatureInternal = feature as InputPointFeatureInternal;
-        const outputGeometry: OutputPointGeometry = {
-          type: "Point",
-          coordinates: pointFeatureInternal.geometry.coordinates as [number, number],
-        };
+        const processedClusters = rawClusters.map((feature): ClusterFeature | PointFeature => {
+          if (feature.properties?.cluster === true) {
+            // Cluster
+            const clusterFeatureInternal = feature as SuperclusterClusterFeatureInternal;
+            const clusterId = clusterFeatureInternal.properties.cluster_id;
+            let childMarkerIds: string[] = [];
 
-        return {
-          type: "Feature",
-          properties: {
-            cluster: false,
-            id: pointFeatureInternal.properties.id,
-            data: pointFeatureInternal.properties.data,
-          },
-          geometry: outputGeometry,
-        };
-      }
-    });
-  }, [rawClustersAndPoints, supercluster]);
+            try {
+              const leaves = supercluster.getLeaves(
+                clusterId,
+                Infinity
+              ) as InputPointFeatureInternal[];
+              childMarkerIds = leaves.map((leaf) => leaf.properties.id);
+            } catch (error) {
+              console.error(`Error getting leaves for cluster ${clusterId}:`, error);
+            }
+
+            const stableId = generateStableClusterId(childMarkerIds);
+            const outputGeometry: OutputPointGeometry = {
+              type: "Point",
+              coordinates: clusterFeatureInternal.geometry.coordinates as [number, number],
+            };
+
+            return {
+              type: "Feature",
+              properties: {
+                ...clusterFeatureInternal.properties,
+                stableId,
+                childMarkers: childMarkerIds,
+              },
+              geometry: outputGeometry,
+            };
+          } else {
+            // Point
+            const pointFeatureInternal = feature as InputPointFeatureInternal;
+            const outputGeometry: OutputPointGeometry = {
+              type: "Point",
+              coordinates: pointFeatureInternal.geometry.coordinates as [number, number],
+            };
+
+            return {
+              type: "Feature",
+              properties: {
+                cluster: false,
+                id: pointFeatureInternal.properties.id,
+                data: pointFeatureInternal.properties.data,
+              },
+              geometry: outputGeometry,
+            };
+          }
+        });
+
+        setDebouncedClusters(processedClusters);
+      },
+      100
+    ) // 100ms debounce delay
+  ).current;
+
+  // Effect to trigger debounced updates
+  useEffect(() => {
+    debouncedUpdate(bounds, integerZoom, supercluster, points);
+  }, [bounds, integerZoom, supercluster, points]);
 
   return {
-    clusters: processedClusters,
+    clusters: debouncedClusters,
   };
 };
