@@ -1,6 +1,10 @@
+import { useMapStyle } from "@/contexts/MapStyleContext";
+import { useFlyOverCamera } from "@/hooks/useFlyOverCamera";
 import apiClient from "@/services/ApiClient";
 import { formatDate } from "@/utils/dateTimeFormatting";
+import MapboxGL from "@rnmapbox/maps";
 import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import {
   Calendar,
   ExternalLink,
@@ -12,9 +16,8 @@ import {
   Share,
   Tag,
   X,
-  ZoomIn,
 } from "lucide-react-native";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -39,17 +42,12 @@ import Animated, {
 import Header from "../Layout/Header";
 import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 import { ErrorEventDetails } from "./ErrorEventDetails";
+import EventMapPreview from "./EventMapPreview";
 import LoadingEventDetails from "./LoadingEventDetails";
-import SaveButton from "./SaveButton";
 import RsvpButton from "./RsvpButton";
+import SaveButton from "./SaveButton";
 import { styles } from "./styles";
 import { useEventDetails } from "./useEventDetails";
-import { useRouter } from "expo-router";
-import MapboxGL from "@rnmapbox/maps";
-import { useMapStyle } from "@/contexts/MapStyleContext";
-import { EmojiMapMarker } from "../Markers/CustomMapMarker";
-import { useFlyOverCamera } from "@/hooks/useFlyOverCamera";
-import EventMapPreview from "./EventMapPreview";
 
 interface EventDetailsProps {
   eventId: string;
@@ -176,7 +174,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
           maxZoom: 17,
           minBearing: -30,
           maxBearing: 30,
-          speed: 0.3, // Slower speed for smoother movement
+          speed: 0.1, // Slower speed for smoother movement
         });
       }, 500);
 

@@ -138,6 +138,7 @@ const ClusterView = React.memo(
             .damping(15)
             .stiffness(200)
             .delay(index * 50)}
+          exiting={BounceOut.duration(500).springify().damping(15).stiffness(200)}
           layout={LinearTransition.springify()}
         >
           <ClusterMarker

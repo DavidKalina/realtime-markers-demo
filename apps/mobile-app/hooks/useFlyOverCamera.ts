@@ -30,17 +30,32 @@ export const useFlyOverCamera = ({ cameraRef }: UseFlyOverCameraProps) => {
     return min + range * offset;
   };
 
-  // Helper function to get smooth circular coordinates
-  const getSmoothCoordinates = (
+  // Helper function to calculate orbit position that always faces the marker
+  const getOrbitPosition = (
     center: [number, number],
     time: number,
     speed: number,
-    radius: number = 0.0005
-  ): [number, number] => {
-    const [lon, lat] = center;
-    const angle = time * speed;
+    zoom: number
+  ): { position: [number, number]; bearing: number } => {
+    // Calculate radius based on zoom level (closer zoom = smaller radius)
+    const baseRadius = 0.0005; // Base radius at zoom level 15
+    const zoomFactor = Math.pow(0.8, zoom - 15); // Adjust radius based on zoom
+    const radius = baseRadius * zoomFactor;
 
-    return [lon + Math.cos(angle) * radius, lat + Math.sin(angle) * radius];
+    const angle = time * speed;
+    const [lon, lat] = center;
+
+    // Calculate new camera position
+    const newLon = lon + Math.cos(angle) * radius;
+    const newLat = lat + Math.sin(angle) * radius;
+
+    // Calculate bearing to always face the marker
+    const bearing = (Math.atan2(lon - newLon, lat - newLat) * 180) / Math.PI;
+
+    return {
+      position: [newLon, newLat],
+      bearing: bearing,
+    };
   };
 
   const flyOver = useCallback(
@@ -50,11 +65,11 @@ export const useFlyOverCamera = ({ cameraRef }: UseFlyOverCameraProps) => {
       const {
         duration = 2000,
         minPitch = 45,
-        maxPitch = 75,
+        maxPitch = 60, // Reduced max pitch to keep marker more visible
         minZoom = 15,
         maxZoom = 17,
-        minBearing = -30,
-        maxBearing = 30,
+        minBearing = -180, // Allow full rotation
+        maxBearing = 180,
         speed = 0.5,
       } = options;
 
@@ -69,21 +84,25 @@ export const useFlyOverCamera = ({ cameraRef }: UseFlyOverCameraProps) => {
         timeRef.current += deltaTime;
         lastUpdateTimeRef.current = currentTime;
 
-        const randomCoordinates = getSmoothCoordinates(
+        // Get current zoom for radius calculation
+        const zoom = getSmoothValue(minZoom, maxZoom, timeRef.current, speed * 0.5);
+
+        // Calculate orbit position and bearing
+        const { position, bearing } = getOrbitPosition(
           coordinatesRef.current,
           timeRef.current,
-          speed
+          speed,
+          zoom
         );
 
-        const randomPitch = getSmoothValue(minPitch, maxPitch, timeRef.current, speed * 0.7);
-        const randomZoom = getSmoothValue(minZoom, maxZoom, timeRef.current, speed * 0.5);
-        const randomBearing = getSmoothValue(minBearing, maxBearing, timeRef.current, speed * 0.3);
+        // Calculate pitch that keeps marker in view
+        const pitch = getSmoothValue(minPitch, maxPitch, timeRef.current, speed * 0.7);
 
         cameraRef.current.setCamera({
-          centerCoordinate: randomCoordinates,
-          zoomLevel: randomZoom,
-          pitch: randomPitch,
-          heading: randomBearing,
+          centerCoordinate: position,
+          zoomLevel: zoom,
+          pitch: pitch,
+          heading: bearing,
           animationDuration: 0, // No animation duration for continuous movement
         });
 
