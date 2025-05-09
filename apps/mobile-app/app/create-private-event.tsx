@@ -29,7 +29,6 @@ import Animated, {
 } from "react-native-reanimated";
 import EmojiPicker from "@/components/Input/EmojiPicker";
 import { formatDate, getUserLocalTime, getUserTimezone } from "@/utils/dateTimeFormatting";
-import { formatInTimeZone } from "date-fns-tz";
 
 // Unified color theme matching Login screen
 const COLORS = {
@@ -165,6 +164,7 @@ const CreatePrivateEvent = () => {
     // Check if the selected date is at least 5 minutes in the future
     const now = new Date();
     const minDate = new Date(now.getTime() + 5 * 60 * 1000);
+
     if (date < minDate) {
       Alert.alert("Error", "Event must be scheduled at least 5 minutes in the future");
       return;
@@ -230,12 +230,6 @@ const CreatePrivateEvent = () => {
     }
   };
 
-  // Add formatted date display
-  const formattedDate = formatDate(date.toISOString());
-  const userLocalTime = getUserLocalTime(date.toISOString());
-
-  // Convert date to user's local timezone for display
-  const userTimezone = getUserTimezone();
   const localDate = new Date(date);
   localDate.setHours(date.getHours());
   localDate.setMinutes(date.getMinutes());

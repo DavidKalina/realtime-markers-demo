@@ -66,8 +66,13 @@ const TimeSelector: React.FC<{
   const updateHours = useCallback(
     (newHours: number) => {
       const normalizedHours = ((newHours % 24) + 24) % 24;
-      const newDate = new Date(date);
-      newDate.setHours(normalizedHours);
+      const newDate = new Date(date.getTime());
+      newDate.setHours(
+        normalizedHours,
+        date.getMinutes(),
+        date.getSeconds(),
+        date.getMilliseconds()
+      );
       onTimeChange(newDate);
     },
     [date, onTimeChange]
@@ -76,8 +81,13 @@ const TimeSelector: React.FC<{
   const updateMinutes = useCallback(
     (newMinutes: number) => {
       const normalizedMinutes = ((newMinutes % 60) + 60) % 60;
-      const newDate = new Date(date);
-      newDate.setMinutes(normalizedMinutes);
+      const newDate = new Date(date.getTime());
+      newDate.setHours(
+        date.getHours(),
+        normalizedMinutes,
+        date.getSeconds(),
+        date.getMilliseconds()
+      );
       onTimeChange(newDate);
     },
     [date, onTimeChange]
@@ -85,8 +95,8 @@ const TimeSelector: React.FC<{
 
   const toggleAmPm = useCallback(() => {
     const newHour = isPM ? hours - 12 : hours + 12;
-    const newDate = new Date(date);
-    newDate.setHours(newHour);
+    const newDate = new Date(date.getTime());
+    newDate.setHours(newHour, date.getMinutes(), date.getSeconds(), date.getMilliseconds());
     onTimeChange(newDate);
   }, [date, hours, isPM, onTimeChange]);
 
@@ -198,12 +208,12 @@ const EmbeddedDateRangeCalendar: React.FC<EmbeddedDateRangeCalendarProps> = ({
   const handleDayPress = useCallback(
     (selectedDate: Date) => {
       // Create a new date object and preserve the time from the current date
-      const newDate = new Date(selectedDate);
+      const newDate = new Date(selectedDate.getTime());
       // Get the local hours and minutes from the current date
       const currentHours = date.getHours();
       const currentMinutes = date.getMinutes();
-      // Set the hours and minutes in the local timezone
-      newDate.setHours(currentHours, currentMinutes, 0, 0);
+      // Set the hours and minutes in the local timezone while preserving seconds and milliseconds
+      newDate.setHours(currentHours, currentMinutes, date.getSeconds(), date.getMilliseconds());
       onDateChange(newDate);
     },
     [date, onDateChange]
