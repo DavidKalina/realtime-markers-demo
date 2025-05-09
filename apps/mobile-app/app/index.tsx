@@ -252,14 +252,14 @@ function HomeScreen() {
       const geoWidth = viewport.east - viewport.west;
       const geoHeight = viewport.north - viewport.south;
 
-      let scaleFactor = 0.8;
-      let verticalOffsetFactor = -0.03;
+      let scaleFactor = 1.25;
+      let verticalOffsetFactor = -0;
 
       if (isPitched) {
         // Reduce this value slightly to make the rectangle a bit smaller
-        scaleFactor = 0.55; // PREVIOUSLY 0.6, try a value like 0.55
+        scaleFactor = 1.35; // PREVIOUSLY 0.6, try a value like 0.55
 
-        verticalOffsetFactor = -0.25; // Keep this or adjust if positioning also needs a tweak
+        verticalOffsetFactor = -0; // Keep this or adjust if positioning also needs a tweak
       }
 
       const newWidth = geoWidth * scaleFactor;

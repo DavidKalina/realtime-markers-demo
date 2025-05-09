@@ -4,10 +4,9 @@ import Supercluster from "supercluster";
 import type { Marker } from "@/hooks/useMapWebsocket";
 import type { MapboxViewport } from "@/types/types";
 import type { Point as GeoJSONPoint } from "geojson";
-import { useDebounce } from "@/hooks/useDebounce"; // Assuming useDebounce is in a separate file
 
-// --- Type Definitions and Helper Functions (ClusterProperties, PointProperties, etc.) ---
-// (These remain the same as in your provided snippet)
+// --- Original Type Definitions (Ensuring Compatibility) ---
+
 interface ClusterProperties {
   cluster: true;
   cluster_id: number;
@@ -48,6 +47,8 @@ export interface ClusteringResult {
   clusters: (ClusterFeature | PointFeature)[];
 }
 
+// --- Internal Types ---
+
 interface SuperclusterClusterPropertiesInternal {
   cluster: true;
   cluster_id: number;
@@ -62,6 +63,8 @@ type SuperclusterClusterFeatureInternal = GeoJSON.Feature<
   SuperclusterClusterPropertiesInternal
 >;
 
+// --- Helper Functions ---
+
 const generateStableClusterId = (markerIds: string[]): string => {
   const sortedIds = [...markerIds].sort();
   let hash = 0;
@@ -75,6 +78,9 @@ const generateStableClusterId = (markerIds: string[]): string => {
   return `cluster-${hash}`;
 };
 
+// --- Hook Implementation ---
+
+// Define Supercluster options with correct generics
 const SUPERCLUSTER_OPTIONS: Supercluster.Options<
   PointProperties,
   SuperclusterClusterPropertiesInternal
@@ -89,15 +95,9 @@ const SUPERCLUSTER_OPTIONS: Supercluster.Options<
 export const useMarkerClustering = (
   markers: Marker[],
   viewport: MapboxViewport | null,
-  currentZoom: number,
-  debounceMs: number = 200 // Configurable debounce delay
+  currentZoom: number
 ): ClusteringResult => {
-  // Debounce viewport and zoom, which change frequently during map interactions
-  const debouncedViewport = useDebounce(viewport, debounceMs);
-  const debouncedCurrentZoom = useDebounce(currentZoom, debounceMs);
-
-  // 1. Memoize GeoJSON points: Updates immediately when 'markers' change.
-  // This ensures the underlying data for clustering is always fresh.
+  // Memoize GeoJSON points
   const points: InputPointFeatureInternal[] = useMemo(() => {
     return markers.map(
       (marker) =>
@@ -116,66 +116,55 @@ export const useMarkerClustering = (
     );
   }, [markers]);
 
-  // 2. Memoize the Supercluster instance: Rebuilds its index when 'points' (markers) change.
+  // Memoize the Supercluster instance with the current points
   const supercluster = useMemo(() => {
     const sc = new Supercluster(SUPERCLUSTER_OPTIONS);
     sc.load(points);
     return sc;
   }, [points]);
 
-  // 3. Memoize bounds based on the *debounced* viewport.
+  // Memoize bounds
   const bounds: [number, number, number, number] | null = useMemo(() => {
-    if (!debouncedViewport) return null;
-    return [
-      debouncedViewport.west,
-      debouncedViewport.south,
-      debouncedViewport.east,
-      debouncedViewport.north,
-    ];
-  }, [debouncedViewport]);
+    if (!viewport) return null;
+    return [viewport.west, viewport.south, viewport.east, viewport.north];
+  }, [viewport]);
 
-  // 4. Memoize integer zoom based on the *debounced* current zoom.
-  const integerZoom = useMemo(() => {
-    return Math.floor(debouncedCurrentZoom);
-  }, [debouncedCurrentZoom]);
+  // Memoize integer zoom
+  const integerZoom = useMemo(() => Math.floor(currentZoom), [currentZoom]);
 
-  // 5. Memoize the raw cluster/point data from Supercluster.
-  // This operation (getClusters) is the most expensive part tied to view changes.
-  // It now uses debounced bounds and zoom, but the up-to-date 'supercluster' instance.
-  const clustersToProcess = useMemo(() => {
+  // Memoize raw clusters/points from supercluster
+  const rawClustersAndPoints = useMemo(() => {
     if (!bounds || points.length === 0) {
-      // Use points.length for initial empty state or if supercluster isn't ready
       return [];
     }
-    // 'supercluster' here will have the latest markers loaded.
-    // 'bounds' and 'integerZoom' are from debounced view parameters.
     return supercluster.getClusters(bounds, integerZoom) as (
       | SuperclusterClusterFeatureInternal
       | InputPointFeatureInternal
     )[];
-  }, [bounds, integerZoom, supercluster, points.length]); // points.length helps ensure correct behavior if markers become empty
+  }, [bounds, integerZoom, supercluster]);
 
-  // 6. Memoize the final processed clusters, mapping to the output format.
-  // This depends on 'clustersToProcess' and the 'supercluster' instance (for getLeaves).
+  // Memoize final processed clusters mapped to output format
   const processedClusters = useMemo((): (ClusterFeature | PointFeature)[] => {
-    return clustersToProcess.map((feature): ClusterFeature | PointFeature => {
+    return rawClustersAndPoints.map((feature): ClusterFeature | PointFeature => {
       if (feature.properties?.cluster === true) {
+        // Cluster
         const clusterFeatureInternal = feature as SuperclusterClusterFeatureInternal;
         const clusterId = clusterFeatureInternal.properties.cluster_id;
         let childMarkerIds: string[] = [];
+
         try {
-          // Critical: getLeaves uses the 'supercluster' instance that corresponds
-          // to the one that generated 'clustersToProcess'.
           const leaves = supercluster.getLeaves(clusterId, Infinity) as InputPointFeatureInternal[];
           childMarkerIds = leaves.map((leaf) => leaf.properties.id);
         } catch (error) {
           console.error(`Error getting leaves for cluster ${clusterId}:`, error);
         }
+
         const stableId = generateStableClusterId(childMarkerIds);
         const outputGeometry: OutputPointGeometry = {
           type: "Point",
           coordinates: clusterFeatureInternal.geometry.coordinates as [number, number],
         };
+
         return {
           type: "Feature",
           properties: {
@@ -186,11 +175,13 @@ export const useMarkerClustering = (
           geometry: outputGeometry,
         };
       } else {
+        // Point
         const pointFeatureInternal = feature as InputPointFeatureInternal;
         const outputGeometry: OutputPointGeometry = {
           type: "Point",
           coordinates: pointFeatureInternal.geometry.coordinates as [number, number],
         };
+
         return {
           type: "Feature",
           properties: {
@@ -202,7 +193,7 @@ export const useMarkerClustering = (
         };
       }
     });
-  }, [clustersToProcess, supercluster]); // Ensure 'supercluster' is a dependency for 'getLeaves'
+  }, [rawClustersAndPoints, supercluster]);
 
   return {
     clusters: processedClusters,
