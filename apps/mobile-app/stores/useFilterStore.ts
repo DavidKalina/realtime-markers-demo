@@ -150,8 +150,28 @@ export const useFilterStore = create<FilterState>((set, get) => ({
         timestamp: Date.now(),
         source: "useFilterStore",
       });
+
+      // Emit notification event
+      eventBroker.emit(EventTypes.NOTIFICATION, {
+        title: "Filters Updated",
+        message:
+          filterIds.length > 0 ? "Filters have been applied" : "All filters have been cleared",
+        notificationType: "success",
+        duration: 3000,
+        timestamp: Date.now(),
+        source: "useFilterStore",
+      });
     } catch (err) {
       console.error("Error applying filters:", err);
+      // Emit error notification
+      eventBroker.emit(EventTypes.NOTIFICATION, {
+        title: "Error",
+        message: "Failed to apply filters",
+        notificationType: "error",
+        duration: 3000,
+        timestamp: Date.now(),
+        source: "useFilterStore",
+      });
       throw err;
     }
   },
@@ -167,8 +187,27 @@ export const useFilterStore = create<FilterState>((set, get) => ({
 
       // Remove from AsyncStorage
       await AsyncStorage.removeItem(ACTIVE_FILTERS_KEY);
+
+      // Emit notification event
+      eventBroker.emit(EventTypes.NOTIFICATION, {
+        title: "Filters Cleared",
+        message: "All filters have been cleared",
+        notificationType: "success",
+        duration: 3000,
+        timestamp: Date.now(),
+        source: "useFilterStore",
+      });
     } catch (err) {
       console.error("Error clearing filters:", err);
+      // Emit error notification
+      eventBroker.emit(EventTypes.NOTIFICATION, {
+        title: "Error",
+        message: "Failed to clear filters",
+        notificationType: "error",
+        duration: 3000,
+        timestamp: Date.now(),
+        source: "useFilterStore",
+      });
       set({
         error: `Failed to clear filters: ${err instanceof Error ? err.message : "Unknown error"}`,
       });
