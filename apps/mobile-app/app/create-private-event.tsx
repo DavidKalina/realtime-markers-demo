@@ -1,34 +1,33 @@
+import { CheckboxGroup } from "@/components/CheckboxGroup/CheckboxGroup";
 import EmbeddedDateRangeCalendar from "@/components/EmbeddedDateRangeCalendar";
+import EmojiPicker from "@/components/Input/EmojiPicker";
 import Input from "@/components/Input/Input";
 import TextArea from "@/components/Input/TextArea";
 import Header from "@/components/Layout/Header";
 import ScreenLayout from "@/components/Layout/ScreenLayout";
-import { CheckboxGroup } from "@/components/CheckboxGroup/CheckboxGroup";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { Book, List, User } from "lucide-react-native";
-import React, { useState, useRef, useEffect } from "react";
-import {
-  View,
-  StyleSheet,
-  Text,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  TextInput,
-} from "react-native";
 import { Friend, apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
-import Animated, {
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Book, List } from "lucide-react-native";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import {
   useAnimatedStyle,
   useSharedValue,
   withSequence,
   withSpring,
 } from "react-native-reanimated";
-import EmojiPicker from "@/components/Input/EmojiPicker";
-import { formatDate, getUserLocalTime, getUserTimezone } from "@/utils/dateTimeFormatting";
 
 // Unified color theme matching Login screen
 const COLORS = {
