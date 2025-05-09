@@ -21,6 +21,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Platform, StatusBar as RNStatusBar, View } from "react-native";
 import { runOnJS } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
+import { MapboxViewport } from "@/types/types";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -105,7 +107,6 @@ function HomeScreen() {
       if (!userLocation && !isLoadingLocation && !hasRequestedInitialLocation) {
         // Only request location if we don't have a valid cached location
         if (!userLocation) {
-          console.log("[HomeScreen] Requesting new location...");
           setHasRequestedInitialLocation(true);
           await AsyncStorage.setItem("hasRequestedInitialLocation", "true");
           getUserLocation();
@@ -244,7 +245,29 @@ function HomeScreen() {
     []
   );
 
-  // Memoize viewport change handler with error handling
+  const [viewportRectangle, setViewportRectangle] = useState<MapboxViewport | null>(null);
+
+  // Add a function to calculate a larger, centered viewport rectangle
+  const calculateViewportRectangle = useCallback((viewport: MapboxViewport): MapboxViewport => {
+    const width = viewport.east - viewport.west;
+    const height = viewport.north - viewport.south;
+    const scale = 0.8;
+    const newWidth = width * scale;
+    const newHeight = height * scale;
+    const centerX = (viewport.east + viewport.west) / 2;
+    let centerY = (viewport.north + viewport.south) / 2;
+    // Lower the rectangle by 5% of its height
+    const verticalOffset = -0.03 * newHeight;
+    centerY += verticalOffset;
+    return {
+      north: centerY + newHeight / 2,
+      south: centerY - newHeight / 2,
+      east: centerX + newWidth / 2,
+      west: centerX - newWidth / 2,
+    };
+  }, []);
+
+  // Modify the handleMapViewportChange function
   const handleMapViewportChange = useCallback(
     (feature: unknown) => {
       try {
@@ -255,13 +278,18 @@ function HomeScreen() {
 
         const viewport = processViewportBounds(properties.visibleBounds);
         if (viewport) {
-          updateViewport(viewport);
+          // Calculate and set the smaller viewport rectangle
+          const rectangle = calculateViewportRectangle(viewport);
+          setViewportRectangle(rectangle);
+
+          // Use the smaller rectangle for updates
+          updateViewport(rectangle);
         }
       } catch (error) {
         console.error("Error processing viewport change:", error);
       }
     },
-    [updateViewport, processViewportBounds]
+    [updateViewport, processViewportBounds, calculateViewportRectangle]
   );
 
   // Memoize map ready handler
@@ -428,6 +456,9 @@ function HomeScreen() {
 
             {/* User location layer */}
             {userLocationLayer}
+
+            {/* Viewport Rectangle */}
+            <ViewportRectangle viewport={viewportRectangle} />
           </MapboxGL.MapView>
 
           {showRipple && (
