@@ -88,7 +88,8 @@ const StatusBar: React.FC<StatusBarProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    position: "absolute",
+    width: "100%",
+    position: "absolute" as const,
     top: 0,
     left: 0,
     right: 0,

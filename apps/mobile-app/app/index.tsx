@@ -35,18 +35,22 @@ MapboxGL.setWellKnownTileServer("mapbox");
 // Use the imported styles directly
 const styles = {
   ...homeScreenStyles,
-  topContainer: {
-    position: "absolute" as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1000,
+  container: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  mapContainer: {
+    flex: 1,
   },
   discoveryContainer: {
     position: "absolute" as const,
     left: 0,
     right: 0,
     zIndex: 999,
+    top: 80, // base spacing after status bar
+  },
+  statusBarSpacer: {
+    height: 80, // Match the height of the StatusBar component
   },
 };
 
@@ -309,21 +313,6 @@ function HomeScreen() {
     [isMapReady, isLoadingLocation]
   );
 
-  // Memoize UI elements to prevent unnecessary rerenders
-  const mapOverlays = useMemo(() => {
-    if (!shouldRenderUI) return null;
-    return null; // Removed all indicators
-  }, [shouldRenderUI]);
-
-  const assistantOverlay = useMemo(() => {
-    if (!shouldRenderUI) return null;
-    return (
-      <View style={styles.assistantOverlay}>
-        <ActionBar />
-      </View>
-    );
-  }, [shouldRenderUI]);
-
   // Memoize markers component for better performance
   const markersComponent = useMemo(() => {
     if (!shouldRenderMarkers || !currentViewport) return null;
@@ -342,9 +331,9 @@ function HomeScreen() {
   const discoveryContainerStyle = useMemo(
     () => ({
       ...styles.discoveryContainer,
-      top: insets.top + (Platform.OS === "android" ? RNStatusBar.currentHeight || 0 : 0) + 80, // base spacing after status bar
+      top: 80, // base spacing after status bar
     }),
-    [insets.top]
+    []
   );
 
   const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
@@ -400,55 +389,57 @@ function HomeScreen() {
         {!isLoadingLocation && (
           <>
             <StatusBar />
+            <View style={styles.statusBarSpacer} />
             <View style={discoveryContainerStyle}>
               <DiscoveryIndicator position="top-left" />
             </View>
           </>
         )}
 
-        <MapboxGL.MapView
-          onTouchStart={handleUserPan}
-          onPress={handleMapPress}
-          onLongPress={handleMapLongPress}
-          scaleBarEnabled={false}
-          rotateEnabled={false}
-          pitchEnabled={false}
-          ref={mapRef}
-          style={styles.map}
-          styleURL={mapStyle}
-          logoEnabled={false}
-          attributionEnabled={false}
-          onDidFinishLoadingMap={handleMapReady}
-          onRegionIsChanging={handleRegionChanging}
-        >
-          {/* Camera with ref for control */}
-          <MapboxGL.Camera
-            minZoomLevel={5}
-            ref={cameraRef}
-            defaultSettings={{
-              ...defaultCameraSettings,
-              pitch: isPitched ? 52 : 0,
-            }}
-            animationDuration={0}
-          />
+        <View style={styles.mapContainer}>
+          <MapboxGL.MapView
+            onTouchStart={handleUserPan}
+            onPress={handleMapPress}
+            onLongPress={handleMapLongPress}
+            scaleBarEnabled={false}
+            rotateEnabled={false}
+            pitchEnabled={false}
+            ref={mapRef}
+            style={styles.map}
+            styleURL={mapStyle}
+            logoEnabled={false}
+            attributionEnabled={false}
+            onDidFinishLoadingMap={handleMapReady}
+            onRegionIsChanging={handleRegionChanging}
+          >
+            {/* Camera with ref for control */}
+            <MapboxGL.Camera
+              minZoomLevel={5}
+              ref={cameraRef}
+              defaultSettings={{
+                ...defaultCameraSettings,
+                pitch: isPitched ? 52 : 0,
+              }}
+              animationDuration={0}
+            />
 
-          {/* Map Markers */}
-          {markersComponent}
+            {/* Map Markers */}
+            {markersComponent}
 
-          {/* User location layer */}
-          {userLocationLayer}
-        </MapboxGL.MapView>
+            {/* User location layer */}
+            {userLocationLayer}
+          </MapboxGL.MapView>
 
-        {showRipple && (
-          <MapRippleEffect
-            isVisible={showRipple}
-            position={ripplePosition}
-            onAnimationComplete={handleRippleComplete}
-          />
-        )}
+          {showRipple && (
+            <MapRippleEffect
+              isVisible={showRipple}
+              position={ripplePosition}
+              onAnimationComplete={handleRippleComplete}
+            />
+          )}
+        </View>
 
-        {mapOverlays}
-        {assistantOverlay}
+        <ActionBar />
       </View>
     </AuthWrapper>
   );
