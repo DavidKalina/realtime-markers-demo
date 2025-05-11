@@ -15,6 +15,8 @@ import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
 import { UserLevel } from "./UserLevel";
 import { UserEventRsvp } from "./UserEventRsvp";
+import { Group } from "./Group";
+import { GroupMembership } from "./GroupMembership";
 
 export enum UserRole {
   USER = "USER",
@@ -127,6 +129,13 @@ export class User {
 
   @OneToMany(() => Friendship, (friendship) => friendship.addressee)
   receivedFriendRequests!: Friendship[];
+
+  @OneToMany(() => Group, (group) => group.owner)
+  ownedGroups!: Group[];
+
+  // Memberships this user has in various groups
+  @OneToMany(() => GroupMembership, (membership) => membership.user)
+  groupMemberships!: GroupMembership[];
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;
