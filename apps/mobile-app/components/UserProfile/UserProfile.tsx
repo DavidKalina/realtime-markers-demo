@@ -341,6 +341,32 @@ const FriendsSection = () => {
   );
 };
 
+// Add GroupsSection component after FriendsSection
+const GroupsSection = () => {
+  const router = useRouter();
+
+  return (
+    <Card delay={475}>
+      <Pressable
+        style={styles.friendsCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push("/create-group" as any);
+        }}
+      >
+        <View style={styles.friendsContent}>
+          <Users size={24} color={COLORS.textPrimary} />
+          <View style={styles.friendsTextContainer}>
+            <Text style={styles.friendsTitle}>Create Group</Text>
+            <Text style={styles.friendsSubtitle}>Start a new community</Text>
+          </View>
+          <ChevronRight size={24} color={COLORS.textPrimary} />
+        </View>
+      </Pressable>
+    </Card>
+  );
+};
+
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -583,6 +609,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           handleUpgradePlan={() => {}}
         />
         <FriendsSection />
+        <GroupsSection />
         <AccountDetails
           loading={loading}
           profileData={profileData}

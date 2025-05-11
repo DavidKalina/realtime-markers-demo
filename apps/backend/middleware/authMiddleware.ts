@@ -5,10 +5,27 @@ import { AuthService } from "../services/AuthService";
 import { User } from "../entities/User";
 import dataSource from "../data-source";
 import type { AppContext } from "../types/context";
+import { UserPreferencesService } from "../services/UserPreferences";
+import { LevelingService } from "../services/LevelingService";
+import Redis from "ioredis";
+
+// Create Redis client
+const redis = new Redis({
+  host: process.env.REDIS_HOST || "localhost",
+  port: parseInt(process.env.REDIS_PORT || "6379"),
+  password: process.env.REDIS_PASSWORD,
+});
 
 // Create an instance of AuthService (or import it if already instantiated)
 const userRepository = dataSource.getRepository(User);
-const authService = new AuthService(userRepository);
+const userPreferencesService = new UserPreferencesService(dataSource, redis);
+const levelingService = new LevelingService(dataSource, redis);
+const authService = new AuthService(
+  userRepository,
+  userPreferencesService,
+  levelingService,
+  dataSource
+);
 
 export const authMiddleware = async (c: Context<AppContext>, next: Next) => {
   const authHeader = c.req.header("Authorization");

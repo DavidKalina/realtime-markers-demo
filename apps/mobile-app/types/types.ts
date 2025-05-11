@@ -74,3 +74,8 @@ export interface Marker {
   coordinates: Coordinates;
   data: EventType;
 }
+
+export enum GroupVisibility {
+  PUBLIC = "PUBLIC",
+  PRIVATE = "PRIVATE",
+}

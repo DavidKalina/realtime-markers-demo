@@ -24,7 +24,7 @@ groupsRouter.use(
 
 // --- Group CRUD ---
 // Create a new group (requires auth)
-groupsRouter.post("/", authMiddleware, groupHandlers.createGroupHandler);
+groupsRouter.post("/create", authMiddleware, groupHandlers.createGroupHandler);
 
 // Get a specific group (publicly accessible for public groups, auth for private)
 groupsRouter.get("/:groupId", groupHandlers.getGroupHandler); // Auth check is within handler

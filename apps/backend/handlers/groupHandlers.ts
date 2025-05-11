@@ -14,6 +14,7 @@ const groupService = new GroupService(dataSource);
 // Helper function to get userId from token (assuming it's set by authMiddleware)
 function getAuthenticatedUserId(c: Context<AppContext>): string {
   const user = c.get("user");
+  console.log({ user });
   if (!user || !user.userId) {
     throw new Error("User not authenticated"); // Should be caught and returned as 401
   }

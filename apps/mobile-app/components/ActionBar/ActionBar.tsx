@@ -3,7 +3,15 @@ import { styles as globalStyles } from "@/components/globalStyles";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { CameraAnimateToLocationEvent, EventTypes } from "@/services/EventBroker";
 import * as Haptics from "expo-haptics";
-import { BookMarkedIcon, Camera, Navigation, Plus, SearchIcon, User } from "lucide-react-native";
+import {
+  BookMarkedIcon,
+  Camera,
+  Navigation,
+  Plus,
+  SearchIcon,
+  User,
+  Users,
+} from "lucide-react-native";
 import React, { useRef, useState, useCallback, useMemo, useEffect } from "react";
 import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
@@ -131,7 +139,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 );
 
 // Default set of actions if none provided
-const DEFAULT_AVAILABLE_ACTIONS = ["search", "scan", "locate", "user", "saved", "add"];
+const DEFAULT_AVAILABLE_ACTIONS = ["search", "scan", "locate", "user", "saved", "groups", "add"];
 
 // Icons memo - created once outside the component to avoid recreation
 const ICON_MAP = {
@@ -140,6 +148,7 @@ const ICON_MAP = {
   locate: <Navigation size={20} color="#fff" />,
   saved: <BookMarkedIcon size={20} color="#fff" />,
   user: <User size={20} color="#fff" />,
+  groups: <Users size={20} color="#fff" />,
   add: <Plus size={20} color="#fff" />,
 };
 
@@ -150,6 +159,7 @@ const LABEL_MAP = {
   locate: "Locate",
   saved: "Events",
   user: "Me",
+  groups: "Groups",
   add: "Add",
 };
 
@@ -216,6 +226,9 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           case "user":
             router.push("/user");
             break;
+          case "groups":
+            router.push("/groups");
+            break;
           case "add":
             router.push("/create-private-event");
             break;
@@ -273,6 +286,12 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           label: LABEL_MAP.user,
           icon: ICON_MAP.user,
           action: actionHandlers.user,
+        },
+        {
+          key: "groups",
+          label: LABEL_MAP.groups,
+          icon: ICON_MAP.groups,
+          action: actionHandlers.groups,
         },
         {
           key: "add",

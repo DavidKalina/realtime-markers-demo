@@ -116,6 +116,8 @@ function RootLayout() {
               gestureDirection: "vertical",
             }}
           />
+          <Stack.Screen name="create-group" />
+          <Stack.Screen name="groups" />
           <Stack.Screen name="+not-found" />
         </Stack>
         <StatusBar style="auto" />
