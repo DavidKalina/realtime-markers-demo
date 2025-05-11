@@ -22,6 +22,7 @@ export interface AppVariables {
   friendshipService: FriendshipService;
   notificationService: NotificationService;
   user?: { userId: string; email: string; role: string };
+  userId?: string;
 }
 
 export interface AppContext {

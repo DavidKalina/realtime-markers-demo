@@ -4,6 +4,91 @@ import { EventType, UserType } from "@/types/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system";
 
+// --- START: Group Feature Types ---
+
+// Enums (or string literal types) for Group features
+export type GroupVisibility = "PUBLIC" | "PRIVATE";
+export type GroupMemberRole = "MEMBER" | "ADMIN";
+export type GroupMembershipStatus = "PENDING" | "APPROVED" | "REJECTED" | "BANNED";
+
+// Client-side representation of a Group
+export interface ClientGroup {
+  id: string;
+  name: string;
+  description?: string;
+  emoji?: string;
+  bannerImageUrl?: string;
+  avatarImageUrl?: string;
+  visibility: GroupVisibility;
+  ownerId: string;
+  owner?: User; // Using existing User interface
+  location?: { type: "Point"; coordinates: [number, number] }; // GeoJSON Point
+  address?: string;
+  memberCount: number;
+  allowMemberEventCreation: boolean;
+  categories?: { id: string; name: string }[];
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+}
+
+// Client-side representation of a Group Membership
+export interface ClientGroupMembership {
+  id: string;
+  userId: string;
+  groupId: string;
+  user: User; // Using existing User interface
+  group?: ClientGroup;
+  role: GroupMemberRole;
+  status: GroupMembershipStatus;
+  joinedAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+}
+
+// DTOs for group operations
+export interface CreateGroupPayload {
+  name: string;
+  description?: string;
+  emoji?: string;
+  bannerImageUrl?: string;
+  avatarImageUrl?: string;
+  visibility?: GroupVisibility;
+  location?: { type: "Point"; coordinates: [number, number] };
+  address?: string;
+  allowMemberEventCreation?: boolean;
+  categoryIds?: string[];
+}
+
+export interface UpdateGroupPayload {
+  name?: string;
+  description?: string;
+  emoji?: string;
+  bannerImageUrl?: string;
+  avatarImageUrl?: string;
+  visibility?: GroupVisibility;
+  location?: { type: "Point"; coordinates: [number, number] };
+  address?: string;
+  allowMemberEventCreation?: boolean;
+  categoryIds?: string[];
+}
+
+export interface ManageMembershipStatusPayload {
+  status: "APPROVED" | "REJECTED" | "BANNED";
+  role?: GroupMemberRole;
+}
+
+export interface UpdateMemberRolePayload {
+  role: GroupMemberRole;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+// --- END: Group Feature Types ---
+
 // Define base API types from your backend
 interface Location {
   type: string;
@@ -76,7 +161,7 @@ export interface ApiEvent {
   endDate?: string;
   location: Location;
   address?: string;
-  locationNotes?: string; // Add location notes
+  locationNotes?: string;
   categories?: { id: string; name: string }[];
   createdAt: string;
   updatedAt: string;
@@ -85,7 +170,7 @@ export interface ApiEvent {
   creator?: UserType;
   creatorId?: string;
   scanCount?: number;
-  saveCount?: number; // Add count of saves
+  saveCount?: number;
   timezone?: string;
   qrUrl?: string | null;
   qrCodeData?: string;
@@ -95,7 +180,9 @@ export interface ApiEvent {
   qrDetectedInImage?: boolean;
   detectedQrData?: string | null;
   isPrivate?: boolean;
-  shares?: { sharedWithId: string; sharedById: string }[]; // Add shares information
+  shares?: { sharedWithId: string; sharedById: string }[];
+  groupId?: string | null;
+  group?: ClientGroup | null;
 }
 
 interface ClusterFeature {
@@ -479,7 +566,6 @@ class ApiClient {
   }
 
   private mapEventToEventType(apiEvent: ApiEvent): EventType {
-    console.log(apiEvent);
     return {
       id: apiEvent.id,
       title: apiEvent.title,
@@ -495,6 +581,7 @@ class ApiClient {
       emojiDescription: apiEvent.emojiDescription,
       categories: apiEvent.categories?.map((c) => c.name) || [],
       creator: apiEvent.creator,
+      creatorId: apiEvent.creatorId,
       scanCount: apiEvent.scanCount || 0,
       saveCount: apiEvent.saveCount || 0,
       timezone: apiEvent.timezone || "UTC",
@@ -509,6 +596,8 @@ class ApiClient {
       createdAt: apiEvent.createdAt,
       updatedAt: apiEvent.updatedAt,
       sharedWithIds: apiEvent.shares?.map((share) => share.sharedWithId) || [],
+      groupId: apiEvent.groupId,
+      group: apiEvent.group,
     };
   }
 
@@ -1618,6 +1707,214 @@ class ApiClient {
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<{ sharedWithId: string; sharedById: string }[]>(response);
   }
+
+  // --- START: Group API Methods ---
+
+  /**
+   * Create a new group.
+   * Requires authentication.
+   */
+  async createGroup(payload: CreateGroupPayload): Promise<ClientGroup> {
+    const url = `${this.baseUrl}/api/groups`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return this.handleResponse<ClientGroup>(response);
+  }
+
+  /**
+   * Get a specific group by its ID.
+   * Access may depend on group visibility and user's membership.
+   */
+  async getGroupById(groupId: string): Promise<ClientGroup> {
+    const url = `${this.baseUrl}/api/groups/${groupId}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<ClientGroup>(response);
+  }
+
+  /**
+   * Update an existing group.
+   * Requires authentication and appropriate permissions (owner/admin).
+   */
+  async updateGroup(groupId: string, payload: UpdateGroupPayload): Promise<ClientGroup> {
+    const url = `${this.baseUrl}/api/groups/${groupId}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    return this.handleResponse<ClientGroup>(response);
+  }
+
+  /**
+   * Delete a group.
+   * Requires authentication and ownership.
+   */
+  async deleteGroup(groupId: string): Promise<{ message: string }> {
+    const url = `${this.baseUrl}/api/groups/${groupId}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  /**
+   * List public groups with pagination.
+   * Does not require authentication.
+   */
+  async listPublicGroups(
+    page: number = 1,
+    limit: number = 10,
+    categoryId?: string
+  ): Promise<{ groups: ClientGroup[]; total: number }> {
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    if (categoryId) {
+      queryParams.append("categoryId", categoryId);
+    }
+    const url = `${this.baseUrl}/api/groups?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{ groups: ClientGroup[]; total: number }>(response);
+  }
+
+  /**
+   * List groups the authenticated user is a member of.
+   * Requires authentication.
+   */
+  async getUserGroups(
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{ groups: ClientGroup[]; total: number }> {
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    const url = `${this.baseUrl}/api/groups/user/me?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{ groups: ClientGroup[]; total: number }>(response);
+  }
+
+  /**
+   * Join a group or request to join (if private).
+   * Requires authentication.
+   */
+  async joinGroup(
+    groupId: string
+  ): Promise<{ message: string; membershipStatus: GroupMembershipStatus; role: GroupMemberRole }> {
+    const url = `${this.baseUrl}/api/groups/${groupId}/join`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+    });
+    return this.handleResponse<{
+      message: string;
+      membershipStatus: GroupMembershipStatus;
+      role: GroupMemberRole;
+    }>(response);
+  }
+
+  /**
+   * Leave a group.
+   * Requires authentication.
+   */
+  async leaveGroup(groupId: string): Promise<{ message: string }> {
+    const url = `${this.baseUrl}/api/groups/${groupId}/leave`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+    });
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  /**
+   * Manage the status of a group member (approve, reject, ban).
+   * Requires authentication and admin/owner permissions.
+   */
+  async manageMembershipStatus(
+    groupId: string,
+    memberUserId: string,
+    payload: ManageMembershipStatusPayload
+  ): Promise<{ message: string; membership: ClientGroupMembership }> {
+    const url = `${this.baseUrl}/api/groups/${groupId}/members/${memberUserId}/status`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return this.handleResponse<{ message: string; membership: ClientGroupMembership }>(response);
+  }
+
+  /**
+   * Update the role of a group member.
+   * Requires authentication and admin/owner permissions.
+   */
+  async updateMemberRole(
+    groupId: string,
+    memberUserId: string,
+    payload: UpdateMemberRolePayload
+  ): Promise<{ message: string; membership: ClientGroupMembership }> {
+    const url = `${this.baseUrl}/api/groups/${groupId}/members/${memberUserId}/role`;
+    const response = await this.fetchWithAuth(url, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    return this.handleResponse<{ message: string; membership: ClientGroupMembership }>(response);
+  }
+
+  /**
+   * Remove a member from a group.
+   * Requires authentication and admin/owner permissions.
+   */
+  async removeMember(groupId: string, memberUserId: string): Promise<{ message: string }> {
+    const url = `${this.baseUrl}/api/groups/${groupId}/members/${memberUserId}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  /**
+   * Get a list of members for a group.
+   * Access may depend on group visibility and user permissions.
+   */
+  async getGroupMembers(
+    groupId: string,
+    page: number = 1,
+    limit: number = 10,
+    status: GroupMembershipStatus = "APPROVED"
+  ): Promise<{ memberships: ClientGroupMembership[]; total: number }> {
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      status: status,
+    });
+    const url = `${this.baseUrl}/api/groups/${groupId}/members?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{ memberships: ClientGroupMembership[]; total: number }>(response);
+  }
+
+  /**
+   * Get events associated with a specific group.
+   * Access may depend on group visibility.
+   */
+  async getGroupEvents(
+    groupId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{ events: EventType[]; total: number }> {
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    const url = `${this.baseUrl}/api/groups/${groupId}/events?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    const data = await this.handleResponse<{ events: ApiEvent[]; total: number }>(response);
+    return {
+      events: data.events.map(this.mapEventToEventType),
+      total: data.total,
+    };
+  }
+
+  // --- END: Group API Methods ---
 }
 
 // Export as singleton
