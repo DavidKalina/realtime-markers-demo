@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
+  Alert,
 } from "react-native";
 import { apiClient, ClientGroupMembership } from "@/services/ApiClient";
 import { COLORS } from "@/components/Layout/ScreenLayout";
@@ -138,12 +139,44 @@ export default function GroupMembership({
     [groupId, fetchMembers]
   );
 
+  const handleRemoveMember = useCallback(
+    (member: ClientGroupMembership) => {
+      Alert.alert(
+        "Remove Member",
+        `Are you sure you want to remove ${member.user.displayName} from the group?`,
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Remove",
+            style: "destructive",
+            onPress: () => handleManageMember(member.userId, "BANNED"),
+          },
+        ],
+        { cancelable: true }
+      );
+    },
+    [handleManageMember]
+  );
+
   const renderMember = useCallback(
     ({ item: member }: { item: ClientGroupMembership }) => (
       <View style={styles.memberRow}>
         <View style={styles.memberInfo}>
           <Text style={styles.memberName}>{member.user.displayName}</Text>
-          <Text style={styles.memberRole}>{member.role === "ADMIN" ? "Admin" : "Member"}</Text>
+          <View style={styles.memberRoleContainer}>
+            {member.role === "ADMIN" && (
+              <View style={styles.adminBadge}>
+                <Shield size={12} color={COLORS.accent} />
+                <Text style={styles.adminBadgeText}>Admin</Text>
+              </View>
+            )}
+            <Text style={styles.memberRole}>
+              {member.status === "PENDING" ? "Pending" : "Member"}
+            </Text>
+          </View>
         </View>
 
         {(isOwner || isAdmin) && member.userId !== apiClient.getCurrentUser()?.id && (
@@ -167,16 +200,16 @@ export default function GroupMembership({
             {member.status === "APPROVED" && (
               <TouchableOpacity
                 style={[styles.actionButton, styles.removeButton]}
-                onPress={() => handleManageMember(member.userId, "BANNED")}
+                onPress={() => handleRemoveMember(member)}
               >
-                <UserMinus size={16} color={COLORS.textPrimary} />
+                <UserMinus size={16} color={COLORS.errorText} />
               </TouchableOpacity>
             )}
           </View>
         )}
       </View>
     ),
-    [isOwner, isAdmin, handleManageMember]
+    [isOwner, isAdmin, handleManageMember, handleRemoveMember]
   );
 
   const renderStatusFilter = useCallback(
@@ -328,6 +361,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "SpaceMono",
     marginBottom: 4,
+  },
+  memberRoleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  adminBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 255, 0, 0.1)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    gap: 4,
+  },
+  adminBadgeText: {
+    color: COLORS.accent,
+    fontSize: 12,
+    fontFamily: "SpaceMono",
   },
   memberRole: {
     color: COLORS.textSecondary,

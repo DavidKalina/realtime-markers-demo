@@ -147,8 +147,8 @@ const ICON_MAP = {
   scan: <Camera size={16} color="#fff" />,
   locate: <Navigation size={16} color="#fff" />,
   saved: <BookMarkedIcon size={16} color="#fff" />,
-  user: <User size={16} color="#fff" />,
   groups: <UsersRound size={16} color="#fff" />,
+  user: <User size={16} color="#fff" />,
 };
 
 // Label map - created once outside the component
@@ -157,8 +157,8 @@ const LABEL_MAP = {
   scan: "Scan",
   locate: "Locate",
   saved: "Events",
-  user: "Me",
   groups: "Groups",
+  user: "Me",
 };
 
 export const ActionBar: React.FC<ActionBarProps> = React.memo(
@@ -276,17 +276,18 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           icon: ICON_MAP.saved,
           action: actionHandlers.saved,
         },
-        {
-          key: "user",
-          label: LABEL_MAP.user,
-          icon: ICON_MAP.user,
-          action: actionHandlers.user,
-        },
+
         {
           key: "groups",
           label: LABEL_MAP.groups,
           icon: ICON_MAP.groups,
           action: actionHandlers.groups,
+        },
+        {
+          key: "user",
+          label: LABEL_MAP.user,
+          icon: ICON_MAP.user,
+          action: actionHandlers.user,
         },
       ],
       [userLocation, actionHandlers]
