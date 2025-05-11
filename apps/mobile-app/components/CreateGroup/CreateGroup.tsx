@@ -117,7 +117,7 @@ const CreateGroup: React.FC = () => {
 
       const group = await apiClient.createGroup(groupData);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.push("/group" as any);
+      router.push("/groups" as any);
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error("Create group error:", error);

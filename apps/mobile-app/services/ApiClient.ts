@@ -1772,7 +1772,7 @@ class ApiClient {
    * Requires authentication.
    */
   async createGroup(payload: CreateGroupPayload): Promise<ClientGroup> {
-    const url = `${this.baseUrl}/api/groups`;
+    const url = `${this.baseUrl}/api/groups/create`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify(payload),

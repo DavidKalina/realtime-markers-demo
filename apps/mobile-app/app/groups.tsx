@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState, useRef } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, TouchableOpacity } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { Search, Users, X } from "lucide-react-native";
+import { Search, Users, X, Plus } from "lucide-react-native";
 
 import Header from "@/components/Layout/Header";
 import ScreenLayout, { COLORS } from "@/components/Layout/ScreenLayout";
@@ -67,6 +67,20 @@ const GroupsView: React.FC = () => {
       router.push(`/group/${group.id}`);
     },
     [router]
+  );
+
+  const handleCreateGroup = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/create-group");
+  }, [router]);
+
+  const renderCreateButton = useCallback(
+    () => (
+      <TouchableOpacity style={styles.createButton} onPress={handleCreateGroup} activeOpacity={0.7}>
+        <Plus size={22} color={COLORS.textPrimary} />
+      </TouchableOpacity>
+    ),
+    [handleCreateGroup]
   );
 
   const fetchGroups = useCallback(
@@ -205,7 +219,7 @@ const GroupsView: React.FC = () => {
 
   return (
     <ScreenLayout>
-      <Header title="Groups" onBack={handleBack} />
+      <Header title="Groups" onBack={handleBack} rightIcon={renderCreateButton()} />
       <View style={styles.contentArea}>
         <View style={styles.searchContainer}>
           <Input
@@ -251,6 +265,16 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     marginBottom: 0,
+  },
+  createButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: COLORS.buttonBackground,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 });
 
