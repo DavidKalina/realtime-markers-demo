@@ -118,29 +118,40 @@ export const deleteGroupHandler = async (c: Context<AppContext>) => {
 
 export const listPublicGroupsHandler = async (c: Context<AppContext>) => {
   try {
-    const page = parseInt(c.req.query("page") || "1");
+    const cursor = c.req.query("cursor");
     const limit = parseInt(c.req.query("limit") || "10");
+    const direction = (c.req.query("direction") || "forward") as "forward" | "backward";
     const categoryId = c.req.query("categoryId");
 
-    const result = await groupService.listPublicGroups(page, limit, categoryId);
+    const result = await groupService.listPublicGroups({
+      cursor,
+      limit,
+      direction,
+      categoryId,
+    });
     return c.json(result);
   } catch (error: any) {
     console.error("Error listing public groups:", error);
-    return c.json({ error: error.message || "Failed to list public groups" }, 500);
+    return c.json({ error: error.message }, 500);
   }
 };
 
 export const getUserGroupsHandler = async (c: Context<AppContext>) => {
   try {
     const userId = getAuthenticatedUserId(c);
-    const page = parseInt(c.req.query("page") || "1");
+    const cursor = c.req.query("cursor");
     const limit = parseInt(c.req.query("limit") || "10");
+    const direction = (c.req.query("direction") || "forward") as "forward" | "backward";
 
-    const result = await groupService.getUserGroups(userId, page, limit);
+    const result = await groupService.getUserGroups(userId, {
+      cursor,
+      limit,
+      direction,
+    });
     return c.json(result);
   } catch (error: any) {
     console.error("Error listing user groups:", error);
-    return c.json({ error: error.message || "Failed to list user groups" }, 500);
+    return c.json({ error: error.message }, 500);
   }
 };
 
@@ -282,51 +293,73 @@ export const removeMemberHandler = async (c: Context<AppContext>) => {
 export const getGroupMembersHandler = async (c: Context<AppContext>) => {
   try {
     const groupId = c.req.param("groupId");
-    const user = c.get("user");
-    const userId = user?.userId; // Optional: use for private group access check
+    const cursor = c.req.query("cursor");
+    const limit = parseInt(c.req.query("limit") || "10");
+    const direction = (c.req.query("direction") || "forward") as "forward" | "backward";
+    const status = c.req.query("status") as GroupMembershipStatus | undefined;
 
-    const group = await groupService.getGroupById(groupId);
-    if (!group) {
-      return c.json({ error: "Group not found" }, 404);
-    }
-
-    // If group is private, check if user is a member
-    if (group.visibility === "PRIVATE") {
-      if (!userId || !(await groupService.isUserMember(groupId, userId))) {
-        return c.json({ error: "Private group, access denied" }, 403);
-      }
-    }
-
-    const members = await groupService.getGroupMembers(groupId);
+    const members = await groupService.getGroupMembers(groupId, {
+      cursor,
+      limit,
+      direction,
+      status,
+    });
     return c.json(members);
   } catch (error: any) {
     console.error("Error fetching group members:", error);
-    return c.json({ error: error.message || "Failed to fetch group members" }, 500);
+    return c.json({ error: error.message }, 500);
+  }
+};
+
+export const searchGroupsHandler = async (c: Context<AppContext>) => {
+  try {
+    const query = c.req.query("query");
+    if (!query) {
+      return c.json({ error: "Search query is required" }, 400);
+    }
+
+    const cursor = c.req.query("cursor");
+    const limit = parseInt(c.req.query("limit") || "10");
+    const direction = (c.req.query("direction") || "forward") as "forward" | "backward";
+    const categoryId = c.req.query("categoryId");
+
+    const result = await groupService.searchGroups({
+      query,
+      cursor,
+      limit,
+      direction,
+      categoryId,
+    });
+    return c.json(result);
+  } catch (error: any) {
+    console.error("Error searching groups:", error);
+    return c.json({ error: error.message }, 500);
   }
 };
 
 export const getGroupEventsHandler = async (c: Context<AppContext>) => {
   try {
     const groupId = c.req.param("groupId");
-    const user = c.get("user");
-    const userId = user?.userId; // Optional: use for private group access check
+    const cursor = c.req.query("cursor");
+    const limit = parseInt(c.req.query("limit") || "10");
+    const direction = (c.req.query("direction") || "forward") as "forward" | "backward";
+    const query = c.req.query("query");
+    const categoryId = c.req.query("categoryId");
+    const startDate = c.req.query("startDate") ? new Date(c.req.query("startDate")!) : undefined;
+    const endDate = c.req.query("endDate") ? new Date(c.req.query("endDate")!) : undefined;
 
-    const group = await groupService.getGroupById(groupId);
-    if (!group) {
-      return c.json({ error: "Group not found" }, 404);
-    }
-
-    // If group is private, check if user is a member
-    if (group.visibility === "PRIVATE") {
-      if (!userId || !(await groupService.isUserMember(groupId, userId))) {
-        return c.json({ error: "Private group, access denied" }, 403);
-      }
-    }
-
-    const events = await groupService.getGroupEvents(groupId);
-    return c.json(events);
+    const result = await groupService.getGroupEvents(groupId, {
+      cursor,
+      limit,
+      direction,
+      query,
+      categoryId,
+      startDate,
+      endDate,
+    });
+    return c.json(result);
   } catch (error: any) {
     console.error("Error fetching group events:", error);
-    return c.json({ error: error.message || "Failed to fetch group events" }, 500);
+    return c.json({ error: error.message }, 500);
   }
 };

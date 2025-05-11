@@ -12,6 +12,27 @@ import { Category } from "../entities/Category";
 import { Event } from "../entities/Event";
 import { OpenAIService, OpenAIModel } from "./shared/OpenAIService"; // Reusing from AuthService for content moderation
 import type { CreateGroupDto, UpdateGroupDto } from "../dtos/group.dto";
+import { CacheService } from "./shared/CacheService";
+import { Like } from "typeorm";
+import { Brackets } from "typeorm";
+
+interface CursorPaginationParams {
+  cursor?: string;
+  limit?: number;
+  direction?: "forward" | "backward";
+}
+
+interface SearchGroupsParams extends CursorPaginationParams {
+  query: string;
+  categoryId?: string;
+}
+
+interface GetGroupEventsParams extends CursorPaginationParams {
+  query?: string;
+  categoryId?: string;
+  startDate?: Date;
+  endDate?: Date;
+}
 
 export class GroupService {
   private userRepository: Repository<User>;
@@ -20,6 +41,10 @@ export class GroupService {
   private categoryRepository: Repository<Category>;
   private eventRepository: Repository<Event>;
   private dataSource: DataSource;
+
+  private static readonly GROUP_CACHE_TTL = 300; // 5 minutes
+  private static readonly GROUP_SEARCH_CACHE_TTL = 60; // 1 minute
+  private static readonly GROUP_MEMBERS_CACHE_TTL = 300; // 5 minutes
 
   constructor(dataSource: DataSource) {
     this.dataSource = dataSource;
@@ -62,6 +87,30 @@ Respond with a JSON object containing:
       console.error("Error checking content appropriateness:", error);
       return true; // Default to true if moderation fails
     }
+  }
+
+  private getGroupCacheKey(groupId: string): string {
+    return `group:${groupId}`;
+  }
+
+  private getGroupMembersCacheKey(groupId: string, status: GroupMembershipStatus): string {
+    return `group:${groupId}:members:${status}`;
+  }
+
+  private getGroupSearchCacheKey(params: SearchGroupsParams): string {
+    const { query, categoryId, cursor, limit, direction } = params;
+    return `group:search:${query}:${categoryId || "all"}:${cursor || "start"}:${limit || 10}:${
+      direction || "forward"
+    }`;
+  }
+
+  private getGroupEventsCacheKey(groupId: string, params: GetGroupEventsParams): string {
+    const { query, categoryId, cursor, limit, direction, startDate, endDate } = params;
+    return `group:${groupId}:events:${query || "all"}:${categoryId || "all"}:${cursor || "start"}:${
+      limit || 10
+    }:${direction || "forward"}:${startDate?.toISOString() || "all"}:${
+      endDate?.toISOString() || "all"
+    }`;
   }
 
   async createGroup(userId: string, groupData: CreateGroupDto): Promise<Group> {
@@ -109,6 +158,7 @@ Respond with a JSON object containing:
       });
       await transactionalEntityManager.save(membership);
 
+      await this.invalidateGroupCaches(savedGroup.id);
       return savedGroup;
     });
   }
@@ -117,7 +167,27 @@ Respond with a JSON object containing:
     groupId: string,
     relations: string[] = ["owner", "categories", "memberships", "memberships.user"]
   ): Promise<Group | null> {
-    return this.groupRepository.findOne({ where: { id: groupId }, relations });
+    const cacheKey = this.getGroupCacheKey(groupId);
+    const cached = await CacheService.getCachedData(cacheKey);
+
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
+    const group = await this.groupRepository.findOne({
+      where: { id: groupId },
+      relations,
+    });
+
+    if (group) {
+      await CacheService.setCachedData(
+        cacheKey,
+        JSON.stringify(group),
+        GroupService.GROUP_CACHE_TTL
+      );
+    }
+
+    return group;
   }
 
   async getPublicGroupById(groupId: string): Promise<Group | null> {
@@ -186,6 +256,7 @@ Respond with a JSON object containing:
     if (updateData.categoryIds) {
       await this.groupRepository.save(group);
     }
+    await this.invalidateGroupCaches(groupId);
     return this.getGroupById(groupId);
   }
 
@@ -207,56 +278,164 @@ Respond with a JSON object containing:
       await transactionalEntityManager.delete(GroupMembership, { groupId: group.id });
       // Delete group
       const deleteResult = await transactionalEntityManager.delete(Group, { id: group.id });
+      await this.invalidateGroupCaches(groupId);
       return deleteResult.affected !== null && deleteResult.affected! > 0;
     });
   }
 
-  async listPublicGroups(
-    page: number = 1,
-    limit: number = 10,
-    categoryId?: string
-  ): Promise<{ groups: Group[]; total: number }> {
-    const whereClause: any = { visibility: GroupVisibility.PUBLIC };
-    if (categoryId) {
-      // This requires a more complex query if filtering by ManyToMany relation directly in `findAndCount`
-      // A common approach is to use QueryBuilder or fetch groups and then filter, or join.
-      // For simplicity, if using QueryBuilder:
-      const [groups, total] = await this.groupRepository
-        .createQueryBuilder("group")
-        .leftJoinAndSelect("group.categories", "category")
-        .where("group.visibility = :visibility", { visibility: GroupVisibility.PUBLIC })
-        .andWhere(categoryId ? "category.id = :categoryId" : "1=1", { categoryId })
-        .skip((page - 1) * limit)
-        .take(limit)
-        .orderBy("group.createdAt", "DESC")
-        .getManyAndCount();
-      return { groups, total };
+  async listPublicGroups(params: CursorPaginationParams & { categoryId?: string }): Promise<{
+    groups: Group[];
+    nextCursor?: string;
+    prevCursor?: string;
+  }> {
+    const { categoryId, cursor, limit = 10, direction = "forward" } = params;
+    const cacheKey = `group:public:${categoryId || "all"}:${
+      cursor || "start"
+    }:${limit}:${direction}`;
+
+    const cached = await CacheService.getCachedData(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
     }
 
-    const [groups, total] = await this.groupRepository.findAndCount({
-      where: whereClause,
-      relations: ["owner", "categories"],
-      order: { createdAt: "DESC" },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-    return { groups, total };
+    const queryBuilder = this.groupRepository
+      .createQueryBuilder("group")
+      .leftJoinAndSelect("group.owner", "owner")
+      .leftJoinAndSelect("group.categories", "categories")
+      .where("group.visibility = :visibility", { visibility: GroupVisibility.PUBLIC });
+
+    if (categoryId) {
+      queryBuilder.andWhere("categories.id = :categoryId", { categoryId });
+    }
+
+    if (cursor) {
+      const decodedCursor = Buffer.from(cursor, "base64").toString();
+      const [timestamp, id] = decodedCursor.split(":");
+
+      if (direction === "forward") {
+        queryBuilder.andWhere(
+          "(group.createdAt < :timestamp OR (group.createdAt = :timestamp AND group.id < :id))",
+          { timestamp, id }
+        );
+      } else {
+        queryBuilder.andWhere(
+          "(group.createdAt > :timestamp OR (group.createdAt = :timestamp AND group.id > :id))",
+          { timestamp, id }
+        );
+      }
+    }
+
+    queryBuilder
+      .orderBy("group.createdAt", direction === "forward" ? "DESC" : "ASC")
+      .addOrderBy("group.id", direction === "forward" ? "DESC" : "ASC")
+      .take(limit + 1);
+
+    const groups = await queryBuilder.getMany();
+    const hasMore = groups.length > limit;
+    const results = hasMore ? groups.slice(0, limit) : groups;
+
+    const nextCursor =
+      hasMore && direction === "forward"
+        ? this.createCursor(results[results.length - 1])
+        : undefined;
+
+    const prevCursor =
+      hasMore && direction === "backward" ? this.createCursor(results[0]) : undefined;
+
+    const response = {
+      groups: results,
+      nextCursor,
+      prevCursor,
+    };
+
+    await CacheService.setCachedData(
+      cacheKey,
+      JSON.stringify(response),
+      GroupService.GROUP_CACHE_TTL
+    );
+
+    return response;
   }
 
   async getUserGroups(
     userId: string,
-    page: number = 1,
-    limit: number = 10
-  ): Promise<{ groups: Group[]; total: number }> {
-    const [memberships, total] = await this.groupMembershipRepository.findAndCount({
-      where: { userId: userId, status: GroupMembershipStatus.APPROVED },
-      relations: ["group", "group.owner", "group.categories"],
-      order: { joinedAt: "DESC" },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-    const groups = memberships.map((m) => m.group);
-    return { groups, total };
+    params: CursorPaginationParams
+  ): Promise<{
+    groups: Group[];
+    nextCursor?: string;
+    prevCursor?: string;
+  }> {
+    const { cursor, limit = 10, direction = "forward" } = params;
+    const cacheKey = `group:user:${userId}:${cursor || "start"}:${limit}:${direction}`;
+
+    const cached = await CacheService.getCachedData(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
+    const queryBuilder = this.groupMembershipRepository
+      .createQueryBuilder("membership")
+      .leftJoinAndSelect("membership.group", "group")
+      .leftJoinAndSelect("group.owner", "owner")
+      .leftJoinAndSelect("group.categories", "categories")
+      .where("membership.userId = :userId", { userId })
+      .andWhere("membership.status = :status", { status: GroupMembershipStatus.APPROVED });
+
+    if (cursor) {
+      const decodedCursor = Buffer.from(cursor, "base64").toString();
+      const [timestamp, id] = decodedCursor.split(":");
+
+      if (direction === "forward") {
+        queryBuilder.andWhere(
+          "(membership.joinedAt < :timestamp OR (membership.joinedAt = :timestamp AND membership.id < :id))",
+          { timestamp, id }
+        );
+      } else {
+        queryBuilder.andWhere(
+          "(membership.joinedAt > :timestamp OR (membership.joinedAt = :timestamp AND membership.id > :id))",
+          { timestamp, id }
+        );
+      }
+    }
+
+    queryBuilder
+      .orderBy("membership.joinedAt", direction === "forward" ? "DESC" : "ASC")
+      .addOrderBy("membership.id", direction === "forward" ? "DESC" : "ASC")
+      .take(limit + 1);
+
+    const memberships = await queryBuilder.getMany();
+    const hasMore = memberships.length > limit;
+    const results = hasMore ? memberships.slice(0, limit) : memberships;
+
+    const groups = results.map((m) => m.group);
+
+    const nextCursor =
+      hasMore && direction === "forward"
+        ? Buffer.from(
+            `${results[results.length - 1].joinedAt.toISOString()}:${
+              results[results.length - 1].id
+            }`
+          ).toString("base64")
+        : undefined;
+
+    const prevCursor =
+      hasMore && direction === "backward"
+        ? Buffer.from(`${results[0].joinedAt.toISOString()}:${results[0].id}`).toString("base64")
+        : undefined;
+
+    const response = {
+      groups,
+      nextCursor,
+      prevCursor,
+    };
+
+    await CacheService.setCachedData(
+      cacheKey,
+      JSON.stringify(response),
+      GroupService.GROUP_CACHE_TTL
+    );
+
+    return response;
   }
 
   async joinGroup(groupId: string, userId: string): Promise<GroupMembership> {
@@ -305,6 +484,7 @@ Respond with a JSON object containing:
         });
         await transactionalEntityManager.save(group);
       }
+      await this.invalidateGroupCaches(groupId);
       return existingMembership;
     });
   }
@@ -324,6 +504,7 @@ Respond with a JSON object containing:
           where: { groupId, status: GroupMembershipStatus.APPROVED },
         });
         await transactionalEntityManager.save(group);
+        await this.invalidateGroupCaches(groupId);
         return true;
       }
       return false;
@@ -371,6 +552,7 @@ Respond with a JSON object containing:
       });
       await transactionalEntityManager.save(group);
 
+      await this.invalidateGroupCaches(groupId);
       return updatedMembership;
     });
   }
@@ -417,6 +599,7 @@ Respond with a JSON object containing:
     if (!membership) throw new Error("Approved member not found");
 
     membership.role = newRole;
+    await this.invalidateGroupCaches(groupId);
     return this.groupMembershipRepository.save(membership);
   }
 
@@ -443,6 +626,7 @@ Respond with a JSON object containing:
           where: { groupId, status: GroupMembershipStatus.APPROVED },
         });
         await transactionalEntityManager.save(group);
+        await this.invalidateGroupCaches(groupId);
         return true;
       }
       return false;
@@ -451,32 +635,333 @@ Respond with a JSON object containing:
 
   async getGroupMembers(
     groupId: string,
-    page: number = 1,
-    limit: number = 10,
-    status: GroupMembershipStatus = GroupMembershipStatus.APPROVED
-  ): Promise<{ memberships: GroupMembership[]; total: number }> {
-    const [memberships, total] = await this.groupMembershipRepository.findAndCount({
-      where: { groupId, status },
-      relations: ["user"], // Ensure user details are fetched (select specific fields if needed)
-      order: { joinedAt: "ASC" },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-    return { memberships, total };
+    params: CursorPaginationParams & { status?: GroupMembershipStatus }
+  ): Promise<{
+    memberships: GroupMembership[];
+    nextCursor?: string;
+    prevCursor?: string;
+  }> {
+    const {
+      status = GroupMembershipStatus.APPROVED,
+      cursor,
+      limit = 10,
+      direction = "forward",
+    } = params;
+    const cacheKey =
+      this.getGroupMembersCacheKey(groupId, status) + `:${cursor || "start"}:${limit}:${direction}`;
+
+    const cached = await CacheService.getCachedData(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
+    const queryBuilder = this.groupMembershipRepository
+      .createQueryBuilder("membership")
+      .leftJoinAndSelect("membership.user", "user")
+      .where("membership.groupId = :groupId", { groupId })
+      .andWhere("membership.status = :status", { status });
+
+    if (cursor) {
+      const decodedCursor = Buffer.from(cursor, "base64").toString();
+      const [timestamp, id] = decodedCursor.split(":");
+
+      if (direction === "forward") {
+        queryBuilder.andWhere(
+          "(membership.joinedAt < :timestamp OR (membership.joinedAt = :timestamp AND membership.id < :id))",
+          { timestamp, id }
+        );
+      } else {
+        queryBuilder.andWhere(
+          "(membership.joinedAt > :timestamp OR (membership.joinedAt = :timestamp AND membership.id > :id))",
+          { timestamp, id }
+        );
+      }
+    }
+
+    queryBuilder
+      .orderBy("membership.joinedAt", direction === "forward" ? "ASC" : "DESC")
+      .addOrderBy("membership.id", direction === "forward" ? "ASC" : "DESC")
+      .take(limit + 1);
+
+    const memberships = await queryBuilder.getMany();
+    const hasMore = memberships.length > limit;
+    const results = hasMore ? memberships.slice(0, limit) : memberships;
+
+    const nextCursor =
+      hasMore && direction === "forward"
+        ? Buffer.from(
+            `${results[results.length - 1].joinedAt.toISOString()}:${
+              results[results.length - 1].id
+            }`
+          ).toString("base64")
+        : undefined;
+
+    const prevCursor =
+      hasMore && direction === "backward"
+        ? Buffer.from(`${results[0].joinedAt.toISOString()}:${results[0].id}`).toString("base64")
+        : undefined;
+
+    const response = {
+      memberships: results,
+      nextCursor,
+      prevCursor,
+    };
+
+    await CacheService.setCachedData(
+      cacheKey,
+      JSON.stringify(response),
+      GroupService.GROUP_MEMBERS_CACHE_TTL
+    );
+
+    return response;
   }
 
   async getGroupEvents(
     groupId: string,
-    page: number = 1,
-    limit: number = 10
-  ): Promise<{ events: Event[]; total: number }> {
-    const [events, total] = await this.eventRepository.findAndCount({
-      where: { groupId: groupId },
-      relations: ["creator", "categories"], // Add relations as needed
-      order: { eventDate: "ASC" },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-    return { events, total };
+    params: GetGroupEventsParams = {}
+  ): Promise<{
+    events: Event[];
+    nextCursor?: string;
+    prevCursor?: string;
+  }> {
+    const {
+      query,
+      categoryId,
+      cursor,
+      limit = 10,
+      direction = "forward",
+      startDate,
+      endDate,
+    } = params;
+
+    // Verify group exists
+    const group = await this.groupRepository.findOneBy({ id: groupId });
+    if (!group) {
+      throw new Error("Group not found");
+    }
+
+    // Try to get from cache
+    const cacheKey = this.getGroupEventsCacheKey(groupId, params);
+    const cached = await CacheService.getCachedData(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
+    // Build query
+    const queryBuilder = this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("event.groupId = :groupId", { groupId });
+
+    // Add search conditions if query is provided
+    if (query) {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where("LOWER(event.title) LIKE LOWER(:query)", {
+            query: `%${query.toLowerCase()}%`,
+          })
+            .orWhere("LOWER(event.description) LIKE LOWER(:query)", {
+              query: `%${query.toLowerCase()}%`,
+            })
+            .orWhere("LOWER(event.address) LIKE LOWER(:query)", {
+              query: `%${query.toLowerCase()}%`,
+            })
+            .orWhere("LOWER(event.locationNotes) LIKE LOWER(:query)", {
+              query: `%${query.toLowerCase()}%`,
+            })
+            .orWhere("LOWER(event.emojiDescription) LIKE LOWER(:query)", {
+              query: `%${query.toLowerCase()}%`,
+            });
+        })
+      );
+    }
+
+    // Add category filter if provided
+    if (categoryId) {
+      queryBuilder.andWhere("category.id = :categoryId", { categoryId });
+    }
+
+    // Add date range filters if provided
+    if (startDate) {
+      queryBuilder.andWhere("event.eventDate >= :startDate", { startDate });
+    }
+    if (endDate) {
+      queryBuilder.andWhere("event.eventDate <= :endDate", { endDate });
+    }
+
+    // Add cursor-based pagination
+    if (cursor) {
+      const decodedCursor = Buffer.from(cursor, "base64").toString();
+      const [timestamp, id] = decodedCursor.split(":");
+
+      if (direction === "forward") {
+        queryBuilder.andWhere(
+          "(event.eventDate < :timestamp OR (event.eventDate = :timestamp AND event.id < :id))",
+          { timestamp, id }
+        );
+      } else {
+        queryBuilder.andWhere(
+          "(event.eventDate > :timestamp OR (event.eventDate = :timestamp AND event.id > :id))",
+          { timestamp, id }
+        );
+      }
+    }
+
+    // Execute query with pagination
+    const events = await queryBuilder
+      .orderBy("event.eventDate", direction === "forward" ? "DESC" : "ASC")
+      .addOrderBy("event.id", direction === "forward" ? "DESC" : "ASC")
+      .take(limit + 1)
+      .getMany();
+
+    // Process results
+    const hasMore = events.length > limit;
+    const results = hasMore ? events.slice(0, limit) : events;
+
+    // Generate cursors
+    const nextCursor =
+      hasMore && direction === "forward"
+        ? Buffer.from(
+            `${results[results.length - 1].eventDate.toISOString()}:${
+              results[results.length - 1].id
+            }`
+          ).toString("base64")
+        : undefined;
+
+    const prevCursor =
+      hasMore && direction === "backward"
+        ? Buffer.from(`${results[0].eventDate.toISOString()}:${results[0].id}`).toString("base64")
+        : undefined;
+
+    const response = {
+      events: results,
+      nextCursor,
+      prevCursor,
+    };
+
+    // Cache the results
+    await CacheService.setCachedData(cacheKey, JSON.stringify(response), 300); // 5 minutes TTL
+
+    return response;
+  }
+
+  private createCursor(group: Group): string {
+    return Buffer.from(`${group.createdAt.toISOString()}:${group.id}`).toString("base64");
+  }
+
+  private async invalidateGroupCaches(groupId: string): Promise<void> {
+    const keys = [
+      this.getGroupCacheKey(groupId),
+      this.getGroupMembersCacheKey(groupId, GroupMembershipStatus.APPROVED),
+      this.getGroupMembersCacheKey(groupId, GroupMembershipStatus.PENDING),
+      this.getGroupMembersCacheKey(groupId, GroupMembershipStatus.BANNED),
+    ];
+
+    // Invalidate search caches
+    const searchKeys = (await CacheService.getRedisClient()?.keys("group:search:*")) || [];
+    keys.push(...searchKeys);
+
+    // Invalidate public groups cache
+    const publicKeys = (await CacheService.getRedisClient()?.keys("group:public:*")) || [];
+    keys.push(...publicKeys);
+
+    // Invalidate group events cache
+    const eventKeys =
+      (await CacheService.getRedisClient()?.keys(`group:${groupId}:events:*`)) || [];
+    keys.push(...eventKeys);
+
+    if (keys.length > 0) {
+      await CacheService.getRedisClient()?.del(...keys);
+    }
+  }
+
+  async searchGroups(params: SearchGroupsParams): Promise<{
+    groups: Group[];
+    nextCursor?: string;
+    prevCursor?: string;
+  }> {
+    const { query, categoryId, cursor, limit = 10, direction = "forward" } = params;
+    const cacheKey = this.getGroupSearchCacheKey(params);
+
+    const cached = await CacheService.getCachedData(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
+    // Create base query builder
+    const queryBuilder = this.groupRepository
+      .createQueryBuilder("group")
+      .leftJoinAndSelect("group.owner", "owner")
+      .leftJoinAndSelect("group.categories", "categories")
+      .where("group.visibility = :visibility", { visibility: GroupVisibility.PUBLIC });
+
+    // Add search conditions using ILIKE for case-insensitive search
+    if (query && query.trim()) {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where("group.name ILIKE :searchPattern", {
+            searchPattern: `%${query.trim()}%`,
+          }).orWhere("group.description ILIKE :searchPattern", {
+            searchPattern: `%${query.trim()}%`,
+          });
+        })
+      );
+    }
+
+    // Add category filter if provided
+    if (categoryId) {
+      queryBuilder.andWhere("categories.id = :categoryId", { categoryId });
+    }
+
+    // Add cursor-based pagination
+    if (cursor) {
+      const decodedCursor = Buffer.from(cursor, "base64").toString();
+      const [timestamp, id] = decodedCursor.split(":");
+
+      if (direction === "forward") {
+        queryBuilder.andWhere(
+          "(group.createdAt < :timestamp OR (group.createdAt = :timestamp AND group.id < :id))",
+          { timestamp, id }
+        );
+      } else {
+        queryBuilder.andWhere(
+          "(group.createdAt > :timestamp OR (group.createdAt = :timestamp AND group.id > :id))",
+          { timestamp, id }
+        );
+      }
+    }
+
+    // Add ordering and limit
+    queryBuilder
+      .orderBy("group.createdAt", direction === "forward" ? "DESC" : "ASC")
+      .addOrderBy("group.id", direction === "forward" ? "DESC" : "ASC")
+      .take(limit + 1);
+
+    const groups = await queryBuilder.getMany();
+    const hasMore = groups.length > limit;
+    const results = hasMore ? groups.slice(0, limit) : groups;
+
+    const nextCursor =
+      hasMore && direction === "forward"
+        ? this.createCursor(results[results.length - 1])
+        : undefined;
+
+    const prevCursor =
+      hasMore && direction === "backward" ? this.createCursor(results[0]) : undefined;
+
+    const response = {
+      groups: results,
+      nextCursor,
+      prevCursor,
+    };
+
+    await CacheService.setCachedData(
+      cacheKey,
+      JSON.stringify(response),
+      GroupService.GROUP_SEARCH_CACHE_TTL
+    );
+
+    return response;
   }
 }

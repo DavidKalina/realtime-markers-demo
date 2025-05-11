@@ -26,6 +26,9 @@ groupsRouter.use(
 // Create a new group (requires auth)
 groupsRouter.post("/create", authMiddleware, groupHandlers.createGroupHandler);
 
+// Search groups (requires auth)
+groupsRouter.get("/search", authMiddleware, groupHandlers.searchGroupsHandler);
+
 // Get a specific group (publicly accessible for public groups, auth for private)
 groupsRouter.get("/:groupId", groupHandlers.getGroupHandler); // Auth check is within handler
 
@@ -71,10 +74,10 @@ groupsRouter.delete(
 groupsRouter.get("/:groupId/members", groupHandlers.getGroupMembersHandler); // Auth checks within handler
 
 // --- Group Events ---
-// Get events for a specific group
+// Get events for a specific group with search, filtering, and pagination
 groupsRouter.get("/:groupId/events", groupHandlers.getGroupEventsHandler); // Auth checks within handler
 
-// List public groups (no auth required) - Moved to end as it's a catchall route
+// List public groups (no auth required) - Must be last to avoid catching other routes
 groupsRouter.get("/", groupHandlers.listPublicGroupsHandler);
 
 // --- Example of how to integrate into your main app router (e.g., src/index.ts or src/app.ts) ---
