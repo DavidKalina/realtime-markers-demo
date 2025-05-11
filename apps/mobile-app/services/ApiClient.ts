@@ -402,7 +402,7 @@ export interface GetGroupEventsParams extends CursorPaginationParams {
 }
 
 export interface GetGroupMembersParams extends CursorPaginationParams {
-  status?: "active" | "pending" | "all";
+  status?: GroupMembershipStatus;
 }
 
 class ApiClient {
@@ -1860,7 +1860,7 @@ class ApiClient {
     if (params.direction) queryParams.append("direction", params.direction);
 
     const response = await this.fetchWithAuth(
-      `${this.baseUrl}/groups/user/me?${queryParams.toString()}`
+      `${this.baseUrl}/api/groups/user/me?${queryParams.toString()}`
     );
     const data = await this.handleResponse<{
       groups: ApiGroup[];
@@ -1893,7 +1893,7 @@ class ApiClient {
     if (params.direction) queryParams.append("direction", params.direction);
     if (params.status) queryParams.append("status", params.status);
 
-    const url = `${this.baseUrl}/groups/${groupId}/members?${queryParams.toString()}`;
+    const url = `${this.baseUrl}/api/groups/${groupId}/members?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<{
       members: ApiGroupMember[];

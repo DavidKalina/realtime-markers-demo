@@ -13,7 +13,17 @@ import {
 import { COLORS } from "@/components/Layout/ScreenLayout";
 import ScreenLayout from "@/components/Layout/ScreenLayout";
 import { apiClient, ClientGroup } from "@/services/ApiClient";
-import { ArrowLeft, Users, MapPin, Tag, Globe, Search, X, Calendar } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Users,
+  MapPin,
+  Tag,
+  Globe,
+  Search,
+  X,
+  Calendar,
+  Plus,
+} from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Animated, {
   Extrapolate,
@@ -28,6 +38,7 @@ import Animated, {
 import { EventType } from "@/types/types";
 import EventList from "@/components/EventList/EventList";
 import Input from "@/components/Input/Input";
+import GroupMembership from "@/components/GroupMembership/GroupMembership";
 
 export default function GroupDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -218,28 +229,32 @@ export default function GroupDetailsScreen() {
     fetchGroupEvents(true);
   }, [fetchGroupEvents]);
 
+  // Add effect to fetch group details on mount
   useEffect(() => {
-    async function fetchGroupDetails() {
+    async function loadGroupDetails() {
+      if (!id) return;
+
       try {
         setLoading(true);
         const groupData = await apiClient.getGroupById(id);
-        setGroup(groupData);
-        // Fetch events after getting group details using the ref
-        if (fetchGroupEventsRef.current) {
-          fetchGroupEventsRef.current(true);
+        if (isMounted.current) {
+          setGroup(groupData);
+          setError(null);
         }
       } catch (err) {
-        setError("Failed to load group details");
-        console.error("Error fetching group:", err);
+        if (isMounted.current) {
+          setError("Failed to load group details");
+          console.error("Error fetching group:", err);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted.current) {
+          setLoading(false);
+        }
       }
     }
 
-    if (id) {
-      fetchGroupDetails();
-    }
-  }, [id]); // Remove fetchGroupEvents from dependencies
+    loadGroupDetails();
+  }, [id]);
 
   const renderHeader = useCallback(() => {
     if (!group) return null;
@@ -318,6 +333,25 @@ export default function GroupDetailsScreen() {
               </View>
             </View>
           )}
+
+          {/* Add Group Members Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Users size={18} color={COLORS.accent} />
+              <Text style={styles.sectionTitle}>Members</Text>
+            </View>
+            <View style={styles.membersContainer}>
+              <GroupMembership
+                groupId={id}
+                isOwner={group.ownerId === apiClient.getCurrentUser()?.id}
+                isAdmin={false} // You'll need to implement a way to check if user is admin
+                onMembershipChange={() => {
+                  // Refresh group details when membership changes
+                  fetchGroupEvents(true);
+                }}
+              />
+            </View>
+          </View>
 
           {/* Events Section Header */}
           <View style={styles.section}>
@@ -572,5 +606,13 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     marginBottom: 16,
+  },
+  membersContainer: {
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    overflow: "hidden",
+    height: 400, // Adjust this height as needed
   },
 });

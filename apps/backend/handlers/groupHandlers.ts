@@ -298,13 +298,18 @@ export const getGroupMembersHandler = async (c: Context<AppContext>) => {
     const direction = (c.req.query("direction") || "forward") as "forward" | "backward";
     const status = c.req.query("status") as GroupMembershipStatus | undefined;
 
-    const members = await groupService.getGroupMembers(groupId, {
+    const result = await groupService.getGroupMembers(groupId, {
       cursor,
       limit,
       direction,
       status,
     });
-    return c.json(members);
+    // Rename memberships to members for frontend compatibility
+    return c.json({
+      members: result.memberships,
+      nextCursor: result.nextCursor,
+      prevCursor: result.prevCursor,
+    });
   } catch (error: any) {
     console.error("Error fetching group members:", error);
     return c.json({ error: error.message }, 500);

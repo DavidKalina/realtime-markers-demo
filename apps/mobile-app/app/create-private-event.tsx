@@ -28,6 +28,7 @@ import {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
+import EventScopeSelector, { EventScope } from "@/components/EventScopeSelector/EventScopeSelector";
 
 // Unified color theme matching Login screen
 const COLORS = {
@@ -49,6 +50,8 @@ const CreatePrivateEvent = () => {
   const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(
     null
   );
+  const [eventScope, setEventScope] = useState<EventScope>("FRIENDS");
+  const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>();
 
   // Get coordinates from params
   useEffect(() => {
@@ -146,6 +149,15 @@ const CreatePrivateEvent = () => {
     }
   };
 
+  const handleScopeChange = (scope: EventScope, groupId?: string) => {
+    setEventScope(scope);
+    setSelectedGroupId(groupId);
+    // Clear selected friends when switching to group scope
+    if (scope === "GROUP") {
+      setSelectedFriends([]);
+    }
+  };
+
   const handleSubmit = async () => {
     if (isSubmitting) return;
 
@@ -157,6 +169,12 @@ const CreatePrivateEvent = () => {
 
     if (!coordinates) {
       Alert.alert("Error", "Location is required");
+      return;
+    }
+
+    // Additional validation for friend-scoped events
+    if (eventScope === "FRIENDS" && selectedFriends.length === 0) {
+      Alert.alert("Error", "Please select at least one friend to share with");
       return;
     }
 
@@ -184,24 +202,25 @@ const CreatePrivateEvent = () => {
       const eventData = {
         title: eventName.trim(),
         description: eventDescription.trim(),
-        emoji: selectedEmoji || "📍", // Use default emoji if none selected
+        emoji: selectedEmoji || "📍",
         date: date.toISOString(),
         location: {
           type: "Point",
           coordinates: [coordinates.longitude, coordinates.latitude] as [number, number],
         },
-        sharedWithIds: selectedFriends.map((friend) => friend.id),
+        sharedWithIds: eventScope === "FRIENDS" ? selectedFriends.map((friend) => friend.id) : [],
         userCoordinates: {
           lat: coordinates.latitude,
           lng: coordinates.longitude,
         },
         isPrivate: true,
+        groupId: eventScope === "GROUP" ? selectedGroupId : undefined,
       };
 
       if (params.id) {
         // Update existing event
         await apiClient.updateEvent(params.id as string, eventData);
-        Alert.alert("Success", "Your private event has been updated.", [
+        Alert.alert("Success", "Your event has been updated.", [
           {
             text: "OK",
             onPress: () => router.back(),
@@ -210,20 +229,16 @@ const CreatePrivateEvent = () => {
       } else {
         // Create new event
         const result = await apiClient.createPrivateEvent(eventData);
-        Alert.alert(
-          "Success",
-          "Your private event is being created. You'll be notified when it's ready.",
-          [
-            {
-              text: "OK",
-              onPress: () => router.back(),
-            },
-          ]
-        );
+        Alert.alert("Success", "Your event is being created. You'll be notified when it's ready.", [
+          {
+            text: "OK",
+            onPress: () => router.back(),
+          },
+        ]);
       }
     } catch (error) {
-      console.error("Error with private event:", error);
-      Alert.alert("Error", "Failed to process private event. Please try again.");
+      console.error("Error creating event:", error);
+      Alert.alert("Error", "Failed to process event. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -235,10 +250,7 @@ const CreatePrivateEvent = () => {
 
   return (
     <ScreenLayout>
-      <Header
-        title={params.title ? "Update Private Event" : "Create Private Event"}
-        onBack={() => router.back()}
-      />
+      <Header title={params.title ? "Update Event" : "Create Event"} onBack={() => router.back()} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoidingView}
@@ -249,6 +261,13 @@ const CreatePrivateEvent = () => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.container}>
+            {/* Event Scope Selector */}
+            <EventScopeSelector
+              selectedScope={eventScope}
+              selectedGroupId={selectedGroupId}
+              onScopeChange={handleScopeChange}
+            />
+
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Event Details</Text>
               <Input
@@ -278,14 +297,17 @@ const CreatePrivateEvent = () => {
               )}
             </View>
 
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Invite Friends</Text>
-              <CheckboxGroup
-                selectedFriends={selectedFriends}
-                onSelectionChange={setSelectedFriends}
-                buttonText="Select Friends to Invite"
-              />
-            </View>
+            {/* Only show friend selection for friend-scoped events */}
+            {eventScope === "FRIENDS" && (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Invite Friends</Text>
+                <CheckboxGroup
+                  selectedFriends={selectedFriends}
+                  onSelectionChange={setSelectedFriends}
+                  buttonText="Select Friends to Invite"
+                />
+              </View>
+            )}
 
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Date & Time</Text>
