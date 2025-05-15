@@ -851,28 +851,36 @@ Respond with a JSON object containing:
   }
 
   private async invalidateGroupCaches(groupId: string): Promise<void> {
-    const keys = [
-      this.getGroupCacheKey(groupId),
-      this.getGroupMembersCacheKey(groupId, GroupMembershipStatus.APPROVED),
-      this.getGroupMembersCacheKey(groupId, GroupMembershipStatus.PENDING),
-      this.getGroupMembersCacheKey(groupId, GroupMembershipStatus.BANNED),
-    ];
+    try {
+      const redisClient = CacheService.getRedisClient();
+      if (!redisClient) {
+        console.error("Redis client not initialized, cache invalidation skipped");
+        return;
+      }
 
-    // Invalidate search caches
-    const searchKeys = (await CacheService.getRedisClient()?.keys("group:search:*")) || [];
-    keys.push(...searchKeys);
+      // Get all keys that match the group pattern
+      const groupKeys = await redisClient.keys(`group:${groupId}:*`);
 
-    // Invalidate public groups cache
-    const publicKeys = (await CacheService.getRedisClient()?.keys("group:public:*")) || [];
-    keys.push(...publicKeys);
+      // Get all member-related keys for this group
+      const memberKeys = await redisClient.keys(`group:${groupId}:members:*`);
 
-    // Invalidate group events cache
-    const eventKeys =
-      (await CacheService.getRedisClient()?.keys(`group:${groupId}:events:*`)) || [];
-    keys.push(...eventKeys);
+      // Get all search and public group keys
+      const searchKeys = await redisClient.keys("group:search:*");
+      const publicKeys = await redisClient.keys("group:public:*");
 
-    if (keys.length > 0) {
-      await CacheService.getRedisClient()?.del(...keys);
+      // Get all event keys for this group
+      const eventKeys = await redisClient.keys(`group:${groupId}:events:*`);
+
+      // Combine all keys
+      const allKeys = [...groupKeys, ...memberKeys, ...searchKeys, ...publicKeys, ...eventKeys];
+
+      if (allKeys.length > 0) {
+        console.log(`Invalidating ${allKeys.length} cache keys for group ${groupId}`);
+        await redisClient.del(...allKeys);
+      }
+    } catch (error) {
+      console.error(`Error invalidating caches for group ${groupId}:`, error);
+      // Don't throw the error - we want the operation to continue even if cache invalidation fails
     }
   }
 
