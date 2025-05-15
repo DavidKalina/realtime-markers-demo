@@ -15,10 +15,10 @@ export class PlanService {
   getScanLimit(planType: PlanType): number {
     switch (planType) {
       case PlanType.PRO:
-        return 50;
+        return 100000;
       case PlanType.FREE:
       default:
-        return 20;
+        return 10000;
     }
   }
 
