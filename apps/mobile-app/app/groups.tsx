@@ -168,6 +168,14 @@ const GroupsView: React.FC = () => {
           fetchGroupsRef.current(true);
         }
       }, 500);
+    } else {
+      // When search query becomes empty, trigger a fetch immediately
+      if (isMounted.current && fetchGroupsRef.current) {
+        setCursor(undefined);
+        setHasMore(true);
+        setGroups([]);
+        fetchGroupsRef.current(true);
+      }
     }
 
     return () => {
