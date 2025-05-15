@@ -112,6 +112,7 @@ export class JobQueue {
       categories?: { id: string }[];
       timezone?: string;
       locationNotes?: string;
+      groupId?: string;
     },
     creatorId: string,
     sharedWithIds: string[],

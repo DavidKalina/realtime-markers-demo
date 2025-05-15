@@ -350,6 +350,8 @@ async function initializeWorker() {
             return;
           }
 
+          console.log("JOB_DATA", job.data);
+
           const newEvent = await eventService.createEvent({
             emoji: eventDetails.emoji,
             emojiDescription: eventDetails.emojiDescription,
@@ -367,6 +369,7 @@ async function initializeWorker() {
             detectedQrData: scanResult.qrCodeData,
             originalImageUrl: originalImageUrl,
             embedding: scanResult.embedding,
+            groupId: job.data?.eventDetails?.groupId,
           });
 
           // Create discovery record and increment user stats if they are the creator
@@ -521,6 +524,7 @@ async function initializeWorker() {
           embedding: scanResult.embedding,
           isPrivate: true,
           sharedWithIds: job.data.sharedWithIds || [], // Ensure we pass the shared user IDs
+          groupId: job.data?.eventDetails?.groupId,
         });
 
         // Create discovery record and increment user stats if they are the creator

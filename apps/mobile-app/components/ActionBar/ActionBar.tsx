@@ -3,9 +3,17 @@ import { styles as globalStyles } from "@/components/globalStyles";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { CameraAnimateToLocationEvent, EventTypes } from "@/services/EventBroker";
 import * as Haptics from "expo-haptics";
-import { BookMarkedIcon, Camera, Navigation, Plus, SearchIcon, User } from "lucide-react-native";
+import {
+  BookMarkedIcon,
+  Camera,
+  Navigation,
+  Plus,
+  SearchIcon,
+  User,
+  UsersRound,
+} from "lucide-react-native";
 import React, { useRef, useState, useCallback, useMemo, useEffect } from "react";
-import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Platform, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   BounceIn,
   Easing,
@@ -98,7 +106,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
       // Clone the icon element to add color prop if active
       const iconElement = React.cloneElement(icon as React.ReactElement, {
         color: iconColor,
-        size: 20, // Consistent size
+        size: 16, // Updated size to match new container
       });
 
       return <View style={styles.actionButtonIcon}>{iconElement}</View>;
@@ -131,16 +139,16 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 );
 
 // Default set of actions if none provided
-const DEFAULT_AVAILABLE_ACTIONS = ["search", "scan", "locate", "user", "saved", "add"];
+const DEFAULT_AVAILABLE_ACTIONS = ["search", "scan", "locate", "user", "saved", "groups"];
 
 // Icons memo - created once outside the component to avoid recreation
 const ICON_MAP = {
-  search: <SearchIcon size={20} color="#fff" />,
-  scan: <Camera size={20} color="#fff" />,
-  locate: <Navigation size={20} color="#fff" />,
-  saved: <BookMarkedIcon size={20} color="#fff" />,
-  user: <User size={20} color="#fff" />,
-  add: <Plus size={20} color="#fff" />,
+  search: <SearchIcon size={16} color="#fff" />,
+  scan: <Camera size={16} color="#fff" />,
+  locate: <Navigation size={16} color="#fff" />,
+  saved: <BookMarkedIcon size={16} color="#fff" />,
+  groups: <UsersRound size={16} color="#fff" />,
+  user: <User size={16} color="#fff" />,
 };
 
 // Label map - created once outside the component
@@ -149,8 +157,8 @@ const LABEL_MAP = {
   scan: "Scan",
   locate: "Locate",
   saved: "Events",
+  groups: "Groups",
   user: "Me",
-  add: "Add",
 };
 
 export const ActionBar: React.FC<ActionBarProps> = React.memo(
@@ -216,8 +224,8 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           case "user":
             router.push("/user");
             break;
-          case "add":
-            router.push("/create-private-event");
+          case "groups":
+            router.push("/groups");
             break;
           // locate is handled above with camera animation
         }
@@ -268,17 +276,18 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           icon: ICON_MAP.saved,
           action: actionHandlers.saved,
         },
+
+        {
+          key: "groups",
+          label: LABEL_MAP.groups,
+          icon: ICON_MAP.groups,
+          action: actionHandlers.groups,
+        },
         {
           key: "user",
           label: LABEL_MAP.user,
           icon: ICON_MAP.user,
           action: actionHandlers.user,
-        },
-        {
-          key: "add",
-          label: LABEL_MAP.add,
-          icon: ICON_MAP.add,
-          action: actionHandlers.add,
         },
       ],
       [userLocation, actionHandlers]
@@ -320,10 +329,12 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     // Calculate content container style - create once
     const contentContainerStyle = useMemo(
       () => [
-        globalStyles.scrollableActionsContainer,
         {
-          justifyContent: "center",
-          flexGrow: 1,
+          flexDirection: "row",
+          justifyContent: "space-around",
+          alignItems: "center",
+          width: "100%",
+          paddingHorizontal: 8,
         },
       ],
       []
@@ -331,15 +342,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
 
     return (
       <View style={containerStyle}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={globalStyles.scrollViewContainer}
-          contentContainerStyle={contentContainerStyle as any}
-          removeClippedSubviews={true}
-          keyboardShouldPersistTaps="handled"
-          accessibilityRole="menubar"
-        >
+        <View style={contentContainerStyle as any}>
           {scrollableActions.map((action) => (
             <ActionButton
               key={action.key}
@@ -351,7 +354,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
               disabled={action.disabled}
             />
           ))}
-        </ScrollView>
+        </View>
       </View>
     );
   },

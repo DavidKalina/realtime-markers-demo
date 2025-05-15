@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { Hono } from "hono";
-import emojisRouter from "./routes/emojis";
+import { emojisRouter } from "./routes/emojis";
 
 const app = new Hono();
 

@@ -3,12 +3,12 @@ import { Platform, StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
   bottomBar: {
-    height: 75, // Slightly taller for better touch targets
+    height: 65, // Reduced height
     backgroundColor: "#1a1a1a", // Match Cluster Events view background
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 8,
+    paddingHorizontal: 4, // Reduced padding
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.1)", // Subtle border matching our card styles
     overflow: "hidden",
@@ -32,11 +32,11 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   actionButton: {
-    padding: 8,
-    borderRadius: 10, // Slightly more refined corners
-    marginHorizontal: 6,
-    width: 60,
-    height: 56,
+    padding: 4, // Reduced padding
+    borderRadius: 8, // Slightly smaller corners
+    marginHorizontal: 2, // Reduced margin
+    width: 48, // Reduced width
+    height: 48, // Reduced height
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",
@@ -56,21 +56,21 @@ export const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
+    paddingVertical: 4, // Reduced padding
   },
   actionButtonLabel: {
     color: "#a0a0a0", // Match Cluster Events view textSecondary
-    fontSize: 10,
+    fontSize: 9, // Smaller font size
     fontFamily: "SpaceMono",
-    marginTop: 5,
+    marginTop: 2, // Reduced margin
     textAlign: "center",
   },
   activeActionButtonLabel: {
     color: "#93c5fd", // Match Cluster Events view accent
   },
   actionButtonIcon: {
-    width: 22,
-    height: 22,
+    width: 18, // Smaller icon container
+    height: 18, // Smaller icon container
     justifyContent: "center",
     alignItems: "center",
   },
@@ -99,7 +99,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 10, // Slightly more refined corners
-    backgroundColor: '#1a1a1a', // Match Cluster Events view background
+    backgroundColor: "#1a1a1a", // Match Cluster Events view background
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
     ...Platform.select({

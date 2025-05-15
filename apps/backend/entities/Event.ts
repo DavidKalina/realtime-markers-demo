@@ -20,6 +20,7 @@ import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
 import { EventShare } from "./EventShare";
 import { UserEventRsvp } from "./UserEventRsvp";
+import { Group } from "./Group";
 
 export enum EventStatus {
   PENDING = "PENDING",
@@ -149,6 +150,14 @@ export class Event {
     inverseJoinColumn: { name: "category_id", referencedColumnName: "id" },
   })
   categories!: Category[];
+
+  @Index() // Add index if you query events by group frequently
+  @Column({ name: "group_id", type: "uuid", nullable: true })
+  groupId?: string | null;
+
+  @ManyToOne(() => Group, (group) => group.events, { nullable: true, onDelete: "SET NULL" }) // If group is deleted, event becomes ungrouped
+  @JoinColumn({ name: "group_id" })
+  group?: Group | null;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;
