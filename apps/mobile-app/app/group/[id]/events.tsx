@@ -111,6 +111,14 @@ export default function GroupEventsScreen() {
     }
   }, [id, nextCursor, loading]);
 
+  const handleEventPress = useCallback(
+    (eventId: string) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      router.push(`/details?eventId=${eventId}`);
+    },
+    [router]
+  );
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -141,7 +149,7 @@ export default function GroupEventsScreen() {
   );
 
   const renderEventItem = ({ item }: { item: EventType }) => (
-    <TouchableOpacity style={styles.eventItem}>
+    <TouchableOpacity style={styles.eventItem} onPress={() => handleEventPress(item.id)}>
       <View style={styles.eventHeader}>
         <View style={styles.eventTitleContainer}>
           <Text style={styles.eventEmoji}>{item.emoji || "📍"}</Text>
