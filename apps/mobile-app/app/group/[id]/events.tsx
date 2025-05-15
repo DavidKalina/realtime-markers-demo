@@ -16,7 +16,9 @@ import {
 import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 
 export default function GroupEventsScreen() {
+  console.log("GroupEventsScreen component definition");
   const { id } = useLocalSearchParams<{ id: string }>();
+  console.log("GroupEventsScreen params:", { id });
   const router = useRouter();
   const [group, setGroup] = useState<ClientGroup | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,34 +28,26 @@ export default function GroupEventsScreen() {
 
   const isMounted = useRef(true);
 
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
-  const handleBack = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (router.canGoBack()) {
-      router.back();
-    }
-  }, [router]);
-
-  const handleCreateEvent = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Navigate to create event screen
-    router.push(`/create-private-event?groupId=${id}`);
-  }, []);
-
   const loadGroupDetails = useCallback(async () => {
-    if (!id) return;
+    console.log("loadGroupDetails called with id:", id);
+    if (!id) {
+      console.log("No id provided, returning early");
+      return;
+    }
 
     try {
+      console.log("Setting loading state to true");
       setLoading(true);
+      console.log("Fetching group and events data...");
       const [groupData, eventsData] = await Promise.all([
         apiClient.getGroupById(id),
         apiClient.getGroupEvents(id, { limit: 20 }),
       ]);
+      console.log("Data fetched successfully:", {
+        group: groupData ? "exists" : "null",
+        eventsCount: eventsData.events.length,
+        hasNextCursor: !!eventsData.nextCursor,
+      });
       if (isMounted.current) {
         setGroup(groupData);
         setEvents(eventsData.events);
@@ -72,14 +66,42 @@ export default function GroupEventsScreen() {
     }
   }, [id]);
 
-  const loadMoreEvents = useCallback(async () => {
-    if (!nextCursor || loading) return;
+  useEffect(() => {
+    console.log("GroupEventsScreen mounted with id:", id);
+    loadGroupDetails();
+    return () => {
+      console.log("GroupEventsScreen unmounting");
+      isMounted.current = false;
+    };
+  }, [loadGroupDetails]);
 
+  const handleBack = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (router.canGoBack()) {
+      router.back();
+    }
+  }, [router]);
+
+  const handleCreateEvent = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // TODO: Navigate to create event screen
+    router.push(`/create-private-event?groupId=${id}`);
+  }, []);
+
+  const loadMoreEvents = useCallback(async () => {
+    if (!nextCursor || loading) {
+      console.log("Skipping loadMoreEvents:", { nextCursor, loading });
+      return;
+    }
+
+    console.log("Loading more events with cursor:", nextCursor);
     try {
       const eventsData = await apiClient.getGroupEvents(id, {
         cursor: nextCursor,
         limit: 20,
       });
+
+      console.log("Successfully loaded more events:", eventsData.events.length);
       if (isMounted.current) {
         setEvents((prev) => [...prev, ...eventsData.events]);
         setNextCursor(eventsData.nextCursor);
@@ -88,10 +110,6 @@ export default function GroupEventsScreen() {
       console.error("Error loading more events:", err);
     }
   }, [id, nextCursor, loading]);
-
-  useEffect(() => {
-    loadGroupDetails();
-  }, [loadGroupDetails]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -125,7 +143,10 @@ export default function GroupEventsScreen() {
   const renderEventItem = ({ item }: { item: EventType }) => (
     <TouchableOpacity style={styles.eventItem}>
       <View style={styles.eventHeader}>
-        <Text style={styles.eventTitle}>{item.title}</Text>
+        <View style={styles.eventTitleContainer}>
+          <Text style={styles.eventEmoji}>{item.emoji || "📍"}</Text>
+          <Text style={styles.eventTitle}>{item.title}</Text>
+        </View>
         <View style={styles.attendeesBadge}>
           <Text style={styles.attendeesText}>{item.saveCount} saved</Text>
         </View>
@@ -252,13 +273,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 8,
   },
+  eventTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 12,
+  },
+  eventEmoji: {
+    fontSize: 20,
+    marginRight: 8,
+  },
   eventTitle: {
     fontSize: 18,
     fontFamily: "SpaceMono",
     fontWeight: "700",
     color: COLORS.textPrimary,
     flex: 1,
-    marginRight: 12,
   },
   attendeesBadge: {
     backgroundColor: "rgba(255,255,255,0.1)",

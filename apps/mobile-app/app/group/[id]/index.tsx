@@ -3,7 +3,16 @@ import ScreenLayout, { COLORS } from "@/components/Layout/ScreenLayout";
 import { apiClient, ClientGroup } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Calendar, Globe, MapPin, Tag, Users } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Calendar,
+  Globe,
+  MapPin,
+  Tag,
+  Users,
+  LogOut,
+  Trash2,
+} from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -29,6 +38,8 @@ export default function GroupDetailsScreen() {
   const [group, setGroup] = useState<ClientGroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Add refs to track mounted state
   const isMounted = useRef(true);
@@ -103,6 +114,40 @@ export default function GroupDetailsScreen() {
   useEffect(() => {
     loadGroupDetails();
   }, [loadGroupDetails]);
+
+  const isAdmin = group?.ownerId === apiClient.getCurrentUser()?.id;
+
+  const handleLeaveGroup = useCallback(async () => {
+    if (!group || isLeaving) return;
+
+    try {
+      setIsLeaving(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await apiClient.leaveGroup(group.id);
+      router.back();
+    } catch (err) {
+      console.error("Error leaving group:", err);
+      // You might want to show an error message to the user here
+    } finally {
+      setIsLeaving(false);
+    }
+  }, [group, isLeaving, router]);
+
+  const handleDeleteGroup = useCallback(async () => {
+    if (!group || isDeleting) return;
+
+    try {
+      setIsDeleting(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await apiClient.deleteGroup(group.id);
+      router.back();
+    } catch (err) {
+      console.error("Error deleting group:", err);
+      // You might want to show an error message to the user here
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [group, isDeleting, router]);
 
   const renderHeader = useCallback(() => {
     if (!group) return null;
@@ -289,6 +334,39 @@ export default function GroupDetailsScreen() {
         bounces={true}
       >
         {renderHeader()}
+        <View style={styles.actionButtonContainer}>
+          {isAdmin ? (
+            <TouchableOpacity
+              style={[styles.deleteGroupButton, isDeleting && styles.actionButtonDisabled]}
+              onPress={handleDeleteGroup}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Trash2 size={18} color="#fff" style={styles.actionButtonIcon} />
+                  <Text style={styles.actionButtonText}>Delete Group</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.leaveGroupButton, isLeaving && styles.actionButtonDisabled]}
+              onPress={handleLeaveGroup}
+              disabled={isLeaving}
+            >
+              {isLeaving ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <LogOut size={18} color="#fff" style={styles.actionButtonIcon} />
+                  <Text style={styles.actionButtonText}>Leave Group</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
       </Animated.ScrollView>
     </ScreenLayout>
   );
@@ -478,5 +556,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "SpaceMono",
     lineHeight: 20,
+  },
+  actionButtonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 32,
+  },
+  leaveGroupButton: {
+    backgroundColor: "#DC2626", // Red-600
+    borderRadius: 12,
+    paddingVertical: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+  },
+  deleteGroupButton: {
+    backgroundColor: "#991B1B", // Red-800 - darker for delete action
+    borderRadius: 12,
+    paddingVertical: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+  },
+  actionButtonDisabled: {
+    opacity: 0.7,
+  },
+  actionButtonIcon: {
+    marginRight: 8,
+  },
+  actionButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
   },
 });

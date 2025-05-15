@@ -2024,6 +2024,7 @@ class ApiClient {
     nextCursor?: string;
     prevCursor?: string;
   }> {
+    console.log("getGroupEvents called with:", { groupId, params });
     const queryParams = new URLSearchParams();
     if (params.cursor) queryParams.append("cursor", params.cursor);
     if (params.limit) queryParams.append("limit", params.limit.toString());
@@ -2033,14 +2034,30 @@ class ApiClient {
     if (params.startDate) queryParams.append("startDate", params.startDate);
     if (params.endDate) queryParams.append("endDate", params.endDate);
 
-    const response = await this.fetchWithAuth(
-      `${this.baseUrl}/api/groups/${groupId}/events?${queryParams.toString()}`
-    );
+    const url = `${this.baseUrl}/api/groups/${groupId}/events?${queryParams.toString()}`;
+    console.log("Making request to:", url);
+
+    const response = await this.fetchWithAuth(url);
+    console.log("Response status:", response.status);
+
     const data = await this.handleResponse<{
       events: ApiEvent[];
       nextCursor?: string;
       prevCursor?: string;
     }>(response);
+
+    console.log("Response data:", {
+      eventCount: data.events.length,
+      hasNextCursor: !!data.nextCursor,
+      hasPrevCursor: !!data.prevCursor,
+      firstEvent: data.events[0]
+        ? {
+            id: data.events[0].id,
+            title: data.events[0].title,
+            eventDate: data.events[0].eventDate,
+          }
+        : null,
+    });
 
     return {
       events: data.events.map(this.mapEventToEventType),
