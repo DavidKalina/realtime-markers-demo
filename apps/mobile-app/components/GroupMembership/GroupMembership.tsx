@@ -10,8 +10,20 @@ import {
 } from "react-native";
 import { apiClient, ClientGroupMembership } from "@/services/ApiClient";
 import { COLORS } from "@/components/Layout/ScreenLayout";
-import { User, Users, UserPlus, UserMinus, Shield } from "lucide-react-native";
+import {
+  User,
+  Users,
+  UserPlus,
+  UserMinus,
+  Shield,
+  CheckCircle,
+  Clock,
+  ListFilter,
+  ChevronRight,
+} from "lucide-react-native";
 import * as Haptics from "expo-haptics";
+import Tabs from "@/components/Layout/Tabs";
+import { useRouter } from "expo-router";
 
 // Define the types to match the API client
 type GroupMembershipStatus = "PENDING" | "APPROVED" | "REJECTED" | "BANNED";
@@ -25,19 +37,42 @@ interface GroupMembershipProps {
   onMembershipChange?: () => void;
 }
 
+const createTabItems = (isAdminOrOwner: boolean) => [
+  {
+    icon: CheckCircle,
+    label: "Active",
+    value: "active" as const,
+  },
+  ...(isAdminOrOwner
+    ? [
+        {
+          icon: Clock,
+          label: "Pending",
+          value: "pending" as const,
+        },
+        {
+          icon: ListFilter,
+          label: "All",
+          value: "all" as const,
+        },
+      ]
+    : []),
+];
+
 export default function GroupMembership({
   groupId,
   isOwner,
   isAdmin,
   onMembershipChange,
 }: GroupMembershipProps) {
+  const router = useRouter();
   const [members, setMembers] = useState<ClientGroupMembership[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const cursorRef = useRef<string | undefined>();
   const [selectedStatus, setSelectedStatus] = useState<MemberStatusFilter>("active");
+
+  const tabItems = React.useMemo(() => createTabItems(isOwner || isAdmin), [isOwner, isAdmin]);
 
   const fetchMembers = useCallback(
     async (refresh = false) => {
@@ -59,17 +94,10 @@ export default function GroupMembership({
 
         const result = await apiClient.getGroupMembers(groupId, {
           status,
-          limit: 20,
-          cursor: refresh ? undefined : cursorRef.current,
+          limit: 10, // Limit to 10 members
         });
 
-        if (refresh) {
-          setMembers(result.members);
-        } else {
-          setMembers((prev) => [...prev, ...result.members]);
-        }
-        setHasMore(!!result.nextCursor);
-        cursorRef.current = result.nextCursor;
+        setMembers(result.members);
         setError(null);
       } catch (err) {
         setError("Failed to load group members");
@@ -82,7 +110,6 @@ export default function GroupMembership({
   );
 
   useEffect(() => {
-    cursorRef.current = undefined;
     fetchMembers(true);
   }, [selectedStatus]);
 
@@ -161,140 +188,89 @@ export default function GroupMembership({
     [handleManageMember]
   );
 
-  const renderMember = useCallback(
-    ({ item: member }: { item: ClientGroupMembership }) => (
-      <View style={styles.memberRow}>
-        <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>{member.user.displayName}</Text>
-          <View style={styles.memberRoleContainer}>
-            {member.role === "ADMIN" && (
-              <View style={styles.adminBadge}>
-                <Shield size={12} color={COLORS.accent} />
-                <Text style={styles.adminBadgeText}>Admin</Text>
-              </View>
-            )}
-            <Text style={styles.memberRole}>
-              {member.status === "PENDING" ? "Pending" : "Member"}
-            </Text>
-          </View>
-        </View>
-
-        {(isOwner || isAdmin) && member.userId !== apiClient.getCurrentUser()?.id && (
-          <View style={styles.memberActions}>
-            {member.status === "PENDING" && (
-              <>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.approveButton]}
-                  onPress={() => handleManageMember(member.userId, "APPROVED")}
-                >
-                  <UserPlus size={16} color={COLORS.textPrimary} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.rejectButton]}
-                  onPress={() => handleManageMember(member.userId, "REJECTED")}
-                >
-                  <UserMinus size={16} color={COLORS.textPrimary} />
-                </TouchableOpacity>
-              </>
-            )}
-            {member.status === "APPROVED" && (
-              <TouchableOpacity
-                style={[styles.actionButton, styles.removeButton]}
-                onPress={() => handleRemoveMember(member)}
-              >
-                <UserMinus size={16} color={COLORS.errorText} />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-      </View>
-    ),
-    [isOwner, isAdmin, handleManageMember, handleRemoveMember]
-  );
-
-  const renderStatusFilter = useCallback(
-    () => (
-      <View style={styles.statusFilter}>
-        <TouchableOpacity
-          style={[styles.filterButton, selectedStatus === "active" && styles.filterButtonActive]}
-          onPress={() => setSelectedStatus("active")}
-        >
-          <Text
-            style={[
-              styles.filterButtonText,
-              selectedStatus === "active" && styles.filterButtonTextActive,
-            ]}
-          >
-            Active
-          </Text>
-        </TouchableOpacity>
-        {(isOwner || isAdmin) && (
-          <TouchableOpacity
-            style={[styles.filterButton, selectedStatus === "pending" && styles.filterButtonActive]}
-            onPress={() => setSelectedStatus("pending")}
-          >
-            <Text
-              style={[
-                styles.filterButtonText,
-                selectedStatus === "pending" && styles.filterButtonTextActive,
-              ]}
-            >
-              Pending
-            </Text>
-          </TouchableOpacity>
-        )}
-        {(isOwner || isAdmin) && (
-          <TouchableOpacity
-            style={[styles.filterButton, selectedStatus === "all" && styles.filterButtonActive]}
-            onPress={() => setSelectedStatus("all")}
-          >
-            <Text
-              style={[
-                styles.filterButtonText,
-                selectedStatus === "all" && styles.filterButtonTextActive,
-              ]}
-            >
-              All
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    ),
-    [isOwner, isAdmin, selectedStatus]
-  );
-
-  if (loading && (!members || members.length === 0)) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
-      </View>
-    );
-  }
+  const handleViewAllMembers = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/group/${groupId}/members`);
+  }, [groupId, router]);
 
   return (
     <View style={styles.container}>
       {error && <Text style={styles.errorText}>{error}</Text>}
+      <Tabs
+        items={tabItems}
+        activeTab={selectedStatus}
+        onTabPress={setSelectedStatus}
+        style={styles.tabsContainer}
+      />
+      <View style={styles.listContainer}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.accent} />
+          </View>
+        ) : (
+          <View>
+            {members.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Users size={40} color={COLORS.textSecondary} />
+                <Text style={styles.emptyStateText}>No members found</Text>
+              </View>
+            ) : (
+              members.map((member) => (
+                <View key={member.id} style={styles.memberRow}>
+                  <View style={styles.memberInfo}>
+                    <Text style={styles.memberName}>{member.user.displayName}</Text>
+                    <View style={styles.memberRoleContainer}>
+                      {member.role === "ADMIN" && (
+                        <View style={styles.adminBadge}>
+                          <Shield size={12} color={COLORS.accent} />
+                          <Text style={styles.adminBadgeText}>Admin</Text>
+                        </View>
+                      )}
+                      <Text style={styles.memberRole}>
+                        {member.status === "PENDING" ? "Pending" : "Member"}
+                      </Text>
+                    </View>
+                  </View>
 
-      {renderStatusFilter()}
-
-      <FlatList
-        data={members}
-        renderItem={renderMember}
-        keyExtractor={(item) => item.id}
-        onEndReached={() => hasMore && !loading && fetchMembers()}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={() =>
-          loading && members.length > 0 ? (
-            <ActivityIndicator style={styles.loadingMore} color={COLORS.accent} />
-          ) : null
-        }
-        ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <Users size={40} color={COLORS.textSecondary} />
-            <Text style={styles.emptyStateText}>No members found</Text>
+                  {(isOwner || isAdmin) && member.userId !== apiClient.getCurrentUser()?.id && (
+                    <View style={styles.memberActions}>
+                      {member.status === "PENDING" && (
+                        <>
+                          <TouchableOpacity
+                            style={[styles.actionButton, styles.approveButton]}
+                            onPress={() => handleManageMember(member.userId, "APPROVED")}
+                          >
+                            <UserPlus size={16} color={COLORS.textPrimary} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.actionButton, styles.rejectButton]}
+                            onPress={() => handleManageMember(member.userId, "REJECTED")}
+                          >
+                            <UserMinus size={16} color={COLORS.textPrimary} />
+                          </TouchableOpacity>
+                        </>
+                      )}
+                      {member.status === "APPROVED" && (
+                        <TouchableOpacity
+                          style={[styles.actionButton, styles.removeButton]}
+                          onPress={() => handleRemoveMember(member)}
+                        >
+                          <UserMinus size={16} color={COLORS.errorText} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+                </View>
+              ))
+            )}
           </View>
         )}
-      />
+      </View>
+
+      <TouchableOpacity style={styles.viewAllButton} onPress={handleViewAllMembers}>
+        <Text style={styles.viewAllButtonText}>View All Members</Text>
+        <ChevronRight size={16} color={COLORS.accent} />
+      </TouchableOpacity>
 
       {!isOwner && !isAdmin && (
         <TouchableOpacity style={styles.joinButton} onPress={handleJoinGroup} disabled={isJoining}>
@@ -303,12 +279,6 @@ export default function GroupMembership({
           ) : (
             <Text style={styles.joinButtonText}>Join Group</Text>
           )}
-        </TouchableOpacity>
-      )}
-
-      {(isOwner || isAdmin) && (
-        <TouchableOpacity style={styles.leaveButton} onPress={handleLeaveGroup}>
-          <Text style={styles.leaveButtonText}>Leave Group</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -320,30 +290,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  statusFilter: {
-    flexDirection: "row",
-    padding: 16,
-    gap: 8,
+  tabsContainer: {
+    marginTop: 16,
+    marginBottom: 12,
   },
-  filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  listContainer: {
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
     borderRadius: 16,
-    backgroundColor: COLORS.cardBackground,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  filterButtonActive: {
-    backgroundColor: COLORS.accent,
-    borderColor: COLORS.accent,
-  },
-  filterButtonText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-  },
-  filterButtonTextActive: {
-    color: COLORS.textPrimary,
+    overflow: "hidden",
+    maxHeight: 500, // Add a max height to ensure it doesn't grow too large
   },
   memberRow: {
     flexDirection: "row",
@@ -351,7 +306,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    borderBottomColor: "rgba(255, 255, 255, 0.05)",
   },
   memberInfo: {
     flex: 1,
@@ -417,21 +372,10 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontWeight: "600",
   },
-  leaveButton: {
-    margin: 16,
-    padding: 16,
-    backgroundColor: "rgba(255, 0, 0, 0.1)",
-    borderRadius: 12,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-  },
-  leaveButtonText: {
-    color: COLORS.errorText,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-  },
-  loadingMore: {
-    padding: 16,
   },
   emptyState: {
     padding: 32,
@@ -450,5 +394,21 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     textAlign: "center",
     padding: 16,
+  },
+  viewAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+    marginTop: 12,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 12,
+    gap: 8,
+  },
+  viewAllButtonText: {
+    color: COLORS.accent,
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
   },
 });

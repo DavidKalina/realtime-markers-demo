@@ -119,7 +119,21 @@ function RootLayout() {
           <Stack.Screen name="create-group" />
           <Stack.Screen name="groups" />
           <Stack.Screen
-            name="group/[id]"
+            name="group/[id]/index"
+            options={{
+              animation: "fade_from_bottom",
+              animationDuration: 200,
+            }}
+          />
+          <Stack.Screen
+            name="group/[id]/members"
+            options={{
+              animation: "fade_from_bottom",
+              animationDuration: 200,
+            }}
+          />
+          <Stack.Screen
+            name="group/[id]/events"
             options={{
               animation: "fade_from_bottom",
               animationDuration: 200,
