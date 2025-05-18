@@ -1,6 +1,8 @@
 import type { MigrationInterface, QueryRunner } from "typeorm";
 
-export class CreateNotificationsTable1710000000009 implements MigrationInterface {
+export class CreateNotificationsTable1710000000009
+  implements MigrationInterface
+{
   name = "CreateNotificationsTable1710000000009";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -43,8 +45,10 @@ export class CreateNotificationsTable1710000000009 implements MigrationInterface
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "notifications" DROP CONSTRAINT "FK_notifications_user"`);
-    await queryRunner.query(`DROP TABLE "notifications"`);
-    await queryRunner.query(`DROP TYPE "public"."notifications_type_enum"`);
+    await queryRunner.query(
+      'ALTER TABLE "notifications" DROP CONSTRAINT "FK_notifications_user"',
+    );
+    await queryRunner.query('DROP TABLE "notifications"');
+    await queryRunner.query('DROP TYPE "public"."notifications_type_enum"');
   }
 }

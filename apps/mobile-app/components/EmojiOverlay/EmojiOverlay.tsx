@@ -66,12 +66,18 @@ const EmojiOverlay = () => {
       delay,
       withSequence(
         withTiming(1, { duration: 300 }),
-        withDelay(2000 + Math.random() * 2000, withTiming(0, { duration: 1000 }))
-      )
+        withDelay(
+          2000 + Math.random() * 2000,
+          withTiming(0, { duration: 1000 }),
+        ),
+      ),
     );
 
     // Animate scale
-    values.scale.value = withDelay(delay, withSpring(0.7 + Math.random() * 0.7, { damping: 6 }));
+    values.scale.value = withDelay(
+      delay,
+      withSpring(0.7 + Math.random() * 0.7, { damping: 6 }),
+    );
 
     // Animate horizontal movement
     values.translateX.value = withDelay(
@@ -85,8 +91,8 @@ const EmojiOverlay = () => {
           damping: 15,
           stiffness: 30,
           mass: 0.8 + Math.random() * 0.8,
-        })
-      )
+        }),
+      ),
     );
 
     // Animate vertical movement
@@ -100,8 +106,8 @@ const EmojiOverlay = () => {
         withSpring(startY + directionY, {
           damping: 12,
           stiffness: 40,
-        })
-      )
+        }),
+      ),
     );
 
     // Animate rotation
@@ -112,8 +118,8 @@ const EmojiOverlay = () => {
         withSpring((Math.random() * 3 - 1.5) * Math.PI, {
           damping: 15,
           stiffness: 25,
-        })
-      )
+        }),
+      ),
     );
   };
 
@@ -138,7 +144,7 @@ const EmojiOverlay = () => {
         // Randomly select emojis to animate
         const numToRestart = Math.floor(emojis.length / 4) + 1;
         const indicesToRestart = Array.from({ length: numToRestart }, () =>
-          Math.floor(Math.random() * emojis.length)
+          Math.floor(Math.random() * emojis.length),
         );
 
         indicesToRestart.forEach((index) => {

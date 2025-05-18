@@ -30,7 +30,10 @@ export interface IEmbeddingService {
    * @param model Optional model to use
    * @returns Vector embedding
    */
-  getStructuredEmbedding(input: EmbeddingInput, model?: string): Promise<number[]>;
+  getStructuredEmbedding(
+    input: EmbeddingInput,
+    model?: string,
+  ): Promise<number[]>;
 
   /**
    * Get structured embedding in SQL format for database operations
@@ -38,7 +41,10 @@ export interface IEmbeddingService {
    * @param model Optional model to use
    * @returns SQL representation of vector embedding
    */
-  getStructuredEmbeddingSql(input: EmbeddingInput, model?: string): Promise<string>;
+  getStructuredEmbeddingSql(
+    input: EmbeddingInput,
+    model?: string,
+  ): Promise<string>;
 
   /**
    * Parse SQL embedding string back to number array

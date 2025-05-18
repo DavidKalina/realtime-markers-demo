@@ -75,7 +75,11 @@ export class Group {
   @Column({ name: "member_count", type: "integer", default: 1 }) // Starts with owner
   memberCount!: number;
 
-  @Column({ name: "allow_member_event_creation", type: "boolean", default: false })
+  @Column({
+    name: "allow_member_event_creation",
+    type: "boolean",
+    default: false,
+  })
   allowMemberEventCreation!: boolean; // Can regular members create events for this group?
 
   // Relationships

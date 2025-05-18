@@ -21,7 +21,11 @@ interface RsvpButtonProps {
   onRsvp: () => void;
 }
 
-const RsvpButton: React.FC<RsvpButtonProps> = ({ isRsvped, rsvpState, onRsvp }) => {
+const RsvpButton: React.FC<RsvpButtonProps> = ({
+  isRsvped,
+  rsvpState,
+  onRsvp,
+}) => {
   const scale = useSharedValue(1);
   const color = useSharedValue(0);
 
@@ -51,7 +55,7 @@ const RsvpButton: React.FC<RsvpButtonProps> = ({ isRsvped, rsvpState, onRsvp }) 
       backgroundColor: interpolateColor(
         color.value,
         [0, 1],
-        [COLORS.buttonBackground, COLORS.success + "20"]
+        [COLORS.buttonBackground, COLORS.success + "20"],
       ),
     };
   });
@@ -62,9 +66,14 @@ const RsvpButton: React.FC<RsvpButtonProps> = ({ isRsvped, rsvpState, onRsvp }) 
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={rsvpState === "loading"}
-      style={({ pressed }) => [styles.rsvpButton, pressed && styles.rsvpButtonPressed]}
+      style={({ pressed }) => [
+        styles.rsvpButton,
+        pressed && styles.rsvpButtonPressed,
+      ]}
     >
-      <Animated.View style={[StyleSheet.absoluteFill, styles.buttonContent, animatedStyle]}>
+      <Animated.View
+        style={[StyleSheet.absoluteFill, styles.buttonContent, animatedStyle]}
+      >
         {rsvpState === "loading" ? (
           <ActivityIndicator size="small" color={COLORS.accent} />
         ) : isRsvped ? (

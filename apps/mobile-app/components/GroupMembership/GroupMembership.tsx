@@ -70,9 +70,13 @@ export default function GroupMembership({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<MemberStatusFilter>("active");
+  const [selectedStatus, setSelectedStatus] =
+    useState<MemberStatusFilter>("active");
 
-  const tabItems = React.useMemo(() => createTabItems(isOwner || isAdmin), [isOwner, isAdmin]);
+  const tabItems = React.useMemo(
+    () => createTabItems(isOwner || isAdmin),
+    [isOwner, isAdmin],
+  );
 
   const fetchMembers = useCallback(
     async (refresh = false) => {
@@ -106,7 +110,7 @@ export default function GroupMembership({
         setLoading(false);
       }
     },
-    [groupId, selectedStatus]
+    [groupId, selectedStatus],
   );
 
   useEffect(() => {
@@ -163,7 +167,7 @@ export default function GroupMembership({
         console.error("Error managing member:", err);
       }
     },
-    [groupId, fetchMembers]
+    [groupId, fetchMembers],
   );
 
   const handleRemoveMember = useCallback(
@@ -182,10 +186,10 @@ export default function GroupMembership({
             onPress: () => handleManageMember(member.userId, "BANNED"),
           },
         ],
-        { cancelable: true }
+        { cancelable: true },
       );
     },
-    [handleManageMember]
+    [handleManageMember],
   );
 
   const handleViewAllMembers = useCallback(() => {
@@ -218,7 +222,9 @@ export default function GroupMembership({
               members.map((member) => (
                 <View key={member.id} style={styles.memberRow}>
                   <View style={styles.memberInfo}>
-                    <Text style={styles.memberName}>{member.user.displayName}</Text>
+                    <Text style={styles.memberName}>
+                      {member.user.displayName}
+                    </Text>
                     <View style={styles.memberRoleContainer}>
                       {member.role === "ADMIN" && (
                         <View style={styles.adminBadge}>
@@ -232,34 +238,42 @@ export default function GroupMembership({
                     </View>
                   </View>
 
-                  {(isOwner || isAdmin) && member.userId !== apiClient.getCurrentUser()?.id && (
-                    <View style={styles.memberActions}>
-                      {member.status === "PENDING" && (
-                        <>
+                  {(isOwner || isAdmin) &&
+                    member.userId !== apiClient.getCurrentUser()?.id && (
+                      <View style={styles.memberActions}>
+                        {member.status === "PENDING" && (
+                          <>
+                            <TouchableOpacity
+                              style={[
+                                styles.actionButton,
+                                styles.approveButton,
+                              ]}
+                              onPress={() =>
+                                handleManageMember(member.userId, "APPROVED")
+                              }
+                            >
+                              <UserPlus size={16} color={COLORS.textPrimary} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[styles.actionButton, styles.rejectButton]}
+                              onPress={() =>
+                                handleManageMember(member.userId, "REJECTED")
+                              }
+                            >
+                              <UserMinus size={16} color={COLORS.textPrimary} />
+                            </TouchableOpacity>
+                          </>
+                        )}
+                        {member.status === "APPROVED" && (
                           <TouchableOpacity
-                            style={[styles.actionButton, styles.approveButton]}
-                            onPress={() => handleManageMember(member.userId, "APPROVED")}
+                            style={[styles.actionButton, styles.removeButton]}
+                            onPress={() => handleRemoveMember(member)}
                           >
-                            <UserPlus size={16} color={COLORS.textPrimary} />
+                            <UserMinus size={16} color={COLORS.errorText} />
                           </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.actionButton, styles.rejectButton]}
-                            onPress={() => handleManageMember(member.userId, "REJECTED")}
-                          >
-                            <UserMinus size={16} color={COLORS.textPrimary} />
-                          </TouchableOpacity>
-                        </>
-                      )}
-                      {member.status === "APPROVED" && (
-                        <TouchableOpacity
-                          style={[styles.actionButton, styles.removeButton]}
-                          onPress={() => handleRemoveMember(member)}
-                        >
-                          <UserMinus size={16} color={COLORS.errorText} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  )}
+                        )}
+                      </View>
+                    )}
                 </View>
               ))
             )}
@@ -267,13 +281,20 @@ export default function GroupMembership({
         )}
       </View>
 
-      <TouchableOpacity style={styles.viewAllButton} onPress={handleViewAllMembers}>
+      <TouchableOpacity
+        style={styles.viewAllButton}
+        onPress={handleViewAllMembers}
+      >
         <Text style={styles.viewAllButtonText}>View All Members</Text>
         <ChevronRight size={16} color={COLORS.accent} />
       </TouchableOpacity>
 
       {!isOwner && !isAdmin && (
-        <TouchableOpacity style={styles.joinButton} onPress={handleJoinGroup} disabled={isJoining}>
+        <TouchableOpacity
+          style={styles.joinButton}
+          onPress={handleJoinGroup}
+          disabled={isJoining}
+        >
           {isJoining ? (
             <ActivityIndicator color={COLORS.textPrimary} />
           ) : (

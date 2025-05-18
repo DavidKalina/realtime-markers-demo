@@ -66,7 +66,8 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
         // Check if event is saved by the user
         if (apiClient.isAuthenticated()) {
           try {
-            const { isSaved: savedStatus } = await apiClient.isEventSaved(eventId);
+            const { isSaved: savedStatus } =
+              await apiClient.isEventSaved(eventId);
             if (isMounted) {
               setIsSaved(savedStatus);
             }
@@ -77,7 +78,7 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
       } catch (err) {
         if (isMounted) {
           setError(
-            `Failed to load event details: ${err instanceof Error ? err.message : "Unknown error"}`
+            `Failed to load event details: ${err instanceof Error ? err.message : "Unknown error"}`,
           );
           console.error("Error fetching event details:", err);
         }
@@ -134,8 +135,8 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
       .then((data) => setEvent(data))
       .catch((err) =>
         setError(
-          `Failed to load event details: ${err instanceof Error ? err.message : "Unknown error"}`
-        )
+          `Failed to load event details: ${err instanceof Error ? err.message : "Unknown error"}`,
+        ),
       )
       .finally(() => setLoading(false));
   };
@@ -161,13 +162,13 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
       }
 
       // Track the save action
-      eventAnalytics.trackEventSave(event, newSavedState ? 'save' : 'unsave');
+      eventAnalytics.trackEventSave(event, newSavedState ? "save" : "unsave");
 
       // Provide haptic feedback
       Haptics.notificationAsync(
         newSavedState
           ? Haptics.NotificationFeedbackType.Success
-          : Haptics.NotificationFeedbackType.Warning
+          : Haptics.NotificationFeedbackType.Warning,
       );
     } catch (err) {
       console.error("Error toggling save status:", err);
@@ -182,11 +183,12 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
 
     try {
       // Track the share action
-      eventAnalytics.trackEventShare(event, 'native_share');
+      eventAnalytics.trackEventShare(event, "native_share");
 
       // Create a shareable message
-      const message = `${event.title}\n\n📅 ${formatDate(event.eventDate, event.timezone)}\n📍 ${event.location
-        }\n\n${event.description || ""}`;
+      const message = `${event.title}\n\n📅 ${formatDate(event.eventDate, event.timezone)}\n📍 ${
+        event.location
+      }\n\n${event.description || ""}`;
 
       // Create a deep link (if your app supports it)
       const deepLink = `eventexplorer://event/${eventId}`;

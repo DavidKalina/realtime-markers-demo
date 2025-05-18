@@ -43,7 +43,12 @@ export class User {
   username?: string;
 
   @Index({ unique: true })
-  @Column({ name: "friend_code", type: "varchar", unique: true, nullable: true })
+  @Column({
+    name: "friend_code",
+    type: "varchar",
+    unique: true,
+    nullable: true,
+  })
   friendCode?: string;
 
   @Column({ type: "varchar", nullable: true })
@@ -144,6 +149,11 @@ export class User {
   updatedAt!: Date;
 
   // Optional: Add refresh token for auth if needed
-  @Column({ name: "refresh_token", type: "varchar", nullable: true, select: false })
+  @Column({
+    name: "refresh_token",
+    type: "varchar",
+    nullable: true,
+    select: false,
+  })
   refreshToken?: string;
 }

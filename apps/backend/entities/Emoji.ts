@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from "typeorm";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+} from "typeorm";
 import { Category } from "./Category";
 
 @Entity("emoji")
@@ -22,7 +28,11 @@ export class Emoji {
   @Column({ type: "simple-array", nullable: false })
   keywords!: string[];
 
-  @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP", nullable: false })
+  @Column({
+    type: "timestamp",
+    default: () => "CURRENT_TIMESTAMP",
+    nullable: false,
+  })
   created_at!: Date;
 
   @Column({ type: "integer", nullable: true })

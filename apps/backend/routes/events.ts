@@ -20,7 +20,7 @@ eventsRouter.use(
       const ipInfo = c.get("ip");
       return `events:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
     },
-  })
+  }),
 );
 eventsRouter.use("*", authMiddleware);
 

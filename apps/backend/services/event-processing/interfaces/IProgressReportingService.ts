@@ -5,7 +5,10 @@
  * @param message Human-readable progress message
  * @param metadata Optional metadata about the progress
  */
-export type ProgressCallback = (message: string, metadata?: Record<string, any>) => Promise<void>;
+export type ProgressCallback = (
+  message: string,
+  metadata?: Record<string, any>,
+) => Promise<void>;
 
 /**
  * Interface for progress reporting services
@@ -18,7 +21,10 @@ export interface IProgressReportingService {
    * @param metadata Optional metadata about the progress
    * @returns Promise that resolves when progress is reported
    */
-  reportProgress(message: string, metadata?: Record<string, any>): Promise<void>;
+  reportProgress(
+    message: string,
+    metadata?: Record<string, any>,
+  ): Promise<void>;
 
   /**
    * Configure progress throttling to avoid too frequent updates
@@ -45,12 +51,19 @@ export interface IProgressReportingService {
    * @param message Human-readable progress message for this step
    * @param metadata Optional metadata about the progress
    */
-  updateProgress(step: number, message: string, metadata?: Record<string, any>): Promise<void>;
+  updateProgress(
+    step: number,
+    message: string,
+    metadata?: Record<string, any>,
+  ): Promise<void>;
 
   /**
    * Complete the current progress reporting session
    * @param message Final message for the completed operation
    * @param metadata Optional metadata about the completed operation
    */
-  completeSession(message: string, metadata?: Record<string, any>): Promise<void>;
+  completeSession(
+    message: string,
+    metadata?: Record<string, any>,
+  ): Promise<void>;
 }

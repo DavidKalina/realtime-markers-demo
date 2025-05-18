@@ -1,44 +1,45 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
 import { useOnboarding } from "@/contexts/OnboardingContext";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
-  FadeIn,
-  FadeOut,
   SlideInRight,
   SlideOutLeft,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
-
-const { width } = Dimensions.get("window");
 
 const ONBOARDING_STEPS = [
   {
     title: "Welcome to MapMoji!",
-    description: "Discover and scan events around you to earn XP and unlock rewards.",
+    description:
+      "Discover and scan events around you to earn XP and unlock rewards.",
     emoji: "🎉",
   },
   {
     title: "Scan Events",
-    description: "Use your camera to scan event posters and flyers to add them to the map.",
+    description:
+      "Use your camera to scan event posters and flyers to add them to the map.",
     emoji: "📸",
   },
   {
     title: "Browse & Filter",
-    description: "Find events that match your interests using our smart filters.",
+    description:
+      "Find events that match your interests using our smart filters.",
     emoji: "🔍",
   },
   {
     title: "Earn XP",
-    description: "Get XP for each unique event you scan. The more you scan, the more you earn!",
+    description:
+      "Get XP for each unique event you scan. The more you scan, the more you earn!",
     emoji: "✨",
   },
   {
     title: "Create Private Events",
-    description: "Long press the map to create private events to share with your friends.",
+    description:
+      "Long press the map to create private events to share with your friends.",
     emoji: "🔒",
   },
 ];
@@ -87,15 +88,23 @@ export const OnboardingScreen: React.FC = () => {
         style={styles.content}
       >
         <View style={styles.emojiContainer}>
-          <Text style={styles.emoji}>{ONBOARDING_STEPS[currentStep].emoji}</Text>
+          <Text style={styles.emoji}>
+            {ONBOARDING_STEPS[currentStep].emoji}
+          </Text>
         </View>
 
         <Text style={styles.title}>{ONBOARDING_STEPS[currentStep].title}</Text>
-        <Text style={styles.description}>{ONBOARDING_STEPS[currentStep].description}</Text>
+        <Text style={styles.description}>
+          {ONBOARDING_STEPS[currentStep].description}
+        </Text>
       </Animated.View>
 
       <View style={styles.footer}>
-        <TouchableOpacity onPress={handleSkip} style={styles.skipButton} activeOpacity={0.7}>
+        <TouchableOpacity
+          onPress={handleSkip}
+          style={styles.skipButton}
+          activeOpacity={0.7}
+        >
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
 
@@ -103,15 +112,24 @@ export const OnboardingScreen: React.FC = () => {
           {ONBOARDING_STEPS.map((_, index) => (
             <View
               key={index}
-              style={[styles.stepDot, currentStep === index && styles.activeStepDot]}
+              style={[
+                styles.stepDot,
+                currentStep === index && styles.activeStepDot,
+              ]}
             />
           ))}
         </View>
 
         <Animated.View style={buttonAnimatedStyle}>
-          <TouchableOpacity onPress={handleNext} style={styles.nextButton} activeOpacity={0.8}>
+          <TouchableOpacity
+            onPress={handleNext}
+            style={styles.nextButton}
+            activeOpacity={0.8}
+          >
             <Text style={styles.nextText}>
-              {currentStep === ONBOARDING_STEPS.length - 1 ? "Get Started" : "Next"}
+              {currentStep === ONBOARDING_STEPS.length - 1
+                ? "Get Started"
+                : "Next"}
             </Text>
           </TouchableOpacity>
         </Animated.View>

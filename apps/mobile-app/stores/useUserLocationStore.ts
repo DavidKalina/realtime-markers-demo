@@ -30,7 +30,8 @@ export const useUserLocationStore = create<LocationState>((set) => ({
 
   // Location permission state management
   locationPermissionGranted: false,
-  setLocationPermissionGranted: (granted) => set({ locationPermissionGranted: granted }),
+  setLocationPermissionGranted: (granted) =>
+    set({ locationPermissionGranted: granted }),
 
   // Location loading state management
   isLoadingLocation: true,

@@ -1,7 +1,10 @@
 // ActionBar.tsx - Refined with better icon styling and selection states
 import { styles as globalStyles } from "@/components/globalStyles";
 import { useEventBroker } from "@/hooks/useEventBroker";
-import { CameraAnimateToLocationEvent, EventTypes } from "@/services/EventBroker";
+import {
+  CameraAnimateToLocationEvent,
+  EventTypes,
+} from "@/services/EventBroker";
 import * as Haptics from "expo-haptics";
 import {
   BookMarkedIcon,
@@ -12,7 +15,13 @@ import {
   User,
   UsersRound,
 } from "lucide-react-native";
-import React, { useRef, useState, useCallback, useMemo, useEffect } from "react";
+import React, {
+  useRef,
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+} from "react";
 import { Platform, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   BounceIn,
@@ -68,7 +77,10 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
     }, [scaleValue]);
 
     // Memoize the icon color based on active state
-    const iconColor = useMemo(() => (isActive ? "#93c5fd" : "#fff"), [isActive]);
+    const iconColor = useMemo(
+      () => (isActive ? "#93c5fd" : "#fff"),
+      [isActive],
+    );
 
     // Handle button press with animation
     const handlePress = useCallback(() => {
@@ -82,7 +94,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
       // Animate button - more subtle scale
       scaleValue.value = withSequence(
         withTiming(0.95, BUTTON_PRESS_ANIMATION), // Less dramatic scaling
-        withTiming(1, BUTTON_RELEASE_ANIMATION)
+        withTiming(1, BUTTON_RELEASE_ANIMATION),
       );
 
       // Call the parent's onPress handler
@@ -91,14 +103,21 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
     // Compute button style only when active state changes
     const buttonStyle = useMemo(
-      () => [styles.actionButton, styles.labeledActionButton, disabled && { opacity: 0.5 }],
-      [disabled]
+      () => [
+        styles.actionButton,
+        styles.labeledActionButton,
+        disabled && { opacity: 0.5 },
+      ],
+      [disabled],
     );
 
     // Compute label style based on active state
     const labelStyle = useMemo(
-      () => [styles.actionButtonLabel, isActive && styles.activeActionButtonLabel],
-      [isActive]
+      () => [
+        styles.actionButtonLabel,
+        isActive && styles.activeActionButtonLabel,
+      ],
+      [isActive],
     );
 
     // Create a wrapper for the icon to ensure consistent sizing
@@ -135,11 +154,18 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
       prevProps.actionKey === nextProps.actionKey &&
       prevProps.label === nextProps.label
     );
-  }
+  },
 );
 
 // Default set of actions if none provided
-const DEFAULT_AVAILABLE_ACTIONS = ["search", "scan", "locate", "user", "saved", "groups"];
+const DEFAULT_AVAILABLE_ACTIONS = [
+  "search",
+  "scan",
+  "locate",
+  "user",
+  "saved",
+  "groups",
+];
 
 // Icons memo - created once outside the component to avoid recreation
 const ICON_MAP = {
@@ -162,8 +188,14 @@ const LABEL_MAP = {
 };
 
 export const ActionBar: React.FC<ActionBarProps> = React.memo(
-  ({ isStandalone = false, animatedStyle, availableActions = DEFAULT_AVAILABLE_ACTIONS }) => {
-    const activeActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  ({
+    isStandalone = false,
+    animatedStyle,
+    availableActions = DEFAULT_AVAILABLE_ACTIONS,
+  }) => {
+    const activeActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+      null,
+    );
     const { publish } = useEventBroker();
     const [activeAction, setActiveAction] = useState<string | null>(null);
     const insets = useSafeAreaInsets();
@@ -206,7 +238,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           // Emit event to animate camera to user location
           publish<CameraAnimateToLocationEvent>(
             EventTypes.CAMERA_ANIMATE_TO_LOCATION,
-            cameraAnimationEvent
+            cameraAnimationEvent,
           );
         }
 
@@ -236,7 +268,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           activeActionTimeoutRef.current = null;
         }, 500);
       },
-      [publish, cameraAnimationEvent, router]
+      [publish, cameraAnimationEvent, router],
     );
 
     // Create individual action handlers with proper memoization to avoid recreating functions
@@ -290,7 +322,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           action: actionHandlers.user,
         },
       ],
-      [userLocation, actionHandlers]
+      [userLocation, actionHandlers],
     );
 
     // Clean up timeouts and subscriptions when component unmounts
@@ -310,7 +342,9 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     // Filter actions based on the availableActions prop - only recalculate when dependencies change
     const scrollableActions = useMemo(() => {
       const availableActionsSet = new Set(availableActions);
-      return allPossibleActions.filter((action) => availableActionsSet.has(action.key));
+      return allPossibleActions.filter((action) =>
+        availableActionsSet.has(action.key),
+      );
     }, [allPossibleActions, availableActions]);
 
     // Calculate styles based on platform and insets - only recalculate when dependencies change
@@ -323,7 +357,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           paddingBottom: Platform.OS === "ios" ? insets.bottom * 1.45 : 0,
         },
       ],
-      [animatedStyle, insets.bottom]
+      [animatedStyle, insets.bottom],
     );
 
     // Calculate content container style - create once
@@ -337,7 +371,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           paddingHorizontal: 8,
         },
       ],
-      []
+      [],
     );
 
     return (
@@ -364,7 +398,8 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
       prevProps.isStandalone === nextProps.isStandalone &&
       prevProps.animatedStyle === nextProps.animatedStyle &&
       ((!prevProps.availableActions && !nextProps.availableActions) ||
-        prevProps.availableActions?.join(",") === nextProps.availableActions?.join(","))
+        prevProps.availableActions?.join(",") ===
+          nextProps.availableActions?.join(","))
     );
-  }
+  },
 );

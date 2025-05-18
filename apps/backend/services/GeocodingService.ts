@@ -26,11 +26,12 @@ export class GeocodingService {
   private cacheTimeout = 30 * 24 * 60 * 60; // 30 days in seconds
 
   private constructor() {
-    this.mapboxToken = process.env.MAPBOX_GEOCODING_TOKEN || process.env.MAPBOX_TOKEN || "";
+    this.mapboxToken =
+      process.env.MAPBOX_GEOCODING_TOKEN || process.env.MAPBOX_TOKEN || "";
 
     if (!this.mapboxToken) {
       console.warn(
-        "Mapbox token not provided for GeocodingService. Geocoding functionality will be limited."
+        "Mapbox token not provided for GeocodingService. Geocoding functionality will be limited.",
       );
     }
   }
@@ -47,7 +48,9 @@ export class GeocodingService {
    * @param coordinates [longitude, latitude] coordinates to geocode
    * @returns Geocoded place information
    */
-  public async reverseGeocode(coordinates: [number, number]): Promise<GeocodedPlace | null> {
+  public async reverseGeocode(
+    coordinates: [number, number],
+  ): Promise<GeocodedPlace | null> {
     if (!this.mapboxToken) {
       console.error("Cannot perform geocoding: Mapbox token not configured");
       return null;
@@ -75,7 +78,10 @@ export class GeocodingService {
       const data = await response.json();
 
       if (!data.features || data.features.length === 0) {
-        console.warn("No geocoding results found for coordinates:", coordinates);
+        console.warn(
+          "No geocoding results found for coordinates:",
+          coordinates,
+        );
         return null;
       }
 
@@ -83,7 +89,11 @@ export class GeocodingService {
       const result = this.processGeocodingResults(data.features);
 
       // Cache the result
-      await CacheService.setCachedData(cacheKey, JSON.stringify(result), this.cacheTimeout);
+      await CacheService.setCachedData(
+        cacheKey,
+        JSON.stringify(result),
+        this.cacheTimeout,
+      );
 
       return result;
     } catch (error) {
@@ -154,17 +164,24 @@ export class GeocodingService {
    * @param zoomLevel The current map zoom level
    * @returns The most appropriate place name for the zoom level
    */
-  public getAppropriateNameForZoom(place: GeocodedPlace, zoomLevel: number): string {
+  public getAppropriateNameForZoom(
+    place: GeocodedPlace,
+    zoomLevel: number,
+  ): string {
     if (!place) return "";
 
     // At very high zoom levels, prefer POIs and specific addresses
     if (zoomLevel >= 17) {
-      return place.poi || place.address || place.neighborhood || place.placeName;
+      return (
+        place.poi || place.address || place.neighborhood || place.placeName
+      );
     }
 
     // At high zoom levels, prefer neighborhoods
     if (zoomLevel >= 14) {
-      return place.neighborhood || place.locality || place.place || place.placeName;
+      return (
+        place.neighborhood || place.locality || place.place || place.placeName
+      );
     }
 
     // At medium zoom levels, prefer localities and places

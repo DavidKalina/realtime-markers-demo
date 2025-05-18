@@ -21,7 +21,11 @@ interface SaveButtonProps {
   onSave: () => void;
 }
 
-const SaveButton: React.FC<SaveButtonProps> = ({ isSaved, savingState, onSave }) => {
+const SaveButton: React.FC<SaveButtonProps> = ({
+  isSaved,
+  savingState,
+  onSave,
+}) => {
   const scale = useSharedValue(1);
   const color = useSharedValue(0);
 
@@ -52,7 +56,7 @@ const SaveButton: React.FC<SaveButtonProps> = ({ isSaved, savingState, onSave })
       backgroundColor: interpolateColor(
         color.value,
         [0, 1],
-        [COLORS.buttonBackground, COLORS.success + "20"]
+        [COLORS.buttonBackground, COLORS.success + "20"],
       ),
     };
   });
@@ -63,9 +67,14 @@ const SaveButton: React.FC<SaveButtonProps> = ({ isSaved, savingState, onSave })
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={savingState === "loading"}
-      style={({ pressed }) => [styles.saveButton, pressed && styles.saveButtonPressed]}
+      style={({ pressed }) => [
+        styles.saveButton,
+        pressed && styles.saveButtonPressed,
+      ]}
     >
-      <Animated.View style={[StyleSheet.absoluteFill, styles.buttonContent, animatedStyle]}>
+      <Animated.View
+        style={[StyleSheet.absoluteFill, styles.buttonContent, animatedStyle]}
+      >
         {savingState === "loading" ? (
           <ActivityIndicator size="small" color={COLORS.accent} />
         ) : isSaved ? (

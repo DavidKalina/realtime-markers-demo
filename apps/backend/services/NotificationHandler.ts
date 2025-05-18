@@ -11,7 +11,10 @@ export class NotificationHandler {
 
   private constructor(redis: Redis, dataSource: DataSource) {
     this.redis = redis;
-    this.notificationService = NotificationService.getInstance(redis, dataSource);
+    this.notificationService = NotificationService.getInstance(
+      redis,
+      dataSource,
+    );
     this.subscriber = new Redis({
       host: process.env.REDIS_HOST,
       port: parseInt(process.env.REDIS_PORT || "6379"),
@@ -19,7 +22,10 @@ export class NotificationHandler {
     });
   }
 
-  public static getInstance(redis: Redis, dataSource: DataSource): NotificationHandler {
+  public static getInstance(
+    redis: Redis,
+    dataSource: DataSource,
+  ): NotificationHandler {
     if (!NotificationHandler.instance) {
       NotificationHandler.instance = new NotificationHandler(redis, dataSource);
     }
@@ -54,7 +60,9 @@ export class NotificationHandler {
   /**
    * Handle a new notification
    */
-  private async handleNewNotification(notification: Notification): Promise<void> {
+  private async handleNewNotification(
+    notification: Notification,
+  ): Promise<void> {
     try {
       // Here you can add custom logic for different notification types
       switch (notification.type) {
@@ -110,7 +118,9 @@ export class NotificationHandler {
     console.log(`Processing friend request notification: ${notification.id}`);
   }
 
-  private async handleFriendAccepted(notification: Notification): Promise<void> {
+  private async handleFriendAccepted(
+    notification: Notification,
+  ): Promise<void> {
     // Add custom logic for friend accepted notifications
     console.log(`Processing friend accepted notification: ${notification.id}`);
   }
@@ -120,12 +130,18 @@ export class NotificationHandler {
     console.log(`Processing level up notification: ${notification.id}`);
   }
 
-  private async handleAchievementUnlocked(notification: Notification): Promise<void> {
+  private async handleAchievementUnlocked(
+    notification: Notification,
+  ): Promise<void> {
     // Add custom logic for achievement unlocked notifications
-    console.log(`Processing achievement unlocked notification: ${notification.id}`);
+    console.log(
+      `Processing achievement unlocked notification: ${notification.id}`,
+    );
   }
 
-  private async handleSystemNotification(notification: Notification): Promise<void> {
+  private async handleSystemNotification(
+    notification: Notification,
+  ): Promise<void> {
     // Add custom logic for system notifications
     console.log(`Processing system notification: ${notification.id}`);
   }

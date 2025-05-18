@@ -93,7 +93,10 @@ Respond with a JSON object containing:
     return `group:${groupId}`;
   }
 
-  private getGroupMembersCacheKey(groupId: string, status: GroupMembershipStatus): string {
+  private getGroupMembersCacheKey(
+    groupId: string,
+    status: GroupMembershipStatus,
+  ): string {
     return `group:${groupId}:members:${status}`;
   }
 
@@ -104,8 +107,12 @@ Respond with a JSON object containing:
     }`;
   }
 
-  private getGroupEventsCacheKey(groupId: string, params: GetGroupEventsParams): string {
-    const { query, categoryId, cursor, limit, direction, startDate, endDate } = params;
+  private getGroupEventsCacheKey(
+    groupId: string,
+    params: GetGroupEventsParams,
+  ): string {
+    const { query, categoryId, cursor, limit, direction, startDate, endDate } =
+      params;
     return `group:${groupId}:events:${query || "all"}:${categoryId || "all"}:${cursor || "start"}:${
       limit || 10
     }:${direction || "forward"}:${startDate?.toISOString() || "all"}:${
@@ -122,19 +129,28 @@ Respond with a JSON object containing:
     if (!(await this.isContentAppropriate(groupData.name))) {
       throw new Error("Group name contains inappropriate content.");
     }
-    if (groupData.description && !(await this.isContentAppropriate(groupData.description))) {
+    if (
+      groupData.description &&
+      !(await this.isContentAppropriate(groupData.description))
+    ) {
       throw new Error("Group description contains inappropriate content.");
     }
 
     // Check for existing group with the same name (optional, but good for uniqueness)
-    const existingGroup = await this.groupRepository.findOneBy({ name: groupData.name });
+    const existingGroup = await this.groupRepository.findOneBy({
+      name: groupData.name,
+    });
     if (existingGroup) {
-      throw new Error(`A group with the name "${groupData.name}" already exists.`);
+      throw new Error(
+        `A group with the name "${groupData.name}" already exists.`,
+      );
     }
 
     let categories: Category[] = [];
     if (groupData.categoryIds && groupData.categoryIds.length > 0) {
-      categories = await this.categoryRepository.findBy({ id: In(groupData.categoryIds) });
+      categories = await this.categoryRepository.findBy({
+        id: In(groupData.categoryIds),
+      });
     }
 
     return this.dataSource.transaction(async (transactionalEntityManager) => {
@@ -165,7 +181,12 @@ Respond with a JSON object containing:
 
   async getGroupById(
     groupId: string,
-    relations: string[] = ["owner", "categories", "memberships", "memberships.user"]
+    relations: string[] = [
+      "owner",
+      "categories",
+      "memberships",
+      "memberships.user",
+    ],
   ): Promise<Group | null> {
     const cacheKey = this.getGroupCacheKey(groupId);
     const cached = await CacheService.getCachedData(cacheKey);
@@ -183,7 +204,7 @@ Respond with a JSON object containing:
       await CacheService.setCachedData(
         cacheKey,
         JSON.stringify(group),
-        GroupService.GROUP_CACHE_TTL
+        GroupService.GROUP_CACHE_TTL,
       );
     }
 
@@ -206,7 +227,10 @@ Respond with a JSON object containing:
     return !!membership;
   }
 
-  async getUserRoleInGroup(groupId: string, userId: string): Promise<GroupMemberRole | null> {
+  async getUserRoleInGroup(
+    groupId: string,
+    userId: string,
+  ): Promise<GroupMemberRole | null> {
     const membership = await this.groupMembershipRepository.findOneBy({
       groupId,
       userId,
@@ -218,7 +242,7 @@ Respond with a JSON object containing:
   async updateGroup(
     groupId: string,
     userId: string,
-    updateData: UpdateGroupDto
+    updateData: UpdateGroupDto,
   ): Promise<Group | null> {
     const group = await this.groupRepository.findOne({
       where: { id: groupId },
@@ -233,17 +257,25 @@ Respond with a JSON object containing:
       throw new Error("User is not authorized to update this group");
     }
 
-    if (updateData.name && !(await this.isContentAppropriate(updateData.name))) {
+    if (
+      updateData.name &&
+      !(await this.isContentAppropriate(updateData.name))
+    ) {
       throw new Error("Group name contains inappropriate content.");
     }
-    if (updateData.description && !(await this.isContentAppropriate(updateData.description))) {
+    if (
+      updateData.description &&
+      !(await this.isContentAppropriate(updateData.description))
+    ) {
       throw new Error("Group description contains inappropriate content.");
     }
 
     // Handle categories update
     if (updateData.categoryIds) {
       if (updateData.categoryIds.length > 0) {
-        group.categories = await this.categoryRepository.findBy({ id: In(updateData.categoryIds) });
+        group.categories = await this.categoryRepository.findBy({
+          id: In(updateData.categoryIds),
+        });
       } else {
         group.categories = []; // Clear categories if an empty array is passed
       }
@@ -273,17 +305,27 @@ Respond with a JSON object containing:
     // Transaction to ensure all related data is deleted or handled
     return this.dataSource.transaction(async (transactionalEntityManager) => {
       // Optional: Set groupId to null for events belonging to this group
-      await transactionalEntityManager.update(Event, { groupId: group.id }, { groupId: null });
+      await transactionalEntityManager.update(
+        Event,
+        { groupId: group.id },
+        { groupId: null },
+      );
       // Delete memberships
-      await transactionalEntityManager.delete(GroupMembership, { groupId: group.id });
+      await transactionalEntityManager.delete(GroupMembership, {
+        groupId: group.id,
+      });
       // Delete group
-      const deleteResult = await transactionalEntityManager.delete(Group, { id: group.id });
+      const deleteResult = await transactionalEntityManager.delete(Group, {
+        id: group.id,
+      });
       await this.invalidateGroupCaches(groupId);
       return deleteResult.affected !== null && deleteResult.affected! > 0;
     });
   }
 
-  async listPublicGroups(params: CursorPaginationParams & { categoryId?: string }): Promise<{
+  async listPublicGroups(
+    params: CursorPaginationParams & { categoryId?: string },
+  ): Promise<{
     groups: Group[];
     nextCursor?: string;
     prevCursor?: string;
@@ -302,7 +344,9 @@ Respond with a JSON object containing:
       .createQueryBuilder("group")
       .leftJoinAndSelect("group.owner", "owner")
       .leftJoinAndSelect("group.categories", "categories")
-      .where("group.visibility = :visibility", { visibility: GroupVisibility.PUBLIC });
+      .where("group.visibility = :visibility", {
+        visibility: GroupVisibility.PUBLIC,
+      });
 
     if (categoryId) {
       queryBuilder.andWhere("categories.id = :categoryId", { categoryId });
@@ -315,12 +359,12 @@ Respond with a JSON object containing:
       if (direction === "forward") {
         queryBuilder.andWhere(
           "(group.createdAt < :timestamp OR (group.createdAt = :timestamp AND group.id < :id))",
-          { timestamp, id }
+          { timestamp, id },
         );
       } else {
         queryBuilder.andWhere(
           "(group.createdAt > :timestamp OR (group.createdAt = :timestamp AND group.id > :id))",
-          { timestamp, id }
+          { timestamp, id },
         );
       }
     }
@@ -340,7 +384,9 @@ Respond with a JSON object containing:
         : undefined;
 
     const prevCursor =
-      hasMore && direction === "backward" ? this.createCursor(results[0]) : undefined;
+      hasMore && direction === "backward"
+        ? this.createCursor(results[0])
+        : undefined;
 
     const response = {
       groups: results,
@@ -351,7 +397,7 @@ Respond with a JSON object containing:
     await CacheService.setCachedData(
       cacheKey,
       JSON.stringify(response),
-      GroupService.GROUP_CACHE_TTL
+      GroupService.GROUP_CACHE_TTL,
     );
 
     return response;
@@ -359,7 +405,7 @@ Respond with a JSON object containing:
 
   async getUserGroups(
     userId: string,
-    params: CursorPaginationParams
+    params: CursorPaginationParams,
   ): Promise<{
     groups: Group[];
     nextCursor?: string;
@@ -379,7 +425,9 @@ Respond with a JSON object containing:
       .leftJoinAndSelect("group.owner", "owner")
       .leftJoinAndSelect("group.categories", "categories")
       .where("membership.userId = :userId", { userId })
-      .andWhere("membership.status = :status", { status: GroupMembershipStatus.APPROVED });
+      .andWhere("membership.status = :status", {
+        status: GroupMembershipStatus.APPROVED,
+      });
 
     if (cursor) {
       const decodedCursor = Buffer.from(cursor, "base64").toString();
@@ -388,12 +436,12 @@ Respond with a JSON object containing:
       if (direction === "forward") {
         queryBuilder.andWhere(
           "(membership.joinedAt < :timestamp OR (membership.joinedAt = :timestamp AND membership.id < :id))",
-          { timestamp, id }
+          { timestamp, id },
         );
       } else {
         queryBuilder.andWhere(
           "(membership.joinedAt > :timestamp OR (membership.joinedAt = :timestamp AND membership.id > :id))",
-          { timestamp, id }
+          { timestamp, id },
         );
       }
     }
@@ -414,13 +462,15 @@ Respond with a JSON object containing:
         ? Buffer.from(
             `${results[results.length - 1].joinedAt.toISOString()}:${
               results[results.length - 1].id
-            }`
+            }`,
           ).toString("base64")
         : undefined;
 
     const prevCursor =
       hasMore && direction === "backward"
-        ? Buffer.from(`${results[0].joinedAt.toISOString()}:${results[0].id}`).toString("base64")
+        ? Buffer.from(
+            `${results[0].joinedAt.toISOString()}:${results[0].id}`,
+          ).toString("base64")
         : undefined;
 
     const response = {
@@ -432,7 +482,7 @@ Respond with a JSON object containing:
     await CacheService.setCachedData(
       cacheKey,
       JSON.stringify(response),
-      GroupService.GROUP_CACHE_TTL
+      GroupService.GROUP_CACHE_TTL,
     );
 
     return response;
@@ -445,11 +495,20 @@ Respond with a JSON object containing:
     const user = await this.userRepository.findOneBy({ id: userId });
     if (!user) throw new Error("User not found");
 
-    let existingMembership = await this.groupMembershipRepository.findOneBy({ groupId, userId });
-    if (existingMembership && existingMembership.status === GroupMembershipStatus.APPROVED) {
+    let existingMembership = await this.groupMembershipRepository.findOneBy({
+      groupId,
+      userId,
+    });
+    if (
+      existingMembership &&
+      existingMembership.status === GroupMembershipStatus.APPROVED
+    ) {
       throw new Error("User is already a member of this group");
     }
-    if (existingMembership && existingMembership.status === GroupMembershipStatus.BANNED) {
+    if (
+      existingMembership &&
+      existingMembership.status === GroupMembershipStatus.BANNED
+    ) {
       throw new Error("User is banned from this group");
     }
 
@@ -467,21 +526,27 @@ Respond with a JSON object containing:
         existingMembership.joinedAt = new Date(); // Update joinedAt/requestedAt
         await transactionalEntityManager.save(existingMembership);
       } else {
-        existingMembership = transactionalEntityManager.create(GroupMembership, {
-          groupId,
-          userId,
-          group,
-          user,
-          role,
-          status,
-        });
+        existingMembership = transactionalEntityManager.create(
+          GroupMembership,
+          {
+            groupId,
+            userId,
+            group,
+            user,
+            role,
+            status,
+          },
+        );
         await transactionalEntityManager.save(existingMembership);
       }
 
       if (status === GroupMembershipStatus.APPROVED) {
-        group.memberCount = await transactionalEntityManager.count(GroupMembership, {
-          where: { groupId, status: GroupMembershipStatus.APPROVED },
-        });
+        group.memberCount = await transactionalEntityManager.count(
+          GroupMembership,
+          {
+            where: { groupId, status: GroupMembershipStatus.APPROVED },
+          },
+        );
         await transactionalEntityManager.save(group);
       }
       await this.invalidateGroupCaches(groupId);
@@ -494,15 +559,23 @@ Respond with a JSON object containing:
     if (!group) throw new Error("Group not found");
 
     if (group.ownerId === userId) {
-      throw new Error("Owner cannot leave the group. Transfer ownership or delete the group.");
+      throw new Error(
+        "Owner cannot leave the group. Transfer ownership or delete the group.",
+      );
     }
 
     return this.dataSource.transaction(async (transactionalEntityManager) => {
-      const result = await transactionalEntityManager.delete(GroupMembership, { groupId, userId });
+      const result = await transactionalEntityManager.delete(GroupMembership, {
+        groupId,
+        userId,
+      });
       if (result.affected && result.affected > 0) {
-        group.memberCount = await transactionalEntityManager.count(GroupMembership, {
-          where: { groupId, status: GroupMembershipStatus.APPROVED },
-        });
+        group.memberCount = await transactionalEntityManager.count(
+          GroupMembership,
+          {
+            where: { groupId, status: GroupMembershipStatus.APPROVED },
+          },
+        );
         await transactionalEntityManager.save(group);
         await this.invalidateGroupCaches(groupId);
         return true;
@@ -519,14 +592,16 @@ Respond with a JSON object containing:
       | GroupMembershipStatus.APPROVED
       | GroupMembershipStatus.REJECTED
       | GroupMembershipStatus.BANNED,
-    newRole?: GroupMemberRole // Optional: set role upon approval
+    newRole?: GroupMemberRole, // Optional: set role upon approval
   ): Promise<GroupMembership> {
     const group = await this.groupRepository.findOneBy({ id: groupId });
     if (!group) throw new Error("Group not found");
 
     const adminRole = await this.getUserRoleInGroup(groupId, adminUserId);
     if (group.ownerId !== adminUserId && adminRole !== GroupMemberRole.ADMIN) {
-      throw new Error("User is not authorized to manage memberships for this group");
+      throw new Error(
+        "User is not authorized to manage memberships for this group",
+      );
     }
 
     const membership = await this.groupMembershipRepository.findOneBy({
@@ -535,8 +610,13 @@ Respond with a JSON object containing:
     });
     if (!membership) throw new Error("Membership request not found");
 
-    if (memberUserId === group.ownerId && newStatus !== GroupMembershipStatus.APPROVED) {
-      throw new Error("Cannot change the status of the group owner other than approved.");
+    if (
+      memberUserId === group.ownerId &&
+      newStatus !== GroupMembershipStatus.APPROVED
+    ) {
+      throw new Error(
+        "Cannot change the status of the group owner other than approved.",
+      );
     }
 
     return this.dataSource.transaction(async (transactionalEntityManager) => {
@@ -545,11 +625,15 @@ Respond with a JSON object containing:
         membership.role = newRole || membership.role || GroupMemberRole.MEMBER; // Keep existing role if approved, or set to member
         membership.joinedAt = new Date(); // Set joinedAt on approval
       }
-      const updatedMembership = await transactionalEntityManager.save(membership);
+      const updatedMembership =
+        await transactionalEntityManager.save(membership);
 
-      group.memberCount = await transactionalEntityManager.count(GroupMembership, {
-        where: { groupId, status: GroupMembershipStatus.APPROVED },
-      });
+      group.memberCount = await transactionalEntityManager.count(
+        GroupMembership,
+        {
+          where: { groupId, status: GroupMembershipStatus.APPROVED },
+        },
+      );
       await transactionalEntityManager.save(group);
 
       await this.invalidateGroupCaches(groupId);
@@ -561,20 +645,22 @@ Respond with a JSON object containing:
     groupId: string,
     memberUserId: string,
     adminUserId: string,
-    newRole: GroupMemberRole
+    newRole: GroupMemberRole,
   ): Promise<GroupMembership> {
     const group = await this.groupRepository.findOneBy({ id: groupId });
     if (!group) throw new Error("Group not found");
 
     const adminRole = await this.getUserRoleInGroup(groupId, adminUserId);
     if (group.ownerId !== adminUserId && adminRole !== GroupMemberRole.ADMIN) {
-      throw new Error("User is not authorized to update member roles for this group");
+      throw new Error(
+        "User is not authorized to update member roles for this group",
+      );
     }
 
     if (memberUserId === group.ownerId && newRole !== GroupMemberRole.ADMIN) {
       // Owner must remain an admin at least
       throw new Error(
-        "Owner role cannot be changed from Admin. To change ownership, use a dedicated transfer ownership function."
+        "Owner role cannot be changed from Admin. To change ownership, use a dedicated transfer ownership function.",
       );
     }
     if (
@@ -603,17 +689,25 @@ Respond with a JSON object containing:
     return this.groupMembershipRepository.save(membership);
   }
 
-  async removeMember(groupId: string, memberUserId: string, adminUserId: string): Promise<boolean> {
+  async removeMember(
+    groupId: string,
+    memberUserId: string,
+    adminUserId: string,
+  ): Promise<boolean> {
     const group = await this.groupRepository.findOneBy({ id: groupId });
     if (!group) throw new Error("Group not found");
 
     if (memberUserId === group.ownerId) {
-      throw new Error("Owner cannot be removed. Transfer ownership or delete the group.");
+      throw new Error(
+        "Owner cannot be removed. Transfer ownership or delete the group.",
+      );
     }
 
     const adminRole = await this.getUserRoleInGroup(groupId, adminUserId);
     if (group.ownerId !== adminUserId && adminRole !== GroupMemberRole.ADMIN) {
-      throw new Error("User is not authorized to remove members from this group");
+      throw new Error(
+        "User is not authorized to remove members from this group",
+      );
     }
 
     return this.dataSource.transaction(async (transactionalEntityManager) => {
@@ -622,9 +716,12 @@ Respond with a JSON object containing:
         userId: memberUserId,
       });
       if (result.affected && result.affected > 0) {
-        group.memberCount = await transactionalEntityManager.count(GroupMembership, {
-          where: { groupId, status: GroupMembershipStatus.APPROVED },
-        });
+        group.memberCount = await transactionalEntityManager.count(
+          GroupMembership,
+          {
+            where: { groupId, status: GroupMembershipStatus.APPROVED },
+          },
+        );
         await transactionalEntityManager.save(group);
         await this.invalidateGroupCaches(groupId);
         return true;
@@ -635,7 +732,7 @@ Respond with a JSON object containing:
 
   async getGroupMembers(
     groupId: string,
-    params: CursorPaginationParams & { status?: GroupMembershipStatus }
+    params: CursorPaginationParams & { status?: GroupMembershipStatus },
   ): Promise<{
     memberships: GroupMembership[];
     nextCursor?: string;
@@ -648,7 +745,8 @@ Respond with a JSON object containing:
       direction = "forward",
     } = params;
     const cacheKey =
-      this.getGroupMembersCacheKey(groupId, status) + `:${cursor || "start"}:${limit}:${direction}`;
+      this.getGroupMembersCacheKey(groupId, status) +
+      `:${cursor || "start"}:${limit}:${direction}`;
 
     const cached = await CacheService.getCachedData(cacheKey);
     if (cached) {
@@ -668,12 +766,12 @@ Respond with a JSON object containing:
       if (direction === "forward") {
         queryBuilder.andWhere(
           "(membership.joinedAt < :timestamp OR (membership.joinedAt = :timestamp AND membership.id < :id))",
-          { timestamp, id }
+          { timestamp, id },
         );
       } else {
         queryBuilder.andWhere(
           "(membership.joinedAt > :timestamp OR (membership.joinedAt = :timestamp AND membership.id > :id))",
-          { timestamp, id }
+          { timestamp, id },
         );
       }
     }
@@ -692,13 +790,15 @@ Respond with a JSON object containing:
         ? Buffer.from(
             `${results[results.length - 1].joinedAt.toISOString()}:${
               results[results.length - 1].id
-            }`
+            }`,
           ).toString("base64")
         : undefined;
 
     const prevCursor =
       hasMore && direction === "backward"
-        ? Buffer.from(`${results[0].joinedAt.toISOString()}:${results[0].id}`).toString("base64")
+        ? Buffer.from(
+            `${results[0].joinedAt.toISOString()}:${results[0].id}`,
+          ).toString("base64")
         : undefined;
 
     const response = {
@@ -710,7 +810,7 @@ Respond with a JSON object containing:
     await CacheService.setCachedData(
       cacheKey,
       JSON.stringify(response),
-      GroupService.GROUP_MEMBERS_CACHE_TTL
+      GroupService.GROUP_MEMBERS_CACHE_TTL,
     );
 
     return response;
@@ -718,7 +818,7 @@ Respond with a JSON object containing:
 
   async getGroupEvents(
     groupId: string,
-    params: GetGroupEventsParams = {}
+    params: GetGroupEventsParams = {},
   ): Promise<{
     events: Event[];
     nextCursor?: string;
@@ -773,7 +873,7 @@ Respond with a JSON object containing:
             .orWhere("LOWER(event.emojiDescription) LIKE LOWER(:query)", {
               query: `%${query.toLowerCase()}%`,
             });
-        })
+        }),
       );
     }
 
@@ -798,12 +898,12 @@ Respond with a JSON object containing:
       if (direction === "forward") {
         queryBuilder.andWhere(
           "(event.eventDate < :timestamp OR (event.eventDate = :timestamp AND event.id < :id))",
-          { timestamp, id }
+          { timestamp, id },
         );
       } else {
         queryBuilder.andWhere(
           "(event.eventDate > :timestamp OR (event.eventDate = :timestamp AND event.id > :id))",
-          { timestamp, id }
+          { timestamp, id },
         );
       }
     }
@@ -825,13 +925,15 @@ Respond with a JSON object containing:
         ? Buffer.from(
             `${results[results.length - 1].eventDate.toISOString()}:${
               results[results.length - 1].id
-            }`
+            }`,
           ).toString("base64")
         : undefined;
 
     const prevCursor =
       hasMore && direction === "backward"
-        ? Buffer.from(`${results[0].eventDate.toISOString()}:${results[0].id}`).toString("base64")
+        ? Buffer.from(
+            `${results[0].eventDate.toISOString()}:${results[0].id}`,
+          ).toString("base64")
         : undefined;
 
     const response = {
@@ -847,14 +949,18 @@ Respond with a JSON object containing:
   }
 
   private createCursor(group: Group): string {
-    return Buffer.from(`${group.createdAt.toISOString()}:${group.id}`).toString("base64");
+    return Buffer.from(`${group.createdAt.toISOString()}:${group.id}`).toString(
+      "base64",
+    );
   }
 
   private async invalidateGroupCaches(groupId: string): Promise<void> {
     try {
       const redisClient = CacheService.getRedisClient();
       if (!redisClient) {
-        console.error("Redis client not initialized, cache invalidation skipped");
+        console.error(
+          "Redis client not initialized, cache invalidation skipped",
+        );
         return;
       }
 
@@ -872,10 +978,18 @@ Respond with a JSON object containing:
       const eventKeys = await redisClient.keys(`group:${groupId}:events:*`);
 
       // Combine all keys
-      const allKeys = [...groupKeys, ...memberKeys, ...searchKeys, ...publicKeys, ...eventKeys];
+      const allKeys = [
+        ...groupKeys,
+        ...memberKeys,
+        ...searchKeys,
+        ...publicKeys,
+        ...eventKeys,
+      ];
 
       if (allKeys.length > 0) {
-        console.log(`Invalidating ${allKeys.length} cache keys for group ${groupId}`);
+        console.log(
+          `Invalidating ${allKeys.length} cache keys for group ${groupId}`,
+        );
         await redisClient.del(...allKeys);
       }
     } catch (error) {
@@ -889,7 +1003,13 @@ Respond with a JSON object containing:
     nextCursor?: string;
     prevCursor?: string;
   }> {
-    const { query, categoryId, cursor, limit = 10, direction = "forward" } = params;
+    const {
+      query,
+      categoryId,
+      cursor,
+      limit = 10,
+      direction = "forward",
+    } = params;
     const cacheKey = this.getGroupSearchCacheKey(params);
 
     const cached = await CacheService.getCachedData(cacheKey);
@@ -902,7 +1022,9 @@ Respond with a JSON object containing:
       .createQueryBuilder("group")
       .leftJoinAndSelect("group.owner", "owner")
       .leftJoinAndSelect("group.categories", "categories")
-      .where("group.visibility = :visibility", { visibility: GroupVisibility.PUBLIC });
+      .where("group.visibility = :visibility", {
+        visibility: GroupVisibility.PUBLIC,
+      });
 
     // Add search conditions using ILIKE for case-insensitive search
     if (query && query.trim()) {
@@ -913,7 +1035,7 @@ Respond with a JSON object containing:
           }).orWhere("group.description ILIKE :searchPattern", {
             searchPattern: `%${query.trim()}%`,
           });
-        })
+        }),
       );
     }
 
@@ -930,12 +1052,12 @@ Respond with a JSON object containing:
       if (direction === "forward") {
         queryBuilder.andWhere(
           "(group.createdAt < :timestamp OR (group.createdAt = :timestamp AND group.id < :id))",
-          { timestamp, id }
+          { timestamp, id },
         );
       } else {
         queryBuilder.andWhere(
           "(group.createdAt > :timestamp OR (group.createdAt = :timestamp AND group.id > :id))",
-          { timestamp, id }
+          { timestamp, id },
         );
       }
     }
@@ -956,7 +1078,9 @@ Respond with a JSON object containing:
         : undefined;
 
     const prevCursor =
-      hasMore && direction === "backward" ? this.createCursor(results[0]) : undefined;
+      hasMore && direction === "backward"
+        ? this.createCursor(results[0])
+        : undefined;
 
     const response = {
       groups: results,
@@ -967,7 +1091,7 @@ Respond with a JSON object containing:
     await CacheService.setCachedData(
       cacheKey,
       JSON.stringify(response),
-      GroupService.GROUP_SEARCH_CACHE_TTL
+      GroupService.GROUP_SEARCH_CACHE_TTL,
     );
 
     return response;

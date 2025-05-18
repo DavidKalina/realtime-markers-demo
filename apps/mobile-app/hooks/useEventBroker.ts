@@ -19,28 +19,37 @@ export function useEventBroker() {
 
   // Subscribe to an event
   const subscribe = useCallback(
-    <T extends BaseEvent>(eventType: EventTypes, callback: (data: T) => void) => {
+    <T extends BaseEvent>(
+      eventType: EventTypes,
+      callback: (data: T) => void,
+    ) => {
       const unsubscribe = eventBroker.on<T>(eventType, callback);
       subscriptions.current.push(unsubscribe);
       return unsubscribe;
     },
-    []
+    [],
   );
 
   // Subscribe to an event once
   const subscribeOnce = useCallback(
-    <T extends BaseEvent>(eventType: EventTypes, callback: (data: T) => void) => {
+    <T extends BaseEvent>(
+      eventType: EventTypes,
+      callback: (data: T) => void,
+    ) => {
       const unsubscribe = eventBroker.once<T>(eventType, callback);
       subscriptions.current.push(unsubscribe);
       return unsubscribe;
     },
-    []
+    [],
   );
 
   // Publish an event
-  const publish = useCallback(<T extends BaseEvent>(eventType: EventTypes, data: T) => {
-    eventBroker.emit(eventType, data);
-  }, []);
+  const publish = useCallback(
+    <T extends BaseEvent>(eventType: EventTypes, data: T) => {
+      eventBroker.emit(eventType, data);
+    },
+    [],
+  );
 
   return {
     subscribe,

@@ -2,7 +2,14 @@
 import * as Haptics from "expo-haptics";
 import { ArrowLeft } from "lucide-react-native";
 import React, { useEffect } from "react";
-import { Dimensions, ScrollView, Text, TouchableOpacity, View, StyleSheet } from "react-native";
+import {
+  Dimensions,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+  StyleSheet,
+} from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -78,7 +85,10 @@ export const ActionView: React.FC<ActionViewProps> = ({
     // Use availableHeight instead of screenHeight for calculations
     // When used over a map or other content, we want to take most of the remaining space
     // while still leaving some room for context
-    return maxHeight || Math.min(availableHeight * 0.95, Math.max(300, availableHeight * 0.95));
+    return (
+      maxHeight ||
+      Math.min(availableHeight * 0.95, Math.max(300, availableHeight * 0.95))
+    );
   };
 
   // Handle close button
@@ -95,10 +105,17 @@ export const ActionView: React.FC<ActionViewProps> = ({
   return (
     <View style={[styles.actionContainer, { paddingBottom: insets.bottom }]}>
       <Animated.View
-        style={[styles.actionModal, viewAnimatedStyle, { maxHeight: getMaxHeight() as number }]}
+        style={[
+          styles.actionModal,
+          viewAnimatedStyle,
+          { maxHeight: getMaxHeight() as number },
+        ]}
       >
         <View style={styles.actionHeader}>
-          <TouchableOpacity style={styles.actionBackButton} onPress={handleClose}>
+          <TouchableOpacity
+            style={styles.actionBackButton}
+            onPress={handleClose}
+          >
             <ArrowLeft size={22} color="#f8f9fa" />
           </TouchableOpacity>
           <Text style={styles.actionTitle}>{title}</Text>

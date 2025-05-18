@@ -161,7 +161,12 @@ export class AddLevelingSystem1710000000003 implements MigrationInterface {
         INSERT INTO "levels" ("level_number", "title", "required_xp", "rewards")
         VALUES ($1, $2, $3, $4)
       `,
-        [level.levelNumber, level.title, level.requiredXp, JSON.stringify(level.rewards)]
+        [
+          level.levelNumber,
+          level.title,
+          level.requiredXp,
+          JSON.stringify(level.rewards),
+        ],
       );
     }
   }

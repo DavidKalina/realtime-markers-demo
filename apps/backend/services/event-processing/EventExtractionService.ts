@@ -21,11 +21,13 @@ export class EventExtractionService implements IEventExtractionService {
   constructor(
     private categoryProcessingService: CategoryProcessingService,
     private locationResolutionService: ILocationResolutionService,
-    private configService?: ConfigService
+    private configService?: ConfigService,
   ) {
     // Initialize with config or defaults
-    this.defaultEmoji = configService?.get("eventProcessing.defaultEmoji") || "📍";
-    this.extractionModel = configService?.get("openai.extractionModel") || "gpt-4o";
+    this.defaultEmoji =
+      configService?.get("eventProcessing.defaultEmoji") || "📍";
+    this.extractionModel =
+      configService?.get("openai.extractionModel") || "gpt-4o";
   }
 
   /**
@@ -40,7 +42,7 @@ export class EventExtractionService implements IEventExtractionService {
       userCoordinates?: { lat: number; lng: number };
       organizationHints?: string[];
       userCityState?: string;
-    }
+    },
   ): Promise<EventExtractionResult> {
     console.log("options", options);
     // Get current date to provide as context
@@ -51,10 +53,11 @@ export class EventExtractionService implements IEventExtractionService {
     if (!userCityState && options?.userCoordinates) {
       try {
         // Use the LocationResolutionService for reverse geocoding
-        userCityState = await this.locationResolutionService.reverseGeocodeCityState(
-          options.userCoordinates.lat,
-          options.userCoordinates.lng
-        );
+        userCityState =
+          await this.locationResolutionService.reverseGeocodeCityState(
+            options.userCoordinates.lat,
+            options.userCoordinates.lng,
+          );
       } catch (error) {
         console.error("Error reverse geocoding user coordinates:", error);
       }
@@ -64,8 +67,8 @@ export class EventExtractionService implements IEventExtractionService {
     const userLocationPrompt = userCityState
       ? `The user is currently in ${userCityState}. Consider this for location inference.`
       : options?.userCoordinates
-      ? `The user is currently located near latitude ${options.userCoordinates.lat}, longitude ${options.userCoordinates.lng}.`
-      : "";
+        ? `The user is currently located near latitude ${options.userCoordinates.lat}, longitude ${options.userCoordinates.lng}.`
+        : "";
 
     // Extract event details with enhanced location awareness
     const response = await OpenAIService.executeChatCompletion({
@@ -117,21 +120,26 @@ export class EventExtractionService implements IEventExtractionService {
       response_format: { type: "json_object" },
     });
 
-    const parsedDetails = JSON.parse(response.choices[0]?.message.content?.trim() ?? "{}");
+    const parsedDetails = JSON.parse(
+      response.choices[0]?.message.content?.trim() ?? "{}",
+    );
 
     // Collect all location clues
     const locationClues = [
       parsedDetails.organization || "",
       parsedDetails.venue || "",
-      ...(Array.isArray(parsedDetails.locationClues) ? parsedDetails.locationClues : []),
+      ...(Array.isArray(parsedDetails.locationClues)
+        ? parsedDetails.locationClues
+        : []),
       ...(options?.organizationHints || []),
     ].filter(Boolean);
 
     // Use the location resolution service to resolve the address and coordinates
-    const resolvedLocation = await this.locationResolutionService.resolveLocation(locationClues, {
-      cityState: userCityState,
-      coordinates: options?.userCoordinates,
-    });
+    const resolvedLocation =
+      await this.locationResolutionService.resolveLocation(locationClues, {
+        cityState: userCityState,
+        coordinates: options?.userCoordinates,
+      });
 
     // Create Point from resolved coordinates
     const location = resolvedLocation.coordinates;
@@ -140,17 +148,28 @@ export class EventExtractionService implements IEventExtractionService {
     const timezone = resolvedLocation.timezone;
 
     // Process dates with timezone awareness
-    const eventDate = this.processEventDate(parsedDetails.date, parsedDetails.timezone, timezone);
+    const eventDate = this.processEventDate(
+      parsedDetails.date,
+      parsedDetails.timezone,
+      timezone,
+    );
     const eventEndDate = parsedDetails.endDate
-      ? this.processEventDate(parsedDetails.endDate, parsedDetails.timezone, timezone)
+      ? this.processEventDate(
+          parsedDetails.endDate,
+          parsedDetails.timezone,
+          timezone,
+        )
       : undefined;
 
     // Process categories
     let categories: Category[] = [];
-    if (parsedDetails.categoryNames && Array.isArray(parsedDetails.categoryNames)) {
+    if (
+      parsedDetails.categoryNames &&
+      Array.isArray(parsedDetails.categoryNames)
+    ) {
       // Get existing categories or create new ones
       categories = await this.categoryProcessingService.getOrCreateCategories(
-        parsedDetails.categoryNames
+        parsedDetails.categoryNames,
       );
     }
 
@@ -189,7 +208,7 @@ export class EventExtractionService implements IEventExtractionService {
   private processEventDate(
     dateString?: string,
     explicitTimezone?: string,
-    resolvedTimezone: string = "UTC"
+    resolvedTimezone: string = "UTC",
   ): string {
     try {
       // Check if we have a valid date string
@@ -216,7 +235,7 @@ export class EventExtractionService implements IEventExtractionService {
           // Format with the explicit timezone
           const formattedDate = format(
             fromZonedTime(isoDate, timezone),
-            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
           );
 
           return formattedDate;
@@ -230,7 +249,7 @@ export class EventExtractionService implements IEventExtractionService {
           // Treat the parsed date as if it's in the event's timezone
           const formattedDate = format(
             fromZonedTime(parsedDate, timezone),
-            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
           );
 
           return formattedDate;
@@ -262,7 +281,7 @@ export class EventExtractionService implements IEventExtractionService {
    */
   public async generateEventEmoji(
     title: string,
-    description: string
+    description: string,
   ): Promise<{ emoji: string; emojiDescription: string }> {
     try {
       const response = await OpenAIService.executeChatCompletion({
@@ -292,7 +311,9 @@ export class EventExtractionService implements IEventExtractionService {
         response_format: { type: "json_object" },
       });
 
-      const result = JSON.parse(response.choices[0]?.message.content?.trim() ?? "{}");
+      const result = JSON.parse(
+        response.choices[0]?.message.content?.trim() ?? "{}",
+      );
       return {
         emoji: result.emoji || this.defaultEmoji,
         emojiDescription: result.emojiDescription || "",

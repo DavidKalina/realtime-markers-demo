@@ -9,11 +9,20 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
+import Animated, {
+  FadeInDown,
+  FadeOutUp,
+  LinearTransition,
+} from "react-native-reanimated";
 import * as Crypto from "expo-crypto";
 
 interface DiscoveryIndicatorProps {
-  position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "custom";
+  position?:
+    | "top-right"
+    | "top-left"
+    | "bottom-right"
+    | "bottom-left"
+    | "custom";
 }
 
 interface IndicatorItem {
@@ -28,7 +37,9 @@ interface IndicatorItem {
   timestamp: number;
 }
 
-const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top-right" }) => {
+const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
+  position = "top-right",
+}) => {
   const [items, setItems] = useState<IndicatorItem[]>([]);
   const { subscribe, publish } = useEventBroker();
 
@@ -68,35 +79,38 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
 
   // Subscribe to discovery events and notifications
   useEffect(() => {
-    const unsubscribeDiscovery = subscribe(EventTypes.EVENT_DISCOVERED, (event: DiscoveryEvent) => {
-      setItems((prev) => {
-        // Don't add duplicates
-        if (prev && prev.some((d) => d.id === event.event.id)) {
-          return prev;
-        }
+    const unsubscribeDiscovery = subscribe(
+      EventTypes.EVENT_DISCOVERED,
+      (event: DiscoveryEvent) => {
+        setItems((prev) => {
+          // Don't add duplicates
+          if (prev && prev.some((d) => d.id === event.event.id)) {
+            return prev;
+          }
 
-        const newItem: IndicatorItem = {
-          id: event.event.id,
-          type: "discovery",
-          event: { ...event.event },
-          timestamp: new Date().getTime(),
-        };
+          const newItem: IndicatorItem = {
+            id: event.event.id,
+            type: "discovery",
+            event: { ...event.event },
+            timestamp: new Date().getTime(),
+          };
 
-        // Add new item to the front of the array
-        const newItems = [newItem, ...(prev || [])];
+          // Add new item to the front of the array
+          const newItems = [newItem, ...(prev || [])];
 
-        // Auto-dismiss after 10 seconds
-        setTimeout(() => {
-          setItems((current) => {
-            if (!current) return [];
-            return current.filter((item) => item.id !== newItem.id);
-          });
-        }, 10000);
+          // Auto-dismiss after 10 seconds
+          setTimeout(() => {
+            setItems((current) => {
+              if (!current) return [];
+              return current.filter((item) => item.id !== newItem.id);
+            });
+          }, 10000);
 
-        // Limit the number of displayed items
-        return newItems.slice(0, 10);
-      });
-    });
+          // Limit the number of displayed items
+          return newItems.slice(0, 10);
+        });
+      },
+    );
 
     const unsubscribeNotification = subscribe(
       EventTypes.NOTIFICATION,
@@ -110,7 +124,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
               item.type === "notification" &&
               item.notification?.title === event.title &&
               item.notification?.message === event.message &&
-              item.notification?.type === event.notificationType
+              item.notification?.type === event.notificationType,
           );
 
           if (isDuplicate) {
@@ -143,7 +157,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
           // Limit the number of displayed items
           return newItems.slice(0, 10);
         });
-      }
+      },
     );
 
     return () => {
@@ -154,12 +168,15 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
 
   const handlePress = (item: IndicatorItem) => {
     if (item.type === "discovery" && item.event?.location?.coordinates) {
-      publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
-        coordinates: item.event.location.coordinates,
-        timestamp: new Date().getTime(),
-        source: "discovery_indicator",
-        zoomLevel: 20,
-      });
+      publish<CameraAnimateToLocationEvent>(
+        EventTypes.CAMERA_ANIMATE_TO_LOCATION,
+        {
+          coordinates: item.event.location.coordinates,
+          timestamp: new Date().getTime(),
+          source: "discovery_indicator",
+          zoomLevel: 20,
+        },
+      );
     }
 
     // Remove the item after a short delay
@@ -168,7 +185,9 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
     }, 50);
   };
 
-  const getNotificationIcon = (type: "info" | "success" | "warning" | "error") => {
+  const getNotificationIcon = (
+    type: "info" | "success" | "warning" | "error",
+  ) => {
     switch (type) {
       case "success":
         return "checkmark-circle";
@@ -181,7 +200,9 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
     }
   };
 
-  const getNotificationColor = (type: "info" | "success" | "warning" | "error") => {
+  const getNotificationColor = (
+    type: "info" | "success" | "warning" | "error",
+  ) => {
     switch (type) {
       case "success":
         return "#4CAF50";
@@ -218,14 +239,24 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
         layout={LinearTransition.springify()}
       >
         <Pressable onPress={() => handlePress(item)} style={styles.pressable}>
-          <View style={[styles.indicator, isNotification && styles.notificationIndicator]}>
+          <View
+            style={[
+              styles.indicator,
+              isNotification && styles.notificationIndicator,
+            ]}
+          >
             <View
-              style={[styles.iconContainer, isNotification && { backgroundColor: "transparent" }]}
+              style={[
+                styles.iconContainer,
+                isNotification && { backgroundColor: "transparent" },
+              ]}
             >
               {isNotification ? (
                 <Ionicons name={iconName} size={20} color={iconColor} />
               ) : (
-                <Text style={styles.emojiText}>{item.event?.emoji || "🎉"}</Text>
+                <Text style={styles.emojiText}>
+                  {item.event?.emoji || "🎉"}
+                </Text>
               )}
             </View>
 
@@ -242,7 +273,11 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
 
             {!isNotification && (
               <View style={styles.tapIndicator}>
-                <Ionicons name={iconName} size={16} color="rgba(255, 255, 255, 0.6)" />
+                <Ionicons
+                  name={iconName}
+                  size={16}
+                  color="rgba(255, 255, 255, 0.6)"
+                />
               </View>
             )}
           </View>
@@ -252,7 +287,9 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({ position = "top
   };
 
   return (
-    <View style={[styles.container, position === "custom" ? null : positionStyle]}>
+    <View
+      style={[styles.container, position === "custom" ? null : positionStyle]}
+    >
       <View style={styles.wrapper}>
         {items && items.map((item, index) => renderItem(item, index))}
       </View>

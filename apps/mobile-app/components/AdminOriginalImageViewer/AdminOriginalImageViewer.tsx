@@ -11,7 +11,13 @@ import {
   Alert,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { Image as LucideImage, X, ZoomIn, Share2, Shield } from "lucide-react-native";
+import {
+  Image as LucideImage,
+  X,
+  ZoomIn,
+  Share2,
+  Shield,
+} from "lucide-react-native";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
 import apiClient from "@/services/ApiClient";
@@ -53,7 +59,7 @@ const AdminOriginalImageViewer: React.FC<AdminOriginalImageViewerProps> = ({
           setError("Could not load original image");
           Alert.alert(
             "Image Loading Error",
-            "There was a problem loading the original image. Please check your internet connection and admin privileges."
+            "There was a problem loading the original image. Please check your internet connection and admin privileges.",
           );
         }
       } finally {

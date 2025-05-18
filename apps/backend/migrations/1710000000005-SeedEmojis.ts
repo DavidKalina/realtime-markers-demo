@@ -63,7 +63,7 @@ export class SeedEmojis1710000000005 implements MigrationInterface {
           category_id: this.getCategoryId(emoji.category),
           keywords: this.getKeywords(emoji),
           rank: emoji.sort_order || index + 1,
-        })
+        }),
       );
 
     // Insert data in chunks to avoid memory issues
@@ -78,7 +78,7 @@ export class SeedEmojis1710000000005 implements MigrationInterface {
         ${e.category_id ? `'${e.category_id}'::uuid` : "NULL"},
         ARRAY[${e.keywords.map((k: string) => `'${k.replace(/'/g, "''")}'`).join(", ")}],
         ${e.rank}
-      )`
+      )`,
         )
         .join(",");
 
@@ -96,11 +96,11 @@ export class SeedEmojis1710000000005 implements MigrationInterface {
     `);
 
     // Drop temporary table
-    await queryRunner.query(`DROP TABLE temp_emojis`);
+    await queryRunner.query("DROP TABLE temp_emojis");
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DELETE FROM emoji`);
+    await queryRunner.query("DELETE FROM emoji");
   }
 
   private unicodeToEmoji(unified: string): string {

@@ -52,8 +52,12 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
   const lastUpdateTimeRef = useRef(Date.now());
 
   // Animation control refs
-  const animationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const initializationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const animationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
+  const initializationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const timeRef = useRef(0);
   const currentLocationIndexRef = useRef(0);
   const transitioningRef = useRef(false);
@@ -79,7 +83,12 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
 
   // Throttled camera update function
   const updateCamera = (force = false) => {
-    if (!isMountedRef.current || !cameraRef.current || isPerformingUpdateRef.current || !isInitialized) {
+    if (
+      !isMountedRef.current ||
+      !cameraRef.current ||
+      isPerformingUpdateRef.current ||
+      !isInitialized
+    ) {
       return;
     }
 
@@ -88,7 +97,11 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
     const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
 
     // Only update if forced, enough frames have passed, or enough time has elapsed
-    if (!force && frameCountRef.current % ANIMATION_BATCH_SIZE !== 0 && timeSinceLastUpdate < 100) {
+    if (
+      !force &&
+      frameCountRef.current % ANIMATION_BATCH_SIZE !== 0 &&
+      timeSinceLastUpdate < 100
+    ) {
       return;
     }
 
@@ -102,7 +115,7 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
         animationDuration: CAMERA_UPDATE_INTERVAL,
       });
     } catch (error) {
-      console.warn('Camera update failed:', error);
+      console.warn("Camera update failed:", error);
     } finally {
       isPerformingUpdateRef.current = false;
       lastUpdateTimeRef.current = now;
@@ -124,7 +137,7 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
           animationDuration: 0,
         });
       } catch (error) {
-        console.warn('Initial camera setup failed:', error);
+        console.warn("Initial camera setup failed:", error);
       }
     }
 
@@ -168,7 +181,8 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
       // Check if it's time to transition to a new location
       if (timeRef.current >= LOCATION_DURATION && !transitioningRef.current) {
         transitioningRef.current = true;
-        currentLocationIndexRef.current = (currentLocationIndexRef.current + 1) % LOCATIONS.length;
+        currentLocationIndexRef.current =
+          (currentLocationIndexRef.current + 1) % LOCATIONS.length;
         timeRef.current = 0;
         transitioningRef.current = false;
       }
@@ -222,7 +236,7 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
             animationDuration: 0,
           });
         } catch (error) {
-          console.warn('Final camera reset failed:', error);
+          console.warn("Final camera reset failed:", error);
         }
       }
     };
@@ -239,7 +253,7 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
         try {
           clearInterval(animationIntervalRef.current);
         } catch (e) {
-          console.warn('Failed to clear animation interval:', e);
+          console.warn("Failed to clear animation interval:", e);
         }
         animationIntervalRef.current = null;
       }
@@ -248,7 +262,7 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
         try {
           clearTimeout(initializationTimerRef.current);
         } catch (e) {
-          console.warn('Failed to clear initialization timer:', e);
+          console.warn("Failed to clear initialization timer:", e);
         }
         initializationTimerRef.current = null;
       }
@@ -268,14 +282,14 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
         pitchRef.current = BASE_PITCH;
         centerRef.current = LOCATIONS[0].center;
       } catch (e) {
-        console.warn('Failed to reset refs:', e);
+        console.warn("Failed to reset refs:", e);
       }
 
       // Safely reset camera
       if (cameraRef.current) {
         try {
           // Check if the camera methods are still available
-          if (typeof cameraRef.current.setCamera === 'function') {
+          if (typeof cameraRef.current.setCamera === "function") {
             cameraRef.current.setCamera({
               centerCoordinate: LOCATIONS[0].center,
               zoomLevel: BASE_ZOOM,
@@ -284,7 +298,10 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
             });
           }
         } catch (error) {
-          console.warn('Camera reset failed, this is normal during unmount:', error);
+          console.warn(
+            "Camera reset failed, this is normal during unmount:",
+            error,
+          );
         }
       }
 
@@ -294,7 +311,10 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
           // Let the natural cleanup process handle the map disposal
           // We don't manually modify the map instance to avoid potential crashes
         } catch (error) {
-          console.warn('Map cleanup failed, this is normal during unmount:', error);
+          console.warn(
+            "Map cleanup failed, this is normal during unmount:",
+            error,
+          );
         }
       }
 
@@ -303,7 +323,7 @@ const AnimatedMapBackgroundComponent: React.FC<AnimatedMapBackgroundProps> = ({
         setIsMapReady(false);
         setIsInitialized(false);
       } catch (e) {
-        console.warn('State cleanup failed, this is normal during unmount:', e);
+        console.warn("State cleanup failed, this is normal during unmount:", e);
       }
     };
   }, []);
@@ -356,9 +376,6 @@ const styles = StyleSheet.create({
   },
 });
 
-const AnimatedMapBackground = memo(
-  AnimatedMapBackgroundComponent,
-  () => true
-);
+const AnimatedMapBackground = memo(AnimatedMapBackgroundComponent, () => true);
 
 export default AnimatedMapBackground;

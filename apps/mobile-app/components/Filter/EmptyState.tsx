@@ -1,7 +1,11 @@
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { Plus, Sliders } from "lucide-react-native";
-import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
 import { styles } from "./styles";
 
 interface EmptyStateProps {

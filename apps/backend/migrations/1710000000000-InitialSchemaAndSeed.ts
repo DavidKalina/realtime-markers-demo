@@ -281,7 +281,7 @@ export class InitialSchemaAndSeed1710000000000 implements MigrationInterface {
           user.bio,
           user.role,
           user.isVerified,
-        ]
+        ],
       );
     }
 
@@ -296,22 +296,22 @@ export class InitialSchemaAndSeed1710000000000 implements MigrationInterface {
         (SELECT id FROM users WHERE username = 'jamesh'),
         $1
     `,
-      [FriendshipStatus.ACCEPTED]
+      [FriendshipStatus.ACCEPTED],
     );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop tables in reverse order of creation
-    await queryRunner.query(`DROP TABLE IF EXISTS "user_levels"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "levels"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "filters"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "event_shares"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "user_event_saves"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "user_event_discoveries"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "event_categories"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "events"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "categories"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "friendships"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "users"`);
+    await queryRunner.query('DROP TABLE IF EXISTS "user_levels"');
+    await queryRunner.query('DROP TABLE IF EXISTS "levels"');
+    await queryRunner.query('DROP TABLE IF EXISTS "filters"');
+    await queryRunner.query('DROP TABLE IF EXISTS "event_shares"');
+    await queryRunner.query('DROP TABLE IF EXISTS "user_event_saves"');
+    await queryRunner.query('DROP TABLE IF EXISTS "user_event_discoveries"');
+    await queryRunner.query('DROP TABLE IF EXISTS "event_categories"');
+    await queryRunner.query('DROP TABLE IF EXISTS "events"');
+    await queryRunner.query('DROP TABLE IF EXISTS "categories"');
+    await queryRunner.query('DROP TABLE IF EXISTS "friendships"');
+    await queryRunner.query('DROP TABLE IF EXISTS "users"');
   }
 }

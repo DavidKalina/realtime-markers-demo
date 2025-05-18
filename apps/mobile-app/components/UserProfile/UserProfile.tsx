@@ -16,7 +16,13 @@ import {
   Users,
   Zap,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -69,14 +75,24 @@ const COLORS = {
 
 // Memoized Profile Header
 const ProfileHeader = React.memo(
-  ({ user, userInitials, profileData }: { user: any; userInitials: string; profileData: any }) => (
+  ({
+    user,
+    userInitials,
+    profileData,
+  }: {
+    user: any;
+    userInitials: string;
+    profileData: any;
+  }) => (
     <Card delay={100}>
       <View style={styles.profileHeader}>
         <View style={styles.avatarOuterContainer}>
           <Text style={styles.avatarText}>{userInitials}</Text>
         </View>
         <View style={styles.userInfoContainer}>
-          <Text style={styles.userName}>{user?.displayName || user?.email}</Text>
+          <Text style={styles.userName}>
+            {user?.displayName || user?.email}
+          </Text>
           {user?.isVerified && (
             <Animated.View
               entering={FadeInDown.duration(600).delay(200).springify()}
@@ -103,7 +119,7 @@ const ProfileHeader = React.memo(
         </View>
       </Animated.View>
     </Card>
-  )
+  ),
 );
 
 // Memoized Plan Section
@@ -157,7 +173,7 @@ const PlanSection = React.memo(
         </Text>
       </View>
     </Card>
-  )
+  ),
 );
 
 // Memoized Account Details
@@ -184,7 +200,11 @@ const AccountDetails = React.memo(
     <Card delay={400}>
       <Text style={styles.sectionTitle}>Account Information</Text>
       {loading ? (
-        <ActivityIndicator size="large" color="#93c5fd" style={{ marginVertical: 20 }} />
+        <ActivityIndicator
+          size="large"
+          color="#93c5fd"
+          style={{ marginVertical: 20 }}
+        />
       ) : (
         <Animated.View layout={LinearTransition.springify()}>
           <Animated.View
@@ -196,7 +216,9 @@ const AccountDetails = React.memo(
             </View>
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>Email</Text>
-              <Text style={styles.detailValue}>{profileData?.email || user?.email}</Text>
+              <Text style={styles.detailValue}>
+                {profileData?.email || user?.email}
+              </Text>
             </View>
           </Animated.View>
           <Animated.View
@@ -208,7 +230,9 @@ const AccountDetails = React.memo(
             </View>
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>Role</Text>
-              <Text style={styles.detailValue}>{profileData?.role || user?.role || "User"}</Text>
+              <Text style={styles.detailValue}>
+                {profileData?.role || user?.role || "User"}
+              </Text>
             </View>
           </Animated.View>
           <Animated.View
@@ -262,14 +286,20 @@ const AccountDetails = React.memo(
               <Text style={styles.detailLabel}>Map Style</Text>
               {mapStyleButtons}
               <TouchableOpacity
-                style={[styles.mapStyleButton, isPitched && styles.mapStyleButtonActive]}
+                style={[
+                  styles.mapStyleButton,
+                  isPitched && styles.mapStyleButtonActive,
+                ]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   togglePitch();
                 }}
               >
                 <Text
-                  style={[styles.mapStyleButtonText, isPitched && styles.mapStyleButtonTextActive]}
+                  style={[
+                    styles.mapStyleButtonText,
+                    isPitched && styles.mapStyleButtonTextActive,
+                  ]}
                 >
                   {isPitched ? "3D View" : "2D View"}
                 </Text>
@@ -279,7 +309,7 @@ const AccountDetails = React.memo(
         </Animated.View>
       )}
     </Card>
-  )
+  ),
 );
 
 // Add display name for better debugging
@@ -296,7 +326,11 @@ const ActionsSection = React.memo(
   }) => (
     <Card delay={1000}>
       <View style={styles.actionsSection}>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          activeOpacity={0.8}
+        >
           <LogOut size={18} color="#f97583" style={{ marginRight: 8 }} />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
@@ -313,7 +347,7 @@ const ActionsSection = React.memo(
         </TouchableOpacity>
       </View>
     </Card>
-  )
+  ),
 );
 
 const FriendsSection = () => {
@@ -332,7 +366,9 @@ const FriendsSection = () => {
           <Users size={24} color={COLORS.textPrimary} />
           <View style={styles.friendsTextContainer}>
             <Text style={styles.friendsTitle}>Friends</Text>
-            <Text style={styles.friendsSubtitle}>View and manage your friends</Text>
+            <Text style={styles.friendsSubtitle}>
+              View and manage your friends
+            </Text>
           </View>
           <ChevronRight size={24} color={COLORS.textPrimary} />
         </View>
@@ -413,13 +449,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await setMapStyle(style);
     },
-    [setMapStyle]
+    [setMapStyle],
   );
 
   // Combined data fetching with caching
   useEffect(() => {
     let isMounted = true;
-    let controller = new AbortController();
+    const controller = new AbortController();
 
     const fetchUserData = async () => {
       try {
@@ -465,7 +501,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               scanLimit: 100, // Assuming PRO plan has 100 scans
               remainingScans: 100 - (prev.weeklyScanCount || 0),
             }
-          : null
+          : null,
       );
     } else if (paymentStatus === "cancel") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -497,8 +533,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   // Memoize progress bar width
   const progressWidth = useMemo(() => {
     return Math.min(
-      ((planDetails?.weeklyScanCount || 0) / (planDetails?.scanLimit || 10)) * 100,
-      100
+      ((planDetails?.weeklyScanCount || 0) / (planDetails?.scanLimit || 10)) *
+        100,
+      100,
     );
   }, [planDetails?.weeklyScanCount, planDetails?.scanLimit]);
 
@@ -507,7 +544,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     () => (
       <View style={styles.mapStyleButtons}>
         <TouchableOpacity
-          style={[styles.mapStyleButton, currentStyle === "light" && styles.mapStyleButtonActive]}
+          style={[
+            styles.mapStyleButton,
+            currentStyle === "light" && styles.mapStyleButtonActive,
+          ]}
           onPress={() => handleMapStyleChange("light")}
         >
           <Text
@@ -521,7 +561,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.mapStyleButton, currentStyle === "dark" && styles.mapStyleButtonActive]}
+          style={[
+            styles.mapStyleButton,
+            currentStyle === "dark" && styles.mapStyleButtonActive,
+          ]}
           onPress={() => handleMapStyleChange("dark")}
         >
           <Text
@@ -535,7 +578,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.mapStyleButton, currentStyle === "street" && styles.mapStyleButtonActive]}
+          style={[
+            styles.mapStyleButton,
+            currentStyle === "street" && styles.mapStyleButtonActive,
+          ]}
           onPress={() => handleMapStyleChange("street")}
         >
           <Text
@@ -549,7 +595,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         </TouchableOpacity>
       </View>
     ),
-    [currentStyle, handleMapStyleChange]
+    [currentStyle, handleMapStyleChange],
   );
 
   // Handle back button
@@ -602,7 +648,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         onScroll={scrollHandler}
         scrollEventThrottle={16}
       >
-        <ProfileHeader user={user} userInitials={userInitials} profileData={profileData} />
+        <ProfileHeader
+          user={user}
+          userInitials={userInitials}
+          profileData={profileData}
+        />
         <PlanSection
           planDetails={planDetails}
           progressWidth={progressWidth}
@@ -619,7 +669,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           isPitched={isPitched}
           togglePitch={togglePitch}
         />
-        <ActionsSection handleLogout={handleLogout} setShowDeleteDialog={setShowDeleteDialog} />
+        <ActionsSection
+          handleLogout={handleLogout}
+          setShowDeleteDialog={setShowDeleteDialog}
+        />
         <Animated.View
           entering={FadeInDown.duration(600).delay(1100).springify()}
           style={styles.versionContainer}
@@ -644,13 +697,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           style={styles.modalContainer}
         >
           <Animated.View
-            entering={BounceIn.duration(500).springify().damping(15).stiffness(200)}
+            entering={BounceIn.duration(500)
+              .springify()
+              .damping(15)
+              .stiffness(200)}
             layout={LinearTransition.springify()}
             style={styles.modalContent}
           >
             <Text style={styles.modalTitle}>Delete Account</Text>
             <Text style={styles.dialogText}>
-              Are you sure you want to delete your account? This action cannot be undone.
+              Are you sure you want to delete your account? This action cannot
+              be undone.
             </Text>
             <Text style={styles.dialogSubText}>
               Please enter your password to confirm deletion:
@@ -665,7 +722,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             />
             {deleteError ? (
               <Animated.View
-                entering={BounceIn.duration(500).springify().damping(15).stiffness(200)}
+                entering={BounceIn.duration(500)
+                  .springify()
+                  .damping(15)
+                  .stiffness(200)}
                 exiting={BounceOut.duration(300)}
               >
                 <Text style={styles.errorText}>{deleteError}</Text>
@@ -686,14 +746,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.deleteModalButton, isDeleting && styles.deleteModalButtonDisabled]}
+                style={[
+                  styles.deleteModalButton,
+                  isDeleting && styles.deleteModalButtonDisabled,
+                ]}
                 onPress={handleDeleteAccount}
                 disabled={isDeleting}
               >
                 {isDeleting ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.deleteModalButtonText}>Delete Account</Text>
+                  <Text style={styles.deleteModalButtonText}>
+                    Delete Account
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>

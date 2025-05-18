@@ -46,7 +46,7 @@ export const useCamera = () => {
       exif: true,
       flashMode,
     }),
-    [flashMode]
+    [flashMode],
   );
 
   // Release camera resources
@@ -81,7 +81,11 @@ export const useCamera = () => {
         setHasPermission(permission.granted);
 
         // If we don't have permission yet and haven't requested it, request it
-        if (!permission.granted && permission.canAskAgain && !permissionRequested) {
+        if (
+          !permission.granted &&
+          permission.canAskAgain &&
+          !permissionRequested
+        ) {
           setPermissionRequested(true);
           const result = await requestPermission();
           setHasPermission(result.granted);
@@ -91,7 +95,7 @@ export const useCamera = () => {
             Alert.alert(
               "Camera Access Required",
               "This feature requires camera access. Please enable camera permissions in your device settings.",
-              [{ text: "OK" }]
+              [{ text: "OK" }],
             );
           }
         }
@@ -105,31 +109,34 @@ export const useCamera = () => {
 
   // Monitor app state for background/foreground transitions
   useEffect(() => {
-    const subscription = AppState.addEventListener("change", async (nextAppState) => {
-      const isActive = nextAppState === "active";
-      setAppActive(isActive);
+    const subscription = AppState.addEventListener(
+      "change",
+      async (nextAppState) => {
+        const isActive = nextAppState === "active";
+        setAppActive(isActive);
 
-      if (isActive && appState.current !== "active" && isFocused) {
-        // When app comes back to foreground, refresh permission state
-        if (permission) {
-          setHasPermission(permission.granted);
+        if (isActive && appState.current !== "active" && isFocused) {
+          // When app comes back to foreground, refresh permission state
+          if (permission) {
+            setHasPermission(permission.granted);
+          }
+
+          setIsCameraReady(false);
+
+          // Small delay before re-initializing camera
+          setTimeout(() => {
+            if (cameraRef.current) {
+              setIsCameraActive(true);
+            }
+          }, CAMERA_CONFIG.CAMERA_REINIT_DELAY);
+        } else if (!isActive) {
+          // Clean up when app goes to background
+          releaseCamera();
         }
 
-        setIsCameraReady(false);
-
-        // Small delay before re-initializing camera
-        setTimeout(() => {
-          if (cameraRef.current) {
-            setIsCameraActive(true);
-          }
-        }, CAMERA_CONFIG.CAMERA_REINIT_DELAY);
-      } else if (!isActive) {
-        // Clean up when app goes to background
-        releaseCamera();
-      }
-
-      appState.current = nextAppState;
-    });
+        appState.current = nextAppState;
+      },
+    );
 
     return () => {
       subscription.remove();
@@ -192,7 +199,12 @@ export const useCamera = () => {
       isCameraActive,
     });
 
-    if (!cameraRef.current || isCapturing || !isCameraReady || !isCameraActive) {
+    if (
+      !cameraRef.current ||
+      isCapturing ||
+      !isCameraReady ||
+      !isCameraActive
+    ) {
       console.log("[Camera] Cannot take picture:", {
         noRef: !cameraRef.current,
         isCapturing,
@@ -206,13 +218,16 @@ export const useCamera = () => {
       console.log("[Camera] Starting capture...");
       setIsCapturing(true);
 
-      const photo = await (cameraRef.current as any).takePictureAsync(cameraConfig);
+      const photo = await (cameraRef.current as any).takePictureAsync(
+        cameraConfig,
+      );
       console.log("[Camera] Picture taken successfully");
 
       // Return the URI directly
       return photo.uri;
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Failed to capture image";
+      const errorMsg =
+        error instanceof Error ? error.message : "Failed to capture image";
       console.error("[Camera] Error capturing image:", error);
 
       Alert.alert("Error", `${errorMsg}. Please try again.`, [{ text: "OK" }], {
@@ -234,11 +249,13 @@ export const useCamera = () => {
   // Memoize image processing configuration
   const processImageConfig = useMemo(
     () => ({
-      resize: { width: CAMERA_CONFIG.PROCESSED_WIDTH } as unknown as ImageManipulator.Action,
+      resize: {
+        width: CAMERA_CONFIG.PROCESSED_WIDTH,
+      } as unknown as ImageManipulator.Action,
       compress: CAMERA_CONFIG.PROCESSED_QUALITY,
       format: ImageManipulator.SaveFormat.JPEG,
     }),
-    []
+    [],
   );
 
   // For useCamera.ts - Updated processImage function with proper type checking
@@ -256,7 +273,10 @@ export const useCamera = () => {
               resize: { width: CAMERA_CONFIG.PROCESSED_WIDTH },
             } as unknown as ImageManipulator.Action,
           ],
-          { compress: processImageConfig.compress, format: processImageConfig.format }
+          {
+            compress: processImageConfig.compress,
+            format: processImageConfig.format,
+          },
         );
 
         return processed.uri;
@@ -265,7 +285,7 @@ export const useCamera = () => {
         return uri; // Fall back to original if processing fails
       }
     },
-    [processImageConfig]
+    [processImageConfig],
   );
 
   // Discard captured image and return to camera

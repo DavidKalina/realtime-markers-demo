@@ -64,7 +64,10 @@ plansRouter.post("/update", async (c) => {
     return c.json({ message: "Plan updated successfully" });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return c.json({ error: "Invalid request body", details: error.errors }, 400);
+      return c.json(
+        { error: "Invalid request body", details: error.errors },
+        400,
+      );
     }
     console.error("Error updating plan:", error);
     return c.json({ error: "Failed to update plan" }, 500);

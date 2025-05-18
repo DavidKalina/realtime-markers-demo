@@ -1,7 +1,13 @@
 import { type Point } from "geojson";
 import { Redis } from "ioredis";
 import pgvector from "pgvector";
-import { Brackets, DataSource, Repository, type DeepPartial, In } from "typeorm";
+import {
+  Brackets,
+  DataSource,
+  Repository,
+  type DeepPartial,
+  In,
+} from "typeorm";
 import { Category } from "../entities/Category";
 import { Event, EventStatus } from "../entities/Event";
 import type { Filter } from "../entities/Filter";
@@ -55,20 +61,27 @@ export class EventService {
   private eventSimilarityService: EventSimilarityService;
   private levelingService: LevelingService;
 
-  constructor(private dataSource: DataSource, private redis: Redis) {
+  constructor(
+    private dataSource: DataSource,
+    private redis: Redis,
+  ) {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
     this.userEventSaveRepository = dataSource.getRepository(UserEventSave);
     this.userEventRsvpRepository = dataSource.getRepository(UserEventRsvp);
     this.eventShareRepository = dataSource.getRepository(EventShare);
     this.locationService = GoogleGeocodingService.getInstance();
-    this.eventSimilarityService = new EventSimilarityService(this.eventRepository);
+    this.eventSimilarityService = new EventSimilarityService(
+      this.eventRepository,
+    );
     this.levelingService = new LevelingService(dataSource, redis);
   }
 
-  async cleanupOutdatedEvents(
-    batchSize = 100
-  ): Promise<{ deletedEvents: Event[]; deletedCount: number; hasMore: boolean }> {
+  async cleanupOutdatedEvents(batchSize = 100): Promise<{
+    deletedEvents: Event[];
+    deletedCount: number;
+    hasMore: boolean;
+  }> {
     const now = new Date();
 
     // Find events that are outdated:
@@ -80,7 +93,9 @@ export class EventService {
       .getMany();
 
     const hasMore = eventsToDelete.length > batchSize;
-    const toDelete = hasMore ? eventsToDelete.slice(0, batchSize) : eventsToDelete;
+    const toDelete = hasMore
+      ? eventsToDelete.slice(0, batchSize)
+      : eventsToDelete;
 
     if (toDelete.length === 0) {
       return { deletedEvents: [], deletedCount: 0, hasMore: false };
@@ -101,7 +116,7 @@ export class EventService {
       limit?: number;
       offset?: number;
       userId?: string;
-    } = {}
+    } = {},
   ): Promise<Event[]> {
     try {
       const queryBuilder = this.eventRepository
@@ -160,14 +175,14 @@ export class EventService {
     lng: number,
     radius: number = 5000, // Default 5km radius
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
   ): Promise<Event[]> {
     const query = this.eventRepository
       .createQueryBuilder("event")
       .leftJoinAndSelect("event.categories", "category")
       .where(
         "ST_DWithin(event.location::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radius)",
-        { lat, lng, radius }
+        { lat, lng, radius },
       );
 
     if (startDate) {
@@ -180,7 +195,10 @@ export class EventService {
     return query.getMany();
   }
 
-  async storeDetectedQRCode(eventId: string, qrCodeData: string): Promise<Event | null> {
+  async storeDetectedQRCode(
+    eventId: string,
+    qrCodeData: string,
+  ): Promise<Event | null> {
     try {
       // Get the event
       const event = await this.getEventById(eventId);
@@ -203,7 +221,10 @@ export class EventService {
 
       return updatedEvent;
     } catch (error) {
-      console.error(`Error storing detected QR code for event ${eventId}:`, error);
+      console.error(
+        `Error storing detected QR code for event ${eventId}:`,
+        error,
+      );
       throw error; // Re-throw to handle in the controller
     }
   }
@@ -214,7 +235,7 @@ export class EventService {
       try {
         const timezone = await this.locationService.getTimezoneFromCoordinates(
           input.location.coordinates[1],
-          input.location.coordinates[0]
+          input.location.coordinates[0],
         );
         input.timezone = timezone;
       } catch (error) {
@@ -254,7 +275,7 @@ export class EventService {
     };
 
     // Create event instance
-    let event = this.eventRepository.create(eventData);
+    const event = this.eventRepository.create(eventData);
 
     if (categories.length) {
       event.categories = categories;
@@ -265,7 +286,11 @@ export class EventService {
 
     // If the event is private and there are users to share with, create the shares
     if (savedEvent.isPrivate && input.sharedWithIds?.length) {
-      await this.shareEventWithUsers(savedEvent.id, input.creatorId, input.sharedWithIds);
+      await this.shareEventWithUsers(
+        savedEvent.id,
+        input.creatorId,
+        input.sharedWithIds,
+      );
     }
 
     // Award XP for creating an event
@@ -285,7 +310,7 @@ export class EventService {
   async shareEventWithUsers(
     eventId: string,
     sharedById: string,
-    sharedWithIds: string[]
+    sharedWithIds: string[],
   ): Promise<void> {
     // Validate inputs
     if (!eventId) {
@@ -343,7 +368,10 @@ export class EventService {
    * @param eventId The ID of the event
    * @param sharedWithIds Array of user IDs to remove access for
    */
-  async removeEventShares(eventId: string, sharedWithIds: string[]): Promise<void> {
+  async removeEventShares(
+    eventId: string,
+    sharedWithIds: string[],
+  ): Promise<void> {
     await this.eventShareRepository.delete({
       eventId,
       sharedWithId: In(sharedWithIds),
@@ -365,7 +393,7 @@ export class EventService {
         JSON.stringify({
           operation: "UPDATE",
           record: event,
-        })
+        }),
       );
     }
   }
@@ -418,7 +446,10 @@ export class EventService {
     return !!share;
   }
 
-  async updateEvent(id: string, eventData: Partial<CreateEventInput>): Promise<Event | null> {
+  async updateEvent(
+    id: string,
+    eventData: Partial<CreateEventInput>,
+  ): Promise<Event | null> {
     try {
       if (!id) {
         throw new Error("Event ID is required for update");
@@ -439,8 +470,10 @@ export class EventService {
       // Handle basic fields
       if (eventData.title) event.title = eventData.title;
       if (eventData.emoji) event.emoji = eventData.emoji;
-      if (eventData.emojiDescription) event.emojiDescription = eventData.emojiDescription;
-      if (eventData.description !== undefined) event.description = eventData.description;
+      if (eventData.emojiDescription)
+        event.emojiDescription = eventData.emojiDescription;
+      if (eventData.description !== undefined)
+        event.description = eventData.description;
       if (eventData.eventDate) event.eventDate = eventData.eventDate;
       if (eventData.endDate !== undefined) event.endDate = eventData.endDate;
       if (eventData.location) {
@@ -449,13 +482,17 @@ export class EventService {
         // If location changed but timezone wasn't specified, try to determine new timezone
         if (!eventData.timezone) {
           try {
-            const timezone = await this.locationService.getTimezoneFromCoordinates(
-              eventData.location.coordinates[1],
-              eventData.location.coordinates[0]
-            );
+            const timezone =
+              await this.locationService.getTimezoneFromCoordinates(
+                eventData.location.coordinates[1],
+                eventData.location.coordinates[0],
+              );
             event.timezone = timezone;
           } catch (error) {
-            console.error("Error determining timezone from updated coordinates:", error);
+            console.error(
+              "Error determining timezone from updated coordinates:",
+              error,
+            );
           }
         }
       }
@@ -482,7 +519,11 @@ export class EventService {
       const savedEvent = await this.eventRepository.save(event);
 
       // Handle shares in a separate transaction
-      if (savedEvent.isPrivate && eventData.sharedWithIds && savedEvent.creatorId) {
+      if (
+        savedEvent.isPrivate &&
+        eventData.sharedWithIds &&
+        savedEvent.creatorId
+      ) {
         console.log("Updating shares for event:", {
           eventId: savedEvent.id,
           creatorId: savedEvent.creatorId,
@@ -493,13 +534,13 @@ export class EventService {
           // First remove all existing shares
           await this.removeEventShares(
             savedEvent.id,
-            await this.getEventSharedWithUsers(savedEvent.id)
+            await this.getEventSharedWithUsers(savedEvent.id),
           );
           // Then add the new shares
           await this.shareEventWithUsers(
             savedEvent.id,
             savedEvent.creatorId,
-            eventData.sharedWithIds
+            eventData.sharedWithIds,
           );
         } catch (error) {
           console.error("Error updating shares:", error);
@@ -510,7 +551,7 @@ export class EventService {
           // If event is not private, remove all shares
           await this.removeEventShares(
             savedEvent.id,
-            await this.getEventSharedWithUsers(savedEvent.id)
+            await this.getEventSharedWithUsers(savedEvent.id),
           );
         } catch (error) {
           console.error("Error removing shares:", error);
@@ -537,7 +578,7 @@ export class EventService {
   async searchEvents(
     query: string,
     limit: number = 10,
-    cursor?: string
+    cursor?: string,
   ): Promise<{ results: SearchResult[]; nextCursor?: string }> {
     // Basic validation
     if (!query.trim() || query.length < 2) {
@@ -670,9 +711,9 @@ export class EventService {
           })
           .orWhere(
             "EXISTS (SELECT 1 FROM categories WHERE category.id = ANY(SELECT category_id FROM event_categories WHERE event_id = event.id) AND LOWER(category.name) LIKE LOWER(:partialQuery))",
-            { partialQuery: `%${query.toLowerCase()}%` }
+            { partialQuery: `%${query.toLowerCase()}%` },
           );
-      })
+      }),
     );
 
     // Add score calculation using our expression
@@ -700,9 +741,9 @@ export class EventService {
                 .andWhere("event.id > :cursorId", {
                   cursorId: cursorData.id,
                 });
-            })
+            }),
           );
-        })
+        }),
       );
     }
 
@@ -716,10 +757,12 @@ export class EventService {
       .getMany();
 
     // Process results
-    const searchResults: SearchResult[] = events.slice(0, limit).map((event) => ({
-      event,
-      score: parseFloat((event as any).__score),
-    }));
+    const searchResults: SearchResult[] = events
+      .slice(0, limit)
+      .map((event) => ({
+        event,
+        score: parseFloat((event as any).__score),
+      }));
 
     // Generate next cursor if we have more results
     let nextCursor: string | undefined;
@@ -759,7 +802,10 @@ export class EventService {
     }
   }
 
-  async updateEventStatus(id: string, status: EventStatus): Promise<Event | null> {
+  async updateEventStatus(
+    id: string,
+    status: EventStatus,
+  ): Promise<Event | null> {
     try {
       const event = await this.getEventById(id);
       if (!event) return null;
@@ -784,7 +830,7 @@ export class EventService {
       endDate?: Date;
       limit?: number;
       offset?: number;
-    } = {}
+    } = {},
   ) {
     const { startDate, endDate, limit = 10, offset = 0 } = options;
 
@@ -833,7 +879,7 @@ export class EventService {
    */
   async toggleSaveEvent(
     userId: string,
-    eventId: string
+    eventId: string,
   ): Promise<{
     saved: boolean;
     saveCount: number;
@@ -859,9 +905,12 @@ export class EventService {
       }
 
       // Check if a save relationship already exists
-      const existingSave = await transactionalEntityManager.findOne(UserEventSave, {
-        where: { userId, eventId },
-      });
+      const existingSave = await transactionalEntityManager.findOne(
+        UserEventSave,
+        {
+          where: { userId, eventId },
+        },
+      );
 
       let saved: boolean;
 
@@ -928,7 +977,7 @@ export class EventService {
    */
   async getSavedEventsByUser(
     userId: string,
-    options: { limit?: number; cursor?: string } = {}
+    options: { limit?: number; cursor?: string } = {},
   ): Promise<{ events: Event[]; nextCursor?: string }> {
     const { limit = 10, cursor } = options;
 
@@ -972,9 +1021,9 @@ export class EventService {
                 .andWhere("event.id < :eventId", {
                   eventId: cursorData.eventId,
                 });
-            })
+            }),
           );
-        })
+        }),
       );
     }
 
@@ -1016,7 +1065,7 @@ export class EventService {
    */
   async searchEventsByFilter(
     filter: Filter,
-    options: { limit?: number; offset?: number } = {}
+    options: { limit?: number; offset?: number } = {},
   ): Promise<{ events: Event[]; total: number; hasMore: boolean }> {
     const { limit = 10, offset = 0 } = options;
 
@@ -1035,7 +1084,10 @@ export class EventService {
     if (embedding) {
       queryBuilder = queryBuilder
         .where("event.embedding IS NOT NULL")
-        .addSelect(`(1 - (event.embedding <-> :embedding)::float)`, "similarity_score")
+        .addSelect(
+          "(1 - (event.embedding <-> :embedding)::float)",
+          "similarity_score",
+        )
         .setParameter("embedding", embedding)
         .orderBy("similarity_score", "DESC");
     }
@@ -1078,7 +1130,7 @@ export class EventService {
             latitude: filter.criteria.location.latitude,
             longitude: filter.criteria.location.longitude,
             radius: filter.criteria.location.radius,
-          }
+          },
         );
       }
     }
@@ -1110,7 +1162,7 @@ export class EventService {
    */
   async getDiscoveredEventsByUser(
     userId: string,
-    options: { limit?: number; cursor?: string } = {}
+    options: { limit?: number; cursor?: string } = {},
   ): Promise<{ events: Event[]; nextCursor?: string }> {
     const { limit = 10, cursor } = options;
 
@@ -1161,9 +1213,9 @@ export class EventService {
                 .andWhere("event.id < :eventId", {
                   eventId: cursorData.eventId,
                 });
-            })
+            }),
           );
-        })
+        }),
       );
 
       // Log the generated SQL query
@@ -1229,7 +1281,10 @@ export class EventService {
         .where("id = :userId", { userId })
         .execute();
     } catch (error) {
-      console.error(`Error creating discovery record for user ${userId}:`, error);
+      console.error(
+        `Error creating discovery record for user ${userId}:`,
+        error,
+      );
       // Don't throw the error - we don't want to fail the scan if discovery recording fails
     }
   }
@@ -1319,7 +1374,10 @@ export class EventService {
     try {
       const eventContext = events
         .slice(0, 10)
-        .map((event) => `${event.title}${event.description ? `: ${event.description}` : ""}`)
+        .map(
+          (event) =>
+            `${event.title}${event.description ? `: ${event.description}` : ""}`,
+        )
         .join("\n");
 
       const creatorContext = featuredCreator
@@ -1362,7 +1420,9 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
       const result = JSON.parse(response.choices[0]?.message?.content || "{}");
       clusterName = result.name || events[0]?.title || "Event Cluster";
       clusterDescription =
-        result.description || events[0]?.description || "Check out these exciting events!";
+        result.description ||
+        events[0]?.description ||
+        "Check out these exciting events!";
       clusterEmoji = result.emoji || "🎉";
 
       if (featuredCreator) {
@@ -1371,7 +1431,8 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
     } catch (error) {
       console.error("Error generating cluster name and description:", error);
       clusterName = events[0]?.title || "Event Cluster";
-      clusterDescription = events[0]?.description || "Check out these exciting events!";
+      clusterDescription =
+        events[0]?.description || "Check out these exciting events!";
       // clusterEmoji remains default "🎉"
     }
 
@@ -1385,7 +1446,10 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
 
     // 2. Get events by category (IMPROVED LOGIC)
     // First, group all events by all their categories to count initial popularity
-    const allCategoryDataMap = new Map<string, { category: Category; events: Event[] }>();
+    const allCategoryDataMap = new Map<
+      string,
+      { category: Category; events: Event[] }
+    >();
     events.forEach((event) => {
       // Ensure event.categories is an array before iterating
       if (event.categories && Array.isArray(event.categories)) {
@@ -1491,7 +1555,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
    */
   async getFriendsSavedEvents(
     userId: string,
-    options: { limit?: number; cursor?: string } = {}
+    options: { limit?: number; cursor?: string } = {},
   ): Promise<{ events: Event[]; nextCursor?: string }> {
     const { limit = 10, cursor } = options;
 
@@ -1520,7 +1584,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
         "friendship",
         "(friendship.requesterId = :userId AND friendship.addresseeId = save.userId AND friendship.status = 'ACCEPTED') OR " +
           "(friendship.addresseeId = :userId AND friendship.requesterId = save.userId AND friendship.status = 'ACCEPTED')",
-        { userId }
+        { userId },
       )
       .where("save.userId != :userId", { userId }); // Exclude user's own saves
 
@@ -1539,9 +1603,9 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
                 .andWhere("event.id < :eventId", {
                   eventId: cursorData.eventId,
                 });
-            })
+            }),
           );
-        })
+        }),
       );
     }
 
@@ -1590,7 +1654,9 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
    * @param eventId The ID of the event
    * @returns Array of event shares
    */
-  async getEventShares(eventId: string): Promise<{ sharedWithId: string; sharedById: string }[]> {
+  async getEventShares(
+    eventId: string,
+  ): Promise<{ sharedWithId: string; sharedById: string }[]> {
     const shares = await this.dataSource
       .getRepository(EventShare)
       .createQueryBuilder("share")
@@ -1611,7 +1677,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
   async toggleRsvpEvent(
     userId: string,
     eventId: string,
-    status: RsvpStatus
+    status: RsvpStatus,
   ): Promise<{
     status: RsvpStatus;
     goingCount: number;
@@ -1629,9 +1695,12 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
       }
 
       // Check if an RSVP already exists
-      const existingRsvp = await transactionalEntityManager.findOne(UserEventRsvp, {
-        where: { userId, eventId },
-      });
+      const existingRsvp = await transactionalEntityManager.findOne(
+        UserEventRsvp,
+        {
+          where: { userId, eventId },
+        },
+      );
 
       if (existingRsvp) {
         // Update existing RSVP
@@ -1674,7 +1743,10 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
    * @param eventId The ID of the event
    * @returns The RSVP status or null if no RSVP exists
    */
-  async getUserRsvpStatus(userId: string, eventId: string): Promise<UserEventRsvp | null> {
+  async getUserRsvpStatus(
+    userId: string,
+    eventId: string,
+  ): Promise<UserEventRsvp | null> {
     return this.dataSource.getRepository(UserEventRsvp).findOne({
       where: { userId, eventId },
     });

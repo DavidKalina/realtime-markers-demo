@@ -1,4 +1,8 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
 import { PostHogProvider } from "posthog-react-native";
 
 import * as Sentry from "@sentry/react-native";
@@ -64,7 +68,9 @@ function RootLayout() {
       <LocationProvider>
         <MapStyleProvider>
           <OnboardingProvider>
-            <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+            <ThemeProvider
+              value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+            >
               <JobSessionInitializer />
               {children}
             </ThemeProvider>

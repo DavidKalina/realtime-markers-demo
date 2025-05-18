@@ -37,7 +37,7 @@ import Animated, {
   useSharedValue,
   withSequence,
   withDelay,
-  FadeInDown
+  FadeInDown,
 } from "react-native-reanimated";
 
 // Unified color theme matching ClusterEventsView
@@ -53,8 +53,8 @@ const COLORS = {
   error: {
     background: "rgba(249, 117, 131, 0.1)",
     border: "rgba(249, 117, 131, 0.3)",
-    text: "#f97583"
-  }
+    text: "#f97583",
+  },
 };
 
 const RegisterScreen: React.FC = () => {
@@ -111,7 +111,7 @@ const RegisterScreen: React.FC = () => {
     // Animate button press
     buttonScale.value = withSequence(
       withSpring(0.95, { damping: 15, stiffness: 200 }),
-      withSpring(1, { damping: 15, stiffness: 200 })
+      withSpring(1, { damping: 15, stiffness: 200 }),
     );
 
     // Delay the register action until after animation
@@ -159,7 +159,7 @@ const RegisterScreen: React.FC = () => {
       setError(
         typeof error === "object" && error !== null && "message" in error
           ? String(error.message)
-          : "Failed to register. Please check your information and try again."
+          : "Failed to register. Please check your information and try again.",
       );
     } finally {
       setIsLoading(false);
@@ -191,7 +191,10 @@ const RegisterScreen: React.FC = () => {
                 layout={LinearTransition.springify()}
                 style={styles.formContainer}
               >
-                <Animated.View layout={LinearTransition.springify()} style={styles.formCard}>
+                <Animated.View
+                  layout={LinearTransition.springify()}
+                  style={styles.formCard}
+                >
                   {error && (
                     <View style={styles.errorContainer}>
                       <Text style={styles.errorText}>{error}</Text>
@@ -199,7 +202,11 @@ const RegisterScreen: React.FC = () => {
                   )}
 
                   <View style={styles.inputContainer}>
-                    <User size={18} color={COLORS.accent} style={styles.inputIcon} />
+                    <User
+                      size={18}
+                      color={COLORS.accent}
+                      style={styles.inputIcon}
+                    />
                     <TextInput
                       ref={displayNameInputRef}
                       style={styles.input}
@@ -215,7 +222,11 @@ const RegisterScreen: React.FC = () => {
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Mail size={18} color={COLORS.accent} style={styles.inputIcon} />
+                    <Mail
+                      size={18}
+                      color={COLORS.accent}
+                      style={styles.inputIcon}
+                    />
                     <TextInput
                       ref={emailInputRef}
                       style={styles.input}
@@ -233,7 +244,11 @@ const RegisterScreen: React.FC = () => {
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Lock size={18} color={COLORS.accent} style={styles.inputIcon} />
+                    <Lock
+                      size={18}
+                      color={COLORS.accent}
+                      style={styles.inputIcon}
+                    />
                     <TextInput
                       ref={passwordInputRef}
                       style={styles.input}
@@ -243,9 +258,14 @@ const RegisterScreen: React.FC = () => {
                       onChangeText={setPassword}
                       secureTextEntry={!showPassword}
                       returnKeyType="next"
-                      onSubmitEditing={() => confirmPasswordInputRef.current?.focus()}
+                      onSubmitEditing={() =>
+                        confirmPasswordInputRef.current?.focus()
+                      }
                     />
-                    <TouchableOpacity onPress={togglePasswordVisibility} style={styles.eyeIcon}>
+                    <TouchableOpacity
+                      onPress={togglePasswordVisibility}
+                      style={styles.eyeIcon}
+                    >
                       {showPassword ? (
                         <EyeOff size={18} color={COLORS.accent} />
                       ) : (
@@ -255,7 +275,11 @@ const RegisterScreen: React.FC = () => {
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Lock size={18} color={COLORS.accent} style={styles.inputIcon} />
+                    <Lock
+                      size={18}
+                      color={COLORS.accent}
+                      style={styles.inputIcon}
+                    />
                     <TextInput
                       ref={confirmPasswordInputRef}
                       style={styles.input}
@@ -289,13 +313,17 @@ const RegisterScreen: React.FC = () => {
                       {isLoading ? (
                         <ActivityIndicator size="small" color={COLORS.accent} />
                       ) : (
-                        <Text style={styles.loginButtonText}>Create Account</Text>
+                        <Text style={styles.loginButtonText}>
+                          Create Account
+                        </Text>
                       )}
                     </TouchableOpacity>
                   </View>
 
                   <View style={styles.createAccountContainer}>
-                    <Text style={styles.createAccountText}>Already have an account? </Text>
+                    <Text style={styles.createAccountText}>
+                      Already have an account?{" "}
+                    </Text>
                     <TouchableOpacity onPress={() => router.push("/login")}>
                       <Text style={styles.createAccountLink}>Login</Text>
                     </TouchableOpacity>

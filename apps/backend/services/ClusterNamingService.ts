@@ -53,7 +53,9 @@ export class ClusterNamingService {
   /**
    * Generate names for multiple clusters at once
    */
-  public async generateClusterNames(request: ClusterNamingRequest): Promise<ClusterNamingResult[]> {
+  public async generateClusterNames(
+    request: ClusterNamingRequest,
+  ): Promise<ClusterNamingResult[]> {
     const results: ClusterNamingResult[] = [];
 
     for (const cluster of request.clusters) {
@@ -78,7 +80,9 @@ export class ClusterNamingService {
           continue;
         } catch (err) {
           // If parsing fails, use the string value directly with "Cluster" appended
-          const name = cachedName.endsWith(" Cluster") ? cachedName : `${cachedName} Cluster`;
+          const name = cachedName.endsWith(" Cluster")
+            ? cachedName
+            : `${cachedName} Cluster`;
 
           results.push({
             clusterId,
@@ -89,7 +93,11 @@ export class ClusterNamingService {
       }
 
       // Generate new name if not in cache
-      const result = await this.generateClusterName(cluster, request.zoom, request.bounds);
+      const result = await this.generateClusterName(
+        cluster,
+        request.zoom,
+        request.bounds,
+      );
 
       // Ensure "Cluster" is appended to the generated name
       if (!result.generatedName.endsWith(" Cluster")) {
@@ -111,7 +119,7 @@ export class ClusterNamingService {
   private async generateClusterName(
     cluster: ClusterFeature,
     zoom: number,
-    bounds?: { north: number; east: number; south: number; west: number }
+    bounds?: { north: number; east: number; south: number; west: number },
   ): Promise<ClusterNamingResult> {
     try {
       // First, get geocoding information if coordinates are available
@@ -122,7 +130,9 @@ export class ClusterNamingService {
       };
 
       if (cluster.location) {
-        geocodingInfo = await this.geocodingService.reverseGeocode(cluster.location);
+        geocodingInfo = await this.geocodingService.reverseGeocode(
+          cluster.location,
+        );
 
         if (geocodingInfo) {
           // Save geocoding info to the result
@@ -135,10 +145,11 @@ export class ClusterNamingService {
           };
 
           // Get the appropriate name for the current zoom level
-          const baseLocationName = this.geocodingService.getAppropriateNameForZoom(
-            geocodingInfo,
-            zoom
-          );
+          const baseLocationName =
+            this.geocodingService.getAppropriateNameForZoom(
+              geocodingInfo,
+              zoom,
+            );
 
           // For some cases, we can directly use the geocoded name without AI enhancement
           if (zoom <= 8 || !cluster.pointCount || cluster.pointCount < 3) {
@@ -147,7 +158,12 @@ export class ClusterNamingService {
           }
 
           // For more complex cases, enhance the name with AI
-          return await this.enhanceGeocodedName(cluster, zoom, geocodingInfo, result);
+          return await this.enhanceGeocodedName(
+            cluster,
+            zoom,
+            geocodingInfo,
+            result,
+          );
         }
       }
 
@@ -169,11 +185,14 @@ export class ClusterNamingService {
     cluster: ClusterFeature,
     zoom: number,
     geocodingInfo: any,
-    result: ClusterNamingResult
+    result: ClusterNamingResult,
   ): Promise<ClusterNamingResult> {
     // Extract relevant information to include in the prompt
     const locationInfo = {
-      primary: this.geocodingService.getAppropriateNameForZoom(geocodingInfo, zoom),
+      primary: this.geocodingService.getAppropriateNameForZoom(
+        geocodingInfo,
+        zoom,
+      ),
       neighborhood: geocodingInfo.neighborhood,
       locality: geocodingInfo.locality,
       place: geocodingInfo.place,
@@ -223,7 +242,8 @@ Create a name that best represents this area at the given zoom level.`,
         max_tokens: 30,
       });
 
-      let generatedName = response.choices[0].message.content?.trim() || locationInfo.primary;
+      let generatedName =
+        response.choices[0].message.content?.trim() || locationInfo.primary;
 
       // Cleanup and validation - remove quotes if present
       generatedName = generatedName.replace(/^["']|["']$/g, "");
@@ -250,7 +270,7 @@ Create a name that best represents this area at the given zoom level.`,
     cluster: ClusterFeature,
     zoom: number,
     result: ClusterNamingResult,
-    bounds?: { north: number; east: number; south: number; west: number }
+    bounds?: { north: number; east: number; south: number; west: number },
   ): Promise<ClusterNamingResult> {
     try {
       // Extract relevant information for prompt
@@ -260,7 +280,9 @@ Create a name that best represents this area at the given zoom level.`,
 
       const addressInfo = cluster.address ? `near ${cluster.address}` : "";
 
-      const pointCountInfo = cluster.pointCount ? `containing ${cluster.pointCount} events` : "";
+      const pointCountInfo = cluster.pointCount
+        ? `containing ${cluster.pointCount} events`
+        : "";
 
       // Create the prompt for GPT-4o-mini
       // Note we've removed the instruction not to include "cluster" since we want it
@@ -289,7 +311,8 @@ Follow these guidelines:
         max_tokens: 30,
       });
 
-      let generatedName = response.choices[0].message.content?.trim() || "Event Area";
+      let generatedName =
+        response.choices[0].message.content?.trim() || "Event Area";
 
       // Cleanup and validation - remove quotes if present
       generatedName = generatedName.replace(/^["']|["']$/g, "");

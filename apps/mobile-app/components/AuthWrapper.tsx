@@ -10,16 +10,23 @@ interface AuthWrapperProps {
   requireAuth?: boolean;
 }
 
-export const AuthWrapper: React.FC<AuthWrapperProps> = ({ children, requireAuth = true }) => {
+export const AuthWrapper: React.FC<AuthWrapperProps> = ({
+  children,
+  requireAuth = true,
+}) => {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const { hasCompletedOnboarding } = useOnboarding();
 
   // Show loading overlay during authentication transitions
   if (isAuthLoading) {
-    return <LoadingOverlay
-      message="Loading..."
-      subMessage={requireAuth ? "Checking authentication..." : "Redirecting..."}
-    />;
+    return (
+      <LoadingOverlay
+        message="Loading..."
+        subMessage={
+          requireAuth ? "Checking authentication..." : "Redirecting..."
+        }
+      />
+    );
   }
 
   // If authentication is required but user is not authenticated, redirect to login

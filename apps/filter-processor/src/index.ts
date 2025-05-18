@@ -26,10 +26,10 @@ const redisConfig = {
     return delay;
   },
   reconnectOnError: (err: Error) => {
-    console.log('Redis reconnectOnError triggered:', {
+    console.log("Redis reconnectOnError triggered:", {
       message: err.message,
       stack: err.stack,
-      name: err.name
+      name: err.name,
     });
     return true;
   },
@@ -38,7 +38,7 @@ const redisConfig = {
   commandTimeout: 5000,
   lazyConnect: true,
   authRetry: true,
-  enableReadyCheck: true
+  enableReadyCheck: true,
 };
 
 // Initialize Redis clients for publishing and subscribing
@@ -47,37 +47,37 @@ const redisPub = new Redis(redisConfig);
 const redisSub = new Redis(redisConfig);
 
 // Add error handling for Redis publisher
-redisPub.on('error', (error: Error & { code?: string }) => {
-  console.error('Redis publisher error:', {
+redisPub.on("error", (error: Error & { code?: string }) => {
+  console.error("Redis publisher error:", {
     message: error.message,
     code: error.code,
-    stack: error.stack
+    stack: error.stack,
   });
 });
 
-redisPub.on('connect', () => {
-  console.log('Redis publisher connected successfully');
+redisPub.on("connect", () => {
+  console.log("Redis publisher connected successfully");
 });
 
-redisPub.on('ready', () => {
-  console.log('Redis publisher is ready to accept commands');
+redisPub.on("ready", () => {
+  console.log("Redis publisher is ready to accept commands");
 });
 
 // Add error handling for Redis subscriber
-redisSub.on('error', (error: Error & { code?: string }) => {
-  console.error('Redis subscriber error:', {
+redisSub.on("error", (error: Error & { code?: string }) => {
+  console.error("Redis subscriber error:", {
     message: error.message,
     code: error.code,
-    stack: error.stack
+    stack: error.stack,
   });
 });
 
-redisSub.on('connect', () => {
-  console.log('Redis subscriber connected successfully');
+redisSub.on("connect", () => {
+  console.log("Redis subscriber connected successfully");
 });
 
-redisSub.on('ready', () => {
-  console.log('Redis subscriber is ready to accept commands');
+redisSub.on("ready", () => {
+  console.log("Redis subscriber is ready to accept commands");
 });
 
 // Database connection string for future use

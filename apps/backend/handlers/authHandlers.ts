@@ -60,16 +60,21 @@ redisClient.on("ready", () => {
 });
 
 // Initialize services
-const userPreferencesService = new UserPreferencesService(dataSource, redisClient);
+const userPreferencesService = new UserPreferencesService(
+  dataSource,
+  redisClient,
+);
 const levelingService = new LevelingService(dataSource, redisClient);
 const authService = new AuthService(
   userRepository,
   userPreferencesService,
   levelingService,
-  dataSource
+  dataSource,
 );
 
-export type AuthHandler = (c: Context<AppContext>) => Promise<Response> | Response;
+export type AuthHandler = (
+  c: Context<AppContext>,
+) => Promise<Response> | Response;
 
 /**
  * Register a new user
@@ -83,7 +88,11 @@ export const registerHandler: AuthHandler = async (c) => {
     }
 
     // Register user via the auth service
-    const registeredUser = await authService.register({ email, password, displayName });
+    const registeredUser = await authService.register({
+      email,
+      password,
+      displayName,
+    });
     // Optionally, log in the user right after registration to generate tokens
     const { user, tokens } = await authService.login(email, password);
 
@@ -94,7 +103,7 @@ export const registerHandler: AuthHandler = async (c) => {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken, // Add refresh token here too
       },
-      201
+      201,
     );
   } catch (error: any) {
     console.error("Error during registration:", error);
@@ -236,7 +245,10 @@ export const changePasswordHandler: AuthHandler = async (c) => {
 
     const { currentPassword, newPassword } = await c.req.json();
     if (!currentPassword || !newPassword) {
-      return c.json({ error: "Current password and new password are required" }, 400);
+      return c.json(
+        { error: "Current password and new password are required" },
+        400,
+      );
     }
 
     await authService.changePassword(userId, currentPassword, newPassword);

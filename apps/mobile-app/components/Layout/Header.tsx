@@ -1,5 +1,11 @@
 import React, { useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View, ViewStyle } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ViewStyle,
+} from "react-native";
 import { ArrowLeft } from "lucide-react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { COLORS } from "./ScreenLayout";
@@ -80,7 +86,7 @@ const RightIcon = React.memo(({ icon }: { icon?: React.ReactNode }) =>
     <View style={headerStyles.rightIconContainer}>{icon}</View>
   ) : (
     <View style={headerStyles.placeholderIcon} />
-  )
+  ),
 );
 
 const Header: React.FC<HeaderProps> = React.memo(
@@ -91,15 +97,26 @@ const Header: React.FC<HeaderProps> = React.memo(
     const headerStyle = useMemo(() => [headerStyles.header, style], [style]);
 
     return (
-      <HeaderComponent style={headerStyle} entering={animated ? FadeIn.duration(300) : undefined}>
-        {onBack ? <BackButton onBack={onBack} /> : <View style={headerStyles.placeholderIcon} />}
+      <HeaderComponent
+        style={headerStyle}
+        entering={animated ? FadeIn.duration(300) : undefined}
+      >
+        {onBack ? (
+          <BackButton onBack={onBack} />
+        ) : (
+          <View style={headerStyles.placeholderIcon} />
+        )}
         <Text style={headerStyles.headerTitle} numberOfLines={1}>
           {title}
         </Text>
-        {rightIcon ? <RightIcon icon={rightIcon} /> : <View style={headerStyles.placeholderIcon} />}
+        {rightIcon ? (
+          <RightIcon icon={rightIcon} />
+        ) : (
+          <View style={headerStyles.placeholderIcon} />
+        )}
       </HeaderComponent>
     );
-  }
+  },
 );
 
 export default Header;

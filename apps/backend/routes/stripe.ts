@@ -23,23 +23,22 @@ stripeRouter.post("/create-checkout-session", async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-
   // Check for required environment variable
-  const appUrl = `https://mapmoji.app`
+  const appUrl = "https://mapmoji.app";
   if (!appUrl) {
     console.error("APP_URL environment variable is not set");
     return c.json({ error: "Server configuration error" }, 500);
   }
 
   // Ensure the URL starts with http or https
-  const baseUrl = appUrl.startsWith('http') ? appUrl : `https://${appUrl}`;
+  const baseUrl = appUrl.startsWith("http") ? appUrl : `https://${appUrl}`;
 
   try {
     const stripeService = new StripeService();
     const session = await stripeService.createCheckoutSession(
       userId,
       `${baseUrl}/user?status=success`,
-      `${baseUrl}/user?status=cancel`
+      `${baseUrl}/user?status=cancel`,
     );
 
     if (!session.url) {
@@ -49,13 +48,13 @@ stripeRouter.post("/create-checkout-session", async (c) => {
 
     console.log("Session created:", {
       id: session.id,
-      url: session.url
+      url: session.url,
     });
 
     // For subscription mode, we return the checkout URL
     return c.json({
       checkoutUrl: session.url,
-      sessionId: session.id
+      sessionId: session.id,
     });
   } catch (error) {
     console.error("Error creating checkout session:", error);
@@ -82,7 +81,7 @@ stripeRouter.post("/webhook", async (c) => {
     const event = await stripeService.stripe.webhooks.constructEventAsync(
       payload,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
+      process.env.STRIPE_WEBHOOK_SECRET!,
     );
 
     console.log("Webhook event type:", event.type);

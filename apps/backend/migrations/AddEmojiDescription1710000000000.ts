@@ -6,7 +6,7 @@ export class AddEmojiDescription1710000000000 implements MigrationInterface {
 
   private async updateEventDescription(
     queryRunner: QueryRunner,
-    event: { id: string; emoji: string }
+    event: { id: string; emoji: string },
   ): Promise<void> {
     try {
       const response = await OpenAIService.executeChatCompletion({
@@ -33,15 +33,15 @@ export class AddEmojiDescription1710000000000 implements MigrationInterface {
       }
 
       // Update using parameterized query
-      await queryRunner.query("UPDATE events SET emoji_description = $1 WHERE id = $2", [
-        emojiDescription,
-        event.id,
-      ]);
+      await queryRunner.query(
+        "UPDATE events SET emoji_description = $1 WHERE id = $2",
+        [emojiDescription, event.id],
+      );
 
       // Verify update
       const verifyResult = await queryRunner.query(
         "SELECT emoji_description FROM events WHERE id = $1",
-        [event.id]
+        [event.id],
       );
 
       if (!verifyResult?.[0]?.emoji_description) {
@@ -78,7 +78,7 @@ export class AddEmojiDescription1710000000000 implements MigrationInterface {
                 ORDER BY id
                 LIMIT $1 OFFSET $2
             `,
-        [batchSize, offset]
+        [batchSize, offset],
       );
 
       if (events.length === 0) {
@@ -103,7 +103,10 @@ export class AddEmojiDescription1710000000000 implements MigrationInterface {
             FROM events 
             WHERE emoji_description IS NOT NULL
         `);
-    console.log("Migration completed. Total events with descriptions:", finalCount[0].count);
+    console.log(
+      "Migration completed. Total events with descriptions:",
+      finalCount[0].count,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

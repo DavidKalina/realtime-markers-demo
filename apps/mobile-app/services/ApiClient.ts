@@ -3,14 +3,17 @@
 import { EventType, UserType } from "@/types/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system";
-import { GroupType } from "@/components/GroupList/GroupList";
 
 // --- START: Group Feature Types ---
 
 // Enums (or string literal types) for Group features
 export type GroupVisibility = "PUBLIC" | "PRIVATE";
 export type GroupMemberRole = "MEMBER" | "ADMIN";
-export type GroupMembershipStatus = "PENDING" | "APPROVED" | "REJECTED" | "BANNED";
+export type GroupMembershipStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "BANNED";
 
 // Client-side representation of a Group
 export interface ClientGroup {
@@ -336,6 +339,7 @@ export interface Notification {
     | "SYSTEM";
   title: string;
   message: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: Record<string, any>;
   createdAt: string;
   read: boolean;
@@ -463,7 +467,9 @@ class ApiClient {
 
       // Store refresh token if available
       if (tokens.refreshToken) {
-        storageOperations.push(AsyncStorage.setItem("refreshToken", tokens.refreshToken));
+        storageOperations.push(
+          AsyncStorage.setItem("refreshToken", tokens.refreshToken),
+        );
       }
 
       await Promise.all(storageOperations);
@@ -591,7 +597,10 @@ class ApiClient {
     };
   }
 
-  private async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+  private async fetchWithAuth(
+    url: string,
+    options: RequestInit = {},
+  ): Promise<Response> {
     // Wait for initialization to complete
     await this.ensureInitialized();
 
@@ -599,7 +608,7 @@ class ApiClient {
     const requestOptions = this.createRequestOptions(options);
 
     // Make the initial request
-    let response = await fetch(url, requestOptions);
+    const response = await fetch(url, requestOptions);
 
     // If we get a 401 unauthorized error, try to refresh the token
     if (response.status === 401 && this.tokens?.refreshToken) {
@@ -727,7 +736,11 @@ class ApiClient {
   // Update in ApiClient.ts
 
   // Register new user
-  async register(email: string, password: string, displayName?: string): Promise<User> {
+  async register(
+    email: string,
+    password: string,
+    displayName?: string,
+  ): Promise<User> {
     const url = `${this.baseUrl}/api/auth/register`;
     const response = await fetch(url, {
       method: "POST",
@@ -854,7 +867,10 @@ class ApiClient {
   }
 
   // Change password
-  async changePassword(currentPassword: string, newPassword: string): Promise<boolean> {
+  async changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<boolean> {
     const url = `${this.baseUrl}/api/users/me/change-password`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
@@ -870,7 +886,8 @@ class ApiClient {
     const queryParams = new URLSearchParams();
 
     if (options?.limit) queryParams.append("limit", options.limit.toString());
-    if (options?.offset) queryParams.append("offset", options.offset.toString());
+    if (options?.offset)
+      queryParams.append("offset", options.offset.toString());
 
     const url = `${this.baseUrl}/api/users/me/events/created?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
@@ -880,7 +897,9 @@ class ApiClient {
   }
 
   // Get events discovered by current user
-  async getUserDiscoveredEvents(options: { limit?: number; cursor?: string } = {}): Promise<{
+  async getUserDiscoveredEvents(
+    options: { limit?: number; cursor?: string } = {},
+  ): Promise<{
     events: EventType[];
     nextCursor?: string;
   }> {
@@ -903,7 +922,9 @@ class ApiClient {
     };
   }
 
-  async generateClusterNames(request: ClusterNamingRequest): Promise<ClusterNamingResult[]> {
+  async generateClusterNames(
+    request: ClusterNamingRequest,
+  ): Promise<ClusterNamingResult[]> {
     const url = `${this.baseUrl}/api/events/clusters/names`;
 
     try {
@@ -924,7 +945,8 @@ class ApiClient {
     const queryParams = new URLSearchParams();
 
     if (options?.limit) queryParams.append("limit", options.limit.toString());
-    if (options?.offset) queryParams.append("offset", options.offset.toString());
+    if (options?.offset)
+      queryParams.append("offset", options.offset.toString());
 
     const url = `${this.baseUrl}/api/events?${queryParams.toString()}`;
     // Use authenticated fetch for all API calls
@@ -949,7 +971,7 @@ class ApiClient {
     longitude: number,
     radius?: number,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
   ): Promise<EventType[]> {
     const queryParams = new URLSearchParams({
       lat: latitude.toString(),
@@ -973,7 +995,11 @@ class ApiClient {
   }
 
   // Search events with cursor-based pagination
-  async searchEvents(query: string, limit: number = 10, cursor?: string): Promise<SearchResponse> {
+  async searchEvents(
+    query: string,
+    limit: number = 10,
+    cursor?: string,
+  ): Promise<SearchResponse> {
     const queryParams = new URLSearchParams({ q: query });
 
     if (limit) queryParams.append("limit", limit.toString());
@@ -989,7 +1015,7 @@ class ApiClient {
       console.log(
         `Search query: "${query}" | Results: ${data.results.length} | Next cursor: ${
           data.nextCursor || "none"
-        }`
+        }`,
       );
 
       return data;
@@ -1000,15 +1026,21 @@ class ApiClient {
   }
 
   // Get events by categories
-  async getEventsByCategories(categoryIds: string[], options?: EventOptions): Promise<EventType[]> {
+  async getEventsByCategories(
+    categoryIds: string[],
+    options?: EventOptions,
+  ): Promise<EventType[]> {
     const queryParams = new URLSearchParams({
       categories: categoryIds.join(","),
     });
 
     if (options?.limit) queryParams.append("limit", options.limit.toString());
-    if (options?.offset) queryParams.append("offset", options.offset.toString());
-    if (options?.startDate) queryParams.append("startDate", options.startDate.toISOString());
-    if (options?.endDate) queryParams.append("endDate", options.endDate.toISOString());
+    if (options?.offset)
+      queryParams.append("offset", options.offset.toString());
+    if (options?.startDate)
+      queryParams.append("startDate", options.startDate.toISOString());
+    if (options?.endDate)
+      queryParams.append("endDate", options.endDate.toISOString());
 
     const url = `${this.baseUrl}/api/events/by-categories?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
@@ -1017,7 +1049,9 @@ class ApiClient {
     return data.map(this.mapEventToEventType);
   }
 
-  async toggleSaveEvent(eventId: string): Promise<{ saved: boolean; saveCount: number }> {
+  async toggleSaveEvent(
+    eventId: string,
+  ): Promise<{ saved: boolean; saveCount: number }> {
     const url = `${this.baseUrl}/api/events/${eventId}/save`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
@@ -1064,7 +1098,10 @@ class ApiClient {
     };
   }
 
-  async getRsvpedEvents(options?: { limit?: number; cursor?: string }): Promise<{
+  async getRsvpedEvents(options?: {
+    limit?: number;
+    cursor?: string;
+  }): Promise<{
     events: EventType[];
     nextCursor?: string;
   }> {
@@ -1157,7 +1194,8 @@ class ApiClient {
 
   // Upload an image for event processing
   async processEventImage(
-    payload: Record<string, any>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    payload: Record<string, any>,
   ): Promise<{ jobId: string; status: string }> {
     const formData = new FormData();
     formData.append("image", payload.imageFile);
@@ -1178,9 +1216,11 @@ class ApiClient {
   }
 
   // Get event processing job status
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getJobStatus(jobId: string): Promise<any> {
     const url = `${this.baseUrl}/api/events/process/${jobId}`;
     const response = await this.fetchWithAuth(url);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.handleResponse<any>(response);
   }
 
@@ -1188,10 +1228,11 @@ class ApiClient {
   createJobStream(
     jobId: string,
     callbacks: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       onMessage: (data: any) => void;
       onError?: (error: Event) => void;
       onComplete?: () => void;
-    }
+    },
   ): EventSource {
     // Add access token to the URL for authentication
     let url = `${this.baseUrl}/api/jobs/${jobId}/stream`;
@@ -1264,7 +1305,10 @@ class ApiClient {
   }
 
   // Update an existing filter
-  async updateFilter(filterId: string, filterData: Partial<Filter>): Promise<Filter> {
+  async updateFilter(
+    filterId: string,
+    filterData: Partial<Filter>,
+  ): Promise<Filter> {
     const url = `${this.baseUrl}/api/filters/${filterId}`;
     const response = await this.fetchWithAuth(url, {
       method: "PUT",
@@ -1283,13 +1327,17 @@ class ApiClient {
   }
 
   // Apply filters to the current session
-  async applyFilters(filterIds: string[]): Promise<{ message: string; activeFilters: Filter[] }> {
+  async applyFilters(
+    filterIds: string[],
+  ): Promise<{ message: string; activeFilters: Filter[] }> {
     const url = `${this.baseUrl}/api/filters/apply`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify({ filterIds }),
     });
-    return this.handleResponse<{ message: string; activeFilters: Filter[] }>(response);
+    return this.handleResponse<{ message: string; activeFilters: Filter[] }>(
+      response,
+    );
   }
 
   // Clear all active filters
@@ -1321,7 +1369,9 @@ class ApiClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Server returned error: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Server returned error: ${response.status} ${response.statusText}`,
+        );
       }
 
       const data = await response.json();
@@ -1355,7 +1405,10 @@ class ApiClient {
       }
 
       // Download the image from the signed URL
-      const downloadResult = await FileSystem.downloadAsync(data.originalImageUrl, fileUri);
+      const downloadResult = await FileSystem.downloadAsync(
+        data.originalImageUrl,
+        fileUri,
+      );
 
       if (downloadResult.status !== 200) {
         throw new Error(`Failed to download image: ${downloadResult.status}`);
@@ -1425,7 +1478,9 @@ class ApiClient {
         clusterEmoji: data.clusterEmoji,
         clusterName: data.clusterName,
         clusterDescription: data.clusterDescription,
-        featuredEvent: data.featuredEvent ? this.mapEventToEventType(data.featuredEvent) : null,
+        featuredEvent: data.featuredEvent
+          ? this.mapEventToEventType(data.featuredEvent)
+          : null,
         eventsByCategory: data.eventsByCategory.map((categoryGroup) => ({
           category: categoryGroup.category,
           events: categoryGroup.events.map(this.mapEventToEventType),
@@ -1477,7 +1532,9 @@ class ApiClient {
 
   // Get pending friend requests
   async getPendingFriendRequests(): Promise<FriendRequest[]> {
-    const response = await this.fetchWithAuth(`${this.baseUrl}/api/friendships/requests/pending`);
+    const response = await this.fetchWithAuth(
+      `${this.baseUrl}/api/friendships/requests/pending`,
+    );
     return this.handleResponse(response);
   }
 
@@ -1534,7 +1591,7 @@ class ApiClient {
       `${this.baseUrl}/api/friendships/requests/${requestId}/accept`,
       {
         method: "POST",
-      }
+      },
     );
     return this.handleResponse(response);
   }
@@ -1545,13 +1602,15 @@ class ApiClient {
       `${this.baseUrl}/api/friendships/requests/${requestId}/reject`,
       {
         method: "POST",
-      }
+      },
     );
     return this.handleResponse(response);
   }
 
   async getOutgoingFriendRequests(): Promise<FriendRequest[]> {
-    const response = await this.fetchWithAuth(`${this.baseUrl}/api/friendships/requests/outgoing`);
+    const response = await this.fetchWithAuth(
+      `${this.baseUrl}/api/friendships/requests/outgoing`,
+    );
 
     return this.handleResponse(response);
   }
@@ -1561,12 +1620,15 @@ class ApiClient {
       `${this.baseUrl}/api/friendships/requests/${requestId}/cancel`,
       {
         method: "POST",
-      }
+      },
     );
     return this.handleResponse(response);
   }
 
-  async getFriendsSavedEvents(options?: { limit?: number; cursor?: string }): Promise<{
+  async getFriendsSavedEvents(options?: {
+    limit?: number;
+    cursor?: string;
+  }): Promise<{
     events: EventType[];
     nextCursor?: string;
   }> {
@@ -1587,6 +1649,7 @@ class ApiClient {
     return {
       events: data.events.map((event) => ({
         ...this.mapEventToEventType(event),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         savedBy: (event as any).savedBy,
       })),
       nextCursor: data.nextCursor,
@@ -1597,12 +1660,14 @@ class ApiClient {
   async getEmojis(params: EmojiSearchParams = {}): Promise<Emoji[]> {
     const queryParams = new URLSearchParams();
 
-    if (params.search_query) queryParams.append("search_query", params.search_query);
+    if (params.search_query)
+      queryParams.append("search_query", params.search_query);
     if (params.category_id !== undefined && params.category_id !== null) {
       queryParams.append("category_id", params.category_id.toString());
     }
     if (params.limit) queryParams.append("limit", params.limit.toString());
-    if (params.last_emoji_id) queryParams.append("last_emoji_id", params.last_emoji_id.toString());
+    if (params.last_emoji_id)
+      queryParams.append("last_emoji_id", params.last_emoji_id.toString());
 
     const url = `${this.baseUrl}/api/emojis?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
@@ -1646,29 +1711,41 @@ class ApiClient {
 
   async deleteEvent(eventId: string): Promise<{ success: boolean }> {
     await this.ensureInitialized();
-    const response = await this.fetchWithAuth(`${this.baseUrl}/api/events/${eventId}`, {
-      method: "DELETE",
-    });
+    const response = await this.fetchWithAuth(
+      `${this.baseUrl}/api/events/${eventId}`,
+      {
+        method: "DELETE",
+      },
+    );
     return this.handleResponse<{ success: boolean }>(response);
   }
 
   // Add updateEvent method
-  async updateEvent(eventId: string, eventData: Partial<ApiEvent>): Promise<ApiEvent> {
+  async updateEvent(
+    eventId: string,
+    eventData: Partial<ApiEvent>,
+  ): Promise<ApiEvent> {
     await this.ensureInitialized();
-    const response = await this.fetchWithAuth(`${this.baseUrl}/api/events/${eventId}`, {
-      method: "PUT",
-      body: JSON.stringify(eventData),
-    });
+    const response = await this.fetchWithAuth(
+      `${this.baseUrl}/api/events/${eventId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(eventData),
+      },
+    );
     return this.handleResponse<ApiEvent>(response);
   }
 
   // Get all notifications for the current user
-  async getNotifications(options?: NotificationOptions): Promise<Notification[]> {
+  async getNotifications(
+    options?: NotificationOptions,
+  ): Promise<Notification[]> {
     const queryParams = new URLSearchParams();
 
     if (options?.skip) queryParams.append("skip", options.skip.toString());
     if (options?.take) queryParams.append("take", options.take.toString());
-    if (options?.read !== undefined) queryParams.append("read", options.read.toString());
+    if (options?.read !== undefined)
+      queryParams.append("read", options.read.toString());
     if (options?.type) queryParams.append("type", options.type);
 
     const url = `${this.baseUrl}/api/notifications?${queryParams.toString()}`;
@@ -1677,9 +1754,10 @@ class ApiClient {
     const response = await this.fetchWithAuth(url);
     console.log("Notifications response status:", response.status);
 
-    const data = await this.handleResponse<{ notifications: Notification[]; total: number }>(
-      response
-    );
+    const data = await this.handleResponse<{
+      notifications: Notification[];
+      total: number;
+    }>(response);
     console.log("Parsed notifications data:", data);
 
     return data.notifications;
@@ -1693,7 +1771,9 @@ class ApiClient {
   }
 
   // Mark a notification as read
-  async markNotificationAsRead(notificationId: string): Promise<{ success: boolean }> {
+  async markNotificationAsRead(
+    notificationId: string,
+  ): Promise<{ success: boolean }> {
     const url = `${this.baseUrl}/api/notifications/${notificationId}/read`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
@@ -1702,7 +1782,9 @@ class ApiClient {
   }
 
   // Delete a notification
-  async deleteNotification(notificationId: string): Promise<{ success: boolean }> {
+  async deleteNotification(
+    notificationId: string,
+  ): Promise<{ success: boolean }> {
     const url = `${this.baseUrl}/api/notifications/${notificationId}`;
     const response = await this.fetchWithAuth(url, {
       method: "DELETE",
@@ -1720,7 +1802,9 @@ class ApiClient {
   }
 
   // Toggle RSVP for an event
-  async toggleRsvp(eventId: string): Promise<{ rsvped: boolean; rsvpCount: number }> {
+  async toggleRsvp(
+    eventId: string,
+  ): Promise<{ rsvped: boolean; rsvpCount: number }> {
     const url = `${this.baseUrl}/api/events/${eventId}/rsvp`;
 
     // First check current RSVP status
@@ -1745,24 +1829,34 @@ class ApiClient {
     };
   }
 
-  async rsvpToEvent(eventId: string): Promise<{ rsvped: boolean; rsvpCount: number }> {
+  async rsvpToEvent(
+    eventId: string,
+  ): Promise<{ rsvped: boolean; rsvpCount: number }> {
     return this.toggleRsvp(eventId);
   }
 
-  async cancelRsvp(eventId: string): Promise<{ rsvped: boolean; rsvpCount: number }> {
+  async cancelRsvp(
+    eventId: string,
+  ): Promise<{ rsvped: boolean; rsvpCount: number }> {
     const url = `${this.baseUrl}/api/events/${eventId}/rsvp`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify({ status: "NOT_GOING" }),
     });
-    return this.handleResponse<{ rsvped: boolean; rsvpCount: number }>(response);
+    return this.handleResponse<{ rsvped: boolean; rsvpCount: number }>(
+      response,
+    );
   }
 
   // Get event shares
-  async getEventShares(eventId: string): Promise<{ sharedWithId: string; sharedById: string }[]> {
+  async getEventShares(
+    eventId: string,
+  ): Promise<{ sharedWithId: string; sharedById: string }[]> {
     const url = `${this.baseUrl}/api/events/${eventId}/shares`;
     const response = await this.fetchWithAuth(url);
-    return this.handleResponse<{ sharedWithId: string; sharedById: string }[]>(response);
+    return this.handleResponse<{ sharedWithId: string; sharedById: string }[]>(
+      response,
+    );
   }
 
   // --- START: Group API Methods ---
@@ -1794,7 +1888,10 @@ class ApiClient {
    * Update an existing group.
    * Requires authentication and appropriate permissions (owner/admin).
    */
-  async updateGroup(groupId: string, payload: UpdateGroupPayload): Promise<ClientGroup> {
+  async updateGroup(
+    groupId: string,
+    payload: UpdateGroupPayload,
+  ): Promise<ClientGroup> {
     const url = `${this.baseUrl}/api/groups/${groupId}`;
     const response = await this.fetchWithAuth(url, {
       method: "PUT",
@@ -1830,7 +1927,7 @@ class ApiClient {
     if (params.direction) queryParams.append("direction", params.direction);
 
     const response = await this.fetchWithAuth(
-      `${this.baseUrl}/api/groups?${queryParams.toString()}`
+      `${this.baseUrl}/api/groups?${queryParams.toString()}`,
     );
     const data = await this.handleResponse<{
       groups: ApiGroup[];
@@ -1860,7 +1957,7 @@ class ApiClient {
     if (params.direction) queryParams.append("direction", params.direction);
 
     const response = await this.fetchWithAuth(
-      `${this.baseUrl}/api/groups/user/me?${queryParams.toString()}`
+      `${this.baseUrl}/api/groups/user/me?${queryParams.toString()}`,
     );
     const data = await this.handleResponse<{
       groups: ApiGroup[];
@@ -1881,7 +1978,7 @@ class ApiClient {
    */
   async getGroupMembers(
     groupId: string,
-    params: GetGroupMembersParams = {}
+    params: GetGroupMembersParams = {},
   ): Promise<{
     members: ClientGroupMembership[];
     nextCursor?: string;
@@ -1908,7 +2005,7 @@ class ApiClient {
    */
   async searchGroups(
     query: string,
-    params: CursorPaginationParams & { categoryId?: string } = {}
+    params: CursorPaginationParams & { categoryId?: string } = {},
   ): Promise<{
     groups: ClientGroup[];
     nextCursor?: string;
@@ -1921,7 +2018,7 @@ class ApiClient {
     if (params.categoryId) queryParams.append("categoryId", params.categoryId);
 
     const response = await this.fetchWithAuth(
-      `${this.baseUrl}/api/groups/search?${queryParams.toString()}`
+      `${this.baseUrl}/api/groups/search?${queryParams.toString()}`,
     );
     const data = await this.handleResponse<{
       groups: ApiGroup[];
@@ -1940,9 +2037,11 @@ class ApiClient {
    * Join a group or request to join (if private).
    * Requires authentication.
    */
-  async joinGroup(
-    groupId: string
-  ): Promise<{ message: string; membershipStatus: GroupMembershipStatus; role: GroupMemberRole }> {
+  async joinGroup(groupId: string): Promise<{
+    message: string;
+    membershipStatus: GroupMembershipStatus;
+    role: GroupMemberRole;
+  }> {
     const url = `${this.baseUrl}/api/groups/${groupId}/join`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
@@ -1973,14 +2072,17 @@ class ApiClient {
   async manageMembershipStatus(
     groupId: string,
     memberUserId: string,
-    payload: ManageMembershipStatusPayload
+    payload: ManageMembershipStatusPayload,
   ): Promise<{ message: string; membership: ClientGroupMembership }> {
     const url = `${this.baseUrl}/api/groups/${groupId}/members/${memberUserId}/status`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    return this.handleResponse<{ message: string; membership: ClientGroupMembership }>(response);
+    return this.handleResponse<{
+      message: string;
+      membership: ClientGroupMembership;
+    }>(response);
   }
 
   /**
@@ -1990,21 +2092,27 @@ class ApiClient {
   async updateMemberRole(
     groupId: string,
     memberUserId: string,
-    payload: UpdateMemberRolePayload
+    payload: UpdateMemberRolePayload,
   ): Promise<{ message: string; membership: ClientGroupMembership }> {
     const url = `${this.baseUrl}/api/groups/${groupId}/members/${memberUserId}/role`;
     const response = await this.fetchWithAuth(url, {
       method: "PUT",
       body: JSON.stringify(payload),
     });
-    return this.handleResponse<{ message: string; membership: ClientGroupMembership }>(response);
+    return this.handleResponse<{
+      message: string;
+      membership: ClientGroupMembership;
+    }>(response);
   }
 
   /**
    * Remove a member from a group.
    * Requires authentication and admin/owner permissions.
    */
-  async removeMember(groupId: string, memberUserId: string): Promise<{ message: string }> {
+  async removeMember(
+    groupId: string,
+    memberUserId: string,
+  ): Promise<{ message: string }> {
     const url = `${this.baseUrl}/api/groups/${groupId}/members/${memberUserId}`;
     const response = await this.fetchWithAuth(url, {
       method: "DELETE",
@@ -2018,7 +2126,7 @@ class ApiClient {
    */
   async getGroupEvents(
     groupId: string,
-    params: GetGroupEventsParams = {}
+    params: GetGroupEventsParams = {},
   ): Promise<{
     events: EventType[];
     nextCursor?: string;
@@ -2085,7 +2193,9 @@ class ApiClient {
     };
   }
 
-  private mapGroupMemberToClientGroupMember(member: ApiGroupMember): ClientGroupMembership {
+  private mapGroupMemberToClientGroupMember(
+    member: ApiGroupMember,
+  ): ClientGroupMembership {
     return {
       id: member.id,
       userId: member.userId,

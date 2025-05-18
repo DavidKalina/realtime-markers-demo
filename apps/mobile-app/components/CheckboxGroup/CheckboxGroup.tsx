@@ -1,5 +1,13 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Modal, FlatList, TouchableOpacity, Pressable } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  FlatList,
+  TouchableOpacity,
+  Pressable,
+} from "react-native";
 import { Friend } from "@/services/ApiClient";
 import { useFetchMyFriends } from "@/hooks/useFetchMyFriends";
 import { COLORS } from "../Layout/ScreenLayout";
@@ -26,8 +34,12 @@ const FriendCard = ({
     style={[styles.friendCard, isSelected && styles.selectedFriendCard]}
   >
     <View style={styles.friendInfo}>
-      <Text style={styles.friendName}>{friend.displayName || friend.email}</Text>
-      {friend.displayName && <Text style={styles.friendEmail}>{friend.email}</Text>}
+      <Text style={styles.friendName}>
+        {friend.displayName || friend.email}
+      </Text>
+      {friend.displayName && (
+        <Text style={styles.friendEmail}>{friend.email}</Text>
+      )}
     </View>
     <View style={[styles.checkbox, isSelected && styles.checkboxSelected]} />
   </TouchableOpacity>
@@ -52,7 +64,10 @@ export const CheckboxGroup: React.FC<CheckboxGroupProps> = ({
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.button} onPress={() => setIsModalVisible(true)}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => setIsModalVisible(true)}
+      >
         <Text style={styles.buttonText}>
           {buttonText} ({selectedFriends.length})
         </Text>
@@ -67,7 +82,10 @@ export const CheckboxGroup: React.FC<CheckboxGroupProps> = ({
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Friends</Text>
-            <TouchableOpacity onPress={() => setIsModalVisible(false)} style={styles.closeButton}>
+            <TouchableOpacity
+              onPress={() => setIsModalVisible(false)}
+              style={styles.closeButton}
+            >
               <X size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
           </View>

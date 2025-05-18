@@ -17,6 +17,7 @@ interface JobSessionData {
   status: "pending" | "processing" | "completed" | "failed";
   progress: number; // 0-100
   progressStep: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result?: any;
   error?: string;
   createdAt: string;
@@ -77,7 +78,8 @@ const redisConfig = {
 
 export class SessionManager {
   private redis: Redis;
-  private clients: Map<string, ServerWebSocket<WebSocketClientData>> = new Map();
+  private clients: Map<string, ServerWebSocket<WebSocketClientData>> =
+    new Map();
   private sessionsToClients: Map<string, Set<string>> = new Map();
   private redisSub: Redis;
 
@@ -102,9 +104,12 @@ export class SessionManager {
 
     this.redisSub.on("ready", () => {
       // Subscribe to all job updates
-      this.redisSub.psubscribe("job:*:updates", (err, count) => {
+      this.redisSub.psubscribe("job:*:updates", (err) => {
         if (err) {
-          console.error("[SessionManager] Error subscribing to job updates:", err);
+          console.error(
+            "[SessionManager] Error subscribing to job updates:",
+            err,
+          );
         }
       });
     });
@@ -117,9 +122,12 @@ export class SessionManager {
     });
 
     // Also subscribe to the specific job channel
-    this.redisSub.subscribe("job:updates", (err, count) => {
+    this.redisSub.subscribe("job:updates", (err) => {
       if (err) {
-        console.error("[SessionManager] Error subscribing to job:updates:", err);
+        console.error(
+          "[SessionManager] Error subscribing to job:updates:",
+          err,
+        );
       }
     });
 
@@ -346,7 +354,7 @@ export class SessionManager {
         } catch (error) {
           console.error(
             `[SessionManager] Failed to send session update to client ${clientId}:`,
-            error
+            error,
           );
         }
       }
@@ -356,7 +364,10 @@ export class SessionManager {
   /**
    * Handle Redis messages for job updates
    */
-  private async handleRedisMessage(channel: string, message: string): Promise<void> {
+  private async handleRedisMessage(
+    channel: string,
+    message: string,
+  ): Promise<void> {
     // Handle both job:*:updates and job:updates channels
     if (
       !channel.startsWith("job:") ||
@@ -393,7 +404,8 @@ export class SessionManager {
             ...session.jobs[jobIndex],
             status: jobUpdate.status || session.jobs[jobIndex].status,
             progress: this.calculateProgressPercentage(jobUpdate),
-            progressStep: jobUpdate.progressMessage || session.jobs[jobIndex].progressStep,
+            progressStep:
+              jobUpdate.progressMessage || session.jobs[jobIndex].progressStep,
             result: jobUpdate.result || session.jobs[jobIndex].result,
             error: jobUpdate.error || session.jobs[jobIndex].error,
             updatedAt: new Date().toISOString(),
@@ -416,6 +428,7 @@ export class SessionManager {
   /**
    * Calculate progress percentage from job update
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private calculateProgressPercentage(jobUpdate: any): number {
     // If job is completed, return 100%
     if (jobUpdate.status === "completed") {
@@ -434,61 +447,73 @@ export class SessionManager {
   /**
    * Handle WebSocket messages
    */
-  async handleMessage(ws: ServerWebSocket<WebSocketClientData>, message: string): Promise<void> {
+  async handleMessage(
+    ws: ServerWebSocket<WebSocketClientData>,
+    message: string,
+  ): Promise<void> {
     try {
       const data = JSON.parse(message);
 
       switch (data.type) {
-        case MessageTypes.CREATE_SESSION:
+        case MessageTypes.CREATE_SESSION: {
           const sessionId = await this.createSession(ws.data.clientId);
           ws.send(
             JSON.stringify({
               type: MessageTypes.SESSION_CREATED,
               data: { sessionId },
-            })
+            }),
           );
           break;
+        }
 
-        case MessageTypes.JOIN_SESSION:
-          const joined = await this.joinSession(ws.data.clientId, data.sessionId);
+        case MessageTypes.JOIN_SESSION: {
+          const joined = await this.joinSession(
+            ws.data.clientId,
+            data.sessionId,
+          );
           if (joined) {
             ws.send(
               JSON.stringify({
                 type: MessageTypes.SESSION_JOINED,
                 data: { sessionId: data.sessionId },
-              })
+              }),
             );
           } else {
             ws.send(
               JSON.stringify({
                 type: MessageTypes.ERROR,
                 data: { message: "Session not found" },
-              })
+              }),
             );
           }
           break;
+        }
 
-        case MessageTypes.ADD_JOB:
+        case MessageTypes.ADD_JOB: {
           if (!ws.data.sessionId) {
             ws.send(
               JSON.stringify({
                 type: MessageTypes.ERROR,
                 data: { message: "No active session" },
-              })
+              }),
             );
             break;
           }
 
-          const added = await this.addJobToSession(ws.data.sessionId, data.jobId);
+          const added = await this.addJobToSession(
+            ws.data.sessionId,
+            data.jobId,
+          );
           if (!added) {
             ws.send(
               JSON.stringify({
                 type: MessageTypes.ERROR,
                 data: { message: "Failed to add job" },
-              })
+              }),
             );
           }
           break;
+        }
 
         case MessageTypes.CANCEL_JOB:
           if (!ws.data.sessionId) {
@@ -496,7 +521,7 @@ export class SessionManager {
               JSON.stringify({
                 type: MessageTypes.ERROR,
                 data: { message: "No active session" },
-              })
+              }),
             );
             break;
           }
@@ -510,7 +535,7 @@ export class SessionManager {
               JSON.stringify({
                 type: MessageTypes.ERROR,
                 data: { message: "No active session" },
-              })
+              }),
             );
             break;
           }
@@ -522,13 +547,16 @@ export class SessionManager {
           console.warn(`[SessionManager] Unknown message type: ${data.type}`);
       }
     } catch (error) {
-      console.error("[SessionManager] Error handling WebSocket message:", error);
+      console.error(
+        "[SessionManager] Error handling WebSocket message:",
+        error,
+      );
 
       ws.send(
         JSON.stringify({
           type: MessageTypes.ERROR,
           data: { message: "Invalid message format" },
-        })
+        }),
       );
     }
   }

@@ -23,7 +23,14 @@ import Animated, {
 } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { ArrowLeft, Globe, Lock, MapPin, Tag, Users } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Globe,
+  Lock,
+  MapPin,
+  Tag,
+  Users,
+} from "lucide-react-native";
 import { COLORS } from "../Layout/ScreenLayout";
 import ScreenLayout from "../Layout/ScreenLayout";
 import Input from "../Input/Input";
@@ -54,8 +61,11 @@ const CreateGroup: React.FC = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [emoji, setEmoji] = useState("👥");
-  const [visibility, setVisibility] = useState<GroupVisibility>(GroupVisibility.PUBLIC);
-  const [allowMemberEventCreation, setAllowMemberEventCreation] = useState(false);
+  const [visibility, setVisibility] = useState<GroupVisibility>(
+    GroupVisibility.PUBLIC,
+  );
+  const [allowMemberEventCreation, setAllowMemberEventCreation] =
+    useState(false);
 
   // Refs for inputs
   const nameInputRef = useRef<TextInput>(null);
@@ -112,7 +122,8 @@ const CreateGroup: React.FC = () => {
         emoji: emoji || undefined,
         visibility,
         allowMemberEventCreation,
-        categoryIds: selectedCategories.length > 0 ? selectedCategories : undefined,
+        categoryIds:
+          selectedCategories.length > 0 ? selectedCategories : undefined,
       };
 
       const group = await apiClient.createGroup(groupData);
@@ -124,7 +135,7 @@ const CreateGroup: React.FC = () => {
       setError(
         typeof error === "object" && error !== null && "message" in error
           ? String(error.message)
-          : "Failed to create group. Please try again."
+          : "Failed to create group. Please try again.",
       );
       setIsLoading(false);
     }
@@ -139,7 +150,7 @@ const CreateGroup: React.FC = () => {
     // Animate button press
     buttonScale.value = withSequence(
       withSpring(0.95, { damping: 15, stiffness: 200 }),
-      withSpring(1, { damping: 15, stiffness: 200 })
+      withSpring(1, { damping: 15, stiffness: 200 }),
     );
 
     // Delay the create action until after animation
@@ -152,7 +163,9 @@ const CreateGroup: React.FC = () => {
   const toggleVisibility = useCallback(() => {
     Haptics.selectionAsync();
     setVisibility((prev: GroupVisibility) =>
-      prev === GroupVisibility.PUBLIC ? GroupVisibility.PRIVATE : GroupVisibility.PUBLIC
+      prev === GroupVisibility.PUBLIC
+        ? GroupVisibility.PRIVATE
+        : GroupVisibility.PUBLIC,
     );
   }, []);
 
@@ -164,7 +177,9 @@ const CreateGroup: React.FC = () => {
   const toggleCategory = useCallback((categoryId: string) => {
     Haptics.selectionAsync();
     setSelectedCategories((prev) =>
-      prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId]
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId],
     );
   }, []);
 
@@ -191,9 +206,15 @@ const CreateGroup: React.FC = () => {
                 layout={LinearTransition.springify()}
                 style={styles.formContainer}
               >
-                <Animated.View layout={LinearTransition.springify()} style={styles.formCard}>
+                <Animated.View
+                  layout={LinearTransition.springify()}
+                  style={styles.formCard}
+                >
                   {/* Back Button */}
-                  <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+                  <TouchableOpacity
+                    onPress={handleBack}
+                    style={styles.backButton}
+                  >
                     <ArrowLeft size={20} color={COLORS.textPrimary} />
                   </TouchableOpacity>
 
@@ -220,7 +241,9 @@ const CreateGroup: React.FC = () => {
                       onChangeText={setName}
                       autoCapitalize="words"
                       returnKeyType="next"
-                      onSubmitEditing={() => descriptionInputRef.current?.focus()}
+                      onSubmitEditing={() =>
+                        descriptionInputRef.current?.focus()
+                      }
                       delay={300}
                     />
 
@@ -258,7 +281,9 @@ const CreateGroup: React.FC = () => {
                       <View style={styles.toggleTextContainer}>
                         <Text style={styles.toggleLabel}>Group Visibility</Text>
                         <Text style={styles.toggleValue}>
-                          {visibility === GroupVisibility.PUBLIC ? "Public" : "Private"}
+                          {visibility === GroupVisibility.PUBLIC
+                            ? "Public"
+                            : "Private"}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -273,7 +298,9 @@ const CreateGroup: React.FC = () => {
                         <Users size={18} color={COLORS.accent} />
                       </View>
                       <View style={styles.toggleTextContainer}>
-                        <Text style={styles.toggleLabel}>Allow Member Event Creation</Text>
+                        <Text style={styles.toggleLabel}>
+                          Allow Member Event Creation
+                        </Text>
                         <Text style={styles.toggleValue}>
                           {allowMemberEventCreation ? "Enabled" : "Disabled"}
                         </Text>
@@ -327,7 +354,9 @@ const CreateGroup: React.FC = () => {
                       {isLoading ? (
                         <ActivityIndicator size="small" color="#000" />
                       ) : (
-                        <Text style={styles.createButtonText}>Create Group</Text>
+                        <Text style={styles.createButtonText}>
+                          Create Group
+                        </Text>
                       )}
                     </TouchableOpacity>
                   </View>

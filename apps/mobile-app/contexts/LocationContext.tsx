@@ -58,12 +58,17 @@ type LocationProviderProps = {
 };
 
 // Create the provider component
-export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) => {
+export const LocationProvider: React.FC<LocationProviderProps> = ({
+  children,
+}) => {
   // State for user location
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(
+    null,
+  );
 
   // State for location permissions
-  const [locationPermissionGranted, setLocationPermissionGranted] = useState<boolean>(false);
+  const [locationPermissionGranted, setLocationPermissionGranted] =
+    useState<boolean>(false);
 
   // State for loading status
   const [isLoadingLocation, setIsLoadingLocation] = useState<boolean>(false);
@@ -80,7 +85,10 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
     try {
       console.log("[LocationContext] Attempting to load cached location...");
       const cachedLocationStr = await AsyncStorage.getItem("cachedLocation");
-      console.log("[LocationContext] Raw cached location string:", cachedLocationStr);
+      console.log(
+        "[LocationContext] Raw cached location string:",
+        cachedLocationStr,
+      );
 
       if (cachedLocationStr) {
         try {
@@ -99,7 +107,9 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
 
           console.log("[LocationContext] Parsed cached location:", {
             hasCache: true,
-            cacheAge: Math.round((Date.now() - cachedLocation.timestamp) / 1000 / 60) + " minutes",
+            cacheAge:
+              Math.round((Date.now() - cachedLocation.timestamp) / 1000 / 60) +
+              " minutes",
             isValid: isCacheValid,
             isValidCoordinates,
             coordinates: cachedLocation.coordinates,
@@ -133,10 +143,15 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
             });
           }
         } catch (parseError) {
-          console.error("[LocationContext] Error parsing cached location:", parseError);
+          console.error(
+            "[LocationContext] Error parsing cached location:",
+            parseError,
+          );
         }
       } else {
-        console.log("[LocationContext] No cached location found in AsyncStorage");
+        console.log(
+          "[LocationContext] No cached location found in AsyncStorage",
+        );
       }
       return false;
     } catch (error) {
@@ -161,7 +176,10 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
         isNaN(coordinates[0]) ||
         isNaN(coordinates[1])
       ) {
-        console.error("[LocationContext] Invalid coordinates received:", coordinates);
+        console.error(
+          "[LocationContext] Invalid coordinates received:",
+          coordinates,
+        );
         return;
       }
 
@@ -204,7 +222,7 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
         Alert.alert(
           "Permission Denied",
           "Allow location access to center the map on your position.",
-          [{ text: "OK" }]
+          [{ text: "OK" }],
         );
         return;
       }
@@ -213,7 +231,10 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
 
       // Create a timeout promise
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Location request timed out")), 15000);
+        setTimeout(
+          () => reject(new Error("Location request timed out")),
+          15000,
+        );
       });
 
       try {
@@ -225,7 +246,10 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
           timeoutPromise,
         ]);
 
-        const userCoords: [number, number] = [location.coords.longitude, location.coords.latitude];
+        const userCoords: [number, number] = [
+          location.coords.longitude,
+          location.coords.latitude,
+        ];
         setUserLocation(userCoords);
         await cacheLocation(userCoords);
 
@@ -239,7 +263,8 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
 
         // Fallback to Mapbox location
         try {
-          const mapboxLocation = await MapboxGL.locationManager.getLastKnownLocation();
+          const mapboxLocation =
+            await MapboxGL.locationManager.getLastKnownLocation();
 
           if (mapboxLocation) {
             const userCoords: [number, number] = [
@@ -258,7 +283,10 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
             throw new Error("No location available from Mapbox");
           }
         } catch (mapboxError) {
-          console.error("Both location services failed:", { expoError, mapboxError });
+          console.error("Both location services failed:", {
+            expoError,
+            mapboxError,
+          });
           throw new Error("Failed to get location from both services");
         }
       }
@@ -325,7 +353,7 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
             source: "LocationContext",
             coordinates: userCoords,
           });
-        }
+        },
       );
 
       // Save the subscription so we can remove it later
@@ -342,7 +370,12 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
         }`,
       });
     }
-  }, [locationSubscription, locationPermissionGranted, getUserLocation, publish]);
+  }, [
+    locationSubscription,
+    locationPermissionGranted,
+    getUserLocation,
+    publish,
+  ]);
 
   // Function to stop foreground location tracking - using useCallback
   const stopLocationTracking = useCallback(() => {
@@ -401,11 +434,15 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({ children }) 
       startLocationTracking,
       stopLocationTracking,
       locationSubscription,
-    ]
+    ],
   );
 
   // Provide the context to child components
-  return <LocationContext.Provider value={contextValue}>{children}</LocationContext.Provider>;
+  return (
+    <LocationContext.Provider value={contextValue}>
+      {children}
+    </LocationContext.Provider>
+  );
 };
 
 // Custom hook to use the location context

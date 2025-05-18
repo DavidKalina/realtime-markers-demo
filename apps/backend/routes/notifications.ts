@@ -3,6 +3,7 @@ import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
 import { rateLimit } from "../middleware/rateLimit";
+import type { NotificationType } from "../entities/Notification";
 
 export const notificationsRouter = new Hono<AppContext>();
 
@@ -17,7 +18,7 @@ notificationsRouter.use(
       const ipInfo = c.get("ip");
       return `notifications:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
     },
-  })
+  }),
 );
 notificationsRouter.use("*", authMiddleware);
 
@@ -42,12 +43,15 @@ notificationsRouter.get("/", async (c) => {
     skip: skip ? parseInt(skip) : undefined,
     take: take ? parseInt(take) : undefined,
     read: read ? read === "true" : undefined,
-    type: type as any,
+    type: type as NotificationType,
   };
 
   console.log("Notification options:", options);
 
-  const result = await notificationService.getUserNotifications(user.userId, options);
+  const result = await notificationService.getUserNotifications(
+    user.userId,
+    options,
+  );
   console.log("Notification service result:", result);
 
   return c.json(result);

@@ -68,10 +68,10 @@ const EmojiContainer = ({ emoji = "📍" }: { emoji?: string }) => {
               withTiming(0, {
                 duration: 1000,
                 easing: Easing.inOut(Easing.quad),
-              })
+              }),
             ),
             -1,
-            true
+            true,
           ),
         },
       ],
@@ -288,7 +288,10 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
       >
         {/* Event Image with Emoji or Map Preview for Private Events */}
         <View style={styles.imageWrapper}>
-          <Animated.View entering={FadeIn.duration(500)} style={styles.imageContainer}>
+          <Animated.View
+            entering={FadeIn.duration(500)}
+            style={styles.imageContainer}
+          >
             <EventMapPreview
               coordinates={coordinates}
               eventId={event.id}
@@ -318,8 +321,16 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
           >
             {event.title}
           </Text>
-          <RsvpButton isRsvped={isRsvped} rsvpState={rsvpState} onRsvp={handleToggleRsvp} />
-          <SaveButton isSaved={isSaved} savingState={savingState} onSave={handleToggleSave} />
+          <RsvpButton
+            isRsvped={isRsvped}
+            rsvpState={rsvpState}
+            onRsvp={handleToggleRsvp}
+          />
+          <SaveButton
+            isSaved={isSaved}
+            savingState={savingState}
+            onSave={handleToggleSave}
+          />
         </View>
 
         {/* Event Details */}
@@ -334,7 +345,11 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                 <Info size={18} color={COLORS.accent} strokeWidth={2.5} />
               </View>
               <View style={styles.descriptionContainer}>
-                <Text style={styles.detailText} numberOfLines={3} ellipsizeMode="tail">
+                <Text
+                  style={styles.detailText}
+                  numberOfLines={3}
+                  ellipsizeMode="tail"
+                >
                   {event.description}
                 </Text>
               </View>
@@ -347,7 +362,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
               <Calendar size={18} color={COLORS.accent} strokeWidth={2.5} />
             </View>
             <Text style={styles.detailText}>
-              {formatDate(event.eventDate, event.timezone).split("at")[0].trim()}
+              {formatDate(event.eventDate, event.timezone)
+                .split("at")[0]
+                .trim()}
               <Text style={styles.detailTextSecondary}>{"\n"}1:00 PM MDT</Text>
             </Text>
           </View>
@@ -420,20 +437,26 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
         {/* Admin Actions */}
         {isAdmin && (
-          <Animated.View entering={FadeInDown.duration(600).delay(500).springify()}>
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(500).springify()}
+          >
             <View style={styles.adminActionsContainer}>
               <TouchableOpacity
                 style={[styles.adminButton, { backgroundColor: COLORS.accent }]}
                 onPress={handleEditEvent}
               >
-                <Text style={[styles.adminButtonText, { color: "#ffffff" }]}>Edit Event</Text>
+                <Text style={[styles.adminButtonText, { color: "#ffffff" }]}>
+                  Edit Event
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.adminButton, { backgroundColor: "#dc3545" }]}
                 onPress={() => setDeleteModalVisible(true)}
               >
-                <Text style={[styles.adminButtonText, { color: "#ffffff" }]}>Delete Event</Text>
+                <Text style={[styles.adminButtonText, { color: "#ffffff" }]}>
+                  Delete Event
+                </Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
@@ -441,14 +464,18 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
         {/* QR Code Section */}
         {(event.qrCodeData || event.detectedQrData) && (
-          <Animated.View entering={FadeInDown.duration(600).delay(600).springify()}>
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(600).springify()}
+          >
             <View style={styles.qrSection}>
               <View style={styles.qrHeader}>
                 <View style={styles.qrIconContainer}>
                   <QrCode size={20} color={COLORS.accent} strokeWidth={2.5} />
                 </View>
                 <Text style={styles.qrTitle}>
-                  {event.qrDetectedInImage ? "Original Event QR Code" : "Event QR Code"}
+                  {event.qrDetectedInImage
+                    ? "Original Event QR Code"
+                    : "Event QR Code"}
                 </Text>
               </View>
               <View style={styles.qrContent}>
@@ -477,7 +504,11 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                     }}
                     activeOpacity={0.7}
                   >
-                    <ExternalLink size={20} color={COLORS.accent} strokeWidth={2.5} />
+                    <ExternalLink
+                      size={20}
+                      color={COLORS.accent}
+                      strokeWidth={2.5}
+                    />
                     <Text style={styles.qrButtonText}>Open QR Code Link</Text>
                   </TouchableOpacity>
                 )}
@@ -488,7 +519,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
         {/* Discovered By Section */}
         {event.creator && (
-          <Animated.View entering={FadeInDown.duration(600).delay(700).springify()}>
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(700).springify()}
+          >
             <View style={styles.discoveredBySection}>
               <View style={styles.discoveredByHeader}>
                 <View style={styles.discoveredByIconContainer}>
@@ -528,7 +561,11 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
               onPress={handleCloseModal}
             >
               {imageUrl && (
-                <Image source={{ uri: imageUrl }} style={styles.fullImage} resizeMode="contain" />
+                <Image
+                  source={{ uri: imageUrl }}
+                  style={styles.fullImage}
+                  resizeMode="contain"
+                />
               )}
             </TouchableOpacity>
           </View>
@@ -546,15 +583,23 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
             <View style={styles.dialogContainer}>
               <Text style={styles.dialogTitle}>Delete Event</Text>
               <Text style={styles.dialogText}>
-                Are you sure you want to delete this event? This action cannot be undone.
+                Are you sure you want to delete this event? This action cannot
+                be undone.
               </Text>
               <View style={styles.dialogButtons}>
                 <TouchableOpacity
                   onPress={() => setDeleteModalVisible(false)}
-                  style={[styles.dialogButton, { backgroundColor: COLORS.background }]}
+                  style={[
+                    styles.dialogButton,
+                    { backgroundColor: COLORS.background },
+                  ]}
                   disabled={isDeleting}
                 >
-                  <Text style={[styles.dialogButtonText, { color: COLORS.accent }]}>Cancel</Text>
+                  <Text
+                    style={[styles.dialogButtonText, { color: COLORS.accent }]}
+                  >
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleDeleteEvent}
@@ -564,7 +609,11 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
                   {isDeleting ? (
                     <ActivityIndicator size="small" color="#ffffff" />
                   ) : (
-                    <Text style={[styles.dialogButtonText, { color: "#ffffff" }]}>Delete</Text>
+                    <Text
+                      style={[styles.dialogButtonText, { color: "#ffffff" }]}
+                    >
+                      Delete
+                    </Text>
                   )}
                 </TouchableOpacity>
               </View>

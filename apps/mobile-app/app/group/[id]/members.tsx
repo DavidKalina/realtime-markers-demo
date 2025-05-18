@@ -21,7 +21,10 @@ import {
   Alert,
   Modal,
 } from "react-native";
-import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
+import Animated, {
+  FadeInDown,
+  LinearTransition,
+} from "react-native-reanimated";
 
 export default function GroupMembersScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,8 +34,11 @@ export default function GroupMembersScreen() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [members, setMembers] = useState<ClientGroupMembership[]>([]);
-  const [filteredMembers, setFilteredMembers] = useState<ClientGroupMembership[]>([]);
-  const [selectedMember, setSelectedMember] = useState<ClientGroupMembership | null>(null);
+  const [filteredMembers, setFilteredMembers] = useState<
+    ClientGroupMembership[]
+  >([]);
+  const [selectedMember, setSelectedMember] =
+    useState<ClientGroupMembership | null>(null);
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const currentUser = apiClient.getCurrentUser();
 
@@ -85,7 +91,9 @@ export default function GroupMembersScreen() {
   useEffect(() => {
     if (members.length > 0) {
       const filtered = members.filter((member) =>
-        member.user.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+        member.user.displayName
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()),
       );
       setFilteredMembers(filtered);
     }
@@ -94,28 +102,43 @@ export default function GroupMembersScreen() {
   const isAdmin = useCallback(() => {
     if (!group || !currentUser) return false;
     const currentMembership = members.find((m) => m.userId === currentUser.id);
-    return currentMembership?.role === "ADMIN" || group.ownerId === currentUser.id;
+    return (
+      currentMembership?.role === "ADMIN" || group.ownerId === currentUser.id
+    );
   }, [group, currentUser, members]);
 
-  const handleMemberAction = async (action: string, member: ClientGroupMembership) => {
+  const handleMemberAction = async (
+    action: string,
+    member: ClientGroupMembership,
+  ) => {
     if (!id || !group) return;
 
     try {
       switch (action) {
         case "make_admin":
-          await apiClient.updateMemberRole(id, member.userId, { role: "ADMIN" });
+          await apiClient.updateMemberRole(id, member.userId, {
+            role: "ADMIN",
+          });
           break;
         case "make_member":
-          await apiClient.updateMemberRole(id, member.userId, { role: "MEMBER" });
+          await apiClient.updateMemberRole(id, member.userId, {
+            role: "MEMBER",
+          });
           break;
         case "approve":
-          await apiClient.manageMembershipStatus(id, member.userId, { status: "APPROVED" });
+          await apiClient.manageMembershipStatus(id, member.userId, {
+            status: "APPROVED",
+          });
           break;
         case "reject":
-          await apiClient.manageMembershipStatus(id, member.userId, { status: "REJECTED" });
+          await apiClient.manageMembershipStatus(id, member.userId, {
+            status: "REJECTED",
+          });
           break;
         case "ban":
-          await apiClient.manageMembershipStatus(id, member.userId, { status: "BANNED" });
+          await apiClient.manageMembershipStatus(id, member.userId, {
+            status: "BANNED",
+          });
           break;
         case "remove":
           await apiClient.removeMember(id, member.userId);
@@ -141,7 +164,10 @@ export default function GroupMembersScreen() {
     if (!isAdmin()) return;
     setSelectedMember(member);
     setIsMenuVisible(true);
-    console.log("Menu state updated:", { isVisible: true, member: member.user.displayName });
+    console.log("Menu state updated:", {
+      isVisible: true,
+      member: member.user.displayName,
+    });
   };
 
   const renderHeader = () => (
@@ -155,7 +181,11 @@ export default function GroupMembersScreen() {
 
   const renderSearchBar = () => (
     <View style={styles.searchContainer}>
-      <Search size={20} color={COLORS.textSecondary} style={styles.searchIcon} />
+      <Search
+        size={20}
+        color={COLORS.textSecondary}
+        style={styles.searchIcon}
+      />
       <TextInput
         style={styles.searchInput}
         placeholder="Search members..."
@@ -256,7 +286,9 @@ export default function GroupMembersScreen() {
                         handleMemberAction("ban", selectedMember);
                       }}
                     >
-                      <Text style={[styles.menuItemText, styles.dangerText]}>Ban</Text>
+                      <Text style={[styles.menuItemText, styles.dangerText]}>
+                        Ban
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </>
@@ -267,17 +299,24 @@ export default function GroupMembersScreen() {
                   style={styles.menuItem}
                   onPress={() => {
                     console.log("Remove pressed");
-                    Alert.alert("Remove Member", "Are you sure you want to remove this member?", [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Remove",
-                        style: "destructive",
-                        onPress: () => handleMemberAction("remove", selectedMember),
-                      },
-                    ]);
+                    Alert.alert(
+                      "Remove Member",
+                      "Are you sure you want to remove this member?",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Remove",
+                          style: "destructive",
+                          onPress: () =>
+                            handleMemberAction("remove", selectedMember),
+                        },
+                      ],
+                    );
                   }}
                 >
-                  <Text style={[styles.menuItemText, styles.dangerText]}>Remove Member</Text>
+                  <Text style={[styles.menuItemText, styles.dangerText]}>
+                    Remove Member
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -298,11 +337,14 @@ export default function GroupMembersScreen() {
         </View>
         <View style={styles.memberInfo}>
           <Text style={styles.memberName}>
-            {item.user.displayName} {isCurrentUser && <Text style={styles.youBadge}>(You)</Text>}
+            {item.user.displayName}{" "}
+            {isCurrentUser && <Text style={styles.youBadge}>(You)</Text>}
           </Text>
           <View style={styles.memberDetails}>
             <Text style={styles.memberRole}>{item.role}</Text>
-            {item.status !== "APPROVED" && <Text style={styles.memberStatus}>• {item.status}</Text>}
+            {item.status !== "APPROVED" && (
+              <Text style={styles.memberStatus}>• {item.status}</Text>
+            )}
           </View>
         </View>
         {!isCurrentUser && isAdmin() && (

@@ -6,7 +6,6 @@ import type { AppContext } from "../types/context";
 import { ip } from "../middleware/ip";
 import { rateLimit } from "../middleware/rateLimit";
 import { z } from "zod";
-import { authMiddleware } from "../middleware/authMiddleware";
 
 // Create a router with the correct typing for internal service communication
 export const internalRouter = new Hono<AppContext>();
@@ -22,7 +21,7 @@ internalRouter.use(
       const ipInfo = c.get("ip");
       return `internal:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
     },
-  })
+  }),
 );
 
 // Add your internal routes without auth middleware
@@ -46,7 +45,7 @@ internalRouter.post("/events/shares/batch", async (c) => {
           sharedWithId: share.sharedWithId,
           sharedById: share.sharedById,
         }));
-      })
+      }),
     );
 
     // Flatten the array of arrays
@@ -69,7 +68,7 @@ const awardXpSchema = z.object({
 internalRouter.post("/xp/award", async (c) => {
   try {
     const body = await c.req.json();
-    const { userId, action, amount } = awardXpSchema.parse(body);
+    const { userId, amount } = awardXpSchema.parse(body);
 
     const levelingService = c.get("levelingService");
     await levelingService.awardXp(userId, amount);
@@ -91,7 +90,10 @@ internalRouter.get("/xp/user/:userId", async (c) => {
     return c.json(levelInfo);
   } catch (error) {
     console.error("Error getting user level info:", error);
-    return c.json({ success: false, error: "Failed to get user level info" }, 500);
+    return c.json(
+      { success: false, error: "Failed to get user level info" },
+      500,
+    );
   }
 });
 

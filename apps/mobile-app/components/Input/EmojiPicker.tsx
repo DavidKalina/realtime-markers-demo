@@ -28,38 +28,51 @@ const CONTAINER_WIDTH = SCREEN_WIDTH - 40; // Assuming 20px padding on each side
 const EMOJI_SIZE = CONTAINER_WIDTH / COLUMNS;
 const CONTAINER_HEIGHT = EMOJI_SIZE * ROWS;
 
-const EmojiButton = React.memo(({ emoji, isSelected, onPress, breathingStyle }: any) => (
-  <Animated.View style={isSelected ? breathingStyle : undefined}>
-    <TouchableOpacity
-      style={[
-        styles.emojiContainer,
-        { width: EMOJI_SIZE, height: EMOJI_SIZE },
-        isSelected && styles.selectedEmojiContainer,
-      ]}
-      onPress={() => emoji && onPress(emoji)}
-    >
-      {emoji && <Text style={[styles.emoji, isSelected && styles.selectedEmoji]}>{emoji}</Text>}
-    </TouchableOpacity>
-  </Animated.View>
-));
+const EmojiButton = React.memo(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ({ emoji, isSelected, onPress, breathingStyle }: any) => (
+    <Animated.View style={isSelected ? breathingStyle : undefined}>
+      <TouchableOpacity
+        style={[
+          styles.emojiContainer,
+          { width: EMOJI_SIZE, height: EMOJI_SIZE },
+          isSelected && styles.selectedEmojiContainer,
+        ]}
+        onPress={() => emoji && onPress(emoji)}
+      >
+        {emoji && (
+          <Text style={[styles.emoji, isSelected && styles.selectedEmoji]}>
+            {emoji}
+          </Text>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  ),
+);
 
-const EmojiPage = React.memo(({ emojis, selectedEmoji, onEmojiPress, breathingStyle }: any) => (
-  <View style={[styles.page, { width: CONTAINER_WIDTH }]}>
-    {Array.from({ length: ROWS }).map((_, rowIndex) => (
-      <View key={rowIndex} style={styles.row}>
-        {emojis.slice(rowIndex * COLUMNS, (rowIndex + 1) * COLUMNS).map((emojiObj: any) => (
-          <EmojiButton
-            key={emojiObj.id}
-            breathingStyle={breathingStyle}
-            emoji={emojiObj.emoji}
-            isSelected={emojiObj.emoji === selectedEmoji}
-            onPress={onEmojiPress}
-          />
-        ))}
-      </View>
-    ))}
-  </View>
-));
+const EmojiPage = React.memo(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ({ emojis, selectedEmoji, onEmojiPress, breathingStyle }: any) => (
+    <View style={[styles.page, { width: CONTAINER_WIDTH }]}>
+      {Array.from({ length: ROWS }).map((_, rowIndex) => (
+        <View key={rowIndex} style={styles.row}>
+          {emojis
+            .slice(rowIndex * COLUMNS, (rowIndex + 1) * COLUMNS)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((emojiObj: any) => (
+              <EmojiButton
+                key={emojiObj.id}
+                breathingStyle={breathingStyle}
+                emoji={emojiObj.emoji}
+                isSelected={emojiObj.emoji === selectedEmoji}
+                onPress={onEmojiPress}
+              />
+            ))}
+        </View>
+      ))}
+    </View>
+  ),
+);
 
 // Add useDebounce hook
 const useDebounce = <T,>(value: T, delay: number): T => {
@@ -78,9 +91,11 @@ const useDebounce = <T,>(value: T, delay: number): T => {
   return debouncedValue;
 };
 
-const CustomEmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, value }) => {
+const CustomEmojiPicker: React.FC<EmojiPickerProps> = ({
+  onEmojiSelect,
+  value,
+}) => {
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(value);
-  const [category, setCategory] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const flatListRef = useRef<FlatList>(null);
 
@@ -89,8 +104,12 @@ const CustomEmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, value })
 
   const breathingStyle = undefined;
 
-  const { emojis, loading, error, hasMore, loadMore, search, changeCategory, currentSearchTerm } =
-    useEmojis(0, EMOJIS_PER_FETCH, category, debouncedSearchQuery);
+  const { emojis, loading, error, hasMore, loadMore, search } = useEmojis(
+    0,
+    EMOJIS_PER_FETCH,
+    null,
+    debouncedSearchQuery,
+  );
 
   useEffect(() => {
     if (value) {
@@ -105,10 +124,11 @@ const CustomEmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, value })
         onEmojiSelect(emoji);
       }
     },
-    [onEmojiSelect]
+    [onEmojiSelect],
   );
 
   const renderPage = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ({ item: pageEmojis }: any) => (
       <EmojiPage
         emojis={pageEmojis}
@@ -117,7 +137,7 @@ const CustomEmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, value })
         breathingStyle={breathingStyle}
       />
     ),
-    [selectedEmoji, handleEmojiPress, breathingStyle]
+    [selectedEmoji, handleEmojiPress, breathingStyle],
   );
 
   const handleLoadMore = () => {
@@ -131,14 +151,6 @@ const CustomEmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, value })
     if (flatListRef.current) {
       flatListRef.current.scrollToOffset({ offset: 0, animated: true });
     }
-  };
-
-  const handleCategoryChange = (newCategoryId: number | null) => {
-    changeCategory(newCategoryId);
-    if (flatListRef.current) {
-      flatListRef.current.scrollToOffset({ offset: 0, animated: true });
-    }
-    setCategory(newCategoryId);
   };
 
   const emojiPages = React.useMemo(() => {

@@ -4,7 +4,14 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Search as SearchIcon, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Keyboard, KeyboardEvent, Platform, StyleSheet, TextInput, View } from "react-native";
+import {
+  Keyboard,
+  KeyboardEvent,
+  Platform,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
 import EventList from "../EventList/EventList";
 import Input from "../Input/Input";
 import Header from "../Layout/Header";
@@ -65,7 +72,7 @@ const SearchView = () => {
       (e: KeyboardEvent) => {
         setKeyboardVisible(true);
         setKeyboardHeight(e.endCoordinates.height);
-      }
+      },
     );
 
     const keyboardDidHideListener = Keyboard.addListener(
@@ -73,7 +80,7 @@ const SearchView = () => {
       () => {
         setKeyboardVisible(false);
         setKeyboardHeight(0);
-      }
+      },
     );
 
     // Auto-focus the search input when the screen opens
@@ -123,7 +130,13 @@ const SearchView = () => {
           onRetry={() => searchEvents(true)}
           emptyStateTitle="No results found"
           emptyStateDescription="We couldn't find any events matching your search. Try different keywords or browse nearby events."
-          emptyStateIcon={<SearchIcon size={36} color={COLORS.accent} style={{ opacity: 0.6 }} />}
+          emptyStateIcon={
+            <SearchIcon
+              size={36}
+              color={COLORS.accent}
+              style={{ opacity: 0.6 }}
+            />
+          }
           showDistance={true}
           showChevron={true}
           keyboardHeight={keyboardHeight}

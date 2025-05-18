@@ -36,14 +36,14 @@ export const useMapCamera = ({ cameraRef }: UseMapCameraProps) => {
         isAnimatingRef.current = false;
       }, duration + 50); // Small buffer for animation completion
     },
-    [cameraRef]
+    [cameraRef],
   );
 
   const animateToBounds = useCallback(
     (
       bounds: { north: number; south: number; east: number; west: number },
       padding = 50,
-      duration = 1000
+      duration = 1000,
     ) => {
       if (!cameraRef.current) return;
 
@@ -52,46 +52,55 @@ export const useMapCamera = ({ cameraRef }: UseMapCameraProps) => {
         [bounds.west, bounds.south],
         [bounds.east, bounds.north],
         padding,
-        duration
+        duration,
       );
 
       setTimeout(() => {
         isAnimatingRef.current = false;
       }, duration + 50); // Small buffer for animation completion
     },
-    [cameraRef]
+    [cameraRef],
   );
 
   // Subscribe to camera animation events
   useEffect(() => {
-    const unsubscribeAnimateToLocation = subscribe<CameraAnimateToLocationEvent>(
-      EventTypes.CAMERA_ANIMATE_TO_LOCATION,
-      (event) => {
-        const duration = event.duration ?? 1000;
-        const cameraSettings: CameraStop = {
-          centerCoordinate: event.coordinates,
-          animationDuration: duration,
-          animationMode: "flyTo",
-        };
+    const unsubscribeAnimateToLocation =
+      subscribe<CameraAnimateToLocationEvent>(
+        EventTypes.CAMERA_ANIMATE_TO_LOCATION,
+        (event) => {
+          const duration = event.duration ?? 1000;
+          const cameraSettings: CameraStop = {
+            centerCoordinate: event.coordinates,
+            animationDuration: duration,
+            animationMode: "flyTo",
+          };
 
-        // Only include zoomLevel if explicitly allowed and provided
-        if (event.allowZoomChange === true && typeof event.zoomLevel === "number") {
-          cameraSettings.zoomLevel = event.zoomLevel;
-        }
+          // Only include zoomLevel if explicitly allowed and provided
+          if (
+            event.allowZoomChange === true &&
+            typeof event.zoomLevel === "number"
+          ) {
+            cameraSettings.zoomLevel = event.zoomLevel;
+          }
 
-        if (cameraRef.current) {
-          isAnimatingRef.current = true;
-          cameraRef.current.setCamera(cameraSettings);
-          setTimeout(() => {
-            isAnimatingRef.current = false;
-          }, duration + 50);
-        }
-      }
-    );
+          if (cameraRef.current) {
+            isAnimatingRef.current = true;
+            cameraRef.current.setCamera(cameraSettings);
+            setTimeout(() => {
+              isAnimatingRef.current = false;
+            }, duration + 50);
+          }
+        },
+      );
 
     const unsubscribeAnimateToBounds = subscribe<CameraAnimateToBoundsEvent>(
       EventTypes.CAMERA_ANIMATE_TO_BOUNDS,
-      (event) => animateToBounds(event.bounds, event.padding ?? 50, event.duration ?? 1000)
+      (event) =>
+        animateToBounds(
+          event.bounds,
+          event.padding ?? 50,
+          event.duration ?? 1000,
+        ),
     );
 
     return () => {

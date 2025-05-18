@@ -11,7 +11,11 @@ import {
 import { useRouter } from "expo-router";
 import { Bell, Trash2, Mail, MailOpen } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeInDown, FadeOut, LinearTransition } from "react-native-reanimated";
+import Animated, {
+  FadeInDown,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
 
 import ScreenLayout from "@/components/Layout/ScreenLayout";
 import Header from "@/components/Layout/Header";
@@ -43,7 +47,9 @@ export default function NotificationsScreen() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
-  const [selectedType, setSelectedType] = useState<NotificationType | undefined>();
+  const [selectedType, setSelectedType] = useState<
+    NotificationType | undefined
+  >();
 
   const fetchNotifications = useCallback(
     async (refresh = false) => {
@@ -106,7 +112,7 @@ export default function NotificationsScreen() {
         setInitialLoading(false);
       }
     },
-    [notifications.length, activeFilter, selectedType]
+    [notifications.length, activeFilter, selectedType],
   );
 
   const onRefresh = useCallback(async () => {
@@ -131,7 +137,9 @@ export default function NotificationsScreen() {
     try {
       await apiClient.markNotificationAsRead(notificationId);
       setNotifications((prev) =>
-        prev.map((notif) => (notif.id === notificationId ? { ...notif, read: true } : notif))
+        prev.map((notif) =>
+          notif.id === notificationId ? { ...notif, read: true } : notif,
+        ),
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -143,7 +151,9 @@ export default function NotificationsScreen() {
   const handleDeleteNotification = async (notificationId: string) => {
     try {
       await apiClient.deleteNotification(notificationId);
-      setNotifications((prev) => prev.filter((notif) => notif.id !== notificationId));
+      setNotifications((prev) =>
+        prev.filter((notif) => notif.id !== notificationId),
+      );
       if (!notifications.find((n) => n.id === notificationId)?.read) {
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
@@ -199,7 +209,10 @@ export default function NotificationsScreen() {
       layout={LinearTransition.springify()}
     >
       <TouchableOpacity
-        style={[styles.notificationItem, !notification.read && styles.unreadNotification]}
+        style={[
+          styles.notificationItem,
+          !notification.read && styles.unreadNotification,
+        ]}
         onPress={() => handleMarkAsRead(notification.id)}
         activeOpacity={0.7}
       >
@@ -297,7 +310,9 @@ export default function NotificationsScreen() {
               <View style={styles.emptyContainer}>
                 <Bell size={48} color={COLORS.textSecondary} />
                 <Text style={styles.emptyText}>
-                  {activeFilter === "unread" ? "No unread notifications" : "No notifications yet"}
+                  {activeFilter === "unread"
+                    ? "No unread notifications"
+                    : "No notifications yet"}
                 </Text>
               </View>
             }

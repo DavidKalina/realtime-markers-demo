@@ -96,17 +96,22 @@ async function initializeWorker() {
   // Initialize repositories and services
   const eventRepository = AppDataSource.getRepository(Event);
   const categoryRepository = AppDataSource.getRepository(Category);
-  const categoryProcessingService = new CategoryProcessingService(categoryRepository);
+  const categoryProcessingService = new CategoryProcessingService(
+    categoryRepository,
+  );
 
   // Create the event similarity service
-  const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
+  const eventSimilarityService = new EventSimilarityService(
+    eventRepository,
+    configService,
+  );
 
   // Create the image processing service
   const imageProcessingService = new ImageProcessingService();
 
   const eventExtractionService = new EventExtractionService(
     categoryProcessingService,
-    GoogleGeocodingService.getInstance()
+    GoogleGeocodingService.getInstance(),
   );
 
   const jobQueue = new JobQueue(redisClient);
@@ -122,7 +127,9 @@ async function initializeWorker() {
     jobQueue,
   };
 
-  const eventProcessingService = new EventProcessingService(eventProcessingDependencies);
+  const eventProcessingService = new EventProcessingService(
+    eventProcessingDependencies,
+  );
 
   const eventService = new EventService(AppDataSource, redisClient);
 
@@ -180,7 +187,9 @@ async function initializeWorker() {
       // In worker.ts processJobs function, add a new job type handler
       if (job.type === "cleanup_outdated_events") {
         const batchSize = job.data.batchSize || 100;
-        console.log(`[Worker] Updating job ${jobId} progress: Cleaning up outdated events`);
+        console.log(
+          `[Worker] Updating job ${jobId} progress: Cleaning up outdated events`,
+        );
         await jobQueue.updateJobStatus(jobId, {
           progress: `Cleaning up outdated events (batch size: ${batchSize})`,
         });
@@ -197,7 +206,7 @@ async function initializeWorker() {
                 id: deletedEvent.id,
                 location: deletedEvent.location,
               },
-            })
+            }),
           );
         }
 
@@ -217,7 +226,9 @@ async function initializeWorker() {
       } else if (job.type === "process_flyer") {
         // Check if user has reached their scan limit
         if (job.data.creatorId) {
-          const hasReachedLimit = await planService.hasReachedScanLimit(job.data.creatorId);
+          const hasReachedLimit = await planService.hasReachedScanLimit(
+            job.data.creatorId,
+          );
           if (hasReachedLimit) {
             await jobQueue.updateJobStatus(jobId, {
               status: "failed",
@@ -239,11 +250,15 @@ async function initializeWorker() {
 
         // Upload image
         const storageService = StorageService.getInstance();
-        const originalImageUrl = await storageService.uploadImage(bufferData, "original-flyers", {
-          jobId: jobId,
-          contentType: job.data.contentType || "image/jpeg",
-          filename: job.data.filename || "event-flyer.jpg",
-        });
+        const originalImageUrl = await storageService.uploadImage(
+          bufferData,
+          "original-flyers",
+          {
+            jobId: jobId,
+            contentType: job.data.contentType || "image/jpeg",
+            filename: job.data.filename || "event-flyer.jpg",
+          },
+        );
 
         console.log("job.data.userCoordinates", job.data);
 
@@ -254,13 +269,13 @@ async function initializeWorker() {
           {
             userCoordinates: job.data.userCoordinates,
           },
-          jobId
+          jobId,
         );
 
         // Check confidence score first
         if (scanResult.confidence < 0.75) {
           console.log(
-            `[Worker] Confidence too low (${scanResult.confidence}) to proceed with event processing`
+            `[Worker] Confidence too low (${scanResult.confidence}) to proceed with event processing`,
           );
           await jobQueue.updateJobStatus(jobId, {
             status: "completed",
@@ -279,7 +294,7 @@ async function initializeWorker() {
         // Now check if this is a duplicate event
         if (scanResult.isDuplicate && scanResult.similarity.matchingEventId) {
           console.log(
-            `[Worker] Duplicate event detected with ID: ${scanResult.similarity.matchingEventId}`
+            `[Worker] Duplicate event detected with ID: ${scanResult.similarity.matchingEventId}`,
           );
 
           // Get the existing event to return its details
@@ -307,13 +322,14 @@ async function initializeWorker() {
           } else {
             // This shouldn't happen, but handle the case anyway
             console.error(
-              `[Worker] Matching event ${scanResult.similarity.matchingEventId} not found`
+              `[Worker] Matching event ${scanResult.similarity.matchingEventId} not found`,
             );
             await jobQueue.updateJobStatus(jobId, {
               status: "failed",
               progress: 1, // Set to 100% when completed
               error: "Duplicate event reference not found",
-              message: "We encountered an error while processing this event. Please try again.",
+              message:
+                "We encountered an error while processing this event. Please try again.",
               completed: new Date().toISOString(),
             });
           }
@@ -329,7 +345,7 @@ async function initializeWorker() {
 
           if (!dateValidation.valid) {
             console.log(
-              `[Worker] Event date validation failed: ${dateValidation.reason} (${dateValidation.daysFromNow} days from now)`
+              `[Worker] Event date validation failed: ${dateValidation.reason} (${dateValidation.daysFromNow} days from now)`,
             );
 
             // Mark as completed with info about invalid date
@@ -338,7 +354,8 @@ async function initializeWorker() {
               progress: 1,
               result: {
                 message:
-                  dateValidation.daysFromNow !== undefined && dateValidation.daysFromNow < 0
+                  dateValidation.daysFromNow !== undefined &&
+                  dateValidation.daysFromNow < 0
                     ? "This event appears to be in the past. We only process upcoming events."
                     : dateValidation.reason,
                 daysFromNow: dateValidation.daysFromNow,
@@ -357,7 +374,9 @@ async function initializeWorker() {
             emojiDescription: eventDetails.emojiDescription,
             title: eventDetails.title,
             eventDate: new Date(eventDetails.date),
-            endDate: eventDetails.endDate ? new Date(eventDetails.endDate) : undefined,
+            endDate: eventDetails.endDate
+              ? new Date(eventDetails.endDate)
+              : undefined,
             location: eventDetails.location,
             description: eventDetails.description,
             confidenceScore: scanResult.confidence,
@@ -374,7 +393,10 @@ async function initializeWorker() {
 
           // Create discovery record and increment user stats if they are the creator
           if (job.data.creatorId) {
-            await eventService.createDiscoveryRecord(job.data.creatorId, newEvent.id);
+            await eventService.createDiscoveryRecord(
+              job.data.creatorId,
+              newEvent.id,
+            );
           }
 
           // Publish notifications
@@ -389,7 +411,7 @@ async function initializeWorker() {
                   sharedWith: await eventService.getEventShares(newEvent.id),
                 }),
               },
-            })
+            }),
           );
 
           await redisClient.publish(
@@ -419,7 +441,7 @@ async function initializeWorker() {
                 }),
               },
               timestamp: new Date().toISOString(),
-            })
+            }),
           );
 
           // Mark as completed with success
@@ -431,12 +453,15 @@ async function initializeWorker() {
               eventId: newEvent.id,
               title: eventDetails.title,
               coordinates: newEvent.location.coordinates,
-              message: "Event successfully processed and added to the database!",
+              message:
+                "Event successfully processed and added to the database!",
             },
             completed: new Date().toISOString(),
           });
         } else {
-          console.log(`[Worker] Confidence too low (${scanResult.confidence}) to create event`);
+          console.log(
+            `[Worker] Confidence too low (${scanResult.confidence}) to create event`,
+          );
           // Mark as completed with info about low confidence
           await jobQueue.updateJobStatus(jobId, {
             status: "completed",
@@ -453,7 +478,8 @@ async function initializeWorker() {
         console.log(`[Worker] Processing private event job ${jobId}`);
 
         // Validate UUID format
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const uuidRegex =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
         if (job.data.creatorId && !uuidRegex.test(job.data.creatorId)) {
           await jobQueue.updateJobStatus(jobId, {
@@ -501,9 +527,12 @@ async function initializeWorker() {
         }
 
         // Process the private event
-        const scanResult = await eventProcessingService.processPrivateEvent(job.data.eventDetails, {
-          userCoordinates: job.data.userCoordinates,
-        });
+        const scanResult = await eventProcessingService.processPrivateEvent(
+          job.data.eventDetails,
+          {
+            userCoordinates: job.data.userCoordinates,
+          },
+        );
 
         // Create the event
         const newEvent = await eventService.createEvent({
@@ -529,7 +558,10 @@ async function initializeWorker() {
 
         // Create discovery record and increment user stats if they are the creator
         if (job.data.creatorId) {
-          await eventService.createDiscoveryRecord(job.data.creatorId, newEvent.id);
+          await eventService.createDiscoveryRecord(
+            job.data.creatorId,
+            newEvent.id,
+          );
         }
 
         // Get the shares for the event to include in notifications
@@ -545,7 +577,7 @@ async function initializeWorker() {
               // Add shared users metadata for private events
               sharedWith: eventShares,
             },
-          })
+          }),
         );
 
         await redisClient.publish(
@@ -572,7 +604,7 @@ async function initializeWorker() {
               sharedWith: eventShares,
             },
             timestamp: new Date().toISOString(),
-          })
+          }),
         );
 
         // Mark as completed with success

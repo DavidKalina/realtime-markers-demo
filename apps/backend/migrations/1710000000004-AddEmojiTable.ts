@@ -28,10 +28,10 @@ export class AddEmojiTable1710000000004 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX "IDX_emoji_rank"`);
-    await queryRunner.query(`DROP INDEX "IDX_emoji_category"`);
-    await queryRunner.query(`DROP INDEX "IDX_emoji_keywords"`);
-    await queryRunner.query(`DROP INDEX "IDX_emoji_name"`);
-    await queryRunner.query(`DROP TABLE "emoji"`);
+    await queryRunner.query('DROP INDEX "IDX_emoji_rank"');
+    await queryRunner.query('DROP INDEX "IDX_emoji_category"');
+    await queryRunner.query('DROP INDEX "IDX_emoji_keywords"');
+    await queryRunner.query('DROP INDEX "IDX_emoji_name"');
+    await queryRunner.query('DROP TABLE "emoji"');
   }
 }

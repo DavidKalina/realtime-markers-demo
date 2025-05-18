@@ -73,7 +73,10 @@ const AppDataSource = new DataSource({
 });
 
 // Wrapped DataSource with retry logic
-const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource> => {
+const initializeDatabase = async (
+  retries = 5,
+  delay = 2000,
+): Promise<DataSource> => {
   // If the dataSource is already initialized, return it
   if (AppDataSource.isInitialized) {
     return AppDataSource;

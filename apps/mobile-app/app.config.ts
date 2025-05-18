@@ -60,7 +60,8 @@ export default {
       [
         "expo-image-picker",
         {
-          photosPermission: "The app accesses your photos to let you upload them to save events.",
+          photosPermission:
+            "The app accesses your photos to let you upload them to save events.",
         },
       ],
       [
@@ -87,7 +88,8 @@ export default {
       [
         "expo-location",
         {
-          locationAlwaysAndWhenInUsePermission: "Allow $(PRODUCT_NAME) to use your location.",
+          locationAlwaysAndWhenInUsePermission:
+            "Allow $(PRODUCT_NAME) to use your location.",
         },
       ],
       [

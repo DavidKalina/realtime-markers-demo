@@ -54,7 +54,9 @@ const GroupList: React.FC<GroupListProps> = ({
   style,
   emptyStateTitle = "No groups found",
   emptyStateDescription = "Groups you create or join will appear here.",
-  emptyStateIcon = <Users size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />,
+  emptyStateIcon = (
+    <Users size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />
+  ),
 }) => {
   const renderGroupItem = useCallback(
     ({ item: group }: { item: GroupType }) => (
@@ -65,7 +67,9 @@ const GroupList: React.FC<GroupListProps> = ({
       >
         <View style={styles.groupHeader}>
           <View style={styles.groupTitleContainer}>
-            {group.emoji && <Text style={styles.groupEmoji}>{group.emoji}</Text>}
+            {group.emoji && (
+              <Text style={styles.groupEmoji}>{group.emoji}</Text>
+            )}
             <Text style={styles.groupName} numberOfLines={1}>
               {group.name}
             </Text>
@@ -83,7 +87,7 @@ const GroupList: React.FC<GroupListProps> = ({
         </Text>
       </TouchableOpacity>
     ),
-    [onGroupPress]
+    [onGroupPress],
   );
 
   const renderEmptyState = useCallback(
@@ -91,10 +95,12 @@ const GroupList: React.FC<GroupListProps> = ({
       <View style={styles.emptyState}>
         {emptyStateIcon}
         <Text style={styles.emptyStateTitle}>{emptyStateTitle}</Text>
-        <Text style={styles.emptyStateDescription}>{emptyStateDescription}</Text>
+        <Text style={styles.emptyStateDescription}>
+          {emptyStateDescription}
+        </Text>
       </View>
     ),
-    [emptyStateIcon, emptyStateTitle, emptyStateDescription]
+    [emptyStateIcon, emptyStateTitle, emptyStateDescription],
   );
 
   const renderError = useCallback(
@@ -106,7 +112,7 @@ const GroupList: React.FC<GroupListProps> = ({
         </TouchableOpacity>
       </View>
     ),
-    [error, onRetry]
+    [error, onRetry],
   );
 
   const renderFooter = useCallback(() => {
@@ -145,7 +151,11 @@ const GroupList: React.FC<GroupListProps> = ({
       ListEmptyComponent={renderEmptyState}
       ListFooterComponent={renderFooter}
       refreshControl={
-        <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor={COLORS.accent} />
+        <RefreshControl
+          refreshing={isLoading}
+          onRefresh={onRefresh}
+          tintColor={COLORS.accent}
+        />
       }
     />
   );

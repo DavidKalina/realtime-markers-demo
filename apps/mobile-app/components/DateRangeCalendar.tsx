@@ -12,8 +12,20 @@ import {
 } from "date-fns";
 import * as Haptics from "expo-haptics";
 import { ChevronLeft, ChevronRight, X } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Animated, {
   cancelAnimation,
   runOnJS,
@@ -61,8 +73,12 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
   onClose,
   isLoading = false,
 }) => {
-  const [selectedStartDate, setSelectedStartDate] = useState<string | undefined>(startDate);
-  const [selectedEndDate, setSelectedEndDate] = useState<string | undefined>(endDate);
+  const [selectedStartDate, setSelectedStartDate] = useState<
+    string | undefined
+  >(startDate);
+  const [selectedEndDate, setSelectedEndDate] = useState<string | undefined>(
+    endDate,
+  );
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const isMounted = useRef(true);
   const slideAnim = useSharedValue(0);
@@ -160,7 +176,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
         }
       }
     },
-    [selectedStartDate, selectedEndDate, isPastDate]
+    [selectedStartDate, selectedEndDate, isPastDate],
   );
 
   // Handle month navigation
@@ -193,7 +209,10 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
     const twoWeeksFromNow = addDays(today, 14);
     setSelectedStartDate(format(today, "yyyy-MM-dd"));
     setSelectedEndDate(format(twoWeeksFromNow, "yyyy-MM-dd"));
-    onDateRangeSelect(format(today, "yyyy-MM-dd"), format(twoWeeksFromNow, "yyyy-MM-dd"));
+    onDateRangeSelect(
+      format(today, "yyyy-MM-dd"),
+      format(twoWeeksFromNow, "yyyy-MM-dd"),
+    );
   }, [onDateRangeSelect]);
 
   // Format date range text
@@ -216,7 +235,8 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
   const getDayStyles = useCallback(
     (date: Date) => {
       const dateString = format(date, "yyyy-MM-dd");
-      const isSelected = dateString === selectedStartDate || dateString === selectedEndDate;
+      const isSelected =
+        dateString === selectedStartDate || dateString === selectedEndDate;
       const isInRange =
         selectedStartDate &&
         selectedEndDate &&
@@ -244,7 +264,7 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
         ],
       };
     },
-    [selectedStartDate, selectedEndDate, currentMonth, isPastDate]
+    [selectedStartDate, selectedEndDate, currentMonth, isPastDate],
   );
 
   return (
@@ -271,16 +291,25 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
         <View style={styles.monthHeader}>
           <TouchableOpacity
             onPress={handlePrevMonth}
-            style={[styles.monthNavButton, !canGoBack && styles.monthNavButtonDisabled]}
+            style={[
+              styles.monthNavButton,
+              !canGoBack && styles.monthNavButtonDisabled,
+            ]}
             disabled={!canGoBack}
             activeOpacity={canGoBack ? 0.7 : 1}
           >
             <ChevronLeft
               size={20}
-              color={canGoBack ? COLORS.accent : getDimmedTextColor(COLORS.textPrimary, 0.4)}
+              color={
+                canGoBack
+                  ? COLORS.accent
+                  : getDimmedTextColor(COLORS.textPrimary, 0.4)
+              }
             />
           </TouchableOpacity>
-          <Text style={styles.monthText}>{format(currentMonth, "MMMM yyyy")}</Text>
+          <Text style={styles.monthText}>
+            {format(currentMonth, "MMMM yyyy")}
+          </Text>
           <TouchableOpacity
             onPress={handleNextMonth}
             style={styles.monthNavButton}
@@ -301,7 +330,9 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
         <View style={styles.daysGrid}>
           {daysInMonth.map((date, index) => {
             if (date === null) {
-              return <View key={`empty-${index}`} style={styles.dayContainer} />;
+              return (
+                <View key={`empty-${index}`} style={styles.dayContainer} />
+              );
             }
             const { container, text } = getDayStyles(date);
             return (
@@ -347,7 +378,11 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.button, styles.confirmButton, isLoading && styles.confirmButtonLoading]}
+            style={[
+              styles.button,
+              styles.confirmButton,
+              isLoading && styles.confirmButtonLoading,
+            ]}
             onPress={handleConfirmSelection}
             disabled={isLoading}
             activeOpacity={0.7}

@@ -175,7 +175,9 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
         // Update events derived from markers
         events: newEvents,
         // Update current event if needed
-        currentEvent: newSelectedMarker ? markerToEvent(newSelectedMarker) : null,
+        currentEvent: newSelectedMarker
+          ? markerToEvent(newSelectedMarker)
+          : null,
       };
     }),
 
@@ -227,7 +229,9 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
         selectedItemType: isSelectedMarker ? null : state.selectedItemType,
         // Clear the unified selection if we're deleting the selected marker
         selectedItem:
-          isSelectedMarker && state.selectedItem?.type === "marker" ? null : state.selectedItem,
+          isSelectedMarker && state.selectedItem?.type === "marker"
+            ? null
+            : state.selectedItem,
       };
     }),
 
@@ -238,7 +242,9 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
       const legacyState = {
         selectedMarkerId: item?.type === "marker" ? item.id : null,
         selectedMarker:
-          item?.type === "marker" ? state.markers.find((m) => m.id === item.id) || null : null,
+          item?.type === "marker"
+            ? state.markers.find((m) => m.id === item.id) || null
+            : null,
         selectedCluster:
           item?.type === "cluster"
             ? {
@@ -266,11 +272,16 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
   selectMarker: (markerId) =>
     set((state) => {
       // Skip if trying to select the same marker that's already selected
-      if (state.selectedMarkerId === markerId && state.selectedItemType === "marker") {
+      if (
+        state.selectedMarkerId === markerId &&
+        state.selectedItemType === "marker"
+      ) {
         return state; // No change needed
       }
 
-      const selectedMarker = markerId ? state.markers.find((m) => m.id === markerId) || null : null;
+      const selectedMarker = markerId
+        ? state.markers.find((m) => m.id === markerId) || null
+        : null;
 
       // Create the unified map item
       const selectedItem = selectedMarker
@@ -292,7 +303,7 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
     }),
 
   selectCluster: (cluster) =>
-    set((state) => {
+    set(() => {
       if (!cluster) {
         return {
           selectedCluster: null,
@@ -432,7 +443,10 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
     }
 
     // Try to use coordinates if available, otherwise fall back to location text
-    if (selectedMarker.coordinates && isValidCoordinates(selectedMarker.coordinates)) {
+    if (
+      selectedMarker.coordinates &&
+      isValidCoordinates(selectedMarker.coordinates)
+    ) {
       const [longitude, latitude] = selectedMarker.coordinates;
       const url = `https://maps.google.com/?q=${latitude},${longitude}`;
       Linking.openURL(url);

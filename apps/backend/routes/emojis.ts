@@ -22,7 +22,7 @@ emojisRouter.use(
       const ipInfo = c.get("ip");
       return `emojis:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
     },
-  })
+  }),
 );
 emojisRouter.use("*", authMiddleware);
 

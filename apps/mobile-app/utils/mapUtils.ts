@@ -1,14 +1,17 @@
 // mapUtils.ts - Utility functions for map-event conversions
-import { EventType, Marker, Coordinates } from "../types/types";
+import { Coordinates, EventType } from "../types/types";
 
 /**
  * Converts an EventType to a Marker format for use with maps
  * Ensures compatibility with the markerStore Marker type
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const eventToMarker = (event: EventType): any => {
   // Skip conversion if coordinates are missing
   if (!event.coordinates) {
-    console.warn(`Event "${event.title}" missing coordinates, cannot convert to marker`);
+    console.warn(
+      `Event "${event.title}" missing coordinates, cannot convert to marker`,
+    );
     return null;
   }
 
@@ -19,12 +22,11 @@ export const eventToMarker = (event: EventType): any => {
     data: {
       title: event.title || "Unnamed Location",
       emoji: event.emoji || "📍",
-      color: event.color || "#4dabf7",
-      created_at: event.created_at || new Date().toISOString(),
-      updated_at: event.updated_at || new Date().toISOString(),
+      created_at: event.createdAt || new Date().toISOString(),
+      updated_at: event.updatedAt || new Date().toISOString(),
       description: event.description,
       location: event.location,
-      date: event.date,
+      date: event.eventDate,
       time: event.time,
       category: event.category,
       // Include any other necessary properties
@@ -94,7 +96,9 @@ export const markersToEvents = (markers: any[]): EventType[] => {
 /**
  * Helper function to check if coordinates are valid
  */
-export const isValidCoordinates = (coordinates: any): coordinates is Coordinates => {
+export const isValidCoordinates = (
+  coordinates: any,
+): coordinates is Coordinates => {
   return (
     Array.isArray(coordinates) &&
     coordinates.length === 2 &&

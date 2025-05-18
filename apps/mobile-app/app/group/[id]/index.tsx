@@ -54,13 +54,21 @@ export default function GroupDetailsScreen() {
   // Animation setup
   const scrollY = useSharedValue(0);
 
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollY.value = event.nativeEvent.contentOffset.y;
-  }, []);
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollY.value = event.nativeEvent.contentOffset.y;
+    },
+    [],
+  );
 
   // Animation styles
   const zoneBannerAnimatedStyle = useAnimatedStyle(() => {
-    const bannerPaddingVertical = interpolate(scrollY.value, [0, 100], [24, 12], Extrapolate.CLAMP);
+    const bannerPaddingVertical = interpolate(
+      scrollY.value,
+      [0, 100],
+      [24, 12],
+      Extrapolate.CLAMP,
+    );
     return {
       paddingBottom: bannerPaddingVertical,
     };
@@ -68,17 +76,36 @@ export default function GroupDetailsScreen() {
 
   const animatedBannerEmojiStyle = useAnimatedStyle(() => ({
     fontSize: interpolate(scrollY.value, [0, 100], [48, 32], Extrapolate.CLAMP),
-    marginBottom: interpolate(scrollY.value, [0, 100], [12, 6], Extrapolate.CLAMP),
+    marginBottom: interpolate(
+      scrollY.value,
+      [0, 100],
+      [12, 6],
+      Extrapolate.CLAMP,
+    ),
   }));
 
   const animatedBannerNameStyle = useAnimatedStyle(() => ({
     fontSize: interpolate(scrollY.value, [0, 100], [28, 22], Extrapolate.CLAMP),
-    marginBottom: interpolate(scrollY.value, [0, 100], [8, 4], Extrapolate.CLAMP),
+    marginBottom: interpolate(
+      scrollY.value,
+      [0, 100],
+      [8, 4],
+      Extrapolate.CLAMP,
+    ),
   }));
 
   const animatedBannerDescriptionStyle = useAnimatedStyle(() => ({
     opacity: interpolate(scrollY.value, [0, 50], [1, 0], Extrapolate.CLAMP),
-    transform: [{ scale: interpolate(scrollY.value, [0, 50], [1, 0.95], Extrapolate.CLAMP) }],
+    transform: [
+      {
+        scale: interpolate(
+          scrollY.value,
+          [0, 50],
+          [1, 0.95],
+          Extrapolate.CLAMP,
+        ),
+      },
+    ],
   }));
 
   const handleBack = useCallback(() => {
@@ -159,17 +186,30 @@ export default function GroupDetailsScreen() {
           style={[styles.zoneBanner, zoneBannerAnimatedStyle]}
           layout={LinearTransition.springify()}
         >
-          <TouchableOpacity onPress={handleBack} style={styles.bannerBackButton}>
+          <TouchableOpacity
+            onPress={handleBack}
+            style={styles.bannerBackButton}
+          >
             <ArrowLeft size={20} color={COLORS.textPrimary} />
           </TouchableOpacity>
-          <Animated.Text style={[styles.zoneBannerEmoji, animatedBannerEmojiStyle]}>
+          <Animated.Text
+            style={[styles.zoneBannerEmoji, animatedBannerEmojiStyle]}
+          >
             {group.emoji || "👥"}
           </Animated.Text>
-          <Animated.Text style={[styles.zoneBannerName, animatedBannerNameStyle]}>
+          <Animated.Text
+            style={[styles.zoneBannerName, animatedBannerNameStyle]}
+          >
             {group.name}
           </Animated.Text>
-          <Animated.Text style={[styles.zoneBannerDescription, animatedBannerDescriptionStyle]}>
-            {group.description || "Join this group to connect with like-minded people"}
+          <Animated.Text
+            style={[
+              styles.zoneBannerDescription,
+              animatedBannerDescriptionStyle,
+            ]}
+          >
+            {group.description ||
+              "Join this group to connect with like-minded people"}
           </Animated.Text>
         </Animated.View>
 
@@ -283,7 +323,8 @@ export default function GroupDetailsScreen() {
             </View>
             <View style={styles.eventsPreview}>
               <Text style={styles.eventsPreviewText}>
-                View and manage group events, including meetups, workshops, and social gatherings.
+                View and manage group events, including meetups, workshops, and
+                social gatherings.
               </Text>
             </View>
           </View>
@@ -337,7 +378,10 @@ export default function GroupDetailsScreen() {
         <View style={styles.actionButtonContainer}>
           {isAdmin ? (
             <TouchableOpacity
-              style={[styles.deleteGroupButton, isDeleting && styles.actionButtonDisabled]}
+              style={[
+                styles.deleteGroupButton,
+                isDeleting && styles.actionButtonDisabled,
+              ]}
               onPress={handleDeleteGroup}
               disabled={isDeleting}
             >
@@ -345,14 +389,21 @@ export default function GroupDetailsScreen() {
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
-                  <Trash2 size={18} color="#fff" style={styles.actionButtonIcon} />
+                  <Trash2
+                    size={18}
+                    color="#fff"
+                    style={styles.actionButtonIcon}
+                  />
                   <Text style={styles.actionButtonText}>Delete Group</Text>
                 </>
               )}
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={[styles.leaveGroupButton, isLeaving && styles.actionButtonDisabled]}
+              style={[
+                styles.leaveGroupButton,
+                isLeaving && styles.actionButtonDisabled,
+              ]}
               onPress={handleLeaveGroup}
               disabled={isLeaving}
             >
@@ -360,7 +411,11 @@ export default function GroupDetailsScreen() {
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
-                  <LogOut size={18} color="#fff" style={styles.actionButtonIcon} />
+                  <LogOut
+                    size={18}
+                    color="#fff"
+                    style={styles.actionButtonIcon}
+                  />
                   <Text style={styles.actionButtonText}>Leave Group</Text>
                 </>
               )}

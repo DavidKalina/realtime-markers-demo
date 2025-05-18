@@ -1,6 +1,8 @@
 import type { MigrationInterface, QueryRunner } from "typeorm";
 
-export class RemoveNotesFromUserEventSaves1710000000007 implements MigrationInterface {
+export class RemoveNotesFromUserEventSaves1710000000007
+  implements MigrationInterface
+{
   name = "RemoveNotesFromUserEventSaves1710000000007";
 
   public async up(queryRunner: QueryRunner): Promise<void> {

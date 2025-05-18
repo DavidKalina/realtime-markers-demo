@@ -19,7 +19,10 @@ export const formatTimeInfo = (timeString: string | undefined): string => {
     }
 
     // Check if event is happening now (within 2 hours of start time)
-    if (now >= eventTime && now <= new Date(eventTime.getTime() + 2 * 60 * 60 * 1000)) {
+    if (
+      now >= eventTime &&
+      now <= new Date(eventTime.getTime() + 2 * 60 * 60 * 1000)
+    ) {
       return "Happening now";
     }
 

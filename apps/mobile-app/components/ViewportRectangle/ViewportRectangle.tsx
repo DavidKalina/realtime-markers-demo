@@ -21,7 +21,7 @@ export const ViewportRectangle: React.FC<ViewportRectangleProps> = React.memo(
         [viewport.west, viewport.south],
         [viewport.west, viewport.north], // Close the polygon
       ],
-      [viewport]
+      [viewport],
     );
 
     const shape = useMemo(
@@ -33,7 +33,7 @@ export const ViewportRectangle: React.FC<ViewportRectangleProps> = React.memo(
         },
         properties: {},
       }),
-      [coordinates]
+      [coordinates],
     );
 
     return (
@@ -55,5 +55,5 @@ export const ViewportRectangle: React.FC<ViewportRectangleProps> = React.memo(
         />
       </MapboxGL.ShapeSource>
     );
-  }
+  },
 );

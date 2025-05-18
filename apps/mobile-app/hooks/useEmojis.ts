@@ -5,7 +5,7 @@ const useEmojis = (
   initialPage: number = 1,
   limit: number = 100,
   initialCategoryId: number | null = null,
-  initialSearchTerm: string = ""
+  initialSearchTerm: string = "",
 ) => {
   const [emojis, setEmojis] = useState<Emoji[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -13,7 +13,9 @@ const useEmojis = (
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [page, setPage] = useState<number>(initialPage);
   const [searchTerm, setSearchTerm] = useState<string>(initialSearchTerm);
-  const [categoryId, setCategoryId] = useState<number | null>(initialCategoryId);
+  const [categoryId, setCategoryId] = useState<number | null>(
+    initialCategoryId,
+  );
   const lastEmojiId = useRef<number | null>(null);
 
   const fetchEmojis = useCallback(
@@ -45,7 +47,7 @@ const useEmojis = (
         setLoading(false);
       }
     },
-    [searchTerm, categoryId, limit]
+    [searchTerm, categoryId, limit],
   );
 
   useEffect(() => {
@@ -92,19 +94,24 @@ const useEmojis = (
         throw err;
       }
     },
-    []
+    [],
   );
 
-  const updateEmoji = useCallback(async (id: number, emojiData: Partial<Emoji>) => {
-    try {
-      const updatedEmoji = await apiClient.updateEmoji(id, emojiData);
-      setEmojis((prev) => prev.map((emoji) => (emoji.id === id ? updatedEmoji : emoji)));
-      return updatedEmoji;
-    } catch (err: any) {
-      setError(err.message || "Error updating emoji");
-      throw err;
-    }
-  }, []);
+  const updateEmoji = useCallback(
+    async (id: number, emojiData: Partial<Emoji>) => {
+      try {
+        const updatedEmoji = await apiClient.updateEmoji(id, emojiData);
+        setEmojis((prev) =>
+          prev.map((emoji) => (emoji.id === id ? updatedEmoji : emoji)),
+        );
+        return updatedEmoji;
+      } catch (err: any) {
+        setError(err.message || "Error updating emoji");
+        throw err;
+      }
+    },
+    [],
+  );
 
   const deleteEmoji = useCallback(async (id: number) => {
     try {

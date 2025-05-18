@@ -1,15 +1,13 @@
+import { useAuth } from "@/contexts/AuthContext";
 import React, { useMemo } from "react";
-import { StatusBar as RNStatusBar, StyleSheet, View, Text } from "react-native";
+import { StatusBar as RNStatusBar, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "@/contexts/AuthContext";
-import ConnectionIndicator from "./ConnectionIndicator";
+import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
 import DateRangeIndicator from "./DateRangeIndicator";
 import EmojiIndicator from "./EmojiIndicator";
-import JobIndicator from "./JobIndicator";
 import NotificationIndicator from "./NotificationIndicator";
 import XPBar from "./XPBar";
-import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
 
 interface StatusBarProps {
   backgroundColor?: string;
@@ -24,7 +22,6 @@ const ANIMATION_CONFIG = {
 
 const StatusBar: React.FC<StatusBarProps> = ({
   backgroundColor = "#1a1a1a", // Match Cluster Events view background
-  children,
 }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -35,7 +32,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
       <DateRangeIndicator key="date" />,
       <NotificationIndicator key="notifications" />,
     ],
-    []
+    [],
   );
 
   const containerStyle = useMemo(
@@ -46,18 +43,30 @@ const StatusBar: React.FC<StatusBarProps> = ({
         paddingTop: insets.top,
       },
     ],
-    [backgroundColor, insets.top]
+    [backgroundColor, insets.top],
   );
 
   return (
     <View style={containerStyle}>
-      <RNStatusBar barStyle="light-content" backgroundColor={backgroundColor} translucent />
+      <RNStatusBar
+        barStyle="light-content"
+        backgroundColor={backgroundColor}
+        translucent
+      />
       <XPBar backgroundColor={backgroundColor} />
       <View style={styles.indicatorsRow}>
-        <Animated.View entering={FadeIn.delay(300).springify()} style={styles.usernameContainer}>
-          <Text style={styles.username}>{user?.displayName || user?.email}</Text>
+        <Animated.View
+          entering={FadeIn.delay(300).springify()}
+          style={styles.usernameContainer}
+        >
+          <Text style={styles.username}>
+            {user?.displayName || user?.email}
+          </Text>
         </Animated.View>
-        <Animated.View style={styles.indicatorsContainer} layout={LinearTransition.duration(300)}>
+        <Animated.View
+          style={styles.indicatorsContainer}
+          layout={LinearTransition.duration(300)}
+        >
           {indicators.map((indicator, index) => (
             <React.Fragment key={index}>
               <Animated.View

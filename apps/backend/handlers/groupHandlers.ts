@@ -4,9 +4,16 @@ import type { Context } from "hono";
 import type { AppContext } from "../types/context";
 import dataSource from "../data-source";
 import { GroupService } from "../services/GroupService";
-import { GroupMemberRole, GroupMembershipStatus } from "../entities/GroupMembership";
+import {
+  GroupMemberRole,
+  GroupMembershipStatus,
+} from "../entities/GroupMembership";
 import { GroupVisibility } from "../entities/Group";
-import type { CreateGroupDto, UpdateGroupDto, UpdateMemberRoleDto } from "../dtos/group.dto";
+import type {
+  CreateGroupDto,
+  UpdateGroupDto,
+  UpdateMemberRoleDto,
+} from "../dtos/group.dto";
 
 // Initialize services
 const groupService = new GroupService(dataSource);
@@ -50,7 +57,7 @@ export const getGroupHandler = async (c: Context<AppContext>) => {
     const user = c.get("user");
     const userId = user?.userId; // Optional: use for private group access check
 
-    let group = await groupService.getGroupById(groupId);
+    const group = await groupService.getGroupById(groupId);
 
     if (!group) {
       return c.json({ error: "Group not found" }, 404);
@@ -60,7 +67,10 @@ export const getGroupHandler = async (c: Context<AppContext>) => {
     if (group.visibility === "PRIVATE") {
       if (!userId || !(await groupService.isUserMember(groupId, userId))) {
         // Optionally, you could return a limited view or a 403/404
-        return c.json({ error: "Private group, access denied or not found" }, 403);
+        return c.json(
+          { error: "Private group, access denied or not found" },
+          403,
+        );
       }
     }
     // For public view, or if user has access, return full details
@@ -77,7 +87,11 @@ export const updateGroupHandler = async (c: Context<AppContext>) => {
     const groupId = c.req.param("groupId");
     const updateData = await c.req.json<UpdateGroupDto>();
 
-    const updatedGroup = await groupService.updateGroup(groupId, userId, updateData);
+    const updatedGroup = await groupService.updateGroup(
+      groupId,
+      userId,
+      updateData,
+    );
     if (!updatedGroup) {
       return c.json({ error: "Group not found or update failed" }, 404); // Or 403 if permission issue
     }
@@ -120,7 +134,9 @@ export const listPublicGroupsHandler = async (c: Context<AppContext>) => {
   try {
     const cursor = c.req.query("cursor");
     const limit = parseInt(c.req.query("limit") || "10");
-    const direction = (c.req.query("direction") || "forward") as "forward" | "backward";
+    const direction = (c.req.query("direction") || "forward") as
+      | "forward"
+      | "backward";
     const categoryId = c.req.query("categoryId");
 
     const result = await groupService.listPublicGroups({
@@ -141,7 +157,9 @@ export const getUserGroupsHandler = async (c: Context<AppContext>) => {
     const userId = getAuthenticatedUserId(c);
     const cursor = c.req.query("cursor");
     const limit = parseInt(c.req.query("limit") || "10");
-    const direction = (c.req.query("direction") || "forward") as "forward" | "backward";
+    const direction = (c.req.query("direction") || "forward") as
+      | "forward"
+      | "backward";
 
     const result = await groupService.getUserGroups(userId, {
       cursor,
@@ -165,10 +183,16 @@ export const joinGroupHandler = async (c: Context<AppContext>) => {
       membership.status === GroupMembershipStatus.PENDING
         ? "Join request sent successfully"
         : "Successfully joined group";
-    return c.json({ message, membershipStatus: membership.status, role: membership.role }, 200);
+    return c.json(
+      { message, membershipStatus: membership.status, role: membership.role },
+      200,
+    );
   } catch (error: any) {
     console.error("Error joining group:", error);
-    if (error.message.includes("already a member") || error.message.includes("banned")) {
+    if (
+      error.message.includes("already a member") ||
+      error.message.includes("banned")
+    ) {
       return c.json({ error: error.message }, 400);
     }
     return c.json({ error: error.message || "Failed to join group" }, 500);
@@ -215,8 +239,11 @@ export const manageMembershipStatusHandler = async (c: Context<AppContext>) => {
       ].includes(status)
     ) {
       return c.json(
-        { error: "Invalid status provided. Must be APPROVED, REJECTED, or BANNED." },
-        400
+        {
+          error:
+            "Invalid status provided. Must be APPROVED, REJECTED, or BANNED.",
+        },
+        400,
       );
     }
 
@@ -225,15 +252,21 @@ export const manageMembershipStatusHandler = async (c: Context<AppContext>) => {
       memberUserId,
       adminUserId,
       status,
-      role
+      role,
     );
-    return c.json({ message: `Membership status updated to ${status}`, membership });
+    return c.json({
+      message: `Membership status updated to ${status}`,
+      membership,
+    });
   } catch (error: any) {
     console.error("Error managing membership status:", error);
     if (error.message.includes("not authorized")) {
       return c.json({ error: error.message }, 403);
     }
-    return c.json({ error: error.message || "Failed to manage membership status" }, 500);
+    return c.json(
+      { error: error.message || "Failed to manage membership status" },
+      500,
+    );
   }
 };
 
@@ -252,7 +285,7 @@ export const updateMemberRoleHandler = async (c: Context<AppContext>) => {
       groupId,
       memberUserId,
       adminUserId,
-      role
+      role,
     );
     return c.json({ message: "Member role updated successfully", membership });
   } catch (error: any) {
@@ -263,7 +296,10 @@ export const updateMemberRoleHandler = async (c: Context<AppContext>) => {
     ) {
       return c.json({ error: error.message }, 403);
     }
-    return c.json({ error: error.message || "Failed to update member role" }, 500);
+    return c.json(
+      { error: error.message || "Failed to update member role" },
+      500,
+    );
   }
 };
 
@@ -273,9 +309,16 @@ export const removeMemberHandler = async (c: Context<AppContext>) => {
     const groupId = c.req.param("groupId");
     const memberUserId = c.req.param("memberUserId");
 
-    const success = await groupService.removeMember(groupId, memberUserId, adminUserId);
+    const success = await groupService.removeMember(
+      groupId,
+      memberUserId,
+      adminUserId,
+    );
     if (!success) {
-      return c.json({ error: "Failed to remove member or member not found" }, 400);
+      return c.json(
+        { error: "Failed to remove member or member not found" },
+        400,
+      );
     }
     return c.json({ message: "Member removed successfully" });
   } catch (error: any) {
@@ -295,7 +338,9 @@ export const getGroupMembersHandler = async (c: Context<AppContext>) => {
     const groupId = c.req.param("groupId");
     const cursor = c.req.query("cursor");
     const limit = parseInt(c.req.query("limit") || "10");
-    const direction = (c.req.query("direction") || "forward") as "forward" | "backward";
+    const direction = (c.req.query("direction") || "forward") as
+      | "forward"
+      | "backward";
     const status = c.req.query("status") as GroupMembershipStatus | undefined;
 
     const result = await groupService.getGroupMembers(groupId, {
@@ -325,7 +370,9 @@ export const searchGroupsHandler = async (c: Context<AppContext>) => {
 
     const cursor = c.req.query("cursor");
     const limit = parseInt(c.req.query("limit") || "10");
-    const direction = (c.req.query("direction") || "forward") as "forward" | "backward";
+    const direction = (c.req.query("direction") || "forward") as
+      | "forward"
+      | "backward";
     const categoryId = c.req.query("categoryId");
 
     const result = await groupService.searchGroups({
@@ -347,11 +394,17 @@ export const getGroupEventsHandler = async (c: Context<AppContext>) => {
     const groupId = c.req.param("groupId");
     const cursor = c.req.query("cursor");
     const limit = parseInt(c.req.query("limit") || "10");
-    const direction = (c.req.query("direction") || "forward") as "forward" | "backward";
+    const direction = (c.req.query("direction") || "forward") as
+      | "forward"
+      | "backward";
     const query = c.req.query("query");
     const categoryId = c.req.query("categoryId");
-    const startDate = c.req.query("startDate") ? new Date(c.req.query("startDate")!) : undefined;
-    const endDate = c.req.query("endDate") ? new Date(c.req.query("endDate")!) : undefined;
+    const startDate = c.req.query("startDate")
+      ? new Date(c.req.query("startDate")!)
+      : undefined;
+    const endDate = c.req.query("endDate")
+      ? new Date(c.req.query("endDate")!)
+      : undefined;
 
     const result = await groupService.getGroupEvents(groupId, {
       cursor,

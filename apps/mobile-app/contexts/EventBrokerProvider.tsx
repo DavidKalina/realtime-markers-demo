@@ -6,7 +6,9 @@ import { eventBroker, EventTypes, BaseEvent } from "@/services/EventBroker";
  * EventBrokerProvider initializes the event broker system and sets up global event listeners.
  * Use this component near the root of your application.
  */
-export const EventBrokerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const EventBrokerProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   useEffect(() => {
     // Set up global event listeners or initialize other event-related services here
 
@@ -15,8 +17,11 @@ export const EventBrokerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       EventTypes.ERROR_OCCURRED,
       (eventData) => {
         // Log errors from any event component
-        console.error(`[EventError] ${eventData.source || "unknown"}: `, eventData.error);
-      }
+        console.error(
+          `[EventError] ${eventData.source || "unknown"}: `,
+          eventData.error,
+        );
+      },
     );
 
     // Clean up event listeners when the app is unmounted

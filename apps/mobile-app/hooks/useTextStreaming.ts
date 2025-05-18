@@ -131,7 +131,7 @@ export const useEnhancedTextStreaming = () => {
         messageDelayMs?: number;
         pauseAfterMs?: number;
         characterDelayMs?: number;
-      }
+      },
     ) => {
       // Cancel any ongoing streaming
       cancelStreaming();
@@ -167,7 +167,11 @@ export const useEnhancedTextStreaming = () => {
         }
 
         // Process each message in sequence
-        for (let messageIndex = 0; messageIndex < messages.length; messageIndex++) {
+        for (
+          let messageIndex = 0;
+          messageIndex < messages.length;
+          messageIndex++
+        ) {
           // Check if this streaming session is still current
           if (streamId !== streamIdRef.current || controller.signal.aborted) {
             throw new Error("Streaming superseded by newer stream");
@@ -219,9 +223,11 @@ export const useEnhancedTextStreaming = () => {
                   () => {
                     clearTimeout(timer);
                     activeTimersRef.current.delete(timer);
-                    reject(new Error("Streaming aborted during character delay"));
+                    reject(
+                      new Error("Streaming aborted during character delay"),
+                    );
                   },
-                  { once: true }
+                  { once: true },
                 );
               });
             }
@@ -250,7 +256,7 @@ export const useEnhancedTextStreaming = () => {
                     activeTimersRef.current.delete(timer);
                     reject(new Error("Streaming aborted during word delay"));
                   },
-                  { once: true }
+                  { once: true },
                 );
               });
             }
@@ -274,7 +280,7 @@ export const useEnhancedTextStreaming = () => {
                   activeTimersRef.current.delete(timer);
                   reject(new Error("Streaming aborted during message delay"));
                 },
-                { once: true }
+                { once: true },
               );
             });
           }
@@ -314,7 +320,7 @@ export const useEnhancedTextStreaming = () => {
                     activeTimersRef.current.delete(timer);
                     reject(new Error("Streaming aborted during pause after"));
                   },
-                  { once: true }
+                  { once: true },
                 );
               });
             } catch (error) {
@@ -349,7 +355,7 @@ export const useEnhancedTextStreaming = () => {
         }
       }
     },
-    [cancelStreaming, processQueuedStream]
+    [cancelStreaming, processQueuedStream],
   );
 
   /**
@@ -366,7 +372,7 @@ export const useEnhancedTextStreaming = () => {
         characterDelayMs?: number;
         markerId?: string;
         debounceMs?: number;
-      }
+      },
     ) => {
       const markerId = options?.markerId;
       const debounceTime = options?.debounceMs ?? 300; // Default debounce time
@@ -399,7 +405,7 @@ export const useEnhancedTextStreaming = () => {
         _streamMessages(messages, onComplete, options);
       }, debounceTime);
     },
-    [isStreaming, _streamMessages]
+    [isStreaming, _streamMessages],
   );
 
   /**
@@ -416,7 +422,7 @@ export const useEnhancedTextStreaming = () => {
         messageDelayMs?: number;
         pauseAfterMs?: number;
         characterDelayMs?: number;
-      }
+      },
     ) => {
       // Cancel all existing streams
       cancelStreaming();
@@ -430,7 +436,7 @@ export const useEnhancedTextStreaming = () => {
       // Stream immediately without debouncing
       _streamMessages(messages, onComplete, options);
     },
-    [cancelStreaming, _streamMessages]
+    [cancelStreaming, _streamMessages],
   );
 
   /**
@@ -482,10 +488,10 @@ export const useEnhancedTextStreaming = () => {
             abortControllerRef.current = null;
           }
         },
-        { once: true }
+        { once: true },
       );
     },
-    [cancelStreaming]
+    [cancelStreaming],
   );
 
   return {

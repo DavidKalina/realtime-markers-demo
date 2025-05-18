@@ -21,7 +21,9 @@ export const useFetchMyFriends = (): UseFetchMyFriendsResult => {
       const fetchedFriends = await apiClient.getFriends();
       setFriends(fetchedFriends);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error("Failed to fetch friends"));
+      setError(
+        err instanceof Error ? err : new Error("Failed to fetch friends"),
+      );
     } finally {
       setIsLoading(false);
     }

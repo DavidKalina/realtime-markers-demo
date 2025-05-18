@@ -20,7 +20,11 @@ export class StripeService {
   /**
    * Create a checkout session for upgrading to PRO
    */
-  async createCheckoutSession(userId: string, successUrl: string, cancelUrl: string) {
+  async createCheckoutSession(
+    userId: string,
+    successUrl: string,
+    cancelUrl: string,
+  ) {
     if (!process.env.STRIPE_PRICE_ID) {
       throw new Error("STRIPE_PRICE_ID is not set");
     }
@@ -60,7 +64,9 @@ export class StripeService {
       }
       case "customer.subscription.created": {
         const subscription = event.data.object as Stripe.Subscription;
-        const customer = await this.stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
+        const customer = (await this.stripe.customers.retrieve(
+          subscription.customer as string,
+        )) as Stripe.Customer;
         const userId = customer.metadata?.userId;
 
         if (userId) {
@@ -70,7 +76,9 @@ export class StripeService {
       }
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        const customer = await this.stripe.customers.retrieve(subscription.customer as string) as Stripe.Customer;
+        const customer = (await this.stripe.customers.retrieve(
+          subscription.customer as string,
+        )) as Stripe.Customer;
         const userId = customer.metadata?.userId;
 
         if (userId) {

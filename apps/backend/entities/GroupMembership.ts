@@ -57,7 +57,9 @@ export class GroupMembership {
   })
   status!: GroupMembershipStatus;
 
-  @ManyToOne(() => User, (user) => user.groupMemberships, { onDelete: "CASCADE" })
+  @ManyToOne(() => User, (user) => user.groupMemberships, {
+    onDelete: "CASCADE",
+  })
   @JoinColumn({ name: "user_id" })
   user!: User;
 

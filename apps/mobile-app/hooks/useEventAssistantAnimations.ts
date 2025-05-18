@@ -64,7 +64,13 @@ export const useAssistantAnimations = (): {
     cardHeight.value = 8;
     cardOpacity.value = 0;
     cardTranslateY.value = 50;
-  }, [cardHeight, cardOpacity, cardTranslateY, isCardHidden, cleanupAnimations]);
+  }, [
+    cardHeight,
+    cardOpacity,
+    cardTranslateY,
+    isCardHidden,
+    cleanupAnimations,
+  ]);
 
   // Show the assistant with animations and cleanup
   const showAssistant = useCallback(
@@ -96,10 +102,10 @@ export const useAssistantAnimations = (): {
             damping: 20,
             stiffness: 90,
           });
-        }
+        },
       );
     },
-    [cardHeight, cardOpacity, cardTranslateY, isCardHidden, cleanupAnimations]
+    [cardHeight, cardOpacity, cardTranslateY, isCardHidden, cleanupAnimations],
   );
 
   // Hide the assistant with animations and cleanup
@@ -135,12 +141,12 @@ export const useAssistantAnimations = (): {
               if (!isMounted.current) return;
               // Only mark as hidden after animation completes
               isCardHidden.value = true;
-            }
+            },
           );
-        }
+        },
       );
     },
-    [cardHeight, cardOpacity, cardTranslateY, isCardHidden, cleanupAnimations]
+    [cardHeight, cardOpacity, cardTranslateY, isCardHidden, cleanupAnimations],
   );
 
   // Show and then hide the assistant after a delay with cleanup
@@ -158,7 +164,7 @@ export const useAssistantAnimations = (): {
 
       return () => clearTimeout(timer);
     },
-    [hideAssistant, showAssistant]
+    [hideAssistant, showAssistant],
   );
 
   // Cleanup on unmount

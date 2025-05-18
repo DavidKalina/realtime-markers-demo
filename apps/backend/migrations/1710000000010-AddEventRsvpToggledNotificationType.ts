@@ -1,6 +1,8 @@
 import type { MigrationInterface, QueryRunner } from "typeorm";
 
-export class AddEventRsvpToggledNotificationType1710000000010 implements MigrationInterface {
+export class AddEventRsvpToggledNotificationType1710000000010
+  implements MigrationInterface
+{
   name = "AddEventRsvpToggledNotificationType1710000000010";
 
   public async up(queryRunner: QueryRunner): Promise<void> {

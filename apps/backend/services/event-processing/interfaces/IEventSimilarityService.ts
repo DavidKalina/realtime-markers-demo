@@ -22,7 +22,7 @@ export interface IEventSimilarityService {
       address?: string;
       description?: string;
       timezone?: string;
-    }
+    },
   ): Promise<SimilarityResult>;
 
   /**

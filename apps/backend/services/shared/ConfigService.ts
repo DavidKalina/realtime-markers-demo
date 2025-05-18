@@ -89,7 +89,12 @@ export class ConfigService {
       if (fs.existsSync(configDir)) {
         const files = fs
           .readdirSync(configDir)
-          .filter((file) => file.endsWith(".json") || file.endsWith(".js") || file.endsWith(".ts"));
+          .filter(
+            (file) =>
+              file.endsWith(".json") ||
+              file.endsWith(".js") ||
+              file.endsWith(".ts"),
+          );
 
         for (const file of files) {
           try {
@@ -125,7 +130,10 @@ export class ConfigService {
         const envConfig = JSON.parse(fs.readFileSync(envConfigPath, "utf8"));
         this.mergeDeep(this.config, envConfig);
       } catch (err) {
-        console.error(`Error loading environment config file ${env}.json:`, err);
+        console.error(
+          `Error loading environment config file ${env}.json:`,
+          err,
+        );
       }
     }
   }
@@ -172,7 +180,11 @@ export class ConfigService {
    */
   private mergeDeep(target: any, source: any): any {
     for (const key in source) {
-      if (source[key] && typeof source[key] === "object" && !Array.isArray(source[key])) {
+      if (
+        source[key] &&
+        typeof source[key] === "object" &&
+        !Array.isArray(source[key])
+      ) {
         if (!target[key]) target[key] = {};
         this.mergeDeep(target[key], source[key]);
       } else {

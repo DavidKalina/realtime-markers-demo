@@ -28,7 +28,10 @@ interface FloatingEmojiProps {
   message: string;
 }
 
-export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({ message, fallbackEmoji }) => {
+export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({
+  message,
+  fallbackEmoji,
+}) => {
   // Get marker selection state from location store
   const { selectedMarkerId } = useLocationStore();
 
@@ -38,7 +41,7 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({ message, fallbackE
   // Get emoji based on message and marker
   const emoji = useMemo(
     () => getMessageEmoji(message, selectedMarkerId) || "",
-    [message, selectedMarkerId, fallbackEmoji]
+    [message, selectedMarkerId, fallbackEmoji],
   );
 
   // Track emoji transitions
@@ -58,13 +61,20 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({ message, fallbackE
       cancelAnimation(opacity);
 
       // Fade out current emoji
-      opacity.value = withTiming(0, { duration: 150, easing: Easing.out(Easing.quad) }, () => {
-        // Once faded out, change the emoji
-        runOnJS(setDisplayEmoji)(emoji);
+      opacity.value = withTiming(
+        0,
+        { duration: 150, easing: Easing.out(Easing.quad) },
+        () => {
+          // Once faded out, change the emoji
+          runOnJS(setDisplayEmoji)(emoji);
 
-        // Then fade back in
-        opacity.value = withTiming(1, { duration: 200, easing: Easing.in(Easing.quad) });
-      });
+          // Then fade back in
+          opacity.value = withTiming(1, {
+            duration: 200,
+            easing: Easing.in(Easing.quad),
+          });
+        },
+      );
 
       previousEmojiRef.current = emoji;
     }
@@ -87,10 +97,10 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({ message, fallbackE
     bobY.value = withRepeat(
       withSequence(
         withTiming(-2, { duration: 1800, easing: Easing.inOut(Easing.sin) }),
-        withTiming(2, { duration: 1800, easing: Easing.inOut(Easing.sin) })
+        withTiming(2, { duration: 1800, easing: Easing.inOut(Easing.sin) }),
       ),
       -1, // Infinite repetitions
-      true // Reverse each cycle
+      true, // Reverse each cycle
     );
 
     // Setup random movement with organic patterns
@@ -163,14 +173,19 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({ message, fallbackE
   const animatedEmojiStyle = useAnimatedStyle(() => {
     return {
       opacity: opacity.value,
-      transform: [{ translateX: animatedX.value }, { translateY: animatedY.value + bobY.value }],
+      transform: [
+        { translateX: animatedX.value },
+        { translateY: animatedY.value + bobY.value },
+      ],
     };
   });
 
   return (
     <View style={styles.emojiContainer}>
       <View style={styles.emojiCircle}>
-        <Animated.Text style={[styles.emojiText, animatedEmojiStyle]}>{displayEmoji}</Animated.Text>
+        <Animated.Text style={[styles.emojiText, animatedEmojiStyle]}>
+          {displayEmoji}
+        </Animated.Text>
       </View>
     </View>
   );

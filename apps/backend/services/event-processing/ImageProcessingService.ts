@@ -17,7 +17,9 @@ export class ImageProcessingService implements IImageProcessingService {
    * @param imageData Buffer or string containing image data
    * @returns Image processing result with extracted text and confidence score
    */
-  public async processImage(imageData: Buffer | string): Promise<ImageProcessingResult> {
+  public async processImage(
+    imageData: Buffer | string,
+  ): Promise<ImageProcessingResult> {
     // Convert the image data to a base64 string if necessary
     const base64Image = await this.convertToBase64(imageData);
 
@@ -52,7 +54,9 @@ export class ImageProcessingService implements IImageProcessingService {
     return result;
   }
 
-  private async detectQRCode(imageData: Buffer): Promise<{ detected: boolean; data?: string }> {
+  private async detectQRCode(
+    imageData: Buffer,
+  ): Promise<{ detected: boolean; data?: string }> {
     try {
       // Convert buffer to format jsQR can process
       const image = await Jimp.read(imageData);
@@ -88,7 +92,9 @@ export class ImageProcessingService implements IImageProcessingService {
         return imageData;
       }
       // If it's a file path, read and convert
-      const buffer = await import("fs/promises").then((fs) => fs.readFile(imageData));
+      const buffer = await import("fs/promises").then((fs) =>
+        fs.readFile(imageData),
+      );
       return `data:image/jpeg;base64,${buffer.toString("base64")}`;
     }
     // If it's a buffer, convert to base64
@@ -112,7 +118,9 @@ export class ImageProcessingService implements IImageProcessingService {
    * @param cacheKey The cache key for this image
    * @returns Cached result or null if not in cache
    */
-  private async getCachedResult(cacheKey: string): Promise<ImageProcessingResult | null> {
+  private async getCachedResult(
+    cacheKey: string,
+  ): Promise<ImageProcessingResult | null> {
     const cachedData = await CacheService.getCachedData(cacheKey);
     if (cachedData) {
       try {
@@ -129,8 +137,15 @@ export class ImageProcessingService implements IImageProcessingService {
    * @param cacheKey The cache key for this image
    * @param result The processing result to cache
    */
-  private async cacheResult(cacheKey: string, result: ImageProcessingResult): Promise<void> {
-    await CacheService.setCachedData(cacheKey, JSON.stringify(result), this.CACHE_TTL);
+  private async cacheResult(
+    cacheKey: string,
+    result: ImageProcessingResult,
+  ): Promise<void> {
+    await CacheService.setCachedData(
+      cacheKey,
+      JSON.stringify(result),
+      this.CACHE_TTL,
+    );
   }
 
   /**
@@ -138,7 +153,9 @@ export class ImageProcessingService implements IImageProcessingService {
    * @param base64Image Base64 encoded image
    * @returns Processing result with extracted text and confidence
    */
-  private async callVisionAPI(base64Image: string): Promise<ImageProcessingResult> {
+  private async callVisionAPI(
+    base64Image: string,
+  ): Promise<ImageProcessingResult> {
     try {
       // In the callVisionAPI method, update the prompt:
       // In the callVisionAPI method, update the prompt:
@@ -235,7 +252,10 @@ export class ImageProcessingService implements IImageProcessingService {
         rawText: "",
         confidence: 0,
         extractedAt: new Date().toISOString(),
-        error: error instanceof Error ? error.message : "Unknown error processing image",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown error processing image",
       };
     }
   }

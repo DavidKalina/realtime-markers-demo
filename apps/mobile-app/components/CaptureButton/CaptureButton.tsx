@@ -106,10 +106,13 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
       const pulseAnimation = withRepeat(
         withSequence(
           withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+          withTiming(1.05, {
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+          }),
         ),
         -1,
-        true
+        true,
       );
 
       // Apply sequence animation with safeguards
@@ -144,7 +147,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
     const backgroundColor = interpolateColor(
       colorProgress.value,
       [0, 0.5, 1],
-      ["#f8f9fa", "#adb5bd", "#37D05C"]
+      ["#f8f9fa", "#adb5bd", "#37D05C"],
     );
 
     return {
@@ -160,7 +163,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
     const borderColor = interpolateColor(
       borderProgress.value,
       [0, 1],
-      ["rgba(255, 255, 255, 0.3)", "rgba(55, 208, 92, 0.8)"]
+      ["rgba(255, 255, 255, 0.3)", "rgba(55, 208, 92, 0.8)"],
     );
 
     const shadowOpacity = 0.2 + borderProgress.value * 0.3;
@@ -271,7 +274,11 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
               >
                 <Animated.View style={[styles.innerCircle, innerCircleStyle]}>
                   <Animated.View style={[styles.iconContainer, iconStyle]}>
-                    <Feather name="camera" size={size === "compact" ? 18 : 20} color="#1a1a1a" />
+                    <Feather
+                      name="camera"
+                      size={size === "compact" ? 18 : 20}
+                      color="#1a1a1a"
+                    />
                   </Animated.View>
                 </Animated.View>
               </Animated.View>

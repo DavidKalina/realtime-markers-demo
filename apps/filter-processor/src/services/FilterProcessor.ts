@@ -118,16 +118,22 @@ export class FilterProcessor {
           event.location.coordinates.length !== 2
         ) {
           if (process.env.NODE_ENV !== "production") {
-            console.warn(`Event ${event.id} has invalid coordinates:`, event.location);
+            console.warn(
+              `Event ${event.id} has invalid coordinates:`,
+              event.location,
+            );
           }
           return false;
         }
         return true;
       });
 
-      if (process.env.NODE_ENV !== "production" && validEvents.length < events.length) {
+      if (
+        process.env.NODE_ENV !== "production" &&
+        validEvents.length < events.length
+      ) {
         console.warn(
-          `Filtered out ${events.length - validEvents.length} events with invalid coordinates`
+          `Filtered out ${events.length - validEvents.length} events with invalid coordinates`,
         );
       }
 
@@ -168,7 +174,9 @@ export class FilterProcessor {
       this.redisSub.on("pmessage", (pattern, channel, message) => {
         try {
           if (process.env.NODE_ENV !== "production") {
-            console.log(`Received pmessage on channel ${channel} from pattern ${pattern}`);
+            console.log(
+              `Received pmessage on channel ${channel} from pattern ${pattern}`,
+            );
           }
           const data = JSON.parse(message);
 
@@ -182,7 +190,7 @@ export class FilterProcessor {
 
       if (process.env.NODE_ENV !== "production") {
         console.log(
-          "Subscribed to Redis channels: filter-changes, viewport-updates, filter-processor:request-initial, event_changes"
+          "Subscribed to Redis channels: filter-changes, viewport-updates, filter-processor:request-initial, event_changes",
         );
       }
     } catch (error) {
@@ -199,7 +207,10 @@ export class FilterProcessor {
         const { userId, filters } = data;
 
         if (process.env.NODE_ENV !== "production") {
-          console.log("Processing filter changes:", { userId, filterCount: filters.length });
+          console.log("Processing filter changes:", {
+            userId,
+            filterCount: filters.length,
+          });
         }
 
         this.updateUserFilters(userId, filters);
@@ -219,13 +230,17 @@ export class FilterProcessor {
           // If we have filters for this user, use them
           if (this.userFilters.has(userId)) {
             if (process.env.NODE_ENV !== "production") {
-              console.log(`User ${userId} has existing filters, sending filtered events`);
+              console.log(
+                `User ${userId} has existing filters, sending filtered events`,
+              );
             }
             this.sendAllFilteredEvents(userId);
           } else {
             // If no filters yet, send empty filter set to get all events
             if (process.env.NODE_ENV !== "production") {
-              console.log(`User ${userId} has no filters yet, setting empty filter`);
+              console.log(
+                `User ${userId} has no filters yet, setting empty filter`,
+              );
             }
             this.updateUserFilters(userId, []);
           }
@@ -245,7 +260,9 @@ export class FilterProcessor {
   private updateUserFilters(userId: string, filters: Filter[]): void {
     try {
       if (process.env.NODE_ENV !== "production") {
-        console.log(`Updating filters for user ${userId} with ${filters.length} filters`);
+        console.log(
+          `Updating filters for user ${userId} with ${filters.length} filters`,
+        );
       }
 
       // Store the user's current filters
@@ -267,7 +284,10 @@ export class FilterProcessor {
   /**
    * Update a user's viewport and send relevant events.
    */
-  private async updateUserViewport(userId: string, viewport: BoundingBox): Promise<void> {
+  private async updateUserViewport(
+    userId: string,
+    viewport: BoundingBox,
+  ): Promise<void> {
     try {
       if (process.env.NODE_ENV !== "production") {
         console.log(`Updating viewport for user ${userId}`, viewport);
@@ -283,7 +303,12 @@ export class FilterProcessor {
       const centerLat = (viewport.minY + viewport.maxY) / 2;
 
       // Add to GEO index
-      await this.redisPub.geoadd("viewport:geo", centerLng, centerLat, viewportKey);
+      await this.redisPub.geoadd(
+        "viewport:geo",
+        centerLng,
+        centerLat,
+        viewportKey,
+      );
 
       // Send events in this viewport that match the user's filters
       this.sendViewportEvents(userId, viewport);
@@ -321,7 +346,7 @@ export class FilterProcessor {
       // Apply user's filters
       const userFilters = this.userFilters.get(userId) || [];
       const filteredEvents = allEvents.filter((event) =>
-        this.eventMatchesFilters(event, userFilters, userId)
+        this.eventMatchesFilters(event, userFilters, userId),
       );
 
       // Publish the filtered events
@@ -351,7 +376,7 @@ export class FilterProcessor {
 
       // Deduplicate spatial items by ID
       const uniqueSpatialItems = Array.from(
-        new Map(spatialItems.map((item) => [item.id, item])).values()
+        new Map(spatialItems.map((item) => [item.id, item])).values(),
       );
 
       if (process.env.NODE_ENV !== "production") {
@@ -375,7 +400,7 @@ export class FilterProcessor {
 
       // First apply privacy filter
       const accessibleEvents = eventsInViewport.filter((event) =>
-        this.isEventAccessible(event, userId)
+        this.isEventAccessible(event, userId),
       );
 
       if (process.env.NODE_ENV !== "production") {
@@ -387,7 +412,7 @@ export class FilterProcessor {
 
       // Then apply user's filters
       const filteredEvents = accessibleEvents.filter((event) =>
-        this.eventMatchesFilters(event, filters)
+        this.eventMatchesFilters(event, filters),
       );
 
       if (process.env.NODE_ENV !== "production") {
@@ -408,7 +433,10 @@ export class FilterProcessor {
    * Process an event from the raw events feed.
    * This includes CREATE, UPDATE, and DELETE operations.
    */
-  private async processEvent(event: { operation: string; record: Event }): Promise<void> {
+  private async processEvent(event: {
+    operation: string;
+    record: Event;
+  }): Promise<void> {
     try {
       const { operation, record } = event;
 
@@ -433,7 +461,7 @@ export class FilterProcessor {
               type: "delete-event",
               id: record.id,
               timestamp: new Date().toISOString(),
-            })
+            }),
           );
           this.stats.totalFilteredEventsPublished++;
         }
@@ -470,10 +498,16 @@ export class FilterProcessor {
           const viewport = this.userViewports.get(userId);
 
           // Check if event matches user's filters
-          const matchesFilters = this.eventMatchesFilters(record, filters, userId);
+          const matchesFilters = this.eventMatchesFilters(
+            record,
+            filters,
+            userId,
+          );
 
           // Check if event is in user's viewport
-          const inViewport = viewport ? this.isEventInViewport(record, viewport) : true;
+          const inViewport = viewport
+            ? this.isEventInViewport(record, viewport)
+            : true;
 
           if (matchesFilters && inViewport) {
             // Event is visible to user - send update
@@ -484,7 +518,7 @@ export class FilterProcessor {
                 type: "update-event",
                 event: sanitizedEvent,
                 timestamp: new Date().toISOString(),
-              })
+              }),
             );
             this.stats.totalFilteredEventsPublished++;
           } else {
@@ -495,7 +529,7 @@ export class FilterProcessor {
                 type: "delete-event",
                 id: record.id,
                 timestamp: new Date().toISOString(),
-              })
+              }),
             );
             this.stats.totalFilteredEventsPublished++;
           }
@@ -523,10 +557,16 @@ export class FilterProcessor {
         const viewport = this.userViewports.get(userId);
 
         // Check if event matches user's filters
-        const matchesFilters = this.eventMatchesFilters(record, filters, userId);
+        const matchesFilters = this.eventMatchesFilters(
+          record,
+          filters,
+          userId,
+        );
 
         // Check if event is in user's viewport
-        const inViewport = viewport ? this.isEventInViewport(record, viewport) : true;
+        const inViewport = viewport
+          ? this.isEventInViewport(record, viewport)
+          : true;
 
         if (matchesFilters && inViewport) {
           // Event is visible to user - send add
@@ -537,7 +577,7 @@ export class FilterProcessor {
               type: "add-event",
               event: sanitizedEvent,
               timestamp: new Date().toISOString(),
-            })
+            }),
           );
           this.stats.totalFilteredEventsPublished++;
         }
@@ -564,7 +604,8 @@ export class FilterProcessor {
       };
 
       // Get all viewports that intersect with this event
-      const intersectingViewports = await this.getIntersectingViewports(eventBounds);
+      const intersectingViewports =
+        await this.getIntersectingViewports(eventBounds);
 
       // Add users from intersecting viewports
       for (const { userId } of intersectingViewports) {
@@ -589,9 +630,10 @@ export class FilterProcessor {
    * Get all viewports that intersect with an event's location
    */
   private async getIntersectingViewports(
-    eventBounds: BoundingBox
+    eventBounds: BoundingBox,
   ): Promise<{ userId: string; viewport: BoundingBox }[]> {
-    const intersectingViewports: { userId: string; viewport: BoundingBox }[] = [];
+    const intersectingViewports: { userId: string; viewport: BoundingBox }[] =
+      [];
 
     try {
       // Calculate the center point of the event
@@ -609,7 +651,7 @@ export class FilterProcessor {
         SEARCH_RADIUS_METERS,
         "m", // meters
         "WITHDIST", // include distance
-        "ASC" // sort by distance
+        "ASC", // sort by distance
       )) as [string, string][]; // Type assertion for GEORADIUS response
 
       // Process results
@@ -637,7 +679,12 @@ export class FilterProcessor {
    * Check if two bounding boxes intersect
    */
   private boundsIntersect(a: BoundingBox, b: BoundingBox): boolean {
-    return !(a.maxX < b.minX || a.minX > b.maxX || a.maxY < b.minY || a.minY > b.maxY);
+    return !(
+      a.maxX < b.minX ||
+      a.minX > b.maxX ||
+      a.maxY < b.minY ||
+      a.minY > b.maxY
+    );
   }
 
   /**
@@ -652,7 +699,11 @@ export class FilterProcessor {
     }
   }
 
-  private eventMatchesFilters(event: Event, filters: Filter[], userId?: string): boolean {
+  private eventMatchesFilters(
+    event: Event,
+    filters: Filter[],
+    userId?: string,
+  ): boolean {
     // If no filters, match everything
     if (filters.length === 0) return true;
 
@@ -678,7 +729,7 @@ export class FilterProcessor {
           eventLat,
           eventLng,
           criteria.location.latitude,
-          criteria.location.longitude
+          criteria.location.longitude,
         );
 
         // If event is outside the radius, reject immediately
@@ -686,8 +737,8 @@ export class FilterProcessor {
           if (process.env.NODE_ENV !== "production") {
             console.log(
               `Location Filter Rejection: Event ${event.id} is ${distance.toFixed(
-                0
-              )}m from filter center (radius: ${criteria.location.radius}m)`
+                0,
+              )}m from filter center (radius: ${criteria.location.radius}m)`,
             );
           }
           return false;
@@ -739,7 +790,9 @@ export class FilterProcessor {
 
           // For single-day events (endDate is null), use eventDate for both start and end
           const eventStartDate = new Date(event.eventDate);
-          const eventEndDate = event.endDate ? new Date(event.endDate) : eventStartDate;
+          const eventEndDate = event.endDate
+            ? new Date(event.endDate)
+            : eventStartDate;
 
           // Validate event dates
           if (isNaN(eventStartDate.getTime())) {
@@ -753,26 +806,31 @@ export class FilterProcessor {
 
           // Validate event date range
           if (eventEndDate < eventStartDate) {
-            console.error("Invalid event date range: end date is before start date", {
-              eventId: event.id,
-              eventStartDate: eventStartDate.toISOString(),
-              eventEndDate: eventEndDate.toISOString(),
-            });
+            console.error(
+              "Invalid event date range: end date is before start date",
+              {
+                eventId: event.id,
+                eventStartDate: eventStartDate.toISOString(),
+                eventEndDate: eventEndDate.toISOString(),
+              },
+            );
             return false;
           }
 
           // Convert event dates to the event's timezone for comparison
           const eventStartInTimezone = new Date(
-            eventStartDate.toLocaleString("en-US", { timeZone: eventTimezone })
+            eventStartDate.toLocaleString("en-US", { timeZone: eventTimezone }),
           );
           const eventEndInTimezone = new Date(
-            eventEndDate.toLocaleString("en-US", { timeZone: eventTimezone })
+            eventEndDate.toLocaleString("en-US", { timeZone: eventTimezone }),
           );
           const filterStartInTimezone = new Date(
-            filterStartDate.toLocaleString("en-US", { timeZone: eventTimezone })
+            filterStartDate.toLocaleString("en-US", {
+              timeZone: eventTimezone,
+            }),
           );
           const filterEndInTimezone = new Date(
-            filterEndDate.toLocaleString("en-US", { timeZone: eventTimezone })
+            filterEndDate.toLocaleString("en-US", { timeZone: eventTimezone }),
           );
 
           if (process.env.NODE_ENV !== "production") {
@@ -792,8 +850,8 @@ export class FilterProcessor {
                 eventStartInTimezone > filterEndInTimezone
                   ? "start after filter end"
                   : eventEndInTimezone < filterStartInTimezone
-                  ? "end before filter start"
-                  : "none",
+                    ? "end before filter start"
+                    : "none",
               rawDates: {
                 eventStart: eventStartDate.toISOString(),
                 eventEnd: eventEndDate.toISOString(),
@@ -805,9 +863,12 @@ export class FilterProcessor {
 
           // Check if event overlaps with filter date range
           // Event must overlap with the filter date range
-          const eventStartsBeforeFilterEnd = eventStartInTimezone <= filterEndInTimezone;
-          const eventEndsAfterFilterStart = eventEndInTimezone >= filterStartInTimezone;
-          const isInRange = eventStartsBeforeFilterEnd && eventEndsAfterFilterStart;
+          const eventStartsBeforeFilterEnd =
+            eventStartInTimezone <= filterEndInTimezone;
+          const eventEndsAfterFilterStart =
+            eventEndInTimezone >= filterStartInTimezone;
+          const isInRange =
+            eventStartsBeforeFilterEnd && eventEndsAfterFilterStart;
 
           if (!isInRange) {
             if (process.env.NODE_ENV !== "production") {
@@ -824,8 +885,11 @@ export class FilterProcessor {
                 currentDate: new Date().toISOString(),
                 timezone: eventTimezone,
                 isMultiDay: event.endDate !== null,
-                eventDuration: eventEndInTimezone.getTime() - eventStartInTimezone.getTime(),
-                filterDuration: filterEndInTimezone.getTime() - filterStartInTimezone.getTime(),
+                eventDuration:
+                  eventEndInTimezone.getTime() - eventStartInTimezone.getTime(),
+                filterDuration:
+                  filterEndInTimezone.getTime() -
+                  filterStartInTimezone.getTime(),
                 rawDates: {
                   eventStart: eventStartDate.toISOString(),
                   eventEnd: eventEndDate.toISOString(),
@@ -850,13 +914,17 @@ export class FilterProcessor {
       // 3. If we have a semantic query, calculate weighted similarity score
       if (filter.embedding && event.embedding) {
         try {
-          const filterEmbedding = this.vectorService.parseSqlEmbedding(filter.embedding);
-          const eventEmbedding = this.vectorService.parseSqlEmbedding(event.embedding);
+          const filterEmbedding = this.vectorService.parseSqlEmbedding(
+            filter.embedding,
+          );
+          const eventEmbedding = this.vectorService.parseSqlEmbedding(
+            event.embedding,
+          );
           const semanticQuery = filter.semanticQuery?.toLowerCase() || "";
 
           const similarityScore = this.vectorService.calculateSimilarity(
             filterEmbedding,
-            eventEmbedding
+            eventEmbedding,
           );
 
           // Base semantic similarity weight (higher weight since we know the embedding is well-structured)
@@ -874,7 +942,7 @@ export class FilterProcessor {
             // Category matching (highest weight)
             if (event.categories?.length) {
               const categoryMatches = event.categories.filter((cat) =>
-                cat.name.toLowerCase().includes(semanticQuery)
+                cat.name.toLowerCase().includes(semanticQuery),
               );
               if (categoryMatches.length > 0) {
                 compositeScore += 0.8;
@@ -909,14 +977,19 @@ export class FilterProcessor {
               similarityScore: similarityScore.toFixed(2),
               compositeScore: compositeScore.toFixed(2),
               totalWeight: totalWeight.toFixed(2),
-              finalScore: (totalWeight > 0 ? compositeScore / totalWeight : 0).toFixed(2),
+              finalScore: (totalWeight > 0
+                ? compositeScore / totalWeight
+                : 0
+              ).toFixed(2),
               categoryMatches: event.categories
-                ?.filter((cat) => cat.name.toLowerCase().includes(semanticQuery))
+                ?.filter((cat) =>
+                  cat.name.toLowerCase().includes(semanticQuery),
+                )
                 .map((cat) => cat.name),
             });
           }
         } catch (error) {
-          console.error(`Error calculating semantic similarity:`, error);
+          console.error("Error calculating semantic similarity:", error);
           return false;
         }
       }
@@ -944,13 +1017,17 @@ export class FilterProcessor {
             `  - Threshold: ${threshold.toFixed(2)}\n` +
             `  - Passes: ${finalScore >= threshold}\n` +
             `  - Filter Type: ${
-              !criteria.location && !criteria.dateRange ? "Semantic Only" : "Combined"
+              !criteria.location && !criteria.dateRange
+                ? "Semantic Only"
+                : "Combined"
             }\n` +
             `  - Has Category Match: ${
               event.categories?.some((cat) =>
-                cat.name.toLowerCase().includes(filter.semanticQuery!.toLowerCase())
+                cat.name
+                  .toLowerCase()
+                  .includes(filter.semanticQuery!.toLowerCase()),
               ) || false
-            }`
+            }`,
         );
       }
 
@@ -968,11 +1045,17 @@ export class FilterProcessor {
     // Private events are accessible to creator and shared users
     return (
       event.creatorId === userId ||
-      (event.sharedWith?.some((share) => share.sharedWithId === userId) ?? false)
+      (event.sharedWith?.some((share) => share.sharedWithId === userId) ??
+        false)
     );
   }
 
-  private calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  private calculateDistance(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ): number {
     const R = 6371000; // Earth radius in meters
     const dLat = this.toRadians(lat2 - lat1);
     const dLng = this.toRadians(lng2 - lng1);
@@ -999,7 +1082,10 @@ export class FilterProcessor {
     const [lng, lat] = event.location.coordinates;
 
     return (
-      lng >= viewport.minX && lng <= viewport.maxX && lat >= viewport.minY && lat <= viewport.maxY
+      lng >= viewport.minX &&
+      lng <= viewport.maxX &&
+      lat >= viewport.minY &&
+      lat <= viewport.maxY
     );
   }
 
@@ -1028,10 +1114,16 @@ export class FilterProcessor {
   }
 
   // Enhanced publishFilteredEvents with more detailed reporting
-  private publishFilteredEvents(userId: string, type: string, events: Event[]): void {
+  private publishFilteredEvents(
+    userId: string,
+    type: string,
+    events: Event[],
+  ): void {
     try {
       // Strip sensitive data from all events
-      const sanitizedEvents = events.map((event) => this.stripSensitiveData(event));
+      const sanitizedEvents = events.map((event) =>
+        this.stripSensitiveData(event),
+      );
 
       const channel = `user:${userId}:filtered-events`;
 
@@ -1067,7 +1159,10 @@ export class FilterProcessor {
       if (process.env.NODE_ENV !== "production" && type === "replace-all") {
       }
     } catch (error) {
-      console.error(`[Publish] Error publishing events to user ${userId}:`, error);
+      console.error(
+        `[Publish] Error publishing events to user ${userId}:`,
+        error,
+      );
     }
   }
 
@@ -1096,7 +1191,7 @@ export class FilterProcessor {
                 headers: {
                   Accept: "application/json",
                 },
-              }
+              },
             );
 
             if (!response.ok) {
@@ -1121,7 +1216,8 @@ export class FilterProcessor {
                 title: event.title,
                 description: event.description,
                 location: event.location,
-                eventDate: event.eventDate || event.start_date || event.startDate,
+                eventDate:
+                  event.eventDate || event.start_date || event.startDate,
                 endDate: event.endDate || event.end_date,
                 createdAt: event.created_at || event.createdAt,
                 updatedAt: event.updated_at || event.updatedAt,
@@ -1135,7 +1231,8 @@ export class FilterProcessor {
 
             // Add to our collection, ensuring no duplicates
             const newEvents = validEvents.filter(
-              (event: Event) => !allEvents.some((existing) => existing.id === event.id)
+              (event: Event) =>
+                !allEvents.some((existing) => existing.id === event.id),
             );
             allEvents = [...allEvents, ...newEvents];
 
@@ -1144,7 +1241,10 @@ export class FilterProcessor {
             currentPage++;
 
             // If we're in production and have enough events, start processing
-            if (process.env.NODE_ENV === "production" && allEvents.length >= pageSize) {
+            if (
+              process.env.NODE_ENV === "production" &&
+              allEvents.length >= pageSize
+            ) {
               this.processInitialEventsBatch(allEvents);
               allEvents = []; // Clear the array to free memory
             }
@@ -1153,7 +1253,7 @@ export class FilterProcessor {
           } catch (error) {
             console.error(
               `Attempt ${attempt}/${maxRetries} failed for page ${currentPage}:`,
-              error
+              error,
             );
 
             if (attempt === maxRetries) {
@@ -1188,7 +1288,9 @@ export class FilterProcessor {
   private processInitialEventsBatch(events: Event[]): void {
     try {
       // Remove duplicates based on event ID
-      const uniqueEvents = Array.from(new Map(events.map((event) => [event.id, event])).values());
+      const uniqueEvents = Array.from(
+        new Map(events.map((event) => [event.id, event])).values(),
+      );
 
       // Format for RBush
       const items = uniqueEvents.map((event) => this.eventToSpatialItem(event));

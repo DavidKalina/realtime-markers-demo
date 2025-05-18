@@ -12,11 +12,20 @@ import {
   setHours,
   setMinutes,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react-native";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { COLORS } from "./Layout/ScreenLayout";
-import { GestureDetector, Gesture, GestureHandlerRootView } from "react-native-gesture-handler";
+import {
+  GestureDetector,
+  Gesture,
+  GestureHandlerRootView,
+} from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -71,11 +80,11 @@ const TimeSelector: React.FC<{
         normalizedHours,
         date.getMinutes(),
         date.getSeconds(),
-        date.getMilliseconds()
+        date.getMilliseconds(),
       );
       onTimeChange(newDate);
     },
-    [date, onTimeChange]
+    [date, onTimeChange],
   );
 
   const updateMinutes = useCallback(
@@ -86,17 +95,22 @@ const TimeSelector: React.FC<{
         date.getHours(),
         normalizedMinutes,
         date.getSeconds(),
-        date.getMilliseconds()
+        date.getMilliseconds(),
       );
       onTimeChange(newDate);
     },
-    [date, onTimeChange]
+    [date, onTimeChange],
   );
 
   const toggleAmPm = useCallback(() => {
     const newHour = isPM ? hours - 12 : hours + 12;
     const newDate = new Date(date.getTime());
-    newDate.setHours(newHour, date.getMinutes(), date.getSeconds(), date.getMilliseconds());
+    newDate.setHours(
+      newHour,
+      date.getMinutes(),
+      date.getSeconds(),
+      date.getMilliseconds(),
+    );
     onTimeChange(newDate);
   }, [date, hours, isPM, onTimeChange]);
 
@@ -148,7 +162,9 @@ const TimeSelector: React.FC<{
         <View style={styles.timeBlockMask}>
           <GestureDetector gesture={hoursGesture}>
             <Animated.View style={[styles.timeBlock, hoursAnimatedStyle]}>
-              <Text style={styles.timeText}>{displayHours.toString().padStart(2, "0")}</Text>
+              <Text style={styles.timeText}>
+                {displayHours.toString().padStart(2, "0")}
+              </Text>
             </Animated.View>
           </GestureDetector>
         </View>
@@ -158,7 +174,9 @@ const TimeSelector: React.FC<{
         <View style={styles.timeBlockMask}>
           <GestureDetector gesture={minutesGesture}>
             <Animated.View style={[styles.timeBlock, minutesAnimatedStyle]}>
-              <Text style={styles.timeText}>{minutes.toString().padStart(2, "0")}</Text>
+              <Text style={styles.timeText}>
+                {minutes.toString().padStart(2, "0")}
+              </Text>
             </Animated.View>
           </GestureDetector>
         </View>
@@ -168,7 +186,9 @@ const TimeSelector: React.FC<{
         onPress={toggleAmPm}
         activeOpacity={0.8}
       >
-        <Text style={[styles.amPmText, isPM && styles.amPmTextActive]}>{isPM ? "PM" : "AM"}</Text>
+        <Text style={[styles.amPmText, isPM && styles.amPmTextActive]}>
+          {isPM ? "PM" : "AM"}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -213,10 +233,15 @@ const EmbeddedDateRangeCalendar: React.FC<EmbeddedDateRangeCalendarProps> = ({
       const currentHours = date.getHours();
       const currentMinutes = date.getMinutes();
       // Set the hours and minutes in the local timezone while preserving seconds and milliseconds
-      newDate.setHours(currentHours, currentMinutes, date.getSeconds(), date.getMilliseconds());
+      newDate.setHours(
+        currentHours,
+        currentMinutes,
+        date.getSeconds(),
+        date.getMilliseconds(),
+      );
       onDateChange(newDate);
     },
-    [date, onDateChange]
+    [date, onDateChange],
   );
 
   // Handle month navigation
@@ -251,7 +276,7 @@ const EmbeddedDateRangeCalendar: React.FC<EmbeddedDateRangeCalendarProps> = ({
         ],
       };
     },
-    [date, currentMonth]
+    [date, currentMonth],
   );
 
   return (
@@ -259,17 +284,26 @@ const EmbeddedDateRangeCalendar: React.FC<EmbeddedDateRangeCalendarProps> = ({
       <View style={styles.monthHeader}>
         <TouchableOpacity
           onPress={handlePrevMonth}
-          style={[styles.monthNavButton, !canGoBack && styles.monthNavButtonDisabled]}
+          style={[
+            styles.monthNavButton,
+            !canGoBack && styles.monthNavButtonDisabled,
+          ]}
           disabled={!canGoBack}
           activeOpacity={canGoBack ? 0.7 : 1}
         >
           <ChevronLeft
             size={20}
-            color={canGoBack ? COLORS.accent : getDimmedTextColor(COLORS.textPrimary, 0.4)}
+            color={
+              canGoBack
+                ? COLORS.accent
+                : getDimmedTextColor(COLORS.textPrimary, 0.4)
+            }
           />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.monthText}>{format(currentMonth, "MMMM yyyy")}</Text>
+          <Text style={styles.monthText}>
+            {format(currentMonth, "MMMM yyyy")}
+          </Text>
         </View>
         <TouchableOpacity
           onPress={handleNextMonth}

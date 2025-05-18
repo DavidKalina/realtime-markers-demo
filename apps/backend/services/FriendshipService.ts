@@ -16,7 +16,10 @@ export class FriendshipService {
   /**
    * Send a friend request to another user
    */
-  async sendFriendRequest(requesterId: string, addresseeId: string): Promise<Friendship> {
+  async sendFriendRequest(
+    requesterId: string,
+    addresseeId: string,
+  ): Promise<Friendship> {
     // Check if users exist
     const [requester, addressee] = await Promise.all([
       this.userRepository.findOne({ where: { id: requesterId } }),
@@ -64,7 +67,10 @@ export class FriendshipService {
   /**
    * Accept a friend request
    */
-  async acceptFriendRequest(friendshipId: string, userId: string): Promise<Friendship> {
+  async acceptFriendRequest(
+    friendshipId: string,
+    userId: string,
+  ): Promise<Friendship> {
     const friendship = await this.friendshipRepository.findOne({
       where: { id: friendshipId, addresseeId: userId },
     });
@@ -81,7 +87,10 @@ export class FriendshipService {
     const savedFriendship = await this.friendshipRepository.save(friendship);
 
     // Invalidate caches for both users
-    await CacheService.invalidateFriendshipCaches(friendship.requesterId, friendship.addresseeId);
+    await CacheService.invalidateFriendshipCaches(
+      friendship.requesterId,
+      friendship.addresseeId,
+    );
 
     return savedFriendship;
   }
@@ -89,7 +98,10 @@ export class FriendshipService {
   /**
    * Reject a friend request
    */
-  async rejectFriendRequest(friendshipId: string, userId: string): Promise<Friendship> {
+  async rejectFriendRequest(
+    friendshipId: string,
+    userId: string,
+  ): Promise<Friendship> {
     const friendship = await this.friendshipRepository.findOne({
       where: { id: friendshipId, addresseeId: userId },
     });
@@ -137,7 +149,9 @@ export class FriendshipService {
     });
 
     const friends = friendships.map((friendship) =>
-      friendship.requesterId === userId ? friendship.addressee : friendship.requester
+      friendship.requesterId === userId
+        ? friendship.addressee
+        : friendship.requester,
     );
 
     // Cache the results
@@ -151,7 +165,10 @@ export class FriendshipService {
    */
   async getPendingFriendRequests(userId: string): Promise<Friendship[]> {
     // Check cache first
-    const cachedRequests = await CacheService.getCachedFriendRequests(userId, "incoming");
+    const cachedRequests = await CacheService.getCachedFriendRequests(
+      userId,
+      "incoming",
+    );
     if (cachedRequests) {
       return cachedRequests;
     }
@@ -172,7 +189,10 @@ export class FriendshipService {
    */
   async getOutgoingFriendRequests(userId: string): Promise<Friendship[]> {
     // Check cache first
-    const cachedRequests = await CacheService.getCachedFriendRequests(userId, "outgoing");
+    const cachedRequests = await CacheService.getCachedFriendRequests(
+      userId,
+      "outgoing",
+    );
     if (cachedRequests) {
       return cachedRequests;
     }
@@ -191,9 +211,16 @@ export class FriendshipService {
   /**
    * Cancel an outgoing friend request
    */
-  async cancelFriendRequest(friendshipId: string, userId: string): Promise<Friendship> {
+  async cancelFriendRequest(
+    friendshipId: string,
+    userId: string,
+  ): Promise<Friendship> {
     const friendship = await this.friendshipRepository.findOne({
-      where: { id: friendshipId, requesterId: userId, status: FriendshipStatus.PENDING },
+      where: {
+        id: friendshipId,
+        requesterId: userId,
+        status: FriendshipStatus.PENDING,
+      },
     });
 
     if (!friendship) {
@@ -219,7 +246,10 @@ export class FriendshipService {
   /**
    * Update user's contacts
    */
-  async updateContacts(userId: string, contacts: User["contacts"]): Promise<User> {
+  async updateContacts(
+    userId: string,
+    contacts: User["contacts"],
+  ): Promise<User> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new Error("User not found");
@@ -262,7 +292,9 @@ export class FriendshipService {
     });
 
     const existingFriendIds = new Set(
-      existingFriendships.map((f) => (f.requesterId === userId ? f.addresseeId : f.requesterId))
+      existingFriendships.map((f) =>
+        f.requesterId === userId ? f.addresseeId : f.requesterId,
+      ),
     );
 
     // Find users by email
@@ -284,7 +316,9 @@ export class FriendshipService {
     // Combine and deduplicate results
     const allUsers = [...usersByEmail];
     // const allUsers = [...usersByEmail, ...usersByPhone];
-    const uniqueUsers = Array.from(new Map(allUsers.map((user) => [user.id, user])).values());
+    const uniqueUsers = Array.from(
+      new Map(allUsers.map((user) => [user.id, user])).values(),
+    );
 
     return uniqueUsers;
   }
@@ -330,7 +364,9 @@ export class FriendshipService {
     let friendCode = generateCode();
     let isUnique = false;
     while (!isUnique) {
-      const existingUser = await this.userRepository.findOne({ where: { friendCode } });
+      const existingUser = await this.userRepository.findOne({
+        where: { friendCode },
+      });
       if (!existingUser) {
         isUnique = true;
       } else {
@@ -348,7 +384,10 @@ export class FriendshipService {
   /**
    * Send a friend request to another user by friend code
    */
-  async sendFriendRequestByCode(requesterId: string, friendCode: string): Promise<Friendship> {
+  async sendFriendRequestByCode(
+    requesterId: string,
+    friendCode: string,
+  ): Promise<Friendship> {
     const addressee = await this.findUserByFriendCode(friendCode);
     if (!addressee) {
       throw new Error("User not found with this friend code");
@@ -359,7 +398,10 @@ export class FriendshipService {
   /**
    * Send a friend request to another user by username
    */
-  async sendFriendRequestByUsername(requesterId: string, username: string): Promise<Friendship> {
+  async sendFriendRequestByUsername(
+    requesterId: string,
+    username: string,
+  ): Promise<Friendship> {
     const addressee = await this.findUserByUsername(username);
     if (!addressee) {
       throw new Error("User not found with this username");

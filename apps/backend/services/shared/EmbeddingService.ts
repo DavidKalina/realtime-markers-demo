@@ -32,10 +32,9 @@ export interface EmbeddingInput {
    */
   coordinates?: [number, number];
 
-
   timezone?: string;
 
-  locationNotes?: string
+  locationNotes?: string;
 
   address?: string;
 
@@ -84,7 +83,8 @@ export class EmbeddingService implements IEmbeddingService {
    */
   private constructor(private configService?: ConfigService) {
     // Initialize with config or defaults
-    this.DEFAULT_MODEL = configService?.get("openai.embeddingModel") || "text-embedding-3-small";
+    this.DEFAULT_MODEL =
+      configService?.get("openai.embeddingModel") || "text-embedding-3-small";
     this.CACHE_TTL = configService?.get("cache.ttl") || 86400; // 24 hours
   }
 
@@ -118,7 +118,7 @@ export class EmbeddingService implements IEmbeddingService {
     // Generate embedding with the specified or default model
     const embedding = await OpenAIService.generateEmbedding(
       normalizedText,
-      model || this.DEFAULT_MODEL
+      model || this.DEFAULT_MODEL,
     );
 
     // Cache the result
@@ -145,7 +145,10 @@ export class EmbeddingService implements IEmbeddingService {
    * @param model Optional model to use
    * @returns Vector embedding
    */
-  public async getStructuredEmbedding(input: EmbeddingInput, model?: string): Promise<number[]> {
+  public async getStructuredEmbedding(
+    input: EmbeddingInput,
+    model?: string,
+  ): Promise<number[]> {
     const structuredText = this.createWeightedText(input);
     return this.getEmbedding(structuredText, model);
   }
@@ -156,7 +159,10 @@ export class EmbeddingService implements IEmbeddingService {
    * @param model Optional model to use
    * @returns SQL representation of vector embedding
    */
-  public async getStructuredEmbeddingSql(input: EmbeddingInput, model?: string): Promise<string> {
+  public async getStructuredEmbeddingSql(
+    input: EmbeddingInput,
+    model?: string,
+  ): Promise<string> {
     const embedding = await this.getStructuredEmbedding(input, model);
     return pgvector.toSql(embedding);
   }
@@ -228,7 +234,8 @@ export class EmbeddingService implements IEmbeddingService {
     let dateStr = "";
     if (input.date) {
       try {
-        const date = input.date instanceof Date ? input.date : new Date(input.date);
+        const date =
+          input.date instanceof Date ? input.date : new Date(input.date);
         if (!isNaN(date.getTime())) {
           // Format as YYYY-MM-DD
           dateStr = date.toISOString().split("T")[0];
@@ -281,7 +288,9 @@ export class EmbeddingService implements IEmbeddingService {
 
     // Add location notes with weight
     if (input.locationNotes) {
-      components.push(`LOCATION_NOTES: ${input.locationNotes.repeat(weights.locationNotes)}`);
+      components.push(
+        `LOCATION_NOTES: ${input.locationNotes.repeat(weights.locationNotes)}`,
+      );
     }
 
     // Add main text

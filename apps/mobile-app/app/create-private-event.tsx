@@ -28,7 +28,9 @@ import {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
-import EventScopeSelector, { EventScope } from "@/components/EventScopeSelector/EventScopeSelector";
+import EventScopeSelector, {
+  EventScope,
+} from "@/components/EventScopeSelector/EventScopeSelector";
 
 // Unified color theme matching Login screen
 const COLORS = {
@@ -47,9 +49,10 @@ const CreatePrivateEvent = () => {
   const params = useLocalSearchParams();
   const titleInputRef = useRef<TextInput>(null);
   const descriptionInputRef = useRef<TextInput>(null);
-  const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(
-    null
-  );
+  const [coordinates, setCoordinates] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [eventScope, setEventScope] = useState<EventScope>("FRIENDS");
   const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>();
 
@@ -74,8 +77,12 @@ const CreatePrivateEvent = () => {
   });
   const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
   const [eventName, setEventName] = useState((params.title as string) || "");
-  const [eventDescription, setEventDescription] = useState((params.description as string) || "");
-  const [selectedEmoji, setSelectedEmoji] = useState((params.emoji as string) || "");
+  const [eventDescription, setEventDescription] = useState(
+    (params.description as string) || "",
+  );
+  const [selectedEmoji, setSelectedEmoji] = useState(
+    (params.emoji as string) || "",
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const buttonScale = useSharedValue(1);
 
@@ -97,7 +104,9 @@ const CreatePrivateEvent = () => {
             const sharedWithIds = shares.map((share) => share.sharedWithId);
 
             // Filter friends to only those that are in sharedWithIds
-            const selectedFriends = friends.filter((friend) => sharedWithIds.includes(friend.id));
+            const selectedFriends = friends.filter((friend) =>
+              sharedWithIds.includes(friend.id),
+            );
             setSelectedFriends(selectedFriends);
 
             // Also set other event details if they exist
@@ -110,7 +119,9 @@ const CreatePrivateEvent = () => {
               typeof event.location === "object" &&
               "coordinates" in event.location
             ) {
-              const location = event.location as { coordinates: [number, number] };
+              const location = event.location as {
+                coordinates: [number, number];
+              };
               setCoordinates({
                 latitude: location.coordinates[1],
                 longitude: location.coordinates[0],
@@ -183,7 +194,10 @@ const CreatePrivateEvent = () => {
     const minDate = new Date(now.getTime() + 5 * 60 * 1000);
 
     if (date < minDate) {
-      Alert.alert("Error", "Event must be scheduled at least 5 minutes in the future");
+      Alert.alert(
+        "Error",
+        "Event must be scheduled at least 5 minutes in the future",
+      );
       return;
     }
 
@@ -193,7 +207,7 @@ const CreatePrivateEvent = () => {
     // Animate button press
     buttonScale.value = withSequence(
       withSpring(0.95, { damping: 15, stiffness: 200 }),
-      withSpring(1, { damping: 15, stiffness: 200 })
+      withSpring(1, { damping: 15, stiffness: 200 }),
     );
 
     setIsSubmitting(true);
@@ -206,9 +220,15 @@ const CreatePrivateEvent = () => {
         date: date.toISOString(),
         location: {
           type: "Point",
-          coordinates: [coordinates.longitude, coordinates.latitude] as [number, number],
+          coordinates: [coordinates.longitude, coordinates.latitude] as [
+            number,
+            number,
+          ],
         },
-        sharedWithIds: eventScope === "FRIENDS" ? selectedFriends.map((friend) => friend.id) : [],
+        sharedWithIds:
+          eventScope === "FRIENDS"
+            ? selectedFriends.map((friend) => friend.id)
+            : [],
         userCoordinates: {
           lat: coordinates.latitude,
           lng: coordinates.longitude,
@@ -229,12 +249,16 @@ const CreatePrivateEvent = () => {
       } else {
         // Create new event
         const result = await apiClient.createPrivateEvent(eventData);
-        Alert.alert("Success", "Your event is being created. You'll be notified when it's ready.", [
-          {
-            text: "OK",
-            onPress: () => router.back(),
-          },
-        ]);
+        Alert.alert(
+          "Success",
+          "Your event is being created. You'll be notified when it's ready.",
+          [
+            {
+              text: "OK",
+              onPress: () => router.back(),
+            },
+          ],
+        );
       }
     } catch (error) {
       console.error("Error creating event:", error);
@@ -250,7 +274,10 @@ const CreatePrivateEvent = () => {
 
   return (
     <ScreenLayout>
-      <Header title={params.title ? "Update Event" : "Create Event"} onBack={() => router.back()} />
+      <Header
+        title={params.title ? "Update Event" : "Create Event"}
+        onBack={() => router.back()}
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoidingView}
@@ -289,10 +316,15 @@ const CreatePrivateEvent = () => {
                 onChangeText={setEventDescription}
                 blurOnSubmit={false}
               />
-              <EmojiPicker value={selectedEmoji} onEmojiSelect={handleEmojiSelect} />
+              <EmojiPicker
+                value={selectedEmoji}
+                onEmojiSelect={handleEmojiSelect}
+              />
               {!selectedEmoji && (
                 <View style={styles.callout}>
-                  <Text style={styles.calloutText}>No emoji selected - AI will infer one</Text>
+                  <Text style={styles.calloutText}>
+                    No emoji selected - AI will infer one
+                  </Text>
                 </View>
               )}
             </View>

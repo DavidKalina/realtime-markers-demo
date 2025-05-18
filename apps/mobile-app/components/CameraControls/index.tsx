@@ -80,7 +80,10 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
 
         {/* Right - Gallery button */}
         <View style={styles.sideContainer}>
-          <ImageSelector onImageSelected={onImageSelected} disabled={isCapturing || disabled} />
+          <ImageSelector
+            onImageSelected={onImageSelected}
+            disabled={isCapturing || disabled}
+          />
         </View>
       </View>
     </View>

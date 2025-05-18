@@ -67,10 +67,10 @@ export class StorageService extends EventEmitter {
   public uploadImage(
     imageBuffer: Buffer,
     prefix: string = "events",
-    metadata: Record<string, string> = {}
+    metadata: Record<string, string> = {},
   ): Promise<string | null> {
     console.log(
-      `uploadImage called, isEnabled=${this.isEnabled}, bufferSize=${imageBuffer.length}`
+      `uploadImage called, isEnabled=${this.isEnabled}, bufferSize=${imageBuffer.length}`,
     );
 
     // Skip if storage is disabled
@@ -124,7 +124,11 @@ export class StorageService extends EventEmitter {
       resolveUrl(url);
 
       // Emit event for logging/monitoring
-      this.emit("uploadComplete", { success: !!url, prefix, size: imageBuffer.length });
+      this.emit("uploadComplete", {
+        success: !!url,
+        prefix,
+        size: imageBuffer.length,
+      });
     } catch (error) {
       console.error("Error in queue processing:", error);
     } finally {
@@ -145,15 +149,13 @@ export class StorageService extends EventEmitter {
   private async performUpload(
     imageBuffer: Buffer,
     prefix: string,
-    metadata: Record<string, string>
+    metadata: Record<string, string>,
   ): Promise<string | null> {
     try {
       // Generate a unique ID for the image
       const imageId = uuidv4();
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const key = `${prefix}/${timestamp}-${imageId}.jpg`;
-
-
 
       // Upload to DO Space if client is initialized
       if (this.s3Client) {
@@ -203,7 +205,9 @@ export class StorageService extends EventEmitter {
    * Handle any remaining uploads before the app shuts down
    */
   public async drainQueue(): Promise<void> {
-    console.log(`Draining upload queue: ${this.uploadQueue.length} items remaining`);
+    console.log(
+      `Draining upload queue: ${this.uploadQueue.length} items remaining`,
+    );
 
     // Process remaining items one by one
     while (this.uploadQueue.length > 0) {
@@ -228,7 +232,7 @@ export class StorageService extends EventEmitter {
 
   // Add this method to the StorageService class
   public async streamImage(
-    imageUrl: string
+    imageUrl: string,
   ): Promise<{ stream: ReadableStream; contentType: string }> {
     if (!this.isEnabled || !this.s3Client) {
       throw new Error("Storage service is not available");
@@ -258,7 +262,10 @@ export class StorageService extends EventEmitter {
     }
   }
 
-  public async getSignedUrl(imageUrl: string, expiresIn: number = 3600): Promise<string> {
+  public async getSignedUrl(
+    imageUrl: string,
+    expiresIn: number = 3600,
+  ): Promise<string> {
     if (!this.isEnabled || !this.s3Client) {
       throw new Error("Storage service is not available");
     }
@@ -289,7 +296,7 @@ export class StorageService extends EventEmitter {
         command as unknown as any,
         {
           expiresIn, // Seconds
-        }
+        },
       );
 
       console.log(`Generated signed URL (expires in ${expiresIn}s)`);

@@ -13,7 +13,10 @@ import {
   View,
   FlatList,
 } from "react-native";
-import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
+import Animated, {
+  FadeInDown,
+  LinearTransition,
+} from "react-native-reanimated";
 
 export default function GroupEventsScreen() {
   console.log("GroupEventsScreen component definition");
@@ -116,7 +119,7 @@ export default function GroupEventsScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       router.push(`/details?eventId=${eventId}`);
     },
-    [router]
+    [router],
   );
 
   const formatDate = (dateString: string) => {
@@ -149,7 +152,10 @@ export default function GroupEventsScreen() {
   );
 
   const renderEventItem = ({ item }: { item: EventType }) => (
-    <TouchableOpacity style={styles.eventItem} onPress={() => handleEventPress(item.id)}>
+    <TouchableOpacity
+      style={styles.eventItem}
+      onPress={() => handleEventPress(item.id)}
+    >
       <View style={styles.eventHeader}>
         <View style={styles.eventTitleContainer}>
           <Text style={styles.eventEmoji}>{item.emoji || "📍"}</Text>
@@ -163,11 +169,15 @@ export default function GroupEventsScreen() {
       <View style={styles.eventDetails}>
         <View style={styles.eventDetail}>
           <Calendar size={16} color={COLORS.accent} />
-          <Text style={styles.eventDetailText}>{formatDate(item.eventDate)}</Text>
+          <Text style={styles.eventDetailText}>
+            {formatDate(item.eventDate)}
+          </Text>
         </View>
         <View style={styles.eventDetail}>
           <Clock size={16} color={COLORS.accent} />
-          <Text style={styles.eventDetailText}>{formatTime(item.eventDate)}</Text>
+          <Text style={styles.eventDetailText}>
+            {formatTime(item.eventDate)}
+          </Text>
         </View>
         <View style={styles.eventDetail}>
           <MapPin size={16} color={COLORS.accent} />

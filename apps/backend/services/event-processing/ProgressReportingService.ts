@@ -44,10 +44,11 @@ export class ProgressReportingService implements IProgressReportingService {
   constructor(
     private callback?: ProgressCallback,
     private jobQueue?: JobQueue,
-    private configService?: ConfigService
+    private configService?: ConfigService,
   ) {
     // Get throttle time from config or use default (300ms)
-    this.throttleTime = configService?.get("progressReporting.throttleTime") || 300;
+    this.throttleTime =
+      configService?.get("progressReporting.throttleTime") || 300;
   }
 
   /**
@@ -73,7 +74,10 @@ export class ProgressReportingService implements IProgressReportingService {
    * @param metadata Optional metadata about the progress
    * @returns Promise that resolves when progress is reported
    */
-  public async reportProgress(message: string, metadata?: Record<string, any>): Promise<void> {
+  public async reportProgress(
+    message: string,
+    metadata?: Record<string, any>,
+  ): Promise<void> {
     const update: ProgressUpdate = {
       message,
       timestamp: new Date().toISOString(),
@@ -96,7 +100,9 @@ export class ProgressReportingService implements IProgressReportingService {
 
     // Report session started
     this.sendProgressUpdate({
-      message: sessionName ? `Starting ${sessionName}...` : "Starting operation...",
+      message: sessionName
+        ? `Starting ${sessionName}...`
+        : "Starting operation...",
       timestamp: new Date().toISOString(),
       step: 0,
       totalSteps,
@@ -119,15 +125,18 @@ export class ProgressReportingService implements IProgressReportingService {
   public async updateProgress(
     step: number,
     message: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
   ): Promise<void> {
     if (!this.sessionActive) {
-      console.warn("Trying to update progress but no session is active. Call startSession first.");
+      console.warn(
+        "Trying to update progress but no session is active. Call startSession first.",
+      );
       return this.reportProgress(message, metadata);
     }
 
     this.currentStep = Math.min(step, this.totalSteps);
-    const percentComplete = this.totalSteps > 0 ? (this.currentStep / this.totalSteps) * 100 : 0;
+    const percentComplete =
+      this.totalSteps > 0 ? (this.currentStep / this.totalSteps) * 100 : 0;
 
     const update: ProgressUpdate = {
       message,
@@ -147,9 +156,14 @@ export class ProgressReportingService implements IProgressReportingService {
    * @param message Final message for the completed operation
    * @param metadata Optional metadata about the completed operation
    */
-  public async completeSession(message: string, metadata?: Record<string, any>): Promise<void> {
+  public async completeSession(
+    message: string,
+    metadata?: Record<string, any>,
+  ): Promise<void> {
     if (!this.sessionActive) {
-      console.warn("No active session to complete. Reporting final progress anyway.");
+      console.warn(
+        "No active session to complete. Reporting final progress anyway.",
+      );
       return this.reportProgress(message, metadata);
     }
 
@@ -184,12 +198,18 @@ export class ProgressReportingService implements IProgressReportingService {
     this.pendingUpdate = update;
 
     // If throttling is active and an update was sent recently, schedule update
-    if (this.throttleTime > 0 && now - this.lastUpdateTime < this.throttleTime) {
+    if (
+      this.throttleTime > 0 &&
+      now - this.lastUpdateTime < this.throttleTime
+    ) {
       if (this.updateTimer === null) {
         // Schedule an update for later
-        this.updateTimer = setTimeout(() => {
-          this.processPendingUpdate();
-        }, this.throttleTime - (now - this.lastUpdateTime));
+        this.updateTimer = setTimeout(
+          () => {
+            this.processPendingUpdate();
+          },
+          this.throttleTime - (now - this.lastUpdateTime),
+        );
       }
       return;
     }
@@ -225,8 +245,13 @@ export class ProgressReportingService implements IProgressReportingService {
       // Update job queue if connected
       if (this.jobQueue && this.jobId) {
         await this.jobQueue.updateJobStatus(this.jobId, {
-          status: update.metadata?.sessionCompleted ? "completed" : "processing",
-          progress: update.percentComplete !== undefined ? update.percentComplete / 100 : undefined,
+          status: update.metadata?.sessionCompleted
+            ? "completed"
+            : "processing",
+          progress:
+            update.percentComplete !== undefined
+              ? update.percentComplete / 100
+              : undefined,
           progressMessage: update.message,
           updated: update.timestamp,
         });
@@ -235,8 +260,12 @@ export class ProgressReportingService implements IProgressReportingService {
       // Log the update
       const logPrefix = update.sessionName ? `[${update.sessionName}]` : "";
       const progressIndicator =
-        update.percentComplete !== undefined ? `(${Math.round(update.percentComplete)}%)` : "";
-      console.log(`${logPrefix} Progress ${progressIndicator}: ${update.message}`);
+        update.percentComplete !== undefined
+          ? `(${Math.round(update.percentComplete)}%)`
+          : "";
+      console.log(
+        `${logPrefix} Progress ${progressIndicator}: ${update.message}`,
+      );
     } catch (error) {
       console.error("Error reporting progress:", error);
     }

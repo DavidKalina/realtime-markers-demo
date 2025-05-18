@@ -1,7 +1,11 @@
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { AlertCircle } from "lucide-react-native";
-import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
 import { styles } from "./styles";
 
 interface ErrorStateProps {
@@ -22,7 +26,11 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ error, onRetry }) => {
       </View>
       <Text style={styles.errorTitle}>Error Loading Filters</Text>
       <Text style={styles.errorText}>{error}</Text>
-      <TouchableOpacity style={styles.retryButton} onPress={onRetry} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.retryButton}
+        onPress={onRetry}
+        activeOpacity={0.7}
+      >
         <Text style={styles.retryButtonText}>Retry</Text>
       </TouchableOpacity>
     </Animated.View>
