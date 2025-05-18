@@ -138,12 +138,13 @@ export class OpenAIService {
             }
 
             return response;
-          } catch (error: any) {
+          } catch (error) {
             console.error(
               `Error in OpenAI request (${retries} retries left):`,
-              error.message,
+              error instanceof Error ? error.message : "Unknown error",
             );
-            lastError = error;
+            lastError =
+              error instanceof Error ? error : new Error("Unknown error");
             await new Promise((resolve) => setTimeout(resolve, delay));
             delay *= 2;
             retries--;
@@ -219,7 +220,9 @@ export class OpenAIService {
   }
 
   // Get statistics about API usage
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public static getStats(): Record<string, any> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const stats: Record<string, any> = {
       activeRequests: Object.fromEntries(this.activeRequests.entries()),
       rateLimits: Object.fromEntries(this.rateLimitCounters.entries()),
@@ -231,10 +234,12 @@ export class OpenAIService {
   // Helper method for extracting model from a request payload
   public static async executeChatCompletion(params: {
     model: OpenAIModel;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     messages: any[];
     temperature?: number;
     max_tokens?: number;
     response_format?: { type: "json_object" | "text" };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }): Promise<any> {
     const openai = this.getInstance();
     const result = await openai.chat.completions.create(params);

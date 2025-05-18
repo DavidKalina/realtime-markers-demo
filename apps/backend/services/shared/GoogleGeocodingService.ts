@@ -767,7 +767,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
     }
   }
 
-  private async makeGeocodingRequest(url: string): Promise<any> {
+  private async makeGeocodingRequest(url: string) {
     if (!process.env.GOOGLE_GEOCODING_API_KEY) {
       throw new Error("Geocoding API key is required for geocoding requests");
     }
@@ -929,7 +929,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
 
       // Try to find city from various possible types
       const city = addressComponents.find(
-        (component: any) =>
+        (component: { types: string[] }) =>
           component.types.includes("locality") ||
           component.types.includes("postal_town") ||
           component.types.includes("sublocality") ||
@@ -938,7 +938,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
 
       // Try to find state from various possible types
       const state = addressComponents.find(
-        (component: any) =>
+        (component: { types: string[] }) =>
           component.types.includes("administrative_area_level_1") ||
           component.types.includes("administrative_area_level_2"),
       );
@@ -951,10 +951,12 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
         console.warn("Could not find both city and state:", {
           foundCity: !!city,
           foundState: !!state,
-          addressComponents: addressComponents.map((c: any) => ({
-            name: c.long_name,
-            types: c.types,
-          })),
+          addressComponents: addressComponents.map(
+            (c: { long_name: string; types: string[] }) => ({
+              name: c.long_name,
+              types: c.types,
+            }),
+          ),
         });
         return "";
       }
