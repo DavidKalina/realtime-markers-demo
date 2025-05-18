@@ -195,6 +195,7 @@ Respond with a JSON object containing:
     await this.userRepository.save(user);
 
     // Don't return passwordHash or refreshToken to client
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (user as any).passwordHash;
     delete user.refreshToken;
 
@@ -283,6 +284,7 @@ Respond with a JSON object containing:
   /**
    * Validate a JWT token and return the payload
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   validateToken(token: string): any {
     try {
       return jwt.verify(token, this.jwtSecret);
