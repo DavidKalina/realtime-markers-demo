@@ -242,10 +242,6 @@ interface PlanDetails {
   lastReset: Date | null;
 }
 
-// interface StripeCheckoutSession {
-//   clientSecret: string;
-// }
-
 export interface Friend {
   id: string;
   displayName?: string;
@@ -1448,25 +1444,6 @@ class ApiClient {
     return this.handleResponse<PlanDetails>(response);
   }
 
-  // // Create Stripe checkout session
-  // async createStripeCheckoutSession(): Promise<{ checkoutUrl: string; sessionId: string }> {
-  //   const url = `${this.baseUrl}/api/stripe/create-checkout-session`;
-  //   const response = await this.fetchWithAuth(url, {
-  //     method: "POST",
-  //   });
-
-  //   const data = await this.handleResponse<{ checkoutUrl: string; sessionId: string }>(response);
-
-  //   console.log("data", data);
-
-  //   if (!data.checkoutUrl) {
-  //     throw new Error("No checkout URL received");
-  //   }
-
-  //   return data;
-  // }
-
-  // Get all friends
   async getFriends(): Promise<Friend[]> {
     const url = `${this.baseUrl}/api/friendships`;
     const response = await this.fetchWithAuth(url);
