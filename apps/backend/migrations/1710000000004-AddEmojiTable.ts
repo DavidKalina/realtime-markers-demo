@@ -1,3 +1,4 @@
+/* eslint-disable quotes */
 import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddEmojiTable1710000000004 implements MigrationInterface {

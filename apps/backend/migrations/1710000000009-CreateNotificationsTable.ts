@@ -1,3 +1,4 @@
+/* eslint-disable quotes */
 import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class CreateNotificationsTable1710000000009

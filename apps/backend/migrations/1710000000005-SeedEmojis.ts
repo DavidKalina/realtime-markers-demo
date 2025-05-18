@@ -25,6 +25,7 @@ interface EmojiDataRaw {
   has_img_google: boolean;
   has_img_twitter: boolean;
   has_img_facebook: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   skin_variations?: Record<string, any>;
   obsoletes?: string;
   obsoleted_by?: string;

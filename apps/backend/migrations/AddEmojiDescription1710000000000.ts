@@ -67,6 +67,7 @@ export class AddEmojiDescription1710000000000 implements MigrationInterface {
     const batchSize = 10;
     let offset = 0;
 
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       // Get a batch of events
       const events = await queryRunner.query(
