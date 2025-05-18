@@ -1,22 +1,15 @@
+import { EventType } from "@/types/types";
+import { Calendar, ChevronRight, MapPin } from "lucide-react-native";
 import React, { useCallback } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ViewStyle,
-} from "react-native";
-import { Calendar, MapPin, ChevronRight } from "lucide-react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   FadeInDown,
   FadeOut,
-  Layout,
   LinearTransition,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { EventType } from "@/types/types";
 
 // Unified color theme
 const COLORS = {

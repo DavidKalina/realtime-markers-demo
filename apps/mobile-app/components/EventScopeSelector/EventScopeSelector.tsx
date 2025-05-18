@@ -18,7 +18,7 @@ export const EventScopeSelector: React.FC<EventScopeSelectorProps> = ({
   selectedGroupId,
 }) => {
   const [userGroups, setUserGroups] = useState<ClientGroup[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchUserGroups = async () => {

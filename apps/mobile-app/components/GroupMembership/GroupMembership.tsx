@@ -1,33 +1,30 @@
-import React, { useCallback, useEffect, useState, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  FlatList,
-  Alert,
-} from "react-native";
-import { apiClient, ClientGroupMembership } from "@/services/ApiClient";
 import { COLORS } from "@/components/Layout/ScreenLayout";
+import Tabs from "@/components/Layout/Tabs";
+import { apiClient, ClientGroupMembership } from "@/services/ApiClient";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import {
-  User,
-  Users,
-  UserPlus,
-  UserMinus,
-  Shield,
   CheckCircle,
+  ChevronRight,
   Clock,
   ListFilter,
-  ChevronRight,
+  Shield,
+  UserMinus,
+  UserPlus,
+  Users,
 } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
-import Tabs from "@/components/Layout/Tabs";
-import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 // Define the types to match the API client
 type GroupMembershipStatus = "PENDING" | "APPROVED" | "REJECTED" | "BANNED";
-type GroupMemberRole = "MEMBER" | "ADMIN";
 type MemberStatusFilter = "active" | "pending" | "all";
 
 interface GroupMembershipProps {
@@ -78,43 +75,40 @@ export default function GroupMembership({
     [isOwner, isAdmin],
   );
 
-  const fetchMembers = useCallback(
-    async (refresh = false) => {
-      try {
-        setLoading(true);
-        // Map frontend filter values to backend enum values
-        let status: GroupMembershipStatus | undefined;
-        switch (selectedStatus) {
-          case "active":
-            status = "APPROVED";
-            break;
-          case "pending":
-            status = "PENDING";
-            break;
-          case "all":
-            status = undefined;
-            break;
-        }
-
-        const result = await apiClient.getGroupMembers(groupId, {
-          status,
-          limit: 10, // Limit to 10 members
-        });
-
-        setMembers(result.members);
-        setError(null);
-      } catch (err) {
-        setError("Failed to load group members");
-        console.error("Error fetching members:", err);
-      } finally {
-        setLoading(false);
+  const fetchMembers = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Map frontend filter values to backend enum values
+      let status: GroupMembershipStatus | undefined;
+      switch (selectedStatus) {
+        case "active":
+          status = "APPROVED";
+          break;
+        case "pending":
+          status = "PENDING";
+          break;
+        case "all":
+          status = undefined;
+          break;
       }
-    },
-    [groupId, selectedStatus],
-  );
+
+      const result = await apiClient.getGroupMembers(groupId, {
+        status,
+        limit: 10, // Limit to 10 members
+      });
+
+      setMembers(result.members);
+      setError(null);
+    } catch (err) {
+      setError("Failed to load group members");
+      console.error("Error fetching members:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [groupId, selectedStatus]);
 
   useEffect(() => {
-    fetchMembers(true);
+    fetchMembers();
   }, [selectedStatus]);
 
   const handleJoinGroup = useCallback(async () => {
@@ -126,7 +120,7 @@ export default function GroupMembership({
 
       if (result.membershipStatus === "APPROVED") {
         // If immediately approved, refresh the members list
-        fetchMembers(true);
+        fetchMembers();
       }
 
       if (onMembershipChange) {
@@ -140,19 +134,6 @@ export default function GroupMembership({
     }
   }, [groupId, fetchMembers, onMembershipChange]);
 
-  const handleLeaveGroup = useCallback(async () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await apiClient.leaveGroup(groupId);
-      if (onMembershipChange) {
-        onMembershipChange();
-      }
-    } catch (err) {
-      setError("Failed to leave group");
-      console.error("Error leaving group:", err);
-    }
-  }, [groupId, onMembershipChange]);
-
   const handleManageMember = useCallback(
     async (memberId: string, newStatus: "APPROVED" | "REJECTED" | "BANNED") => {
       try {
@@ -161,7 +142,7 @@ export default function GroupMembership({
           status: newStatus,
           role: "MEMBER",
         });
-        fetchMembers(true);
+        fetchMembers();
       } catch (err) {
         setError("Failed to update member status");
         console.error("Error managing member:", err);

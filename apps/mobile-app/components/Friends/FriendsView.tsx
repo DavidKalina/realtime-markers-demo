@@ -21,8 +21,6 @@ type TabType = "friends" | "requests" | "add";
 const FriendsView: React.FC = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("friends");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

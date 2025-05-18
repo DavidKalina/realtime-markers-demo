@@ -1,27 +1,25 @@
-import React, { useCallback, useRef, useState, useEffect } from "react";
+import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
+import { Save, X } from "lucide-react-native";
+import React, { useRef, useState } from "react";
 import {
-  View,
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  Switch,
-  ScrollView,
-  Alert,
-  Platform,
-  Modal,
-  Keyboard,
-  StyleSheet,
+  View,
 } from "react-native";
-import { X, Save } from "lucide-react-native";
 import Animated, {
   FadeIn,
   FadeOut,
+  Layout,
   SlideInDown,
   SlideOutDown,
-  Layout,
 } from "react-native-reanimated";
-import * as Location from "expo-location";
-import * as Haptics from "expo-haptics";
 
 // Unified color theme matching ClusterEventsView
 const COLORS = {
@@ -37,6 +35,7 @@ const COLORS = {
 
 interface FilterFormModalProps {
   visible: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   editingFilter: any;
   filterName: string;
   semanticQuery: string;
@@ -215,7 +214,6 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
     isLocationEnabled,
     onClose,
     onSave,
-    onDismissKeyboard,
     setFilterName,
     setSemanticQuery,
     setIsActive,
