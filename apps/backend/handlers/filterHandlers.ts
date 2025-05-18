@@ -168,8 +168,8 @@ export const updateFilterHandler: FilterHandler = async (c) => {
         filterData,
       );
       return c.json(filter);
-    } catch (err: any) {
-      if (err.message.includes("not found")) {
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("not found")) {
         return c.json({ error: "Filter not found" }, 404);
       }
       throw err;
@@ -211,8 +211,8 @@ export const deleteFilterHandler: FilterHandler = async (c) => {
         user.userId,
       );
       return c.json({ success });
-    } catch (err: any) {
-      if (err.message.includes("not found")) {
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("not found")) {
         return c.json({ error: "Filter not found" }, 404);
       }
       throw err;

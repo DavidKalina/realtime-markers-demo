@@ -1,7 +1,6 @@
 // handlers/friendshipHandlers.ts
 
 import type { Context } from "hono";
-import { FriendshipService } from "../services/FriendshipService";
 
 export type FriendshipHandler = (c: Context) => Promise<Response>;
 

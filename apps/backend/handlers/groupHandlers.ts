@@ -8,7 +8,6 @@ import {
   GroupMemberRole,
   GroupMembershipStatus,
 } from "../entities/GroupMembership";
-import { GroupVisibility } from "../entities/Group";
 import type {
   CreateGroupDto,
   UpdateGroupDto,
@@ -39,15 +38,22 @@ export const createGroupHandler = async (c: Context<AppContext>) => {
 
     const group = await groupService.createGroup(userId, groupData);
     return c.json(group, 201);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error creating group:", error);
     if (
-      error.message.includes("already exists") ||
-      error.message.includes("inappropriate content")
+      error instanceof Error &&
+      (error.message.includes("already exists") ||
+        error.message.includes("inappropriate content"))
     ) {
       return c.json({ error: error.message }, 400);
     }
-    return c.json({ error: error.message || "Failed to create group" }, 500);
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to create group",
+      },
+      500,
+    );
   }
 };
 
@@ -75,9 +81,14 @@ export const getGroupHandler = async (c: Context<AppContext>) => {
     }
     // For public view, or if user has access, return full details
     return c.json(group);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error fetching group:", error);
-    return c.json({ error: error.message || "Failed to fetch group" }, 500);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to fetch group",
+      },
+      500,
+    );
   }
 };
 
@@ -96,15 +107,24 @@ export const updateGroupHandler = async (c: Context<AppContext>) => {
       return c.json({ error: "Group not found or update failed" }, 404); // Or 403 if permission issue
     }
     return c.json(updatedGroup);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error updating group:", error);
-    if (error.message.includes("not authorized")) {
+    if (error instanceof Error && error.message.includes("not authorized")) {
       return c.json({ error: error.message }, 403);
     }
-    if (error.message.includes("inappropriate content")) {
+    if (
+      error instanceof Error &&
+      error.message.includes("inappropriate content")
+    ) {
       return c.json({ error: error.message }, 400);
     }
-    return c.json({ error: error.message || "Failed to update group" }, 500);
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to update group",
+      },
+      500,
+    );
   }
 };
 
@@ -118,15 +138,22 @@ export const deleteGroupHandler = async (c: Context<AppContext>) => {
       return c.json({ error: "Group not found or deletion failed" }, 404); // Or 403
     }
     return c.json({ message: "Group deleted successfully" }, 200);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error deleting group:", error);
     if (
-      error.message.includes("not authorized") ||
-      error.message.includes("Only the group owner")
+      error instanceof Error &&
+      (error.message.includes("not authorized") ||
+        error.message.includes("Only the group owner"))
     ) {
       return c.json({ error: error.message }, 403);
     }
-    return c.json({ error: error.message || "Failed to delete group" }, 500);
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to delete group",
+      },
+      500,
+    );
   }
 };
 
@@ -146,9 +173,17 @@ export const listPublicGroupsHandler = async (c: Context<AppContext>) => {
       categoryId,
     });
     return c.json(result);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error listing public groups:", error);
-    return c.json({ error: error.message }, 500);
+    return c.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to list public groups",
+      },
+      500,
+    );
   }
 };
 
@@ -167,9 +202,15 @@ export const getUserGroupsHandler = async (c: Context<AppContext>) => {
       direction,
     });
     return c.json(result);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error listing user groups:", error);
-    return c.json({ error: error.message }, 500);
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to list user groups",
+      },
+      500,
+    );
   }
 };
 
@@ -187,15 +228,21 @@ export const joinGroupHandler = async (c: Context<AppContext>) => {
       { message, membershipStatus: membership.status, role: membership.role },
       200,
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error joining group:", error);
     if (
-      error.message.includes("already a member") ||
-      error.message.includes("banned")
+      error instanceof Error &&
+      (error.message.includes("already a member") ||
+        error.message.includes("banned"))
     ) {
       return c.json({ error: error.message }, 400);
     }
-    return c.json({ error: error.message || "Failed to join group" }, 500);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to join group",
+      },
+      500,
+    );
   }
 };
 
@@ -209,12 +256,20 @@ export const leaveGroupHandler = async (c: Context<AppContext>) => {
       return c.json({ error: "Failed to leave group or not a member" }, 400);
     }
     return c.json({ message: "Successfully left group" });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error leaving group:", error);
-    if (error.message.includes("Owner cannot leave")) {
+    if (
+      error instanceof Error &&
+      error.message.includes("Owner cannot leave")
+    ) {
       return c.json({ error: error.message }, 403);
     }
-    return c.json({ error: error.message || "Failed to leave group" }, 500);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to leave group",
+      },
+      500,
+    );
   }
 };
 
@@ -258,13 +313,18 @@ export const manageMembershipStatusHandler = async (c: Context<AppContext>) => {
       message: `Membership status updated to ${status}`,
       membership,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error managing membership status:", error);
-    if (error.message.includes("not authorized")) {
+    if (error instanceof Error && error.message.includes("not authorized")) {
       return c.json({ error: error.message }, 403);
     }
     return c.json(
-      { error: error.message || "Failed to manage membership status" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to manage membership status",
+      },
       500,
     );
   }
@@ -288,16 +348,22 @@ export const updateMemberRoleHandler = async (c: Context<AppContext>) => {
       role,
     );
     return c.json({ message: "Member role updated successfully", membership });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error updating member role:", error);
     if (
-      error.message.includes("not authorized") ||
-      error.message.includes("Owner role cannot be changed")
+      error instanceof Error &&
+      (error.message.includes("not authorized") ||
+        error.message.includes("Owner role cannot be changed"))
     ) {
       return c.json({ error: error.message }, 403);
     }
     return c.json(
-      { error: error.message || "Failed to update member role" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to update member role",
+      },
       500,
     );
   }
@@ -321,15 +387,22 @@ export const removeMemberHandler = async (c: Context<AppContext>) => {
       );
     }
     return c.json({ message: "Member removed successfully" });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error removing member:", error);
     if (
-      error.message.includes("not authorized") ||
-      error.message.includes("Owner cannot be removed")
+      error instanceof Error &&
+      (error.message.includes("not authorized") ||
+        error.message.includes("Owner cannot be removed"))
     ) {
       return c.json({ error: error.message }, 403);
     }
-    return c.json({ error: error.message || "Failed to remove member" }, 500);
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to remove member",
+      },
+      500,
+    );
   }
 };
 
@@ -355,9 +428,17 @@ export const getGroupMembersHandler = async (c: Context<AppContext>) => {
       nextCursor: result.nextCursor,
       prevCursor: result.prevCursor,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error fetching group members:", error);
-    return c.json({ error: error.message }, 500);
+    return c.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch group members",
+      },
+      500,
+    );
   }
 };
 
@@ -383,9 +464,15 @@ export const searchGroupsHandler = async (c: Context<AppContext>) => {
       categoryId,
     });
     return c.json(result);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error searching groups:", error);
-    return c.json({ error: error.message }, 500);
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to search groups",
+      },
+      500,
+    );
   }
 };
 
@@ -416,8 +503,16 @@ export const getGroupEventsHandler = async (c: Context<AppContext>) => {
       endDate,
     });
     return c.json(result);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error fetching group events:", error);
-    return c.json({ error: error.message }, 500);
+    return c.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch group events",
+      },
+      500,
+    );
   }
 };
