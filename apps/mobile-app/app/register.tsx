@@ -1,43 +1,33 @@
-import React, { useState, useRef, useEffect } from "react";
+import MapMojiHeader from "@/components/AnimationHeader";
+import { AuthWrapper } from "@/components/AuthWrapper";
+import AnimatedMapBackground from "@/components/Background";
+import { useAuth } from "@/contexts/AuthContext";
+import { useMapStyle } from "@/contexts/MapStyleContext";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
+import { Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  View,
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  Keyboard,
-  StatusBar,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
+  View,
 } from "react-native";
-import { Lock, Mail, Eye, EyeOff, ArrowLeft, User } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import { useAuth } from "@/contexts/AuthContext";
-import { AuthWrapper } from "@/components/AuthWrapper";
-import MapMojiHeader from "@/components/AnimationHeader";
-import { useMapStyle } from "@/contexts/MapStyleContext";
-import AnimatedMapBackground from "@/components/Background";
-import { useFilterStore } from "@/stores/useFilterStore";
 import Animated, {
-  FadeIn,
-  FadeOut,
-  Layout,
+  FadeInDown,
   LinearTransition,
-  BounceIn,
-  SlideOutRight,
-  SlideInRight,
-  ZoomIn,
-  ZoomOut,
   useAnimatedStyle,
-  withSpring,
   useSharedValue,
   withSequence,
-  withDelay,
-  FadeInDown,
+  withSpring,
 } from "react-native-reanimated";
 
 // Unified color theme matching ClusterEventsView
@@ -61,7 +51,6 @@ const RegisterScreen: React.FC = () => {
   const router = useRouter();
   const { mapStyle } = useMapStyle();
   const { register } = useAuth();
-  const { fetchFilters } = useFilterStore();
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
@@ -153,7 +142,7 @@ const RegisterScreen: React.FC = () => {
     try {
       await register(email, password, displayName);
       router.replace("/");
-    } catch (error: any) {
+    } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error("Registration error:", error);
       setError(
