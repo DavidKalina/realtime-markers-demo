@@ -3,23 +3,21 @@ import {
   apiClient,
   ClientGroup,
   ClientGroupMembership,
-  GroupMemberRole,
-  GroupMembershipStatus,
 } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, MoreVertical, Search, Users } from "lucide-react-native";
+import { ArrowLeft, MoreVertical, Search } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
-  TextInput,
-  FlatList,
-  Alert,
-  Modal,
 } from "react-native";
 import Animated, {
   FadeInDown,

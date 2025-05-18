@@ -1,3 +1,11 @@
+import AnimatedMapBackground from "@/components/Background";
+import { useAuth } from "@/contexts/AuthContext";
+import { useMapStyle } from "@/contexts/MapStyleContext";
+import apiClient from "@/services/ApiClient";
+import { GroupVisibility } from "@/types/types";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
+import { ArrowLeft, Globe, Lock, Tag, Users } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -21,25 +29,9 @@ import Animated, {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
-import { useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
-import {
-  ArrowLeft,
-  Globe,
-  Lock,
-  MapPin,
-  Tag,
-  Users,
-} from "lucide-react-native";
-import { COLORS } from "../Layout/ScreenLayout";
-import ScreenLayout from "../Layout/ScreenLayout";
 import Input from "../Input/Input";
 import TextArea from "../Input/TextArea";
-import { GroupVisibility } from "@/types/types";
-import apiClient from "@/services/ApiClient";
-import { useAuth } from "@/contexts/AuthContext";
-import { useMapStyle } from "@/contexts/MapStyleContext";
-import AnimatedMapBackground from "@/components/Background";
+import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 
 interface Category {
   id: string;
@@ -126,10 +118,10 @@ const CreateGroup: React.FC = () => {
           selectedCategories.length > 0 ? selectedCategories : undefined,
       };
 
-      const group = await apiClient.createGroup(groupData);
+      await apiClient.createGroup(groupData);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.push("/groups" as any);
-    } catch (error: any) {
+      router.push("/groups");
+    } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error("Create group error:", error);
       setError(

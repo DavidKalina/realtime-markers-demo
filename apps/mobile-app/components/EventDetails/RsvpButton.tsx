@@ -1,12 +1,12 @@
+import { CalendarCheck, CalendarPlus } from "lucide-react-native";
 import React from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
-import { Calendar, CalendarCheck, CalendarPlus } from "lucide-react-native";
+import { ActivityIndicator, Pressable, StyleSheet } from "react-native";
 import Animated, {
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-  withTiming,
   interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 
 const COLORS = {

@@ -87,12 +87,6 @@ const EmojiContainer = ({ emoji = "📍" }: { emoji?: string }) => {
   );
 };
 
-const ShareButton = ({ onPress }: { onPress: () => void }) => (
-  <TouchableOpacity onPress={onPress} style={styles.shareIconButton}>
-    <Share size={22} color={COLORS.accent} />
-  </TouchableOpacity>
-);
-
 const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   const router = useRouter();
   const { mapStyle } = useMapStyle();
@@ -118,7 +112,6 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     savingState,
     isAdmin,
     isSaved,
-    isLoadingLocation,
     distanceInfo,
     userLocation,
   } = useEventDetails(eventId, onBack);

@@ -1,44 +1,47 @@
 // ActionBar.tsx - Refined with better icon styling and selection states
-import { styles as globalStyles } from "@/components/globalStyles";
+import { useUserLocation } from "@/contexts/LocationContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import {
   CameraAnimateToLocationEvent,
   EventTypes,
 } from "@/services/EventBroker";
 import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import {
   BookMarkedIcon,
   Camera,
   Navigation,
-  Plus,
   SearchIcon,
   User,
   UsersRound,
 } from "lucide-react-native";
 import React, {
+  useCallback,
+  useEffect,
+  useMemo,
   useRef,
   useState,
-  useCallback,
-  useMemo,
-  useEffect,
 } from "react";
-import { Platform, Text, TouchableOpacity, View } from "react-native";
-import Animated, {
-  BounceIn,
+import {
+  Platform,
+  StyleProp,
+  Text,
+  TouchableOpacity,
+  View,
+  ViewStyle,
+} from "react-native";
+import {
   Easing,
-  FadeOut,
-  useAnimatedStyle,
   useSharedValue,
   withSequence,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles";
-import { useUserLocation } from "@/contexts/LocationContext";
-import { useRouter } from "expo-router";
 
 interface ActionBarProps {
   isStandalone?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   animatedStyle?: any;
   availableActions?: string[]; // Prop to control which actions are available
 }
@@ -65,7 +68,7 @@ const BUTTON_RELEASE_ANIMATION = {
 
 // Create a separate component for each action button to properly handle hooks
 const ActionButton: React.FC<ActionButtonProps> = React.memo(
-  ({ actionKey, label, icon, onPress, isActive, disabled }) => {
+  ({ label, icon, onPress, isActive, disabled }) => {
     // Each button has its own scale animation
     const scaleValue = useSharedValue(1);
 
@@ -188,11 +191,7 @@ const LABEL_MAP = {
 };
 
 export const ActionBar: React.FC<ActionBarProps> = React.memo(
-  ({
-    isStandalone = false,
-    animatedStyle,
-    availableActions = DEFAULT_AVAILABLE_ACTIONS,
-  }) => {
+  ({ animatedStyle, availableActions = DEFAULT_AVAILABLE_ACTIONS }) => {
     const activeActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
       null,
     );
@@ -376,7 +375,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
 
     return (
       <View style={containerStyle}>
-        <View style={contentContainerStyle as any}>
+        <View style={contentContainerStyle as StyleProp<ViewStyle>}>
           {scrollableActions.map((action) => (
             <ActionButton
               key={action.key}

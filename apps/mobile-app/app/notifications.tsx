@@ -47,9 +47,7 @@ export default function NotificationsScreen() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
-  const [selectedType, setSelectedType] = useState<
-    NotificationType | undefined
-  >();
+  const [selectedType] = useState<NotificationType | undefined>();
 
   const fetchNotifications = useCallback(
     async (refresh = false) => {

@@ -39,7 +39,6 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
   imageLoading,
   imageError,
   onImagePress,
-  mapStyle,
   mapRef,
   cameraRef,
   onMapReady,

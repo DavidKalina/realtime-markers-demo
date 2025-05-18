@@ -1,6 +1,9 @@
 // scan.tsx - Updated version with shared layout components
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
+import { ImagePoofIntoEmojiTransformation } from "@/components/ImagePoofIntoEmojiTransformation/ImagePoofIntoEmojiTransformation";
+import Header from "@/components/Layout/Header";
+import ScreenLayout, { COLORS } from "@/components/Layout/ScreenLayout";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
 import { useEventBroker } from "@/hooks/useEventBroker";
@@ -9,33 +12,27 @@ import apiClient, { PlanType } from "@/services/ApiClient";
 import { EventTypes } from "@/services/EventBroker";
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { Feather } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { CameraView } from "expo-camera";
 import { useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
+import { debounce } from "lodash";
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
-  useMemo,
 } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
+  AppState,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  AppState,
 } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { debounce } from "lodash";
-import { useFocusEffect } from "@react-navigation/native";
-import { ImagePoofIntoEmojiTransformation } from "@/components/ImagePoofIntoEmojiTransformation/ImagePoofIntoEmojiTransformation";
-import ScreenLayout from "@/components/Layout/ScreenLayout";
-import Header from "@/components/Layout/Header";
-import { COLORS } from "@/components/Layout/ScreenLayout";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 type ImageSource = "camera" | "gallery" | null;
 
@@ -52,7 +49,6 @@ export default function ScanScreen() {
     releaseCamera,
     flashMode,
     toggleFlash,
-    permissionRequested,
     checkPermission,
   } = useCamera();
 
@@ -195,12 +191,14 @@ export default function ScanScreen() {
       // Process/compress the image before uploading
       const processedUri = await processImage(uri);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const payload: Record<string, any> = {};
 
       payload.imageFile = {
         uri: processedUri || uri,
         name: "image.jpg",
         type: "image/jpeg",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any;
 
       // Add location data if available

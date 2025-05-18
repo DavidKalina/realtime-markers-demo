@@ -1,37 +1,28 @@
 import {
-  addDays,
   addMonths,
   eachDayOfInterval,
   endOfMonth,
   format,
   isSameMonth,
   isToday,
-  parseISO,
   startOfMonth,
   subMonths,
-  setHours,
-  setMinutes,
 } from "date-fns";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  ChevronDown,
-} from "lucide-react-native";
+import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { COLORS } from "./Layout/ScreenLayout";
 import {
-  GestureDetector,
   Gesture,
+  GestureDetector,
   GestureHandlerRootView,
 } from "react-native-gesture-handler";
 import Animated, {
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  runOnJS,
 } from "react-native-reanimated";
+import { COLORS } from "./Layout/ScreenLayout";
 
 // Helper for dimmed text color
 const getDimmedTextColor = (baseColor: string, opacity: number = 0.5) => {
@@ -42,17 +33,6 @@ const getDimmedTextColor = (baseColor: string, opacity: number = 0.5) => {
     return `rgba(${r}, ${g}, ${b}, ${opacity})`;
   }
   return `rgba(173, 181, 189, ${opacity})`;
-};
-
-// Helper for RGBA background from hex
-const getRgbaBackground = (hexColor: string, opacity: number) => {
-  if (hexColor.startsWith("#") && hexColor.length === 7) {
-    const r = parseInt(hexColor.slice(1, 3), 16);
-    const g = parseInt(hexColor.slice(3, 5), 16);
-    const b = parseInt(hexColor.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-  }
-  return `rgba(147, 197, 253, ${opacity})`;
 };
 
 interface EmbeddedDateRangeCalendarProps {

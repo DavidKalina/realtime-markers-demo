@@ -34,7 +34,6 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import { COLORS } from "./Layout/ScreenLayout";
-import { eventBroker, EventTypes } from "@/services/EventBroker";
 
 // Helper for dimmed text color
 const getDimmedTextColor = (baseColor: string, opacity: number = 0.5) => {

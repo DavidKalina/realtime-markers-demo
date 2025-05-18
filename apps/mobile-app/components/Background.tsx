@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, memo, useState } from "react";
-import { View, StyleSheet, Dimensions, Platform } from "react-native";
 import Mapbox from "@rnmapbox/maps";
+import React, { memo, useEffect, useRef, useState } from "react";
+import { Platform, StyleSheet, View } from "react-native";
 
 // 3D map camera configuration - Adjusted for better performance
 const CAMERA_UPDATE_INTERVAL = Platform.select({ ios: 16, android: 32 }) ?? 32; // Reduced interval for smoother animation
@@ -12,7 +12,6 @@ const BASE_BEARING = 45;
 // Animation timing constants
 const INITIAL_DELAY = 1000; // Reduced initial delay
 const LOCATION_DURATION = 30000; // Reduced duration for more frequent transitions
-const TRANSITION_DURATION = 10000; // Reduced duration for smoother transitions
 
 // Default locations for camera to move between
 const LOCATIONS = [

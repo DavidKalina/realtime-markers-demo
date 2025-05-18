@@ -1,11 +1,12 @@
+/* eslint-disable prefer-const */
 import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { AuthWrapper } from "@/components/AuthWrapper";
-import DiscoveryIndicator from "@/components/DiscoveryIndicator/DiscoveryIndicator";
 import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import StatusBar from "@/components/StatusBar/StatusBar";
+import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
 import {
   DEFAULT_CAMERA_SETTINGS,
   createCameraSettings,
@@ -18,6 +19,7 @@ import { useMapWebSocket } from "@/hooks/useMapWebsocket";
 import { useSimulatedNotifications } from "@/hooks/useSimulatedNotifications";
 import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
+import { MapboxViewport } from "@/types/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MapboxGL from "@rnmapbox/maps";
 import { useRouter } from "expo-router";
@@ -28,11 +30,8 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Platform, StatusBar as RNStatusBar, View } from "react-native";
+import { Platform, View } from "react-native";
 import { runOnJS } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
-import { MapboxViewport } from "@/types/types";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -168,6 +167,7 @@ function HomeScreen() {
 
   // Create map item event utility
   const createMapItemEvent = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (selectedItem: any): MapItemEvent["item"] => {
       return selectedItem.type === "marker"
         ? {
@@ -320,6 +320,7 @@ function HomeScreen() {
       try {
         if (!feature || typeof feature !== "object") return;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const properties = (feature as any).properties;
         if (!properties) return;
 
@@ -359,6 +360,7 @@ function HomeScreen() {
       try {
         if (!feature || typeof feature !== "object") return;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const properties = (feature as any).properties;
         if (!properties) return;
 
@@ -391,11 +393,6 @@ function HomeScreen() {
     [isMapReady, isLoadingLocation, currentViewport],
   );
 
-  const shouldRenderUI = useMemo(
-    () => Boolean(isMapReady && !isLoadingLocation),
-    [isMapReady, isLoadingLocation],
-  );
-
   // Memoize markers component for better performance
   const markersComponent = useMemo(() => {
     if (!shouldRenderMarkers || !currentViewport) return null;
@@ -412,8 +409,6 @@ function HomeScreen() {
     );
   }, [locationPermissionGranted]);
 
-  const insets = useSafeAreaInsets();
-
   const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
   const [showRipple, setShowRipple] = useState(false);
   const [longPressCoordinates, setLongPressCoordinates] = useState<{
@@ -422,6 +417,7 @@ function HomeScreen() {
   } | null>(null);
 
   // Add long press handler
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleMapLongPress = useCallback((event: any) => {
     "worklet";
     if (event?.properties) {

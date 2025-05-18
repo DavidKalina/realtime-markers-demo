@@ -3,7 +3,7 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import { EventType } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Calendar, MapPin, Tag, Check } from "lucide-react-native"; // Added ArrowLeft and Check
+import { ArrowLeft, Calendar, Check, MapPin, Tag } from "lucide-react-native"; // Added ArrowLeft and Check
 import React, {
   memo,
   useCallback,
@@ -14,15 +14,14 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
+  Clipboard,
   Dimensions,
   FlatList,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Clipboard,
 } from "react-native";
 import Animated, {
   Extrapolate, // Added Extrapolate
@@ -35,13 +34,12 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import EventItem from "../EventItem/EventItem";
-import Card from "../Layout/Card";
 // import Header from "../Layout/Header"; // We'll integrate header functionality
-import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
-import Tabs, { TabItem } from "../Layout/Tabs";
-import EventMapPreview from "../EventDetails/EventMapPreview";
 import MapboxGL from "@rnmapbox/maps";
 import { useFlyOverCamera } from "../../hooks/useFlyOverCamera";
+import EventMapPreview from "../EventDetails/EventMapPreview";
+import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
+import Tabs, { TabItem } from "../Layout/Tabs";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -574,29 +572,6 @@ const styles = StyleSheet.create({
   },
 });
 
-// Memoized TabButton component (no change)
-const TabButton = memo<{
-  icon: React.ElementType;
-  label: string;
-  isActive: boolean;
-  onPress: () => void;
-}>(({ icon: Icon, label, isActive, onPress }) => (
-  <TouchableOpacity
-    style={[styles.tab, isActive && styles.activeTab]}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    <Icon
-      size={16}
-      color={isActive ? COLORS.accent : COLORS.textSecondary}
-      style={styles.tabIcon}
-    />
-    <Text style={[styles.tabText, isActive && styles.activeTabText]}>
-      {label}
-    </Text>
-  </TouchableOpacity>
-));
-
 // Memoized AnimatedEventCard component (no change)
 const AnimatedEventCard = memo<{
   event: EventType;
@@ -940,30 +915,6 @@ const ClusterEventsView: React.FC = () => {
       [24, 12],
       Extrapolate.CLAMP,
     );
-    const emojiSize = interpolate(
-      scrollY.value,
-      [0, 100],
-      [48, 32],
-      Extrapolate.CLAMP,
-    );
-    const nameSize = interpolate(
-      scrollY.value,
-      [0, 100],
-      [28, 20],
-      Extrapolate.CLAMP,
-    );
-    const nameMarginBottom = interpolate(
-      scrollY.value,
-      [0, 100],
-      [8, 4],
-      Extrapolate.CLAMP,
-    );
-    const descriptionOpacity = interpolate(
-      scrollY.value,
-      [0, 50],
-      [1, 0],
-      Extrapolate.CLAMP,
-    );
 
     return {
       paddingBottom: bannerPaddingVertical,
@@ -1004,7 +955,8 @@ const ClusterEventsView: React.FC = () => {
       setIsLoading(true);
       const markerIds =
         selectedItem?.type === "cluster"
-          ? (selectedItem as any).childrenIds || []
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (selectedItem as any).childrenIds || []
           : markers.map((marker) => marker.id);
 
       if (markerIds.length === 0) {
@@ -1017,7 +969,8 @@ const ClusterEventsView: React.FC = () => {
       // Add a check to prevent unnecessary API calls
       const currentMarkerIds = hubData
         ? selectedItem?.type === "cluster"
-          ? (selectedItem as any).childrenIds || []
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (selectedItem as any).childrenIds || []
           : markers.map((marker) => marker.id)
         : [];
 
