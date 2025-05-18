@@ -12,6 +12,7 @@ export interface EventExtractionResult {
    * The raw data extracted from the text
    * Contains all fields returned by the extraction API
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rawExtractedData: Record<string, any>;
 
   /**

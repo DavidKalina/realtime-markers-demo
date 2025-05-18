@@ -33,7 +33,10 @@ export class ImageProcessingService implements IImageProcessingService {
     }
 
     // Scan for QR code if input is a buffer
-    let qrResult: any = { detected: false, data: undefined };
+    let qrResult: { detected: boolean; data?: string } = {
+      detected: false,
+      data: undefined,
+    };
     if (Buffer.isBuffer(imageData)) {
       qrResult = await this.detectQRCode(imageData);
     }

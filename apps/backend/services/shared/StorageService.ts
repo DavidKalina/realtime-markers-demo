@@ -1,9 +1,9 @@
 // services/shared/StorageService.ts (non-blocking version)
 
-import { S3, GetObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, S3 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { v4 as uuidv4 } from "uuid";
 import { EventEmitter } from "events";
+import { v4 as uuidv4 } from "uuid";
 
 export class StorageService extends EventEmitter {
   private static instance: StorageService;
@@ -292,8 +292,10 @@ export class StorageService extends EventEmitter {
 
       // Generate signed URL
       const signedUrl = await getSignedUrl(
-        this.s3Client as unknown as any,
-        command as unknown as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        this.s3Client as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        command as any,
         {
           expiresIn, // Seconds
         },

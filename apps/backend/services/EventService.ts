@@ -244,7 +244,7 @@ export class EventService {
       }
     }
 
-    let categories: any = [];
+    let categories: Category[] = [];
     if (input.categoryIds?.length) {
       categories = await this.categoryRepository.findByIds(input.categoryIds);
     }
@@ -761,7 +761,7 @@ export class EventService {
       .slice(0, limit)
       .map((event) => ({
         event,
-        score: parseFloat((event as any).__score),
+        score: parseFloat((event as unknown as { __score: string }).__score),
       }));
 
     // Generate next cursor if we have more results
@@ -1624,7 +1624,11 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
     const events = results.map((save) => {
       const event = save.event;
       // Add who saved it
-      (event as any).savedBy = {
+      (
+        event as unknown as {
+          savedBy: { id: string; displayName: string; email: string };
+        }
+      ).savedBy = {
         id: save.user.id,
         displayName: save.user.displayName || save.user.email,
         email: save.user.email,

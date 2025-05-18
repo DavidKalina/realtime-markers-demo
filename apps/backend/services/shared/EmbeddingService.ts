@@ -1,7 +1,7 @@
 // services/shared/EmbeddingService.ts
 
 import pgvector from "pgvector";
-import { OpenAIService } from "./OpenAIService";
+import { OpenAIModel, OpenAIService } from "./OpenAIService";
 import { CacheService } from "./CacheService";
 import type { ConfigService } from "./ConfigService";
 import type { IEmbeddingService } from "../event-processing/interfaces/IEmbeddingService";
@@ -107,7 +107,6 @@ export class EmbeddingService implements IEmbeddingService {
    */
   public async getEmbedding(text: string, model?: string): Promise<number[]> {
     const normalizedText = this.normalizeTextForEmbedding(text);
-    const cacheKey = this.generateCacheKey(normalizedText);
 
     // Check cache
     const cachedEmbedding = CacheService.getCachedEmbedding(normalizedText);
@@ -118,7 +117,7 @@ export class EmbeddingService implements IEmbeddingService {
     // Generate embedding with the specified or default model
     const embedding = await OpenAIService.generateEmbedding(
       normalizedText,
-      model || this.DEFAULT_MODEL,
+      (model as OpenAIModel) || this.DEFAULT_MODEL,
     );
 
     // Cache the result

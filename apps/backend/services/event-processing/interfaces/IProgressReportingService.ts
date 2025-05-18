@@ -7,6 +7,7 @@
  */
 export type ProgressCallback = (
   message: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: Record<string, any>,
 ) => Promise<void>;
 
@@ -23,6 +24,7 @@ export interface IProgressReportingService {
    */
   reportProgress(
     message: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     metadata?: Record<string, any>,
   ): Promise<void>;
 
@@ -54,6 +56,7 @@ export interface IProgressReportingService {
   updateProgress(
     step: number,
     message: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     metadata?: Record<string, any>,
   ): Promise<void>;
 
@@ -64,6 +67,7 @@ export interface IProgressReportingService {
    */
   completeSession(
     message: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     metadata?: Record<string, any>,
   ): Promise<void>;
 }

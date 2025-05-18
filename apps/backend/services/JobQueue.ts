@@ -15,6 +15,7 @@ export class JobQueue {
    */
   async enqueue(
     jobType: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: Record<string, any>,
     options: { bufferData?: Buffer } = {},
   ): Promise<string> {
@@ -49,6 +50,7 @@ export class JobQueue {
   /**
    * Get job status
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getJobStatus(jobId: string): Promise<Record<string, any> | null> {
     const jobData = await this.redis.get(`job:${jobId}`);
     if (!jobData) return null;
@@ -65,6 +67,7 @@ export class JobQueue {
    */
   async updateJobStatus(
     jobId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     updates: Record<string, any>,
   ): Promise<void> {
     const jobData = await this.redis.get(`job:${jobId}`);

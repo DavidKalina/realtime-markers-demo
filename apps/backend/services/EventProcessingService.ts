@@ -219,7 +219,6 @@ export class EventProcessingService {
 
   async processPrivateEvent(
     eventInput: PrivateEventInput,
-    locationContext?: LocationContext,
   ): Promise<ScanResult> {
     // Generate emoji if not provided
     let eventDetails = { ...eventInput };

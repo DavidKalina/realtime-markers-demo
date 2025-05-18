@@ -13,6 +13,7 @@ import type { ConfigService } from "../shared/ConfigService";
 interface ProgressUpdate {
   message: string;
   timestamp: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: Record<string, any>;
   step?: number;
   totalSteps?: number;
@@ -76,6 +77,7 @@ export class ProgressReportingService implements IProgressReportingService {
    */
   public async reportProgress(
     message: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     metadata?: Record<string, any>,
   ): Promise<void> {
     const update: ProgressUpdate = {
@@ -125,6 +127,7 @@ export class ProgressReportingService implements IProgressReportingService {
   public async updateProgress(
     step: number,
     message: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     metadata?: Record<string, any>,
   ): Promise<void> {
     if (!this.sessionActive) {
@@ -158,6 +161,7 @@ export class ProgressReportingService implements IProgressReportingService {
    */
   public async completeSession(
     message: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     metadata?: Record<string, any>,
   ): Promise<void> {
     if (!this.sessionActive) {

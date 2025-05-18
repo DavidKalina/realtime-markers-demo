@@ -10,6 +10,7 @@ export interface NotificationData {
   userId: string;
   title: string;
   message: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: Record<string, any>;
   createdAt: string;
   read: boolean;
@@ -44,6 +45,7 @@ export class NotificationService {
     type: NotificationType,
     title: string,
     message: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data?: Record<string, any>,
   ): Promise<Notification> {
     // Create notification in database

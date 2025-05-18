@@ -212,6 +212,7 @@ export class CacheService {
     return result;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async getCachedSearch(key: string): Promise<any | null> {
     if (!this.redisClient) return null;
 
@@ -224,6 +225,7 @@ export class CacheService {
 
   static async setCachedSearch(
     key: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     results: any,
     ttlSeconds: number = 600,
   ): Promise<void> {
@@ -246,7 +248,7 @@ export class CacheService {
     }
   }
 
-  static async getCachedEvent(id: string): Promise<any | null> {
+  static async getCachedEvent(id: string): Promise<Event | null> {
     if (!this.redisClient) return null;
 
     const cached = await this.redisClient.get(`event:${id}`);
@@ -258,7 +260,7 @@ export class CacheService {
 
   static async setCachedEvent(
     id: string,
-    event: any,
+    event: Event,
     ttlSeconds: number = 3600,
   ): Promise<void> {
     if (!this.redisClient) return;
@@ -352,6 +354,7 @@ export class CacheService {
     return this.redisClient;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async getCachedClusterHub(markerIds: string[]): Promise<any | null> {
     if (!this.redisClient) return null;
 
@@ -365,6 +368,7 @@ export class CacheService {
 
   static async setCachedClusterHub(
     markerIds: string[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: any,
     ttlSeconds: number = 300,
   ): Promise<void> {
@@ -393,6 +397,7 @@ export class CacheService {
   /**
    * Get cached friends list for a user
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async getCachedFriends(userId: string): Promise<any | null> {
     if (!this.redisClient) return null;
 
@@ -408,6 +413,7 @@ export class CacheService {
   /**
    * Cache a user's friends list
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async setCachedFriends(userId: string, friends: any[]): Promise<void> {
     if (!this.redisClient) return;
 
@@ -429,6 +435,7 @@ export class CacheService {
   static async getCachedFriendRequests(
     userId: string,
     type: "incoming" | "outgoing",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any | null> {
     if (!this.redisClient) return null;
 
@@ -449,6 +456,7 @@ export class CacheService {
   static async setCachedFriendRequests(
     userId: string,
     type: "incoming" | "outgoing",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     requests: any[],
   ): Promise<void> {
     if (!this.redisClient) return;

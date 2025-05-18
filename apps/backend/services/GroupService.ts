@@ -1,20 +1,18 @@
 // src/services/GroupService.ts
 
-import { In, Repository, DataSource } from "typeorm";
-import { User } from "../entities/User";
-import { Group, GroupVisibility } from "../entities/Group";
-import {
-  GroupMembership,
-  GroupMemberRole,
-  GroupMembershipStatus,
-} from "../entities/GroupMembership";
+import { Brackets, DataSource, In, Repository } from "typeorm";
+import type { CreateGroupDto, UpdateGroupDto } from "../dtos/group.dto";
 import { Category } from "../entities/Category";
 import { Event } from "../entities/Event";
-import { OpenAIService, OpenAIModel } from "./shared/OpenAIService"; // Reusing from AuthService for content moderation
-import type { CreateGroupDto, UpdateGroupDto } from "../dtos/group.dto";
+import { Group, GroupVisibility } from "../entities/Group";
+import {
+  GroupMemberRole,
+  GroupMembership,
+  GroupMembershipStatus,
+} from "../entities/GroupMembership";
+import { User } from "../entities/User";
 import { CacheService } from "./shared/CacheService";
-import { Like } from "typeorm";
-import { Brackets } from "typeorm";
+import { OpenAIModel, OpenAIService } from "./shared/OpenAIService"; // Reusing from AuthService for content moderation
 
 interface CursorPaginationParams {
   cursor?: string;
@@ -281,7 +279,7 @@ Respond with a JSON object containing:
       }
     }
     // Remove categoryIds from updateData to prevent TypeORM from trying to set it directly
-    const { categoryIds, ...restOfUpdateData } = updateData;
+    const { ...restOfUpdateData } = updateData;
 
     await this.groupRepository.update(groupId, restOfUpdateData);
     // If categories were part of updateData, save the group entity to persist ManyToMany relation changes
