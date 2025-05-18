@@ -1,8 +1,8 @@
+/* eslint-disable quotes */
 import type { MigrationInterface, QueryRunner } from "typeorm";
 import * as bcrypt from "bcrypt";
 import { UserRole } from "../entities/User";
 import { FriendshipStatus } from "../entities/Friendship";
-import { EventStatus } from "../entities/Event";
 
 export class InitialSchemaAndSeed1710000000000 implements MigrationInterface {
   name = "InitialSchemaAndSeed1710000000000";
