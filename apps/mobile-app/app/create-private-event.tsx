@@ -1,6 +1,8 @@
 import { CheckboxGroup } from "@/components/CheckboxGroup/CheckboxGroup";
 import EmbeddedDateRangeCalendar from "@/components/EmbeddedDateRangeCalendar";
-import EmojiPicker from "@/components/Input/EmojiPicker";
+import EventScopeSelector, {
+  EventScope,
+} from "@/components/EventScopeSelector/EventScopeSelector";
 import Input from "@/components/Input/Input";
 import TextArea from "@/components/Input/TextArea";
 import Header from "@/components/Layout/Header";
@@ -28,9 +30,6 @@ import {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
-import EventScopeSelector, {
-  EventScope,
-} from "@/components/EventScopeSelector/EventScopeSelector";
 
 // Unified color theme matching Login screen
 const COLORS = {
@@ -150,10 +149,6 @@ const CreatePrivateEvent = () => {
     };
   });
 
-  const handleEmojiSelect = (emoji: string) => {
-    setSelectedEmoji(emoji);
-  };
-
   const handleTitleSubmit = () => {
     if (descriptionInputRef.current) {
       descriptionInputRef.current.focus();
@@ -216,7 +211,6 @@ const CreatePrivateEvent = () => {
       const eventData = {
         title: eventName.trim(),
         description: eventDescription.trim(),
-        emoji: selectedEmoji || "📍",
         date: date.toISOString(),
         location: {
           type: "Point",
@@ -248,7 +242,7 @@ const CreatePrivateEvent = () => {
         ]);
       } else {
         // Create new event
-        const result = await apiClient.createPrivateEvent(eventData);
+        await apiClient.createPrivateEvent(eventData);
         Alert.alert(
           "Success",
           "Your event is being created. You'll be notified when it's ready.",
@@ -316,10 +310,7 @@ const CreatePrivateEvent = () => {
                 onChangeText={setEventDescription}
                 blurOnSubmit={false}
               />
-              <EmojiPicker
-                value={selectedEmoji}
-                onEmojiSelect={handleEmojiSelect}
-              />
+
               {!selectedEmoji && (
                 <View style={styles.callout}>
                   <Text style={styles.calloutText}>

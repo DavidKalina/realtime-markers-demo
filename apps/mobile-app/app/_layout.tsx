@@ -12,13 +12,12 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
-import { Easing } from "react-native";
 
+import { JobSessionInitializer } from "@/components/JobSessionInitializer";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
-import { JobSessionInitializer } from "@/components/JobSessionInitializer";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { isRunningInExpoGo } from "expo";
 

@@ -3,16 +3,7 @@ import Redis from "ioredis";
 import { FilterProcessor } from "./services/FilterProcessor";
 import { initializeHealthCheck } from "./utils/healthCheck";
 
-const POSTGRES_HOST = process.env.POSTGRES_HOST || "localhost";
-const POSTGRES_USER = process.env.POSTGRES_USER || "postgres";
-const POSTGRES_PASSWORD = process.env.POSTGRES_PASSWORD;
-const POSTGRES_DB = process.env.POSTGRES_DB || "markersdb";
 const HEALTH_PORT = parseInt(process.env.HEALTH_PORT || "8082");
-
-// console.log(`🚀 Starting Filter Processor Service`);
-// console.log(`📌 Redis: ${REDIS_HOST}:${REDIS_PORT}`);
-// console.log(`📌 PostgreSQL: ${POSTGRES_HOST}`);
-// console.log(`📌 Health check port: ${HEALTH_PORT}`);
 
 // Configure Redis connection
 const redisConfig = {
@@ -80,11 +71,6 @@ redisSub.on("ready", () => {
   console.log("Redis subscriber is ready to accept commands");
 });
 
-// Database connection string for future use
-const DATABASE_URL = `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}`;
-
-// Initialize health check endpoint FIRST - this is important for Docker health checks
-// console.log("Starting health check server...");
 const { startHealthServer } = initializeHealthCheck({
   redisPub,
   port: HEALTH_PORT,

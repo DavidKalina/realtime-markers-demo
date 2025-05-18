@@ -655,7 +655,7 @@ export class FilterProcessor {
       )) as [string, string][]; // Type assertion for GEORADIUS response
 
       // Process results
-      for (const [viewportKey, distance] of nearbyViewports) {
+      for (const [viewportKey] of nearbyViewports) {
         const userId = viewportKey.replace("viewport:", "");
         const viewportData = await this.redisPub.get(viewportKey);
 
@@ -1109,7 +1109,7 @@ export class FilterProcessor {
    * Strip sensitive data from events before sending to client
    */
   private stripSensitiveData(event: Event): Omit<Event, "embedding"> {
-    const { embedding, ...eventWithoutEmbedding } = event;
+    const { ...eventWithoutEmbedding } = event;
     return eventWithoutEmbedding;
   }
 
@@ -1154,10 +1154,6 @@ export class FilterProcessor {
 
       // Update stats
       this.stats.totalFilteredEventsPublished += sanitizedEvents.length;
-
-      // If this was a replace-all operation, log additional details
-      if (process.env.NODE_ENV !== "production" && type === "replace-all") {
-      }
     } catch (error) {
       console.error(
         `[Publish] Error publishing events to user ${userId}:`,
@@ -1205,11 +1201,13 @@ export class FilterProcessor {
               throw new Error("Invalid response format from backend");
             }
 
-            const { events, total, hasMore } = data;
+            const { events, hasMore } = data;
 
             // Process and validate events
             const validEvents = events
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .filter((event: any) => event.location?.coordinates)
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .map((event: any) => ({
                 id: event.id,
                 emoji: event.emoji,
@@ -1307,9 +1305,6 @@ export class FilterProcessor {
       uniqueEvents.forEach((event) => {
         this.eventCache.set(event.id, event);
       });
-
-      if (process.env.NODE_ENV !== "production") {
-      }
     } catch (error) {
       console.error("Error processing initial events batch:", error);
     }

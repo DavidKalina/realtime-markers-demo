@@ -529,9 +529,6 @@ async function initializeWorker() {
         // Process the private event
         const scanResult = await eventProcessingService.processPrivateEvent(
           job.data.eventDetails,
-          {
-            userCoordinates: job.data.userCoordinates,
-          },
         );
 
         // Create the event
@@ -630,7 +627,7 @@ async function initializeWorker() {
       // Clean up the buffer data
       await redisClient.del(`job:${jobId}:buffer`);
       console.log(`[Worker] Job ${jobId} completed successfully`);
-    } catch (error: any) {
+    } catch (error) {
       // Handle job error
       clearTimeout(timeoutId);
       console.error(`Error processing job ${jobId}:`, error);
@@ -639,7 +636,7 @@ async function initializeWorker() {
       await jobQueue.updateJobStatus(jobId, {
         status: "failed",
         progress: 1, // Set to 100% when completed
-        error: error.message,
+        error: error instanceof Error ? error.message : "Unknown error",
         message:
           "We encountered an error while processing your event. Please try again with a different image or contact support if the issue persists.",
         completed: new Date().toISOString(),
