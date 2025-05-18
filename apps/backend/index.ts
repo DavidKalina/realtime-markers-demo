@@ -18,7 +18,6 @@ import { eventsRouter } from "./routes/events";
 import { filterRouter } from "./routes/filters";
 import { friendshipsRouter } from "./routes/friendships";
 import { internalRouter } from "./routes/internalRoutes";
-import { emojisRouter } from "./routes/emojis";
 import plansRouter from "./routes/plans";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
@@ -397,7 +396,6 @@ app.route("/api/filters", filterRouter);
 app.route("/api/plans", plansRouter);
 app.route("/api/internal", internalRouter);
 app.route("/api/friendships", friendshipsRouter);
-app.route("/api/emojis", emojisRouter);
 app.route("/api/notifications", notificationsRouter);
 app.route("/api/groups", groupsRouter);
 // =============================================================================

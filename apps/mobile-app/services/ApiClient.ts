@@ -1576,59 +1576,6 @@ class ApiClient {
     };
   }
 
-  // Get emojis with optional filtering
-  async getEmojis(params: EmojiSearchParams = {}): Promise<Emoji[]> {
-    const queryParams = new URLSearchParams();
-
-    if (params.search_query)
-      queryParams.append("search_query", params.search_query);
-    if (params.category_id !== undefined && params.category_id !== null) {
-      queryParams.append("category_id", params.category_id.toString());
-    }
-    if (params.limit) queryParams.append("limit", params.limit.toString());
-    if (params.last_emoji_id)
-      queryParams.append("last_emoji_id", params.last_emoji_id.toString());
-
-    const url = `${this.baseUrl}/api/emojis?${queryParams.toString()}`;
-    const response = await this.fetchWithAuth(url);
-    return this.handleResponse<Emoji[]>(response);
-  }
-
-  // Create a new emoji
-  async createEmoji(emojiData: {
-    emoji: string;
-    name: string;
-    category_id?: number | null;
-    keywords: string[];
-    rank?: number;
-  }): Promise<Emoji> {
-    const url = `${this.baseUrl}/api/emojis`;
-    const response = await this.fetchWithAuth(url, {
-      method: "POST",
-      body: JSON.stringify(emojiData),
-    });
-    return this.handleResponse<Emoji>(response);
-  }
-
-  // Update an existing emoji
-  async updateEmoji(id: number, emojiData: Partial<Emoji>): Promise<Emoji> {
-    const url = `${this.baseUrl}/api/emojis/${id}`;
-    const response = await this.fetchWithAuth(url, {
-      method: "PUT",
-      body: JSON.stringify(emojiData),
-    });
-    return this.handleResponse<Emoji>(response);
-  }
-
-  // Delete an emoji
-  async deleteEmoji(id: number): Promise<{ success: boolean }> {
-    const url = `${this.baseUrl}/api/emojis/${id}`;
-    const response = await this.fetchWithAuth(url, {
-      method: "DELETE",
-    });
-    return this.handleResponse<{ success: boolean }>(response);
-  }
-
   async deleteEvent(eventId: string): Promise<{ success: boolean }> {
     await this.ensureInitialized();
     const response = await this.fetchWithAuth(
