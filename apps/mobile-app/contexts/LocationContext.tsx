@@ -239,6 +239,7 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({
 
       try {
         // First try Expo Location
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const location: any = await Promise.race([
           Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.High,

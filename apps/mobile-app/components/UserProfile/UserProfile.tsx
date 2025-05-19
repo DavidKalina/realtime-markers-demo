@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { MapStyleType, useMapStyle } from "@/contexts/MapStyleContext";
-import { apiClient, PlanType } from "@/services/ApiClient";
+import { apiClient, PlanType, User } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -12,8 +12,8 @@ import {
   Moon,
   Shield,
   Trash2,
-  User,
   Users,
+  User as UserIcon,
   Zap,
 } from "lucide-react-native";
 import React, {
@@ -80,9 +80,9 @@ const ProfileHeader = React.memo(
     userInitials,
     profileData,
   }: {
-    user: any;
+    user: User | null;
     userInitials: string;
-    profileData: any;
+    profileData: User | null;
   }) => (
     <Card delay={100}>
       <View style={styles.profileHeader}>
@@ -127,11 +127,15 @@ const PlanSection = React.memo(
   ({
     planDetails,
     progressWidth,
-    handleUpgradePlan,
   }: {
-    planDetails: any;
+    planDetails: {
+      planType: PlanType;
+      weeklyScanCount: number;
+      scanLimit: number;
+      remainingScans: number;
+      lastReset: Date | null;
+    } | null;
     progressWidth: number;
-    handleUpgradePlan: () => void;
   }) => (
     <Card delay={350}>
       <View style={styles.planHeader}>
@@ -179,8 +183,8 @@ const PlanSection = React.memo(
 // Memoized Account Details
 interface AccountDetailsProps {
   loading: boolean;
-  profileData: any;
-  user: any;
+  profileData: User | null;
+  user: User | null;
   memberSince: string;
   mapStyleButtons: JSX.Element;
   isPitched: boolean;
@@ -226,7 +230,7 @@ const AccountDetails = React.memo(
             style={styles.detailItem}
           >
             <View style={styles.detailIconContainer}>
-              <User size={18} color="#93c5fd" />
+              <UserIcon size={18} color="#93c5fd" />
             </View>
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>Role</Text>
@@ -267,7 +271,7 @@ const AccountDetails = React.memo(
               style={styles.detailItem}
             >
               <View style={styles.detailIconContainer}>
-                <User size={18} color="#93c5fd" />
+                <UserIcon size={18} color="#93c5fd" />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Bio</Text>
@@ -387,7 +391,7 @@ const GroupsSection = () => {
         style={styles.friendsCard}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push("/create-group" as any);
+          router.push("/create-group");
         }}
       >
         <View style={styles.friendsContent}>
@@ -409,7 +413,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { currentStyle, setMapStyle, isPitched, togglePitch } = useMapStyle();
   const { paymentStatus } = useLocalSearchParams<{ paymentStatus?: string }>();
   const [loading, setLoading] = useState(true);
-  const [profileData, setProfileData] = useState<any>(null);
+  const [profileData, setProfileData] = useState<User | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [password, setPassword] = useState("");
   const [deleteError, setDeleteError] = useState("");
@@ -470,8 +474,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           setPlanDetails(planResponse);
           setLoading(false);
         }
-      } catch (error: any) {
-        if (error.name !== "AbortError") {
+      } catch (error) {
+        if (error instanceof Error && error.name !== "AbortError") {
           console.error("Error fetching user data:", error);
           if (isMounted) {
             setLoading(false);
@@ -629,9 +633,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       await apiClient.deleteAccount(password);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       logout(); // Logout after successful deletion
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error deleting account:", error);
-      setDeleteError(error.message || "Failed to delete account");
+      setDeleteError(
+        error instanceof Error ? error.message : "Failed to delete account",
+      );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsDeleting(false);
@@ -653,11 +659,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           userInitials={userInitials}
           profileData={profileData}
         />
-        <PlanSection
-          planDetails={planDetails}
-          progressWidth={progressWidth}
-          handleUpgradePlan={() => {}}
-        />
+        <PlanSection planDetails={planDetails} progressWidth={progressWidth} />
         <FriendsSection />
         <GroupsSection />
         <AccountDetails

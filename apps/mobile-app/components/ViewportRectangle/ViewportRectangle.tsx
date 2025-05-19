@@ -1,7 +1,6 @@
-import React, { useMemo } from "react";
 import MapboxGL from "@rnmapbox/maps";
+import React, { useMemo } from "react";
 import { ViewportRectangleProps } from "./types";
-import { Feature, Polygon } from "geojson";
 
 export const ViewportRectangle: React.FC<ViewportRectangleProps> = React.memo(
   ({

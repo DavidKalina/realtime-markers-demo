@@ -1,15 +1,8 @@
 // src/contexts/AuthContext.tsx
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-} from "react";
-import apiClient, { User } from "../services/ApiClient";
-import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFilterStore } from "@/stores/useFilterStore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import apiClient, { User } from "../services/ApiClient";
 
 interface AuthContextType {
   user: User | null;
@@ -42,7 +35,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(
     apiClient.isAuthenticated(),
   );
-  const router = useRouter();
   const { fetchFilters, applyFilters } = useFilterStore();
 
   useEffect(() => {
@@ -89,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 }
               }
             }
-          } catch (profileError: any) {
+          } catch (profileError) {
             // Only attempt token refresh if we have a refresh token
             if (refreshToken) {
               const refreshed = await apiClient.refreshTokens();
@@ -255,7 +247,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsLoading(true);
     try {
       // First register the user
-      const user = await apiClient.register(email, password, displayName);
+      await apiClient.register(email, password, displayName);
 
       // Then log them in
       await apiClient.login(email, password);
