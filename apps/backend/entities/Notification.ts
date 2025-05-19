@@ -54,6 +54,7 @@ export class Notification {
   message!: string;
 
   @Column("jsonb", { nullable: true })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data!: Record<string, any>;
 
   @CreateDateColumn()

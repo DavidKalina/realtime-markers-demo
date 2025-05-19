@@ -1,14 +1,17 @@
 // mapUtils.ts - Utility functions for map-event conversions
-import { EventType, Marker, Coordinates } from "../types/types";
+import { Coordinates, EventType } from "../types/types";
 
 /**
  * Converts an EventType to a Marker format for use with maps
  * Ensures compatibility with the markerStore Marker type
  */
-export const eventToMarker = (event: EventType): any => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const eventToMarker = (event: any): any => {
   // Skip conversion if coordinates are missing
   if (!event.coordinates) {
-    console.warn(`Event "${event.title}" missing coordinates, cannot convert to marker`);
+    console.warn(
+      `Event "${event.title}" missing coordinates, cannot convert to marker`,
+    );
     return null;
   }
 
@@ -19,12 +22,11 @@ export const eventToMarker = (event: EventType): any => {
     data: {
       title: event.title || "Unnamed Location",
       emoji: event.emoji || "📍",
-      color: event.color || "#4dabf7",
-      created_at: event.created_at || new Date().toISOString(),
-      updated_at: event.updated_at || new Date().toISOString(),
+      created_at: event.createdAt || new Date().toISOString(),
+      updated_at: event.updatedAt || new Date().toISOString(),
       description: event.description,
       location: event.location,
-      date: event.date,
+      date: event.eventDate,
       time: event.time,
       category: event.category,
       // Include any other necessary properties
@@ -35,7 +37,8 @@ export const eventToMarker = (event: EventType): any => {
 /**
  * Converts a Marker to an EventType format for use with UI components
  */
-export const markerToEvent = (marker: any): EventType => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const markerToEvent = (marker: any): any => {
   // Handle both marker types - from marker store or our defined Marker type
   if (marker.data && typeof marker.data === "object") {
     // If marker.data is an EventType
@@ -73,13 +76,14 @@ export const markerToEvent = (marker: any): EventType => {
     location: "Unknown location",
     date: "No date specified",
     time: "No time specified",
-    category: "General",
+    category: { id: "general", name: "General" },
   };
 };
 
 /**
  * Converts a batch of events to markers
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const eventsToMarkers = (events: EventType[]): any[] => {
   return events.map(eventToMarker).filter((marker) => marker !== null);
 };
@@ -87,6 +91,7 @@ export const eventsToMarkers = (events: EventType[]): any[] => {
 /**
  * Converts a batch of markers to events
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const markersToEvents = (markers: any[]): EventType[] => {
   return markers.map(markerToEvent);
 };
@@ -94,7 +99,10 @@ export const markersToEvents = (markers: any[]): EventType[] => {
 /**
  * Helper function to check if coordinates are valid
  */
-export const isValidCoordinates = (coordinates: any): coordinates is Coordinates => {
+export const isValidCoordinates = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  coordinates: any,
+): coordinates is Coordinates => {
   return (
     Array.isArray(coordinates) &&
     coordinates.length === 2 &&

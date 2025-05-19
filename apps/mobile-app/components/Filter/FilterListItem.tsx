@@ -24,7 +24,8 @@ export const FilterListItem = React.memo<FilterListItemProps>(
   ({ item, activeFilterIds, onApply, onEdit, onDelete }) => {
     // Memoize date range calculation
     const getDateRangeText = useCallback(() => {
-      if (!item.criteria.dateRange?.start || !item.criteria.dateRange?.end) return null;
+      if (!item.criteria.dateRange?.start || !item.criteria.dateRange?.end)
+        return null;
 
       const start = new Date(item.criteria.dateRange.start);
       const end = new Date(item.criteria.dateRange.end);
@@ -59,10 +60,13 @@ export const FilterListItem = React.memo<FilterListItemProps>(
 
           <View style={styles.filterDetails}>
             {/* Date Range */}
-            {(item.criteria.dateRange?.start || item.criteria.dateRange?.end) && (
+            {(item.criteria.dateRange?.start ||
+              item.criteria.dateRange?.end) && (
               <View style={styles.filterDetailItem}>
                 <Calendar size={10} color="#93c5fd" />
-                <Text style={styles.filterDetailText}>{getDateRangeText()}</Text>
+                <Text style={styles.filterDetailText}>
+                  {getDateRangeText()}
+                </Text>
               </View>
             )}
 
@@ -96,7 +100,9 @@ export const FilterListItem = React.memo<FilterListItemProps>(
             activeOpacity={0.7}
           >
             <SearchIcon size={16} color="#93c5fd" />
-            <Text style={[styles.actionButtonText, styles.applyButtonText]}>Apply</Text>
+            <Text style={[styles.actionButtonText, styles.applyButtonText]}>
+              Apply
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -105,7 +111,9 @@ export const FilterListItem = React.memo<FilterListItemProps>(
             activeOpacity={0.7}
           >
             <Edit2 size={16} color="#f8f9fa" />
-            <Text style={[styles.actionButtonText, styles.editButtonText]}>Edit</Text>
+            <Text style={[styles.actionButtonText, styles.editButtonText]}>
+              Edit
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -114,10 +122,12 @@ export const FilterListItem = React.memo<FilterListItemProps>(
             activeOpacity={0.7}
           >
             <Trash2 size={16} color="#f97583" />
-            <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Delete</Text>
+            <Text style={[styles.actionButtonText, styles.deleteButtonText]}>
+              Delete
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
     );
-  }
+  },
 );

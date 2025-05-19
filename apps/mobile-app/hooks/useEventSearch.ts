@@ -31,6 +31,8 @@ const markerToEventType = (marker: Marker): EventType => {
     qrGeneratedAt: marker.data.qrGeneratedAt,
     qrDetectedInImage: marker.data.qrDetectedInImage,
     detectedQrData: marker.data.detectedQrData,
+    createdAt: marker.data.createdAt,
+    updatedAt: marker.data.updatedAt,
   };
 };
 
@@ -52,7 +54,9 @@ interface UseEventSearchReturn {
   clearSearch: () => void;
 }
 
-const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearchReturn => {
+const useEventSearch = ({
+  initialMarkers,
+}: UseEventSearchProps): UseEventSearchReturn => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,9 +68,6 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
   const searchInProgress = useRef(false);
   const lastSearchQuery = useRef<string>("");
   const searchTimeout = useRef<NodeJS.Timeout>();
-
-  // Add cache for search results
-  const searchCache = useRef<Map<string, { results: EventType[], nextCursor?: string }>>(new Map());
 
   // Initialize with initial markers if available
   useEffect(() => {
@@ -101,7 +102,8 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
         }
 
         // Prevent concurrent searches and duplicate queries
-        if (searchInProgress.current || query === lastSearchQuery.current) return;
+        if (searchInProgress.current || query === lastSearchQuery.current)
+          return;
         searchInProgress.current = true;
         lastSearchQuery.current = query;
 
@@ -117,7 +119,7 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
           const response = await apiClient.searchEvents(
             query,
             10,
-            reset ? undefined : nextCursor
+            reset ? undefined : nextCursor,
           );
 
           const newResults = response.results.map((result) => ({
@@ -144,9 +146,13 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
             qrGeneratedAt: result.qrGeneratedAt,
             qrDetectedInImage: result.qrDetectedInImage,
             detectedQrData: result.detectedQrData,
+            createdAt: result.createdAt || new Date().toISOString(),
+            updatedAt: result.updatedAt || new Date().toISOString(),
           }));
 
-          setEventResults(prev => reset ? newResults : [...prev, ...newResults]);
+          setEventResults((prev) =>
+            reset ? newResults : [...prev, ...newResults],
+          );
           setNextCursor(response.nextCursor);
           setHasMoreResults(!!response.nextCursor);
           setHasSearched(true);
@@ -162,7 +168,7 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
           searchInProgress.current = false;
         }
       }, 800),
-    [initialMarkers, nextCursor]
+    [initialMarkers, nextCursor],
   );
 
   // Clean up the debounced function and timeouts on unmount
@@ -195,7 +201,13 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
     if (!isLoading && !isFetchingMore && hasMoreResults && searchQuery.trim()) {
       debouncedSearchEvents(searchQuery, false);
     }
-  }, [isLoading, isFetchingMore, hasMoreResults, searchQuery, debouncedSearchEvents]);
+  }, [
+    isLoading,
+    isFetchingMore,
+    hasMoreResults,
+    searchQuery,
+    debouncedSearchEvents,
+  ]);
 
   // Clear search query
   const clearSearch = useCallback(() => {
@@ -213,10 +225,13 @@ const useEventSearch = ({ initialMarkers }: UseEventSearchProps): UseEventSearch
   }, [initialMarkers]);
 
   // Create a wrapper for searchEvents that matches the expected type
-  const searchEvents = useCallback(async (reset: boolean = true) => {
-    if (!searchQuery.trim()) return;
-    await debouncedSearchEvents(searchQuery, reset);
-  }, [searchQuery, debouncedSearchEvents]);
+  const searchEvents = useCallback(
+    async (reset: boolean = true) => {
+      if (!searchQuery.trim()) return;
+      await debouncedSearchEvents(searchQuery, reset);
+    },
+    [searchQuery, debouncedSearchEvents],
+  );
 
   return {
     searchQuery,

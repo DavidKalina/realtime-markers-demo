@@ -16,10 +16,16 @@ interface RateLimitConfig {
 const MODEL_RATE_LIMITS: Record<OpenAIModel, RateLimitConfig> = {
   [OpenAIModel.GPT4O]: { tokensPerMinute: 5000, requestsPerMinute: 500 },
   [OpenAIModel.GPT4OMini]: { tokensPerMinute: 10000, requestsPerMinute: 1000 },
-  [OpenAIModel.TextEmbedding3Small]: { tokensPerMinute: 1000000, requestsPerMinute: 3000 },
+  [OpenAIModel.TextEmbedding3Small]: {
+    tokensPerMinute: 1000000,
+    requestsPerMinute: 3000,
+  },
 };
 
-const DEFAULT_RATE_LIMITS: RateLimitConfig = { tokensPerMinute: 3000, requestsPerMinute: 300 };
+const DEFAULT_RATE_LIMITS: RateLimitConfig = {
+  tokensPerMinute: 3000,
+  requestsPerMinute: 300,
+};
 
 export class OpenAIService {
   private static instance: OpenAI;
@@ -32,7 +38,11 @@ export class OpenAIService {
   private static rateLimitCounters: Map<string, number> = new Map();
   private static lastRateLimitReset: number = Date.now();
 
-  public static initRedis(options: { host: string; port: number; password?: string }) {
+  public static initRedis(options: {
+    host: string;
+    port: number;
+    password?: string;
+  }) {
     this.redis = new Redis({
       host: options.host,
       port: options.port,
@@ -59,14 +69,20 @@ export class OpenAIService {
   private static createFetchWithRateLimit(): typeof fetch {
     const originalFetch = fetch;
 
-    const customFetch = async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const customFetch = async (
+      url: RequestInfo | URL,
+      init?: RequestInit,
+    ): Promise<Response> => {
       // Determine which model is being used from the request body
       let model: OpenAIModel | undefined;
       if (init?.body) {
         try {
           const body = JSON.parse(init.body.toString());
           const modelStr = body.model;
-          if (modelStr && Object.values(OpenAIModel).includes(modelStr as OpenAIModel)) {
+          if (
+            modelStr &&
+            Object.values(OpenAIModel).includes(modelStr as OpenAIModel)
+          ) {
             model = modelStr as OpenAIModel;
           }
         } catch (e) {
@@ -82,7 +98,7 @@ export class OpenAIService {
           ? "chat"
           : "api";
 
-      const requestKey = `${operation}:${model || 'default'}`;
+      const requestKey = `${operation}:${model || "default"}`;
       const rateLimits = model ? MODEL_RATE_LIMITS[model] : DEFAULT_RATE_LIMITS;
 
       // Check rate limits before proceeding
@@ -112,7 +128,9 @@ export class OpenAIService {
 
             // Handle server errors
             if (response.status >= 500) {
-              console.warn(`Server error (${response.status}) for ${model}, retrying...`);
+              console.warn(
+                `Server error (${response.status}) for ${model}, retrying...`,
+              );
               await new Promise((resolve) => setTimeout(resolve, delay));
               delay *= 2;
               retries--;
@@ -120,9 +138,13 @@ export class OpenAIService {
             }
 
             return response;
-          } catch (error: any) {
-            console.error(`Error in OpenAI request (${retries} retries left):`, error.message);
-            lastError = error;
+          } catch (error) {
+            console.error(
+              `Error in OpenAI request (${retries} retries left):`,
+              error instanceof Error ? error.message : "Unknown error",
+            );
+            lastError =
+              error instanceof Error ? error : new Error("Unknown error");
             await new Promise((resolve) => setTimeout(resolve, delay));
             delay *= 2;
             retries--;
@@ -145,7 +167,10 @@ export class OpenAIService {
     return customFetch as typeof fetch;
   }
 
-  private static async checkRateLimit(key: string, limits: RateLimitConfig): Promise<void> {
+  private static async checkRateLimit(
+    key: string,
+    limits: RateLimitConfig,
+  ): Promise<void> {
     // Reset counters if a minute has passed
     const now = Date.now();
     const minutesPassed = Math.floor((now - this.lastRateLimitReset) / 60000);
@@ -195,7 +220,9 @@ export class OpenAIService {
   }
 
   // Get statistics about API usage
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public static getStats(): Record<string, any> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const stats: Record<string, any> = {
       activeRequests: Object.fromEntries(this.activeRequests.entries()),
       rateLimits: Object.fromEntries(this.rateLimitCounters.entries()),
@@ -207,10 +234,12 @@ export class OpenAIService {
   // Helper method for extracting model from a request payload
   public static async executeChatCompletion(params: {
     model: OpenAIModel;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     messages: any[];
     temperature?: number;
     max_tokens?: number;
     response_format?: { type: "json_object" | "text" };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   }): Promise<any> {
     const openai = this.getInstance();
     const result = await openai.chat.completions.create(params);
@@ -220,7 +249,7 @@ export class OpenAIService {
   // Helper method for generating embeddings
   public static async generateEmbedding(
     text: string,
-    model: OpenAIModel = OpenAIModel.TextEmbedding3Small
+    model: OpenAIModel = OpenAIModel.TextEmbedding3Small,
   ): Promise<number[]> {
     const openai = this.getInstance();
 

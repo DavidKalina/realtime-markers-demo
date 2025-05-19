@@ -47,11 +47,14 @@ export class UserPreferencesService {
   /**
    * Generate an emoji for a filter based on its name and semantic query
    */
-  private async generateFilterEmoji(name: string, semanticQuery?: string): Promise<string> {
+  private async generateFilterEmoji(
+    name: string,
+    semanticQuery?: string,
+  ): Promise<string> {
     try {
       const prompt = `Generate a single emoji that best represents this filter:
 Name: ${name}
-${semanticQuery ? `Query: ${semanticQuery}` : ''}
+${semanticQuery ? `Query: ${semanticQuery}` : ""}
 
 IMPORTANT: Respond with ONLY a single emoji character. No text, no explanation, no quotes, no spaces.
 Example valid responses: 🎉 🎨 🎭
@@ -62,7 +65,8 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
         messages: [
           {
             role: "system",
-            content: "You are an emoji generator. Your ONLY task is to generate a single emoji character that best represents the given filter. Respond with ONLY the emoji character, no other text or explanation. If you cannot generate an appropriate emoji, respond with '❓'.",
+            content:
+              "You are an emoji generator. Your ONLY task is to generate a single emoji character that best represents the given filter. Respond with ONLY the emoji character, no other text or explanation. If you cannot generate an appropriate emoji, respond with '❓'.",
           },
           {
             role: "user",
@@ -106,21 +110,27 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
     return filters;
   }
 
-  async createFilter(userId: string, filterData: Partial<FilterEntity>): Promise<FilterEntity> {
-
+  async createFilter(
+    userId: string,
+    filterData: Partial<FilterEntity>,
+  ): Promise<FilterEntity> {
     // Generate embedding if semanticQuery is provided
     if (filterData.semanticQuery) {
       try {
-        const embeddingSql = await this.embeddingService.getStructuredEmbeddingSql({
-          text: filterData.semanticQuery,
-          weights: {
-            text: 5,
-          },
-        });
+        const embeddingSql =
+          await this.embeddingService.getStructuredEmbeddingSql({
+            text: filterData.semanticQuery,
+            weights: {
+              text: 5,
+            },
+          });
 
         filterData.embedding = embeddingSql;
       } catch (error) {
-        console.error(`Error generating embedding for filter "${filterData.name}":`, error);
+        console.error(
+          `Error generating embedding for filter "${filterData.name}":`,
+          error,
+        );
       }
     }
 
@@ -131,10 +141,13 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
       }
       filterData.emoji = await this.generateFilterEmoji(
         filterData.name,
-        filterData.semanticQuery
+        filterData.semanticQuery,
       );
     } catch (error) {
-      console.error(`Error generating emoji for filter "${filterData.name}":`, error);
+      console.error(
+        `Error generating emoji for filter "${filterData.name}":`,
+        error,
+      );
     }
 
     // Create the filter with embedding and emoji
@@ -155,47 +168,59 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
   async updateFilter(
     filterId: string,
     userId: string,
-    filterData: Partial<Filter>
+    filterData: Partial<Filter>,
   ): Promise<Filter> {
-
     // Ensure the filter belongs to the user
     const filter = await this.filterRepository.findOne({
       where: { id: filterId, userId },
     });
 
     if (!filter) {
-      console.error(`Filter ${filterId} not found or does not belong to user ${userId}`);
+      console.error(
+        `Filter ${filterId} not found or does not belong to user ${userId}`,
+      );
       throw new Error("Filter not found or does not belong to user");
     }
 
     // Generate new embedding if semanticQuery is updated
-    if (filterData.semanticQuery && filterData.semanticQuery !== filter.semanticQuery) {
+    if (
+      filterData.semanticQuery &&
+      filterData.semanticQuery !== filter.semanticQuery
+    ) {
       try {
-        const embeddingSql = await this.embeddingService.getStructuredEmbeddingSql({
-          text: filterData.semanticQuery,
-          weights: {
-            text: 5,
-          },
-        });
+        const embeddingSql =
+          await this.embeddingService.getStructuredEmbeddingSql({
+            text: filterData.semanticQuery,
+            weights: {
+              text: 5,
+            },
+          });
 
         filterData.embedding = embeddingSql;
       } catch (error) {
-        console.error(`Error generating embedding for filter update "${filter.name}":`, error);
+        console.error(
+          `Error generating embedding for filter update "${filter.name}":`,
+          error,
+        );
       }
     }
 
     // Generate new emoji if name or semanticQuery is updated
     if (
       (filterData.name && filterData.name !== filter.name) ||
-      (filterData.semanticQuery && filterData.semanticQuery !== filter.semanticQuery)
+      (filterData.semanticQuery &&
+        filterData.semanticQuery !== filter.semanticQuery)
     ) {
       try {
         filterData.emoji = await this.generateFilterEmoji(
           filterData.name || filter.name,
-          filterData.semanticQuery || filter.semanticQuery
+          filterData.semanticQuery || filter.semanticQuery,
         );
       } catch (error) {
-        console.error(`Error generating emoji for filter update "${filter.name}":`, error);
+        console.error(
+          `Error generating emoji for filter update "${filter.name}":`,
+          error,
+        );
       }
     }
 
@@ -213,14 +238,15 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
    * Delete a filter
    */
   async deleteFilter(filterId: string, userId: string): Promise<boolean> {
-
     // Ensure the filter belongs to the user
     const filter = await this.filterRepository.findOne({
       where: { id: filterId, userId },
     });
 
     if (!filter) {
-      console.error(`Filter ${filterId} not found or does not belong to user ${userId}`);
+      console.error(
+        `Filter ${filterId} not found or does not belong to user ${userId}`,
+      );
       throw new Error("Filter not found or does not belong to user");
     }
 
@@ -236,37 +262,48 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
   /**
    * Set filters as active/inactive
    */
-  async setActiveFilters(userId: string, filterIds: string[]): Promise<Filter[]> {
+  async setActiveFilters(
+    userId: string,
+    filterIds: string[],
+  ): Promise<Filter[]> {
+    return this.filterRepository.manager.transaction(
+      async (transactionalEntityManager) => {
+        // Get all user filters - using transactionalEntityManager
+        const userFilters = await transactionalEntityManager.find(
+          FilterEntity,
+          {
+            where: { userId },
+            order: { updatedAt: "DESC" },
+          },
+        );
 
-    return this.filterRepository.manager.transaction(async (transactionalEntityManager) => {
-      // Get all user filters - using transactionalEntityManager
-      const userFilters = await transactionalEntityManager.find(FilterEntity, {
-        where: { userId },
-        order: { updatedAt: "DESC" },
-      });
+        // Update the active state based on the provided IDs
+        const updatedFilters = userFilters.map((filter) => ({
+          ...filter,
+          isActive: filterIds.includes(filter.id),
+        }));
 
-      // Update the active state based on the provided IDs
-      const updatedFilters = userFilters.map((filter) => ({
-        ...filter,
-        isActive: filterIds.includes(filter.id),
-      }));
+        // Save all updates - using transactionalEntityManager
+        const savedFilters = await transactionalEntityManager.save(
+          FilterEntity,
+          updatedFilters,
+        );
+        console.log(
+          `Successfully updated active state for ${savedFilters.length} filters for user ${userId}`,
+        );
 
-      // Save all updates - using transactionalEntityManager
-      const savedFilters = await transactionalEntityManager.save(FilterEntity, updatedFilters);
-      console.log(`Successfully updated active state for ${savedFilters.length} filters for user ${userId}`);
+        // Publish filter change event to Redis (this happens outside the transaction)
+        await this.publishFilterChange(userId);
 
-      // Publish filter change event to Redis (this happens outside the transaction)
-      await this.publishFilterChange(userId);
-
-      return savedFilters;
-    });
+        return savedFilters;
+      },
+    );
   }
 
   /**
    * Clear all active filters for a user
    */
   async clearActiveFilters(userId: string): Promise<boolean> {
-
     const userFilters = await this.getUserFilters(userId);
 
     // Set all filters to inactive
@@ -299,10 +336,13 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
           userId,
           filters: activeFilters,
           timestamp: new Date().toISOString(),
-        })
+        }),
       );
     } catch (error) {
-      console.error(`Error publishing filter change for user ${userId}:`, error);
+      console.error(
+        `Error publishing filter change for user ${userId}:`,
+        error,
+      );
       // Don't throw the error - we want to continue even if Redis publishing fails
     }
   }
@@ -332,10 +372,10 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
             userId,
             filters: activeFilters,
             timestamp: new Date().toISOString(),
-          })
+          }),
         );
       } catch (redisError) {
-        console.error(`Error publishing filter change to Redis:`, redisError);
+        console.error("Error publishing filter change to Redis:", redisError);
         // Continue even if Redis publishing fails
       }
 
@@ -346,7 +386,10 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
     }
   }
 
-  async getFilterById(filterId: string, userId: string): Promise<FilterEntity | null> {
+  async getFilterById(
+    filterId: string,
+    userId: string,
+  ): Promise<FilterEntity | null> {
     const filter = await this.filterRepository.findOne({
       where: {
         id: filterId,

@@ -24,7 +24,12 @@ export const useFlyOverCamera = ({ cameraRef }: UseFlyOverCameraProps) => {
   const lastUpdateTimeRef = useRef(0);
 
   // Helper function to get smooth value between min and max using sine wave
-  const getSmoothValue = (min: number, max: number, time: number, speed: number) => {
+  const getSmoothValue = (
+    min: number,
+    max: number,
+    time: number,
+    speed: number,
+  ) => {
     const range = max - min;
     const offset = (Math.sin(time * speed) + 1) / 2; // Normalize to 0-1
     return min + range * offset;
@@ -35,7 +40,7 @@ export const useFlyOverCamera = ({ cameraRef }: UseFlyOverCameraProps) => {
     center: [number, number],
     time: number,
     speed: number,
-    zoom: number
+    zoom: number,
   ): { position: [number, number]; bearing: number } => {
     // Calculate radius based on zoom level (closer zoom = smaller radius)
     const baseRadius = 0.0005; // Base radius at zoom level 15
@@ -63,13 +68,10 @@ export const useFlyOverCamera = ({ cameraRef }: UseFlyOverCameraProps) => {
       if (!cameraRef.current) return;
 
       const {
-        duration = 2000,
         minPitch = 45,
         maxPitch = 60, // Reduced max pitch to keep marker more visible
         minZoom = 15,
         maxZoom = 17,
-        minBearing = -180, // Allow full rotation
-        maxBearing = 180,
         speed = 0.5,
       } = options;
 
@@ -78,25 +80,40 @@ export const useFlyOverCamera = ({ cameraRef }: UseFlyOverCameraProps) => {
       lastUpdateTimeRef.current = performance.now();
 
       const animate = (currentTime: number) => {
-        if (!isAnimatingRef.current || !cameraRef.current || !coordinatesRef.current) return;
+        if (
+          !isAnimatingRef.current ||
+          !cameraRef.current ||
+          !coordinatesRef.current
+        )
+          return;
 
         const deltaTime = (currentTime - lastUpdateTimeRef.current) / 1000; // Convert to seconds
         timeRef.current += deltaTime;
         lastUpdateTimeRef.current = currentTime;
 
         // Get current zoom for radius calculation
-        const zoom = getSmoothValue(minZoom, maxZoom, timeRef.current, speed * 0.5);
+        const zoom = getSmoothValue(
+          minZoom,
+          maxZoom,
+          timeRef.current,
+          speed * 0.5,
+        );
 
         // Calculate orbit position and bearing
         const { position, bearing } = getOrbitPosition(
           coordinatesRef.current,
           timeRef.current,
           speed,
-          zoom
+          zoom,
         );
 
         // Calculate pitch that keeps marker in view
-        const pitch = getSmoothValue(minPitch, maxPitch, timeRef.current, speed * 0.7);
+        const pitch = getSmoothValue(
+          minPitch,
+          maxPitch,
+          timeRef.current,
+          speed * 0.7,
+        );
 
         cameraRef.current.setCamera({
           centerCoordinate: position,
@@ -112,7 +129,7 @@ export const useFlyOverCamera = ({ cameraRef }: UseFlyOverCameraProps) => {
       // Start the animation loop
       animationFrameRef.current = requestAnimationFrame(animate);
     },
-    [cameraRef]
+    [cameraRef],
   );
 
   // Cleanup function

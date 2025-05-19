@@ -88,13 +88,14 @@ export class EventProcessingService {
       // If not provided, create a new instance using OpenAIService singleton
       this.eventExtractionService = new EventExtractionService(
         dependencies.categoryProcessingService,
-        dependencies.locationResolutionService
+        dependencies.locationResolutionService,
       );
     }
 
     // Use provided embedding service or get singleton instance
     this.embeddingService =
-      dependencies.embeddingService || EmbeddingService.getInstance(dependencies.configService);
+      dependencies.embeddingService ||
+      EmbeddingService.getInstance(dependencies.configService);
 
     // Use provided progress reporting service or create a basic one
     this.progressReportingService =
@@ -105,13 +106,13 @@ export class EventProcessingService {
 
   public createWorkflow(
     jobId?: string,
-    externalCallback?: ProgressCallback
+    externalCallback?: ProgressCallback,
   ): IProgressReportingService {
     // Create a NEW progress reporting service to avoid cross-workflow interference
     const progressService = new ProgressReportingService(
       externalCallback,
       this.jobQueue, // Pass JobQueue to the new instance
-      this.dependencies.configService
+      this.dependencies.configService,
     );
 
     // Connect to job queue if a job ID is provided
@@ -126,7 +127,7 @@ export class EventProcessingService {
     imageData: Buffer | string,
     progressCallback?: ProgressCallback,
     locationContext?: LocationContext,
-    jobId?: string
+    jobId?: string,
   ): Promise<ScanResult> {
     const workflow = this.createWorkflow(jobId, progressCallback);
 
@@ -136,7 +137,8 @@ export class EventProcessingService {
 
     // Step 1: Process image
     await workflow.updateProgress(1, "Processing image...");
-    const visionResult = await this.imageProcessingService.processImage(imageData);
+    const visionResult =
+      await this.imageProcessingService.processImage(imageData);
 
     // Step 2: Extract text and analyze
     await workflow.updateProgress(2, "Analyzing image content...");
@@ -145,36 +147,43 @@ export class EventProcessingService {
     // Step 3: Extract event details
     await workflow.updateProgress(3, "Extracting event details...");
 
-    const extractionResult = await this.eventExtractionService.extractEventDetails(
-      extractedText,
-      locationContext
-    );
+    const extractionResult =
+      await this.eventExtractionService.extractEventDetails(
+        extractedText,
+        locationContext,
+      );
 
     // Step 4: Generate embedding
     await workflow.updateProgress(4, "Generating event embedding...");
     const eventDetailsWithCategories = extractionResult.event;
-    const finalEmbedding = await this.generateEmbedding(eventDetailsWithCategories);
+    const finalEmbedding = await this.generateEmbedding(
+      eventDetailsWithCategories,
+    );
 
     // Step 5: Check for duplicates
     await workflow.updateProgress(5, "Checking for duplicate events...");
-    const similarity = await this.dependencies.eventSimilarityService.findSimilarEvents(
-      finalEmbedding,
-      {
-        title: eventDetailsWithCategories.title,
-        date: eventDetailsWithCategories.date,
-        endDate: eventDetailsWithCategories.endDate,
-        coordinates: eventDetailsWithCategories.location.coordinates as [number, number],
-        address: eventDetailsWithCategories.address,
-        description: eventDetailsWithCategories.description,
-        timezone: eventDetailsWithCategories.timezone,
-      }
-    );
+    const similarity =
+      await this.dependencies.eventSimilarityService.findSimilarEvents(
+        finalEmbedding,
+        {
+          title: eventDetailsWithCategories.title,
+          date: eventDetailsWithCategories.date,
+          endDate: eventDetailsWithCategories.endDate,
+          coordinates: eventDetailsWithCategories.location.coordinates as [
+            number,
+            number,
+          ],
+          address: eventDetailsWithCategories.address,
+          description: eventDetailsWithCategories.description,
+          timezone: eventDetailsWithCategories.timezone,
+        },
+      );
 
     const isDuplicate = similarity.isDuplicate;
 
     if (isDuplicate && similarity.matchingEventId) {
       await this.dependencies.eventSimilarityService.handleDuplicateScan(
-        similarity.matchingEventId
+        similarity.matchingEventId,
       );
 
       await workflow.updateProgress(5, "Duplicate event detected", {
@@ -191,7 +200,9 @@ export class EventProcessingService {
       confidence: visionResult.confidence,
       similarityScore: similarity.score,
       isDuplicate: isDuplicate || false,
-      reasonForMatch: isDuplicate ? similarity.matchReason || "High similarity" : undefined,
+      reasonForMatch: isDuplicate
+        ? similarity.matchReason || "High similarity"
+        : undefined,
       timezone: eventDetailsWithCategories.timezone,
     });
 
@@ -208,14 +219,13 @@ export class EventProcessingService {
 
   async processPrivateEvent(
     eventInput: PrivateEventInput,
-    locationContext?: LocationContext
   ): Promise<ScanResult> {
     // Generate emoji if not provided
     let eventDetails = { ...eventInput };
     if (!eventInput.emoji || eventInput.emoji === "📍") {
       const emojiResult = await this.eventExtractionService.generateEventEmoji(
         eventInput.title,
-        eventInput.description
+        eventInput.description,
       );
       eventDetails = {
         ...eventInput,
@@ -226,7 +236,7 @@ export class EventProcessingService {
 
     const categories =
       await this.dependencies.categoryProcessingService.extractAndProcessCategories(
-        `${eventDetails.title} ${eventDetails.description}`
+        `${eventDetails.title} ${eventDetails.description}`,
       );
 
     eventDetails = {
@@ -238,24 +248,25 @@ export class EventProcessingService {
     const finalEmbedding = await this.generateEmbedding(eventDetails);
 
     // Check for duplicates
-    const similarity = await this.dependencies.eventSimilarityService.findSimilarEvents(
-      finalEmbedding,
-      {
-        title: eventDetails.title,
-        date: eventDetails.date,
-        endDate: eventDetails.endDate,
-        coordinates: eventDetails.location.coordinates as [number, number],
-        address: eventDetails.address,
-        description: eventDetails.description,
-        timezone: eventDetails.timezone,
-      }
-    );
+    const similarity =
+      await this.dependencies.eventSimilarityService.findSimilarEvents(
+        finalEmbedding,
+        {
+          title: eventDetails.title,
+          date: eventDetails.date,
+          endDate: eventDetails.endDate,
+          coordinates: eventDetails.location.coordinates as [number, number],
+          address: eventDetails.address,
+          description: eventDetails.description,
+          timezone: eventDetails.timezone,
+        },
+      );
 
     const isDuplicate = similarity.isDuplicate;
 
     if (isDuplicate && similarity.matchingEventId) {
       await this.dependencies.eventSimilarityService.handleDuplicateScan(
-        similarity.matchingEventId
+        similarity.matchingEventId,
       );
     }
 
@@ -269,7 +280,9 @@ export class EventProcessingService {
     };
   }
 
-  private async generateEmbedding(eventDetails: EventDetails): Promise<number[]> {
+  private async generateEmbedding(
+    eventDetails: EventDetails,
+  ): Promise<number[]> {
     // Use the same format as EventService
     const textForEmbedding = `
       TITLE: ${eventDetails.title} ${eventDetails.title} ${eventDetails.title}

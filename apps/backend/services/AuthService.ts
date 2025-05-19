@@ -36,7 +36,7 @@ export class AuthService {
     userRepository: Repository<User>,
     userPreferencesService: UserPreferencesService,
     levelingService: LevelingService,
-    dataSource: DataSource
+    dataSource: DataSource,
   ) {
     this.userRepository = userRepository;
     this.userPreferencesService = userPreferencesService;
@@ -106,7 +106,9 @@ Respond with a JSON object containing:
 
     // Check content appropriateness if display name is provided
     if (userData.displayName) {
-      const isAppropriate = await this.isContentAppropriate(userData.displayName);
+      const isAppropriate = await this.isContentAppropriate(
+        userData.displayName,
+      );
       if (!isAppropriate) {
         throw new Error("Display name contains inappropriate content");
       }
@@ -131,19 +133,24 @@ Respond with a JSON object containing:
     const now = new Date();
     const twoWeeksFromNow = addDays(now, 14);
 
-    const defaultFilter = await this.userPreferencesService.createFilter(savedUser.id, {
-      name: "First Two Weeks",
-      isActive: true,
-      criteria: {
-        dateRange: {
-          start: format(now, "yyyy-MM-dd"),
-          end: format(twoWeeksFromNow, "yyyy-MM-dd"),
+    const defaultFilter = await this.userPreferencesService.createFilter(
+      savedUser.id,
+      {
+        name: "First Two Weeks",
+        isActive: true,
+        criteria: {
+          dateRange: {
+            start: format(now, "yyyy-MM-dd"),
+            end: format(twoWeeksFromNow, "yyyy-MM-dd"),
+          },
         },
       },
-    });
+    );
 
     // Apply the filter
-    await this.userPreferencesService.applyFilters(savedUser.id, [defaultFilter.id]);
+    await this.userPreferencesService.applyFilters(savedUser.id, [
+      defaultFilter.id,
+    ]);
 
     return savedUser;
   }
@@ -151,7 +158,10 @@ Respond with a JSON object containing:
   /**
    * Login user and generate auth tokens
    */
-  async login(email: string, password: string): Promise<{ user: User; tokens: AuthTokens }> {
+  async login(
+    email: string,
+    password: string,
+  ): Promise<{ user: User; tokens: AuthTokens }> {
     // Find user by email with password included
     const user = await this.userRepository.findOne({
       where: { email },
@@ -185,6 +195,7 @@ Respond with a JSON object containing:
     await this.userRepository.save(user);
 
     // Don't return passwordHash or refreshToken to client
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (user as any).passwordHash;
     delete user.refreshToken;
 
@@ -197,7 +208,9 @@ Respond with a JSON object containing:
   async refreshToken(refreshToken: string): Promise<AuthTokens> {
     try {
       // Verify the refresh token
-      const decoded = jwt.verify(refreshToken, this.refreshSecret) as { userId: string };
+      const decoded = jwt.verify(refreshToken, this.refreshSecret) as {
+        userId: string;
+      };
 
       // Find user with this refresh token
       const user = await this.userRepository.findOne({
@@ -256,13 +269,13 @@ Respond with a JSON object containing:
     const accessToken = jwt.sign(
       payload,
       this.jwtSecret as jwt.Secret,
-      { expiresIn } // "1h"
+      { expiresIn }, // "1h"
     );
 
     const refreshToken = jwt.sign(
       { userId: user.id },
       this.refreshSecret as jwt.Secret,
-      { expiresIn } // "7d"
+      { expiresIn }, // "7d"
     );
 
     return { accessToken, refreshToken };
@@ -271,6 +284,7 @@ Respond with a JSON object containing:
   /**
    * Validate a JWT token and return the payload
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   validateToken(token: string): any {
     try {
       return jwt.verify(token, this.jwtSecret);
@@ -333,7 +347,10 @@ Respond with a JSON object containing:
   /**
    * Update user profile
    */
-  async updateUserProfile(userId: string, userData: Partial<User>): Promise<User | null> {
+  async updateUserProfile(
+    userId: string,
+    userData: Partial<User>,
+  ): Promise<User | null> {
     // Exclude sensitive fields from updates
     delete userData.passwordHash;
     delete userData.refreshToken;
@@ -343,7 +360,9 @@ Respond with a JSON object containing:
 
     // Check content appropriateness if display name is being updated
     if (userData.displayName) {
-      const isAppropriate = await this.isContentAppropriate(userData.displayName);
+      const isAppropriate = await this.isContentAppropriate(
+        userData.displayName,
+      );
       if (!isAppropriate) {
         throw new Error("Display name contains inappropriate content");
       }
@@ -367,7 +386,7 @@ Respond with a JSON object containing:
   async changePassword(
     userId: string,
     currentPassword: string,
-    newPassword: string
+    newPassword: string,
   ): Promise<boolean> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
@@ -379,7 +398,10 @@ Respond with a JSON object containing:
     }
 
     // Verify current password
-    const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    const isPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.passwordHash,
+    );
     if (!isPasswordValid) {
       throw new Error("Current password is incorrect");
     }

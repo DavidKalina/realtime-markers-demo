@@ -1,12 +1,16 @@
+/* eslint-disable prefer-const */
 import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { AuthWrapper } from "@/components/AuthWrapper";
-import DiscoveryIndicator from "@/components/DiscoveryIndicator/DiscoveryIndicator";
 import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import StatusBar from "@/components/StatusBar/StatusBar";
-import { DEFAULT_CAMERA_SETTINGS, createCameraSettings } from "@/config/cameraConfig";
+import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
+import {
+  DEFAULT_CAMERA_SETTINGS,
+  createCameraSettings,
+} from "@/config/cameraConfig";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
@@ -15,15 +19,19 @@ import { useMapWebSocket } from "@/hooks/useMapWebsocket";
 import { useSimulatedNotifications } from "@/hooks/useSimulatedNotifications";
 import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
+import { MapboxViewport } from "@/types/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MapboxGL from "@rnmapbox/maps";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Platform, StatusBar as RNStatusBar, View } from "react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Platform, View } from "react-native";
 import { runOnJS } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
-import { MapboxViewport } from "@/types/types";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -63,12 +71,16 @@ function HomeScreen() {
   const selectedItem = useLocationStore((state) => state.selectedItem);
 
   // User location hooks
-  const { userLocation, locationPermissionGranted, isLoadingLocation, getUserLocation } =
-    useUserLocation();
+  const {
+    userLocation,
+    locationPermissionGranted,
+    isLoadingLocation,
+    getUserLocation,
+  } = useUserLocation();
 
   // WebSocket and map data
   const { markers, updateViewport, currentViewport } = useMapWebSocket(
-    process.env.EXPO_PUBLIC_WEB_SOCKET_URL!
+    process.env.EXPO_PUBLIC_WEB_SOCKET_URL!,
   );
 
   // Use the new map camera hook
@@ -76,18 +88,24 @@ function HomeScreen() {
 
   // Track if we've done initial centering
   const hasCenteredOnUserRef = useRef(false);
-  const [hasRequestedInitialLocation, setHasRequestedInitialLocation] = useState(false);
+  const [hasRequestedInitialLocation, setHasRequestedInitialLocation] =
+    useState(false);
 
   // Load initial location request state
   useEffect(() => {
     const loadInitialLocationState = async () => {
       try {
-        const hasRequested = await AsyncStorage.getItem("hasRequestedInitialLocation");
+        const hasRequested = await AsyncStorage.getItem(
+          "hasRequestedInitialLocation",
+        );
         if (hasRequested === "true") {
           setHasRequestedInitialLocation(true);
         }
       } catch (error) {
-        console.error("[HomeScreen] Error loading initial location state:", error);
+        console.error(
+          "[HomeScreen] Error loading initial location state:",
+          error,
+        );
       }
     };
     loadInitialLocationState();
@@ -116,7 +134,12 @@ function HomeScreen() {
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [userLocation, isLoadingLocation, getUserLocation, hasRequestedInitialLocation]);
+  }, [
+    userLocation,
+    isLoadingLocation,
+    getUserLocation,
+    hasRequestedInitialLocation,
+  ]);
 
   // Update camera position only once when user location becomes available
   useEffect(() => {
@@ -143,22 +166,26 @@ function HomeScreen() {
   }, []);
 
   // Create map item event utility
-  const createMapItemEvent = useCallback((selectedItem: any): MapItemEvent["item"] => {
-    return selectedItem.type === "marker"
-      ? {
-          id: selectedItem.id,
-          type: "marker",
-          coordinates: selectedItem.coordinates,
-          markerData: selectedItem.data,
-        }
-      : {
-          id: selectedItem.id,
-          type: "cluster",
-          coordinates: selectedItem.coordinates,
-          count: selectedItem.count,
-          childMarkers: selectedItem.childrenIds,
-        };
-  }, []);
+  const createMapItemEvent = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (selectedItem: any): MapItemEvent["item"] => {
+      return selectedItem.type === "marker"
+        ? {
+            id: selectedItem.id,
+            type: "marker",
+            coordinates: selectedItem.coordinates,
+            markerData: selectedItem.data,
+          }
+        : {
+            id: selectedItem.id,
+            type: "cluster",
+            coordinates: selectedItem.coordinates,
+            count: selectedItem.count,
+            childMarkers: selectedItem.childrenIds,
+          };
+    },
+    [],
+  );
 
   // Handle map item deselection
   const handleMapItemDeselection = useCallback(
@@ -169,7 +196,7 @@ function HomeScreen() {
         item,
       });
     },
-    [publish]
+    [publish],
   );
 
   // Handle user interaction
@@ -212,7 +239,9 @@ function HomeScreen() {
 
   // Extracted viewport processing to a separate function for clarity
   const processViewportBounds = useCallback(
-    (bounds: unknown): { north: number; south: number; east: number; west: number } | null => {
+    (
+      bounds: unknown,
+    ): { north: number; south: number; east: number; west: number } | null => {
       if (!bounds || !Array.isArray(bounds) || bounds.length !== 2) return null;
 
       const [northWest, southEast] = bounds;
@@ -236,10 +265,11 @@ function HomeScreen() {
         west: Math.min(west, east),
       };
     },
-    []
+    [],
   );
 
-  const [viewportRectangle, setViewportRectangle] = useState<MapboxViewport | null>(null);
+  const [viewportRectangle, setViewportRectangle] =
+    useState<MapboxViewport | null>(null);
 
   // Inside your HomeScreen component in index.tsx
 
@@ -278,7 +308,7 @@ function HomeScreen() {
         west: centerX - newWidth / 2,
       };
     },
-    []
+    [],
   );
 
   // Inside your HomeScreen component in index.tsx
@@ -290,6 +320,7 @@ function HomeScreen() {
       try {
         if (!feature || typeof feature !== "object") return;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const properties = (feature as any).properties;
         if (!properties) return;
 
@@ -306,7 +337,12 @@ function HomeScreen() {
         console.error("Error processing viewport change:", error);
       }
     },
-    [updateViewport, processViewportBounds, calculateViewportRectangle, isPitched] // MODIFIED LINE: Added isPitched
+    [
+      updateViewport,
+      processViewportBounds,
+      calculateViewportRectangle,
+      isPitched,
+    ], // MODIFIED LINE: Added isPitched
   );
 
   // Memoize map ready handler
@@ -324,6 +360,7 @@ function HomeScreen() {
       try {
         if (!feature || typeof feature !== "object") return;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const properties = (feature as any).properties;
         if (!properties) return;
 
@@ -341,36 +378,36 @@ function HomeScreen() {
         console.error("Error handling region change:", error);
       }
     },
-    [handleMapViewportChange, publish, setZoomLevel]
+    [handleMapViewportChange, publish, setZoomLevel],
   );
 
   // Memoize default camera settings with null check
-  const defaultCameraSettings = useMemo(() => createCameraSettings(userLocation), [userLocation]);
+  const defaultCameraSettings = useMemo(
+    () => createCameraSettings(userLocation),
+    [userLocation],
+  );
 
   // Memoize rendering conditions
   const shouldRenderMarkers = useMemo(
     () => Boolean(isMapReady && !isLoadingLocation && currentViewport),
-    [isMapReady, isLoadingLocation, currentViewport]
-  );
-
-  const shouldRenderUI = useMemo(
-    () => Boolean(isMapReady && !isLoadingLocation),
-    [isMapReady, isLoadingLocation]
+    [isMapReady, isLoadingLocation, currentViewport],
   );
 
   // Memoize markers component for better performance
   const markersComponent = useMemo(() => {
     if (!shouldRenderMarkers || !currentViewport) return null;
-    return <ClusteredMapMarkers viewport={currentViewport} currentZoom={zoomLevel} />;
+    return (
+      <ClusteredMapMarkers viewport={currentViewport} currentZoom={zoomLevel} />
+    );
   }, [shouldRenderMarkers, markers, currentViewport, zoomLevel]);
 
   // Memoize user location layer
   const userLocationLayer = useMemo(() => {
     if (!locationPermissionGranted) return null;
-    return <MapboxGL.UserLocation visible={true} showsUserHeadingIndicator={true} />;
+    return (
+      <MapboxGL.UserLocation visible={true} showsUserHeadingIndicator={true} />
+    );
   }, [locationPermissionGranted]);
-
-  const insets = useSafeAreaInsets();
 
   const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
   const [showRipple, setShowRipple] = useState(false);
@@ -380,18 +417,26 @@ function HomeScreen() {
   } | null>(null);
 
   // Add long press handler
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleMapLongPress = useCallback((event: any) => {
     "worklet";
     if (event?.properties) {
       const { screenPointX, screenPointY } = event.properties;
       const coordinates = event.geometry?.coordinates;
 
-      if (typeof screenPointX === "number" && typeof screenPointY === "number") {
+      if (
+        typeof screenPointX === "number" &&
+        typeof screenPointY === "number"
+      ) {
         runOnJS(setRipplePosition)({ x: screenPointX, y: screenPointY });
         runOnJS(setShowRipple)(true);
 
         // Store coordinates for later use
-        if (coordinates && Array.isArray(coordinates) && coordinates.length === 2) {
+        if (
+          coordinates &&
+          Array.isArray(coordinates) &&
+          coordinates.length === 2
+        ) {
           runOnJS(setLongPressCoordinates)({
             latitude: coordinates[1],
             longitude: coordinates[0],

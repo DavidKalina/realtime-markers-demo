@@ -1,6 +1,8 @@
 import type { MigrationInterface, QueryRunner } from "typeorm";
 
-export class AddEventRsvpToggledNotificationType1710000000010 implements MigrationInterface {
+export class AddEventRsvpToggledNotificationType1710000000010
+  implements MigrationInterface
+{
   name = "AddEventRsvpToggledNotificationType1710000000010";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -9,7 +11,7 @@ export class AddEventRsvpToggledNotificationType1710000000010 implements Migrati
     `);
   }
 
-  public async down(queryRunner: QueryRunner): Promise<void> {
+  public async down(): Promise<void> {
     // Note: PostgreSQL doesn't support removing enum values directly
     // We would need to create a new type without the value and replace the old one
     // This is a complex operation that could affect existing data

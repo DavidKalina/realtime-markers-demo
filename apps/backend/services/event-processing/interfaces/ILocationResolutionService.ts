@@ -18,7 +18,7 @@ export interface ILocationResolutionService {
     userContext?: {
       cityState?: string;
       coordinates?: { lat: number; lng: number };
-    }
+    },
   ): Promise<LocationResolutionResult>;
 
   /**

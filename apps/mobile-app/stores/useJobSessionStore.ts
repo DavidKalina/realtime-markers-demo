@@ -11,6 +11,7 @@ export interface Job {
     emoji: string;
     text: string;
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result?: any;
   error?: string;
   createdAt: string;
@@ -66,14 +67,20 @@ export const useJobSessionStore = create<JobSessionStore>((set, get) => ({
 
   // Connect to the WebSocket server
   connect: (existingSessionId?: string) => {
-    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+    if (
+      ws &&
+      (ws.readyState === WebSocket.OPEN ||
+        ws.readyState === WebSocket.CONNECTING)
+    ) {
       return;
     }
 
     set({ isConnecting: true, error: null });
 
     try {
-      ws = new WebSocket(process.env.EXPO_PUBLIC_WEB_SOCKET_URL || "ws://localhost:8081");
+      ws = new WebSocket(
+        process.env.EXPO_PUBLIC_WEB_SOCKET_URL || "ws://localhost:8081",
+      );
 
       ws.onopen = () => {
         set({ isConnected: true, isConnecting: false });
@@ -83,13 +90,13 @@ export const useJobSessionStore = create<JobSessionStore>((set, get) => ({
             JSON.stringify({
               type: MessageTypes.JOIN_SESSION,
               sessionId: existingSessionId,
-            })
+            }),
           );
         } else {
           ws?.send(
             JSON.stringify({
               type: MessageTypes.CREATE_SESSION,
-            })
+            }),
           );
         }
       };
@@ -134,7 +141,10 @@ export const useJobSessionStore = create<JobSessionStore>((set, get) => ({
       };
     } catch (error) {
       console.error("Error connecting to WebSocket:", error);
-      set({ isConnecting: false, error: "Failed to connect to WebSocket server" });
+      set({
+        isConnecting: false,
+        error: "Failed to connect to WebSocket server",
+      });
     }
   },
 
@@ -146,14 +156,17 @@ export const useJobSessionStore = create<JobSessionStore>((set, get) => ({
   addJob: (jobId: string) => {
     const { sessionId } = get();
     if (!sessionId || !ws || ws.readyState !== WebSocket.OPEN) {
-      console.warn('Cannot add job - WebSocket not ready:', { sessionId, wsState: ws?.readyState });
+      console.warn("Cannot add job - WebSocket not ready:", {
+        sessionId,
+        wsState: ws?.readyState,
+      });
       return false;
     }
     ws.send(
       JSON.stringify({
         type: MessageTypes.ADD_JOB,
         jobId,
-      })
+      }),
     );
     return true;
   },
@@ -168,7 +181,7 @@ export const useJobSessionStore = create<JobSessionStore>((set, get) => ({
       JSON.stringify({
         type: MessageTypes.CANCEL_JOB,
         jobId,
-      })
+      }),
     );
     return true;
   },
@@ -182,7 +195,7 @@ export const useJobSessionStore = create<JobSessionStore>((set, get) => ({
     ws.send(
       JSON.stringify({
         type: MessageTypes.CLEAR_SESSION,
-      })
+      }),
     );
     return true;
   },

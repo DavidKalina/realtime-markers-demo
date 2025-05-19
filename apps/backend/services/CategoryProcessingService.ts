@@ -13,7 +13,7 @@ export class CategoryProcessingService {
   async getOrCreateCategories(categoryNames: string[]): Promise<Category[]> {
     // Normalize all category names in parallel
     const normalizedNames = await Promise.all(
-      categoryNames.map((name) => this.normalizeCategoryName(name))
+      categoryNames.map((name) => this.normalizeCategoryName(name)),
     );
 
     // Find all existing categories in one query
@@ -23,12 +23,16 @@ export class CategoryProcessingService {
 
     // Determine which categories need to be created
     const existingNamesSet = new Set(existingCategories.map((cat) => cat.name));
-    const newCategoryNames = normalizedNames.filter((name) => !existingNamesSet.has(name));
+    const newCategoryNames = normalizedNames.filter(
+      (name) => !existingNamesSet.has(name),
+    );
 
     // Create all new categories in one batch
     let newCategories: Category[] = [];
     if (newCategoryNames.length > 0) {
-      newCategories = newCategoryNames.map((name) => this.categoryRepository.create({ name }));
+      newCategories = newCategoryNames.map((name) =>
+        this.categoryRepository.create({ name }),
+      );
       await this.categoryRepository.save(newCategories);
     }
 
@@ -36,7 +40,9 @@ export class CategoryProcessingService {
     return [...existingCategories, ...newCategories];
   }
 
-  private async findSimilarCategory(normalizedName: string): Promise<Category | null> {
+  private async findSimilarCategory(
+    normalizedName: string,
+  ): Promise<Category | null> {
     // First try exact match
     const exactMatch = await this.categoryRepository.findOne({
       where: { name: normalizedName },
@@ -57,16 +63,25 @@ export class CategoryProcessingService {
       allCategories.map(async (category) => ({
         category,
         embedding: await this.generateCategoryEmbedding(category.name),
-      }))
+      })),
     );
 
     // Find the most similar category
     let mostSimilar: { category: Category; similarity: number } | null = null;
 
-    for (const { category, embedding: categoryEmbedding } of categoryEmbeddings) {
-      const similarity = this.calculateCosineSimilarity(embedding, categoryEmbedding);
+    for (const {
+      category,
+      embedding: categoryEmbedding,
+    } of categoryEmbeddings) {
+      const similarity = this.calculateCosineSimilarity(
+        embedding,
+        categoryEmbedding,
+      );
 
-      if (similarity > 0.95 && (!mostSimilar || similarity > mostSimilar.similarity)) {
+      if (
+        similarity > 0.95 &&
+        (!mostSimilar || similarity > mostSimilar.similarity)
+      ) {
         mostSimilar = { category, similarity };
       }
     }
@@ -112,7 +127,9 @@ export class CategoryProcessingService {
       response_format: { type: "json_object" },
     });
 
-    const parsedResponse = JSON.parse(response.choices[0]?.message.content || "{}");
+    const parsedResponse = JSON.parse(
+      response.choices[0]?.message.content || "{}",
+    );
     const suggestedCategories: string[] = parsedResponse.categories || [];
 
     // Save to cache
@@ -124,7 +141,7 @@ export class CategoryProcessingService {
 
     // Normalize all category names in parallel
     const normalizedNames = await Promise.all(
-      suggestedCategories.map((name) => this.normalizeCategoryName(name))
+      suggestedCategories.map((name) => this.normalizeCategoryName(name)),
     );
 
     // Find all existing categories in one query
@@ -134,12 +151,16 @@ export class CategoryProcessingService {
 
     // Determine which categories need to be created
     const existingNamesSet = new Set(existingCategories.map((cat) => cat.name));
-    const newCategoryNames = normalizedNames.filter((name) => !existingNamesSet.has(name));
+    const newCategoryNames = normalizedNames.filter(
+      (name) => !existingNamesSet.has(name),
+    );
 
     // Create all new categories in one batch
     let newCategories: Category[] = [];
     if (newCategoryNames.length > 0) {
-      newCategories = newCategoryNames.map((name) => this.categoryRepository.create({ name }));
+      newCategories = newCategoryNames.map((name) =>
+        this.categoryRepository.create({ name }),
+      );
       await this.categoryRepository.save(newCategories);
     }
 

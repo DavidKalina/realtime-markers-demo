@@ -8,15 +8,14 @@ import {
   Alert,
   FlatList,
   Keyboard,
-  ScrollView,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedRef,
   useAnimatedScrollHandler,
-  useSharedValue
+  useSharedValue,
 } from "react-native-reanimated";
 import { Filter as FilterType } from "../../services/ApiClient";
 import Header from "../Layout/Header";
@@ -65,8 +64,6 @@ const FiltersView: React.FC = () => {
   const scrollY = useSharedValue(0);
   const listRef = useAnimatedRef<FlatList>();
   const isMounted = useRef(true);
-  const scrollViewRef = useRef<ScrollView>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Add modal animation cleanup
   const modalAnimationProgress = useSharedValue(0);
@@ -79,8 +76,6 @@ const FiltersView: React.FC = () => {
     modalAnimationProgress.value = 0;
     modalContentAnimationProgress.value = 0;
   }, []);
-
-
 
   // Scroll handler
   const scrollHandler = useAnimatedScrollHandler({
@@ -148,7 +143,10 @@ const FiltersView: React.FC = () => {
     const saveActiveFilters = async () => {
       try {
         if (activeFilterIds.length > 0) {
-          await AsyncStorage.setItem(ACTIVE_FILTERS_KEY, JSON.stringify(activeFilterIds));
+          await AsyncStorage.setItem(
+            ACTIVE_FILTERS_KEY,
+            JSON.stringify(activeFilterIds),
+          );
         } else {
           await AsyncStorage.removeItem(ACTIVE_FILTERS_KEY);
         }
@@ -203,16 +201,18 @@ const FiltersView: React.FC = () => {
     setEndDate(filter.criteria.dateRange?.end || "");
     setIsLocationEnabled(!!filter.criteria.location);
     setRadius(
-      filter.criteria.location?.radius ? filter.criteria.location.radius / 1000 : undefined
+      filter.criteria.location?.radius
+        ? filter.criteria.location.radius / 1000
+        : undefined,
     );
     setLocation(
       filter.criteria.location?.latitude !== undefined &&
         filter.criteria.location?.longitude !== undefined
         ? {
-          latitude: filter.criteria.location.latitude,
-          longitude: filter.criteria.location.longitude,
-        }
-        : null
+            latitude: filter.criteria.location.latitude,
+            longitude: filter.criteria.location.longitude,
+          }
+        : null,
     );
     setModalVisible(true);
   };
@@ -220,25 +220,31 @@ const FiltersView: React.FC = () => {
   // Delete a filter
   const handleDeleteFilter = (filterId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    Alert.alert("Delete Filter", "Are you sure you want to delete this filter?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteFilter(filterId);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          } catch (err) {
-            console.error("Error deleting filter:", err);
-            Alert.alert("Error", "Failed to delete filter");
-          }
+    Alert.alert(
+      "Delete Filter",
+      "Are you sure you want to delete this filter?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
         },
-      },
-    ]);
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteFilter(filterId);
+              Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Success,
+              );
+            } catch (err) {
+              console.error("Error deleting filter:", err);
+              Alert.alert("Error", "Failed to delete filter");
+            }
+          },
+        },
+      ],
+    );
   };
 
   // Apply a filter
@@ -320,21 +326,21 @@ const FiltersView: React.FC = () => {
         // Update date range if provided
         ...(startDate && endDate
           ? {
-            dateRange: {
-              start: startDate,
-              end: endDate,
-            },
-          }
+              dateRange: {
+                start: startDate,
+                end: endDate,
+              },
+            }
           : {}),
         // Update location if enabled
         ...(isLocationEnabled && location && radius
           ? {
-            location: {
-              latitude: location.latitude,
-              longitude: location.longitude,
-              radius: radius * 1000,
-            },
-          }
+              location: {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                radius: radius * 1000,
+              },
+            }
           : {}),
       },
     };
@@ -403,7 +409,7 @@ const FiltersView: React.FC = () => {
           <Animated.FlatList
             ref={listRef}
             data={filters}
-            renderItem={({ index, item }) => (
+            renderItem={({ item }) => (
               <FilterListItem
                 item={item}
                 activeFilterIds={activeFilterIds}
@@ -421,7 +427,12 @@ const FiltersView: React.FC = () => {
         )}
       </View>
 
-      {filters.length > 0 && <BottomActionBar onClearFilters={handleClearFilters} isClearing={isClearing} />}
+      {filters.length > 0 && (
+        <BottomActionBar
+          onClearFilters={handleClearFilters}
+          isClearing={isClearing}
+        />
+      )}
 
       <FilterFormModal
         visible={modalVisible}

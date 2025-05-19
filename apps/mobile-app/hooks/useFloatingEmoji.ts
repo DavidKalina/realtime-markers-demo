@@ -20,7 +20,7 @@ export const useFloatingEmoji = () => {
         easing: Easing.linear,
       }),
       -1,
-      true
+      true,
     );
   }, []);
 

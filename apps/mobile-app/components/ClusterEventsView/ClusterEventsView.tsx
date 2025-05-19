@@ -3,19 +3,25 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import { EventType } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Calendar, MapPin, Tag, Check } from "lucide-react-native"; // Added ArrowLeft and Check
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Calendar, Check, MapPin, Tag } from "lucide-react-native"; // Added ArrowLeft and Check
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
+  Clipboard,
   Dimensions,
   FlatList,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Clipboard,
 } from "react-native";
 import Animated, {
   Extrapolate, // Added Extrapolate
@@ -28,13 +34,12 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import EventItem from "../EventItem/EventItem";
-import Card from "../Layout/Card";
 // import Header from "../Layout/Header"; // We'll integrate header functionality
-import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
-import Tabs, { TabItem } from "../Layout/Tabs";
-import EventMapPreview from "../EventDetails/EventMapPreview";
 import MapboxGL from "@rnmapbox/maps";
 import { useFlyOverCamera } from "../../hooks/useFlyOverCamera";
+import EventMapPreview from "../EventDetails/EventMapPreview";
+import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
+import Tabs, { TabItem } from "../Layout/Tabs";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -567,27 +572,6 @@ const styles = StyleSheet.create({
   },
 });
 
-// Memoized TabButton component (no change)
-const TabButton = memo<{
-  icon: React.ElementType;
-  label: string;
-  isActive: boolean;
-  onPress: () => void;
-}>(({ icon: Icon, label, isActive, onPress }) => (
-  <TouchableOpacity
-    style={[styles.tab, isActive && styles.activeTab]}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    <Icon
-      size={16}
-      color={isActive ? COLORS.accent : COLORS.textSecondary}
-      style={styles.tabIcon}
-    />
-    <Text style={[styles.tabText, isActive && styles.activeTabText]}>{label}</Text>
-  </TouchableOpacity>
-));
-
 // Memoized AnimatedEventCard component (no change)
 const AnimatedEventCard = memo<{
   event: EventType;
@@ -595,7 +579,10 @@ const AnimatedEventCard = memo<{
   index: number;
 }>(({ event, onPress, index }) => {
   return (
-    <Animated.View entering={FadeInDown.delay(index * 100).springify()} layout={Layout.springify()}>
+    <Animated.View
+      entering={FadeInDown.delay(index * 100).springify()}
+      layout={Layout.springify()}
+    >
       <EventItem
         event={event}
         onPress={onPress}
@@ -653,7 +640,10 @@ const FeaturedEvent = memo<{
     // Add a small delay to ensure map is initialized
     const timer = setTimeout(() => {
       if (event.coordinates && cameraRef.current) {
-        console.log("Starting fly over animation for coordinates:", event.coordinates);
+        console.log(
+          "Starting fly over animation for coordinates:",
+          event.coordinates,
+        );
         flyOver(event.coordinates, {
           duration: 2000,
           minPitch: 45,
@@ -665,7 +655,9 @@ const FeaturedEvent = memo<{
           speed: 0.5,
         });
       } else {
-        console.log("Cannot start fly over - missing coordinates or camera ref");
+        console.log(
+          "Cannot start fly over - missing coordinates or camera ref",
+        );
       }
     }, 1000); // 1 second delay
 
@@ -697,7 +689,9 @@ const FeaturedEvent = memo<{
       <View style={styles.featuredEventContent}>
         {/* Time Badge */}
         <View style={[styles.timeBadge, isToday && styles.timeBadgeToday]}>
-          <Text style={[styles.timeBadgeText, isToday && styles.timeBadgeTextToday]}>
+          <Text
+            style={[styles.timeBadgeText, isToday && styles.timeBadgeTextToday]}
+          >
             {timeString}
           </Text>
         </View>
@@ -778,16 +772,22 @@ const FeaturedCreator = memo<{
     <View style={styles.featuredCreatorContent}>
       <View style={styles.featuredCreatorHeader}>
         <View style={styles.featuredCreatorAvatar}>
-          <Text style={styles.featuredCreatorAvatarText}>{getInitials(creator.displayName)}</Text>
+          <Text style={styles.featuredCreatorAvatarText}>
+            {getInitials(creator.displayName)}
+          </Text>
         </View>
         <View style={styles.featuredCreatorInfo}>
           <Text style={styles.featuredCreatorName}>{creator.displayName}</Text>
           <View style={styles.featuredCreatorStats}>
             <View style={styles.featuredCreatorStat}>
-              <Text style={styles.featuredCreatorStatText}>{creator.eventCount} Events</Text>
+              <Text style={styles.featuredCreatorStatText}>
+                {creator.eventCount} Events
+              </Text>
             </View>
             <View style={styles.featuredCreatorStat}>
-              <Text style={styles.featuredCreatorStatText}>{creator.title}</Text>
+              <Text style={styles.featuredCreatorStatText}>
+                {creator.title}
+              </Text>
             </View>
           </View>
         </View>
@@ -823,9 +823,13 @@ const EventsListSection = memo<EventsListSectionProps>(
   ({ title, icon: Icon, events, onEventPress, useScrollView = false }) => {
     const renderItem = useCallback(
       ({ item, index }: { item: EventType; index: number }) => (
-        <AnimatedEventCard event={item} onPress={() => onEventPress(item)} index={index} />
+        <AnimatedEventCard
+          event={item}
+          onPress={() => onEventPress(item)}
+          index={index}
+        />
       ),
-      [onEventPress]
+      [onEventPress],
     );
     const keyExtractor = useCallback((item: EventType) => item.id, []);
 
@@ -838,9 +842,14 @@ const EventsListSection = memo<EventsListSectionProps>(
         <View style={styles.eventsListInner}>
           {events.length === 0 ? (
             <View
-              style={[styles.emptyListContainer, { height: 450 - 50 /* approx header height */ }]}
+              style={[
+                styles.emptyListContainer,
+                { height: 450 - 50 /* approx header height */ },
+              ]}
             >
-              <Text style={styles.emptyListText}>No events found for "{title}"</Text>
+              <Text style={styles.emptyListText}>
+                No events found for "{title}"
+              </Text>
             </View>
           ) : useScrollView ? (
             <ScrollView
@@ -880,14 +889,16 @@ const EventsListSection = memo<EventsListSectionProps>(
         </View>
       </View>
     );
-  }
+  },
 );
 
 // Main component
 const ClusterEventsView: React.FC = () => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<"categories" | "locations" | "today">("categories");
+  const [activeTab, setActiveTab] = useState<
+    "categories" | "locations" | "today"
+  >("categories");
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState<number>(0);
   const [currentLocationIndex, setCurrentLocationIndex] = useState<number>(0);
   const [hubData, setHubData] = useState<HubDataType | null>(null);
@@ -898,11 +909,12 @@ const ClusterEventsView: React.FC = () => {
 
   // Animation for the Zone Banner
   const zoneBannerAnimatedStyle = useAnimatedStyle(() => {
-    const bannerPaddingVertical = interpolate(scrollY.value, [0, 100], [24, 12], Extrapolate.CLAMP);
-    const emojiSize = interpolate(scrollY.value, [0, 100], [48, 32], Extrapolate.CLAMP);
-    const nameSize = interpolate(scrollY.value, [0, 100], [28, 20], Extrapolate.CLAMP);
-    const nameMarginBottom = interpolate(scrollY.value, [0, 100], [8, 4], Extrapolate.CLAMP);
-    const descriptionOpacity = interpolate(scrollY.value, [0, 50], [1, 0], Extrapolate.CLAMP);
+    const bannerPaddingVertical = interpolate(
+      scrollY.value,
+      [0, 100],
+      [24, 12],
+      Extrapolate.CLAMP,
+    );
 
     return {
       paddingBottom: bannerPaddingVertical,
@@ -922,17 +934,20 @@ const ClusterEventsView: React.FC = () => {
     }
   }, [router]);
 
-  const handleTabPress = useCallback((tab: "categories" | "locations" | "today") => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActiveTab(tab);
-  }, []);
+  const handleTabPress = useCallback(
+    (tab: "categories" | "locations" | "today") => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setActiveTab(tab);
+    },
+    [],
+  );
 
   const handleEventPress = useCallback(
     (event: EventType) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       router.push(`/details?eventId=${event.id}` as never);
     },
-    [router]
+    [router],
   );
 
   const fetchClusterHubData = useCallback(async () => {
@@ -940,7 +955,8 @@ const ClusterEventsView: React.FC = () => {
       setIsLoading(true);
       const markerIds =
         selectedItem?.type === "cluster"
-          ? (selectedItem as any).childrenIds || []
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (selectedItem as any).childrenIds || []
           : markers.map((marker) => marker.id);
 
       if (markerIds.length === 0) {
@@ -953,14 +969,17 @@ const ClusterEventsView: React.FC = () => {
       // Add a check to prevent unnecessary API calls
       const currentMarkerIds = hubData
         ? selectedItem?.type === "cluster"
-          ? (selectedItem as any).childrenIds || []
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (selectedItem as any).childrenIds || []
           : markers.map((marker) => marker.id)
         : [];
 
       // If the marker IDs haven't changed, don't make a new request
       if (
         currentMarkerIds.length === markerIds.length &&
-        currentMarkerIds.every((id: string, index: number) => id === markerIds[index])
+        currentMarkerIds.every(
+          (id: string, index: number) => id === markerIds[index],
+        )
       ) {
         setIsLoading(false);
         return;
@@ -989,13 +1008,17 @@ const ClusterEventsView: React.FC = () => {
 
   // Memoized page indicators
   const renderCategoryPageIndicator = useMemo(() => {
-    if (!hubData?.eventsByCategory || hubData.eventsByCategory.length <= 1) return null;
+    if (!hubData?.eventsByCategory || hubData.eventsByCategory.length <= 1)
+      return null;
     return (
       <View style={styles.pageIndicator}>
         {hubData.eventsByCategory.map((_, index) => (
           <View
             key={`cat-dot-${index}`}
-            style={[styles.dot, index === currentCategoryIndex && styles.activeDot]}
+            style={[
+              styles.dot,
+              index === currentCategoryIndex && styles.activeDot,
+            ]}
           />
         ))}
       </View>
@@ -1003,13 +1026,17 @@ const ClusterEventsView: React.FC = () => {
   }, [hubData?.eventsByCategory, currentCategoryIndex]);
 
   const renderLocationPageIndicator = useMemo(() => {
-    if (!hubData?.eventsByLocation || hubData.eventsByLocation.length <= 1) return null;
+    if (!hubData?.eventsByLocation || hubData.eventsByLocation.length <= 1)
+      return null;
     return (
       <View style={styles.pageIndicator}>
         {hubData.eventsByLocation.map((_, index) => (
           <View
             key={`loc-dot-${index}`}
-            style={[styles.dot, index === currentLocationIndex && styles.activeDot]}
+            style={[
+              styles.dot,
+              index === currentLocationIndex && styles.activeDot,
+            ]}
           />
         ))}
       </View>
@@ -1027,7 +1054,7 @@ const ClusterEventsView: React.FC = () => {
         />
       </View>
     ),
-    [handleEventPress]
+    [handleEventPress],
   );
 
   const renderLocationItem = useCallback(
@@ -1041,30 +1068,37 @@ const ClusterEventsView: React.FC = () => {
         />
       </View>
     ),
-    [handleEventPress]
+    [handleEventPress],
   );
 
   const categoryKeyExtractor = useCallback(
-    (item: { category: CategoryType; events: EventType[] }) => `cat-${item.category.id}`,
-    []
+    (item: { category: CategoryType; events: EventType[] }) =>
+      `cat-${item.category.id}`,
+    [],
   );
 
   const locationKeyExtractor = useCallback(
     (item: { location: string; events: EventType[] }) => `loc-${item.location}`,
-    []
+    [],
   );
 
   const renderActiveTabContent = useMemo(() => {
     if (!hubData) return null;
 
-    const itemWidth = SCREEN_WIDTH - (styles.tabContentWrapper.paddingHorizontal || 0) * 2;
+    const itemWidth =
+      SCREEN_WIDTH - (styles.tabContentWrapper.paddingHorizontal || 0) * 2;
 
     switch (activeTab) {
       case "categories":
-        if (!hubData.eventsByCategory || hubData.eventsByCategory.length === 0) {
+        if (
+          !hubData.eventsByCategory ||
+          hubData.eventsByCategory.length === 0
+        ) {
           return (
             <View style={styles.emptyListContainer}>
-              <Text style={styles.emptyListText}>No events found by category.</Text>
+              <Text style={styles.emptyListText}>
+                No events found by category.
+              </Text>
             </View>
           );
         }
@@ -1078,7 +1112,9 @@ const ClusterEventsView: React.FC = () => {
               keyExtractor={categoryKeyExtractor}
               renderItem={renderCategoryItem}
               onMomentumScrollEnd={(event) => {
-                const newIndex = Math.round(event.nativeEvent.contentOffset.x / itemWidth);
+                const newIndex = Math.round(
+                  event.nativeEvent.contentOffset.x / itemWidth,
+                );
                 if (newIndex !== currentCategoryIndex) {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setCurrentCategoryIndex(newIndex);
@@ -1097,10 +1133,15 @@ const ClusterEventsView: React.FC = () => {
           </>
         );
       case "locations":
-        if (!hubData.eventsByLocation || hubData.eventsByLocation.length === 0) {
+        if (
+          !hubData.eventsByLocation ||
+          hubData.eventsByLocation.length === 0
+        ) {
           return (
             <View style={styles.emptyListContainer}>
-              <Text style={styles.emptyListText}>No events found by location.</Text>
+              <Text style={styles.emptyListText}>
+                No events found by location.
+              </Text>
             </View>
           );
         }
@@ -1114,7 +1155,9 @@ const ClusterEventsView: React.FC = () => {
               keyExtractor={locationKeyExtractor}
               renderItem={renderLocationItem}
               onMomentumScrollEnd={(event) => {
-                const newIndex = Math.round(event.nativeEvent.contentOffset.x / itemWidth);
+                const newIndex = Math.round(
+                  event.nativeEvent.contentOffset.x / itemWidth,
+                );
                 if (newIndex !== currentLocationIndex) {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setCurrentLocationIndex(newIndex);
@@ -1136,7 +1179,9 @@ const ClusterEventsView: React.FC = () => {
         if (!hubData.eventsToday || hubData.eventsToday.length === 0) {
           return (
             <View style={styles.emptyListContainer}>
-              <Text style={styles.emptyListText}>No events happening today.</Text>
+              <Text style={styles.emptyListText}>
+                No events happening today.
+              </Text>
             </View>
           );
         }
@@ -1169,17 +1214,36 @@ const ClusterEventsView: React.FC = () => {
   // Animated styles for individual banner elements
   const animatedBannerEmojiStyle = useAnimatedStyle(() => ({
     fontSize: interpolate(scrollY.value, [0, 100], [48, 32], Extrapolate.CLAMP),
-    marginBottom: interpolate(scrollY.value, [0, 100], [12, 6], Extrapolate.CLAMP),
+    marginBottom: interpolate(
+      scrollY.value,
+      [0, 100],
+      [12, 6],
+      Extrapolate.CLAMP,
+    ),
   }));
 
   const animatedBannerNameStyle = useAnimatedStyle(() => ({
     fontSize: interpolate(scrollY.value, [0, 100], [28, 22], Extrapolate.CLAMP),
-    marginBottom: interpolate(scrollY.value, [0, 100], [8, 4], Extrapolate.CLAMP),
+    marginBottom: interpolate(
+      scrollY.value,
+      [0, 100],
+      [8, 4],
+      Extrapolate.CLAMP,
+    ),
   }));
 
   const animatedBannerDescriptionStyle = useAnimatedStyle(() => ({
     opacity: interpolate(scrollY.value, [0, 50], [1, 0], Extrapolate.CLAMP),
-    transform: [{ scale: interpolate(scrollY.value, [0, 50], [1, 0.95], Extrapolate.CLAMP) }],
+    transform: [
+      {
+        scale: interpolate(
+          scrollY.value,
+          [0, 50],
+          [1, 0.95],
+          Extrapolate.CLAMP,
+        ),
+      },
+    ],
   }));
 
   // Loading state
@@ -1202,7 +1266,9 @@ const ClusterEventsView: React.FC = () => {
           <ArrowLeft size={20} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <View style={styles.loadingContainer}>
-          <Text style={styles.emptyListText}>🚫 Zone not found or no activities here.</Text>
+          <Text style={styles.emptyListText}>
+            🚫 Zone not found or no activities here.
+          </Text>
         </View>
       </ScreenLayout>
     );
@@ -1231,16 +1297,28 @@ const ClusterEventsView: React.FC = () => {
           style={[styles.zoneBanner, zoneBannerAnimatedStyle]}
           layout={LinearTransition.springify()}
         >
-          <TouchableOpacity onPress={handleBack} style={styles.bannerBackButton}>
+          <TouchableOpacity
+            onPress={handleBack}
+            style={styles.bannerBackButton}
+          >
             <ArrowLeft size={20} color={COLORS.textPrimary} />
           </TouchableOpacity>
-          <Animated.Text style={[styles.zoneBannerEmoji, animatedBannerEmojiStyle]}>
+          <Animated.Text
+            style={[styles.zoneBannerEmoji, animatedBannerEmojiStyle]}
+          >
             {hubData.clusterEmoji}
           </Animated.Text>
-          <Animated.Text style={[styles.zoneBannerName, animatedBannerNameStyle]}>
+          <Animated.Text
+            style={[styles.zoneBannerName, animatedBannerNameStyle]}
+          >
             {hubData.clusterName}
           </Animated.Text>
-          <Animated.Text style={[styles.zoneBannerDescription, animatedBannerDescriptionStyle]}>
+          <Animated.Text
+            style={[
+              styles.zoneBannerDescription,
+              animatedBannerDescriptionStyle,
+            ]}
+          >
             {hubData.clusterDescription}
           </Animated.Text>
         </Animated.View>
@@ -1259,7 +1337,9 @@ const ClusterEventsView: React.FC = () => {
               </View>
               <FeaturedEvent
                 event={hubData.featuredEvent}
-                onPress={() => handleEventPress(hubData.featuredEvent as EventType)}
+                onPress={() =>
+                  handleEventPress(hubData.featuredEvent as EventType)
+                }
               />
             </View>
           )}

@@ -47,31 +47,42 @@ export class CacheService {
   }
 
   static getCacheStats() {
-    const totalEmbedding = this.cacheStats.embeddingHits + this.cacheStats.embeddingMisses;
-    const totalCategory = this.cacheStats.categoryHits + this.cacheStats.categoryMisses;
-    const totalVision = this.cacheStats.visionHits + this.cacheStats.visionMisses;
+    const totalEmbedding =
+      this.cacheStats.embeddingHits + this.cacheStats.embeddingMisses;
+    const totalCategory =
+      this.cacheStats.categoryHits + this.cacheStats.categoryMisses;
+    const totalVision =
+      this.cacheStats.visionHits + this.cacheStats.visionMisses;
     const totalRedis = this.cacheStats.redisHits + this.cacheStats.redisMisses;
 
     return {
       embedding: {
         hits: this.cacheStats.embeddingHits,
         misses: this.cacheStats.embeddingMisses,
-        hitRate: totalEmbedding ? (this.cacheStats.embeddingHits / totalEmbedding) * 100 : 0,
+        hitRate: totalEmbedding
+          ? (this.cacheStats.embeddingHits / totalEmbedding) * 100
+          : 0,
       },
       category: {
         hits: this.cacheStats.categoryHits,
         misses: this.cacheStats.categoryMisses,
-        hitRate: totalCategory ? (this.cacheStats.categoryHits / totalCategory) * 100 : 0,
+        hitRate: totalCategory
+          ? (this.cacheStats.categoryHits / totalCategory) * 100
+          : 0,
       },
       vision: {
         hits: this.cacheStats.visionHits,
         misses: this.cacheStats.visionMisses,
-        hitRate: totalVision ? (this.cacheStats.visionHits / totalVision) * 100 : 0,
+        hitRate: totalVision
+          ? (this.cacheStats.visionHits / totalVision) * 100
+          : 0,
       },
       redis: {
         hits: this.cacheStats.redisHits,
         misses: this.cacheStats.redisMisses,
-        hitRate: totalRedis ? (this.cacheStats.redisHits / totalRedis) * 100 : 0,
+        hitRate: totalRedis
+          ? (this.cacheStats.redisHits / totalRedis) * 100
+          : 0,
       },
       uptime: Date.now() - this.cacheStats.lastReset,
     };
@@ -146,7 +157,11 @@ export class CacheService {
   /**
    * Generic method to set cached data in Redis
    */
-  static async setCachedData(key: string, data: string, ttlSeconds: number = 600): Promise<void> {
+  static async setCachedData(
+    key: string,
+    data: string,
+    ttlSeconds: number = 600,
+  ): Promise<void> {
     try {
       // For vision results, also store in memory for faster access
       if (key.startsWith("vision:")) {
@@ -197,6 +212,7 @@ export class CacheService {
     return result;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async getCachedSearch(key: string): Promise<any | null> {
     if (!this.redisClient) return null;
 
@@ -207,10 +223,20 @@ export class CacheService {
     return null;
   }
 
-  static async setCachedSearch(key: string, results: any, ttlSeconds: number = 600): Promise<void> {
+  static async setCachedSearch(
+    key: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    results: any,
+    ttlSeconds: number = 600,
+  ): Promise<void> {
     if (!this.redisClient) return;
 
-    await this.redisClient.set(`search:${key}`, JSON.stringify(results), "EX", ttlSeconds);
+    await this.redisClient.set(
+      `search:${key}`,
+      JSON.stringify(results),
+      "EX",
+      ttlSeconds,
+    );
   }
 
   static async invalidateSearchCache(): Promise<void> {
@@ -222,7 +248,7 @@ export class CacheService {
     }
   }
 
-  static async getCachedEvent(id: string): Promise<any | null> {
+  static async getCachedEvent(id: string): Promise<Event | null> {
     if (!this.redisClient) return null;
 
     const cached = await this.redisClient.get(`event:${id}`);
@@ -232,10 +258,19 @@ export class CacheService {
     return null;
   }
 
-  static async setCachedEvent(id: string, event: any, ttlSeconds: number = 3600): Promise<void> {
+  static async setCachedEvent(
+    id: string,
+    event: Event,
+    ttlSeconds: number = 3600,
+  ): Promise<void> {
     if (!this.redisClient) return;
 
-    await this.redisClient.set(`event:${id}`, JSON.stringify(event), "EX", ttlSeconds);
+    await this.redisClient.set(
+      `event:${id}`,
+      JSON.stringify(event),
+      "EX",
+      ttlSeconds,
+    );
   }
 
   static async invalidateEventCache(id: string): Promise<void> {
@@ -266,7 +301,9 @@ export class CacheService {
     if (mbUsed / mbTotal > 0.85) {
       this.embeddingCache.clear();
       this.categoryCache.clear();
-      console.warn(`Memory pressure detected: ${mbUsed}MB/${mbTotal}MB - Cache cleared`);
+      console.warn(
+        `Memory pressure detected: ${mbUsed}MB/${mbTotal}MB - Cache cleared`,
+      );
     }
   }
 
@@ -317,6 +354,7 @@ export class CacheService {
     return this.redisClient;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async getCachedClusterHub(markerIds: string[]): Promise<any | null> {
     if (!this.redisClient) return null;
 
@@ -330,8 +368,9 @@ export class CacheService {
 
   static async setCachedClusterHub(
     markerIds: string[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: any,
-    ttlSeconds: number = 300
+    ttlSeconds: number = 300,
   ): Promise<void> {
     if (!this.redisClient) return;
 
@@ -358,6 +397,7 @@ export class CacheService {
   /**
    * Get cached friends list for a user
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async getCachedFriends(userId: string): Promise<any | null> {
     if (!this.redisClient) return null;
 
@@ -373,6 +413,7 @@ export class CacheService {
   /**
    * Cache a user's friends list
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static async setCachedFriends(userId: string, friends: any[]): Promise<void> {
     if (!this.redisClient) return;
 
@@ -381,7 +422,7 @@ export class CacheService {
         `friends:${userId}`,
         JSON.stringify(friends),
         "EX",
-        this.FRIENDS_TTL
+        this.FRIENDS_TTL,
       );
     } catch (error) {
       console.error(`Error caching friends for user ${userId}:`, error);
@@ -393,11 +434,14 @@ export class CacheService {
    */
   static async getCachedFriendRequests(
     userId: string,
-    type: "incoming" | "outgoing"
+    type: "incoming" | "outgoing",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any | null> {
     if (!this.redisClient) return null;
 
-    const cached = await this.redisClient.get(`friend-requests:${type}:${userId}`);
+    const cached = await this.redisClient.get(
+      `friend-requests:${type}:${userId}`,
+    );
     if (cached) {
       this.cacheStats.redisHits++;
       return JSON.parse(cached);
@@ -412,7 +456,8 @@ export class CacheService {
   static async setCachedFriendRequests(
     userId: string,
     type: "incoming" | "outgoing",
-    requests: any[]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    requests: any[],
   ): Promise<void> {
     if (!this.redisClient) return;
 
@@ -421,10 +466,13 @@ export class CacheService {
         `friend-requests:${type}:${userId}`,
         JSON.stringify(requests),
         "EX",
-        this.FRIEND_REQUESTS_TTL
+        this.FRIEND_REQUESTS_TTL,
       );
     } catch (error) {
-      console.error(`Error caching ${type} friend requests for user ${userId}:`, error);
+      console.error(
+        `Error caching ${type} friend requests for user ${userId}:`,
+        error,
+      );
     }
   }
 
@@ -436,27 +484,40 @@ export class CacheService {
 
     try {
       const keys = await this.redisClient.keys(`friends:${userId}`);
-      keys.push(...(await this.redisClient.keys(`friend-requests:*:${userId}`)));
+      keys.push(
+        ...(await this.redisClient.keys(`friend-requests:*:${userId}`)),
+      );
 
       if (keys.length > 0) {
         await this.redisClient.del(...keys);
       }
     } catch (error) {
-      console.error(`Error invalidating friend caches for user ${userId}:`, error);
+      console.error(
+        `Error invalidating friend caches for user ${userId}:`,
+        error,
+      );
     }
   }
 
   /**
    * Invalidate friend caches for both users involved in a friendship action
    */
-  static async invalidateFriendshipCaches(userId1: string, userId2: string): Promise<void> {
-    await Promise.all([this.invalidateFriendCaches(userId1), this.invalidateFriendCaches(userId2)]);
+  static async invalidateFriendshipCaches(
+    userId1: string,
+    userId2: string,
+  ): Promise<void> {
+    await Promise.all([
+      this.invalidateFriendCaches(userId1),
+      this.invalidateFriendCaches(userId2),
+    ]);
   }
 
   /**
    * Get cached notifications for a user
    */
-  static async getCachedNotifications(userId: string): Promise<CachedNotifications | null> {
+  static async getCachedNotifications(
+    userId: string,
+  ): Promise<CachedNotifications | null> {
     if (!this.redisClient) return null;
 
     const cached = await this.redisClient.get(`notifications:cache:${userId}`);
@@ -471,7 +532,10 @@ export class CacheService {
   /**
    * Cache notifications for a user
    */
-  static async setCachedNotifications(userId: string, data: CachedNotifications): Promise<void> {
+  static async setCachedNotifications(
+    userId: string,
+    data: CachedNotifications,
+  ): Promise<void> {
     if (!this.redisClient) return;
 
     try {
@@ -479,7 +543,7 @@ export class CacheService {
         `notifications:cache:${userId}`,
         JSON.stringify(data),
         "EX",
-        300 // 5 minutes TTL
+        300, // 5 minutes TTL
       );
     } catch (error) {
       console.error(`Error caching notifications for user ${userId}:`, error);
@@ -495,7 +559,10 @@ export class CacheService {
     try {
       await this.redisClient.del(`notifications:cache:${userId}`);
     } catch (error) {
-      console.error(`Error invalidating notification cache for user ${userId}:`, error);
+      console.error(
+        `Error invalidating notification cache for user ${userId}:`,
+        error,
+      );
     }
   }
 }

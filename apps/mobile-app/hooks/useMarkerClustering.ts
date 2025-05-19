@@ -89,13 +89,13 @@ const SUPERCLUSTER_OPTIONS: Supercluster.Options<
   maxZoom: 16,
   minZoom: 0,
   minPoints: 2,
-  map: ((props: PointProperties): PointProperties => props) as any,
+  map: ((props: PointProperties): PointProperties => props) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
 };
 
 export const useMarkerClustering = (
   markers: Marker[],
   viewport: MapboxViewport | null,
-  currentZoom: number
+  currentZoom: number,
 ): ClusteringResult => {
   // Memoize GeoJSON points
   const points: InputPointFeatureInternal[] = useMemo(() => {
@@ -112,7 +112,7 @@ export const useMarkerClustering = (
             type: "Point",
             coordinates: marker.coordinates,
           },
-        } as InputPointFeatureInternal)
+        }) as InputPointFeatureInternal,
     );
   }, [markers]);
 
@@ -145,54 +145,69 @@ export const useMarkerClustering = (
 
   // Memoize final processed clusters mapped to output format
   const processedClusters = useMemo((): (ClusterFeature | PointFeature)[] => {
-    return rawClustersAndPoints.map((feature): ClusterFeature | PointFeature => {
-      if (feature.properties?.cluster === true) {
-        // Cluster
-        const clusterFeatureInternal = feature as SuperclusterClusterFeatureInternal;
-        const clusterId = clusterFeatureInternal.properties.cluster_id;
-        let childMarkerIds: string[] = [];
+    return rawClustersAndPoints.map(
+      (feature): ClusterFeature | PointFeature => {
+        if (feature.properties?.cluster === true) {
+          // Cluster
+          const clusterFeatureInternal =
+            feature as SuperclusterClusterFeatureInternal;
+          const clusterId = clusterFeatureInternal.properties.cluster_id;
+          let childMarkerIds: string[] = [];
 
-        try {
-          const leaves = supercluster.getLeaves(clusterId, Infinity) as InputPointFeatureInternal[];
-          childMarkerIds = leaves.map((leaf) => leaf.properties.id);
-        } catch (error) {
-          console.error(`Error getting leaves for cluster ${clusterId}:`, error);
+          try {
+            const leaves = supercluster.getLeaves(
+              clusterId,
+              Infinity,
+            ) as InputPointFeatureInternal[];
+            childMarkerIds = leaves.map((leaf) => leaf.properties.id);
+          } catch (error) {
+            console.error(
+              `Error getting leaves for cluster ${clusterId}:`,
+              error,
+            );
+          }
+
+          const stableId = generateStableClusterId(childMarkerIds);
+          const outputGeometry: OutputPointGeometry = {
+            type: "Point",
+            coordinates: clusterFeatureInternal.geometry.coordinates as [
+              number,
+              number,
+            ],
+          };
+
+          return {
+            type: "Feature",
+            properties: {
+              ...clusterFeatureInternal.properties,
+              stableId,
+              childMarkers: childMarkerIds,
+            },
+            geometry: outputGeometry,
+          };
+        } else {
+          // Point
+          const pointFeatureInternal = feature as InputPointFeatureInternal;
+          const outputGeometry: OutputPointGeometry = {
+            type: "Point",
+            coordinates: pointFeatureInternal.geometry.coordinates as [
+              number,
+              number,
+            ],
+          };
+
+          return {
+            type: "Feature",
+            properties: {
+              cluster: false,
+              id: pointFeatureInternal.properties.id,
+              data: pointFeatureInternal.properties.data,
+            },
+            geometry: outputGeometry,
+          };
         }
-
-        const stableId = generateStableClusterId(childMarkerIds);
-        const outputGeometry: OutputPointGeometry = {
-          type: "Point",
-          coordinates: clusterFeatureInternal.geometry.coordinates as [number, number],
-        };
-
-        return {
-          type: "Feature",
-          properties: {
-            ...clusterFeatureInternal.properties,
-            stableId,
-            childMarkers: childMarkerIds,
-          },
-          geometry: outputGeometry,
-        };
-      } else {
-        // Point
-        const pointFeatureInternal = feature as InputPointFeatureInternal;
-        const outputGeometry: OutputPointGeometry = {
-          type: "Point",
-          coordinates: pointFeatureInternal.geometry.coordinates as [number, number],
-        };
-
-        return {
-          type: "Feature",
-          properties: {
-            cluster: false,
-            id: pointFeatureInternal.properties.id,
-            data: pointFeatureInternal.properties.data,
-          },
-          geometry: outputGeometry,
-        };
-      }
-    });
+      },
+    );
   }, [rawClustersAndPoints, supercluster]);
 
   return {

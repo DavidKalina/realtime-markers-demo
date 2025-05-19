@@ -52,12 +52,15 @@ export const MapRippleEffect: React.FC<MapRippleEffectProps> = ({
         withTiming(0, {
           duration: 300,
           easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-        })
+        }),
       );
 
       opacity.value = withSequence(
         withTiming(0.8, { duration: 300 }),
-        withDelay(700, withTiming(0, { duration: 300 }, handleAnimationComplete))
+        withDelay(
+          700,
+          withTiming(0, { duration: 300 }, handleAnimationComplete),
+        ),
       );
     }
 
@@ -73,7 +76,11 @@ export const MapRippleEffect: React.FC<MapRippleEffectProps> = ({
       position: "absolute",
       left: position.x,
       top: position.y,
-      transform: [{ translateX: -50 }, { translateY: -50 }, { scale: scale.value }],
+      transform: [
+        { translateX: -50 },
+        { translateY: -50 },
+        { scale: scale.value },
+      ],
       opacity: opacity.value,
     };
   });

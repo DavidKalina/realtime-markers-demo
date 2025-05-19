@@ -3,7 +3,9 @@ import type { Context } from "hono";
 import type { AppContext } from "../types/context";
 
 // Define a type for our handler functions
-export type FilterHandler = (c: Context<AppContext>) => Promise<Response> | Response;
+export type FilterHandler = (
+  c: Context<AppContext>,
+) => Promise<Response> | Response;
 
 /**
  * Get all filters for the current user
@@ -31,7 +33,7 @@ export const getFiltersHandler: FilterHandler = async (c) => {
         error: "Failed to fetch filters",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -55,14 +57,14 @@ export const getInternalFiltersHandler: FilterHandler = async (c) => {
   } catch (error) {
     console.error(
       `Error fetching internal user filters for userId=${c.req.query("userId")}:`,
-      error
+      error,
     );
     return c.json(
       {
         error: "Failed to fetch filters",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -88,12 +90,17 @@ export const createFilterHandler: FilterHandler = async (c) => {
     const userPreferencesService = c.get("userPreferencesService");
 
     // Check if user has any existing filters
-    const existingFilters = await userPreferencesService.getUserFilters(user.userId);
+    const existingFilters = await userPreferencesService.getUserFilters(
+      user.userId,
+    );
 
     // If there are no existing filters, allow creating a date/time only filter
     if (existingFilters.length === 0) {
       if (!filterData.criteria || !filterData.criteria.dateRange) {
-        return c.json({ error: "Date range is required for the first filter" }, 400);
+        return c.json(
+          { error: "Date range is required for the first filter" },
+          400,
+        );
       }
     } else {
       // For subsequent filters, require either semanticQuery or criteria
@@ -101,7 +108,10 @@ export const createFilterHandler: FilterHandler = async (c) => {
         !filterData.semanticQuery &&
         (!filterData.criteria || Object.keys(filterData.criteria).length === 0)
       ) {
-        return c.json({ error: "Either semanticQuery or criteria must be provided" }, 400);
+        return c.json(
+          { error: "Either semanticQuery or criteria must be provided" },
+          400,
+        );
       }
     }
 
@@ -111,7 +121,10 @@ export const createFilterHandler: FilterHandler = async (c) => {
     }
 
     // Create the filter
-    const filter = await userPreferencesService.createFilter(user.userId, filterData);
+    const filter = await userPreferencesService.createFilter(
+      user.userId,
+      filterData,
+    );
 
     return c.json(filter, 201);
   } catch (error) {
@@ -121,7 +134,7 @@ export const createFilterHandler: FilterHandler = async (c) => {
         error: "Failed to create filter",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -149,10 +162,14 @@ export const updateFilterHandler: FilterHandler = async (c) => {
 
     // Update the filter
     try {
-      const filter = await userPreferencesService.updateFilter(filterId, user.userId, filterData);
+      const filter = await userPreferencesService.updateFilter(
+        filterId,
+        user.userId,
+        filterData,
+      );
       return c.json(filter);
-    } catch (err: any) {
-      if (err.message.includes("not found")) {
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("not found")) {
         return c.json({ error: "Filter not found" }, 404);
       }
       throw err;
@@ -164,7 +181,7 @@ export const updateFilterHandler: FilterHandler = async (c) => {
         error: "Failed to update filter",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -189,10 +206,13 @@ export const deleteFilterHandler: FilterHandler = async (c) => {
 
     // Delete the filter
     try {
-      const success = await userPreferencesService.deleteFilter(filterId, user.userId);
+      const success = await userPreferencesService.deleteFilter(
+        filterId,
+        user.userId,
+      );
       return c.json({ success });
-    } catch (err: any) {
-      if (err.message.includes("not found")) {
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("not found")) {
         return c.json({ error: "Filter not found" }, 404);
       }
       throw err;
@@ -204,7 +224,7 @@ export const deleteFilterHandler: FilterHandler = async (c) => {
         error: "Failed to delete filter",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -232,7 +252,10 @@ export const applyFiltersHandler: FilterHandler = async (c) => {
     const userPreferencesService = c.get("userPreferencesService");
 
     // Set the active filters
-    const activeFilters = await userPreferencesService.applyFilters(user.userId, filterIds);
+    const activeFilters = await userPreferencesService.applyFilters(
+      user.userId,
+      filterIds,
+    );
 
     return c.json({
       message: "Filters applied successfully",
@@ -245,7 +268,7 @@ export const applyFiltersHandler: FilterHandler = async (c) => {
         error: "Failed to apply filters",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -266,7 +289,9 @@ export const clearFiltersHandler: FilterHandler = async (c) => {
     const userPreferencesService = c.get("userPreferencesService");
 
     // Clear the active filters
-    const success = await userPreferencesService.clearActiveFilters(user.userId);
+    const success = await userPreferencesService.clearActiveFilters(
+      user.userId,
+    );
 
     return c.json({
       message: "Filters cleared successfully",
@@ -279,7 +304,7 @@ export const clearFiltersHandler: FilterHandler = async (c) => {
         error: "Failed to clear filters",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -307,14 +332,20 @@ export const searchWithFilterHandler: FilterHandler = async (c) => {
     const eventService = c.get("eventService");
 
     // Get the filter
-    const filter = await userPreferencesService.getFilterById(filterId, user.userId);
+    const filter = await userPreferencesService.getFilterById(
+      filterId,
+      user.userId,
+    );
 
     if (!filter) {
       return c.json({ error: "Filter not found" }, 404);
     }
 
     // Search events using the filter
-    const results = await eventService.searchEventsByFilter(filter, { limit, offset });
+    const results = await eventService.searchEventsByFilter(filter, {
+      limit,
+      offset,
+    });
 
     return c.json(results);
   } catch (error) {
@@ -324,7 +355,7 @@ export const searchWithFilterHandler: FilterHandler = async (c) => {
         error: "Failed to search with filter",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };

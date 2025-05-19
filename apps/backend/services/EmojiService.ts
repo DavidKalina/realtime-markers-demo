@@ -36,7 +36,7 @@ export class EmojiService {
       console.log("[EmojiService] Adding search query filter:", searchQuery);
       queryBuilder.where(
         "(emoji.name ILIKE :searchQuery OR emoji.keywords::text ILIKE :searchQuery)",
-        { searchQuery: `%${searchQuery}%` }
+        { searchQuery: `%${searchQuery}%` },
       );
     }
 
@@ -53,12 +53,19 @@ export class EmojiService {
       queryBuilder.andWhere("emoji.id > :lastEmojiId", { lastEmojiId });
     }
 
-    queryBuilder.orderBy("emoji.rank", "DESC").addOrderBy("emoji.id", "ASC").take(limit);
+    queryBuilder
+      .orderBy("emoji.rank", "DESC")
+      .addOrderBy("emoji.id", "ASC")
+      .take(limit);
 
     const emojis = await queryBuilder.getMany();
 
     // Cache the results
-    await CacheService.setCachedData(cacheKey, JSON.stringify(emojis), EmojiService.EMOJI_LIST_TTL);
+    await CacheService.setCachedData(
+      cacheKey,
+      JSON.stringify(emojis),
+      EmojiService.EMOJI_LIST_TTL,
+    );
 
     return emojis;
   }
@@ -79,7 +86,10 @@ export class EmojiService {
     return savedEmoji;
   }
 
-  async updateEmoji(id: number, emojiData: Partial<Emoji>): Promise<Emoji | null> {
+  async updateEmoji(
+    id: number,
+    emojiData: Partial<Emoji>,
+  ): Promise<Emoji | null> {
     console.log("[] Updating emoji ID:", id, "with data:", emojiData);
     await this.emojiRepository.update(id, emojiData);
     const emoji = await this.emojiRepository.findOneBy({ id });

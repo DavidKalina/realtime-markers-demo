@@ -20,7 +20,7 @@ eventsRouter.use(
       const ipInfo = c.get("ip");
       return `events:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
     },
-  })
+  }),
 );
 eventsRouter.use("*", authMiddleware);
 
@@ -33,7 +33,6 @@ eventsRouter.get("/categories", handlers.getCategoriesHandler);
 eventsRouter.get("/by-categories", handlers.getEventsByCategoriesHandler);
 eventsRouter.get("/search", handlers.searchEventsHandler);
 eventsRouter.post("/process", handlers.processEventImageHandler);
-eventsRouter.post("/clusters/names", handlers.generateClusterNamesHandler);
 eventsRouter.post("/cluster-hub", handlers.getClusterHubDataHandler);
 eventsRouter.get("/process/:jobId", handlers.getProcessingStatusHandler);
 eventsRouter.post("/private", handlers.createPrivateEventHandler);

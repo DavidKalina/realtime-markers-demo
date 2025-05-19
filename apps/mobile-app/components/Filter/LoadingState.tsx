@@ -1,6 +1,10 @@
 import React from "react";
 import { ActivityIndicator, Text } from "react-native";
-import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
 import { styles } from "./styles";
 
 export const LoadingState = React.memo(() => {

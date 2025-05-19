@@ -31,7 +31,7 @@ const GroupsView: React.FC = () => {
   const router = useRouter();
   const [groups, setGroups] = useState<GroupType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
@@ -66,7 +66,7 @@ const GroupsView: React.FC = () => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       router.push(`/group/${group.id}`);
     },
-    [router]
+    [router],
   );
 
   const handleCreateGroup = useCallback(() => {
@@ -76,11 +76,15 @@ const GroupsView: React.FC = () => {
 
   const renderCreateButton = useCallback(
     () => (
-      <TouchableOpacity style={styles.createButton} onPress={handleCreateGroup} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.createButton}
+        onPress={handleCreateGroup}
+        activeOpacity={0.7}
+      >
         <Plus size={22} color={COLORS.textPrimary} />
       </TouchableOpacity>
     ),
-    [handleCreateGroup]
+    [handleCreateGroup],
   );
 
   const fetchGroups = useCallback(
@@ -123,7 +127,9 @@ const GroupsView: React.FC = () => {
         } else {
           // Use Set to efficiently track existing group IDs
           const existingGroupIds = new Set(groups.map((group) => group.id));
-          const newGroups = convertedGroups.filter((group) => !existingGroupIds.has(group.id));
+          const newGroups = convertedGroups.filter(
+            (group) => !existingGroupIds.has(group.id),
+          );
 
           if (newGroups.length > 0) {
             setGroups((prev) => [...prev, ...newGroups]);
@@ -144,7 +150,7 @@ const GroupsView: React.FC = () => {
         }
       }
     },
-    [cursor, groups, searchQuery, isLoading]
+    [cursor, groups, searchQuery, isLoading],
   );
 
   // Update the ref whenever fetchGroups changes
@@ -227,7 +233,11 @@ const GroupsView: React.FC = () => {
 
   return (
     <ScreenLayout>
-      <Header title="Groups" onBack={handleBack} rightIcon={renderCreateButton()} />
+      <Header
+        title="Groups"
+        onBack={handleBack}
+        rightIcon={renderCreateButton()}
+      />
       <View style={styles.contentArea}>
         <View style={styles.searchContainer}>
           <Input
@@ -250,13 +260,17 @@ const GroupsView: React.FC = () => {
           onLoadMore={handleLoadMore}
           onRetry={() => fetchGroups(true)}
           onGroupPress={handleGroupPress}
-          emptyStateTitle={searchQuery.trim() ? "No groups found" : "No groups found"}
+          emptyStateTitle={
+            searchQuery.trim() ? "No groups found" : "No groups found"
+          }
           emptyStateDescription={
             searchQuery.trim()
               ? "Try adjusting your search or browse all groups."
               : "Groups you create or join will appear here. Create a group to get started!"
           }
-          emptyStateIcon={<Users size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />}
+          emptyStateIcon={
+            <Users size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />
+          }
         />
       </View>
     </ScreenLayout>

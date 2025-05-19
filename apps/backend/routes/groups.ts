@@ -19,7 +19,7 @@ groupsRouter.use(
       const ipInfo = c.get("ip");
       return `group:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
     },
-  })
+  }),
 );
 
 // --- Group CRUD ---
@@ -36,30 +36,46 @@ groupsRouter.get("/:groupId", groupHandlers.getGroupHandler); // Auth check is w
 groupsRouter.put("/:groupId", authMiddleware, groupHandlers.updateGroupHandler);
 
 // Delete a group (requires auth and ownership)
-groupsRouter.delete("/:groupId", authMiddleware, groupHandlers.deleteGroupHandler);
+groupsRouter.delete(
+  "/:groupId",
+  authMiddleware,
+  groupHandlers.deleteGroupHandler,
+);
 
 // List groups for the authenticated user (requires auth)
-groupsRouter.get("/user/me", authMiddleware, groupHandlers.getUserGroupsHandler);
+groupsRouter.get(
+  "/user/me",
+  authMiddleware,
+  groupHandlers.getUserGroupsHandler,
+);
 
 // --- Group Membership Management ---
 // Join or request to join a group (requires auth)
-groupsRouter.post("/:groupId/join", authMiddleware, groupHandlers.joinGroupHandler);
+groupsRouter.post(
+  "/:groupId/join",
+  authMiddleware,
+  groupHandlers.joinGroupHandler,
+);
 
 // Leave a group (requires auth)
-groupsRouter.post("/:groupId/leave", authMiddleware, groupHandlers.leaveGroupHandler);
+groupsRouter.post(
+  "/:groupId/leave",
+  authMiddleware,
+  groupHandlers.leaveGroupHandler,
+);
 
 // Admin: Manage membership status (approve/reject/ban) (requires auth and admin/owner role)
 groupsRouter.post(
   "/:groupId/members/:memberUserId/status",
   authMiddleware,
-  groupHandlers.manageMembershipStatusHandler
+  groupHandlers.manageMembershipStatusHandler,
 );
 
 // Admin: Update a member's role (requires auth and admin/owner role)
 groupsRouter.put(
   "/:groupId/members/:memberUserId/role",
   authMiddleware,
-  groupHandlers.updateMemberRoleHandler
+  groupHandlers.updateMemberRoleHandler,
 );
 
 // Admin: Remove a member from a group (requires auth and admin/owner role)
@@ -67,7 +83,7 @@ groupsRouter.put(
 groupsRouter.delete(
   "/:groupId/members/:memberUserId",
   authMiddleware,
-  groupHandlers.removeMemberHandler
+  groupHandlers.removeMemberHandler,
 );
 
 // Get list of members for a group (public for approved members of public groups, auth for private/pending)

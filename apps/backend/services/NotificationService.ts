@@ -10,6 +10,7 @@ export interface NotificationData {
   userId: string;
   title: string;
   message: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: Record<string, any>;
   createdAt: string;
   read: boolean;
@@ -26,7 +27,10 @@ export class NotificationService {
     this.notificationRepository = dataSource.getRepository(Notification);
   }
 
-  public static getInstance(redis: Redis, dataSource: DataSource): NotificationService {
+  public static getInstance(
+    redis: Redis,
+    dataSource: DataSource,
+  ): NotificationService {
     if (!NotificationService.instance) {
       NotificationService.instance = new NotificationService(redis, dataSource);
     }
@@ -41,7 +45,8 @@ export class NotificationService {
     type: NotificationType,
     title: string,
     message: string,
-    data?: Record<string, any>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data?: Record<string, any>,
   ): Promise<Notification> {
     // Create notification in database
     const notification = this.notificationRepository.create({
@@ -70,7 +75,7 @@ export class NotificationService {
     await this.redis.hset(
       `notifications:${userId}`,
       notification.id,
-      JSON.stringify(notificationData)
+      JSON.stringify(notificationData),
     );
 
     // Invalidate cache
@@ -82,7 +87,7 @@ export class NotificationService {
       JSON.stringify({
         type: "NEW_NOTIFICATION",
         notification: notificationData,
-      })
+      }),
     );
 
     return notification;
@@ -98,7 +103,7 @@ export class NotificationService {
       take?: number;
       read?: boolean;
       type?: NotificationType;
-    } = {}
+    } = {},
   ): Promise<{ notifications: Notification[]; total: number }> {
     // Try to get from cache first if no filters are applied
     if (
@@ -121,11 +126,15 @@ export class NotificationService {
       .where("notification.userId = :userId", { userId });
 
     if (options.read !== undefined) {
-      queryBuilder.andWhere("notification.read = :read", { read: options.read });
+      queryBuilder.andWhere("notification.read = :read", {
+        read: options.read,
+      });
     }
 
     if (options.type) {
-      queryBuilder.andWhere("notification.type = :type", { type: options.type });
+      queryBuilder.andWhere("notification.type = :type", {
+        type: options.type,
+      });
     }
 
     const total = await queryBuilder.getCount();
@@ -165,7 +174,7 @@ export class NotificationService {
     // Update in database
     await this.notificationRepository.update(
       { id: notificationId, userId },
-      { read: true, readAt: new Date() }
+      { read: true, readAt: new Date() },
     );
 
     // Update in Redis
@@ -189,7 +198,7 @@ export class NotificationService {
       await this.redis.hset(
         `notifications:${userId}`,
         notificationId,
-        JSON.stringify(notificationData)
+        JSON.stringify(notificationData),
       );
 
       // Invalidate cache
@@ -200,7 +209,10 @@ export class NotificationService {
   /**
    * Delete a notification
    */
-  async deleteNotification(userId: string, notificationId: string): Promise<void> {
+  async deleteNotification(
+    userId: string,
+    notificationId: string,
+  ): Promise<void> {
     // Delete from database
     await this.notificationRepository.delete({ id: notificationId, userId });
 

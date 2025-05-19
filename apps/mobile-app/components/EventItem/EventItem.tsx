@@ -1,16 +1,15 @@
+import { EventType } from "@/types/types";
+import { Calendar, ChevronRight, MapPin } from "lucide-react-native";
 import React, { useCallback } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ViewStyle } from "react-native";
-import { Calendar, MapPin, ChevronRight } from "lucide-react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   FadeInDown,
   FadeOut,
-  Layout,
   LinearTransition,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { EventType } from "@/types/types";
 
 // Unified color theme
 const COLORS = {
@@ -104,22 +103,40 @@ const EventItem: React.FC<EventItemProps> = ({
           </View>
 
           <View style={styles.resultTextContainer}>
-            <Text style={styles.resultTitle} numberOfLines={1} ellipsizeMode="tail">
+            <Text
+              style={styles.resultTitle}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {event.title}
             </Text>
 
             <View style={styles.detailsContainer}>
               <View style={styles.resultDetailsRow}>
-                <Calendar size={14} color="#93c5fd" style={{ marginRight: 6 }} />
-                <Text style={styles.resultDetailText} numberOfLines={1} ellipsizeMode="tail">
+                <Calendar
+                  size={14}
+                  color="#93c5fd"
+                  style={{ marginRight: 6 }}
+                />
+                <Text
+                  style={styles.resultDetailText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
                   {event.time}
                 </Text>
               </View>
 
               <View style={styles.resultDetailsRow}>
                 <MapPin size={14} color="#93c5fd" style={{ marginRight: 6 }} />
-                <Text style={styles.resultDetailText} numberOfLines={1} ellipsizeMode="tail">
-                  {showDistance && event.distance ? event.distance : event.location}
+                <Text
+                  style={styles.resultDetailText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {showDistance && event.distance
+                    ? event.distance
+                    : event.location}
                 </Text>
               </View>
             </View>
@@ -132,7 +149,9 @@ const EventItem: React.FC<EventItemProps> = ({
           )}
         </View>
       </TouchableOpacity>
-      {footerContent && <View style={styles.footerContainer}>{footerContent}</View>}
+      {footerContent && (
+        <View style={styles.footerContainer}>{footerContent}</View>
+      )}
     </Animated.View>
   );
 };

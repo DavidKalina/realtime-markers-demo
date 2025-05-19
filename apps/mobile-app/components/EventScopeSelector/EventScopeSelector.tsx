@@ -18,7 +18,7 @@ export const EventScopeSelector: React.FC<EventScopeSelectorProps> = ({
   selectedGroupId,
 }) => {
   const [userGroups, setUserGroups] = useState<ClientGroup[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchUserGroups = async () => {
@@ -36,7 +36,7 @@ export const EventScopeSelector: React.FC<EventScopeSelectorProps> = ({
   }, []);
 
   const ownedGroups = userGroups.filter(
-    (group) => group.ownerId === apiClient.getCurrentUser()?.id
+    (group) => group.ownerId === apiClient.getCurrentUser()?.id,
   );
 
   return (
@@ -46,17 +46,27 @@ export const EventScopeSelector: React.FC<EventScopeSelectorProps> = ({
       <View style={styles.optionsContainer}>
         {/* Friends Option */}
         <TouchableOpacity
-          style={[styles.option, selectedScope === "FRIENDS" && styles.selectedOption]}
+          style={[
+            styles.option,
+            selectedScope === "FRIENDS" && styles.selectedOption,
+          ]}
           onPress={() => onScopeChange("FRIENDS")}
         >
           <View style={styles.optionContent}>
             <Users
               size={20}
-              color={selectedScope === "FRIENDS" ? COLORS.accent : COLORS.textSecondary}
+              color={
+                selectedScope === "FRIENDS"
+                  ? COLORS.accent
+                  : COLORS.textSecondary
+              }
             />
             <View style={styles.optionTextContainer}>
               <Text
-                style={[styles.optionTitle, selectedScope === "FRIENDS" && styles.selectedText]}
+                style={[
+                  styles.optionTitle,
+                  selectedScope === "FRIENDS" && styles.selectedText,
+                ]}
               >
                 Private Event
               </Text>
@@ -75,17 +85,27 @@ export const EventScopeSelector: React.FC<EventScopeSelectorProps> = ({
         {/* Group Option */}
         {ownedGroups.length > 0 && (
           <TouchableOpacity
-            style={[styles.option, selectedScope === "GROUP" && styles.selectedOption]}
+            style={[
+              styles.option,
+              selectedScope === "GROUP" && styles.selectedOption,
+            ]}
             onPress={() => onScopeChange("GROUP", ownedGroups[0].id)}
           >
             <View style={styles.optionContent}>
               <Globe
                 size={20}
-                color={selectedScope === "GROUP" ? COLORS.accent : COLORS.textSecondary}
+                color={
+                  selectedScope === "GROUP"
+                    ? COLORS.accent
+                    : COLORS.textSecondary
+                }
               />
               <View style={styles.optionTextContainer}>
                 <Text
-                  style={[styles.optionTitle, selectedScope === "GROUP" && styles.selectedText]}
+                  style={[
+                    styles.optionTitle,
+                    selectedScope === "GROUP" && styles.selectedText,
+                  ]}
                 >
                   Group Event
                 </Text>

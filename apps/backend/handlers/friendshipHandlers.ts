@@ -1,7 +1,6 @@
 // handlers/friendshipHandlers.ts
 
 import type { Context } from "hono";
-import { FriendshipService } from "../services/FriendshipService";
 
 export type FriendshipHandler = (c: Context) => Promise<Response>;
 
@@ -18,7 +17,10 @@ export const sendFriendRequestHandler: FriendshipHandler = async (c) => {
     }
 
     const friendshipService = c.get("friendshipService");
-    const friendship = await friendshipService.sendFriendRequest(user.userId, addresseeId);
+    const friendship = await friendshipService.sendFriendRequest(
+      user.userId,
+      addresseeId,
+    );
 
     return c.json(friendship);
   } catch (error) {
@@ -28,7 +30,7 @@ export const sendFriendRequestHandler: FriendshipHandler = async (c) => {
         error: "Failed to send friend request",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -46,7 +48,10 @@ export const sendFriendRequestByCodeHandler: FriendshipHandler = async (c) => {
     }
 
     const friendshipService = c.get("friendshipService");
-    const friendship = await friendshipService.sendFriendRequestByCode(user.userId, friendCode);
+    const friendship = await friendshipService.sendFriendRequestByCode(
+      user.userId,
+      friendCode,
+    );
 
     return c.json(friendship);
   } catch (error) {
@@ -56,12 +61,14 @@ export const sendFriendRequestByCodeHandler: FriendshipHandler = async (c) => {
         error: "Failed to send friend request",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
 
-export const sendFriendRequestByUsernameHandler: FriendshipHandler = async (c) => {
+export const sendFriendRequestByUsernameHandler: FriendshipHandler = async (
+  c,
+) => {
   try {
     const user = c.get("user");
     if (!user || !user.userId) {
@@ -74,7 +81,10 @@ export const sendFriendRequestByUsernameHandler: FriendshipHandler = async (c) =
     }
 
     const friendshipService = c.get("friendshipService");
-    const friendship = await friendshipService.sendFriendRequestByUsername(user.userId, username);
+    const friendship = await friendshipService.sendFriendRequestByUsername(
+      user.userId,
+      username,
+    );
 
     return c.json(friendship);
   } catch (error) {
@@ -84,7 +94,7 @@ export const sendFriendRequestByUsernameHandler: FriendshipHandler = async (c) =
         error: "Failed to send friend request",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -102,7 +112,10 @@ export const acceptFriendRequestHandler: FriendshipHandler = async (c) => {
     }
 
     const friendshipService = c.get("friendshipService");
-    const friendship = await friendshipService.acceptFriendRequest(friendshipId, user.userId);
+    const friendship = await friendshipService.acceptFriendRequest(
+      friendshipId,
+      user.userId,
+    );
 
     return c.json(friendship);
   } catch (error) {
@@ -112,7 +125,7 @@ export const acceptFriendRequestHandler: FriendshipHandler = async (c) => {
         error: "Failed to accept friend request",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -130,7 +143,10 @@ export const rejectFriendRequestHandler: FriendshipHandler = async (c) => {
     }
 
     const friendshipService = c.get("friendshipService");
-    const friendship = await friendshipService.rejectFriendRequest(friendshipId, user.userId);
+    const friendship = await friendshipService.rejectFriendRequest(
+      friendshipId,
+      user.userId,
+    );
 
     return c.json(friendship);
   } catch (error) {
@@ -140,7 +156,7 @@ export const rejectFriendRequestHandler: FriendshipHandler = async (c) => {
         error: "Failed to reject friend request",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -163,7 +179,7 @@ export const getFriendsHandler: FriendshipHandler = async (c) => {
         error: "Failed to fetch friends",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -176,7 +192,9 @@ export const getPendingFriendRequestsHandler: FriendshipHandler = async (c) => {
     }
 
     const friendshipService = c.get("friendshipService");
-    const pendingRequests = await friendshipService.getPendingFriendRequests(user.userId);
+    const pendingRequests = await friendshipService.getPendingFriendRequests(
+      user.userId,
+    );
 
     return c.json(pendingRequests);
   } catch (error) {
@@ -186,12 +204,14 @@ export const getPendingFriendRequestsHandler: FriendshipHandler = async (c) => {
         error: "Failed to fetch pending friend requests",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
 
-export const getOutgoingFriendRequestsHandler: FriendshipHandler = async (c) => {
+export const getOutgoingFriendRequestsHandler: FriendshipHandler = async (
+  c,
+) => {
   try {
     const user = c.get("user");
     if (!user || !user.userId) {
@@ -199,7 +219,9 @@ export const getOutgoingFriendRequestsHandler: FriendshipHandler = async (c) => 
     }
 
     const friendshipService = c.get("friendshipService");
-    const outgoingRequests = await friendshipService.getOutgoingFriendRequests(user.userId);
+    const outgoingRequests = await friendshipService.getOutgoingFriendRequests(
+      user.userId,
+    );
 
     return c.json(outgoingRequests);
   } catch (error) {
@@ -209,7 +231,7 @@ export const getOutgoingFriendRequestsHandler: FriendshipHandler = async (c) => 
         error: "Failed to fetch outgoing friend requests",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -227,7 +249,10 @@ export const cancelFriendRequestHandler: FriendshipHandler = async (c) => {
     }
 
     const friendshipService = c.get("friendshipService");
-    const friendship = await friendshipService.cancelFriendRequest(friendshipId, user.userId);
+    const friendship = await friendshipService.cancelFriendRequest(
+      friendshipId,
+      user.userId,
+    );
 
     return c.json(friendship);
   } catch (error) {
@@ -237,7 +262,7 @@ export const cancelFriendRequestHandler: FriendshipHandler = async (c) => {
         error: "Failed to cancel friend request",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -255,7 +280,10 @@ export const updateContactsHandler: FriendshipHandler = async (c) => {
     }
 
     const friendshipService = c.get("friendshipService");
-    const updatedUser = await friendshipService.updateContacts(user.userId, contacts);
+    const updatedUser = await friendshipService.updateContacts(
+      user.userId,
+      contacts,
+    );
 
     return c.json(updatedUser);
   } catch (error) {
@@ -265,7 +293,7 @@ export const updateContactsHandler: FriendshipHandler = async (c) => {
         error: "Failed to update contacts",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -278,7 +306,8 @@ export const findPotentialFriendsHandler: FriendshipHandler = async (c) => {
     }
 
     const friendshipService = c.get("friendshipService");
-    const potentialFriends = await friendshipService.findPotentialFriendsFromContacts(user.userId);
+    const potentialFriends =
+      await friendshipService.findPotentialFriendsFromContacts(user.userId);
 
     return c.json(potentialFriends);
   } catch (error) {
@@ -288,7 +317,7 @@ export const findPotentialFriendsHandler: FriendshipHandler = async (c) => {
         error: "Failed to find potential friends",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };

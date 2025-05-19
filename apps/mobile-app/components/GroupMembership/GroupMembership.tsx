@@ -1,33 +1,30 @@
-import React, { useCallback, useEffect, useState, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  FlatList,
-  Alert,
-} from "react-native";
-import { apiClient, ClientGroupMembership } from "@/services/ApiClient";
 import { COLORS } from "@/components/Layout/ScreenLayout";
+import Tabs from "@/components/Layout/Tabs";
+import { apiClient, ClientGroupMembership } from "@/services/ApiClient";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import {
-  User,
-  Users,
-  UserPlus,
-  UserMinus,
-  Shield,
   CheckCircle,
+  ChevronRight,
   Clock,
   ListFilter,
-  ChevronRight,
+  Shield,
+  UserMinus,
+  UserPlus,
+  Users,
 } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
-import Tabs from "@/components/Layout/Tabs";
-import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 // Define the types to match the API client
 type GroupMembershipStatus = "PENDING" | "APPROVED" | "REJECTED" | "BANNED";
-type GroupMemberRole = "MEMBER" | "ADMIN";
 type MemberStatusFilter = "active" | "pending" | "all";
 
 interface GroupMembershipProps {
@@ -70,47 +67,48 @@ export default function GroupMembership({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isJoining, setIsJoining] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<MemberStatusFilter>("active");
+  const [selectedStatus, setSelectedStatus] =
+    useState<MemberStatusFilter>("active");
 
-  const tabItems = React.useMemo(() => createTabItems(isOwner || isAdmin), [isOwner, isAdmin]);
-
-  const fetchMembers = useCallback(
-    async (refresh = false) => {
-      try {
-        setLoading(true);
-        // Map frontend filter values to backend enum values
-        let status: GroupMembershipStatus | undefined;
-        switch (selectedStatus) {
-          case "active":
-            status = "APPROVED";
-            break;
-          case "pending":
-            status = "PENDING";
-            break;
-          case "all":
-            status = undefined;
-            break;
-        }
-
-        const result = await apiClient.getGroupMembers(groupId, {
-          status,
-          limit: 10, // Limit to 10 members
-        });
-
-        setMembers(result.members);
-        setError(null);
-      } catch (err) {
-        setError("Failed to load group members");
-        console.error("Error fetching members:", err);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [groupId, selectedStatus]
+  const tabItems = React.useMemo(
+    () => createTabItems(isOwner || isAdmin),
+    [isOwner, isAdmin],
   );
 
+  const fetchMembers = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Map frontend filter values to backend enum values
+      let status: GroupMembershipStatus | undefined;
+      switch (selectedStatus) {
+        case "active":
+          status = "APPROVED";
+          break;
+        case "pending":
+          status = "PENDING";
+          break;
+        case "all":
+          status = undefined;
+          break;
+      }
+
+      const result = await apiClient.getGroupMembers(groupId, {
+        status,
+        limit: 10, // Limit to 10 members
+      });
+
+      setMembers(result.members);
+      setError(null);
+    } catch (err) {
+      setError("Failed to load group members");
+      console.error("Error fetching members:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [groupId, selectedStatus]);
+
   useEffect(() => {
-    fetchMembers(true);
+    fetchMembers();
   }, [selectedStatus]);
 
   const handleJoinGroup = useCallback(async () => {
@@ -122,7 +120,7 @@ export default function GroupMembership({
 
       if (result.membershipStatus === "APPROVED") {
         // If immediately approved, refresh the members list
-        fetchMembers(true);
+        fetchMembers();
       }
 
       if (onMembershipChange) {
@@ -136,19 +134,6 @@ export default function GroupMembership({
     }
   }, [groupId, fetchMembers, onMembershipChange]);
 
-  const handleLeaveGroup = useCallback(async () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await apiClient.leaveGroup(groupId);
-      if (onMembershipChange) {
-        onMembershipChange();
-      }
-    } catch (err) {
-      setError("Failed to leave group");
-      console.error("Error leaving group:", err);
-    }
-  }, [groupId, onMembershipChange]);
-
   const handleManageMember = useCallback(
     async (memberId: string, newStatus: "APPROVED" | "REJECTED" | "BANNED") => {
       try {
@@ -157,13 +142,13 @@ export default function GroupMembership({
           status: newStatus,
           role: "MEMBER",
         });
-        fetchMembers(true);
+        fetchMembers();
       } catch (err) {
         setError("Failed to update member status");
         console.error("Error managing member:", err);
       }
     },
-    [groupId, fetchMembers]
+    [groupId, fetchMembers],
   );
 
   const handleRemoveMember = useCallback(
@@ -182,10 +167,10 @@ export default function GroupMembership({
             onPress: () => handleManageMember(member.userId, "BANNED"),
           },
         ],
-        { cancelable: true }
+        { cancelable: true },
       );
     },
-    [handleManageMember]
+    [handleManageMember],
   );
 
   const handleViewAllMembers = useCallback(() => {
@@ -218,7 +203,9 @@ export default function GroupMembership({
               members.map((member) => (
                 <View key={member.id} style={styles.memberRow}>
                   <View style={styles.memberInfo}>
-                    <Text style={styles.memberName}>{member.user.displayName}</Text>
+                    <Text style={styles.memberName}>
+                      {member.user.displayName}
+                    </Text>
                     <View style={styles.memberRoleContainer}>
                       {member.role === "ADMIN" && (
                         <View style={styles.adminBadge}>
@@ -232,34 +219,42 @@ export default function GroupMembership({
                     </View>
                   </View>
 
-                  {(isOwner || isAdmin) && member.userId !== apiClient.getCurrentUser()?.id && (
-                    <View style={styles.memberActions}>
-                      {member.status === "PENDING" && (
-                        <>
+                  {(isOwner || isAdmin) &&
+                    member.userId !== apiClient.getCurrentUser()?.id && (
+                      <View style={styles.memberActions}>
+                        {member.status === "PENDING" && (
+                          <>
+                            <TouchableOpacity
+                              style={[
+                                styles.actionButton,
+                                styles.approveButton,
+                              ]}
+                              onPress={() =>
+                                handleManageMember(member.userId, "APPROVED")
+                              }
+                            >
+                              <UserPlus size={16} color={COLORS.textPrimary} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[styles.actionButton, styles.rejectButton]}
+                              onPress={() =>
+                                handleManageMember(member.userId, "REJECTED")
+                              }
+                            >
+                              <UserMinus size={16} color={COLORS.textPrimary} />
+                            </TouchableOpacity>
+                          </>
+                        )}
+                        {member.status === "APPROVED" && (
                           <TouchableOpacity
-                            style={[styles.actionButton, styles.approveButton]}
-                            onPress={() => handleManageMember(member.userId, "APPROVED")}
+                            style={[styles.actionButton, styles.removeButton]}
+                            onPress={() => handleRemoveMember(member)}
                           >
-                            <UserPlus size={16} color={COLORS.textPrimary} />
+                            <UserMinus size={16} color={COLORS.errorText} />
                           </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.actionButton, styles.rejectButton]}
-                            onPress={() => handleManageMember(member.userId, "REJECTED")}
-                          >
-                            <UserMinus size={16} color={COLORS.textPrimary} />
-                          </TouchableOpacity>
-                        </>
-                      )}
-                      {member.status === "APPROVED" && (
-                        <TouchableOpacity
-                          style={[styles.actionButton, styles.removeButton]}
-                          onPress={() => handleRemoveMember(member)}
-                        >
-                          <UserMinus size={16} color={COLORS.errorText} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  )}
+                        )}
+                      </View>
+                    )}
                 </View>
               ))
             )}
@@ -267,13 +262,20 @@ export default function GroupMembership({
         )}
       </View>
 
-      <TouchableOpacity style={styles.viewAllButton} onPress={handleViewAllMembers}>
+      <TouchableOpacity
+        style={styles.viewAllButton}
+        onPress={handleViewAllMembers}
+      >
         <Text style={styles.viewAllButtonText}>View All Members</Text>
         <ChevronRight size={16} color={COLORS.accent} />
       </TouchableOpacity>
 
       {!isOwner && !isAdmin && (
-        <TouchableOpacity style={styles.joinButton} onPress={handleJoinGroup} disabled={isJoining}>
+        <TouchableOpacity
+          style={styles.joinButton}
+          onPress={handleJoinGroup}
+          disabled={isJoining}
+        >
           {isJoining ? (
             <ActivityIndicator color={COLORS.textPrimary} />
           ) : (

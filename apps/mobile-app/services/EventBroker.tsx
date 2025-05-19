@@ -79,6 +79,7 @@ export interface MapItem {
 // Marker specific MapItem
 export interface MarkerItem extends MapItem {
   type: "marker";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   markerData: any;
 }
 
@@ -97,10 +98,12 @@ export interface MapItemEvent extends BaseEvent {
 // Marker related events (kept for backward compatibility)
 export interface MarkerEvent extends BaseEvent {
   markerId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   markerData: any;
 }
 
 export interface MarkersEvent extends BaseEvent {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   markers: any[];
   count: number;
 }
@@ -131,6 +134,7 @@ export interface ViewportEvent extends BaseEvent {
     east: number;
     west: number;
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   markers: any[];
 }
 
@@ -193,6 +197,7 @@ export interface JobStartedEvent extends JobEvent {
 }
 
 export interface JobCompletedEvent extends JobEvent {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result: any;
   duration: number; // How long the job took in milliseconds
 }
@@ -223,12 +228,14 @@ export interface DiscoveredEventData {
   id: string;
   title: string;
   emoji: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   location: any;
   description?: string;
   eventDate: string;
   endDate?: string;
   address?: string;
   locationNotes?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   categories?: any[];
   confidenceScore: number;
   originalImageUrl?: string;
@@ -310,7 +317,7 @@ class EventBroker {
   // Subscribe to an event
   public on<T extends BaseEvent>(
     eventType: EventTypes,
-    listener: (eventData: T) => void
+    listener: (eventData: T) => void,
   ): () => void {
     this.emitter.on(eventType, listener);
 
@@ -323,7 +330,7 @@ class EventBroker {
   // Subscribe to an event once
   public once<T extends BaseEvent>(
     eventType: EventTypes,
-    listener: (eventData: T) => void
+    listener: (eventData: T) => void,
   ): () => void {
     this.emitter.once(eventType, listener);
 

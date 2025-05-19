@@ -1,12 +1,12 @@
 import {
-    Entity,
-    PrimaryGeneratedColumn,
-    Column,
-    CreateDateColumn,
-    UpdateDateColumn,
-    ManyToOne,
-    JoinColumn,
-    Index,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
 } from "typeorm";
 import { User } from "./User";
 import { Level } from "./Level";
@@ -14,36 +14,36 @@ import { Level } from "./Level";
 @Entity("user_levels")
 @Index(["userId", "levelId"], { unique: true })
 export class UserLevel {
-    @PrimaryGeneratedColumn("uuid")
-    id!: string;
+  @PrimaryGeneratedColumn("uuid")
+  id!: string;
 
-    @Index()
-    @Column({ name: "user_id", type: "uuid" })
-    userId!: string;
+  @Index()
+  @Column({ name: "user_id", type: "uuid" })
+  userId!: string;
 
-    @Column({ name: "level_id", type: "uuid" })
-    levelId!: string;
+  @Column({ name: "level_id", type: "uuid" })
+  levelId!: string;
 
-    @Column({ name: "current_xp", type: "integer", default: 0 })
-    currentXp!: number;
+  @Column({ name: "current_xp", type: "integer", default: 0 })
+  currentXp!: number;
 
-    @Column({ name: "is_completed", type: "boolean", default: false })
-    isCompleted!: boolean;
+  @Column({ name: "is_completed", type: "boolean", default: false })
+  isCompleted!: boolean;
 
-    @Column({ name: "completed_at", type: "timestamptz", nullable: true })
-    completedAt?: Date;
+  @Column({ name: "completed_at", type: "timestamptz", nullable: true })
+  completedAt?: Date;
 
-    @ManyToOne(() => User, (user) => user.userLevels, { onDelete: "CASCADE" })
-    @JoinColumn({ name: "user_id" })
-    user!: User;
+  @ManyToOne(() => User, (user) => user.userLevels, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "user_id" })
+  user!: User;
 
-    @ManyToOne(() => Level, (level) => level.userLevels, { onDelete: "CASCADE" })
-    @JoinColumn({ name: "level_id" })
-    level!: Level;
+  @ManyToOne(() => Level, (level) => level.userLevels, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "level_id" })
+  level!: Level;
 
-    @CreateDateColumn({ name: "created_at", type: "timestamptz" })
-    createdAt!: Date;
+  @CreateDateColumn({ name: "created_at", type: "timestamptz" })
+  createdAt!: Date;
 
-    @UpdateDateColumn({ name: "updated_at", type: "timestamptz" })
-    updatedAt!: Date;
-} 
+  @UpdateDateColumn({ name: "updated_at", type: "timestamptz" })
+  updatedAt!: Date;
+}

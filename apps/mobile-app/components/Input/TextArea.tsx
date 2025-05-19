@@ -8,7 +8,10 @@ import {
   ViewStyle,
   ActivityIndicator,
 } from "react-native";
-import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
+import Animated, {
+  FadeInDown,
+  LinearTransition,
+} from "react-native-reanimated";
 import { LucideIcon } from "lucide-react-native";
 import { COLORS } from "../Layout/ScreenLayout";
 
@@ -36,13 +39,18 @@ const TextArea = forwardRef<TextInput, TextAreaProps>(
       minHeight = 100,
       ...props
     },
-    ref
+    ref,
   ) => {
     return (
       <Animated.View
         entering={FadeInDown.duration(600).delay(delay).springify()}
         layout={LinearTransition.springify()}
-        style={[styles.container, error && styles.errorContainer, { minHeight }, style]}
+        style={[
+          styles.container,
+          error && styles.errorContainer,
+          { minHeight },
+          style,
+        ]}
       >
         {Icon && (
           <View style={styles.iconContainer}>
@@ -74,7 +82,7 @@ const TextArea = forwardRef<TextInput, TextAreaProps>(
         )}
       </Animated.View>
     );
-  }
+  },
 );
 
 const styles = StyleSheet.create({

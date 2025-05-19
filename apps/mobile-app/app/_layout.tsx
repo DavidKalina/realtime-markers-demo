@@ -1,4 +1,8 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
 import { PostHogProvider } from "posthog-react-native";
 
 import * as Sentry from "@sentry/react-native";
@@ -8,13 +12,12 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
-import { Easing } from "react-native";
 
+import { JobSessionInitializer } from "@/components/JobSessionInitializer";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
-import { JobSessionInitializer } from "@/components/JobSessionInitializer";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { isRunningInExpoGo } from "expo";
 
@@ -64,7 +67,9 @@ function RootLayout() {
       <LocationProvider>
         <MapStyleProvider>
           <OnboardingProvider>
-            <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+            <ThemeProvider
+              value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+            >
               <JobSessionInitializer />
               {children}
             </ThemeProvider>

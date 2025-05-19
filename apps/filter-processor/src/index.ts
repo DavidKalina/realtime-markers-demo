@@ -3,16 +3,7 @@ import Redis from "ioredis";
 import { FilterProcessor } from "./services/FilterProcessor";
 import { initializeHealthCheck } from "./utils/healthCheck";
 
-const POSTGRES_HOST = process.env.POSTGRES_HOST || "localhost";
-const POSTGRES_USER = process.env.POSTGRES_USER || "postgres";
-const POSTGRES_PASSWORD = process.env.POSTGRES_PASSWORD;
-const POSTGRES_DB = process.env.POSTGRES_DB || "markersdb";
 const HEALTH_PORT = parseInt(process.env.HEALTH_PORT || "8082");
-
-// console.log(`🚀 Starting Filter Processor Service`);
-// console.log(`📌 Redis: ${REDIS_HOST}:${REDIS_PORT}`);
-// console.log(`📌 PostgreSQL: ${POSTGRES_HOST}`);
-// console.log(`📌 Health check port: ${HEALTH_PORT}`);
 
 // Configure Redis connection
 const redisConfig = {
@@ -26,10 +17,10 @@ const redisConfig = {
     return delay;
   },
   reconnectOnError: (err: Error) => {
-    console.log('Redis reconnectOnError triggered:', {
+    console.log("Redis reconnectOnError triggered:", {
       message: err.message,
       stack: err.stack,
-      name: err.name
+      name: err.name,
     });
     return true;
   },
@@ -38,7 +29,7 @@ const redisConfig = {
   commandTimeout: 5000,
   lazyConnect: true,
   authRetry: true,
-  enableReadyCheck: true
+  enableReadyCheck: true,
 };
 
 // Initialize Redis clients for publishing and subscribing
@@ -47,44 +38,39 @@ const redisPub = new Redis(redisConfig);
 const redisSub = new Redis(redisConfig);
 
 // Add error handling for Redis publisher
-redisPub.on('error', (error: Error & { code?: string }) => {
-  console.error('Redis publisher error:', {
+redisPub.on("error", (error: Error & { code?: string }) => {
+  console.error("Redis publisher error:", {
     message: error.message,
     code: error.code,
-    stack: error.stack
+    stack: error.stack,
   });
 });
 
-redisPub.on('connect', () => {
-  console.log('Redis publisher connected successfully');
+redisPub.on("connect", () => {
+  console.log("Redis publisher connected successfully");
 });
 
-redisPub.on('ready', () => {
-  console.log('Redis publisher is ready to accept commands');
+redisPub.on("ready", () => {
+  console.log("Redis publisher is ready to accept commands");
 });
 
 // Add error handling for Redis subscriber
-redisSub.on('error', (error: Error & { code?: string }) => {
-  console.error('Redis subscriber error:', {
+redisSub.on("error", (error: Error & { code?: string }) => {
+  console.error("Redis subscriber error:", {
     message: error.message,
     code: error.code,
-    stack: error.stack
+    stack: error.stack,
   });
 });
 
-redisSub.on('connect', () => {
-  console.log('Redis subscriber connected successfully');
+redisSub.on("connect", () => {
+  console.log("Redis subscriber connected successfully");
 });
 
-redisSub.on('ready', () => {
-  console.log('Redis subscriber is ready to accept commands');
+redisSub.on("ready", () => {
+  console.log("Redis subscriber is ready to accept commands");
 });
 
-// Database connection string for future use
-const DATABASE_URL = `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}`;
-
-// Initialize health check endpoint FIRST - this is important for Docker health checks
-// console.log("Starting health check server...");
 const { startHealthServer } = initializeHealthCheck({
   redisPub,
   port: HEALTH_PORT,

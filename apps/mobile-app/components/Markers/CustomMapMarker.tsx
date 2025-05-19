@@ -1,20 +1,30 @@
+import { Marker } from "@/hooks/useMapWebsocket";
 import * as Haptics from "expo-haptics";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Animated, {
   cancelAnimation,
-  Easing,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { MARKER_HEIGHT, MARKER_WIDTH, MarkerSVG, SHADOW_OFFSET, ShadowSVG } from "./MarkerSVGs";
-import { TimePopup } from "./TimePopup";
-import { Marker } from "@/hooks/useMapWebsocket";
 import { COLORS } from "../Layout/ScreenLayout";
+import {
+  MARKER_HEIGHT,
+  MARKER_WIDTH,
+  MarkerSVG,
+  SHADOW_OFFSET,
+  ShadowSVG,
+} from "./MarkerSVGs";
+import { TimePopup } from "./TimePopup";
 
 // Animation configurations
 const ANIMATIONS = {
@@ -56,7 +66,7 @@ const createAnimationCleanup = (animations: Animated.SharedValue<number>[]) => {
 };
 
 export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
-  ({ event, isSelected, isHighlighted = false, onPress, index = 0 }) => {
+  ({ event, isSelected, onPress }) => {
     const animationTimersRef = useRef<Array<NodeJS.Timeout>>([]);
 
     // Animation values
@@ -68,7 +78,12 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
     // Cleanup function for all animations and timers
     const cleanupAnimations = useCallback(() => {
       // Cancel all animations
-      createAnimationCleanup([scale, shadowOpacity, rippleScale, rippleOpacity])();
+      createAnimationCleanup([
+        scale,
+        shadowOpacity,
+        rippleScale,
+        rippleOpacity,
+      ])();
 
       // Clear all timers
       animationTimersRef.current.forEach((timer) => clearTimeout(timer));
@@ -104,7 +119,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
 
       scale.value = withSequence(
         withTiming(0.9, ANIMATIONS.SCALE_PRESS),
-        withSpring(isSelected ? 1 : 1.15, ANIMATIONS.SCALE_RELEASE)
+        withSpring(isSelected ? 1 : 1.15, ANIMATIONS.SCALE_RELEASE),
       );
 
       onPress();
@@ -117,7 +132,10 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
 
     const shadowStyle = useAnimatedStyle(() => ({
       opacity: shadowOpacity.value,
-      transform: [{ translateX: SHADOW_OFFSET.x }, { translateY: SHADOW_OFFSET.y }],
+      transform: [
+        { translateX: SHADOW_OFFSET.x },
+        { translateY: SHADOW_OFFSET.y },
+      ],
     }));
 
     const rippleStyle = useAnimatedStyle(() => ({
@@ -140,7 +158,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
           circleStrokeWidth="1"
         />
       ),
-      [event.data.isPrivate]
+      [event.data.isPrivate],
     );
 
     return (
@@ -155,10 +173,16 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
         </Animated.View>
 
         {/* Marker Shadow */}
-        <Animated.View style={[styles.shadowContainer, shadowStyle]}>{ShadowSvg}</Animated.View>
+        <Animated.View style={[styles.shadowContainer, shadowStyle]}>
+          {ShadowSvg}
+        </Animated.View>
 
         {/* Marker */}
-        <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={styles.touchableArea}>
+        <TouchableOpacity
+          onPress={handlePress}
+          activeOpacity={0.7}
+          style={styles.touchableArea}
+        >
           <Animated.View style={[styles.markerContainer, markerStyle]}>
             {MarkerSvg}
 
@@ -182,7 +206,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       prevProps.event.data.emoji === nextProps.event.data.emoji &&
       prevProps.event.data.title === nextProps.event.data.title
     );
-  }
+  },
 );
 
 const styles = StyleSheet.create({

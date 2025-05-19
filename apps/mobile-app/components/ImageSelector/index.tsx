@@ -1,8 +1,8 @@
 // ImageSelector.tsx
-import React from "react";
-import { StyleSheet, TouchableOpacity, View, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import React from "react";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 interface ImageSelectorProps {
   onImageSelected: (uri: string) => void;
@@ -16,7 +16,8 @@ export const ImageSelector: React.FC<ImageSelectorProps> = ({
   const pickImage = async () => {
     try {
       // Request permission first
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permissionResult.granted) {
         alert("Permission to access media library is required!");

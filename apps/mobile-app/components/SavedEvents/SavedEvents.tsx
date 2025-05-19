@@ -89,7 +89,10 @@ const SavedEventsList: React.FC = () => {
           setEvents(response.events);
         } else {
           const existingEventsMap = new Map(
-            events.map((event) => [`${event.id}-${event.eventDate}-${event.location}`, event])
+            events.map((event) => [
+              `${event.id}-${event.eventDate}-${event.location}`,
+              event,
+            ]),
           );
 
           const newEvents = response.events.filter((event) => {
@@ -110,7 +113,7 @@ const SavedEventsList: React.FC = () => {
         setIsFetchingMore(false);
       }
     },
-    [cursor, events.length]
+    [cursor, events.length],
   );
 
   useEffect(() => {
@@ -136,7 +139,14 @@ const SavedEventsList: React.FC = () => {
     if (!isFetchingMore && !isRefreshing && hasMore && cursor) {
       fetchEvents();
     }
-  }, [isFetchingMore, isRefreshing, hasMore, cursor, fetchEvents, lastLoadMoreAttempt]);
+  }, [
+    isFetchingMore,
+    isRefreshing,
+    hasMore,
+    cursor,
+    fetchEvents,
+    lastLoadMoreAttempt,
+  ]);
 
   return (
     <EventList
@@ -149,7 +159,9 @@ const SavedEventsList: React.FC = () => {
       onRetry={() => fetchEvents(true)}
       emptyStateTitle="No saved events"
       emptyStateDescription="Events you save will appear here. Start exploring to find events you're interested in!"
-      emptyStateIcon={<Heart size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />}
+      emptyStateIcon={
+        <Heart size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />
+      }
       showChevron={false}
     />
   );
@@ -191,7 +203,10 @@ const DiscoveredEventsList: React.FC = () => {
           setEvents(response.events);
         } else {
           const existingEventsMap = new Map(
-            events.map((event) => [`${event.id}-${event.eventDate}-${event.location}`, event])
+            events.map((event) => [
+              `${event.id}-${event.eventDate}-${event.location}`,
+              event,
+            ]),
           );
 
           const newEvents = response.events.filter((event) => {
@@ -212,7 +227,7 @@ const DiscoveredEventsList: React.FC = () => {
         setIsFetchingMore(false);
       }
     },
-    [cursor, events.length]
+    [cursor, events.length],
   );
 
   useEffect(() => {
@@ -238,7 +253,14 @@ const DiscoveredEventsList: React.FC = () => {
     if (!isFetchingMore && !isRefreshing && hasMore && cursor) {
       fetchEvents();
     }
-  }, [isFetchingMore, isRefreshing, hasMore, cursor, fetchEvents, lastLoadMoreAttempt]);
+  }, [
+    isFetchingMore,
+    isRefreshing,
+    hasMore,
+    cursor,
+    fetchEvents,
+    lastLoadMoreAttempt,
+  ]);
 
   return (
     <EventList
@@ -251,7 +273,9 @@ const DiscoveredEventsList: React.FC = () => {
       onRetry={() => fetchEvents(true)}
       emptyStateTitle="No discovered events"
       emptyStateDescription="Events you discover through scanning will appear here. Try scanning some event flyers!"
-      emptyStateIcon={<Scan size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />}
+      emptyStateIcon={
+        <Scan size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />
+      }
       showChevron={false}
     />
   );
@@ -293,7 +317,10 @@ const FriendsSavedEventsList: React.FC = () => {
           setEvents(response.events);
         } else {
           const existingEventsMap = new Map(
-            events.map((event) => [`${event.id}-${event.eventDate}-${event.location}`, event])
+            events.map((event) => [
+              `${event.id}-${event.eventDate}-${event.location}`,
+              event,
+            ]),
           );
 
           const newEvents = response.events.filter((event) => {
@@ -314,7 +341,7 @@ const FriendsSavedEventsList: React.FC = () => {
         setIsFetchingMore(false);
       }
     },
-    [cursor, events.length]
+    [cursor, events.length],
   );
 
   useEffect(() => {
@@ -340,7 +367,14 @@ const FriendsSavedEventsList: React.FC = () => {
     if (!isFetchingMore && !isRefreshing && hasMore && cursor) {
       fetchEvents();
     }
-  }, [isFetchingMore, isRefreshing, hasMore, cursor, fetchEvents, lastLoadMoreAttempt]);
+  }, [
+    isFetchingMore,
+    isRefreshing,
+    hasMore,
+    cursor,
+    fetchEvents,
+    lastLoadMoreAttempt,
+  ]);
 
   const renderEventItem = useCallback(
     (event: EventType) => (
@@ -348,7 +382,7 @@ const FriendsSavedEventsList: React.FC = () => {
         Saved by {event.savedBy?.displayName || event.savedBy?.email}
       </Text>
     ),
-    []
+    [],
   );
 
   return (
@@ -362,7 +396,9 @@ const FriendsSavedEventsList: React.FC = () => {
       onRetry={() => fetchEvents(true)}
       emptyStateTitle="No events from friends"
       emptyStateDescription="Events saved by your friends will appear here. Add more friends to discover events together!"
-      emptyStateIcon={<Users size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />}
+      emptyStateIcon={
+        <Users size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />
+      }
       showChevron={true}
       renderExtraContent={renderEventItem}
     />

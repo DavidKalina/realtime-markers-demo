@@ -3,7 +3,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ChevronDown, ChevronUp, Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
+import {
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  User,
+} from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -27,7 +35,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSequence,
-  withSpring
+  withSpring,
 } from "react-native-reanimated";
 import MapMojiHeader from "../AnimationHeader";
 import { AuthWrapper } from "../AuthWrapper";
@@ -92,8 +100,8 @@ const COLORS = {
   error: {
     background: "rgba(249, 117, 131, 0.1)",
     border: "rgba(249, 117, 131, 0.3)",
-    text: "#f97583"
-  }
+    text: "#f97583",
+  },
 };
 
 const Login: React.FC = () => {
@@ -169,13 +177,14 @@ const Login: React.FC = () => {
       await login(email, password);
       // Keep loading state until navigation completes
       // The AuthWrapper will handle the navigation
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error("Login error:", error);
       setError(
         typeof error === "object" && error !== null && "message" in error
           ? String(error.message)
-          : "Failed to login. Please check your credentials and try again."
+          : "Failed to login. Please check your credentials and try again.",
       );
       setIsLoading(false);
     }
@@ -208,7 +217,12 @@ const Login: React.FC = () => {
           <Text style={styles.profileEmojiSmall}>{item.emoji}</Text>
         </View>
         <Text style={styles.profileDropdownName}>{item.name}</Text>
-        <Text style={[styles.profileDropdownRole, { color: getRoleColor(item.role) }]}>
+        <Text
+          style={[
+            styles.profileDropdownRole,
+            { color: getRoleColor(item.role) },
+          ]}
+        >
           {item.role}
         </Text>
       </TouchableOpacity>
@@ -224,7 +238,7 @@ const Login: React.FC = () => {
     // Animate button press
     buttonScale.value = withSequence(
       withSpring(0.95, { damping: 15, stiffness: 200 }),
-      withSpring(1, { damping: 15, stiffness: 200 })
+      withSpring(1, { damping: 15, stiffness: 200 }),
     );
 
     // Delay the login action until after animation
@@ -259,7 +273,10 @@ const Login: React.FC = () => {
                 layout={LinearTransition.springify()}
                 style={styles.formContainer}
               >
-                <Animated.View layout={LinearTransition.springify()} style={styles.formCard}>
+                <Animated.View
+                  layout={LinearTransition.springify()}
+                  style={styles.formCard}
+                >
                   <TouchableOpacity
                     style={styles.profileSelectorContainer}
                     onPress={toggleDropdown}
@@ -268,16 +285,22 @@ const Login: React.FC = () => {
                     {selectedProfile ? (
                       <View style={styles.selectedProfileContainer}>
                         <View style={styles.selectedProfileEmojiContainer}>
-                          <Text style={styles.profileEmojiLarge}>{selectedProfile.emoji}</Text>
+                          <Text style={styles.profileEmojiLarge}>
+                            {selectedProfile.emoji}
+                          </Text>
                         </View>
-                        <Text style={styles.selectedProfileName}>{selectedProfile.name}</Text>
+                        <Text style={styles.selectedProfileName}>
+                          {selectedProfile.name}
+                        </Text>
                       </View>
                     ) : (
                       <View style={styles.noProfileContainer}>
                         <View style={styles.placeholderAvatar}>
                           <User size={14} color="#93c5fd" />
                         </View>
-                        <Text style={styles.selectProfileText}>Select a profile</Text>
+                        <Text style={styles.selectProfileText}>
+                          Select a profile
+                        </Text>
                       </View>
                     )}
 
@@ -343,7 +366,9 @@ const Login: React.FC = () => {
                   </View>
 
                   <View style={styles.createAccountContainer}>
-                    <Text style={styles.createAccountText}>Don't have an account? </Text>
+                    <Text style={styles.createAccountText}>
+                      Don't have an account?{" "}
+                    </Text>
                     <TouchableOpacity onPress={handleCreateAccount}>
                       <Text style={styles.createAccountLink}>Create one</Text>
                     </TouchableOpacity>

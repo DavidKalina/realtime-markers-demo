@@ -13,12 +13,12 @@ const COLORS = {
   success: {
     background: "rgba(64, 192, 87, 0.12)",
     border: "rgba(64, 192, 87, 0.2)",
-    text: "#40c057"
+    text: "#40c057",
   },
   error: {
     background: "rgba(249, 117, 131, 0.1)",
     border: "rgba(249, 117, 131, 0.2)",
-    text: "#f97583"
+    text: "#f97583",
   },
   shadow: "rgba(0, 0, 0, 0.5)",
 };
@@ -574,7 +574,6 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-
 
   saveButtonDisabled: {
     backgroundColor: "#3a3a3a",

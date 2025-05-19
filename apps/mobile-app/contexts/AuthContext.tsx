@@ -1,19 +1,25 @@
 // src/contexts/AuthContext.tsx
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import apiClient, { User } from "../services/ApiClient";
-import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFilterStore } from "@/stores/useFilterStore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import apiClient, { User } from "../services/ApiClient";
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, displayName?: string) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    displayName?: string,
+  ) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<boolean>;
   refreshAuth: () => Promise<boolean>; // New method to manually trigger auth refresh
 }
 
@@ -21,11 +27,14 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export const useAuth = () => useContext(AuthContext);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(apiClient.getCurrentUser());
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(apiClient.isAuthenticated());
-  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    apiClient.isAuthenticated(),
+  );
   const { fetchFilters, applyFilters } = useFilterStore();
 
   useEffect(() => {
@@ -53,7 +62,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
               // Sync filters and active filter IDs
               await fetchFilters();
-              const storedFilters = await AsyncStorage.getItem("@active_filters");
+              const storedFilters =
+                await AsyncStorage.getItem("@active_filters");
               if (storedFilters) {
                 const activeIds = JSON.parse(storedFilters);
                 // Ensure the filters are properly applied
@@ -62,14 +72,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // If no stored filters, fetch and apply the oldest filter
                 const filters = await apiClient.getUserFilters();
                 if (filters.length > 0) {
-                  const oldestFilter = filters.sort((a, b) =>
-                    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                  const oldestFilter = filters.sort(
+                    (a, b) =>
+                      new Date(a.createdAt).getTime() -
+                      new Date(b.createdAt).getTime(),
                   )[0];
                   await applyFilters([oldestFilter.id]);
                 }
               }
             }
-          } catch (profileError: any) {
+          } catch (profileError) {
             // Only attempt token refresh if we have a refresh token
             if (refreshToken) {
               const refreshed = await apiClient.refreshTokens();
@@ -78,13 +90,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 try {
                   const userProfile = await apiClient.getUserProfile();
 
-                  await AsyncStorage.setItem("user", JSON.stringify(userProfile));
+                  await AsyncStorage.setItem(
+                    "user",
+                    JSON.stringify(userProfile),
+                  );
                   setUser(userProfile);
                   setIsAuthenticated(true);
 
                   // Sync filters and active filter IDs
                   await fetchFilters();
-                  const storedFilters = await AsyncStorage.getItem("@active_filters");
+                  const storedFilters =
+                    await AsyncStorage.getItem("@active_filters");
                   if (storedFilters) {
                     const activeIds = JSON.parse(storedFilters);
                     // Ensure the filters are properly applied
@@ -93,8 +109,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     // If no stored filters, fetch and apply the oldest filter
                     const filters = await apiClient.getUserFilters();
                     if (filters.length > 0) {
-                      const oldestFilter = filters.sort((a, b) =>
-                        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                      const oldestFilter = filters.sort(
+                        (a, b) =>
+                          new Date(a.createdAt).getTime() -
+                          new Date(b.createdAt).getTime(),
                       )[0];
                       await applyFilters([oldestFilter.id]);
                     }
@@ -102,7 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 } catch (secondProfileError) {
                   console.error(
                     "Failed to get user profile after token refresh:",
-                    secondProfileError
+                    secondProfileError,
                   );
                   await apiClient.clearAuthState();
                   setUser(null);
@@ -221,11 +239,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, password: string, displayName?: string) => {
+  const register = async (
+    email: string,
+    password: string,
+    displayName?: string,
+  ) => {
     setIsLoading(true);
     try {
       // First register the user
-      const user = await apiClient.register(email, password, displayName);
+      await apiClient.register(email, password, displayName);
 
       // Then log them in
       await apiClient.login(email, password);
@@ -248,7 +270,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setIsAuthenticated(false);
       // Add a small delay to ensure the loading state is visible
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     } finally {
       setIsLoading(false);
     }
@@ -264,7 +286,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const changePassword = async (currentPassword: string, newPassword: string) => {
+  const changePassword = async (
+    currentPassword: string,
+    newPassword: string,
+  ) => {
     setIsLoading(true);
     try {
       return await apiClient.changePassword(currentPassword, newPassword);

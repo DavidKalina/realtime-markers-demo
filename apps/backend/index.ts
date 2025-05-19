@@ -18,9 +18,7 @@ import { eventsRouter } from "./routes/events";
 import { filterRouter } from "./routes/filters";
 import { friendshipsRouter } from "./routes/friendships";
 import { internalRouter } from "./routes/internalRoutes";
-import { emojisRouter } from "./routes/emojis";
 import plansRouter from "./routes/plans";
-import stripeRouter from "./routes/stripe";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
@@ -168,7 +166,7 @@ app.use(
     maxBodySize: 5 * 1024 * 1024, // 5MB for file uploads
     maxUrlLength: 2048,
     maxHeadersSize: 8192,
-  })
+  }),
 );
 
 // Initialize rate limit service
@@ -200,10 +198,12 @@ app.get("/api/health", (c) => {
         timestamp: new Date().toISOString(),
         db_connection: isDbConnected ? "connected" : "connecting",
         storage: {
-          configured: !!process.env.DO_SPACE_ACCESS_KEY && !!process.env.DO_SPACE_SECRET_KEY,
+          configured:
+            !!process.env.DO_SPACE_ACCESS_KEY &&
+            !!process.env.DO_SPACE_SECRET_KEY,
         },
       },
-      200
+      200,
     );
   }
 
@@ -217,7 +217,10 @@ app.get("/api/health", (c) => {
 // src/index.ts (updated section)
 
 // Update your initialization function
-const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource> => {
+const initializeDatabase = async (
+  retries = 5,
+  delay = 2000,
+): Promise<DataSource> => {
   for (let i = 0; i < retries; i++) {
     try {
       await AppDataSource.initialize();
@@ -264,12 +267,17 @@ async function initializeServices() {
   const categoryRepository = dataSource.getRepository(Category);
   const eventRepository = dataSource.getRepository(Event);
 
-  const categoryProcessingService = new CategoryProcessingService(categoryRepository);
+  const categoryProcessingService = new CategoryProcessingService(
+    categoryRepository,
+  );
 
   const eventService = new EventService(dataSource, redisPub);
 
   // Create the event similarity service
-  const eventSimilarityService = new EventSimilarityService(eventRepository, configService);
+  const eventSimilarityService = new EventSimilarityService(
+    eventRepository,
+    configService,
+  );
 
   // Create the image processing service
   const imageProcessingService = new ImageProcessingService();
@@ -279,7 +287,7 @@ async function initializeServices() {
   // Create the event extraction service
   const eventExtractionService = new EventExtractionService(
     categoryProcessingService,
-    GoogleGeocodingService.getInstance()
+    GoogleGeocodingService.getInstance(),
   );
 
   // Create event processing service with all dependencies
@@ -293,7 +301,10 @@ async function initializeServices() {
   });
 
   // Initialize the UserPreferencesService
-  const userPreferencesService = new UserPreferencesService(dataSource, redisPub);
+  const userPreferencesService = new UserPreferencesService(
+    dataSource,
+    redisPub,
+  );
 
   const storageService = StorageService.getInstance();
 
@@ -307,10 +318,16 @@ async function initializeServices() {
   const friendshipService = new FriendshipService(dataSource);
 
   // Initialize the NotificationService
-  const notificationService = NotificationService.getInstance(redisPub, dataSource);
+  const notificationService = NotificationService.getInstance(
+    redisPub,
+    dataSource,
+  );
 
   // Initialize and start the NotificationHandler
-  const notificationHandler = NotificationHandler.getInstance(redisPub, dataSource);
+  const notificationHandler = NotificationHandler.getInstance(
+    redisPub,
+    dataSource,
+  );
   await notificationHandler.start();
 
   function setupCleanupSchedule() {
@@ -377,10 +394,8 @@ app.route("/api/auth", authRouter);
 app.route("/api/admin", adminRouter);
 app.route("/api/filters", filterRouter);
 app.route("/api/plans", plansRouter);
-app.route("/api/stripe", stripeRouter);
 app.route("/api/internal", internalRouter);
 app.route("/api/friendships", friendshipsRouter);
-app.route("/api/emojis", emojisRouter);
 app.route("/api/notifications", notificationsRouter);
 app.route("/api/groups", groupsRouter);
 // =============================================================================

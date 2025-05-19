@@ -1,6 +1,9 @@
 // scan.tsx - Updated version with shared layout components
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
+import { ImagePoofIntoEmojiTransformation } from "@/components/ImagePoofIntoEmojiTransformation/ImagePoofIntoEmojiTransformation";
+import Header from "@/components/Layout/Header";
+import ScreenLayout, { COLORS } from "@/components/Layout/ScreenLayout";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
 import { useEventBroker } from "@/hooks/useEventBroker";
@@ -9,27 +12,27 @@ import apiClient, { PlanType } from "@/services/ApiClient";
 import { EventTypes } from "@/services/EventBroker";
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { Feather } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { CameraView } from "expo-camera";
 import { useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
-import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { debounce } from "lodash";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
+  AppState,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  AppState,
 } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { debounce } from "lodash";
-import { useFocusEffect } from "@react-navigation/native";
-import { ImagePoofIntoEmojiTransformation } from "@/components/ImagePoofIntoEmojiTransformation/ImagePoofIntoEmojiTransformation";
-import ScreenLayout from "@/components/Layout/ScreenLayout";
-import Header from "@/components/Layout/Header";
-import { COLORS } from "@/components/Layout/ScreenLayout";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 type ImageSource = "camera" | "gallery" | null;
 
@@ -46,7 +49,6 @@ export default function ScanScreen() {
     releaseCamera,
     flashMode,
     toggleFlash,
-    permissionRequested,
     checkPermission,
   } = useCamera();
 
@@ -118,7 +120,7 @@ export default function ScanScreen() {
       return () => {
         performFullCleanup();
       };
-    }, [performFullCleanup])
+    }, [performFullCleanup]),
   );
 
   // Handle app state changes
@@ -166,7 +168,7 @@ export default function ScanScreen() {
 
       // We'll let the animation's onAnimationComplete handle the navigation
     },
-    [addJob, publish]
+    [addJob, publish],
   );
 
   // Check if network is suitable for upload
@@ -189,12 +191,14 @@ export default function ScanScreen() {
       // Process/compress the image before uploading
       const processedUri = await processImage(uri);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const payload: Record<string, any> = {};
 
       payload.imageFile = {
         uri: processedUri || uri,
         name: "image.jpg",
         type: "image/jpeg",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any;
 
       // Add location data if available
@@ -242,7 +246,7 @@ export default function ScanScreen() {
         Alert.alert(
           "Upload Failed",
           "There was a problem uploading your document. Please check your network connection and try again.",
-          [{ text: "OK" }]
+          [{ text: "OK" }],
         );
       }
 
@@ -281,7 +285,7 @@ export default function ScanScreen() {
         console.error("Debounced upload failed:", error);
       }
     }, 300),
-    [uploadImageAndQueue]
+    [uploadImageAndQueue],
   );
 
   // Fetch plan details
@@ -349,7 +353,7 @@ export default function ScanScreen() {
       Alert.alert(
         "Poor Network Connection",
         "Please ensure you have a stable network connection before capturing.",
-        [{ text: "OK" }]
+        [{ text: "OK" }],
       );
       return;
     }
@@ -382,9 +386,11 @@ export default function ScanScreen() {
       console.error("Capture failed:", error);
 
       if (isMounted.current) {
-        Alert.alert("Operation Failed", "Failed to process the document. Please try again.", [
-          { text: "OK" },
-        ]);
+        Alert.alert(
+          "Operation Failed",
+          "Failed to process the document. Please try again.",
+          [{ text: "OK" }],
+        );
 
         setCapturedImage(null);
         setImageSource(null);
@@ -408,7 +414,7 @@ export default function ScanScreen() {
       Alert.alert(
         "Poor Network Connection",
         "Please ensure you have a stable network connection before selecting an image.",
-        [{ text: "OK" }]
+        [{ text: "OK" }],
       );
       return;
     }
@@ -434,9 +440,11 @@ export default function ScanScreen() {
       console.error("Gallery image processing failed:", error);
 
       if (isMounted.current) {
-        Alert.alert("Operation Failed", "Failed to process the selected image. Please try again.", [
-          { text: "OK" },
-        ]);
+        Alert.alert(
+          "Operation Failed",
+          "Failed to process the selected image. Please try again.",
+          [{ text: "OK" }],
+        );
 
         setCapturedImage(null);
         setImageSource(null);
@@ -514,7 +522,10 @@ export default function ScanScreen() {
 
       {/* Camera container with fixed dimensions */}
       <View style={styles.contentArea}>
-        <Animated.View style={styles.cameraCard} entering={FadeIn.duration(300)}>
+        <Animated.View
+          style={styles.cameraCard}
+          entering={FadeIn.duration(300)}
+        >
           {isCameraActive ? (
             <CameraView
               ref={cameraRef}
@@ -526,27 +537,39 @@ export default function ScanScreen() {
               {!isCameraReady && (
                 <View style={styles.cameraNotReadyOverlay}>
                   <ActivityIndicator size="large" color="#ffffff" />
-                  <Text style={styles.cameraNotReadyText}>Initializing camera...</Text>
+                  <Text style={styles.cameraNotReadyText}>
+                    Initializing camera...
+                  </Text>
                 </View>
               )}
 
               {/* No Scans Available Overlay */}
               {showNoScansOverlay && (
-                <Animated.View style={styles.noScansOverlay} entering={FadeIn.duration(300)}>
+                <Animated.View
+                  style={styles.noScansOverlay}
+                  entering={FadeIn.duration(300)}
+                >
                   <View style={styles.noScansContent}>
                     <View style={styles.noScansIconContainer}>
-                      <Feather name="alert-triangle" size={32} color={COLORS.warningText} />
+                      <Feather
+                        name="alert-triangle"
+                        size={32}
+                        color={COLORS.warningText}
+                      />
                     </View>
                     <Text style={styles.noScansTitle}>Scan Limit Reached</Text>
                     <Text style={styles.noScansMessage}>
-                      You've used all your weekly scans. Upgrade to Pro for unlimited scans.
+                      You've used all your weekly scans. Upgrade to Pro for
+                      unlimited scans.
                     </Text>
                     <TouchableOpacity
                       style={styles.upgradeButton}
                       onPress={() => {}}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+                      <Text style={styles.upgradeButtonText}>
+                        Upgrade to Pro
+                      </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.dismissButton}
@@ -562,7 +585,9 @@ export default function ScanScreen() {
           ) : (
             <View style={styles.cameraPlaceholder}>
               <ActivityIndicator size="large" color={COLORS.accent} />
-              <Text style={styles.cameraPlaceholderText}>Initializing camera...</Text>
+              <Text style={styles.cameraPlaceholderText}>
+                Initializing camera...
+              </Text>
             </View>
           )}
         </Animated.View>
@@ -582,9 +607,13 @@ export default function ScanScreen() {
 
         {/* Subtle scan counter badge */}
         {planDetails && hasRemainingScans && (
-          <Animated.View style={styles.scanCountBadge} entering={FadeIn.duration(300)}>
+          <Animated.View
+            style={styles.scanCountBadge}
+            entering={FadeIn.duration(300)}
+          >
             <Text style={styles.scanCountText}>
-              {planDetails.remainingScans} scan{planDetails.remainingScans !== 1 ? "s" : ""} left
+              {planDetails.remainingScans} scan
+              {planDetails.remainingScans !== 1 ? "s" : ""} left
             </Text>
           </Animated.View>
         )}

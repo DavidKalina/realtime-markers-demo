@@ -11,14 +11,17 @@ export const filterRouter = new Hono<AppContext>();
 
 // Apply IP, rate limiting, and auth middleware to all routes in this router
 filterRouter.use("*", ip());
-filterRouter.use("*", rateLimit({
+filterRouter.use(
+  "*",
+  rateLimit({
     maxRequests: 20, // 20 requests per minute for filter routes
     windowMs: 60 * 1000,
     keyGenerator: (c) => {
-        const ipInfo = c.get("ip");
-        return `filters:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
-    }
-}));
+      const ipInfo = c.get("ip");
+      return `filters:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
+    },
+  }),
+);
 filterRouter.use("*", authMiddleware);
 
 // Filter CRUD endpoints

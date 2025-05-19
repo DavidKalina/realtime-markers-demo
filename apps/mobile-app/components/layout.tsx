@@ -26,7 +26,6 @@ export const layout = StyleSheet.create({
     overflow: "hidden",
     flexDirection: "column",
     height: 150,
-
   },
   row: {
     flexDirection: "row",

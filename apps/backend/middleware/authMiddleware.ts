@@ -24,7 +24,7 @@ const authService = new AuthService(
   userRepository,
   userPreferencesService,
   levelingService,
-  dataSource
+  dataSource,
 );
 
 export const authMiddleware = async (c: Context<AppContext>, next: Next) => {

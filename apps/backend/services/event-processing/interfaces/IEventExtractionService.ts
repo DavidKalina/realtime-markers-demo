@@ -20,7 +20,7 @@ export interface IEventExtractionService {
       userCoordinates?: { lat: number; lng: number };
       organizationHints?: string[];
       userCityState?: string;
-    }
+    },
   ): Promise<EventExtractionResult>;
 
   /**
@@ -38,6 +38,6 @@ export interface IEventExtractionService {
    */
   generateEventEmoji(
     title: string,
-    description: string
+    description: string,
   ): Promise<{ emoji: string; emojiDescription: string }>;
 }

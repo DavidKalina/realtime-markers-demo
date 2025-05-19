@@ -15,8 +15,9 @@ export class JobQueue {
    */
   async enqueue(
     jobType: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: Record<string, any>,
-    options: { bufferData?: Buffer } = {}
+    options: { bufferData?: Buffer } = {},
   ): Promise<string> {
     const jobId = uuidv4();
 
@@ -49,6 +50,7 @@ export class JobQueue {
   /**
    * Get job status
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getJobStatus(jobId: string): Promise<Record<string, any> | null> {
     const jobData = await this.redis.get(`job:${jobId}`);
     if (!jobData) return null;
@@ -63,12 +65,20 @@ export class JobQueue {
   /**
    * Update job status
    */
-  async updateJobStatus(jobId: string, updates: Record<string, any>): Promise<void> {
+  async updateJobStatus(
+    jobId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    updates: Record<string, any>,
+  ): Promise<void> {
     const jobData = await this.redis.get(`job:${jobId}`);
     if (!jobData) throw new Error(`Job ${jobId} not found`);
 
     const job = JSON.parse(jobData);
-    const updatedJob = { ...job, ...updates, updated: new Date().toISOString() };
+    const updatedJob = {
+      ...job,
+      ...updates,
+      updated: new Date().toISOString(),
+    };
 
     console.log(`[JobQueue] Updating job ${jobId} status:`, {
       previousStatus: job.status,
@@ -87,7 +97,7 @@ export class JobQueue {
 
     console.log(
       `[JobQueue] Publishing job update to Redis channel job:${jobId}:updates:`,
-      updateMessage
+      updateMessage,
     );
     await this.redis.publish(`job:${jobId}:updates`, updateMessage);
   }
@@ -116,7 +126,7 @@ export class JobQueue {
     },
     creatorId: string,
     sharedWithIds: string[],
-    userCoordinates?: { lat: number; lng: number }
+    userCoordinates?: { lat: number; lng: number },
   ): Promise<string> {
     const jobId = crypto.randomUUID();
 

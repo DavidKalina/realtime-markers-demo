@@ -105,7 +105,9 @@ redisSub.subscribe("discovered_events", (err, count) => {
   if (err) {
     console.error("Error subscribing to discovered_events:", err);
   } else {
-    console.log(`Subscribed to discovered_events, total subscriptions: ${count}`);
+    console.log(
+      `Subscribed to discovered_events, total subscriptions: ${count}`,
+    );
   }
 });
 
@@ -153,7 +155,10 @@ redisSub.on("message", (channel, message) => {
               client.send(formattedMessage);
               console.log(`Sent discovery event to client ${clientId}`);
             } catch (error) {
-              console.error(`Error sending discovery event to client ${clientId}:`, error);
+              console.error(
+                `Error sending discovery event to client ${clientId}:`,
+                error,
+              );
             }
           }
         }
@@ -189,7 +194,10 @@ redisSub.on("message", (channel, message) => {
               client.send(formattedMessage);
               console.log(`Sent notification to client ${clientId}`);
             } catch (error) {
-              console.error(`Error sending notification to client ${clientId}:`, error);
+              console.error(
+                `Error sending notification to client ${clientId}:`,
+                error,
+              );
             }
           }
         }
@@ -206,7 +214,10 @@ redisSub.on("message", (channel, message) => {
 
       // Handle both XP awards and level-up events
       const formattedMessage = JSON.stringify({
-        type: data.action === "xp_awarded" ? MessageTypes.XP_AWARDED : MessageTypes.LEVEL_UPDATE,
+        type:
+          data.action === "xp_awarded"
+            ? MessageTypes.XP_AWARDED
+            : MessageTypes.LEVEL_UPDATE,
         data: {
           userId: data.userId,
           level: data.level,
@@ -228,7 +239,10 @@ redisSub.on("message", (channel, message) => {
               client.send(formattedMessage);
               console.log(`Sent level update to client ${clientId}`);
             } catch (error) {
-              console.error(`Error sending level update to client ${clientId}:`, error);
+              console.error(
+                `Error sending level update to client ${clientId}:`,
+                error,
+              );
             }
           }
         }
@@ -257,7 +271,9 @@ const systemHealth = {
 };
 
 function publishEmptyFilter(userId: string): void {
-  console.log(`📤 Publishing default empty filter for user ${userId} (will match all events)`);
+  console.log(
+    `📤 Publishing default empty filter for user ${userId} (will match all events)`,
+  );
 
   redisPub.publish(
     "filter-changes",
@@ -265,7 +281,7 @@ function publishEmptyFilter(userId: string): void {
       userId,
       filters: [], // Empty array means "match all events"
       timestamp: new Date().toISOString(),
-    })
+    }),
   );
 }
 
@@ -274,17 +290,20 @@ async function fetchUserFiltersAndPublish(userId: string): Promise<void> {
     console.log(`🔍 Fetching filters for user ${userId}`);
 
     const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
-    const response = await fetch(`${backendUrl}/api/internal/filters?userId=${userId}`, {
-      headers: {
-        Accept: "application/json",
-        // Add any required authentication headers here
+    const response = await fetch(
+      `${backendUrl}/api/internal/filters?userId=${userId}`,
+      {
+        headers: {
+          Accept: "application/json",
+          // Add any required authentication headers here
+        },
+        signal: AbortSignal.timeout(5000), // 5 second timeout
       },
-      signal: AbortSignal.timeout(5000), // 5 second timeout
-    });
+    );
 
     if (!response.ok) {
       console.error(
-        `Failed to fetch filters for user ${userId}: ${response.status} ${response.statusText}`
+        `Failed to fetch filters for user ${userId}: ${response.status} ${response.statusText}`,
       );
       // Default to empty filter set (match all) on error
       publishEmptyFilter(userId);
@@ -298,6 +317,7 @@ async function fetchUserFiltersAndPublish(userId: string): Promise<void> {
     console.log(`📊 Fetched ${filters.length} filters for user ${userId}`);
 
     // Get only active filters
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const activeFilters = filters.filter((filter: any) => filter.isActive);
     console.log(`📊 User ${userId} has ${activeFilters.length} active filters`);
 
@@ -308,11 +328,11 @@ async function fetchUserFiltersAndPublish(userId: string): Promise<void> {
         userId,
         filters: activeFilters,
         timestamp: new Date().toISOString(),
-      })
+      }),
     );
 
     console.log(
-      `📤 Published filter update for user ${userId} with ${activeFilters.length} active filters`
+      `📤 Published filter update for user ${userId} with ${activeFilters.length} active filters`,
     );
   } catch (error) {
     console.error(`Error fetching filters for user ${userId}:`, error);
@@ -353,7 +373,7 @@ function forwardMessageToUserClients(userId: string, message: string): void {
   try {
     parsedMessage = JSON.parse(message);
     console.log(
-      `Forwarding message type ${parsedMessage.type} to ${clientIds.size} clients of user ${userId}`
+      `Forwarding message type ${parsedMessage.type} to ${clientIds.size} clients of user ${userId}`,
     );
   } catch (error) {
     console.error(`Error parsing message for user ${userId}:`, error);
@@ -420,7 +440,8 @@ async function checkBackendConnection(): Promise<boolean> {
 // Function to check filter processor connection
 async function checkFilterProcessorConnection(): Promise<boolean> {
   try {
-    const filterProcessorUrl = process.env.FILTER_PROCESSOR_URL || "http://filter-processor:8082";
+    const filterProcessorUrl =
+      process.env.FILTER_PROCESSOR_URL || "http://filter-processor:8082";
     const response = await fetch(`${filterProcessorUrl}/health`, {
       signal: AbortSignal.timeout(3000),
     });
@@ -465,7 +486,8 @@ const server = {
         checkBackendConnection(),
         checkFilterProcessorConnection(),
       ]).then(() => {
-        const isHealthy = systemHealth.redisConnected && systemHealth.backendConnected;
+        const isHealthy =
+          systemHealth.redisConnected && systemHealth.backendConnected;
 
         const status = isHealthy ? 200 : 503;
 
@@ -476,15 +498,21 @@ const server = {
             services: {
               redis: {
                 connected: systemHealth.redisConnected,
-                lastChecked: new Date(systemHealth.lastRedisCheck).toISOString(),
+                lastChecked: new Date(
+                  systemHealth.lastRedisCheck,
+                ).toISOString(),
               },
               backend: {
                 connected: systemHealth.backendConnected,
-                lastChecked: new Date(systemHealth.lastBackendCheck).toISOString(),
+                lastChecked: new Date(
+                  systemHealth.lastBackendCheck,
+                ).toISOString(),
               },
               filterProcessor: {
                 connected: systemHealth.filterProcessorConnected,
-                lastChecked: new Date(systemHealth.lastFilterProcessorCheck).toISOString(),
+                lastChecked: new Date(
+                  systemHealth.lastFilterProcessorCheck,
+                ).toISOString(),
               },
             },
             stats: {
@@ -495,7 +523,7 @@ const server = {
           {
             status,
             headers: { "Content-Type": "application/json" },
-          }
+          },
         );
       });
     }
@@ -528,14 +556,17 @@ const server = {
           type: MessageTypes.CONNECTION_ESTABLISHED,
           clientId,
           timestamp: new Date().toISOString(),
-        })
+        }),
       );
 
       console.log(`Client ${clientId} connected`);
       updateHealthStats();
     },
 
-    message: async (ws: ServerWebSocket<WebSocketData>, message: string | Uint8Array) => {
+    message: async (
+      ws: ServerWebSocket<WebSocketData>,
+      message: string | Uint8Array,
+    ) => {
       // Update last activity timestamp
       ws.data.lastActivity = Date.now();
 
@@ -544,13 +575,15 @@ const server = {
 
         if (data.type === MessageTypes.CLIENT_IDENTIFICATION) {
           if (!data.userId || !isValidUserId(data.userId)) {
-            console.error(`Invalid userId in client identification from ${ws.data.clientId}`);
+            console.error(
+              `Invalid userId in client identification from ${ws.data.clientId}`,
+            );
             ws.send(
               JSON.stringify({
                 type: MessageTypes.ERROR,
                 message: "Invalid userId format",
                 timestamp: new Date().toISOString(),
-              })
+              }),
             );
             return;
           }
@@ -569,7 +602,9 @@ const server = {
           // Ensure we have a Redis subscriber for this user
           getRedisSubscriberForUser(userId);
 
-          console.log(`Client ${ws.data.clientId} identified as user ${userId}`);
+          console.log(
+            `Client ${ws.data.clientId} identified as user ${userId}`,
+          );
 
           // Fetch user's filters from backend and publish to filter-changes
           await fetchUserFiltersAndPublish(userId);
@@ -582,13 +617,17 @@ const server = {
           const userId = ws.data.userId;
 
           if (!userId) {
-            console.warn(`Viewport update received from unidentified client ${ws.data.clientId}`);
+            console.warn(
+              `Viewport update received from unidentified client ${ws.data.clientId}`,
+            );
             return;
           }
 
           // Validate viewport data
           if (!data.viewport || typeof data.viewport !== "object") {
-            console.error(`Invalid viewport data from client ${ws.data.clientId}`);
+            console.error(
+              `Invalid viewport data from client ${ws.data.clientId}`,
+            );
             return;
           }
 
@@ -605,7 +644,7 @@ const server = {
             `viewport:${userId}`,
             JSON.stringify(viewport),
             "EX",
-            3600 // 1 hour expiration
+            3600, // 1 hour expiration
           );
 
           // Publish viewport update to Filter Processor
@@ -615,7 +654,7 @@ const server = {
               userId,
               viewport,
               timestamp: new Date().toISOString(),
-            })
+            }),
           );
 
           console.log(`Published viewport update for user ${userId}`);
@@ -638,10 +677,15 @@ const server = {
 
         // Log unknown message types
         else {
-          console.warn(`Unknown message type ${data.type} from client ${ws.data.clientId}`);
+          console.warn(
+            `Unknown message type ${data.type} from client ${ws.data.clientId}`,
+          );
         }
       } catch (error) {
-        console.error(`Error processing message from ${ws.data.clientId}:`, error);
+        console.error(
+          `Error processing message from ${ws.data.clientId}:`,
+          error,
+        );
       }
     },
 
@@ -685,7 +729,7 @@ const server = {
 
         updateHealthStats();
       } catch (error) {
-        console.error(`Error handling client disconnect:`, error);
+        console.error("Error handling client disconnect:", error);
       }
     },
   },
@@ -715,6 +759,7 @@ startServer();
 // Add userId validation function
 function isValidUserId(userId: string): boolean {
   // UUID v4 format validation
-  const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const uuidV4Regex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   return uuidV4Regex.test(userId);
 }

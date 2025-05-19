@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useMemo,
+  useCallback,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MapboxGL from "@rnmapbox/maps";
 
@@ -15,7 +22,9 @@ interface MapStyleContextType {
   togglePitch: () => Promise<void>;
 }
 
-const MapStyleContext = createContext<MapStyleContextType | undefined>(undefined);
+const MapStyleContext = createContext<MapStyleContextType | undefined>(
+  undefined,
+);
 
 // Memoize the style URL calculation since it's a pure function
 const getMapStyleURL = (style: MapStyleType): string => {
@@ -31,13 +40,16 @@ const getMapStyleURL = (style: MapStyleType): string => {
   }
 };
 
-export const MapStyleProvider: React.FC<{ children: React.ReactNode }> = React.memo(
-  ({ children }) => {
+export const MapStyleProvider: React.FC<{ children: React.ReactNode }> =
+  React.memo(({ children }) => {
     const [currentStyle, setCurrentStyle] = useState<MapStyleType>("dark");
     const [isPitched, setIsPitched] = useState(true);
 
     // Memoize the style URL to prevent recalculation
-    const mapStyle = useMemo(() => getMapStyleURL(currentStyle), [currentStyle]);
+    const mapStyle = useMemo(
+      () => getMapStyleURL(currentStyle),
+      [currentStyle],
+    );
 
     // Memoize the style change handler
     const setMapStyle = useCallback(async (style: MapStyleType) => {
@@ -74,7 +86,9 @@ export const MapStyleProvider: React.FC<{ children: React.ReactNode }> = React.m
           if (isMounted) {
             if (
               savedStyle &&
-              (savedStyle === "light" || savedStyle === "dark" || savedStyle === "street")
+              (savedStyle === "light" ||
+                savedStyle === "dark" ||
+                savedStyle === "street")
             ) {
               setCurrentStyle(savedStyle as MapStyleType);
             }
@@ -103,12 +117,15 @@ export const MapStyleProvider: React.FC<{ children: React.ReactNode }> = React.m
         isPitched,
         togglePitch,
       }),
-      [currentStyle, setMapStyle, mapStyle, isPitched, togglePitch]
+      [currentStyle, setMapStyle, mapStyle, isPitched, togglePitch],
     );
 
-    return <MapStyleContext.Provider value={contextValue}>{children}</MapStyleContext.Provider>;
-  }
-);
+    return (
+      <MapStyleContext.Provider value={contextValue}>
+        {children}
+      </MapStyleContext.Provider>
+    );
+  });
 
 // Add display name for better debugging
 MapStyleProvider.displayName = "MapStyleProvider";

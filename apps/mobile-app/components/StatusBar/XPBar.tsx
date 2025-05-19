@@ -1,9 +1,18 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/services/ApiClient";
-import { eventBroker, EventTypes, LevelUpdateEvent, XPAwardedEvent } from "@/services/EventBroker";
+import {
+  eventBroker,
+  EventTypes,
+  LevelUpdateEvent,
+  XPAwardedEvent,
+} from "@/services/EventBroker";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { useXPGainAnimation } from "./useXPGainAnimation";
 import { COLORS } from "../Layout/ScreenLayout";
 
@@ -36,7 +45,8 @@ const XPBar: React.FC<XPBarProps> = React.memo(
     const nextLevelXpValue = useSharedValue(100);
 
     // Use the XP gain animation hook
-    const { xpGainOpacity, xpGainTranslateY, xpGainAmount, showXPGain } = useXPGainAnimation();
+    const { xpGainOpacity, xpGainTranslateY, xpGainAmount, showXPGain } =
+      useXPGainAnimation();
 
     // Add a ref to track the debounce timeout
     const debounceTimeoutRef = useRef<NodeJS.Timeout>();
@@ -58,10 +68,13 @@ const XPBar: React.FC<XPBarProps> = React.memo(
         opacity: xpGainOpacity.value,
         transform: [{ translateY: xpGainTranslateY.value }],
       }),
-      []
+      [],
     );
 
-    const AnimatedXPGainText = useMemo(() => Animated.createAnimatedComponent(Text), []);
+    const AnimatedXPGainText = useMemo(
+      () => Animated.createAnimatedComponent(Text),
+      [],
+    );
 
     // Memoize the fetch function
     const fetchLatestXPData = useCallback(async () => {
@@ -80,7 +93,10 @@ const XPBar: React.FC<XPBarProps> = React.memo(
         setLevelInfo(newLevelInfo);
 
         // Ensure progress is between 0 and 100
-        const clampedProgress = Math.min(Math.max(newLevelInfo.progress, 0), 100);
+        const clampedProgress = Math.min(
+          Math.max(newLevelInfo.progress, 0),
+          100,
+        );
 
         // Animate the progress change
         progressValue.value = withTiming(clampedProgress, {
@@ -116,7 +132,7 @@ const XPBar: React.FC<XPBarProps> = React.memo(
           await fetchLatestXPData();
         }
       },
-      [user?.id, fetchLatestXPData]
+      [user?.id, fetchLatestXPData],
     );
 
     const handleXPAwarded = useCallback(
@@ -126,16 +142,19 @@ const XPBar: React.FC<XPBarProps> = React.memo(
           debouncedFetchLatestXPData();
         }
       },
-      [user?.id, debouncedFetchLatestXPData, showXPGain]
+      [user?.id, debouncedFetchLatestXPData, showXPGain],
     );
 
     // Subscribe to level updates and XP awards
     useEffect(() => {
       const levelUnsubscribe = eventBroker.on<LevelUpdateEvent>(
         EventTypes.LEVEL_UPDATE,
-        handleLevelUpdate
+        handleLevelUpdate,
       );
-      const xpUnsubscribe = eventBroker.on<XPAwardedEvent>(EventTypes.XP_AWARDED, handleXPAwarded);
+      const xpUnsubscribe = eventBroker.on<XPAwardedEvent>(
+        EventTypes.XP_AWARDED,
+        handleXPAwarded,
+      );
 
       return () => {
         levelUnsubscribe();
@@ -155,7 +174,7 @@ const XPBar: React.FC<XPBarProps> = React.memo(
     // Memoize the container style
     const containerStyle = useMemo(
       () => [styles.container, { backgroundColor }],
-      [backgroundColor]
+      [backgroundColor],
     );
 
     return (
@@ -179,7 +198,7 @@ const XPBar: React.FC<XPBarProps> = React.memo(
   },
   (prevProps, nextProps) => {
     return prevProps.backgroundColor === nextProps.backgroundColor;
-  }
+  },
 );
 
 const styles = StyleSheet.create({

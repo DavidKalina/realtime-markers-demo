@@ -60,16 +60,21 @@ redisClient.on("ready", () => {
 });
 
 // Initialize services
-const userPreferencesService = new UserPreferencesService(dataSource, redisClient);
+const userPreferencesService = new UserPreferencesService(
+  dataSource,
+  redisClient,
+);
 const levelingService = new LevelingService(dataSource, redisClient);
 const authService = new AuthService(
   userRepository,
   userPreferencesService,
   levelingService,
-  dataSource
+  dataSource,
 );
 
-export type AuthHandler = (c: Context<AppContext>) => Promise<Response> | Response;
+export type AuthHandler = (
+  c: Context<AppContext>,
+) => Promise<Response> | Response;
 
 /**
  * Register a new user
@@ -83,7 +88,11 @@ export const registerHandler: AuthHandler = async (c) => {
     }
 
     // Register user via the auth service
-    const registeredUser = await authService.register({ email, password, displayName });
+    await authService.register({
+      email,
+      password,
+      displayName,
+    });
     // Optionally, log in the user right after registration to generate tokens
     const { user, tokens } = await authService.login(email, password);
 
@@ -94,11 +103,14 @@ export const registerHandler: AuthHandler = async (c) => {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken, // Add refresh token here too
       },
-      201
+      201,
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error during registration:", error);
-    return c.json({ error: error.message || "Registration failed" }, 500);
+    return c.json(
+      { error: error instanceof Error ? error.message : "Registration failed" },
+      500,
+    );
   }
 };
 
@@ -121,9 +133,12 @@ export const loginHandler: AuthHandler = async (c) => {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken, // Add the refresh token to the response
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error during login:", error);
-    return c.json({ error: error.message || "Login failed" }, 401);
+    return c.json(
+      { error: error instanceof Error ? error.message : "Login failed" },
+      401,
+    );
   }
 };
 
@@ -144,9 +159,15 @@ export const refreshTokenHandler: AuthHandler = async (c) => {
       message: "Token refreshed successfully",
       accessToken: tokens.accessToken,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error refreshing token:", error);
-    return c.json({ error: error.message || "Failed to refresh token" }, 401);
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to refresh token",
+      },
+      401,
+    );
   }
 };
 
@@ -168,9 +189,12 @@ export const logoutHandler: AuthHandler = async (c) => {
     }
 
     return c.json({ message: "Logged out successfully" });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error during logout:", error);
-    return c.json({ error: error.message || "Logout failed" }, 500);
+    return c.json(
+      { error: error instanceof Error ? error.message : "Logout failed" },
+      500,
+    );
   }
 };
 
@@ -190,9 +214,14 @@ export const getCurrentUserHandler: AuthHandler = async (c) => {
     }
 
     return c.json(user);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error fetching current user:", error);
-    return c.json({ error: error.message || "Failed to fetch user" }, 500);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to fetch user",
+      },
+      500,
+    );
   }
 };
 
@@ -218,9 +247,15 @@ export const updateProfileHandler: AuthHandler = async (c) => {
       message: "Profile updated successfully",
       user: updatedUser,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error updating profile:", error);
-    return c.json({ error: error.message || "Failed to update profile" }, 500);
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to update profile",
+      },
+      500,
+    );
   }
 };
 
@@ -236,14 +271,23 @@ export const changePasswordHandler: AuthHandler = async (c) => {
 
     const { currentPassword, newPassword } = await c.req.json();
     if (!currentPassword || !newPassword) {
-      return c.json({ error: "Current password and new password are required" }, 400);
+      return c.json(
+        { error: "Current password and new password are required" },
+        400,
+      );
     }
 
     await authService.changePassword(userId, currentPassword, newPassword);
     return c.json({ message: "Password changed successfully" });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error changing password:", error);
-    return c.json({ error: error.message || "Failed to change password" }, 500);
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to change password",
+      },
+      500,
+    );
   }
 };
 
@@ -264,9 +308,15 @@ export const deleteAccountHandler: AuthHandler = async (c) => {
 
     await authService.deleteAccount(userId, password);
     return c.json({ message: "Account deleted successfully" });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error deleting account:", error);
-    return c.json({ error: error.message || "Failed to delete account" }, 500);
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to delete account",
+      },
+      500,
+    );
   }
 };
 

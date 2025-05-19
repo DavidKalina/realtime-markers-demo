@@ -1,19 +1,29 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { View, StyleSheet, Text, Pressable, ActivityIndicator } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-  withSequence,
-  withTiming,
-  Easing,
-  cancelAnimation,
-} from "react-native-reanimated";
+import { apiClient } from "@/services/ApiClient";
+import {
+  eventBroker,
+  EventTypes,
+  NotificationEvent,
+} from "@/services/EventBroker";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { eventBroker, EventTypes, BaseEvent, NotificationEvent } from "@/services/EventBroker";
-import { apiClient } from "@/services/ApiClient";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 
 const ANIMATION_CONFIG = {
   damping: 10,
@@ -37,7 +47,7 @@ const NotificationIndicator: React.FC = () => {
   const router = useRouter();
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -57,7 +67,10 @@ const NotificationIndicator: React.FC = () => {
             setUnreadCount(count);
           }
         } catch (error) {
-          console.error("Error fetching unread notification count on focus:", error);
+          console.error(
+            "Error fetching unread notification count on focus:",
+            error,
+          );
           // Optionally set count to 0 or handle error state
           if (isActive) {
             setUnreadCount(0); // Example: reset on error
@@ -76,7 +89,7 @@ const NotificationIndicator: React.FC = () => {
         isActive = false;
         console.log("Screen lost focus or unmounted during fetch."); // Optional: for debugging
       };
-    }, []) // Dependencies for the useCallback. Usually empty unless fetchUnreadCount depends on props/state.
+    }, []), // Dependencies for the useCallback. Usually empty unless fetchUnreadCount depends on props/state.
   );
 
   // Handle new notifications from WebSocket
@@ -102,11 +115,14 @@ const NotificationIndicator: React.FC = () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       scale.value = withSequence(
         withSpring(1.2, ANIMATION_CONFIG),
-        withSpring(1, ANIMATION_CONFIG)
+        withSpring(1, ANIMATION_CONFIG),
       );
     };
 
-    const unsubscribe = eventBroker.on(EventTypes.NOTIFICATION, handleNewNotification);
+    const unsubscribe = eventBroker.on(
+      EventTypes.NOTIFICATION,
+      handleNewNotification,
+    );
 
     return () => {
       unsubscribe();
@@ -119,11 +135,14 @@ const NotificationIndicator: React.FC = () => {
     cancelAnimation(rotation);
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    scale.value = withSequence(withSpring(0.95, ANIMATION_CONFIG), withSpring(1, ANIMATION_CONFIG));
+    scale.value = withSequence(
+      withSpring(0.95, ANIMATION_CONFIG),
+      withSpring(1, ANIMATION_CONFIG),
+    );
     rotation.value = withSequence(
       withTiming(-5, ROTATION_CONFIG),
       withTiming(5, ROTATION_CONFIG),
-      withTiming(0, ROTATION_CONFIG)
+      withTiming(0, ROTATION_CONFIG),
     );
 
     // Mark notifications as read when opening
@@ -154,7 +173,9 @@ const NotificationIndicator: React.FC = () => {
           )}
           {!isLoading && unreadCount > 0 && (
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+              <Text style={styles.badgeText}>
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </Text>
             </View>
           )}
         </View>

@@ -7,10 +7,11 @@ export const useNavigationHandler = () => {
 
   const navigateToDetails = useCallback(
     (item: MapItem) => {
-      const route = item.type === "marker" ? `details?eventId=${item.id}` : "cluster";
+      const route =
+        item.type === "marker" ? `details?eventId=${item.id}` : "cluster";
       router.push(route as never);
     },
-    [router]
+    [router],
   );
 
   return {

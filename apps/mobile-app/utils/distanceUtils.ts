@@ -8,7 +8,7 @@
  */
 export const calculateDistance = (
   userCoords: [number, number] | null,
-  markerCoords: [number, number]
+  markerCoords: [number, number],
 ): number | null => {
   if (!userCoords) return null;
 

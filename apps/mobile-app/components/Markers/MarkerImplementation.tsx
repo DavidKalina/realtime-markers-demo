@@ -1,7 +1,11 @@
 // components/Markers/ClusteredMapMarkers.tsx
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { Marker } from "@/hooks/useMapWebsocket";
-import { ClusterFeature, PointFeature, useMarkerClustering } from "@/hooks/useMarkerClustering";
+import {
+  ClusterFeature,
+  PointFeature,
+  useMarkerClustering,
+} from "@/hooks/useMarkerClustering";
 import {
   CameraAnimateToLocationEvent,
   ClusterItem as EventClusterItem,
@@ -13,7 +17,11 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
 import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useMemo, useEffect } from "react";
-import Animated, { BounceIn, BounceOut, LinearTransition } from "react-native-reanimated";
+import Animated, {
+  BounceIn,
+  BounceOut,
+  LinearTransition,
+} from "react-native-reanimated";
 import { ClusterMarker } from "./ClusterMarker";
 import { EmojiMapMarker } from "./CustomMapMarker";
 import * as Haptics from "expo-haptics";
@@ -84,7 +92,10 @@ const SingleMarkerView = React.memo(
             .damping(15)
             .stiffness(200)
             .delay(index * 300)}
-          exiting={BounceOut.duration(500).springify().damping(15).stiffness(200)}
+          exiting={BounceOut.duration(500)
+            .springify()
+            .damping(15)
+            .stiffness(200)}
           layout={LinearTransition.springify()}
         >
           <EmojiMapMarker
@@ -96,7 +107,7 @@ const SingleMarkerView = React.memo(
         </Animated.View>
       </MapboxGL.MarkerView>
     );
-  }
+  },
 );
 
 // Component for rendering a cluster - memoized with proper prop comparison
@@ -138,7 +149,10 @@ const ClusterView = React.memo(
             .damping(15)
             .stiffness(200)
             .delay(index * 50)}
-          exiting={BounceOut.duration(500).springify().damping(15).stiffness(200)}
+          exiting={BounceOut.duration(500)
+            .springify()
+            .damping(15)
+            .stiffness(200)}
           layout={LinearTransition.springify()}
         >
           <ClusterMarker
@@ -161,11 +175,11 @@ const ClusterView = React.memo(
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.index === nextProps.index
     );
-  }
+  },
 );
 
-export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.memo(
-  ({ currentZoom = 14, viewport }) => {
+export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
+  React.memo(({ currentZoom = 14, viewport }) => {
     // Get marker data from store
     const storeMarkers = useLocationStore((state) => state.markers);
     const router = useRouter();
@@ -221,14 +235,17 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
             });
 
             // Center camera on the item without changing zoom
-            publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
-              timestamp: Date.now(),
-              source: "ClusteredMapMarkers",
-              coordinates: item.coordinates,
-              duration: 400,
-              zoomLevel: 16, // Use a higher zoom level for markers
-              allowZoomChange: true, // Allow zoom changes
-            });
+            publish<CameraAnimateToLocationEvent>(
+              EventTypes.CAMERA_ANIMATE_TO_LOCATION,
+              {
+                timestamp: Date.now(),
+                source: "ClusteredMapMarkers",
+                coordinates: item.coordinates,
+                duration: 400,
+                zoomLevel: 16, // Use a higher zoom level for markers
+                allowZoomChange: true, // Allow zoom changes
+              },
+            );
 
             // Wait for camera animation to complete, then add a longer delay before navigating
             setTimeout(() => {
@@ -264,14 +281,17 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
             });
 
             // Center camera on the item without changing zoom
-            publish<CameraAnimateToLocationEvent>(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
-              timestamp: Date.now(),
-              source: "ClusteredMapMarkers",
-              coordinates: item.coordinates,
-              duration: 400,
-              zoomLevel: currentZoom, // Keep the same zoom level
-              allowZoomChange: false, // Explicitly prevent zoom changes
-            });
+            publish<CameraAnimateToLocationEvent>(
+              EventTypes.CAMERA_ANIMATE_TO_LOCATION,
+              {
+                timestamp: Date.now(),
+                source: "ClusteredMapMarkers",
+                coordinates: item.coordinates,
+                duration: 400,
+                zoomLevel: currentZoom, // Keep the same zoom level
+                allowZoomChange: false, // Explicitly prevent zoom changes
+              },
+            );
 
             // Wait for camera animation to complete, then add a longer delay before navigating
             setTimeout(() => {
@@ -282,7 +302,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           }
         };
       },
-      [currentZoom, publish, selectMapItem, selectedItem?.id, router]
+      [currentZoom, publish, selectMapItem, selectedItem?.id, router],
     );
 
     // Memoize the cluster processing function with stable references
@@ -293,7 +313,8 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           const coordinates = clusterFeature.geometry.coordinates;
           const count = clusterFeature.properties.point_count;
           const clusterId =
-            clusterFeature.properties.stableId || `cluster-${clusterFeature.properties.cluster_id}`;
+            clusterFeature.properties.stableId ||
+            `cluster-${clusterFeature.properties.cluster_id}`;
 
           return {
             type: "cluster" as const,
@@ -337,7 +358,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           };
         }
       },
-      [createMapItemPressHandler, isItemSelected]
+      [createMapItemPressHandler, isItemSelected],
     );
 
     // Process and memoize clusters for rendering with stable references
@@ -379,7 +400,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           index={processed.index}
         />
       ),
-      []
+      [],
     );
 
     const renderMarker = useCallback(
@@ -398,7 +419,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
           index={processed.index}
         />
       ),
-      []
+      [],
     );
 
     return (
@@ -412,5 +433,4 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> = React.mem
         })}
       </>
     );
-  }
-);
+  });

@@ -125,7 +125,10 @@ export class Event {
   @Column({ name: "creator_id", type: "uuid", nullable: true })
   creatorId?: string;
 
-  @ManyToOne(() => User, (user) => user.createdEvents, { nullable: true, onDelete: "SET NULL" })
+  @ManyToOne(() => User, (user) => user.createdEvents, {
+    nullable: true,
+    onDelete: "SET NULL",
+  })
   @JoinColumn({ name: "creator_id" })
   creator?: User;
 
@@ -155,7 +158,10 @@ export class Event {
   @Column({ name: "group_id", type: "uuid", nullable: true })
   groupId?: string | null;
 
-  @ManyToOne(() => Group, (group) => group.events, { nullable: true, onDelete: "SET NULL" }) // If group is deleted, event becomes ungrouped
+  @ManyToOne(() => Group, (group) => group.events, {
+    nullable: true,
+    onDelete: "SET NULL",
+  }) // If group is deleted, event becomes ungrouped
   @JoinColumn({ name: "group_id" })
   group?: Group | null;
 

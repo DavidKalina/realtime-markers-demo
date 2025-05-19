@@ -22,7 +22,10 @@ const FilterIndicator: React.FC = () => {
   const handlePress = () => {
     cancelAnimation(scale);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    scale.value = withSequence(withSpring(0.95, ANIMATION_CONFIG), withSpring(1, ANIMATION_CONFIG));
+    scale.value = withSequence(
+      withSpring(0.95, ANIMATION_CONFIG),
+      withSpring(1, ANIMATION_CONFIG),
+    );
     router.push("/filter");
   };
 

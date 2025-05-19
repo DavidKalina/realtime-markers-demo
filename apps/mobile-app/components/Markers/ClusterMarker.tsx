@@ -1,19 +1,30 @@
 import * as Haptics from "expo-haptics";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withRepeat,
   withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { ShadowSVG, MarkerSVG, MARKER_WIDTH, MARKER_HEIGHT, SHADOW_OFFSET } from "./MarkerSVGs";
 import { COLORS } from "../Layout/ScreenLayout";
+import {
+  MARKER_HEIGHT,
+  MARKER_WIDTH,
+  MarkerSVG,
+  SHADOW_OFFSET,
+  ShadowSVG,
+} from "./MarkerSVGs";
 
 interface ClusterMarkerProps {
   count: number;
@@ -89,10 +100,9 @@ const createAnimationCleanup = (animations: Animated.SharedValue<number>[]) => {
 };
 
 export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
-  ({ count, onPress, isSelected = false, isHighlighted = false, index = 0 }) => {
+  ({ count, onPress, isSelected = false }) => {
     // Component state
     const prevSelectedRef = useRef(isSelected);
-    const prevHighlightedRef = useRef(isHighlighted);
     const animationTimersRef = useRef<Array<NodeJS.Timeout>>([]);
     const animationIntervalsRef = useRef<Array<NodeJS.Timeout>>([]);
 
@@ -117,7 +127,10 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     }, [count]);
 
     // Memoize formatted count
-    const formattedCount = useMemo(() => (count > 99 ? "99+" : count.toString()), [count]);
+    const formattedCount = useMemo(
+      () => (count > 99 ? "99+" : count.toString()),
+      [count],
+    );
 
     // Use shared SVG components
     const ShadowSvg = useMemo(() => <ShadowSVG />, []);
@@ -133,7 +146,7 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
           circleStrokeWidth={count > 15 ? "2" : "1"}
         />
       ),
-      [colorScheme, count]
+      [colorScheme, count],
     );
 
     // Cleanup function for all animations and timers
@@ -155,7 +168,9 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
       animationTimersRef.current = [];
 
       // Clear all intervals
-      animationIntervalsRef.current.forEach((interval) => clearInterval(interval));
+      animationIntervalsRef.current.forEach((interval) =>
+        clearInterval(interval),
+      );
       animationIntervalsRef.current = [];
     }, []);
 
@@ -188,13 +203,15 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     const handlePress = useCallback(() => {
       if (Platform.OS !== "web") {
         Haptics.impactAsync(
-          isSelected ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light
+          isSelected
+            ? Haptics.ImpactFeedbackStyle.Medium
+            : Haptics.ImpactFeedbackStyle.Light,
         ).catch(() => {});
       }
 
       scale.value = withSequence(
         withTiming(0.9, ANIMATIONS.SCALE_PRESS),
-        withSpring(isSelected ? 1 : 1.15, ANIMATIONS.SCALE_RELEASE)
+        withSpring(isSelected ? 1 : 1.15, ANIMATIONS.SCALE_RELEASE),
       );
 
       onPress();
@@ -206,13 +223,13 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
       fanRotation.value = withSequence(
         withTiming(0.2, ANIMATIONS.FAN_OUT),
         withTiming(-0.2, ANIMATIONS.FAN_OUT),
-        withTiming(0, ANIMATIONS.FAN_IN)
+        withTiming(0, ANIMATIONS.FAN_IN),
       );
 
       fanScale.value = withSequence(
         withTiming(1.1, ANIMATIONS.FAN_OUT),
         withTiming(1.1, { duration: 200 }),
-        withTiming(1, ANIMATIONS.FAN_IN)
+        withTiming(1, ANIMATIONS.FAN_IN),
       );
 
       // Repeat the fanning animation every 4 seconds
@@ -220,13 +237,13 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
         fanRotation.value = withSequence(
           withTiming(0.2, ANIMATIONS.FAN_OUT),
           withTiming(-0.2, ANIMATIONS.FAN_OUT),
-          withTiming(0, ANIMATIONS.FAN_IN)
+          withTiming(0, ANIMATIONS.FAN_IN),
         );
 
         fanScale.value = withSequence(
           withTiming(1.1, ANIMATIONS.FAN_OUT),
           withTiming(1.1, { duration: 200 }),
-          withTiming(1, ANIMATIONS.FAN_IN)
+          withTiming(1, ANIMATIONS.FAN_IN),
         );
       }, 4000);
       animationIntervalsRef.current.push(fanTimer);
@@ -244,16 +261,19 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
             withTiming(1.15, { duration: 300 }),
             withTiming(0.95, { duration: 300 }),
             withTiming(1.1, { duration: 200 }),
-            withTiming(1, { duration: 200 })
+            withTiming(1, { duration: 200 }),
           ),
           -1,
-          true
+          true,
         );
       } else if (count > 5) {
         pulseScale.value = withRepeat(
-          withSequence(withTiming(1.08, { duration: 1000 }), withTiming(1, { duration: 1000 })),
+          withSequence(
+            withTiming(1.08, { duration: 1000 }),
+            withTiming(1, { duration: 1000 }),
+          ),
           -1,
-          true
+          true,
         );
       }
 
@@ -266,9 +286,12 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     useEffect(() => {
       if (count > 15) {
         burstScale.value = withRepeat(
-          withSequence(withTiming(1.2, { duration: 400 }), withTiming(1, { duration: 400 })),
+          withSequence(
+            withTiming(1.2, { duration: 400 }),
+            withTiming(1, { duration: 400 }),
+          ),
           -1,
-          true
+          true,
         );
       }
 
@@ -280,14 +303,24 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     // Animated styles
     const markerStyle = useAnimatedStyle(() => ({
       transform: [
-        { scale: scale.value * fanScale.value * baseScale * pulseScale.value * burstScale.value },
+        {
+          scale:
+            scale.value *
+            fanScale.value *
+            baseScale *
+            pulseScale.value *
+            burstScale.value,
+        },
         { rotate: `${fanRotation.value}rad` },
       ],
     }));
 
     const shadowStyle = useAnimatedStyle(() => ({
       opacity: shadowOpacity.value,
-      transform: [{ translateX: SHADOW_OFFSET.x }, { translateY: SHADOW_OFFSET.y }],
+      transform: [
+        { translateX: SHADOW_OFFSET.x },
+        { translateY: SHADOW_OFFSET.y },
+      ],
     }));
 
     const rippleStyle = useAnimatedStyle(() => ({
@@ -298,16 +331,27 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
     return (
       <View style={styles.container}>
         {/* Marker Shadow */}
-        <Animated.View style={[styles.shadowContainer, shadowStyle]}>{ShadowSvg}</Animated.View>
+        <Animated.View style={[styles.shadowContainer, shadowStyle]}>
+          {ShadowSvg}
+        </Animated.View>
 
         {/* Marker */}
-        <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={styles.touchableArea}>
+        <TouchableOpacity
+          onPress={handlePress}
+          activeOpacity={0.7}
+          style={styles.touchableArea}
+        >
           <Animated.View style={[styles.markerContainer, markerStyle]}>
             {MarkerSvg}
 
             {/* Cluster Count Text */}
             <View style={styles.countContainer}>
-              <Text style={[styles.countText, { fontSize: count > 99 ? 14 : count > 9 ? 16 : 18 }]}>
+              <Text
+                style={[
+                  styles.countText,
+                  { fontSize: count > 99 ? 14 : count > 9 ? 16 : 18 },
+                ]}
+              >
                 {formattedCount}
               </Text>
             </View>
@@ -328,7 +372,7 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
       prevProps.coordinates[0] === nextProps.coordinates[0] &&
       prevProps.coordinates[1] === nextProps.coordinates[1]
     );
-  }
+  },
 );
 
 const styles = StyleSheet.create({

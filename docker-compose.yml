@@ -54,7 +54,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--bind", "0.0.0.0"]
+    command:
+      [
+        "redis-server",
+        "--requirepass",
+        "${REDIS_PASSWORD}",
+        "--bind",
+        "0.0.0.0",
+      ]
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
@@ -183,7 +190,15 @@ services:
     volumes:
       - filter_processor_node_modules:/app/apps/filter-processor/node_modules
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8082/health",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5

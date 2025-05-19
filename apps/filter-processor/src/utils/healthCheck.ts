@@ -48,7 +48,9 @@ export function initializeHealthCheck(options: HealthCheckOptions) {
       const pong = await redisPub.ping();
       redisConnected = pong === "PONG";
       lastRedisCheck = new Date().toISOString();
-      console.log(`Redis health check: ${redisConnected ? "connected" : "disconnected"}`);
+      console.log(
+        `Redis health check: ${redisConnected ? "connected" : "disconnected"}`,
+      );
     } catch (error) {
       redisConnected = false;
       lastRedisCheck = new Date().toISOString();
@@ -62,7 +64,8 @@ export function initializeHealthCheck(options: HealthCheckOptions) {
 
     // Allow any path for health checks initially
     // This makes it more robust during startup
-    const isHealthRequest = req.url === "/health" || req.url === "/" || req.url === "/healthz";
+    const isHealthRequest =
+      req.url === "/health" || req.url === "/" || req.url === "/healthz";
 
     if (isHealthRequest) {
       // Get current health status
@@ -107,7 +110,7 @@ export function initializeHealthCheck(options: HealthCheckOptions) {
     startHealthServer: () => {
       server.listen(port, "0.0.0.0", () => {
         console.log(
-          `🩺 Health check server running on port ${port}, accessible at http://0.0.0.0:${port}/health`
+          `🩺 Health check server running on port ${port}, accessible at http://0.0.0.0:${port}/health`,
         );
       });
     },

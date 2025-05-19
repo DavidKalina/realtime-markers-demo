@@ -10,6 +10,7 @@ import * as fs from "fs";
  */
 export class ConfigService {
   private static instance: ConfigService;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private config: Record<string, any> = {};
 
   /**
@@ -43,9 +44,10 @@ export class ConfigService {
    * @param key Configuration key in dot notation
    * @param defaultValue Optional default value if key not found
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public get(key: string, defaultValue?: any): any {
     const parts = key.split(".");
-    let current: any = this.config;
+    let current = this.config;
 
     for (const part of parts) {
       if (current === undefined || current === null) {
@@ -62,6 +64,7 @@ export class ConfigService {
    * @param key Configuration key
    * @param value Value to set
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public set(key: string, value: any): void {
     const parts = key.split(".");
     let current = this.config;
@@ -89,7 +92,12 @@ export class ConfigService {
       if (fs.existsSync(configDir)) {
         const files = fs
           .readdirSync(configDir)
-          .filter((file) => file.endsWith(".json") || file.endsWith(".js") || file.endsWith(".ts"));
+          .filter(
+            (file) =>
+              file.endsWith(".json") ||
+              file.endsWith(".js") ||
+              file.endsWith(".ts"),
+          );
 
         for (const file of files) {
           try {
@@ -98,6 +106,7 @@ export class ConfigService {
 
             // For JS/TS files, require them
             if (file.endsWith(".js") || file.endsWith(".ts")) {
+              // eslint-disable-next-line @typescript-eslint/no-var-requires
               const fileConfig = require(configPath);
               this.config[configName] = fileConfig;
             }
@@ -125,7 +134,10 @@ export class ConfigService {
         const envConfig = JSON.parse(fs.readFileSync(envConfigPath, "utf8"));
         this.mergeDeep(this.config, envConfig);
       } catch (err) {
-        console.error(`Error loading environment config file ${env}.json:`, err);
+        console.error(
+          `Error loading environment config file ${env}.json:`,
+          err,
+        );
       }
     }
   }
@@ -161,6 +173,7 @@ export class ConfigService {
    * @param key Configuration key
    * @param value Default value
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private setIfNotExists(key: string, value: any): void {
     if (this.get(key) === undefined) {
       this.set(key, value);
@@ -170,9 +183,14 @@ export class ConfigService {
   /**
    * Deep merge objects for configuration
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private mergeDeep(target: any, source: any): any {
     for (const key in source) {
-      if (source[key] && typeof source[key] === "object" && !Array.isArray(source[key])) {
+      if (
+        source[key] &&
+        typeof source[key] === "object" &&
+        !Array.isArray(source[key])
+      ) {
         if (!target[key]) target[key] = {};
         this.mergeDeep(target[key], source[key]);
       } else {

@@ -34,6 +34,7 @@ export interface SimilarityResult {
     timezoneSimilarity?: string;
     embeddingScore?: string;
     compositeScore?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
   };
 

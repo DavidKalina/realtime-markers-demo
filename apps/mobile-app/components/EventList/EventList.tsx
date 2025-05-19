@@ -47,16 +47,18 @@ const LoadingComponent = React.memo(() => (
 ));
 
 // Memoize the error component
-const ErrorComponent = React.memo(({ error, onRetry }: { error: string; onRetry?: () => void }) => (
-  <Card style={styles.errorContainer}>
-    <Text style={styles.errorText}>{error}</Text>
-    {onRetry && (
-      <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
-        <Text style={styles.retryButtonText}>Retry</Text>
-      </TouchableOpacity>
-    )}
-  </Card>
-));
+const ErrorComponent = React.memo(
+  ({ error, onRetry }: { error: string; onRetry?: () => void }) => (
+    <Card style={styles.errorContainer}>
+      <Text style={styles.errorText}>{error}</Text>
+      {onRetry && (
+        <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      )}
+    </Card>
+  ),
+);
 
 // Memoize the empty state component
 const EmptyStateComponent = React.memo(
@@ -74,7 +76,7 @@ const EmptyStateComponent = React.memo(
       <Text style={styles.emptyStateTitle}>{title}</Text>
       <Text style={styles.emptyStateDescription}>{description}</Text>
     </Card>
-  )
+  ),
 );
 
 // Memoize the loading footer component
@@ -90,10 +92,12 @@ const ListHeaderComponent = React.memo(
   ({ count, hasSearched }: { count: number; hasSearched: boolean }) => (
     <View style={styles.listHeader}>
       <Text style={styles.resultsText}>
-        {hasSearched ? `${count} ${count === 1 ? "result" : "results"} found` : "Showing events"}
+        {hasSearched
+          ? `${count} ${count === 1 ? "result" : "results"} found`
+          : "Showing events"}
       </Text>
     </View>
-  )
+  ),
 );
 
 const EventList: React.FC<EventListProps> = ({
@@ -125,7 +129,7 @@ const EventList: React.FC<EventListProps> = ({
         router.push(`/details?eventId=${event.id}`);
       }
     },
-    [router]
+    [router],
   );
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -146,7 +150,7 @@ const EventList: React.FC<EventListProps> = ({
         footerContent={renderExtraContent?.(event)}
       />
     ),
-    [handleSelectEvent, showChevron, showDistance, renderExtraContent]
+    [handleSelectEvent, showChevron, showDistance, renderExtraContent],
   );
 
   // Memoize the content container style
@@ -156,7 +160,7 @@ const EventList: React.FC<EventListProps> = ({
       keyboardVisible && { paddingBottom: keyboardHeight },
       events.length === 0 && hasSearched && { flexGrow: 1 },
     ],
-    [keyboardVisible, keyboardHeight, events.length, hasSearched]
+    [keyboardVisible, keyboardHeight, events.length, hasSearched],
   );
 
   if (isLoading && events.length === 0) {

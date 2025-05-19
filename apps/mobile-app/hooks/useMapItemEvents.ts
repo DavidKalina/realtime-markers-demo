@@ -117,13 +117,16 @@ export const useMapItemEvents = ({
         messages = generateMessageSequence(markerData, userLocation ?? [0, 0]);
       } else {
         // Generate cluster messages
-        messages = generateClusterMessages((item as ClusterItem).count, userLocation ?? [0, 0]);
+        messages = generateClusterMessages(
+          (item as ClusterItem).count,
+          userLocation ?? [0, 0],
+        );
       }
 
       // Call the selection callback with the item, messages, and ID
       onItemSelect(mapItem, messages, itemId);
     },
-    [userLocation, onItemSelect, isMounted]
+    [userLocation, onItemSelect, isMounted],
   );
 
   // Handle map item deselection
@@ -137,7 +140,8 @@ export const useMapItemEvents = ({
       // Get item name for the goodbye message
       let itemName = "";
       if (event.item.type === "marker") {
-        itemName = (event.item as MarkerItem).markerData?.title || "this location";
+        itemName =
+          (event.item as MarkerItem).markerData?.title || "this location";
       } else {
         itemName = "this group of events";
       }
@@ -145,7 +149,7 @@ export const useMapItemEvents = ({
       // Call the deselection callback with the item name
       onItemDeselect(itemName);
     },
-    [onItemDeselect, isMounted]
+    [onItemDeselect, isMounted],
   );
 
   // Handle user panning the viewport
@@ -161,19 +165,19 @@ export const useMapItemEvents = ({
     // Subscribe to selection event
     const selectUnsubscribe = subscribe<MapItemEvent>(
       EventTypes.MAP_ITEM_SELECTED,
-      handleMapItemSelected
+      handleMapItemSelected,
     );
 
     // Subscribe to deselection event
     const deselectUnsubscribe = subscribe<MapItemEvent>(
       EventTypes.MAP_ITEM_DESELECTED,
-      handleMapItemDeselected
+      handleMapItemDeselected,
     );
 
     // Subscribe to user panning event
     const userPanningUnsubscribe = subscribe<BaseEvent>(
       EventTypes.USER_PANNING_VIEWPORT,
-      handleUserPanning
+      handleUserPanning,
     );
 
     // Cleanup subscriptions on unmount
@@ -182,7 +186,12 @@ export const useMapItemEvents = ({
       deselectUnsubscribe();
       userPanningUnsubscribe();
     };
-  }, [subscribe, handleMapItemSelected, handleMapItemDeselected, handleUserPanning]);
+  }, [
+    subscribe,
+    handleMapItemSelected,
+    handleMapItemDeselected,
+    handleUserPanning,
+  ]);
 
   // Return the stored previously selected item and conversion utilities
   return {
@@ -203,7 +212,7 @@ export const useMapItemEvents = ({
           return generateClusterMessages(item.count, userLocation ?? [0, 0]);
         }
       },
-      [userLocation]
+      [userLocation],
     ),
 
     // Utility to generate a goodbye message
@@ -212,23 +221,26 @@ export const useMapItemEvents = ({
     }, []),
 
     // Convert EventBroker item to our MapItem type
-    convertEventItem: useCallback((eventItem: MarkerItem | ClusterItem): MapItem => {
-      if (eventItem.type === "marker") {
-        return {
-          id: eventItem.id,
-          type: "marker",
-          coordinates: eventItem.coordinates,
-          data: (eventItem as MarkerItem).markerData,
-        };
-      } else {
-        return {
-          id: eventItem.id,
-          type: "cluster",
-          coordinates: eventItem.coordinates,
-          count: (eventItem as ClusterItem).count,
-          childrenIds: (eventItem as ClusterItem).childMarkers,
-        };
-      }
-    }, []),
+    convertEventItem: useCallback(
+      (eventItem: MarkerItem | ClusterItem): MapItem => {
+        if (eventItem.type === "marker") {
+          return {
+            id: eventItem.id,
+            type: "marker",
+            coordinates: eventItem.coordinates,
+            data: (eventItem as MarkerItem).markerData,
+          };
+        } else {
+          return {
+            id: eventItem.id,
+            type: "cluster",
+            coordinates: eventItem.coordinates,
+            count: (eventItem as ClusterItem).count,
+            childrenIds: (eventItem as ClusterItem).childMarkers,
+          };
+        }
+      },
+      [],
+    ),
   };
 };

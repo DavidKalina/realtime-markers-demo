@@ -2,7 +2,6 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { Category } from "./entities/Category";
-import { Emoji } from "./entities/Emoji";
 import { Event } from "./entities/Event";
 import { EventShare } from "./entities/EventShare";
 import { Filter } from "./entities/Filter";
@@ -17,14 +16,12 @@ import { UserEventRsvp } from "./entities/UserEventRsvp";
 import { UserEventSave } from "./entities/UserEventSave";
 import { UserLevel } from "./entities/UserLevel";
 import { InitialSchemaAndSeed1710000000000 } from "./migrations/1710000000000-InitialSchemaAndSeed";
-import { AddEmojiTable1710000000004 } from "./migrations/1710000000004-AddEmojiTable";
-import { SeedEmojis1710000000005 } from "./migrations/1710000000005-SeedEmojis";
 import { RemoveNotesFromUserEventSaves1710000000007 } from "./migrations/1710000000007-RemoveNotesFromUserEventSaves";
 import { AddRsvpFeature1710000000008 } from "./migrations/1710000000008-AddRsvpFeature";
 import { CreateNotificationsTable1710000000009 } from "./migrations/1710000000009-CreateNotificationsTable";
 import { AddEventRsvpToggledNotificationType1710000000010 } from "./migrations/1710000000010-AddEventRsvpToggledNotificationType";
-import { AddLevelingSystem1710000000003 } from "./migrations/AddLevelingSystem1710000000003";
 import { AddGroupsFeature1710000000011 } from "./migrations/1710000000011-AddGroupsFeature";
+import { AddLevelingSystem1710000000003 } from "./migrations/AddLevelingSystem1710000000003";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -41,7 +38,6 @@ const AppDataSource = new DataSource({
     UserLevel,
     EventShare,
     Friendship,
-    Emoji,
     Notification,
     Group,
     GroupMembership,
@@ -50,8 +46,6 @@ const AppDataSource = new DataSource({
   migrations: [
     InitialSchemaAndSeed1710000000000,
     AddLevelingSystem1710000000003,
-    AddEmojiTable1710000000004,
-    SeedEmojis1710000000005,
     RemoveNotesFromUserEventSaves1710000000007,
     AddRsvpFeature1710000000008,
     CreateNotificationsTable1710000000009,
@@ -73,7 +67,10 @@ const AppDataSource = new DataSource({
 });
 
 // Wrapped DataSource with retry logic
-const initializeDatabase = async (retries = 5, delay = 2000): Promise<DataSource> => {
+const initializeDatabase = async (
+  retries = 5,
+  delay = 2000,
+): Promise<DataSource> => {
   // If the dataSource is already initialized, return it
   if (AppDataSource.isInitialized) {
     return AppDataSource;

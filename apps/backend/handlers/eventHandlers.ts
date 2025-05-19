@@ -3,10 +3,11 @@
 import type { Context } from "hono";
 import type { AppContext } from "../types/context";
 import { Buffer } from "buffer";
-import { ClusterNamingService } from "../services/ClusterNamingService";
 
 // Define a type for our handler functions
-export type EventHandler = (c: Context<AppContext>) => Promise<Response> | Response;
+export type EventHandler = (
+  c: Context<AppContext>,
+) => Promise<Response> | Response;
 
 export const getNearbyEventsHandler: EventHandler = async (c) => {
   try {
@@ -17,7 +18,10 @@ export const getNearbyEventsHandler: EventHandler = async (c) => {
     const endDate = c.req.query("endDate");
 
     if (!lat || !lng) {
-      return c.json({ error: "Missing required query parameters: lat and lng" }, 400);
+      return c.json(
+        { error: "Missing required query parameters: lat and lng" },
+        400,
+      );
     }
 
     // Now c.get("eventService") is properly typed!
@@ -28,7 +32,7 @@ export const getNearbyEventsHandler: EventHandler = async (c) => {
       parseFloat(lng),
       radius ? parseFloat(radius) : undefined,
       startDate ? new Date(startDate) : undefined,
-      endDate ? new Date(endDate) : undefined
+      endDate ? new Date(endDate) : undefined,
     );
 
     return c.json(nearbyEvents);
@@ -58,7 +62,10 @@ export const getEventsByCategoriesHandler: EventHandler = async (c) => {
     const offset = c.req.query("offset");
 
     if (!categoryIds || categoryIds.length === 0) {
-      return c.json({ error: "Missing required query parameter: categories" }, 400);
+      return c.json(
+        { error: "Missing required query parameter: categories" },
+        400,
+      );
     }
 
     const eventService = c.get("eventService");
@@ -87,11 +94,12 @@ export const searchEventsHandler: EventHandler = async (c) => {
     }
 
     const eventService = c.get("eventService");
-    const { results: searchResults, nextCursor } = await eventService.searchEvents(
-      query,
-      limit ? parseInt(limit) : undefined,
-      cursor || undefined
-    );
+    const { results: searchResults, nextCursor } =
+      await eventService.searchEvents(
+        query,
+        limit ? parseInt(limit) : undefined,
+        cursor || undefined,
+      );
 
     return c.json({
       query,
@@ -108,7 +116,7 @@ export const searchEventsHandler: EventHandler = async (c) => {
         error: "Failed to search events",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -147,9 +155,10 @@ export const processEventImageHandler: EventHandler = async (c) => {
       return c.json(
         {
           error: "Scan limit reached",
-          message: "You have reached your weekly scan limit. Please upgrade to Pro for more scans.",
+          message:
+            "You have reached your weekly scan limit. Please upgrade to Pro for more scans.",
         },
-        403
+        403,
       );
     }
 
@@ -170,7 +179,10 @@ export const processEventImageHandler: EventHandler = async (c) => {
 
     const allowedTypes = ["image/jpeg", "image/png"];
     if (!allowedTypes.includes(file.type)) {
-      return c.json({ error: "Invalid file type. Only JPEG and PNG files are allowed" }, 400);
+      return c.json(
+        { error: "Invalid file type. Only JPEG and PNG files are allowed" },
+        400,
+      );
     }
 
     const arrayBuffer = await file.arrayBuffer();
@@ -189,21 +201,22 @@ export const processEventImageHandler: EventHandler = async (c) => {
       },
       {
         bufferData: buffer,
-      }
+      },
     );
 
     return c.json(
       {
         status: "processing",
         jobId,
-        message: "Your image is being processed. Check status at /api/jobs/" + jobId,
+        message:
+          "Your image is being processed. Check status at /api/jobs/" + jobId,
         _links: {
           self: `/api/events/process/${jobId}`,
           status: `/api/jobs/${jobId}`,
           stream: `/api/jobs/${jobId}/stream`,
         },
       },
-      202
+      202,
     );
   } catch (error) {
     console.error("Error submitting flyer for processing:", error);
@@ -247,7 +260,10 @@ export const createEventHandler: EventHandler = async (c) => {
 
     // Validate input
     if (!data.title || !data.eventDate || !data.location?.coordinates) {
-      return c.json({ error: "Missing required fields", receivedData: data }, 400);
+      return c.json(
+        { error: "Missing required fields", receivedData: data },
+        400,
+      );
     }
 
     // Ensure location is in GeoJSON format
@@ -272,7 +288,7 @@ export const createEventHandler: EventHandler = async (c) => {
       JSON.stringify({
         operation: "INSERT",
         record: newEvent,
-      })
+      }),
     );
 
     return c.json(newEvent);
@@ -304,7 +320,10 @@ export const deleteEventHandler: EventHandler = async (c) => {
     console.log("hasAccess", hasAccess);
 
     if (!hasAccess) {
-      return c.json({ error: "You don't have permission to delete this event" }, 403);
+      return c.json(
+        { error: "You don't have permission to delete this event" },
+        403,
+      );
     }
 
     const isSuccess = await eventService.deleteEvent(id);
@@ -318,7 +337,7 @@ export const deleteEventHandler: EventHandler = async (c) => {
             id: event.id,
             location: event.location,
           },
-        })
+        }),
       );
     }
 
@@ -352,7 +371,10 @@ export const updateEventHandler: EventHandler = async (c) => {
     // Check if user has access to update the event
     const hasAccess = await eventService.hasEventAccess(id, user.userId);
     if (!hasAccess) {
-      return c.json({ error: "You don't have permission to update this event" }, 403);
+      return c.json(
+        { error: "You don't have permission to update this event" },
+        403,
+      );
     }
 
     // Ensure location is in GeoJSON format if provided
@@ -372,7 +394,7 @@ export const updateEventHandler: EventHandler = async (c) => {
         JSON.stringify({
           operation: "UPDATE",
           record: updatedEvent,
-        })
+        }),
       );
     }
 
@@ -384,7 +406,7 @@ export const updateEventHandler: EventHandler = async (c) => {
         error: "Failed to update event",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -435,7 +457,7 @@ export const getAllEventsHandler: EventHandler = async (c) => {
           };
         }
         return event;
-      })
+      }),
     );
 
     console.log(`Returning ${eventsWithShares.length} events with shares`);
@@ -489,7 +511,7 @@ export const toggleSaveEventHandler: EventHandler = async (c) => {
         error: "Failed to toggle event save status",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -519,7 +541,7 @@ export const getSavedEventsHandler: EventHandler = async (c) => {
         error: "Failed to fetch saved events",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -559,45 +581,7 @@ export const isEventSavedHandler: EventHandler = async (c) => {
         error: "Failed to check event save status",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
-    );
-  }
-};
-
-export const generateClusterNamesHandler: EventHandler = async (c) => {
-  try {
-    const data = await c.req.json();
-
-    // Validate request data
-    if (!data.clusters || !Array.isArray(data.clusters) || !data.zoom) {
-      return c.json(
-        {
-          error: "Invalid request format",
-          message: "Request must include clusters array and zoom level",
-        },
-        400
-      );
-    }
-
-    // Initialize the ClusterNamingService
-    const clusterNamingService = ClusterNamingService.getInstance();
-
-    // Process the clusters to generate names
-    const results = await clusterNamingService.generateClusterNames({
-      clusters: data.clusters,
-      zoom: data.zoom,
-      bounds: data.bounds,
-    });
-
-    return c.json(results);
-  } catch (error) {
-    console.error("Error generating cluster names:", error);
-    return c.json(
-      {
-        error: "Failed to generate cluster names",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
-      500
+      500,
     );
   }
 };
@@ -614,10 +598,13 @@ export const getDiscoveredEventsHandler: EventHandler = async (c) => {
 
     const eventService = c.get("eventService");
 
-    const discoveredEvents = await eventService.getDiscoveredEventsByUser(user.userId, {
-      limit: limit ? parseInt(limit) : undefined,
-      cursor: cursor,
-    });
+    const discoveredEvents = await eventService.getDiscoveredEventsByUser(
+      user.userId,
+      {
+        limit: limit ? parseInt(limit) : undefined,
+        cursor: cursor,
+      },
+    );
 
     return c.json(discoveredEvents);
   } catch (error) {
@@ -627,7 +614,7 @@ export const getDiscoveredEventsHandler: EventHandler = async (c) => {
         error: "Failed to fetch discovered events",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -652,7 +639,7 @@ export const getClusterHubDataHandler: EventHandler = async (c) => {
         error: "Failed to fetch cluster hub data",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -682,7 +669,7 @@ export const getFriendsSavedEventsHandler: EventHandler = async (c) => {
         error: "Failed to fetch friends' saved events",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -696,7 +683,10 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
 
     // Validate input
     if (!data.title || !data.date || !data.location?.coordinates) {
-      return c.json({ error: "Missing required fields", receivedData: data }, 400);
+      return c.json(
+        { error: "Missing required fields", receivedData: data },
+        400,
+      );
     }
 
     // Ensure location is in GeoJSON format
@@ -736,7 +726,7 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
       },
       user.userId,
       data.sharedWithIds || [],
-      data.userCoordinates
+      data.userCoordinates,
     );
 
     // Notify the creator
@@ -745,7 +735,12 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
       "EVENT_CREATED",
       "Private Event Created",
       `Your private event "${data.title}" is being processed`,
-      { jobId, eventTitle: data.title, coordinates: data.location.coordinates, id: data.id }
+      {
+        jobId,
+        eventTitle: data.title,
+        coordinates: data.location.coordinates,
+        id: data.id,
+      },
     );
 
     // Notify invited users
@@ -763,9 +758,9 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
               creatorId: user.userId,
               id: data.id,
               coordinates: data.location.coordinates,
-            }
-          )
-        )
+            },
+          ),
+        ),
       );
     }
 
@@ -773,14 +768,16 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
       {
         status: "processing",
         jobId,
-        message: "Your private event is being processed. Check status at /api/jobs/" + jobId,
+        message:
+          "Your private event is being processed. Check status at /api/jobs/" +
+          jobId,
         _links: {
           self: `/api/events/process/${jobId}`,
           status: `/api/jobs/${jobId}`,
           stream: `/api/jobs/${jobId}/stream`,
         },
       },
-      202
+      202,
     );
   } catch (error) {
     console.error("Error creating private event:", error);
@@ -789,7 +786,7 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
         error: "Failed to create private event",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -823,7 +820,11 @@ export const toggleRsvpEventHandler: EventHandler = async (c) => {
     }
 
     // Toggle RSVP status
-    const result = await eventService.toggleRsvpEvent(user.userId, eventId, status);
+    const result = await eventService.toggleRsvpEvent(
+      user.userId,
+      eventId,
+      status,
+    );
 
     // Notify creator RSVP status
 
@@ -832,7 +833,7 @@ export const toggleRsvpEventHandler: EventHandler = async (c) => {
         event.creatorId || "",
         "EVENT_RSVP_TOGGLED",
         `${user.email} is going to ${event.title}`,
-        `${user.email} is going to ${event.title}`
+        `${user.email} is going to ${event.title}`,
       );
     }
 
@@ -847,7 +848,7 @@ export const toggleRsvpEventHandler: EventHandler = async (c) => {
         error: "Failed to toggle event RSVP status",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -887,7 +888,7 @@ export const isEventRsvpedHandler: EventHandler = async (c) => {
         error: "Failed to check event RSVP status",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };
@@ -916,7 +917,10 @@ export const getEventSharesHandler: EventHandler = async (c) => {
     // Check if user has access to view shares
     const hasAccess = await eventService.hasEventAccess(eventId, user.userId);
     if (!hasAccess) {
-      return c.json({ error: "You don't have permission to view this event's shares" }, 403);
+      return c.json(
+        { error: "You don't have permission to view this event's shares" },
+        403,
+      );
     }
 
     // Get the shares
@@ -930,7 +934,7 @@ export const getEventSharesHandler: EventHandler = async (c) => {
         error: "Failed to fetch event shares",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 };

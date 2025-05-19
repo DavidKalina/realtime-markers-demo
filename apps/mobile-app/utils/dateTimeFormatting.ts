@@ -1,4 +1,4 @@
-import { format, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCalendars } from "expo-localization";
 
@@ -7,7 +7,11 @@ export const getUserTimezone = () => {
   try {
     // Get calendar information which contains timezone
     const deviceCalendars = getCalendars();
-    if (deviceCalendars && deviceCalendars.length > 0 && deviceCalendars[0].timeZone) {
+    if (
+      deviceCalendars &&
+      deviceCalendars.length > 0 &&
+      deviceCalendars[0].timeZone
+    ) {
       return deviceCalendars[0].timeZone;
     }
     return "UTC"; // Fallback to UTC
@@ -26,7 +30,11 @@ const formatDate = (dateString: string, timezone?: string) => {
     // Use the event timezone if provided, otherwise fall back to user timezone
     const effectiveTimezone = timezone || getUserTimezone();
 
-    return formatInTimeZone(dateObj, effectiveTimezone, "EEEE, MMMM d, yyyy 'at' h:mm a (zzz)");
+    return formatInTimeZone(
+      dateObj,
+      effectiveTimezone,
+      "EEEE, MMMM d, yyyy 'at' h:mm a (zzz)",
+    );
   } catch (error) {
     console.error("Error formatting date:", error);
     return dateString; // Fallback to the original string
@@ -43,7 +51,11 @@ const getUserLocalTime = (dateString: string, eventTimezone?: string) => {
 
     // Only show user's local time if it differs from event timezone
     if (userTimezone && userTimezone !== eventTimezone) {
-      return formatInTimeZone(dateObj, userTimezone, "'Your time:' h:mm a (zzz)");
+      return formatInTimeZone(
+        dateObj,
+        userTimezone,
+        "'Your time:' h:mm a (zzz)",
+      );
     }
     return null;
   } catch (error) {

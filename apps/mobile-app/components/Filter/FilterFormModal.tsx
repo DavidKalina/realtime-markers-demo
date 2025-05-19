@@ -1,27 +1,25 @@
-import React, { useCallback, useRef, useState, useEffect } from "react";
+import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
+import { Save, X } from "lucide-react-native";
+import React, { useRef, useState } from "react";
 import {
-  View,
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  Switch,
-  ScrollView,
-  Alert,
-  Platform,
-  Modal,
-  Keyboard,
-  StyleSheet,
+  View,
 } from "react-native";
-import { X, Save } from "lucide-react-native";
 import Animated, {
   FadeIn,
   FadeOut,
+  Layout,
   SlideInDown,
   SlideOutDown,
-  Layout,
 } from "react-native-reanimated";
-import * as Location from "expo-location";
-import * as Haptics from "expo-haptics";
 
 // Unified color theme matching ClusterEventsView
 const COLORS = {
@@ -37,6 +35,7 @@ const COLORS = {
 
 interface FilterFormModalProps {
   visible: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   editingFilter: any;
   filterName: string;
   semanticQuery: string;
@@ -215,7 +214,6 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
     isLocationEnabled,
     onClose,
     onSave,
-    onDismissKeyboard,
     setFilterName,
     setSemanticQuery,
     setIsActive,
@@ -262,7 +260,9 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
             entering={SlideInDown.springify()
               .damping(12)
               .stiffness(100)
-              .withInitialValues({ transform: [{ translateY: 50 }, { scale: 0.9 }] })}
+              .withInitialValues({
+                transform: [{ translateY: 50 }, { scale: 0.9 }],
+              })}
             exiting={SlideOutDown.duration(150).withCallback((finished) => {
               "worklet";
               if (finished) {
@@ -275,7 +275,11 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
               <Text style={styles.modalTitle}>
                 {editingFilter ? "Edit Smart Filter" : "Create Smart Filter"}
               </Text>
-              <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={onClose}
+                activeOpacity={0.7}
+              >
                 <X size={20} color="#f8f9fa" />
               </TouchableOpacity>
             </View>
@@ -326,7 +330,8 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                   numberOfLines={3}
                 />
                 <Text style={styles.helperText}>
-                  Example: "Events about AI and machine learning in the last month"
+                  Example: "Events about AI and machine learning in the last
+                  month"
                 </Text>
               </View>
 
@@ -368,7 +373,9 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                     <TextInput
                       style={[styles.input, styles.radiusInput]}
                       value={radius?.toString() || ""}
-                      onChangeText={(value) => setRadius(value ? parseFloat(value) : undefined)}
+                      onChangeText={(value) =>
+                        setRadius(value ? parseFloat(value) : undefined)
+                      }
                       placeholder="Radius in kilometers"
                       placeholderTextColor="#adb5bd"
                       keyboardType="numeric"
@@ -377,29 +384,38 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
                       style={styles.locationButton}
                       onPress={async () => {
                         try {
-                          const { status } = await Location.requestForegroundPermissionsAsync();
+                          const { status } =
+                            await Location.requestForegroundPermissionsAsync();
                           if (status !== "granted") {
                             Alert.alert(
                               "Permission Denied",
-                              "Please enable location services to use this feature."
+                              "Please enable location services to use this feature.",
                             );
                             return;
                           }
 
-                          const location = await Location.getCurrentPositionAsync({});
+                          const location =
+                            await Location.getCurrentPositionAsync({});
                           setLocation({
                             latitude: location.coords.latitude,
                             longitude: location.coords.longitude,
                           });
-                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          Haptics.notificationAsync(
+                            Haptics.NotificationFeedbackType.Success,
+                          );
                         } catch (err) {
                           console.error("Error getting location:", err);
-                          Alert.alert("Error", "Failed to get current location");
+                          Alert.alert(
+                            "Error",
+                            "Failed to get current location",
+                          );
                         }
                       }}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.locationButtonText}>Use Current Location</Text>
+                      <Text style={styles.locationButtonText}>
+                        Use Current Location
+                      </Text>
                     </TouchableOpacity>
                   </>
                 )}
@@ -408,7 +424,10 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
 
             <View style={styles.modalFooter}>
               <TouchableOpacity
-                style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+                style={[
+                  styles.saveButton,
+                  isSaving && styles.saveButtonDisabled,
+                ]}
                 onPress={handleSave}
                 activeOpacity={0.7}
                 disabled={isSaving}
@@ -423,5 +442,5 @@ export const FilterFormModal = React.memo<FilterFormModalProps>(
         </Animated.View>
       </Modal>
     );
-  }
+  },
 );

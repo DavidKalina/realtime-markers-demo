@@ -24,7 +24,7 @@ interface FilterState {
   setActiveFilterIds: (ids: string[]) => void;
 }
 
-export const useFilterStore = create<FilterState>((set, get) => ({
+export const useFilterStore = create<FilterState>((set) => ({
   // Initial state
   filters: [],
   activeFilterIds: [],
@@ -50,20 +50,26 @@ export const useFilterStore = create<FilterState>((set, get) => ({
       if (activeIds.length === 0 && userFilters.length > 0) {
         // Sort filters by creation date and get the oldest one
         const oldestFilter = userFilters.sort(
-          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
         )[0];
 
         // Apply the oldest filter
         await apiClient.applyFilters([oldestFilter.id]);
         activeIds = [oldestFilter.id];
-        await AsyncStorage.setItem(ACTIVE_FILTERS_KEY, JSON.stringify(activeIds));
+        await AsyncStorage.setItem(
+          ACTIVE_FILTERS_KEY,
+          JSON.stringify(activeIds),
+        );
       }
 
       // Update state with both filters and active IDs
       set({
         filters: userFilters,
         // Only keep active filter IDs that still exist in the fetched filters
-        activeFilterIds: activeIds.filter((id) => userFilters.some((filter) => filter.id === id)),
+        activeFilterIds: activeIds.filter((id) =>
+          userFilters.some((filter) => filter.id === id),
+        ),
       });
     } catch (err) {
       set({
@@ -101,7 +107,9 @@ export const useFilterStore = create<FilterState>((set, get) => ({
       const updatedFilter = await apiClient.updateFilter(id, filter);
 
       set((state) => ({
-        filters: state.filters.map((f) => (f.id === updatedFilter.id ? updatedFilter : f)),
+        filters: state.filters.map((f) =>
+          f.id === updatedFilter.id ? updatedFilter : f,
+        ),
         isLoading: false,
       }));
       return updatedFilter;
@@ -121,7 +129,9 @@ export const useFilterStore = create<FilterState>((set, get) => ({
       await apiClient.deleteFilter(id);
       set((state) => ({
         filters: state.filters.filter((f) => f.id !== id),
-        activeFilterIds: state.activeFilterIds.filter((filterId) => filterId !== id),
+        activeFilterIds: state.activeFilterIds.filter(
+          (filterId) => filterId !== id,
+        ),
         isLoading: false,
       }));
     } catch (err) {
@@ -140,7 +150,10 @@ export const useFilterStore = create<FilterState>((set, get) => ({
       set({ activeFilterIds: filterIds });
       // Save to AsyncStorage
       if (filterIds.length > 0) {
-        await AsyncStorage.setItem(ACTIVE_FILTERS_KEY, JSON.stringify(filterIds));
+        await AsyncStorage.setItem(
+          ACTIVE_FILTERS_KEY,
+          JSON.stringify(filterIds),
+        );
       } else {
         await AsyncStorage.removeItem(ACTIVE_FILTERS_KEY);
       }
@@ -155,7 +168,9 @@ export const useFilterStore = create<FilterState>((set, get) => ({
       eventBroker.emit(EventTypes.NOTIFICATION, {
         title: "Filters Updated",
         message:
-          filterIds.length > 0 ? "Filters have been applied" : "All filters have been cleared",
+          filterIds.length > 0
+            ? "Filters have been applied"
+            : "All filters have been cleared",
         notificationType: "success",
         duration: 3000,
         timestamp: Date.now(),

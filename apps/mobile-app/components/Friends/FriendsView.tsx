@@ -3,7 +3,13 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Search, User, UserPlus, Users } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Header from "../Layout/Header";
 import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 import Tabs, { TabItem } from "../Layout/Tabs";
@@ -15,8 +21,6 @@ type TabType = "friends" | "requests" | "add";
 const FriendsView: React.FC = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("friends");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -122,12 +126,17 @@ const FriendsList: React.FC = () => {
           <View style={styles.friendHeader}>
             <View style={styles.friendIconContainer}>
               <Text style={styles.avatarText}>
-                {friend.displayName?.[0]?.toUpperCase() || friend.email[0].toUpperCase()}
+                {friend.displayName?.[0]?.toUpperCase() ||
+                  friend.email[0].toUpperCase()}
               </Text>
             </View>
             <View style={styles.friendInfo}>
-              <Text style={styles.friendName}>{friend.displayName || friend.email}</Text>
-              {friend.displayName && <Text style={styles.friendEmail}>{friend.email}</Text>}
+              <Text style={styles.friendName}>
+                {friend.displayName || friend.email}
+              </Text>
+              {friend.displayName && (
+                <Text style={styles.friendEmail}>{friend.email}</Text>
+              )}
             </View>
           </View>
         </Card>
@@ -137,9 +146,9 @@ const FriendsList: React.FC = () => {
 };
 
 const FriendRequestsList: React.FC = () => {
-  const [requests, setRequests] = useState<(FriendRequest & { type: "incoming" | "outgoing" })[]>(
-    []
-  );
+  const [requests, setRequests] = useState<
+    (FriendRequest & { type: "incoming" | "outgoing" })[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionStates, setActionStates] = useState<
@@ -156,9 +165,18 @@ const FriendRequestsList: React.FC = () => {
 
         // Combine and label the requests
         const combinedRequests = [
-          ...incomingResponse.map((req) => ({ ...req, type: "incoming" as const })),
-          ...outgoingResponse.map((req) => ({ ...req, type: "outgoing" as const })),
-        ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          ...incomingResponse.map((req) => ({
+            ...req,
+            type: "incoming" as const,
+          })),
+          ...outgoingResponse.map((req) => ({
+            ...req,
+            type: "outgoing" as const,
+          })),
+        ].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
 
         setRequests(combinedRequests);
         setError(null);
@@ -174,7 +192,11 @@ const FriendRequestsList: React.FC = () => {
     fetchRequests();
   }, []);
 
-  const showActionFeedback = (requestId: string, status: "success" | "error", message: string) => {
+  const showActionFeedback = (
+    requestId: string,
+    status: "success" | "error",
+    message: string,
+  ) => {
     setActionStates((prev) => ({
       ...prev,
       [requestId]: { status, message },
@@ -183,7 +205,9 @@ const FriendRequestsList: React.FC = () => {
     // Only remove the request after showing the success message
     if (status === "success") {
       setTimeout(() => {
-        setRequests((prev) => prev.filter((request) => request.id !== requestId));
+        setRequests((prev) =>
+          prev.filter((request) => request.id !== requestId),
+        );
       }, 1000);
     }
 
@@ -279,7 +303,9 @@ const FriendRequestsList: React.FC = () => {
             <Text
               style={[
                 styles.requestTypeText,
-                request.type === "outgoing" ? styles.outgoingText : styles.incomingText,
+                request.type === "outgoing"
+                  ? styles.outgoingText
+                  : styles.incomingText,
               ]}
             >
               {request.type === "outgoing" ? "OUTGOING" : "INCOMING"}
@@ -305,7 +331,9 @@ const FriendRequestsList: React.FC = () => {
                 ? request.addressee.displayName
                 : request.requester.displayName) && (
                 <Text style={styles.friendEmail}>
-                  {request.type === "outgoing" ? request.addressee.email : request.requester.email}
+                  {request.type === "outgoing"
+                    ? request.addressee.email
+                    : request.requester.email}
                 </Text>
               )}
             </View>
@@ -358,9 +386,10 @@ const FriendRequestsList: React.FC = () => {
 const AddFriends: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [feedback, setFeedback] = useState<{ status: "success" | "error"; message: string } | null>(
-    null
-  );
+  const [feedback, setFeedback] = useState<{
+    status: "success" | "error";
+    message: string;
+  } | null>(null);
 
   const showFeedback = (status: "success" | "error", message: string) => {
     setFeedback({ status, message });
@@ -388,7 +417,8 @@ const AddFriends: React.FC = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to send friend request";
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to send friend request";
       showFeedback("error", errorMessage);
       console.error("Error sending friend request:", err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -416,7 +446,9 @@ const AddFriends: React.FC = () => {
             <Text
               style={[
                 styles.feedbackText,
-                feedback.status === "success" ? styles.successText : styles.errorText,
+                feedback.status === "success"
+                  ? styles.successText
+                  : styles.errorText,
               ]}
             >
               {feedback.message}
@@ -437,7 +469,9 @@ const AddFriends: React.FC = () => {
           </View>
           <View style={styles.helpItem}>
             <Users size={16} color={COLORS.accent} />
-            <Text style={styles.helpText}>Share your friend code with them</Text>
+            <Text style={styles.helpText}>
+              Share your friend code with them
+            </Text>
           </View>
         </View>
       </Card>

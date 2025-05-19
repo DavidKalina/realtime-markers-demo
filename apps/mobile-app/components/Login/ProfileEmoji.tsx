@@ -22,19 +22,19 @@ const COLORS = {
     admin: {
       background: "rgba(255, 204, 0, 0.15)",
       border: "rgba(255, 204, 0, 0.3)",
-      text: "#ffcc00"
+      text: "#ffcc00",
     },
     moderator: {
       background: "rgba(147, 197, 253, 0.15)",
       border: "rgba(147, 197, 253, 0.3)",
-      text: "#93c5fd"
+      text: "#93c5fd",
     },
     default: {
       background: "rgba(255, 255, 255, 0.05)",
       border: "rgba(255, 255, 255, 0.1)",
-      text: "#a0a0a0"
-    }
-  }
+      text: "#a0a0a0",
+    },
+  },
 };
 
 interface ProfileFloatingEmojiProps {
@@ -62,10 +62,10 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
     floatY.value = withRepeat(
       withTiming(-3, {
         duration: 1800,
-        easing: Easing.inOut(Easing.sin)
+        easing: Easing.inOut(Easing.sin),
       }),
       -1,
-      true
+      true,
     );
   }, []);
 
@@ -73,11 +73,11 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
   useEffect(() => {
     scale.value = withTiming(isActive ? 1.05 : 1, {
       duration: 300,
-      easing: Easing.bezier(0.4, 0, 0.2, 1)
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
     });
     opacity.value = withTiming(isActive ? 1 : 0.9, {
       duration: 300,
-      easing: Easing.bezier(0.4, 0, 0.2, 1)
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
     });
   }, [isActive]);
 
@@ -148,10 +148,7 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
 
       {isActive && (
         <View
-          style={[
-            styles.roleIndicator,
-            { backgroundColor: roleStyles.text }
-          ]}
+          style={[styles.roleIndicator, { backgroundColor: roleStyles.text }]}
         />
       )}
     </View>
