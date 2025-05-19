@@ -1,13 +1,13 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSequence,
-  withRepeat,
   cancelAnimation,
   Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
   ZoomIn,
   ZoomOut,
 } from "react-native-reanimated";
@@ -21,7 +21,11 @@ interface TimePopupProps {
 const TimeContent: React.FC<{
   timeLeft: string;
   isExpired: boolean;
-  animatedStyle: any;
+  animatedStyle: {
+    transform: {
+      rotate: string;
+    }[];
+  };
 }> = React.memo(({ timeLeft, isExpired, animatedStyle }) => {
   return (
     <View style={styles.contentContainer}>
@@ -56,11 +60,6 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(
 
     const rotateAnimation = useSharedValue(0);
     const intervalRef = useRef<NodeJS.Timeout>();
-
-    // Cleanup function for animations
-    const cleanupAnimations = useCallback(() => {
-      cancelAnimation(rotateAnimation);
-    }, []);
 
     // Toggle between time and title every 4 seconds
     useEffect(() => {
