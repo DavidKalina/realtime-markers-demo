@@ -65,7 +65,8 @@ export default function NotificationsScreen() {
         // First try to get unread count
         let unreadCountResponse;
         try {
-          unreadCountResponse = await apiClient.getUnreadNotificationCount();
+          unreadCountResponse =
+            await apiClient.notifications.getUnreadNotificationCount();
           console.log("Unread count response:", unreadCountResponse);
           setUnreadCount(unreadCountResponse.count);
         } catch (error) {
@@ -75,7 +76,7 @@ export default function NotificationsScreen() {
 
         // Then fetch notifications
         try {
-          const notifs = await apiClient.getNotifications({
+          const notifs = await apiClient.notifications.getNotifications({
             skip,
             take: PAGE_SIZE,
             read: activeFilter === "all" ? undefined : false,
@@ -133,7 +134,7 @@ export default function NotificationsScreen() {
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
-      await apiClient.markNotificationAsRead(notificationId);
+      await apiClient.notifications.markNotificationAsRead(notificationId);
       setNotifications((prev) =>
         prev.map((notif) =>
           notif.id === notificationId ? { ...notif, read: true } : notif,
@@ -148,7 +149,7 @@ export default function NotificationsScreen() {
 
   const handleDeleteNotification = async (notificationId: string) => {
     try {
-      await apiClient.deleteNotification(notificationId);
+      await apiClient.notifications.deleteNotification(notificationId);
       setNotifications((prev) =>
         prev.filter((notif) => notif.id !== notificationId),
       );
@@ -163,7 +164,7 @@ export default function NotificationsScreen() {
 
   const handleClearAll = async () => {
     try {
-      await apiClient.clearAllNotifications();
+      await apiClient.notifications.clearAllNotifications();
       setNotifications([]);
       setUnreadCount(0);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
