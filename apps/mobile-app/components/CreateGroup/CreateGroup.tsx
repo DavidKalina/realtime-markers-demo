@@ -1,12 +1,12 @@
 import AnimatedMapBackground from "@/components/Background";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
-import apiClient from "@/services/ApiClient";
+import { apiClient } from "@/services/ApiClient";
 import { GroupVisibility } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Globe, Lock, Tag, Users } from "lucide-react-native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -33,21 +33,12 @@ import Input from "../Input/Input";
 import TextArea from "../Input/TextArea";
 import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 
-interface Category {
-  id: string;
-  name: string;
-  description?: string;
-  icon?: string;
-}
-
 const CreateGroup: React.FC = () => {
   const router = useRouter();
   const { mapStyle } = useMapStyle();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   // Form state
   const [name, setName] = useState("");
@@ -68,20 +59,6 @@ const CreateGroup: React.FC = () => {
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
   }));
-
-  // Fetch categories on mount
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const data = await apiClient.getAllCategories();
-        setCategories(data);
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-        setError("Failed to load categories. Please try again.");
-      }
-    };
-    fetchCategories();
-  }, []);
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -114,11 +91,10 @@ const CreateGroup: React.FC = () => {
         emoji: emoji || undefined,
         visibility,
         allowMemberEventCreation,
-        categoryIds:
-          selectedCategories.length > 0 ? selectedCategories : undefined,
+        categoryIds: [],
       };
 
-      await apiClient.createGroup(groupData);
+      await apiClient.groups.createGroup(groupData);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push("/groups");
     } catch (error) {
@@ -164,15 +140,6 @@ const CreateGroup: React.FC = () => {
   const toggleMemberEventCreation = useCallback(() => {
     Haptics.selectionAsync();
     setAllowMemberEventCreation((prev) => !prev);
-  }, []);
-
-  const toggleCategory = useCallback((categoryId: string) => {
-    Haptics.selectionAsync();
-    setSelectedCategories((prev) =>
-      prev.includes(categoryId)
-        ? prev.filter((id) => id !== categoryId)
-        : [...prev, categoryId],
-    );
   }, []);
 
   return (
@@ -305,35 +272,6 @@ const CreateGroup: React.FC = () => {
                         <Tag size={18} color={COLORS.accent} />
                         <Text style={styles.sectionTitle}>Categories</Text>
                       </View>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        style={styles.categoriesScroll}
-                        contentContainerStyle={styles.categoriesContainer}
-                      >
-                        {categories.map((category) => (
-                          <TouchableOpacity
-                            key={category.id}
-                            style={[
-                              styles.categoryChip,
-                              selectedCategories.includes(category.id) &&
-                                styles.categoryChipSelected,
-                            ]}
-                            onPress={() => toggleCategory(category.id)}
-                            activeOpacity={0.7}
-                          >
-                            <Text
-                              style={[
-                                styles.categoryChipText,
-                                selectedCategories.includes(category.id) &&
-                                  styles.categoryChipTextSelected,
-                              ]}
-                            >
-                              {category.name}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
                     </View>
 
                     {/* Create Button */}
