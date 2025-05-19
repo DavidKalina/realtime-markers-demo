@@ -92,7 +92,7 @@ export default function GroupMembership({
           break;
       }
 
-      const result = await apiClient.getGroupMembers(groupId, {
+      const result = await apiClient.groups.getGroupMembers(groupId, {
         status,
         limit: 10, // Limit to 10 members
       });
@@ -116,7 +116,7 @@ export default function GroupMembership({
       setIsJoining(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      const result = await apiClient.joinGroup(groupId);
+      const result = await apiClient.groups.joinGroup(groupId);
 
       if (result.membershipStatus === "APPROVED") {
         // If immediately approved, refresh the members list
@@ -138,7 +138,7 @@ export default function GroupMembership({
     async (memberId: string, newStatus: "APPROVED" | "REJECTED" | "BANNED") => {
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        await apiClient.manageMembershipStatus(groupId, memberId, {
+        await apiClient.groups.manageMembershipStatus(groupId, memberId, {
           status: newStatus,
           role: "MEMBER",
         });

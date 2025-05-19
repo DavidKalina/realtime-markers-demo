@@ -58,6 +58,8 @@ const GroupList: React.FC<GroupListProps> = ({
     <Users size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />
   ),
 }) => {
+  console.log(groups);
+
   const renderGroupItem = useCallback(
     ({ item: group }: { item: GroupType }) => (
       <TouchableOpacity
