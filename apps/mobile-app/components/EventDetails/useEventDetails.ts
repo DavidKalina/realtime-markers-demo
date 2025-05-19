@@ -1,7 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useEventCacheStore } from "@/stores/useEventCacheStore";
-import apiClient from "@/services/ApiClient";
+import { apiClient } from "@/services/ApiClient";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
 import { Linking, Alert, Platform } from "react-native";
@@ -52,7 +52,7 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
         }
 
         // If not in cache, fetch from API
-        const eventData = await apiClient.getEventById(eventId);
+        const eventData = await apiClient.events.getEventById(eventId);
 
         if (isMounted) {
           setEvent(eventData);
@@ -67,7 +67,7 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
         if (apiClient.isAuthenticated()) {
           try {
             const { isSaved: savedStatus } =
-              await apiClient.isEventSaved(eventId);
+              await apiClient.events.isEventSaved(eventId);
             if (isMounted) {
               setIsSaved(savedStatus);
             }
@@ -130,7 +130,7 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
     setEvent(null);
     setError(null);
     setLoading(true);
-    apiClient
+    apiClient.events
       .getEventById(eventId)
       .then((data) => setEvent(data))
       .catch((err) =>
@@ -148,7 +148,7 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
     setSavingState("loading");
     try {
       const newSavedState = !isSaved;
-      await apiClient.toggleSaveEvent(event.id!);
+      await apiClient.events.toggleSaveEvent(event.id!);
       setIsSaved(newSavedState);
 
       // Update save count

@@ -1,4 +1,4 @@
-import apiClient, { Friend, FriendRequest } from "@/services/ApiClient";
+import { apiClient, Friend, FriendRequest } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Search, User, UserPlus, Users } from "lucide-react-native";
@@ -66,7 +66,7 @@ const FriendsList: React.FC = () => {
   useEffect(() => {
     const fetchFriends = async () => {
       try {
-        const response = await apiClient.getFriends();
+        const response = await apiClient.friends.getFriends();
         setFriends(response);
         setError(null);
       } catch (err) {
@@ -159,8 +159,8 @@ const FriendRequestsList: React.FC = () => {
     const fetchRequests = async () => {
       try {
         const [incomingResponse, outgoingResponse] = await Promise.all([
-          apiClient.getPendingFriendRequests(),
-          apiClient.getOutgoingFriendRequests(),
+          apiClient.friends.getPendingFriendRequests(),
+          apiClient.friends.getOutgoingFriendRequests(),
         ]);
 
         // Combine and label the requests
@@ -222,7 +222,7 @@ const FriendRequestsList: React.FC = () => {
 
   const handleAcceptRequest = async (requestId: string) => {
     try {
-      await apiClient.acceptFriendRequest(requestId);
+      await apiClient.friends.acceptFriendRequest(requestId);
       showActionFeedback(requestId, "success", "Friend request accepted");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
@@ -234,7 +234,7 @@ const FriendRequestsList: React.FC = () => {
 
   const handleRejectRequest = async (requestId: string) => {
     try {
-      await apiClient.rejectFriendRequest(requestId);
+      await apiClient.friends.rejectFriendRequest(requestId);
       showActionFeedback(requestId, "success", "Friend request rejected");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
@@ -246,7 +246,7 @@ const FriendRequestsList: React.FC = () => {
 
   const handleCancelRequest = async (requestId: string) => {
     try {
-      await apiClient.cancelFriendRequest(requestId);
+      await apiClient.friends.cancelFriendRequest(requestId);
       showActionFeedback(requestId, "success", "Friend request canceled");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
@@ -406,12 +406,12 @@ const AddFriends: React.FC = () => {
       if (searchQuery.includes("@")) {
         // Handle email search
       } else if (searchQuery.length === 6 && /^[A-Z0-9]+$/.test(searchQuery)) {
-        await apiClient.sendFriendRequestByCode(searchQuery);
+        await apiClient.friends.sendFriendRequestByCode(searchQuery);
         showFeedback("success", "Friend request sent");
         setSearchQuery(""); // Clear input on success
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
-        await apiClient.sendFriendRequestByUsername(searchQuery);
+        await apiClient.friends.sendFriendRequestByUsername(searchQuery);
         showFeedback("success", "Friend request sent");
         setSearchQuery(""); // Clear input on success
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

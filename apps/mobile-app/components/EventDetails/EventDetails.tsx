@@ -1,6 +1,6 @@
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useFlyOverCamera } from "@/hooks/useFlyOverCamera";
-import apiClient from "@/services/ApiClient";
+import { apiClient } from "@/services/ApiClient";
 import { formatDate } from "@/utils/dateTimeFormatting";
 import MapboxGL from "@rnmapbox/maps";
 import * as Haptics from "expo-haptics";
@@ -132,7 +132,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
       setImageError(null);
 
       try {
-        const localUri = await apiClient.streamEventImage(event.id);
+        const localUri = await apiClient.events.streamEventImage(event.id);
         if (isMounted) {
           setImageUrl(localUri);
         }
@@ -182,7 +182,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   useEffect(() => {
     const checkRsvpStatus = async () => {
       try {
-        const { isRsvped } = await apiClient.isEventRsvped(eventId);
+        const { isRsvped } = await apiClient.rsvp.isEventRsvped(eventId);
         setIsRsvped(isRsvped);
       } catch (error) {
         console.error("Error checking RSVP status:", error);
@@ -198,7 +198,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
     setRsvpState("loading");
     try {
-      const { rsvped } = await apiClient.toggleRsvp(eventId);
+      const { rsvped } = await apiClient.rsvp.toggleRSVP(eventId);
       setIsRsvped(rsvped);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch (error) {
@@ -221,7 +221,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   const handleDeleteEvent = async () => {
     setIsDeleting(true);
     try {
-      await apiClient.deleteEvent(eventId);
+      await apiClient.events.deleteEvent(eventId);
       handleBack?.();
     } catch (error) {
       console.error("Error deleting event:", error);

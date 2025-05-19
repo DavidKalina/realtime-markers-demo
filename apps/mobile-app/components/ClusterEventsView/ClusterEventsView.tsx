@@ -1,4 +1,4 @@
-import apiClient from "@/services/ApiClient";
+import { apiClient } from "@/services/ApiClient";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { EventType } from "@/types/types";
 import * as Haptics from "expo-haptics";
@@ -985,7 +985,7 @@ const ClusterEventsView: React.FC = () => {
         return;
       }
 
-      const data = await apiClient.getClusterHubData(markerIds);
+      const data = await apiClient.clusters.getClusterHubData(markerIds);
       setHubData(data);
     } catch (error) {
       console.error("Error fetching cluster hub data:", error);

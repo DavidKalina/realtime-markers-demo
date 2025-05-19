@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Friend } from "@/services/ApiClient";
-import apiClient from "@/services/ApiClient";
+import { apiClient } from "@/services/ApiClient";
 
 interface UseFetchMyFriendsResult {
   friends: Friend[];
@@ -18,7 +18,7 @@ export const useFetchMyFriends = (): UseFetchMyFriendsResult => {
     try {
       setIsLoading(true);
       setError(null);
-      const fetchedFriends = await apiClient.getFriends();
+      const fetchedFriends = await apiClient.friends.getFriends();
       setFriends(fetchedFriends);
     } catch (err) {
       setError(
