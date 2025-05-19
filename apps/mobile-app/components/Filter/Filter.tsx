@@ -8,7 +8,6 @@ import {
   Alert,
   FlatList,
   Keyboard,
-  ScrollView,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -65,8 +64,6 @@ const FiltersView: React.FC = () => {
   const scrollY = useSharedValue(0);
   const listRef = useAnimatedRef<FlatList>();
   const isMounted = useRef(true);
-  const scrollViewRef = useRef<ScrollView>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Add modal animation cleanup
   const modalAnimationProgress = useSharedValue(0);
@@ -412,7 +409,7 @@ const FiltersView: React.FC = () => {
           <Animated.FlatList
             ref={listRef}
             data={filters}
-            renderItem={({ index, item }) => (
+            renderItem={({ item }) => (
               <FilterListItem
                 item={item}
                 activeFilterIds={activeFilterIds}

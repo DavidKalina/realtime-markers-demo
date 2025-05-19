@@ -1,18 +1,16 @@
+import { useFetchMyFriends } from "@/hooks/useFetchMyFriends";
+import { Friend } from "@/services/ApiClient";
+import { X } from "lucide-react-native";
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
   FlatList,
+  Modal,
+  StyleSheet,
+  Text,
   TouchableOpacity,
-  Pressable,
+  View,
 } from "react-native";
-import { Friend } from "@/services/ApiClient";
-import { useFetchMyFriends } from "@/hooks/useFetchMyFriends";
 import { COLORS } from "../Layout/ScreenLayout";
-import { X } from "lucide-react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
 interface CheckboxGroupProps {
   selectedFriends: Friend[];

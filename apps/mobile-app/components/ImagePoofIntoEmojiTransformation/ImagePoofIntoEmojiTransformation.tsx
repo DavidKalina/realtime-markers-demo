@@ -1,20 +1,18 @@
 import React, { useEffect } from "react";
-import { View, Image, StyleSheet, Dimensions, Text } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withSequence,
-  withTiming,
-  withDelay,
   Easing,
-  runOnJS,
   interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
   withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 
 // For debugging timings
-const DEBUG = false;
 
 // Using full available space instead of fixed dimensions
 const EMOJI_SIZE = 60;
@@ -88,7 +86,7 @@ export const ImagePoofIntoEmojiTransformation: React.FC<
   }));
 
   // Generate particle styles
-  const particleStyles = particles.map((particle, index) =>
+  const particleStyles = particles.map((particle) =>
     useAnimatedStyle(() => ({
       position: "absolute",
       opacity: particle.opacity.value,
