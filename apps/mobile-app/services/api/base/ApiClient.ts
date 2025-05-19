@@ -282,4 +282,9 @@ export class BaseApiClient {
       return null;
     }
   }
+
+  // Add public method for token refresh
+  async refreshAuthTokens(): Promise<boolean> {
+    return this.refreshTokens();
+  }
 }

@@ -1,23 +1,5 @@
 import { BaseApiClient } from "../base/ApiClient";
-import { Filter } from "../base/types";
-
-export interface FilterOptions {
-  isActive?: boolean;
-  semanticQuery?: string;
-  emoji?: string;
-  criteria?: {
-    dateRange?: {
-      start?: string;
-      end?: string;
-    };
-    status?: string[];
-    location?: {
-      latitude?: number;
-      longitude?: number;
-      radius?: number; // in meters
-    };
-  };
-}
+import { Filter, FilterOptions } from "../base/types";
 
 export class FiltersModule extends BaseApiClient {
   /**

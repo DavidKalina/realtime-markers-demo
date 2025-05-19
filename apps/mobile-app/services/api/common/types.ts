@@ -1,6 +1,4 @@
-import { User } from "../auth/types";
-
-export type { User };
+import { User } from "../base/types";
 
 export interface AuthTokens {
   accessToken: string;

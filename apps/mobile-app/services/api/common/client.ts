@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { AuthTokens, BaseApiClient, User } from "./types";
+import { AuthTokens, BaseApiClient } from "./types";
+import { User } from "../base/types";
 
 export class BaseClient implements BaseApiClient {
   public baseUrl: string;

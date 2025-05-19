@@ -71,28 +71,6 @@ export class GroupsModule extends BaseApiClient {
     };
   }
 
-  private mapGroupMemberToClientGroupMember(
-    member: ApiGroupMember,
-  ): ClientGroupMembership {
-    return {
-      id: member.id,
-      userId: member.userId,
-      groupId: member.groupId,
-      role: member.role,
-      status: member.status,
-      joinedAt: member.joinedAt,
-      updatedAt: member.updatedAt,
-      user: {
-        id: member.user.id,
-        email: member.user.email,
-        displayName: member.user.displayName,
-        avatarUrl: member.user.avatarUrl,
-        role: member.user.role,
-        isVerified: member.user.isVerified,
-      },
-    };
-  }
-
   async createGroup(payload: CreateGroupPayload): Promise<ClientGroup> {
     const url = `${this.baseUrl}/api/groups/create`;
     const response = await this.fetchWithAuth(url, {
@@ -384,3 +362,6 @@ export class GroupsModule extends BaseApiClient {
     };
   }
 }
+
+// Export as singleton
+export const groupsModule = new GroupsModule();

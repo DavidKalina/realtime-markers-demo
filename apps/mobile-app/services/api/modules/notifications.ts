@@ -1,34 +1,10 @@
 import { BaseApiClient } from "../base/ApiClient";
-import { Notification } from "../base/types";
-
-export interface NotificationOptions {
-  skip?: number;
-  take?: number;
-  read?: boolean;
-  type?: NotificationType;
-}
-
-export type NotificationType =
-  | "EVENT_CREATED"
-  | "EVENT_UPDATED"
-  | "EVENT_DELETED"
-  | "FRIEND_REQUEST"
-  | "FRIEND_ACCEPTED"
-  | "LEVEL_UP"
-  | "ACHIEVEMENT_UNLOCKED"
-  | "GROUP_INVITE"
-  | "GROUP_JOIN_REQUEST"
-  | "GROUP_JOIN_ACCEPTED"
-  | "GROUP_JOIN_REJECTED"
-  | "GROUP_ROLE_UPDATED"
-  | "GROUP_EVENT_CREATED"
-  | "SYSTEM";
-
-export interface NotificationCounts {
-  total: number;
-  unread: number;
-  byType: Record<NotificationType, number>;
-}
+import {
+  Notification,
+  NotificationCounts,
+  NotificationOptions,
+  NotificationType,
+} from "../base/types";
 
 export class NotificationsModule extends BaseApiClient {
   /**

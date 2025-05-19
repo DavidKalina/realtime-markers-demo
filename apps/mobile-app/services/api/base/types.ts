@@ -367,6 +367,35 @@ export interface Notification {
   category?: string;
 }
 
+export interface NotificationOptions {
+  skip?: number;
+  take?: number;
+  read?: boolean;
+  type?: NotificationType;
+}
+
+export type NotificationType =
+  | "EVENT_CREATED"
+  | "EVENT_UPDATED"
+  | "EVENT_DELETED"
+  | "FRIEND_REQUEST"
+  | "FRIEND_ACCEPTED"
+  | "LEVEL_UP"
+  | "ACHIEVEMENT_UNLOCKED"
+  | "GROUP_INVITE"
+  | "GROUP_JOIN_REQUEST"
+  | "GROUP_JOIN_ACCEPTED"
+  | "GROUP_JOIN_REJECTED"
+  | "GROUP_ROLE_UPDATED"
+  | "GROUP_EVENT_CREATED"
+  | "SYSTEM";
+
+export interface NotificationCounts {
+  total: number;
+  unread: number;
+  byType: Record<NotificationType, number>;
+}
+
 // Filter types
 export interface Filter {
   id: string;
@@ -389,6 +418,24 @@ export interface Filter {
   };
   createdAt: string;
   updatedAt: string;
+}
+
+export interface FilterOptions {
+  isActive?: boolean;
+  semanticQuery?: string;
+  emoji?: string;
+  criteria?: {
+    dateRange?: {
+      start?: string;
+      end?: string;
+    };
+    status?: string[];
+    location?: {
+      latitude?: number;
+      longitude?: number;
+      radius?: number; // in meters
+    };
+  };
 }
 
 // Event types
