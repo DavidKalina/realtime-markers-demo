@@ -288,3 +288,34 @@ export interface ClusterHubData {
     friendCode: string;
   };
 }
+
+// Friend-related types
+export interface Friend {
+  id: string;
+  displayName?: string;
+  email: string;
+  avatarUrl?: string;
+  friendCode?: string;
+  username?: string;
+  mutualFriendsCount?: number;
+  isOnline?: boolean;
+  lastSeen?: string;
+}
+
+export interface FriendRequest {
+  id: string;
+  requester: Friend;
+  addressee: Friend;
+  status: "PENDING" | "ACCEPTED" | "REJECTED";
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface Contact {
+  name?: string;
+  email?: string;
+  phone?: string;
+  hasAccount?: boolean;
+  userId?: string;
+  avatarUrl?: string;
+}
