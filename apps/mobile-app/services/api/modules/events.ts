@@ -10,45 +10,9 @@ import {
 } from "../base/types";
 import { EventType } from "@/types/types";
 import * as FileSystem from "expo-file-system";
+import { mapEventToEventType } from "../utils/eventMapper";
 
 export class EventApiClient extends BaseApiClient {
-  // Event mapping methods
-  private mapEventToEventType(apiEvent: ApiEvent): EventType {
-    return {
-      id: apiEvent.id,
-      title: apiEvent.title,
-      description: apiEvent.description || "",
-      eventDate: apiEvent.eventDate,
-      endDate: apiEvent.endDate,
-      time: new Date(apiEvent.eventDate).toLocaleTimeString(),
-      coordinates: apiEvent.location.coordinates,
-      location: apiEvent.address || "",
-      locationNotes: apiEvent.locationNotes || "",
-      distance: "",
-      emoji: apiEvent.emoji || "📍",
-      emojiDescription: apiEvent.emojiDescription,
-      categories: apiEvent.categories?.map((c) => c.name) || [],
-      creator: apiEvent.creator,
-      creatorId: apiEvent.creatorId,
-      scanCount: apiEvent.scanCount || 0,
-      saveCount: apiEvent.saveCount || 0,
-      timezone: apiEvent.timezone || "UTC",
-      qrUrl: apiEvent.qrUrl,
-      qrCodeData: apiEvent.qrCodeData,
-      qrImagePath: apiEvent.qrImagePath,
-      hasQrCode: apiEvent.hasQrCode,
-      qrGeneratedAt: apiEvent.qrGeneratedAt,
-      qrDetectedInImage: apiEvent.qrDetectedInImage,
-      isPrivate: apiEvent.isPrivate,
-      detectedQrData: apiEvent.detectedQrData,
-      createdAt: apiEvent.createdAt,
-      updatedAt: apiEvent.updatedAt,
-      sharedWithIds: apiEvent.shares?.map((share) => share.sharedWithId) || [],
-      groupId: apiEvent.groupId,
-      group: apiEvent.group,
-    };
-  }
-
   // Event fetching methods
   async getUserCreatedEvents(params: GetEventsParams = {}): Promise<{
     events: EventType[];
@@ -69,7 +33,7 @@ export class EventApiClient extends BaseApiClient {
     }>(response);
 
     return {
-      events: data.events.map(this.mapEventToEventType),
+      events: data.events.map(mapEventToEventType),
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -94,7 +58,7 @@ export class EventApiClient extends BaseApiClient {
     }>(response);
 
     return {
-      events: data.events.map(this.mapEventToEventType),
+      events: data.events.map(mapEventToEventType),
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -123,7 +87,7 @@ export class EventApiClient extends BaseApiClient {
     }>(response);
 
     return {
-      events: data.events.map(this.mapEventToEventType),
+      events: data.events.map(mapEventToEventType),
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -133,7 +97,7 @@ export class EventApiClient extends BaseApiClient {
     const url = `${this.baseUrl}/api/events/${id}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<ApiEvent>(response);
-    return this.mapEventToEventType(data);
+    return mapEventToEventType(data);
   }
 
   async getNearbyEvents(
@@ -166,7 +130,7 @@ export class EventApiClient extends BaseApiClient {
     }>(response);
 
     return {
-      events: data.events.map(this.mapEventToEventType),
+      events: data.events.map(mapEventToEventType),
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -194,7 +158,7 @@ export class EventApiClient extends BaseApiClient {
     }>(response);
 
     return {
-      events: data.events.map(this.mapEventToEventType),
+      events: data.events.map(mapEventToEventType),
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -227,7 +191,7 @@ export class EventApiClient extends BaseApiClient {
     }>(response);
 
     return {
-      events: data.events.map(this.mapEventToEventType),
+      events: data.events.map(mapEventToEventType),
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -275,7 +239,7 @@ export class EventApiClient extends BaseApiClient {
     }>(response);
 
     return {
-      events: data.events.map(this.mapEventToEventType),
+      events: data.events.map(mapEventToEventType),
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -300,7 +264,7 @@ export class EventApiClient extends BaseApiClient {
     }>(response);
 
     return {
-      events: data.events.map(this.mapEventToEventType),
+      events: data.events.map(mapEventToEventType),
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -314,7 +278,7 @@ export class EventApiClient extends BaseApiClient {
       body: JSON.stringify(payload),
     });
     const data = await this.handleResponse<ApiEvent>(response);
-    return this.mapEventToEventType(data);
+    return mapEventToEventType(data);
   }
 
   async createPrivateEvent(payload: CreateEventPayload): Promise<{
@@ -422,7 +386,7 @@ export class EventApiClient extends BaseApiClient {
       body: JSON.stringify(payload),
     });
     const data = await this.handleResponse<ApiEvent>(response);
-    return this.mapEventToEventType(data);
+    return mapEventToEventType(data);
   }
 
   // RSVP methods
@@ -548,81 +512,5 @@ export class EventApiClient extends BaseApiClient {
       console.error("Error fetching event image:", error);
       throw error;
     }
-  }
-
-  // Cluster hub methods
-  async getClusterHubData(markerIds: string[]): Promise<{
-    featuredEvent: EventType | null;
-    eventsByCategory: {
-      category: { id: string; name: string };
-      events: EventType[];
-    }[];
-    eventsByLocation: {
-      location: string;
-      events: EventType[];
-    }[];
-    eventsToday: EventType[];
-    clusterEmoji: string;
-    clusterName: string;
-    clusterDescription: string;
-    featuredCreator?: {
-      id: string;
-      displayName: string;
-      email: string;
-      eventCount: number;
-      title: string;
-      friendCode: string;
-      creatorDescription: string;
-    };
-  }> {
-    const url = `${this.baseUrl}/api/events/cluster-hub`;
-    const response = await this.fetchWithAuth(url, {
-      method: "POST",
-      body: JSON.stringify({ markerIds }),
-    });
-
-    const data = await this.handleResponse<{
-      featuredEvent: ApiEvent | null;
-      eventsByCategory: {
-        category: { id: string; name: string };
-        events: ApiEvent[];
-      }[];
-      eventsByLocation: {
-        location: string;
-        events: ApiEvent[];
-      }[];
-      eventsToday: ApiEvent[];
-      clusterEmoji: string;
-      clusterName: string;
-      clusterDescription: string;
-      featuredCreator?: {
-        id: string;
-        displayName: string;
-        email: string;
-        eventCount: number;
-        creatorDescription: string;
-        title: string;
-        friendCode: string;
-      };
-    }>(response);
-
-    return {
-      clusterEmoji: data.clusterEmoji,
-      clusterName: data.clusterName,
-      clusterDescription: data.clusterDescription,
-      featuredEvent: data.featuredEvent
-        ? this.mapEventToEventType(data.featuredEvent)
-        : null,
-      eventsByCategory: data.eventsByCategory.map((categoryGroup) => ({
-        category: categoryGroup.category,
-        events: categoryGroup.events.map(this.mapEventToEventType),
-      })),
-      eventsByLocation: data.eventsByLocation.map((locationGroup) => ({
-        location: locationGroup.location,
-        events: locationGroup.events.map(this.mapEventToEventType),
-      })),
-      eventsToday: data.eventsToday.map(this.mapEventToEventType),
-      ...(data.featuredCreator && { featuredCreator: data.featuredCreator }),
-    };
   }
 }
