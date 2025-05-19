@@ -23,7 +23,7 @@ export const EventScopeSelector: React.FC<EventScopeSelectorProps> = ({
   useEffect(() => {
     const fetchUserGroups = async () => {
       try {
-        const response = await apiClient.getUserGroups();
+        const response = await apiClient.groups.getUserGroups();
         setUserGroups(response.groups);
       } catch (error) {
         console.error("Error fetching user groups:", error);
@@ -36,7 +36,7 @@ export const EventScopeSelector: React.FC<EventScopeSelectorProps> = ({
   }, []);
 
   const ownedGroups = userGroups.filter(
-    (group) => group.ownerId === apiClient.getCurrentUser()?.id,
+    (group) => group.ownerId === apiClient.auth.getCurrentUser()?.id,
   );
 
   return (
