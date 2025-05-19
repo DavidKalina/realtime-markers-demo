@@ -172,3 +172,119 @@ export interface ApiGroupMember {
     isVerified: boolean;
   };
 }
+
+// Event-related types
+export interface ApiEvent {
+  id: string;
+  title: string;
+  description?: string;
+  eventDate: string;
+  endDate?: string;
+  location: { type: string; coordinates: [number, number] };
+  address?: string;
+  locationNotes?: string;
+  categories?: { id: string; name: string }[];
+  createdAt: string;
+  updatedAt: string;
+  emoji?: string;
+  emojiDescription?: string;
+  creator?: {
+    id: string;
+    displayName: string;
+    email: string;
+    role: string;
+    avatarUrl?: string;
+    isVerified: boolean;
+  };
+  creatorId?: string;
+  scanCount?: number;
+  saveCount?: number;
+  timezone?: string;
+  qrUrl?: string | null;
+  qrCodeData?: string;
+  qrImagePath?: string | null;
+  hasQrCode?: boolean;
+  qrGeneratedAt?: string | null;
+  qrDetectedInImage?: boolean;
+  detectedQrData?: string | null;
+  isPrivate?: boolean;
+  shares?: { sharedWithId: string; sharedById: string }[];
+  groupId?: string | null;
+  group?: ClientGroup | null;
+}
+
+export interface GetEventsParams {
+  cursor?: string;
+  limit?: number;
+  direction?: "forward" | "backward";
+  query?: string;
+  categoryId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface CreateEventPayload {
+  title: string;
+  description?: string;
+  eventDate: string;
+  endDate?: string;
+  location: {
+    type?: string;
+    coordinates: [number, number];
+  };
+  address?: string;
+  locationNotes?: string;
+  categories?: { id: string; name: string }[];
+  timezone?: string;
+  emoji?: string;
+  emojiDescription?: string;
+  isPrivate?: boolean;
+  sharedWithIds?: string[];
+  userCoordinates?: {
+    lat: number;
+    lng: number;
+  };
+}
+
+export interface UpdateEventPayload extends Partial<CreateEventPayload> {}
+
+export interface JobStatus {
+  status: "pending" | "processing" | "completed" | "failed";
+  progress?: number;
+  result?: unknown;
+  error?: string;
+}
+
+export interface JobStreamMessage extends JobStatus {}
+
+export interface ProcessEventImagePayload {
+  imageFile: File;
+  userLat: number;
+  userLng: number;
+  source: string;
+}
+
+export interface ClusterHubData {
+  featuredEvent: ApiEvent | null;
+  eventsByCategory: {
+    category: { id: string; name: string };
+    events: ApiEvent[];
+  }[];
+  eventsByLocation: {
+    location: string;
+    events: ApiEvent[];
+  }[];
+  eventsToday: ApiEvent[];
+  clusterEmoji: string;
+  clusterName: string;
+  clusterDescription: string;
+  featuredCreator?: {
+    id: string;
+    displayName: string;
+    email: string;
+    eventCount: number;
+    creatorDescription: string;
+    title: string;
+    friendCode: string;
+  };
+}

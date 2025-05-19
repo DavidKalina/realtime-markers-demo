@@ -1,10 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthTokens, BaseApiClient, User } from "./types";
-import { User as AuthUser } from "../auth/types";
 
 export class BaseClient implements BaseApiClient {
   public baseUrl: string;
-  private user: AuthUser | null = null;
+  private user: User | null = null;
   private tokens: AuthTokens | null = null;
   private authListeners: ((isAuthenticated: boolean) => void)[] = [];
   private isInitialized: boolean = false;
