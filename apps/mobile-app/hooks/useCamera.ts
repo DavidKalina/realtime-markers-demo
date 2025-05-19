@@ -1,10 +1,10 @@
 // useCamera.ts - Improved version with better error handling and lifecycle management
-import { useRef, useState, useCallback, useEffect, useMemo } from "react";
-import { useCameraPermissions, FlashMode } from "expo-camera";
-import { Alert, AppState, Platform } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
-import * as ImageManipulator from "expo-image-manipulator";
+import { FlashMode, useCameraPermissions } from "expo-camera";
 import * as FileSystem from "expo-file-system";
+import * as ImageManipulator from "expo-image-manipulator";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, AppState } from "react-native";
 
 // Constants for camera configuration
 const CAMERA_CONFIG = {
@@ -99,7 +99,7 @@ export const useCamera = () => {
             );
           }
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error("Error checking camera permission:", error);
       }
     };
@@ -218,6 +218,7 @@ export const useCamera = () => {
       console.log("[Camera] Starting capture...");
       setIsCapturing(true);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const photo = await (cameraRef.current as any).takePictureAsync(
         cameraConfig,
       );
@@ -263,7 +264,7 @@ export const useCamera = () => {
     async (uri: string) => {
       try {
         // Get file info with proper type checking
-        const fileInfo = await FileSystem.getInfoAsync(uri);
+        await FileSystem.getInfoAsync(uri);
 
         // Use Image Manipulator for consistent processing
         const processed = await ImageManipulator.manipulateAsync(

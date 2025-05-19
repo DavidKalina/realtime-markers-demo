@@ -1,25 +1,25 @@
-import React, {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  useRef,
-} from "react";
-import { View, StyleSheet, Text, Pressable, Modal } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-  withSequence,
-  withTiming,
-  Easing,
-  cancelAnimation,
-} from "react-native-reanimated";
-import { Calendar } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
+import DateRangeCalendar from "@/components/DateRangeCalendar";
 import { useFilterStore } from "@/stores/useFilterStore";
 import { format, parseISO } from "date-fns";
-import DateRangeCalendar from "@/components/DateRangeCalendar";
+import * as Haptics from "expo-haptics";
+import { Calendar } from "lucide-react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Modal, Pressable, StyleSheet, View } from "react-native";
+import Animated, {
+  Easing,
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 
 const ANIMATION_CONFIG = {
   damping: 10,
@@ -34,14 +34,8 @@ const ROTATION_CONFIG = {
 const DateRangeIndicator: React.FC = () => {
   const [showCalendar, setShowCalendar] = useState(false);
   const [isLocalLoading, setIsLocalLoading] = useState(false);
-  const {
-    filters,
-    activeFilterIds,
-    updateFilter,
-    applyFilters,
-    createFilter,
-    isLoading,
-  } = useFilterStore();
+  const { filters, activeFilterIds, updateFilter, applyFilters, createFilter } =
+    useFilterStore();
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
   const textOpacity = useSharedValue(1);
@@ -60,17 +54,6 @@ const DateRangeIndicator: React.FC = () => {
       setIsLocalLoading(false);
     }
   }, [showCalendar]);
-
-  // Get active filters with date ranges
-  const activeDateFilters = useMemo(() => {
-    const activeFilters = filters.filter((f) => activeFilterIds.includes(f.id));
-    return activeFilters.filter((f) => {
-      const hasDateRange =
-        f.criteria?.dateRange &&
-        (f.criteria.dateRange.start || f.criteria.dateRange.end);
-      return hasDateRange;
-    });
-  }, [filters, activeFilterIds]);
 
   // Format date range for display
   const dateRangeText = useMemo(() => {

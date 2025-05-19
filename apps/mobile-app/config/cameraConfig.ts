@@ -1,5 +1,3 @@
-import { Camera } from "@rnmapbox/maps";
-
 export interface CameraSettings {
   centerCoordinate?: [number, number];
   zoomLevel?: number;

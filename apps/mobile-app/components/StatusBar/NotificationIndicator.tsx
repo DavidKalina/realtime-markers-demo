@@ -1,30 +1,29 @@
-import React, { useCallback, useEffect, useState } from "react";
-import {
-  View,
-  StyleSheet,
-  Text,
-  Pressable,
-  ActivityIndicator,
-} from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-  withSequence,
-  withTiming,
-  Easing,
-  cancelAnimation,
-} from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
-import { useFocusEffect, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { apiClient } from "@/services/ApiClient";
 import {
   eventBroker,
   EventTypes,
-  BaseEvent,
   NotificationEvent,
 } from "@/services/EventBroker";
-import { apiClient } from "@/services/ApiClient";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 
 const ANIMATION_CONFIG = {
   damping: 10,
@@ -48,7 +47,7 @@ const NotificationIndicator: React.FC = () => {
   const router = useRouter();
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
