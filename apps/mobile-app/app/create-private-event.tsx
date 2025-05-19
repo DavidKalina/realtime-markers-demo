@@ -91,13 +91,17 @@ const CreatePrivateEvent = () => {
       if (params.id) {
         try {
           // Get the event details including shares
-          const event = await apiClient.getEventById(params.id as string);
+          const event = await apiClient.events.getEventById(
+            params.id as string,
+          );
           if (event) {
             // Get all friends
-            const friends = await apiClient.getFriends();
+            const friends = await apiClient.friends.getFriends();
 
             // Get the shares for this event
-            const shares = await apiClient.getEventShares(params.id as string);
+            const shares = await apiClient.events.getEventShares(
+              params.id as string,
+            );
 
             // Get the IDs of users the event is shared with
             const sharedWithIds = shares.map((share) => share.sharedWithId);
@@ -211,6 +215,7 @@ const CreatePrivateEvent = () => {
       const eventData = {
         title: eventName.trim(),
         description: eventDescription.trim(),
+        eventDate: date.toISOString(),
         date: date.toISOString(),
         location: {
           type: "Point",
@@ -233,7 +238,7 @@ const CreatePrivateEvent = () => {
 
       if (params.id) {
         // Update existing event
-        await apiClient.updateEvent(params.id as string, eventData);
+        await apiClient.events.updateEvent(params.id as string, eventData);
         Alert.alert("Success", "Your event has been updated.", [
           {
             text: "OK",
@@ -242,7 +247,7 @@ const CreatePrivateEvent = () => {
         ]);
       } else {
         // Create new event
-        await apiClient.createPrivateEvent(eventData);
+        await apiClient.events.createPrivateEvent(eventData);
         Alert.alert(
           "Success",
           "Your event is being created. You'll be notified when it's ready.",
