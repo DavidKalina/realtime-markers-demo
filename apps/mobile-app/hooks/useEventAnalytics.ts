@@ -16,6 +16,7 @@ export const useEventAnalytics = () => {
   const posthog = __DEV__ ? null : usePostHog();
 
   // Safely capture an event with error handling
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const safeCapture = (eventName: string, properties: Record<string, any>) => {
     try {
       if (__DEV__) {
@@ -52,6 +53,7 @@ export const useEventAnalytics = () => {
                 }
                 return obj;
               },
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               {} as Record<string, any>,
             );
 
@@ -65,6 +67,7 @@ export const useEventAnalytics = () => {
           acc[key] = value;
           return acc;
         },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         {} as Record<string, any>,
       );
 

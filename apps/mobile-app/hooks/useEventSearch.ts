@@ -31,6 +31,8 @@ const markerToEventType = (marker: Marker): EventType => {
     qrGeneratedAt: marker.data.qrGeneratedAt,
     qrDetectedInImage: marker.data.qrDetectedInImage,
     detectedQrData: marker.data.detectedQrData,
+    createdAt: marker.data.createdAt,
+    updatedAt: marker.data.updatedAt,
   };
 };
 
@@ -66,11 +68,6 @@ const useEventSearch = ({
   const searchInProgress = useRef(false);
   const lastSearchQuery = useRef<string>("");
   const searchTimeout = useRef<NodeJS.Timeout>();
-
-  // Add cache for search results
-  const searchCache = useRef<
-    Map<string, { results: EventType[]; nextCursor?: string }>
-  >(new Map());
 
   // Initialize with initial markers if available
   useEffect(() => {
@@ -149,6 +146,8 @@ const useEventSearch = ({
             qrGeneratedAt: result.qrGeneratedAt,
             qrDetectedInImage: result.qrDetectedInImage,
             detectedQrData: result.detectedQrData,
+            createdAt: result.createdAt || new Date().toISOString(),
+            updatedAt: result.updatedAt || new Date().toISOString(),
           }));
 
           setEventResults((prev) =>
