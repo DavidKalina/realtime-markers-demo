@@ -1,0 +1,12 @@
+// Export the legacy client for backward compatibility
+export { apiClient, LegacyApiClient } from "./legacy";
+
+// Export base types and client
+export * from "./base/types";
+export { BaseApiClient } from "./base/ApiClient";
+
+// Export modules
+export { GroupsModule } from "./modules/groups";
+
+// Re-export types that are used across modules
+export type { EventType } from "@/types/types";
