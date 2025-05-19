@@ -42,6 +42,7 @@ export interface Marker {
     updated_at?: string;
     isPrivate?: boolean;
     status?: string; // Added status here as it's in convertEventToMarker
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
   };
 }
@@ -98,7 +99,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const setStoreMarkers = useLocationStore.getState().setMarkers; // Direct store access
 
   const markersRef = useRef<Marker[]>(markers);
-  const selectedMarkerIdRef = useRef<string | null>(null);
   const currentViewportRef = useRef<MapboxViewport | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -179,6 +179,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     [], // Dependencies are managed via refs now
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const convertEventToMarker = useCallback((event: any): Marker => {
     return {
       id: event.id,
@@ -190,6 +191,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         description: event.description,
         eventDate: event.eventDate,
         endDate: event.endDate,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         categories: event.categories?.map((c: any) => c.name || c), // Ensure categories are handled
         isVerified: event.isVerified,
         created_at: event.createdAt,
@@ -412,6 +414,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                   timestamp: Date.now(),
                   source: "useMapWebSocket",
                   markers: [
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     { id: deletedId, coordinates: [0, 0], data: {} as any },
                   ], // Send ID for identification
                   count: 1,

@@ -52,7 +52,7 @@ export const useEventCacheStore = create<EventCacheState>((set, get) => ({
     return cached.event;
   },
 
-  setCachedEvent: (id: string, event: EventType, ttlSeconds: number = 3600) => {
+  setCachedEvent: (id: string, event: EventType) => {
     const { eventCache } = get();
     const newCache = new Map(eventCache);
     newCache.set(id, {

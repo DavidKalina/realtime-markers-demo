@@ -11,6 +11,7 @@ export interface Job {
     emoji: string;
     text: string;
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result?: any;
   error?: string;
   createdAt: string;

@@ -68,13 +68,10 @@ export const useFlyOverCamera = ({ cameraRef }: UseFlyOverCameraProps) => {
       if (!cameraRef.current) return;
 
       const {
-        duration = 2000,
         minPitch = 45,
         maxPitch = 60, // Reduced max pitch to keep marker more visible
         minZoom = 15,
         maxZoom = 17,
-        minBearing = -180, // Allow full rotation
-        maxBearing = 180,
         speed = 0.5,
       } = options;
 

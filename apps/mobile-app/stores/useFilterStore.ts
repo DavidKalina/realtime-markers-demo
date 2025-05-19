@@ -24,7 +24,7 @@ interface FilterState {
   setActiveFilterIds: (ids: string[]) => void;
 }
 
-export const useFilterStore = create<FilterState>((set, get) => ({
+export const useFilterStore = create<FilterState>((set) => ({
   // Initial state
   filters: [],
   activeFilterIds: [],
