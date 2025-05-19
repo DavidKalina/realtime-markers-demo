@@ -43,8 +43,8 @@ export default function GroupEventsScreen() {
       setLoading(true);
       console.log("Fetching group and events data...");
       const [groupData, eventsData] = await Promise.all([
-        apiClient.getGroupById(id),
-        apiClient.getGroupEvents(id, { limit: 20 }),
+        apiClient.groups.getGroupById(id),
+        apiClient.groups.getGroupEvents(id, { limit: 20 }),
       ]);
       console.log("Data fetched successfully:", {
         group: groupData ? "exists" : "null",
@@ -99,7 +99,7 @@ export default function GroupEventsScreen() {
 
     console.log("Loading more events with cursor:", nextCursor);
     try {
-      const eventsData = await apiClient.getGroupEvents(id, {
+      const eventsData = await apiClient.groups.getGroupEvents(id, {
         cursor: nextCursor,
         limit: 20,
       });

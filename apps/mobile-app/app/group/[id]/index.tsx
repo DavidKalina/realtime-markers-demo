@@ -120,7 +120,7 @@ export default function GroupDetailsScreen() {
 
     try {
       setLoading(true);
-      const groupData = await apiClient.getGroupById(id);
+      const groupData = await apiClient.groups.getGroupById(id);
       if (isMounted.current) {
         setGroup(groupData);
         setError(null);
@@ -142,7 +142,7 @@ export default function GroupDetailsScreen() {
     loadGroupDetails();
   }, [loadGroupDetails]);
 
-  const isAdmin = group?.ownerId === apiClient.getCurrentUser()?.id;
+  const isAdmin = group?.ownerId === apiClient.auth.getCurrentUser()?.id;
 
   const handleLeaveGroup = useCallback(async () => {
     if (!group || isLeaving) return;
@@ -150,7 +150,7 @@ export default function GroupDetailsScreen() {
     try {
       setIsLeaving(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await apiClient.leaveGroup(group.id);
+      await apiClient.groups.leaveGroup(group.id);
       router.back();
     } catch (err) {
       console.error("Error leaving group:", err);
@@ -166,7 +166,7 @@ export default function GroupDetailsScreen() {
     try {
       setIsDeleting(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await apiClient.deleteGroup(group.id);
+      await apiClient.groups.deleteGroup(group.id);
       router.back();
     } catch (err) {
       console.error("Error deleting group:", err);

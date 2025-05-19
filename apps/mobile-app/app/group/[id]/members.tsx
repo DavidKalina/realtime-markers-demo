@@ -61,8 +61,8 @@ export default function GroupMembersScreen() {
     try {
       setLoading(true);
       const [groupData, membersData] = await Promise.all([
-        apiClient.getGroupById(id),
-        apiClient.getGroupMembers(id),
+        apiClient.groups.getGroupById(id),
+        apiClient.groups.getGroupMembers(id),
       ]);
       if (isMounted.current) {
         setGroup(groupData);
@@ -114,32 +114,32 @@ export default function GroupMembersScreen() {
     try {
       switch (action) {
         case "make_admin":
-          await apiClient.updateMemberRole(id, member.userId, {
+          await apiClient.groups.updateMemberRole(id, member.userId, {
             role: "ADMIN",
           });
           break;
         case "make_member":
-          await apiClient.updateMemberRole(id, member.userId, {
+          await apiClient.groups.updateMemberRole(id, member.userId, {
             role: "MEMBER",
           });
           break;
         case "approve":
-          await apiClient.manageMembershipStatus(id, member.userId, {
+          await apiClient.groups.manageMembershipStatus(id, member.userId, {
             status: "APPROVED",
           });
           break;
         case "reject":
-          await apiClient.manageMembershipStatus(id, member.userId, {
+          await apiClient.groups.manageMembershipStatus(id, member.userId, {
             status: "REJECTED",
           });
           break;
         case "ban":
-          await apiClient.manageMembershipStatus(id, member.userId, {
+          await apiClient.groups.manageMembershipStatus(id, member.userId, {
             status: "BANNED",
           });
           break;
         case "remove":
-          await apiClient.removeMember(id, member.userId);
+          await apiClient.groups.removeMember(id, member.userId);
           break;
       }
 
