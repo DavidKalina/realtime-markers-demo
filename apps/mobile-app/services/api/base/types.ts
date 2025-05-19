@@ -319,3 +319,50 @@ export interface Contact {
   userId?: string;
   avatarUrl?: string;
 }
+
+// Notification types
+export interface NotificationData {
+  eventId?: string;
+  eventTitle?: string;
+  friendId?: string;
+  friendName?: string;
+  groupId?: string;
+  groupName?: string;
+  level?: number;
+  achievementId?: string;
+  achievementName?: string;
+  role?: string;
+  timestamp?: string;
+  metadata?: Record<string, string | number | boolean>;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type:
+    | "EVENT_CREATED"
+    | "EVENT_UPDATED"
+    | "EVENT_DELETED"
+    | "FRIEND_REQUEST"
+    | "FRIEND_ACCEPTED"
+    | "LEVEL_UP"
+    | "ACHIEVEMENT_UNLOCKED"
+    | "GROUP_INVITE"
+    | "GROUP_JOIN_REQUEST"
+    | "GROUP_JOIN_ACCEPTED"
+    | "GROUP_JOIN_REJECTED"
+    | "GROUP_ROLE_UPDATED"
+    | "GROUP_EVENT_CREATED"
+    | "SYSTEM";
+  title: string;
+  message: string;
+  data?: NotificationData;
+  createdAt: string;
+  read: boolean;
+  readAt?: string;
+  priority?: "LOW" | "MEDIUM" | "HIGH";
+  actionUrl?: string;
+  actionText?: string;
+  icon?: string;
+  category?: string;
+}
