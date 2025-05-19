@@ -20,3 +20,15 @@ jobs:
         run: pnpm install
       - name: Lint
         run: pnpm lint
+
+  check-any-usage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for any type usage
+        run: |
+          if grep -r "// eslint-disable-next-line @typescript-eslint/no-explicit-any" . --include="*.ts" --include="*.tsx"; then
+            echo "Found instances of eslint-disable-next-line @typescript-eslint/no-explicit-any"
+            echo "Please avoid using 'any' type and consider using more specific types"
+            exit 1
+          fi
