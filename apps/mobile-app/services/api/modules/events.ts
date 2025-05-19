@@ -214,12 +214,6 @@ export class EventApiClient extends BaseApiClient {
     return this.handleResponse<{ isSaved: boolean }>(response);
   }
 
-  async isEventRsvped(eventId: string): Promise<{ isRsvped: boolean }> {
-    const url = `${this.baseUrl}/api/events/${eventId}/rsvped`;
-    const response = await this.fetchWithAuth(url);
-    return this.handleResponse<{ isRsvped: boolean }>(response);
-  }
-
   async getSavedEvents(params: GetEventsParams = {}): Promise<{
     events: EventType[];
     nextCursor?: string;
@@ -231,31 +225,6 @@ export class EventApiClient extends BaseApiClient {
     if (params.direction) queryParams.append("direction", params.direction);
 
     const url = `${this.baseUrl}/api/events/saved?${queryParams.toString()}`;
-    const response = await this.fetchWithAuth(url);
-    const data = await this.handleResponse<{
-      events: ApiEvent[];
-      nextCursor?: string;
-      prevCursor?: string;
-    }>(response);
-
-    return {
-      events: data.events.map(mapEventToEventType),
-      nextCursor: data.nextCursor,
-      prevCursor: data.prevCursor,
-    };
-  }
-
-  async getRsvpedEvents(params: GetEventsParams = {}): Promise<{
-    events: EventType[];
-    nextCursor?: string;
-    prevCursor?: string;
-  }> {
-    const queryParams = new URLSearchParams();
-    if (params.cursor) queryParams.append("cursor", params.cursor);
-    if (params.limit) queryParams.append("limit", params.limit.toString());
-    if (params.direction) queryParams.append("direction", params.direction);
-
-    const url = `${this.baseUrl}/api/events/rsvped?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
       events: ApiEvent[];
@@ -387,49 +356,6 @@ export class EventApiClient extends BaseApiClient {
     });
     const data = await this.handleResponse<ApiEvent>(response);
     return mapEventToEventType(data);
-  }
-
-  // RSVP methods
-  async toggleRsvp(
-    eventId: string,
-  ): Promise<{ rsvped: boolean; rsvpCount: number }> {
-    const url = `${this.baseUrl}/api/events/${eventId}/rsvp`;
-    const { isRsvped } = await this.isEventRsvped(eventId);
-
-    const response = await this.fetchWithAuth(url, {
-      method: "POST",
-      body: JSON.stringify({ status: isRsvped ? "NOT_GOING" : "GOING" }),
-    });
-
-    const data = await this.handleResponse<{
-      status: string;
-      goingCount: number;
-      notGoingCount: number;
-    }>(response);
-
-    return {
-      rsvped: data.status === "GOING",
-      rsvpCount: data.goingCount,
-    };
-  }
-
-  async rsvpToEvent(
-    eventId: string,
-  ): Promise<{ rsvped: boolean; rsvpCount: number }> {
-    return this.toggleRsvp(eventId);
-  }
-
-  async cancelRsvp(
-    eventId: string,
-  ): Promise<{ rsvped: boolean; rsvpCount: number }> {
-    const url = `${this.baseUrl}/api/events/${eventId}/rsvp`;
-    const response = await this.fetchWithAuth(url, {
-      method: "POST",
-      body: JSON.stringify({ status: "NOT_GOING" }),
-    });
-    return this.handleResponse<{ rsvped: boolean; rsvpCount: number }>(
-      response,
-    );
   }
 
   // Event sharing methods

@@ -366,3 +366,74 @@ export interface Notification {
   icon?: string;
   category?: string;
 }
+
+// Filter types
+export interface Filter {
+  id: string;
+  userId: string;
+  name: string;
+  isActive: boolean;
+  semanticQuery?: string; // Natural language query
+  emoji?: string; // AI-generated emoji for the filter
+  criteria: {
+    dateRange?: {
+      start?: string;
+      end?: string;
+    };
+    status?: string[];
+    location?: {
+      latitude?: number;
+      longitude?: number;
+      radius?: number; // in meters
+    };
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Event types
+export interface EventType {
+  id: string;
+  title: string;
+  description?: string;
+  eventDate: string;
+  endDate?: string;
+  time: string;
+  coordinates: [number, number];
+  location: string;
+  locationNotes?: string;
+  distance?: string;
+  emoji?: string;
+  emojiDescription?: string;
+  categories: string[];
+  creator?: {
+    id: string;
+    displayName: string;
+    email: string;
+    role: string;
+    avatarUrl?: string;
+    isVerified: boolean;
+  };
+  creatorId?: string;
+  scanCount: number;
+  saveCount: number;
+  timezone: string;
+  qrUrl?: string | null;
+  qrCodeData?: string;
+  qrImagePath?: string | null;
+  hasQrCode?: boolean;
+  qrGeneratedAt?: string | null;
+  qrDetectedInImage?: boolean;
+  isPrivate?: boolean;
+  detectedQrData?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  sharedWithIds: string[];
+  groupId?: string | null;
+  group?: ClientGroup | null;
+  savedBy?: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string;
+  }[];
+}
