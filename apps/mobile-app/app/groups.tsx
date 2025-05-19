@@ -8,7 +8,7 @@ import Header from "@/components/Layout/Header";
 import ScreenLayout, { COLORS } from "@/components/Layout/ScreenLayout";
 import GroupList, { GroupType } from "@/components/GroupList/GroupList";
 import Input from "@/components/Input/Input";
-import apiClient, { ClientGroup } from "@/services/ApiClient";
+import { apiClient, ClientGroup } from "@/services/ApiClient";
 
 // Helper function to convert ClientGroup to GroupType
 const convertToGroupType = (group: ClientGroup): GroupType => ({
@@ -103,12 +103,12 @@ const GroupsView: React.FC = () => {
 
         let response;
         if (searchQuery.trim()) {
-          response = await apiClient.searchGroups(searchQuery.trim(), {
+          response = await apiClient.groups.searchGroups(searchQuery.trim(), {
             limit: pageSize,
             cursor: refresh ? undefined : cursor,
           });
         } else {
-          response = await apiClient.listPublicGroups({
+          response = await apiClient.groups.listPublicGroups({
             limit: pageSize,
             cursor: refresh ? undefined : cursor,
           });

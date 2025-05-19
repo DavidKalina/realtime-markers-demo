@@ -1,4 +1,4 @@
-import apiClient from "@/services/ApiClient";
+import { apiClient } from "@/services/ApiClient";
 import { EventType } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -77,7 +77,7 @@ const SavedEventsList: React.FC = () => {
           setIsFetchingMore(true);
         }
 
-        const response = await apiClient.getSavedEvents({
+        const response = await apiClient.events.getSavedEvents({
           limit: pageSize,
           cursor: refresh ? undefined : cursor,
         });
@@ -191,7 +191,7 @@ const DiscoveredEventsList: React.FC = () => {
           setIsFetchingMore(true);
         }
 
-        const response = await apiClient.getUserDiscoveredEvents({
+        const response = await apiClient.events.getUserDiscoveredEvents({
           limit: pageSize,
           cursor: refresh ? undefined : cursor,
         });
@@ -305,7 +305,7 @@ const FriendsSavedEventsList: React.FC = () => {
           setIsFetchingMore(true);
         }
 
-        const response = await apiClient.getFriendsSavedEvents({
+        const response = await apiClient.events.getFriendsSavedEvents({
           limit: pageSize,
           cursor: refresh ? undefined : cursor,
         });

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import apiClient from "@/services/ApiClient";
+import { apiClient } from "@/services/ApiClient";
 import { Filter } from "@/services/ApiClient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { eventBroker, EventTypes } from "@/services/EventBroker";
@@ -37,7 +37,7 @@ export const useFilterStore = create<FilterState>((set) => ({
     set({ isLoading: true, error: null });
     try {
       // First fetch the filters from the API
-      const userFilters = await apiClient.getUserFilters();
+      const userFilters = await apiClient.filters.getFilters();
 
       // Then load active filters from storage
       const storedFilters = await AsyncStorage.getItem(ACTIVE_FILTERS_KEY);
@@ -55,7 +55,7 @@ export const useFilterStore = create<FilterState>((set) => ({
         )[0];
 
         // Apply the oldest filter
-        await apiClient.applyFilters([oldestFilter.id]);
+        await apiClient.filters.applyFilters([oldestFilter.id]);
         activeIds = [oldestFilter.id];
         await AsyncStorage.setItem(
           ACTIVE_FILTERS_KEY,
@@ -84,7 +84,7 @@ export const useFilterStore = create<FilterState>((set) => ({
   createFilter: async (filter: Partial<Filter>) => {
     set({ isLoading: true, error: null });
     try {
-      const newFilter = await apiClient.createFilter(filter);
+      const newFilter = await apiClient.filters.createFilter(filter);
 
       set((state) => ({
         filters: [...state.filters, newFilter],
@@ -104,7 +104,7 @@ export const useFilterStore = create<FilterState>((set) => ({
   updateFilter: async (id: string, filter: Partial<Filter>) => {
     set({ isLoading: true, error: null });
     try {
-      const updatedFilter = await apiClient.updateFilter(id, filter);
+      const updatedFilter = await apiClient.filters.updateFilter(id, filter);
 
       set((state) => ({
         filters: state.filters.map((f) =>
@@ -126,7 +126,7 @@ export const useFilterStore = create<FilterState>((set) => ({
   deleteFilter: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      await apiClient.deleteFilter(id);
+      await apiClient.filters.deleteFilter(id);
       set((state) => ({
         filters: state.filters.filter((f) => f.id !== id),
         activeFilterIds: state.activeFilterIds.filter(
@@ -146,7 +146,7 @@ export const useFilterStore = create<FilterState>((set) => ({
 
   applyFilters: async (filterIds: string[]) => {
     try {
-      await apiClient.applyFilters(filterIds);
+      await apiClient.filters.applyFilters(filterIds);
       set({ activeFilterIds: filterIds });
       // Save to AsyncStorage
       if (filterIds.length > 0) {
@@ -195,7 +195,7 @@ export const useFilterStore = create<FilterState>((set) => ({
     set({ isClearing: true, error: null });
     try {
       // Call the API to clear all filters
-      await apiClient.clearFilters();
+      await apiClient.filters.clearFilters();
 
       // Clear active filters in local state
       set({ activeFilterIds: [] });

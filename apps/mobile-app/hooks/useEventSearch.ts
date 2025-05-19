@@ -1,6 +1,6 @@
 // hooks/useEventSearch.ts
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import apiClient from "@/services/ApiClient";
+import { apiClient } from "@/services/ApiClient";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { EventType } from "@/types/types";
 import debounce from "lodash/debounce";
@@ -116,25 +116,24 @@ const useEventSearch = ({
           }
           setError(null);
 
-          const response = await apiClient.searchEvents(
-            query,
-            10,
-            reset ? undefined : nextCursor,
-          );
+          const response = await apiClient.events.searchEvents(query, {
+            limit: 10,
+            cursor: reset ? undefined : nextCursor,
+          });
 
-          const newResults = response.results.map((result) => ({
+          const newResults = response.events.map((result) => ({
             id: result.id,
             title: result.title,
             description: result.description || "",
             eventDate: result.eventDate,
             endDate: result.endDate,
             time: new Date(result.eventDate).toLocaleString(),
-            coordinates: result.location.coordinates,
-            location: result.address || "Location not specified",
+            coordinates: result.coordinates,
+            location: result.location || "Location not specified",
             locationNotes: result.locationNotes,
             distance: "",
             emoji: result.emoji || "📍",
-            categories: result.categories?.map((c) => c.name) || [],
+            categories: result.categories?.map((c) => c) || [],
             creator: result.creator,
             scanCount: result.scanCount ?? 1,
             saveCount: result.saveCount ?? 0,

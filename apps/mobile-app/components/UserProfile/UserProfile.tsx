@@ -465,13 +465,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       try {
         // Fetch both profile and plan details in parallel
         const [profileResponse, planResponse] = await Promise.all([
-          apiClient.getUserProfile(),
-          apiClient.getPlanDetails(),
+          apiClient.auth.getUserProfile(),
+          apiClient.plans.getPlanDetails(),
         ]);
 
         if (isMounted) {
           setProfileData(profileResponse);
-          setPlanDetails(planResponse);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setPlanDetails(planResponse as any);
           setLoading(false);
         }
       } catch (error) {
@@ -630,7 +631,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     setDeleteError("");
 
     try {
-      await apiClient.deleteAccount(password);
+      await apiClient.auth.deleteAccount(password);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       logout(); // Logout after successful deletion
     } catch (error) {

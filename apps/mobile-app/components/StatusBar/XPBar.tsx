@@ -79,7 +79,7 @@ const XPBar: React.FC<XPBarProps> = React.memo(
     // Memoize the fetch function
     const fetchLatestXPData = useCallback(async () => {
       try {
-        const user = await apiClient.getUserProfile();
+        const user = await apiClient.auth.getUserProfile();
 
         const newLevelInfo = {
           currentLevel: user.level || 1,

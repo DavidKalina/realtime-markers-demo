@@ -62,7 +62,8 @@ const NotificationIndicator: React.FC = () => {
           setIsLoading(true);
         }
         try {
-          const { count } = await apiClient.getUnreadNotificationCount();
+          const { count } =
+            await apiClient.notifications.getUnreadNotificationCount();
           if (isActive) {
             setUnreadCount(count);
           }

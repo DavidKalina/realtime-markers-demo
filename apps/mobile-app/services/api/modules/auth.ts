@@ -9,7 +9,7 @@ export class AuthModule extends BaseApiClient {
   async login(email: string, password: string): Promise<User> {
     const url = `${this.baseUrl}/api/auth/login`;
     try {
-      const response = await fetch(url, {
+      const response = await this.fetchWithAuth(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -32,10 +32,17 @@ export class AuthModule extends BaseApiClient {
         refreshToken: data.refreshToken,
       };
 
+      // Save auth state and notify listeners
       await this.saveAuthState(data.user, tokens);
+
+      // Ensure we're initialized
+      await this.ensureInitialized();
+
       return data.user;
     } catch (error) {
       console.error("Login error:", error);
+      // Clear any partial auth state on error
+      await this.clearAuthState();
       throw error;
     }
   }
