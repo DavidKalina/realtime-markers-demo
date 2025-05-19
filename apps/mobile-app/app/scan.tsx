@@ -8,7 +8,7 @@ import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
-import apiClient, { PlanType } from "@/services/ApiClient";
+import { apiClient, PlanType } from "@/services/ApiClient";
 import { EventTypes } from "@/services/EventBroker";
 import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { Feather } from "@expo/vector-icons";
@@ -211,7 +211,12 @@ export default function ScanScreen() {
       payload.source = imageSource || "unknown";
 
       // Upload using API client
-      const result = await apiClient.processEventImage(payload);
+      const result = await apiClient.events.processEventImage({
+        imageFile: payload.imageFile,
+        userLat: payload.userLat,
+        userLng: payload.userLng,
+        source: payload.source,
+      });
 
       if (result.jobId && isMounted.current) {
         queueJobAndNavigateDelayed(result.jobId);
@@ -294,9 +299,10 @@ export default function ScanScreen() {
 
     const fetchPlanDetails = async () => {
       try {
-        const details = await apiClient.getPlanDetails();
+        const details = await apiClient.plans.getPlanDetails();
         if (isMounted) {
-          setPlanDetails(details);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setPlanDetails(details as any);
 
           // Show no scans overlay if user has no more scans
           if (details && details.remainingScans <= 0) {
