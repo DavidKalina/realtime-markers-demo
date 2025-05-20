@@ -81,7 +81,11 @@ Respond with a JSON object containing:
         response_format: { type: "json_object" },
       });
 
-      const result = JSON.parse(response.choices[0].message.content);
+      const responseContent = response.choices[0].message.content;
+      if (!responseContent) {
+        throw new Error("No content received from OpenAI");
+      }
+      const result = JSON.parse(responseContent);
       return result.isAppropriate;
     } catch (error) {
       console.error("Error checking content appropriateness:", error);
