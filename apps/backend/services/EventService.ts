@@ -78,10 +78,7 @@ export class EventService {
     );
     this.redisService =
       redis instanceof RedisService ? redis : RedisService.getInstance(redis);
-    this.levelingService = new LevelingService(
-      dataSource,
-      this.redisService.getClient(),
-    );
+    this.levelingService = new LevelingService(dataSource, this.redisService);
   }
 
   async cleanupOutdatedEvents(batchSize = 100): Promise<{

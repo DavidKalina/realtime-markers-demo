@@ -319,7 +319,7 @@ async function initializeServices() {
   const planService = new PlanService(dataSource);
 
   // Initialize the LevelingService
-  const levelingService = new LevelingService(dataSource, redisPub);
+  const levelingService = new LevelingService(dataSource, redisService);
 
   // Initialize the FriendshipService
   const friendshipService = new FriendshipService(dataSource);

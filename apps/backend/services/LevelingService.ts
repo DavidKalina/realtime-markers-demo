@@ -2,7 +2,6 @@ import { DataSource, Repository } from "typeorm";
 import { User } from "../entities/User";
 import { Level } from "../entities/Level";
 import { UserLevel } from "../entities/UserLevel";
-import { Redis } from "ioredis";
 import { RedisService } from "./shared/RedisService";
 import { LevelingCacheService } from "./shared/LevelingCacheService";
 
@@ -12,11 +11,11 @@ export class LevelingService {
   private userLevelRepository: Repository<UserLevel>;
   private redisService: RedisService;
 
-  constructor(dataSource: DataSource, redis: Redis) {
+  constructor(dataSource: DataSource, redisService: RedisService) {
     this.userRepository = dataSource.getRepository(User);
     this.levelRepository = dataSource.getRepository(Level);
     this.userLevelRepository = dataSource.getRepository(UserLevel);
-    this.redisService = RedisService.getInstance(redis);
+    this.redisService = redisService;
   }
 
   /**
