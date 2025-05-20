@@ -11,7 +11,7 @@ import {
   GroupMembershipStatus,
 } from "../entities/GroupMembership";
 import { User } from "../entities/User";
-import { CacheService } from "./shared/CacheService";
+import { GroupCacheService } from "./shared/GroupCacheService";
 import { OpenAIModel, OpenAIService } from "./shared/OpenAIService"; // Reusing from AuthService for content moderation
 
 interface CursorPaginationParams {
@@ -39,10 +39,6 @@ export class GroupService {
   private categoryRepository: Repository<Category>;
   private eventRepository: Repository<Event>;
   private dataSource: DataSource;
-
-  private static readonly GROUP_CACHE_TTL = 300; // 5 minutes
-  private static readonly GROUP_SEARCH_CACHE_TTL = 60; // 1 minute
-  private static readonly GROUP_MEMBERS_CACHE_TTL = 300; // 5 minutes
 
   constructor(dataSource: DataSource) {
     this.dataSource = dataSource;
@@ -85,37 +81,6 @@ Respond with a JSON object containing:
       console.error("Error checking content appropriateness:", error);
       return true; // Default to true if moderation fails
     }
-  }
-
-  private getGroupCacheKey(groupId: string): string {
-    return `group:${groupId}`;
-  }
-
-  private getGroupMembersCacheKey(
-    groupId: string,
-    status: GroupMembershipStatus,
-  ): string {
-    return `group:${groupId}:members:${status}`;
-  }
-
-  private getGroupSearchCacheKey(params: SearchGroupsParams): string {
-    const { query, categoryId, cursor, limit, direction } = params;
-    return `group:search:${query}:${categoryId || "all"}:${cursor || "start"}:${limit || 10}:${
-      direction || "forward"
-    }`;
-  }
-
-  private getGroupEventsCacheKey(
-    groupId: string,
-    params: GetGroupEventsParams,
-  ): string {
-    const { query, categoryId, cursor, limit, direction, startDate, endDate } =
-      params;
-    return `group:${groupId}:events:${query || "all"}:${categoryId || "all"}:${cursor || "start"}:${
-      limit || 10
-    }:${direction || "forward"}:${startDate?.toISOString() || "all"}:${
-      endDate?.toISOString() || "all"
-    }`;
   }
 
   async createGroup(userId: string, groupData: CreateGroupDto): Promise<Group> {
@@ -186,11 +151,10 @@ Respond with a JSON object containing:
       "memberships.user",
     ],
   ): Promise<Group | null> {
-    const cacheKey = this.getGroupCacheKey(groupId);
-    const cached = await CacheService.getCachedData(cacheKey);
-
-    if (cached) {
-      return JSON.parse(cached);
+    // Try cache first
+    const cachedGroup = await GroupCacheService.getGroup(groupId);
+    if (cachedGroup) {
+      return cachedGroup;
     }
 
     const group = await this.groupRepository.findOne({
@@ -199,11 +163,7 @@ Respond with a JSON object containing:
     });
 
     if (group) {
-      await CacheService.setCachedData(
-        cacheKey,
-        JSON.stringify(group),
-        GroupService.GROUP_CACHE_TTL,
-      );
+      await GroupCacheService.setGroup(group);
     }
 
     return group;
@@ -328,15 +288,13 @@ Respond with a JSON object containing:
     nextCursor?: string;
     prevCursor?: string;
   }> {
-    const { categoryId, cursor, limit = 10, direction = "forward" } = params;
-    const cacheKey = `group:public:${categoryId || "all"}:${
-      cursor || "start"
-    }:${limit}:${direction}`;
-
-    const cached = await CacheService.getCachedData(cacheKey);
+    // Try cache first
+    const cached = await GroupCacheService.getPublicGroups(params);
     if (cached) {
-      return JSON.parse(cached);
+      return cached;
     }
+
+    const { categoryId, cursor, limit = 10, direction = "forward" } = params;
 
     const queryBuilder = this.groupRepository
       .createQueryBuilder("group")
@@ -392,12 +350,7 @@ Respond with a JSON object containing:
       prevCursor,
     };
 
-    await CacheService.setCachedData(
-      cacheKey,
-      JSON.stringify(response),
-      GroupService.GROUP_CACHE_TTL,
-    );
-
+    await GroupCacheService.setPublicGroups(params, response);
     return response;
   }
 
@@ -409,13 +362,13 @@ Respond with a JSON object containing:
     nextCursor?: string;
     prevCursor?: string;
   }> {
-    const { cursor, limit = 10, direction = "forward" } = params;
-    const cacheKey = `group:user:${userId}:${cursor || "start"}:${limit}:${direction}`;
-
-    const cached = await CacheService.getCachedData(cacheKey);
+    // Try cache first
+    const cached = await GroupCacheService.getUserGroups(userId, params);
     if (cached) {
-      return JSON.parse(cached);
+      return cached;
     }
+
+    const { cursor, limit = 10, direction = "forward" } = params;
 
     const queryBuilder = this.groupMembershipRepository
       .createQueryBuilder("membership")
@@ -477,12 +430,7 @@ Respond with a JSON object containing:
       prevCursor,
     };
 
-    await CacheService.setCachedData(
-      cacheKey,
-      JSON.stringify(response),
-      GroupService.GROUP_CACHE_TTL,
-    );
-
+    await GroupCacheService.setUserGroups(userId, params, response);
     return response;
   }
 
@@ -742,13 +690,15 @@ Respond with a JSON object containing:
       limit = 10,
       direction = "forward",
     } = params;
-    const cacheKey =
-      this.getGroupMembersCacheKey(groupId, status) +
-      `:${cursor || "start"}:${limit}:${direction}`;
 
-    const cached = await CacheService.getCachedData(cacheKey);
+    // Try cache first
+    const cached = await GroupCacheService.getGroupMembers(groupId, status, {
+      cursor,
+      limit,
+      direction,
+    });
     if (cached) {
-      return JSON.parse(cached);
+      return cached;
     }
 
     const queryBuilder = this.groupMembershipRepository
@@ -805,10 +755,11 @@ Respond with a JSON object containing:
       prevCursor,
     };
 
-    await CacheService.setCachedData(
-      cacheKey,
-      JSON.stringify(response),
-      GroupService.GROUP_MEMBERS_CACHE_TTL,
+    await GroupCacheService.setGroupMembers(
+      groupId,
+      status,
+      { cursor, limit, direction },
+      response,
     );
 
     return response;
@@ -822,6 +773,18 @@ Respond with a JSON object containing:
     nextCursor?: string;
     prevCursor?: string;
   }> {
+    // Verify group exists
+    const group = await this.groupRepository.findOneBy({ id: groupId });
+    if (!group) {
+      throw new Error("Group not found");
+    }
+
+    // Try cache first
+    const cached = await GroupCacheService.getGroupEvents(groupId, params);
+    if (cached) {
+      return cached;
+    }
+
     const {
       query,
       categoryId,
@@ -831,19 +794,6 @@ Respond with a JSON object containing:
       startDate,
       endDate,
     } = params;
-
-    // Verify group exists
-    const group = await this.groupRepository.findOneBy({ id: groupId });
-    if (!group) {
-      throw new Error("Group not found");
-    }
-
-    // Try to get from cache
-    const cacheKey = this.getGroupEventsCacheKey(groupId, params);
-    const cached = await CacheService.getCachedData(cacheKey);
-    if (cached) {
-      return JSON.parse(cached);
-    }
 
     // Build query
     const queryBuilder = this.eventRepository
@@ -940,9 +890,7 @@ Respond with a JSON object containing:
       prevCursor,
     };
 
-    // Cache the results
-    await CacheService.setCachedData(cacheKey, JSON.stringify(response), 300); // 5 minutes TTL
-
+    await GroupCacheService.setGroupEvents(groupId, params, response);
     return response;
   }
 
@@ -953,47 +901,7 @@ Respond with a JSON object containing:
   }
 
   private async invalidateGroupCaches(groupId: string): Promise<void> {
-    try {
-      const redisClient = CacheService.getRedisClient();
-      if (!redisClient) {
-        console.error(
-          "Redis client not initialized, cache invalidation skipped",
-        );
-        return;
-      }
-
-      // Get all keys that match the group pattern
-      const groupKeys = await redisClient.keys(`group:${groupId}:*`);
-
-      // Get all member-related keys for this group
-      const memberKeys = await redisClient.keys(`group:${groupId}:members:*`);
-
-      // Get all search and public group keys
-      const searchKeys = await redisClient.keys("group:search:*");
-      const publicKeys = await redisClient.keys("group:public:*");
-
-      // Get all event keys for this group
-      const eventKeys = await redisClient.keys(`group:${groupId}:events:*`);
-
-      // Combine all keys
-      const allKeys = [
-        ...groupKeys,
-        ...memberKeys,
-        ...searchKeys,
-        ...publicKeys,
-        ...eventKeys,
-      ];
-
-      if (allKeys.length > 0) {
-        console.log(
-          `Invalidating ${allKeys.length} cache keys for group ${groupId}`,
-        );
-        await redisClient.del(...allKeys);
-      }
-    } catch (error) {
-      console.error(`Error invalidating caches for group ${groupId}:`, error);
-      // Don't throw the error - we want the operation to continue even if cache invalidation fails
-    }
+    await GroupCacheService.invalidateGroup(groupId);
   }
 
   async searchGroups(params: SearchGroupsParams): Promise<{
@@ -1001,6 +909,12 @@ Respond with a JSON object containing:
     nextCursor?: string;
     prevCursor?: string;
   }> {
+    // Try cache first
+    const cached = await GroupCacheService.getGroupSearch(params);
+    if (cached) {
+      return cached;
+    }
+
     const {
       query,
       categoryId,
@@ -1008,12 +922,6 @@ Respond with a JSON object containing:
       limit = 10,
       direction = "forward",
     } = params;
-    const cacheKey = this.getGroupSearchCacheKey(params);
-
-    const cached = await CacheService.getCachedData(cacheKey);
-    if (cached) {
-      return JSON.parse(cached);
-    }
 
     // Create base query builder
     const queryBuilder = this.groupRepository
@@ -1086,12 +994,7 @@ Respond with a JSON object containing:
       prevCursor,
     };
 
-    await CacheService.setCachedData(
-      cacheKey,
-      JSON.stringify(response),
-      GroupService.GROUP_SEARCH_CACHE_TTL,
-    );
-
+    await GroupCacheService.setGroupSearch(params, response);
     return response;
   }
 }
