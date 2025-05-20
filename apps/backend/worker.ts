@@ -1,5 +1,6 @@
 // worker.ts
 import Redis from "ioredis";
+import type { Point } from "geojson";
 import AppDataSource from "./data-source";
 import { Category } from "./entities/Category";
 import { Event } from "./entities/Event";
@@ -15,6 +16,7 @@ import { PlanService } from "./services/PlanService";
 import { ConfigService } from "./services/shared/ConfigService";
 import { GoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
 import { OpenAIService } from "./services/shared/OpenAIService";
+import { RedisService } from "./services/shared/RedisService";
 import { StorageService } from "./services/shared/StorageService";
 import { isEventTemporalyRelevant } from "./utils/isEventTemporalyRelevant";
 import { User } from "./entities/User";
@@ -23,6 +25,14 @@ import { User } from "./entities/User";
 const POLLING_INTERVAL = 1000; // 1 second
 const MAX_CONCURRENT_JOBS = 3;
 const JOB_TIMEOUT = 3 * 60 * 1000; // 3 minutes
+
+// Helper function to convert Point to [number, number]
+function pointToCoordinates(point: Point): [number, number] {
+  if (!point.coordinates || point.coordinates.length < 2) {
+    throw new Error("Invalid Point coordinates");
+  }
+  return [point.coordinates[0], point.coordinates[1]];
+}
 
 async function initializeWorker() {
   console.log("Initializing worker...");
@@ -58,6 +68,7 @@ async function initializeWorker() {
   };
 
   const redisClient = new Redis(redisConfig);
+  const redisService = RedisService.getInstance(redisClient);
 
   // Add error handling for Redis
   redisClient.on("error", (error: Error & { code?: string }) => {
@@ -148,13 +159,13 @@ async function initializeWorker() {
     }
 
     // Get a job from the queue
-    const jobId = await redisClient.lpop("jobs:pending");
+    const jobId = await redisService.getClient().lpop("jobs:pending");
     if (!jobId) {
       return;
     }
 
     // Get job data
-    const jobData = await redisClient.get(`job:${jobId}`);
+    const jobData = await redisService.get(`job:${jobId}`);
     if (!jobData) {
       return;
     }
@@ -181,7 +192,7 @@ async function initializeWorker() {
 
     try {
       // Get job data
-      const job = JSON.parse(jobData);
+      const job = typeof jobData === "string" ? JSON.parse(jobData) : jobData;
       console.log(`[Worker] Processing job ${jobId} of type ${job.type}`);
 
       // In worker.ts processJobs function, add a new job type handler
@@ -191,27 +202,30 @@ async function initializeWorker() {
           `[Worker] Updating job ${jobId} progress: Cleaning up outdated events`,
         );
         await jobQueue.updateJobStatus(jobId, {
-          progress: `Cleaning up outdated events (batch size: ${batchSize})`,
+          progress: 0.1, // Use a number instead of string for progress
+          message: `Cleaning up outdated events (batch size: ${batchSize})`,
         });
 
         const result = await eventService.cleanupOutdatedEvents(batchSize);
 
         // Publish deletion notifications for each deleted event
         for (const deletedEvent of result.deletedEvents) {
-          await redisClient.publish(
-            "event_changes",
-            JSON.stringify({
+          await redisService.publish("event_changes", {
+            type: "DELETE",
+            data: {
               operation: "DELETE",
               record: {
                 id: deletedEvent.id,
                 location: deletedEvent.location,
+                coordinates: pointToCoordinates(deletedEvent.location),
               },
-            }),
-          );
+            },
+          });
         }
 
         await jobQueue.updateJobStatus(jobId, {
           status: "completed",
+          progress: 1,
           result: {
             deletedCount: result.deletedCount,
             hasMore: result.hasMore,
@@ -243,7 +257,9 @@ async function initializeWorker() {
         }
 
         // Get the image buffer from Redis
-        const bufferData = await redisClient.getBuffer(`job:${jobId}:buffer`);
+        const bufferData = await redisService.get<Buffer>(
+          `job:${jobId}:buffer`,
+        );
         if (!bufferData) {
           throw new Error("Image data not found");
         }
@@ -311,7 +327,7 @@ async function initializeWorker() {
               result: {
                 eventId: existingEvent.id,
                 title: existingEvent.title,
-                coordinates: existingEvent.location.coordinates,
+                coordinates: pointToCoordinates(existingEvent.location),
                 isDuplicate: true,
                 similarityScore: scanResult.similarity.score,
                 message:
@@ -400,49 +416,33 @@ async function initializeWorker() {
           }
 
           // Publish notifications
-          await redisClient.publish(
-            "event_changes",
-            JSON.stringify({
+          await redisService.publish("event_changes", {
+            type: "INSERT",
+            data: {
               operation: "INSERT",
               record: {
                 ...newEvent,
-                // Add shared users metadata for private events
+                coordinates: pointToCoordinates(newEvent.location),
                 ...(newEvent.isPrivate && {
                   sharedWith: await eventService.getEventShares(newEvent.id),
                 }),
               },
-            }),
-          );
+            },
+          });
 
-          await redisClient.publish(
-            "discovered_events",
-            JSON.stringify({
-              type: "EVENT_DISCOVERED",
+          await redisService.publish("discovered_events", {
+            type: "EVENT_DISCOVERED",
+            data: {
               event: {
-                id: newEvent.id,
-                title: newEvent.title,
-                emoji: newEvent.emoji,
-                location: newEvent.location,
-                description: newEvent.description,
-                eventDate: newEvent.eventDate,
-                endDate: newEvent.endDate,
-                address: newEvent.address,
-                locationNotes: newEvent.locationNotes,
-                categories: newEvent.categories,
-                confidenceScore: newEvent.confidenceScore,
-                originalImageUrl: newEvent.originalImageUrl,
-                creatorId: newEvent.creatorId,
-                createdAt: newEvent.createdAt,
-                updatedAt: newEvent.updatedAt,
-                isPrivate: newEvent.isPrivate,
-                // Add shared users metadata for private events
+                ...newEvent,
+                coordinates: pointToCoordinates(newEvent.location),
                 ...(newEvent.isPrivate && {
                   sharedWith: await eventService.getEventShares(newEvent.id),
                 }),
               },
               timestamp: new Date().toISOString(),
-            }),
-          );
+            },
+          });
 
           // Mark as completed with success
           await jobQueue.updateJobStatus(jobId, {
@@ -452,7 +452,7 @@ async function initializeWorker() {
             result: {
               eventId: newEvent.id,
               title: eventDetails.title,
-              coordinates: newEvent.location.coordinates,
+              coordinates: pointToCoordinates(newEvent.location),
               message:
                 "Event successfully processed and added to the database!",
             },
@@ -565,44 +565,29 @@ async function initializeWorker() {
         const eventShares = await eventService.getEventShares(newEvent.id);
 
         // Publish notifications
-        await redisClient.publish(
-          "event_changes",
-          JSON.stringify({
+        await redisService.publish("event_changes", {
+          type: "INSERT",
+          data: {
             operation: "INSERT",
             record: {
               ...newEvent,
-              // Add shared users metadata for private events
+              coordinates: pointToCoordinates(newEvent.location),
               sharedWith: eventShares,
             },
-          }),
-        );
+          },
+        });
 
-        await redisClient.publish(
-          "discovered_events",
-          JSON.stringify({
-            type: "EVENT_DISCOVERED",
+        await redisService.publish("discovered_events", {
+          type: "EVENT_DISCOVERED",
+          data: {
             event: {
-              id: newEvent.id,
-              title: newEvent.title,
-              emoji: newEvent.emoji,
-              location: newEvent.location,
-              description: newEvent.description,
-              eventDate: newEvent.eventDate,
-              endDate: newEvent.endDate,
-              address: newEvent.address,
-              locationNotes: newEvent.locationNotes,
-              categories: newEvent.categories,
-              confidenceScore: newEvent.confidenceScore,
-              creatorId: newEvent.creatorId,
-              createdAt: newEvent.createdAt,
-              updatedAt: newEvent.updatedAt,
-              isPrivate: newEvent.isPrivate,
-              // Add shared users metadata for private events
+              ...newEvent,
+              coordinates: pointToCoordinates(newEvent.location),
               sharedWith: eventShares,
             },
             timestamp: new Date().toISOString(),
-          }),
-        );
+          },
+        });
 
         // Mark as completed with success
         await jobQueue.updateJobStatus(jobId, {
@@ -612,7 +597,7 @@ async function initializeWorker() {
           result: {
             eventId: newEvent.id,
             title: scanResult.eventDetails.title,
-            coordinates: newEvent.location.coordinates,
+            coordinates: pointToCoordinates(newEvent.location),
             message: "Private event successfully created!",
           },
           completed: new Date().toISOString(),
@@ -625,7 +610,7 @@ async function initializeWorker() {
       clearTimeout(timeoutId);
 
       // Clean up the buffer data
-      await redisClient.del(`job:${jobId}:buffer`);
+      await redisService.del(`job:${jobId}:buffer`);
       console.log(`[Worker] Job ${jobId} completed successfully`);
     } catch (error) {
       // Handle job error

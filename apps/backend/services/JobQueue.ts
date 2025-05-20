@@ -12,6 +12,22 @@ export interface JobData {
   updated?: string;
   progress?: number;
   error?: string;
+  message?: string;
+  completed?: string;
+  eventId?: string;
+  result?: {
+    message?: string;
+    confidence?: number;
+    threshold?: number;
+    daysFromNow?: number;
+    date?: string;
+    deletedCount?: number;
+    hasMore?: boolean;
+    eventId?: string;
+    title?: string;
+    coordinates?: [number, number];
+    [key: string]: unknown;
+  };
   data: Record<string, unknown>;
 }
 

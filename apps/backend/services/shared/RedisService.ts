@@ -8,6 +8,7 @@ export type RedisChannel =
   | "job_created"
   | "job_updates"
   | "level-update"
+  | "discovered_events"
   | `job:${string}:updates`;
 
 export interface RedisMessage<T = unknown> {
