@@ -9,6 +9,7 @@ import { PlanService } from "../services/PlanService";
 import { LevelingService } from "../services/LevelingService";
 import { FriendshipService } from "../services/FriendshipService";
 import { NotificationService } from "../services/NotificationService";
+import { RedisService } from "../services/shared/RedisService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -16,6 +17,7 @@ export interface AppVariables {
   storageService: StorageService;
   jobQueue: JobQueue;
   redisClient: Redis;
+  redisService: RedisService;
   userPreferencesService: UserPreferencesService;
   planService: PlanService;
   levelingService: LevelingService;
@@ -25,6 +27,9 @@ export interface AppVariables {
   userId?: string;
 }
 
-export interface AppContext {
+export type AppContext = {
   Variables: AppVariables;
-}
+  Bindings: {
+    // ... existing bindings ...
+  };
+};

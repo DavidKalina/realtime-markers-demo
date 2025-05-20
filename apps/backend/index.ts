@@ -41,6 +41,7 @@ import { NotificationService } from "./services/NotificationService";
 import { NotificationHandler } from "./services/NotificationHandler";
 import { notificationsRouter } from "./routes/notifications";
 import { groupsRouter } from "./routes/groups";
+import { RedisService } from "./services/shared/RedisService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -73,6 +74,7 @@ const redisConfig = {
 
 // Initialize Redis clients
 const redisPub = new Redis(redisConfig);
+const redisService = RedisService.getInstance(redisPub);
 
 // Add comprehensive error handling for Redis
 redisPub.on("error", (error: Error & { code?: string }) => {
@@ -379,6 +381,7 @@ app.use("*", async (c, next) => {
   c.set("eventProcessingService", services.eventProcessingService);
   c.set("jobQueue", jobQueue);
   c.set("redisClient", redisPub);
+  c.set("redisService", redisService);
   c.set("userPreferencesService", services.userPreferencesService);
   c.set("storageService", services.storageService);
   c.set("planService", services.planService);
@@ -408,7 +411,8 @@ app.get("/api/jobs/:jobId/stream", async (c) => {
 
   // Use Hono's streamSSE
   return streamSSE(c, async (stream) => {
-    // Create a dedicated Redis subscriber client
+    // Create a dedicated Redis subscriber client for streaming
+    // Note: We keep direct Redis usage here since it's for streaming
     const redisSubscriber = new Redis({
       host: process.env.REDIS_HOST || "localhost",
       port: parseInt(process.env.REDIS_PORT || "6379"),
@@ -417,10 +421,10 @@ app.get("/api/jobs/:jobId/stream", async (c) => {
 
     try {
       // Send initial job state
-      const initialData = await redisPub.get(`job:${jobId}`);
+      const initialData = await redisService.get(`job:${jobId}`);
 
       if (initialData) {
-        await stream.writeSSE({ data: initialData });
+        await stream.writeSSE({ data: JSON.stringify(initialData) });
       } else {
         await stream.writeSSE({
           data: JSON.stringify({ id: jobId, status: "not_found" }),
