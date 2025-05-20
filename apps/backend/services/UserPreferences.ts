@@ -1,9 +1,10 @@
 // This would be added to the backend service as src/services/UserPreferencesService.ts
 import { DataSource, Repository } from "typeorm";
-import Redis from "ioredis";
 import { Filter as FilterEntity } from "../entities/Filter";
 import { EmbeddingService } from "./shared/EmbeddingService";
 import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
+import { RedisService } from "./shared/RedisService";
+import type { RedisMessage } from "./shared/RedisService";
 
 interface Filter {
   id: string;
@@ -29,18 +30,24 @@ interface Filter {
   updatedAt: Date;
 }
 
+interface FilterChangeMessage {
+  userId: string;
+  filters: Filter[];
+  timestamp: string;
+}
+
 /**
  * User Preferences Service handles storing and retrieving user filter preferences,
  * and publishing filter change events to Redis when preferences are updated.
  */
 export class UserPreferencesService {
   private filterRepository: Repository<Filter>;
-  private redisClient: Redis;
+  private redisService: RedisService;
   private embeddingService: EmbeddingService;
 
-  constructor(dataSource: DataSource, redisClient: Redis) {
+  constructor(dataSource: DataSource, redisService: RedisService) {
     this.filterRepository = dataSource.getRepository(FilterEntity);
-    this.redisClient = redisClient;
+    this.redisService = redisService;
     this.embeddingService = EmbeddingService.getInstance();
   }
 
@@ -327,15 +334,18 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
       // Get the active filters for the user
       const activeFilters = await this.getActiveFilters(userId);
 
-      // Publish the event to Redis
-      await this.redisClient.publish(
-        "filter-changes",
-        JSON.stringify({
+      // Create the message
+      const message: RedisMessage<FilterChangeMessage> = {
+        type: "filter_change",
+        data: {
           userId,
           filters: activeFilters,
           timestamp: new Date().toISOString(),
-        }),
-      );
+        },
+      };
+
+      // Publish the event to Redis using RedisService
+      await this.redisService.publish("filter-changes", message);
     } catch (error) {
       console.error(
         `Error publishing filter change for user ${userId}:`,
@@ -364,14 +374,15 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
 
       // Publish filter change event with the active filters
       try {
-        await this.redisClient.publish(
-          "filter-changes",
-          JSON.stringify({
+        const message: RedisMessage<FilterChangeMessage> = {
+          type: "filter_change",
+          data: {
             userId,
             filters: activeFilters,
             timestamp: new Date().toISOString(),
-          }),
-        );
+          },
+        };
+        await this.redisService.publish("filter-changes", message);
       } catch (redisError) {
         console.error("Error publishing filter change to Redis:", redisError);
         // Continue even if Redis publishing fails
