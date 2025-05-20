@@ -310,7 +310,7 @@ async function initializeServices() {
   // Initialize the UserPreferencesService
   const userPreferencesService = new UserPreferencesService(
     dataSource,
-    redisPub,
+    redisService,
   );
 
   const storageService = StorageService.getInstance();
