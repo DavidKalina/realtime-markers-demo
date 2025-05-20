@@ -17,7 +17,7 @@ import { UserEventSave } from "../entities/UserEventSave";
 import { UserEventRsvp, RsvpStatus } from "../entities/UserEventRsvp";
 import { EventSimilarityService } from "./event-processing/EventSimilarityService";
 import { LevelingService } from "./LevelingService";
-import { CacheService } from "./shared/CacheService";
+import { EventCacheService } from "./shared/EventCacheService";
 import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
 import { Friendship } from "../entities/Friendship";
@@ -147,7 +147,7 @@ export class EventService {
   async getEventById(id: string): Promise<Event | null> {
     try {
       // Try to get from cache first
-      const cachedEvent = await CacheService.getCachedEvent(id);
+      const cachedEvent = await EventCacheService.getEvent(id);
       if (cachedEvent) {
         return cachedEvent;
       }
@@ -160,7 +160,7 @@ export class EventService {
 
       // If found, cache it with a shorter TTL for frequently accessed events
       if (evt) {
-        await CacheService.setCachedEvent(id, evt, 300); // 5 minutes TTL
+        await EventCacheService.setEvent(evt, 300); // 5 minutes TTL
       }
 
       return evt;
@@ -217,7 +217,7 @@ export class EventService {
       const updatedEvent = await this.eventRepository.save(event);
 
       // Invalidate the cache for this event
-      await CacheService.invalidateEventCache(eventId);
+      await EventCacheService.invalidateEvent(eventId);
 
       return updatedEvent;
     } catch (error) {
@@ -296,7 +296,7 @@ export class EventService {
     // Award XP for creating an event
     await this.levelingService.awardXp(input.creatorId, 30);
 
-    await CacheService.invalidateSearchCache();
+    await EventCacheService.invalidateSearchCache();
 
     return savedEvent;
   }
@@ -360,7 +360,7 @@ export class EventService {
     });
 
     // Invalidate cache for this event
-    await CacheService.invalidateEventCache(eventId);
+    await EventCacheService.invalidateEvent(eventId);
   }
 
   /**
@@ -378,7 +378,7 @@ export class EventService {
     });
 
     // Invalidate cache for this event
-    await CacheService.invalidateEventCache(eventId);
+    await EventCacheService.invalidateEvent(eventId);
 
     // Get the updated event with its shares
     const event = await this.eventRepository.findOne({
@@ -560,13 +560,13 @@ export class EventService {
       }
 
       // Invalidate the cache for this event
-      await CacheService.invalidateEventCache(savedEvent.id);
+      await EventCacheService.invalidateEvent(savedEvent.id);
 
       // Invalidate search cache since we updated an event
-      await CacheService.invalidateSearchCache();
+      await EventCacheService.invalidateSearchCache();
 
       // Invalidate any cluster hub caches that might contain this event
-      await CacheService.invalidateAllClusterHubCaches();
+      await EventCacheService.invalidateAllClusterHubs();
 
       return savedEvent;
     } catch (error) {
@@ -588,7 +588,7 @@ export class EventService {
     const cacheKey = `search:${query.toLowerCase()}:${limit}:${cursor || "null"}`;
 
     // Check if we have cached results for this exact search
-    const cachedResults = await CacheService.getCachedSearch(cacheKey);
+    const cachedResults = await EventCacheService.getSearchResults(cacheKey);
     if (cachedResults) {
       console.log(`Cache hit for search: "${query}"`);
       return cachedResults;
@@ -606,7 +606,7 @@ export class EventService {
     ADDRESS: ${query}
     LOCATION_NOTES: ${query}
     `.trim();
-    let searchEmbedding = CacheService.getCachedEmbedding(normalizedQuery);
+    let searchEmbedding = EventCacheService.getCachedEmbedding(normalizedQuery);
 
     if (!searchEmbedding) {
       // Generate new embedding if not in cache
@@ -619,7 +619,7 @@ export class EventService {
       searchEmbedding = embeddingResponse.data[0].embedding;
 
       // Cache the embedding
-      CacheService.setCachedEmbedding(normalizedQuery, searchEmbedding);
+      EventCacheService.setCachedEmbedding(normalizedQuery, searchEmbedding);
     }
 
     // Parse cursor if provided
@@ -777,7 +777,7 @@ export class EventService {
 
     // Store in cache
     const resultObject = { results: searchResults, nextCursor };
-    await CacheService.setCachedSearch(cacheKey, resultObject);
+    await EventCacheService.setSearchResults(cacheKey, resultObject);
 
     return resultObject;
   }
@@ -787,13 +787,13 @@ export class EventService {
       const result = await this.eventRepository.delete(id);
 
       // Invalidate the cache for this event
-      await CacheService.invalidateEventCache(id);
+      await EventCacheService.invalidateEvent(id);
 
       // Invalidate search cache since we deleted an event
-      await CacheService.invalidateSearchCache();
+      await EventCacheService.invalidateSearchCache();
 
       // Invalidate any cluster hub caches that might contain this event
-      await CacheService.invalidateAllClusterHubCaches();
+      await EventCacheService.invalidateAllClusterHubs();
 
       return result.affected ? result.affected > 0 : false;
     } catch (error) {
@@ -814,7 +814,7 @@ export class EventService {
       const updatedEvent = await this.eventRepository.save(event);
 
       // Invalidate the cache for this event
-      await CacheService.invalidateEventCache(id);
+      await EventCacheService.invalidateEvent(id);
 
       return updatedEvent;
     } catch (error) {
@@ -1308,7 +1308,7 @@ export class EventService {
     };
   }> {
     // Try to get from cache first
-    const cachedData = await CacheService.getCachedClusterHub(markerIds);
+    const cachedData = await EventCacheService.getClusterHub(markerIds);
     if (cachedData) {
       return cachedData;
     }
@@ -1541,7 +1541,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
     };
 
     // Cache the result
-    await CacheService.setCachedClusterHub(markerIds, result);
+    await EventCacheService.setClusterHub(markerIds, result);
 
     return result;
   }
