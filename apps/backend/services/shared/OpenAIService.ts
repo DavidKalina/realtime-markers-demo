@@ -1,12 +1,22 @@
 // src/services/OpenAIService.ts
 import { OpenAI } from "openai";
 import { Redis } from "ioredis";
+import { RedisService } from "./RedisService";
+import { OpenAICacheService } from "./OpenAICacheService";
+import type {
+  ChatCompletion,
+  ChatCompletionMessageParam,
+  ChatCompletionCreateParamsNonStreaming,
+} from "openai/resources/chat/completions";
 
 export enum OpenAIModel {
   GPT4O = "gpt-4o",
   GPT4OMini = "gpt-4o-mini",
   TextEmbedding3Small = "text-embedding-3-small",
 }
+
+type OperationType = "embeddings" | "chat" | "api";
+type RateLimitKey = `${OpenAIModel}:${OperationType}`;
 
 interface RateLimitConfig {
   tokensPerMinute: number;
@@ -29,26 +39,24 @@ const DEFAULT_RATE_LIMITS: RateLimitConfig = {
 
 export class OpenAIService {
   private static instance: OpenAI;
-  private static redis: Redis | null = null;
+  private static redisService: RedisService | null = null;
 
   // Track active requests for each model
   private static activeRequests: Map<string, number> = new Map();
-
-  // Track rate limit state
-  private static rateLimitCounters: Map<string, number> = new Map();
-  private static lastRateLimitReset: number = Date.now();
 
   public static initRedis(options: {
     host: string;
     port: number;
     password?: string;
   }) {
-    this.redis = new Redis({
+    const redis = new Redis({
       host: options.host,
       port: options.port,
       password: options.password || undefined,
     });
+    this.redisService = RedisService.getInstance(redis);
   }
+
   public static getInstance(): OpenAI {
     if (!this.instance) {
       if (!process.env.OPENAI_API_KEY) {
@@ -102,7 +110,7 @@ export class OpenAIService {
       const rateLimits = model ? MODEL_RATE_LIMITS[model] : DEFAULT_RATE_LIMITS;
 
       // Check rate limits before proceeding
-      await this.checkRateLimit(requestKey, rateLimits);
+      await this.checkRateLimit(requestKey, rateLimits, model, operation);
 
       try {
         // Increment active requests counter
@@ -170,42 +178,23 @@ export class OpenAIService {
   private static async checkRateLimit(
     key: string,
     limits: RateLimitConfig,
+    model?: OpenAIModel,
+    operation?: string,
   ): Promise<void> {
-    // Reset counters if a minute has passed
-    const now = Date.now();
-    const minutesPassed = Math.floor((now - this.lastRateLimitReset) / 60000);
+    if (!model || !operation) return;
 
-    if (minutesPassed > 0) {
-      this.rateLimitCounters.clear();
-      this.lastRateLimitReset = now;
-    }
+    const requestCount = await OpenAICacheService.incrementRateLimitCount(
+      model,
+      operation,
+    );
 
-    // Use Redis if available, otherwise fall back to in-memory tracking
-    if (this.redis) {
-      const minute = Math.floor(Date.now() / 60000);
-      const requestCountKey = `openai:${key}:requests:${minute}`;
+    if (requestCount > limits.requestsPerMinute) {
+      // If we're over the limit, determine wait time
+      const secondsToNextMinute = 60 - (Math.floor(Date.now() / 1000) % 60);
+      const waitTime = Math.max(100, (secondsToNextMinute * 1000) / 2);
 
-      const requestCount = await this.redis.incr(requestCountKey);
-      await this.redis.expire(requestCountKey, 120); // Keep for 2 minutes
-
-      if (requestCount > limits.requestsPerMinute) {
-        // If we're over the limit, determine wait time
-        const secondsToNextMinute = 60 - (Math.floor(Date.now() / 1000) % 60);
-        const waitTime = Math.max(100, (secondsToNextMinute * 1000) / 2);
-
-        console.warn(`Rate limit approached for ${key}, waiting ${waitTime}ms`);
-        await new Promise((resolve) => setTimeout(resolve, waitTime));
-      }
-    } else {
-      // In-memory fallback
-      const currentCount = this.rateLimitCounters.get(key) || 0;
-      this.rateLimitCounters.set(key, currentCount + 1);
-
-      if (currentCount > limits.requestsPerMinute) {
-        const waitTime = 1000; // Simple 1 second delay
-        console.warn(`Rate limit approached for ${key}, waiting ${waitTime}ms`);
-        await new Promise((resolve) => setTimeout(resolve, waitTime));
-      }
+      console.warn(`Rate limit approached for ${key}, waiting ${waitTime}ms`);
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
   }
 
@@ -220,13 +209,28 @@ export class OpenAIService {
   }
 
   // Get statistics about API usage
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public static getStats(): Record<string, any> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const stats: Record<string, any> = {
+  public static async getStats(): Promise<{
+    activeRequests: Record<string, number>;
+    rateLimits: Record<RateLimitKey, number>;
+  }> {
+    const stats = {
       activeRequests: Object.fromEntries(this.activeRequests.entries()),
-      rateLimits: Object.fromEntries(this.rateLimitCounters.entries()),
+      rateLimits: {} as Record<RateLimitKey, number>,
     };
+
+    // Get rate limit stats for each model and operation
+    for (const model of Object.values(OpenAIModel)) {
+      for (const operation of ["embeddings", "chat", "api"] as const) {
+        const count = await OpenAICacheService.getRateLimitCount(
+          model,
+          operation,
+        );
+        if (count !== null) {
+          const key = `${model}:${operation}` as RateLimitKey;
+          stats.rateLimits[key] = count;
+        }
+      }
+    }
 
     return stats;
   }
@@ -234,31 +238,47 @@ export class OpenAIService {
   // Helper method for extracting model from a request payload
   public static async executeChatCompletion(params: {
     model: OpenAIModel;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    messages: any[];
+    messages: ChatCompletionMessageParam[];
     temperature?: number;
     max_tokens?: number;
     response_format?: { type: "json_object" | "text" };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }): Promise<any> {
+  }): Promise<ChatCompletion> {
     const openai = this.getInstance();
-    const result = await openai.chat.completions.create(params);
-    return result;
+    const nonStreamingParams: ChatCompletionCreateParamsNonStreaming = {
+      ...params,
+      stream: false,
+    };
+    return openai.chat.completions.create(nonStreamingParams);
   }
 
-  // Helper method for generating embeddings
+  // Helper method for generating embeddings with caching
   public static async generateEmbedding(
     text: string,
     model: OpenAIModel = OpenAIModel.TextEmbedding3Small,
   ): Promise<number[]> {
-    const openai = this.getInstance();
+    // Try to get from cache first
+    const cachedEmbedding = await OpenAICacheService.getEmbedding(text);
+    if (cachedEmbedding) {
+      return cachedEmbedding;
+    }
 
+    const openai = this.getInstance();
     const response = await openai.embeddings.create({
       model: model,
       input: text,
       encoding_format: "float",
     });
 
-    return response.data[0].embedding;
+    const embedding = response.data[0].embedding;
+
+    // Cache the embedding
+    await OpenAICacheService.setEmbedding(text, embedding);
+
+    return embedding;
+  }
+
+  // Reset all rate limit counters
+  public static async resetRateLimits(): Promise<void> {
+    await OpenAICacheService.resetRateLimitCounters();
   }
 }
