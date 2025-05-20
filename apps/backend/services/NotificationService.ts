@@ -2,7 +2,7 @@ import { Redis } from "ioredis";
 import { DataSource, Repository } from "typeorm";
 import { Notification } from "../entities/Notification";
 import type { NotificationType } from "../entities/Notification";
-import { CacheService } from "./shared/CacheService";
+import { NotificationCacheService } from "./shared/NotificationCacheService";
 
 export interface NotificationData {
   id: string;
@@ -79,7 +79,7 @@ export class NotificationService {
     );
 
     // Invalidate cache
-    await CacheService.invalidateNotificationCache(userId);
+    await NotificationCacheService.invalidateNotificationCache(userId);
 
     // Publish the notification to Redis
     await this.redis.publish(
@@ -112,7 +112,8 @@ export class NotificationService {
       options.read === undefined &&
       options.type === undefined
     ) {
-      const cached = await CacheService.getCachedNotifications(userId);
+      const cached =
+        await NotificationCacheService.getCachedNotifications(userId);
       if (cached) {
         return {
           notifications: cached.notifications,
@@ -158,7 +159,7 @@ export class NotificationService {
       options.read === undefined &&
       options.type === undefined
     ) {
-      await CacheService.setCachedNotifications(userId, {
+      await NotificationCacheService.setCachedNotifications(userId, {
         notifications,
         total,
       });
@@ -202,7 +203,7 @@ export class NotificationService {
       );
 
       // Invalidate cache
-      await CacheService.invalidateNotificationCache(userId);
+      await NotificationCacheService.invalidateNotificationCache(userId);
     }
   }
 
@@ -220,7 +221,7 @@ export class NotificationService {
     await this.redis.hdel(`notifications:${userId}`, notificationId);
 
     // Invalidate cache
-    await CacheService.invalidateNotificationCache(userId);
+    await NotificationCacheService.invalidateNotificationCache(userId);
   }
 
   /**
@@ -234,7 +235,7 @@ export class NotificationService {
     await this.redis.del(`notifications:${userId}`);
 
     // Invalidate cache
-    await CacheService.invalidateNotificationCache(userId);
+    await NotificationCacheService.invalidateNotificationCache(userId);
   }
 
   /**
