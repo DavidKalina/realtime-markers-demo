@@ -22,6 +22,7 @@ import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
 import { Friendship } from "../entities/Friendship";
 import { EventShare } from "../entities/EventShare";
+import { RedisService } from "./shared/RedisService";
 
 interface SearchResult {
   event: Event;
@@ -60,10 +61,11 @@ export class EventService {
   private locationService: GoogleGeocodingService;
   private eventSimilarityService: EventSimilarityService;
   private levelingService: LevelingService;
+  private redisService: RedisService;
 
   constructor(
     private dataSource: DataSource,
-    private redis: Redis,
+    redis: Redis,
   ) {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
@@ -75,6 +77,7 @@ export class EventService {
       this.eventRepository,
     );
     this.levelingService = new LevelingService(dataSource, redis);
+    this.redisService = RedisService.getInstance(redis);
   }
 
   async cleanupOutdatedEvents(batchSize = 100): Promise<{
@@ -388,13 +391,10 @@ export class EventService {
 
     if (event) {
       // Publish the updated event to Redis
-      await this.redis.publish(
-        "event_changes",
-        JSON.stringify({
-          operation: "UPDATE",
-          record: event,
-        }),
-      );
+      await this.redisService.publish("event_changes", {
+        type: "UPDATE",
+        data: event,
+      });
     }
   }
 
