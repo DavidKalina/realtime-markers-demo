@@ -1,5 +1,6 @@
 // src/services/shared/CacheService.ts
 import { Redis } from "ioredis";
+import { RedisService } from "./RedisService";
 
 export interface CacheOptions {
   ttlSeconds?: number;
@@ -12,7 +13,7 @@ interface CacheEntry<T> {
 }
 
 export class CacheService {
-  protected static redisClient: Redis | null = null;
+  protected static redisService: RedisService | null = null;
   protected static memoryCache = new Map<string, CacheEntry<unknown>>();
 
   // Cache size limits
@@ -27,11 +28,12 @@ export class CacheService {
   };
 
   static initRedis(options: { host: string; port: number; password: string }) {
-    this.redisClient = new Redis(options);
+    const redis = new Redis(options);
+    this.redisService = RedisService.getInstance(redis);
   }
 
   static getRedisClient(): Redis | null {
-    return this.redisClient;
+    return this.redisService?.getClient() || null;
   }
 
   static getCacheStats() {
@@ -85,13 +87,13 @@ export class CacheService {
     }
 
     // Fall back to Redis
-    if (!this.redisClient) return null;
+    if (!this.redisService) return null;
 
     try {
-      const result = await this.redisClient.get(key);
-      if (result) {
+      const result = await this.redisService.get<T>(key);
+      if (result !== null) {
         this.cacheStats.redisHits++;
-        return JSON.parse(result) as T;
+        return result;
       }
       this.cacheStats.redisMisses++;
       return null;
@@ -101,7 +103,7 @@ export class CacheService {
     }
   }
 
-  protected static async set<T>(
+  protected static async set<T extends string | number | object>(
     key: string,
     value: T,
     options: CacheOptions = {},
@@ -125,14 +127,9 @@ export class CacheService {
     }
 
     // Store in Redis if available
-    if (this.redisClient) {
+    if (this.redisService) {
       try {
-        await this.redisClient.set(
-          key,
-          JSON.stringify(value),
-          "EX",
-          ttlSeconds,
-        );
+        await this.redisService.set(key, value, ttlSeconds);
       } catch (error) {
         console.error(`Error setting cached data for key ${key}:`, error);
       }
@@ -144,9 +141,9 @@ export class CacheService {
     this.memoryCache.delete(key);
 
     // Remove from Redis
-    if (this.redisClient) {
+    if (this.redisService) {
       try {
-        await this.redisClient.del(key);
+        await this.redisService.del(key);
       } catch (error) {
         console.error(`Error invalidating cache for key ${key}:`, error);
       }
@@ -154,17 +151,10 @@ export class CacheService {
   }
 
   protected static async invalidateByPattern(pattern: string): Promise<void> {
-    if (!this.redisClient) return;
+    if (!this.redisService) return;
 
     try {
-      const keys = await this.redisClient.keys(pattern);
-      if (keys.length > 0) {
-        // Remove matching keys from memory cache
-        keys.forEach((key) => this.memoryCache.delete(key));
-
-        // Remove from Redis
-        await this.redisClient.del(...keys);
-      }
+      await this.redisService.delByPattern(pattern);
     } catch (error) {
       console.error(`Error invalidating cache for pattern ${pattern}:`, error);
     }

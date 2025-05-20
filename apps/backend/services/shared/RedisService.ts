@@ -4,7 +4,11 @@ export type RedisChannel =
   | "event_changes"
   | "notifications"
   | "user_updates"
-  | "location_updates";
+  | "location_updates"
+  | "job_created"
+  | "job_updates"
+  | "level-update"
+  | `job:${string}:updates`;
 
 export interface RedisMessage<T = unknown> {
   type: string;
