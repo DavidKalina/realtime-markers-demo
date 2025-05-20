@@ -142,7 +142,7 @@ async function initializeWorker() {
     eventProcessingDependencies,
   );
 
-  const eventService = new EventService(AppDataSource, redisClient);
+  const eventService = new EventService(AppDataSource, redisService);
 
   const planService = new PlanService(AppDataSource);
 

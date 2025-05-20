@@ -65,7 +65,7 @@ export class EventService {
 
   constructor(
     private dataSource: DataSource,
-    redis: Redis,
+    redis: Redis | RedisService,
   ) {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
@@ -76,8 +76,12 @@ export class EventService {
     this.eventSimilarityService = new EventSimilarityService(
       this.eventRepository,
     );
-    this.levelingService = new LevelingService(dataSource, redis);
-    this.redisService = RedisService.getInstance(redis);
+    this.redisService =
+      redis instanceof RedisService ? redis : RedisService.getInstance(redis);
+    this.levelingService = new LevelingService(
+      dataSource,
+      this.redisService.getClient(),
+    );
   }
 
   async cleanupOutdatedEvents(batchSize = 100): Promise<{

@@ -258,6 +258,7 @@ CacheService.initRedis({
   password: process.env.REDIS_PASSWORD ?? "",
 });
 
+// Initialize services
 async function initializeServices() {
   console.log("Initializing database connection...");
   const dataSource = await initializeDatabase();
@@ -273,7 +274,11 @@ async function initializeServices() {
     categoryRepository,
   );
 
-  const eventService = new EventService(dataSource, redisPub);
+  // Create RedisService instance
+  const redisService = RedisService.getInstance(redisPub);
+
+  // Initialize EventService with RedisService
+  const eventService = new EventService(dataSource, redisService);
 
   // Create the event similarity service
   const eventSimilarityService = new EventSimilarityService(
