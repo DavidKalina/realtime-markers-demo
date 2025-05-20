@@ -1,7 +1,7 @@
 // services/event-processing/ImageProcessingService.ts
 
 import { createHash } from "crypto";
-import { CacheService } from "../shared/CacheService";
+import { ImageProcessingCacheService } from "../shared/ImageProcessingCacheService";
 import type { IImageProcessingService } from "./interfaces/IImageProcesssingService";
 import type { ImageProcessingResult } from "./dto/ImageProcessingResult";
 import { OpenAIModel, OpenAIService } from "../shared/OpenAIService";
@@ -124,15 +124,7 @@ export class ImageProcessingService implements IImageProcessingService {
   private async getCachedResult(
     cacheKey: string,
   ): Promise<ImageProcessingResult | null> {
-    const cachedData = await CacheService.getCachedData(cacheKey);
-    if (cachedData) {
-      try {
-        return JSON.parse(cachedData) as ImageProcessingResult;
-      } catch (error) {
-        console.error("Error parsing cached image result:", error);
-      }
-    }
-    return null;
+    return ImageProcessingCacheService.getProcessingResult(cacheKey);
   }
 
   /**
@@ -144,11 +136,7 @@ export class ImageProcessingService implements IImageProcessingService {
     cacheKey: string,
     result: ImageProcessingResult,
   ): Promise<void> {
-    await CacheService.setCachedData(
-      cacheKey,
-      JSON.stringify(result),
-      this.CACHE_TTL,
-    );
+    await ImageProcessingCacheService.setProcessingResult(cacheKey, result);
   }
 
   /**

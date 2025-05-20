@@ -2,7 +2,7 @@
 
 import pgvector from "pgvector";
 import { OpenAIModel, OpenAIService } from "./OpenAIService";
-import { CacheService } from "./CacheService";
+import { EmbeddingCacheService } from "./EmbeddingCacheService";
 import type { ConfigService } from "./ConfigService";
 import type { IEmbeddingService } from "../event-processing/interfaces/IEmbeddingService";
 
@@ -77,6 +77,8 @@ export class EmbeddingService implements IEmbeddingService {
     locationNotes: 3,
   };
 
+  private readonly embeddingCacheService: EmbeddingCacheService;
+
   /**
    * Private constructor for singleton pattern
    * @param configService Optional configuration service
@@ -86,6 +88,8 @@ export class EmbeddingService implements IEmbeddingService {
     this.DEFAULT_MODEL =
       configService?.get("openai.embeddingModel") || "text-embedding-3-small";
     this.CACHE_TTL = configService?.get("cache.ttl") || 86400; // 24 hours
+    this.embeddingCacheService =
+      EmbeddingCacheService.getInstance(configService);
   }
 
   /**
@@ -109,7 +113,8 @@ export class EmbeddingService implements IEmbeddingService {
     const normalizedText = this.normalizeTextForEmbedding(text);
 
     // Check cache
-    const cachedEmbedding = CacheService.getCachedEmbedding(normalizedText);
+    const cachedEmbedding =
+      EmbeddingCacheService.getCachedEmbedding(normalizedText);
     if (cachedEmbedding) {
       return cachedEmbedding;
     }
@@ -121,7 +126,7 @@ export class EmbeddingService implements IEmbeddingService {
     );
 
     // Cache the result
-    CacheService.setCachedEmbedding(normalizedText, embedding);
+    EmbeddingCacheService.setCachedEmbedding(normalizedText, embedding);
 
     return embedding;
   }
@@ -149,7 +154,21 @@ export class EmbeddingService implements IEmbeddingService {
     model?: string,
   ): Promise<number[]> {
     const structuredText = this.createWeightedText(input);
-    return this.getEmbedding(structuredText, model);
+
+    // Check cache for structured embedding
+    const cachedEmbedding =
+      EmbeddingCacheService.getCachedStructuredEmbedding(input);
+    if (cachedEmbedding) {
+      return cachedEmbedding;
+    }
+
+    // Generate embedding
+    const embedding = await this.getEmbedding(structuredText, model);
+
+    // Cache the structured embedding
+    EmbeddingCacheService.setCachedStructuredEmbedding(input, embedding);
+
+    return embedding;
   }
 
   /**
@@ -205,15 +224,6 @@ export class EmbeddingService implements IEmbeddingService {
   private normalizeTextForEmbedding(text: string): string {
     // Remove excess whitespace and normalize
     return text.trim().replace(/\s+/g, " ");
-  }
-
-  /**
-   * Generate a cache key for text
-   * @param text Text to generate key for
-   * @returns Cache key
-   */
-  private generateCacheKey(text: string): string {
-    return CacheService.getCacheKey(text);
   }
 
   /**
@@ -304,8 +314,7 @@ export class EmbeddingService implements IEmbeddingService {
    * Useful for testing or when embedding model changes
    */
   public clearCache(): void {
-    // This would ideally clear only embeddings, not all cache
-    console.log("Clearing embedding cache");
-    CacheService.monitorMemoryUsage();
+    EmbeddingCacheService.clearAllEmbeddings();
+    console.log("Cleared embedding cache");
   }
 }
