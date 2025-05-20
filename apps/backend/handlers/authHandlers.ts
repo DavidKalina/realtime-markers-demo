@@ -5,8 +5,6 @@ import type { AppContext } from "../types/context";
 import dataSource from "../data-source";
 import { User } from "../entities/User";
 import { AuthService } from "../services/AuthService";
-import { UserPreferencesService } from "../services/UserPreferences";
-import { LevelingService } from "../services/LevelingService";
 import Redis from "ioredis";
 
 // Create instances of required services
@@ -59,22 +57,32 @@ redisClient.on("ready", () => {
   console.log("Redis is ready to accept commands");
 });
 
-// Initialize services
-const userPreferencesService = new UserPreferencesService(
-  dataSource,
-  redisClient,
-);
-const levelingService = new LevelingService(dataSource, redisClient);
-const authService = new AuthService(
-  userRepository,
-  userPreferencesService,
-  levelingService,
-  dataSource,
-);
-
+// Initialize services using the shared Redis instance from context
 export type AuthHandler = (
   c: Context<AppContext>,
 ) => Promise<Response> | Response;
+
+// Helper function to get services from context
+function getServices(c: Context<AppContext>) {
+  const userPreferencesService = c.get("userPreferencesService");
+  const levelingService = c.get("levelingService");
+  const redisService = c.get("redisService");
+
+  // Create AuthService with services from context
+  const authService = new AuthService(
+    userRepository,
+    userPreferencesService,
+    levelingService,
+    dataSource,
+  );
+
+  return {
+    authService,
+    userPreferencesService,
+    levelingService,
+    redisService,
+  };
+}
 
 /**
  * Register a new user
@@ -82,34 +90,29 @@ export type AuthHandler = (
 export const registerHandler: AuthHandler = async (c) => {
   try {
     const { email, password, displayName } = await c.req.json();
+    const { authService } = getServices(c);
 
-    if (!email || !password) {
-      return c.json({ error: "Email and password are required" }, 400);
-    }
-
-    // Register user via the auth service
-    await authService.register({
-      email,
-      password,
-      displayName,
-    });
-    // Optionally, log in the user right after registration to generate tokens
-    const { user, tokens } = await authService.login(email, password);
+    const user = await authService.register({ email, password, displayName });
+    // Log in the user right after registration
+    const { tokens } = await authService.login(email, password);
 
     return c.json(
       {
         message: "User registered successfully",
         user,
         accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken, // Add refresh token here too
+        refreshToken: tokens.refreshToken,
       },
       201,
     );
-  } catch (error: unknown) {
-    console.error("Error during registration:", error);
+  } catch (error) {
+    console.error("Registration error:", error);
     return c.json(
-      { error: error instanceof Error ? error.message : "Registration failed" },
-      500,
+      {
+        error: "Registration failed",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      400,
     );
   }
 };
@@ -120,23 +123,22 @@ export const registerHandler: AuthHandler = async (c) => {
 export const loginHandler: AuthHandler = async (c) => {
   try {
     const { email, password } = await c.req.json();
-
-    if (!email || !password) {
-      return c.json({ error: "Email and password are required" }, 400);
-    }
+    const { authService } = getServices(c);
 
     const { user, tokens } = await authService.login(email, password);
-
     return c.json({
       message: "Login successful",
       user,
       accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken, // Add the refresh token to the response
+      refreshToken: tokens.refreshToken,
     });
   } catch (error) {
-    console.error("Error during login:", error);
+    console.error("Login error:", error);
     return c.json(
-      { error: error instanceof Error ? error.message : "Login failed" },
+      {
+        error: "Login failed",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       401,
     );
   }
@@ -153,6 +155,7 @@ export const refreshTokenHandler: AuthHandler = async (c) => {
       return c.json({ error: "Refresh token is required" }, 400);
     }
 
+    const { authService } = getServices(c);
     const tokens = await authService.refreshToken(refreshToken);
 
     return c.json({
@@ -183,6 +186,7 @@ export const logoutHandler: AuthHandler = async (c) => {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
+    const { authService } = getServices(c);
     const success = await authService.logout(userId);
     if (!success) {
       return c.json({ error: "User not found" }, 404);
@@ -203,22 +207,24 @@ export const logoutHandler: AuthHandler = async (c) => {
  */
 export const getCurrentUserHandler: AuthHandler = async (c) => {
   try {
-    const userId = getUserIdFromToken(c);
-    if (!userId) {
-      return c.json({ error: "Unauthorized" }, 401);
+    const user = c.get("user");
+    if (!user || !user.userId) {
+      return c.json({ error: "Not authenticated" }, 401);
     }
 
-    const user = await authService.getUserProfile(userId);
-    if (!user) {
+    const { authService } = getServices(c);
+    const userData = await authService.getUserProfile(user.userId);
+    if (!userData) {
       return c.json({ error: "User not found" }, 404);
     }
 
-    return c.json(user);
+    return c.json(userData);
   } catch (error) {
     console.error("Error fetching current user:", error);
     return c.json(
       {
-        error: error instanceof Error ? error.message : "Failed to fetch user",
+        error: "Failed to fetch user data",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       500,
     );
@@ -238,6 +244,7 @@ export const updateProfileHandler: AuthHandler = async (c) => {
     const userData = await c.req.json();
 
     // Update profile via auth service
+    const { authService } = getServices(c);
     const updatedUser = await authService.updateUserProfile(userId, userData);
     if (!updatedUser) {
       return c.json({ error: "User not found" }, 404);
@@ -277,6 +284,7 @@ export const changePasswordHandler: AuthHandler = async (c) => {
       );
     }
 
+    const { authService } = getServices(c);
     await authService.changePassword(userId, currentPassword, newPassword);
     return c.json({ message: "Password changed successfully" });
   } catch (error) {
@@ -296,9 +304,9 @@ export const changePasswordHandler: AuthHandler = async (c) => {
  */
 export const deleteAccountHandler: AuthHandler = async (c) => {
   try {
-    const userId = getUserIdFromToken(c);
-    if (!userId) {
-      return c.json({ error: "Unauthorized" }, 401);
+    const user = c.get("user");
+    if (!user || !user.userId) {
+      return c.json({ error: "Not authenticated" }, 401);
     }
 
     const { password } = await c.req.json();
@@ -306,14 +314,15 @@ export const deleteAccountHandler: AuthHandler = async (c) => {
       return c.json({ error: "Password is required" }, 400);
     }
 
-    await authService.deleteAccount(userId, password);
+    const { authService } = getServices(c);
+    await authService.deleteAccount(user.userId, password);
     return c.json({ message: "Account deleted successfully" });
   } catch (error) {
     console.error("Error deleting account:", error);
     return c.json(
       {
-        error:
-          error instanceof Error ? error.message : "Failed to delete account",
+        error: "Failed to delete account",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       500,
     );
@@ -324,14 +333,16 @@ export const deleteAccountHandler: AuthHandler = async (c) => {
  * Helper function to extract user ID from token.
  * This is just an example; adjust the implementation based on your authentication scheme.
  */
-function getUserIdFromToken(c: Context): string | null {
+function getUserIdFromToken(c: Context<AppContext>): string | null {
   const authHeader = c.req.header("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return null;
   }
   const token = authHeader.substring(7);
   try {
-    // Validate the token using the AuthService (or your JWT secret)
+    // Get services from context
+    const { authService } = getServices(c);
+    // Validate the token using the AuthService
     const decoded = authService.validateToken(token) as { userId: string };
     return decoded.userId;
   } catch (error) {

@@ -13,9 +13,22 @@ import type {
   UpdateGroupDto,
   UpdateMemberRoleDto,
 } from "../dtos/group.dto";
+import { CacheService } from "../services/shared/CacheService";
 
-// Initialize services
-const groupService = new GroupService(dataSource);
+// Helper function to get services from context
+function getServices(c: Context<AppContext>) {
+  // Initialize CacheService with Redis from context if not already initialized
+  if (!CacheService.getRedisClient()) {
+    const redisClient = c.get("redisClient");
+    CacheService.initRedis({
+      host: redisClient.options.host || "localhost",
+      port: redisClient.options.port || 6379,
+      password: redisClient.options.password || "",
+    });
+  }
+  const groupService = new GroupService(dataSource);
+  return { groupService };
+}
 
 // Helper function to get userId from token (assuming it's set by authMiddleware)
 function getAuthenticatedUserId(c: Context<AppContext>): string {
@@ -36,6 +49,7 @@ export const createGroupHandler = async (c: Context<AppContext>) => {
       return c.json({ error: "Group name is required" }, 400);
     }
 
+    const { groupService } = getServices(c);
     const group = await groupService.createGroup(userId, groupData);
     return c.json(group, 201);
   } catch (error) {
@@ -63,6 +77,7 @@ export const getGroupHandler = async (c: Context<AppContext>) => {
     const user = c.get("user");
     const userId = user?.userId; // Optional: use for private group access check
 
+    const { groupService } = getServices(c);
     const group = await groupService.getGroupById(groupId);
 
     if (!group) {
@@ -98,6 +113,7 @@ export const updateGroupHandler = async (c: Context<AppContext>) => {
     const groupId = c.req.param("groupId");
     const updateData = await c.req.json<UpdateGroupDto>();
 
+    const { groupService } = getServices(c);
     const updatedGroup = await groupService.updateGroup(
       groupId,
       userId,
@@ -133,6 +149,7 @@ export const deleteGroupHandler = async (c: Context<AppContext>) => {
     const userId = getAuthenticatedUserId(c);
     const groupId = c.req.param("groupId");
 
+    const { groupService } = getServices(c);
     const success = await groupService.deleteGroup(groupId, userId);
     if (!success) {
       return c.json({ error: "Group not found or deletion failed" }, 404); // Or 403
@@ -166,6 +183,7 @@ export const listPublicGroupsHandler = async (c: Context<AppContext>) => {
       | "backward";
     const categoryId = c.req.query("categoryId");
 
+    const { groupService } = getServices(c);
     const result = await groupService.listPublicGroups({
       cursor,
       limit,
@@ -196,6 +214,7 @@ export const getUserGroupsHandler = async (c: Context<AppContext>) => {
       | "forward"
       | "backward";
 
+    const { groupService } = getServices(c);
     const result = await groupService.getUserGroups(userId, {
       cursor,
       limit,
@@ -219,6 +238,7 @@ export const joinGroupHandler = async (c: Context<AppContext>) => {
     const userId = getAuthenticatedUserId(c);
     const groupId = c.req.param("groupId");
 
+    const { groupService } = getServices(c);
     const membership = await groupService.joinGroup(groupId, userId);
     const message =
       membership.status === GroupMembershipStatus.PENDING
@@ -251,6 +271,7 @@ export const leaveGroupHandler = async (c: Context<AppContext>) => {
     const userId = getAuthenticatedUserId(c);
     const groupId = c.req.param("groupId");
 
+    const { groupService } = getServices(c);
     const success = await groupService.leaveGroup(groupId, userId);
     if (!success) {
       return c.json({ error: "Failed to leave group or not a member" }, 400);
@@ -302,6 +323,7 @@ export const manageMembershipStatusHandler = async (c: Context<AppContext>) => {
       );
     }
 
+    const { groupService } = getServices(c);
     const membership = await groupService.manageMembershipStatus(
       groupId,
       memberUserId,
@@ -341,6 +363,7 @@ export const updateMemberRoleHandler = async (c: Context<AppContext>) => {
       return c.json({ error: "Invalid role provided." }, 400);
     }
 
+    const { groupService } = getServices(c);
     const membership = await groupService.updateMemberRole(
       groupId,
       memberUserId,
@@ -375,6 +398,7 @@ export const removeMemberHandler = async (c: Context<AppContext>) => {
     const groupId = c.req.param("groupId");
     const memberUserId = c.req.param("memberUserId");
 
+    const { groupService } = getServices(c);
     const success = await groupService.removeMember(
       groupId,
       memberUserId,
@@ -416,6 +440,7 @@ export const getGroupMembersHandler = async (c: Context<AppContext>) => {
       | "backward";
     const status = c.req.query("status") as GroupMembershipStatus | undefined;
 
+    const { groupService } = getServices(c);
     const result = await groupService.getGroupMembers(groupId, {
       cursor,
       limit,
@@ -456,6 +481,7 @@ export const searchGroupsHandler = async (c: Context<AppContext>) => {
       | "backward";
     const categoryId = c.req.query("categoryId");
 
+    const { groupService } = getServices(c);
     const result = await groupService.searchGroups({
       query,
       cursor,
@@ -493,6 +519,7 @@ export const getGroupEventsHandler = async (c: Context<AppContext>) => {
       ? new Date(c.req.query("endDate")!)
       : undefined;
 
+    const { groupService } = getServices(c);
     const result = await groupService.getGroupEvents(groupId, {
       cursor,
       limit,
