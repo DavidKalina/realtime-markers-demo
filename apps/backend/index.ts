@@ -43,6 +43,9 @@ import { groupsRouter } from "./routes/groups";
 import { redisService, redisClient } from "./services/shared/redis";
 import { Redis } from "ioredis";
 import { RedisService } from "./services/shared/RedisService";
+import { GroupService } from "./services/GroupService";
+import { AuthService } from "./services/AuthService";
+import { User } from "./entities/User";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -246,6 +249,17 @@ async function initializeServices() {
     dataSource,
   );
 
+  // Initialize the GroupService
+  const groupService = new GroupService(dataSource);
+
+  // Initialize the AuthService
+  const authService = new AuthService(
+    dataSource.getRepository(User),
+    userPreferencesService,
+    levelingService,
+    dataSource,
+  );
+
   // Initialize and start the NotificationHandler
   const notificationHandler = NotificationHandler.getInstance(
     redisClient,
@@ -291,6 +305,8 @@ async function initializeServices() {
     friendshipService,
     notificationService,
     notificationHandler,
+    groupService,
+    authService,
   };
 }
 
@@ -309,6 +325,8 @@ app.use("*", async (c, next) => {
   c.set("levelingService", services.levelingService);
   c.set("friendshipService", services.friendshipService);
   c.set("notificationService", services.notificationService);
+  c.set("groupService", services.groupService);
+  c.set("authService", services.authService);
   await next();
 });
 

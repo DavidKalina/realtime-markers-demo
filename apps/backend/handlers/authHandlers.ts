@@ -2,13 +2,7 @@
 
 import type { Context } from "hono";
 import type { AppContext } from "../types/context";
-import dataSource from "../data-source";
-import { User } from "../entities/User";
-import { AuthService } from "../services/AuthService";
 import Redis from "ioredis";
-
-// Create instances of required services
-const userRepository = dataSource.getRepository(User);
 
 // Initialize Redis client with proper configuration
 const redisConfig = {
@@ -64,17 +58,10 @@ export type AuthHandler = (
 
 // Helper function to get services from context
 function getServices(c: Context<AppContext>) {
+  const authService = c.get("authService");
   const userPreferencesService = c.get("userPreferencesService");
   const levelingService = c.get("levelingService");
   const redisService = c.get("redisService");
-
-  // Create AuthService with services from context
-  const authService = new AuthService(
-    userRepository,
-    userPreferencesService,
-    levelingService,
-    dataSource,
-  );
 
   return {
     authService,

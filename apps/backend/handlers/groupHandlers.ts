@@ -2,8 +2,6 @@
 
 import type { Context } from "hono";
 import type { AppContext } from "../types/context";
-import dataSource from "../data-source";
-import { GroupService } from "../services/GroupService";
 import {
   GroupMemberRole,
   GroupMembershipStatus,
@@ -13,20 +11,10 @@ import type {
   UpdateGroupDto,
   UpdateMemberRoleDto,
 } from "../dtos/group.dto";
-import { CacheService } from "../services/shared/CacheService";
 
 // Helper function to get services from context
 function getServices(c: Context<AppContext>) {
-  // Initialize CacheService with Redis from context if not already initialized
-  if (!CacheService.getRedisClient()) {
-    const redisClient = c.get("redisClient");
-    CacheService.initRedis({
-      host: redisClient.options.host || "localhost",
-      port: redisClient.options.port || 6379,
-      password: redisClient.options.password || "",
-    });
-  }
-  const groupService = new GroupService(dataSource);
+  const groupService = c.get("groupService");
   return { groupService };
 }
 
