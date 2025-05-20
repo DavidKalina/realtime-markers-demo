@@ -3,7 +3,7 @@ import { DataSource, Repository } from "typeorm";
 import Redis from "ioredis";
 import { Filter as FilterEntity } from "../entities/Filter";
 import { EmbeddingService } from "./shared/EmbeddingService";
-import { OpenAIService } from "./shared/OpenAIService";
+import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
 
 interface Filter {
   id: string;
@@ -61,7 +61,7 @@ Example valid responses: 🎉 🎨 🎭
 Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
 
       const completion = await OpenAIService.executeChatCompletion({
-        model: "gpt-4o-mini-2024-07-18",
+        model: OpenAIModel.GPT4OMini,
         messages: [
           {
             role: "system",
@@ -75,8 +75,6 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
         ],
         temperature: 0.7,
         max_tokens: 4,
-        presence_penalty: 0,
-        frequency_penalty: 0,
       });
 
       const emoji = completion.choices[0].message.content?.trim();
