@@ -415,30 +415,32 @@ async function initializeWorker() {
             );
           }
 
-          // Publish notifications
-          await redisService.publish("event_changes", {
-            type: "INSERT",
-            data: {
-              operation: "INSERT",
-              record: {
-                ...newEvent,
-                coordinates: pointToCoordinates(newEvent.location),
-                ...(newEvent.isPrivate && {
-                  sharedWith: await eventService.getEventShares(newEvent.id),
-                }),
-              },
-            },
-          });
+          // Get the shares for the event to include in notifications
+          const eventShares = await eventService.getEventShares(newEvent.id);
 
+          // Publish notifications - match exactly what FilterProcessor expects
+          const eventChangeMessage = {
+            operation: "INSERT",
+            record: {
+              ...newEvent,
+              coordinates: pointToCoordinates(newEvent.location),
+              ...(newEvent.isPrivate && { sharedWith: eventShares }),
+            },
+          };
+
+          // Use RedisService's publish but send the raw message that FilterProcessor expects
+          await redisService
+            .getClient()
+            .publish("event_changes", JSON.stringify(eventChangeMessage));
+
+          // Keep the discovered_events format as is since it's used by other services
           await redisService.publish("discovered_events", {
             type: "EVENT_DISCOVERED",
             data: {
               event: {
                 ...newEvent,
                 coordinates: pointToCoordinates(newEvent.location),
-                ...(newEvent.isPrivate && {
-                  sharedWith: await eventService.getEventShares(newEvent.id),
-                }),
+                ...(newEvent.isPrivate && { sharedWith: eventShares }),
               },
               timestamp: new Date().toISOString(),
             },
@@ -564,26 +566,29 @@ async function initializeWorker() {
         // Get the shares for the event to include in notifications
         const eventShares = await eventService.getEventShares(newEvent.id);
 
-        // Publish notifications
-        await redisService.publish("event_changes", {
-          type: "INSERT",
-          data: {
-            operation: "INSERT",
-            record: {
-              ...newEvent,
-              coordinates: pointToCoordinates(newEvent.location),
-              sharedWith: eventShares,
-            },
+        // Publish notifications - match exactly what FilterProcessor expects
+        const eventChangeMessage = {
+          operation: "INSERT",
+          record: {
+            ...newEvent,
+            coordinates: pointToCoordinates(newEvent.location),
+            ...(newEvent.isPrivate && { sharedWith: eventShares }),
           },
-        });
+        };
 
+        // Use RedisService's publish but send the raw message that FilterProcessor expects
+        await redisService
+          .getClient()
+          .publish("event_changes", JSON.stringify(eventChangeMessage));
+
+        // Keep the discovered_events format as is since it's used by other services
         await redisService.publish("discovered_events", {
           type: "EVENT_DISCOVERED",
           data: {
             event: {
               ...newEvent,
               coordinates: pointToCoordinates(newEvent.location),
-              sharedWith: eventShares,
+              ...(newEvent.isPrivate && { sharedWith: eventShares }),
             },
             timestamp: new Date().toISOString(),
           },
