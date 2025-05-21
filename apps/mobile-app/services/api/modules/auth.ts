@@ -9,7 +9,7 @@ export class AuthModule extends BaseApiClient {
   async login(email: string, password: string): Promise<User> {
     const url = `${this.baseUrl}/api/auth/login`;
     try {
-      const response = await this.fetchWithAuth(url, {
+      const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

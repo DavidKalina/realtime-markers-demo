@@ -61,9 +61,17 @@ export class BaseApiClient {
 
       await Promise.all(storageOperations);
 
+      // Update in-memory state
       this.user = user;
       this.tokens = tokens;
+
+      // Notify all listeners about the auth state change
       this.notifyAuthListeners(true);
+
+      console.log("Auth state saved:", {
+        userId: user.id,
+        isAuthenticated: true,
+      });
     } catch (error) {
       console.error("Error saving auth state:", error);
       throw error;

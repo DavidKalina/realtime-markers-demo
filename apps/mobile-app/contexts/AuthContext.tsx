@@ -230,28 +230,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await apiClient.auth.login(email, password);
-      console.log("Login response:", response);
+      // Perform login and get the user directly from the response
+      const loggedInUser = await apiClient.auth.login(email, password);
 
-      // Wait for auth state to be fully synchronized
-      await apiClient.syncTokensWithStorage();
+      // Update context state with the user from login response
+      setUser(loggedInUser);
+      setIsAuthenticated(true);
 
-      // Get the latest user state after sync
-      const currentUser = apiClient.getCurrentUser();
-      console.log("Current user after sync:", currentUser);
+      // No need to sync tokens or get user profile again since login already did this
+      // The login method in AuthModule already:
+      // 1. Saves the auth state
+      // 2. Syncs tokens
+      // 3. Ensures initialization
 
-      // Update context state
-      setUser(currentUser);
-      setIsAuthenticated(apiClient.isAuthenticated());
-
-      // Verify auth state is consistent
-      if (!apiClient.isAuthenticated()) {
-        console.warn("Auth state inconsistency detected after login");
-        // Force a refresh by getting the user profile
-        const userProfile = await apiClient.auth.getUserProfile();
-        setUser(userProfile);
-        setIsAuthenticated(true);
-      }
+      console.log("Login successful:", {
+        userId: loggedInUser.id,
+        isAuthenticated: true,
+      });
     } catch (error) {
       console.error("Login error:", error);
       // Ensure we clear any partial auth state on error

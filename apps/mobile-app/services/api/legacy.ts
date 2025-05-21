@@ -12,6 +12,7 @@ import {
   CursorPaginationParams,
   GetGroupMembersParams,
   GetGroupEventsParams,
+  LoginResponse,
 } from "./base/types";
 import { EventType } from "@/types/types";
 
@@ -152,23 +153,32 @@ export class LegacyApiClient extends BaseApiClient {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await this.handleResponse<{
-        user: User;
-        tokens: AuthTokens;
-      }>(response);
+      const data = await this.handleResponse<LoginResponse>(response);
 
       if (!data.user) {
         throw new Error("User data missing from login response");
       }
 
-      if (!data.tokens.accessToken) {
+      if (!data.accessToken) {
         throw new Error("Access token missing from login response");
       }
 
-      await this.saveAuthState(data.user, data.tokens);
+      const tokens: AuthTokens = {
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+      };
+
+      // Save auth state and notify listeners
+      await this.saveAuthState(data.user, tokens);
+
+      // Ensure we're initialized
+      await this.ensureInitialized();
+
       return data.user;
     } catch (error) {
       console.error("Login error:", error);
+      // Clear any partial auth state on error
+      await this.clearAuthState();
       throw error;
     }
   }
