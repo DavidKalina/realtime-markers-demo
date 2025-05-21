@@ -1109,7 +1109,8 @@ export class FilterProcessor {
    * Strip sensitive data from events before sending to client
    */
   private stripSensitiveData(event: Event): Omit<Event, "embedding"> {
-    const { ...eventWithoutEmbedding } = event;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { embedding, ...eventWithoutEmbedding } = event;
     return eventWithoutEmbedding;
   }
 
