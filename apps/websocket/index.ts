@@ -140,7 +140,14 @@ redisSub.on("message", (channel, message) => {
 
   if (channel === "discovered_events") {
     try {
-      const data = JSON.parse(message);
+      const { type, data } = JSON.parse(message);
+      if (type !== "event_discovered") {
+        console.warn(
+          `Unexpected message type in discovered_events channel: ${type}`,
+        );
+        return;
+      }
+
       // Format the message properly before sending to clients
       const formattedMessage = JSON.stringify({
         type: MessageTypes.EVENT_DISCOVERED,
@@ -178,11 +185,18 @@ redisSub.on("message", (channel, message) => {
     }
   } else if (channel === "event_changes") {
     try {
-      const data = JSON.parse(message);
+      const { type, data } = JSON.parse(message);
+      if (type !== "event_change") {
+        console.warn(
+          `Unexpected message type in event_changes channel: ${type}`,
+        );
+        return;
+      }
+
       // Forward the event change to all connected clients
       const formattedMessage = JSON.stringify({
-        type: data.type, // This will be INSERT, UPDATE, or DELETE
-        data: data.data,
+        type: data.operation, // This will be INSERT, UPDATE, or DELETE
+        data: data.record,
         timestamp: new Date().toISOString(),
       });
 
@@ -203,20 +217,26 @@ redisSub.on("message", (channel, message) => {
     }
   } else if (channel === "notifications") {
     try {
-      const data = JSON.parse(message);
+      const { type, data } = JSON.parse(message);
+      if (type !== "notification") {
+        console.warn(
+          `Unexpected message type in notifications channel: ${type}`,
+        );
+        return;
+      }
 
       // Format the notification message
       const formattedMessage = JSON.stringify({
         type: MessageTypes.NOTIFICATION,
-        title: data.notification.title,
-        message: data.notification.message,
-        notificationType: data.notification.type || "info",
-        timestamp: new Date().getTime(),
-        source: "websocket_server",
+        title: data.title,
+        message: data.message,
+        notificationType: data.type || "info",
+        timestamp: data.timestamp || new Date().toISOString(),
+        source: data.source || "websocket_server",
       });
 
       // Forward to the specific user's clients
-      const userId = data.notification.userId;
+      const userId = data.userId;
       const userClients = userToClients.get(userId);
 
       if (userClients) {
@@ -242,13 +262,18 @@ redisSub.on("message", (channel, message) => {
     }
   } else if (channel === "level-update") {
     try {
-      const data = JSON.parse(message);
-      console.log("Received level update:", data);
+      const { type, data } = JSON.parse(message);
+      if (type !== "level_update" && type !== "xp_awarded") {
+        console.warn(
+          `Unexpected message type in level-update channel: ${type}`,
+        );
+        return;
+      }
 
       // Handle both XP awards and level-up events
       const formattedMessage = JSON.stringify({
         type:
-          data.action === "xp_awarded"
+          type === "xp_awarded"
             ? MessageTypes.XP_AWARDED
             : MessageTypes.LEVEL_UPDATE,
         data: {
