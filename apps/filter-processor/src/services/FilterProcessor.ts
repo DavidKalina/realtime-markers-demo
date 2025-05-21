@@ -204,7 +204,14 @@ export class FilterProcessor {
       const data = JSON.parse(message);
 
       if (channel === "filter-changes") {
-        const { userId, filters } = data;
+        const { type, data: filterData } = data;
+        if (type !== "filter_change") {
+          console.warn(
+            `Unexpected message type in filter-changes channel: ${type}`,
+          );
+          return;
+        }
+        const { userId, filters } = filterData;
 
         if (process.env.NODE_ENV !== "production") {
           console.log("Processing filter changes:", {
@@ -216,11 +223,25 @@ export class FilterProcessor {
         this.updateUserFilters(userId, filters);
         this.stats.filterChangesProcessed++;
       } else if (channel === "viewport-updates") {
-        const { userId, viewport } = data;
+        const { type, data: viewportData } = data;
+        if (type !== "viewport_update") {
+          console.warn(
+            `Unexpected message type in viewport-updates channel: ${type}`,
+          );
+          return;
+        }
+        const { userId, viewport } = viewportData;
         this.updateUserViewport(userId, viewport);
         this.stats.viewportUpdatesProcessed++;
       } else if (channel === "filter-processor:request-initial") {
-        const { userId } = data;
+        const { type, data: requestData } = data;
+        if (type !== "request_initial") {
+          console.warn(
+            `Unexpected message type in filter-processor:request-initial channel: ${type}`,
+          );
+          return;
+        }
+        const { userId } = requestData;
         if (process.env.NODE_ENV !== "production") {
           console.log(`Received request for initial events for user ${userId}`);
         }
