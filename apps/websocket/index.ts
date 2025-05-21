@@ -111,6 +111,14 @@ redisSub.subscribe("discovered_events", (err, count) => {
   }
 });
 
+redisSub.subscribe("event_changes", (err, count) => {
+  if (err) {
+    console.error("Error subscribing to event_changes:", err);
+  } else {
+    console.log(`Subscribed to event_changes, total subscriptions: ${count}`);
+  }
+});
+
 redisSub.subscribe("notifications", (err, count) => {
   if (err) {
     console.error("Error subscribing to notifications:", err);
@@ -167,6 +175,31 @@ redisSub.on("message", (channel, message) => {
       }
     } catch (error) {
       console.error("Error processing discovery event:", error);
+    }
+  } else if (channel === "event_changes") {
+    try {
+      const data = JSON.parse(message);
+      // Forward the event change to all connected clients
+      const formattedMessage = JSON.stringify({
+        type: data.type, // This will be INSERT, UPDATE, or DELETE
+        data: data.data,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Broadcast to all connected clients
+      for (const [clientId, client] of clients.entries()) {
+        try {
+          client.send(formattedMessage);
+          console.log(`Sent event change to client ${clientId}`);
+        } catch (error) {
+          console.error(
+            `Error sending event change to client ${clientId}:`,
+            error,
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error processing event change:", error);
     }
   } else if (channel === "notifications") {
     try {

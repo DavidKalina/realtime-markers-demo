@@ -434,11 +434,31 @@ export class FilterProcessor {
    * This includes CREATE, UPDATE, and DELETE operations.
    */
   private async processEvent(event: {
-    operation: string;
-    record: Event;
+    operation?: string;
+    record?: Event;
+    type?: string;
+    data?: {
+      operation: string;
+      record: Event;
+    };
   }): Promise<void> {
     try {
-      const { operation, record } = event;
+      // Handle both message formats
+      let operation: string;
+      let record: Event;
+
+      if (event.operation && event.record) {
+        // Direct format: { operation, record }
+        operation = event.operation;
+        record = event.record;
+      } else if (event.type && event.data?.operation && event.data?.record) {
+        // Nested format: { type, data: { operation, record } }
+        operation = event.data.operation;
+        record = event.data.record;
+      } else {
+        console.error("Invalid event message format:", event);
+        return;
+      }
 
       if (process.env.NODE_ENV !== "production") {
         console.log(`[Cache] Processing ${operation} for event ${record.id}`);
