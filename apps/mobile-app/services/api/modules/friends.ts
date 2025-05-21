@@ -7,8 +7,19 @@ export class FriendsModule extends BaseApiClient {
    */
   async getFriends(): Promise<Friend[]> {
     const url = `${this.baseUrl}/api/friendships`;
+    console.log("Fetching friends from URL:", url);
+    console.log(
+      "Current auth token:",
+      this.tokens?.accessToken ? "Present" : "Missing",
+    );
+
     const response = await this.fetchWithAuth(url);
-    return this.handleResponse<Friend[]>(response);
+    console.log("Friends response status:", response.status);
+
+    const data = await this.handleResponse<Friend[]>(response);
+    console.log("Parsed friends data:", data);
+
+    return data;
   }
 
   /**
