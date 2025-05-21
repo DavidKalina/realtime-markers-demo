@@ -10,11 +10,77 @@ export type RedisChannel =
   | "level-update"
   | "discovered_events"
   | "filter-changes"
+  | "viewport-updates"
+  | `user:${string}:filtered-events`
   | `job:${string}:updates`;
 
-export interface RedisMessage<T = unknown> {
+// Define base interface for messages that require timestamps
+interface TimestampedMessage {
+  timestamp: string;
+}
+
+// Define specific message types for better type safety
+export type FilterChangeMessage = TimestampedMessage & {
+  userId: string;
+  filters: Array<{
+    id: string;
+    name: string;
+    criteria: Record<string, unknown>;
+    isActive: boolean;
+  }>;
+};
+
+export type ViewportUpdateMessage = TimestampedMessage & {
+  userId: string;
+  viewport: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  };
+};
+
+export type FilteredEventMessage = TimestampedMessage & {
+  type: "add-event" | "update-event" | "delete-event" | "replace-all";
+  event?: Record<string, unknown>;
+  id?: string;
+  events?: Array<Record<string, unknown>>;
+  count?: number;
+};
+
+export type NotificationMessage = {
   type: string;
-  data: T;
+  title: string;
+  message: string;
+  notificationType: string;
+  timestamp: number;
+  source: string;
+};
+
+export type LevelUpdateMessage = {
+  type: string;
+  data: {
+    userId: string;
+    level: number;
+    title: string;
+    action: string;
+    amount: number;
+    totalXp: number;
+    timestamp: string;
+  };
+};
+
+export type RedisMessageType =
+  | FilterChangeMessage
+  | ViewportUpdateMessage
+  | FilteredEventMessage
+  | NotificationMessage
+  | LevelUpdateMessage
+  | (Record<string, unknown> & Partial<TimestampedMessage>);
+
+export interface RedisMessage<T = RedisMessageType> {
+  type?: string;
+  data?: T;
 }
 
 export class RedisService {
@@ -30,6 +96,98 @@ export class RedisService {
       RedisService.instance = new RedisService(redis);
     }
     return RedisService.instance;
+  }
+
+  /**
+   * Publish a message to a Redis channel with standardized formatting
+   */
+  async publishMessage<T extends RedisMessageType>(
+    channel: RedisChannel,
+    message: T,
+  ): Promise<void> {
+    try {
+      // Ensure timestamp is present for messages that support it
+      const messageWithTimestamp = {
+        ...message,
+        ...("timestamp" in message && !message.timestamp
+          ? { timestamp: new Date().toISOString() }
+          : {}),
+      };
+
+      // For filtered events, ensure the message format matches what FilterProcessor expects
+      if (channel.startsWith("user:") && channel.endsWith(":filtered-events")) {
+        await this.redis.publish(channel, JSON.stringify(messageWithTimestamp));
+        return;
+      }
+
+      // For filter changes, ensure the format matches what FilterProcessor expects
+      if (channel === "filter-changes") {
+        const filterMessage = message as FilterChangeMessage;
+        await this.redis.publish(
+          channel,
+          JSON.stringify({
+            userId: filterMessage.userId,
+            filters: filterMessage.filters,
+            timestamp: filterMessage.timestamp || new Date().toISOString(),
+          }),
+        );
+        return;
+      }
+
+      // For viewport updates, ensure the format matches what FilterProcessor expects
+      if (channel === "viewport-updates") {
+        const viewportMessage = message as ViewportUpdateMessage;
+        await this.redis.publish(
+          channel,
+          JSON.stringify({
+            userId: viewportMessage.userId,
+            viewport: viewportMessage.viewport,
+            timestamp: viewportMessage.timestamp || new Date().toISOString(),
+          }),
+        );
+        return;
+      }
+
+      // For notifications, ensure the format matches what WebSocket expects
+      if (channel === "notifications") {
+        const notificationMessage = message as NotificationMessage;
+        await this.redis.publish(
+          channel,
+          JSON.stringify({
+            type: notificationMessage.type,
+            title: notificationMessage.title,
+            message: notificationMessage.message,
+            notificationType: notificationMessage.notificationType,
+            timestamp: notificationMessage.timestamp || Date.now(),
+            source: notificationMessage.source || "backend",
+          }),
+        );
+        return;
+      }
+
+      // For level updates, ensure the format matches what WebSocket expects
+      if (channel === "level-update") {
+        const levelMessage = message as LevelUpdateMessage;
+        await this.redis.publish(
+          channel,
+          JSON.stringify({
+            type: levelMessage.type,
+            data: {
+              ...levelMessage.data,
+              timestamp:
+                levelMessage.data.timestamp || new Date().toISOString(),
+            },
+          }),
+        );
+        return;
+      }
+
+      // For all other channels, publish as is
+      await this.redis.publish(channel, JSON.stringify(messageWithTimestamp));
+    } catch (error) {
+      console.error(`Error publishing to Redis channel ${channel}:`, error);
+      throw error;
+    }
   }
 
   /**
