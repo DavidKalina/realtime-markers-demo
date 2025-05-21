@@ -144,23 +144,29 @@ export class EventApiClient extends BaseApiClient {
     nextCursor?: string;
     prevCursor?: string;
   }> {
-    const queryParams = new URLSearchParams({ query });
+    const queryParams = new URLSearchParams({ q: query });
     if (params.cursor) queryParams.append("cursor", params.cursor);
     if (params.limit) queryParams.append("limit", params.limit.toString());
     if (params.direction) queryParams.append("direction", params.direction);
 
     const url = `${this.baseUrl}/api/events/search?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
+
     const data = await this.handleResponse<{
-      events: ApiEvent[];
-      nextCursor?: string;
-      prevCursor?: string;
+      query: string;
+      results: ApiEvent[];
     }>(response);
 
+    // Validate response data
+    if (!data || !Array.isArray(data.results)) {
+      console.error("Invalid API response data:", data);
+      throw new Error("Invalid API response format");
+    }
+
     return {
-      events: data.events.map(mapEventToEventType),
-      nextCursor: data.nextCursor,
-      prevCursor: data.prevCursor,
+      events: data.results.map(mapEventToEventType),
+      nextCursor: undefined, // The new API format doesn't seem to include cursors
+      prevCursor: undefined,
     };
   }
 

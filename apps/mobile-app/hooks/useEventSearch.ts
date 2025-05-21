@@ -121,39 +121,12 @@ const useEventSearch = ({
             cursor: reset ? undefined : nextCursor,
           });
 
-          const newResults = response.events.map((result) => ({
-            id: result.id,
-            title: result.title,
-            description: result.description || "",
-            eventDate: result.eventDate,
-            endDate: result.endDate,
-            time: new Date(result.eventDate).toLocaleString(),
-            coordinates: result.coordinates,
-            location: result.location || "Location not specified",
-            locationNotes: result.locationNotes,
-            distance: "",
-            emoji: result.emoji || "📍",
-            categories: result.categories?.map((c) => c) || [],
-            creator: result.creator,
-            scanCount: result.scanCount ?? 1,
-            saveCount: result.saveCount ?? 0,
-            timezone: result.timezone ?? "",
-            qrUrl: result.qrUrl,
-            qrCodeData: result.qrCodeData,
-            qrImagePath: result.qrImagePath,
-            hasQrCode: result.hasQrCode,
-            qrGeneratedAt: result.qrGeneratedAt,
-            qrDetectedInImage: result.qrDetectedInImage,
-            detectedQrData: result.detectedQrData,
-            createdAt: result.createdAt || new Date().toISOString(),
-            updatedAt: result.updatedAt || new Date().toISOString(),
-          }));
+          // Since the new API doesn't support pagination, we'll just use the results directly
+          const newResults = response.events;
 
-          setEventResults((prev) =>
-            reset ? newResults : [...prev, ...newResults],
-          );
-          setNextCursor(response.nextCursor);
-          setHasMoreResults(!!response.nextCursor);
+          setEventResults(newResults);
+          setHasMoreResults(false); // No pagination in new API
+          setNextCursor(undefined);
           setHasSearched(true);
         } catch (err) {
           console.error("Search error:", err);
@@ -167,7 +140,7 @@ const useEventSearch = ({
           searchInProgress.current = false;
         }
       }, 800),
-    [initialMarkers, nextCursor],
+    [initialMarkers], // Removed nextCursor from dependencies since we don't use pagination anymore
   );
 
   // Clean up the debounced function and timeouts on unmount
@@ -195,18 +168,11 @@ const useEventSearch = ({
     }
   }, [searchQuery, hasSearched, debouncedSearchEvents]);
 
-  // Handle loading more results with debouncing
+  // Update handleLoadMore to be a no-op since we don't have pagination
   const handleLoadMore = useCallback(() => {
-    if (!isLoading && !isFetchingMore && hasMoreResults && searchQuery.trim()) {
-      debouncedSearchEvents(searchQuery, false);
-    }
-  }, [
-    isLoading,
-    isFetchingMore,
-    hasMoreResults,
-    searchQuery,
-    debouncedSearchEvents,
-  ]);
+    // No-op since the new API doesn't support pagination
+    console.log("Pagination is not supported in the current API version");
+  }, []);
 
   // Clear search query
   const clearSearch = useCallback(() => {
