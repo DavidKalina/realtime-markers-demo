@@ -204,14 +204,7 @@ export class FilterProcessor {
       const data = JSON.parse(message);
 
       if (channel === "filter-changes") {
-        const { type, data: filterData } = data;
-        if (type !== "filter_change") {
-          console.warn(
-            `Unexpected message type in filter-changes channel: ${type}`,
-          );
-          return;
-        }
-        const { userId, filters } = filterData;
+        const { userId, filters } = data;
 
         if (process.env.NODE_ENV !== "production") {
           console.log("Processing filter changes:", {
@@ -223,25 +216,11 @@ export class FilterProcessor {
         this.updateUserFilters(userId, filters);
         this.stats.filterChangesProcessed++;
       } else if (channel === "viewport-updates") {
-        const { type, data: viewportData } = data;
-        if (type !== "viewport_update") {
-          console.warn(
-            `Unexpected message type in viewport-updates channel: ${type}`,
-          );
-          return;
-        }
-        const { userId, viewport } = viewportData;
+        const { userId, viewport } = data;
         this.updateUserViewport(userId, viewport);
         this.stats.viewportUpdatesProcessed++;
       } else if (channel === "filter-processor:request-initial") {
-        const { type, data: requestData } = data;
-        if (type !== "request_initial") {
-          console.warn(
-            `Unexpected message type in filter-processor:request-initial channel: ${type}`,
-          );
-          return;
-        }
-        const { userId } = requestData;
+        const { userId } = data;
         if (process.env.NODE_ENV !== "production") {
           console.log(`Received request for initial events for user ${userId}`);
         }
@@ -455,31 +434,11 @@ export class FilterProcessor {
    * This includes CREATE, UPDATE, and DELETE operations.
    */
   private async processEvent(event: {
-    operation?: string;
-    record?: Event;
-    type?: string;
-    data?: {
-      operation: string;
-      record: Event;
-    };
+    operation: string;
+    record: Event;
   }): Promise<void> {
     try {
-      // Handle both message formats
-      let operation: string;
-      let record: Event;
-
-      if (event.operation && event.record) {
-        // Direct format: { operation, record }
-        operation = event.operation;
-        record = event.record;
-      } else if (event.type && event.data?.operation && event.data?.record) {
-        // Nested format: { type, data: { operation, record } }
-        operation = event.data.operation;
-        record = event.data.record;
-      } else {
-        console.error("Invalid event message format:", event);
-        return;
-      }
+      const { operation, record } = event;
 
       if (process.env.NODE_ENV !== "production") {
         console.log(`[Cache] Processing ${operation} for event ${record.id}`);

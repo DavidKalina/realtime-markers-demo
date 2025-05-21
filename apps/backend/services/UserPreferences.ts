@@ -4,7 +4,6 @@ import { Filter as FilterEntity } from "../entities/Filter";
 import { EmbeddingService } from "./shared/EmbeddingService";
 import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
 import { RedisService } from "./shared/RedisService";
-import type { RedisMessage } from "./shared/RedisService";
 
 interface Filter {
   id: string;
@@ -28,12 +27,6 @@ interface Filter {
   };
   createdAt: Date;
   updatedAt: Date;
-}
-
-interface FilterChangeMessage {
-  userId: string;
-  filters: Filter[];
-  timestamp: string;
 }
 
 /**
@@ -334,18 +327,12 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
       // Get the active filters for the user
       const activeFilters = await this.getActiveFilters(userId);
 
-      // Create the message
-      const message: RedisMessage<FilterChangeMessage> = {
-        type: "filter_change",
-        data: {
-          userId,
-          filters: activeFilters,
-          timestamp: new Date().toISOString(),
-        },
-      };
-
-      // Publish the event to Redis using RedisService
-      await this.redisService.publish("filter-changes", message);
+      // Publish the event to Redis using RedisService with the new publishMessage method
+      await this.redisService.publishMessage("filter-changes", {
+        userId,
+        filters: activeFilters,
+        timestamp: new Date().toISOString(),
+      });
     } catch (error) {
       console.error(
         `Error publishing filter change for user ${userId}:`,
@@ -372,17 +359,13 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
       // Get only the active filters after update
       const activeFilters = updatedFilters.filter((filter) => filter.isActive);
 
-      // Publish filter change event with the active filters
+      // Publish filter change event with the active filters using the new publishMessage method
       try {
-        const message: RedisMessage<FilterChangeMessage> = {
-          type: "filter_change",
-          data: {
-            userId,
-            filters: activeFilters,
-            timestamp: new Date().toISOString(),
-          },
-        };
-        await this.redisService.publish("filter-changes", message);
+        await this.redisService.publishMessage("filter-changes", {
+          userId,
+          filters: activeFilters,
+          timestamp: new Date().toISOString(),
+        });
       } catch (redisError) {
         console.error("Error publishing filter change to Redis:", redisError);
         // Continue even if Redis publishing fails
