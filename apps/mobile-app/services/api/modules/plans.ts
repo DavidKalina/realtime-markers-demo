@@ -69,8 +69,19 @@ export class PlansModule extends BaseApiClient {
    */
   async getPlanDetails(): Promise<PlanDetails> {
     const url = `${this.baseUrl}/api/plans`;
+    console.log("Fetching plan details from URL:", url);
+    console.log(
+      "Current auth token:",
+      this.tokens?.accessToken ? "Present" : "Missing",
+    );
+
     const response = await this.fetchWithAuth(url);
-    return this.handleResponse<PlanDetails>(response);
+    console.log("Plan details response status:", response.status);
+
+    const data = await this.handleResponse<PlanDetails>(response);
+    console.log("Parsed plan details:", data);
+
+    return data;
   }
 
   /**
