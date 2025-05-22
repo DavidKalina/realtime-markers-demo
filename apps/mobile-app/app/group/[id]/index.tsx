@@ -1,5 +1,8 @@
 import GroupMembership from "@/components/GroupMembership/GroupMembership";
 import ScreenLayout, { COLORS } from "@/components/Layout/ScreenLayout";
+import GroupBanner from "@/components/Layout/GroupBanner";
+import SectionHeader from "@/components/Layout/SectionHeader";
+import ActionButton from "@/components/Buttons/ActionButton";
 import { apiClient, ClientGroup } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -24,11 +27,8 @@ import {
   View,
 } from "react-native";
 import Animated, {
-  Extrapolate,
   FadeInDown,
-  interpolate,
   LinearTransition,
-  useAnimatedStyle,
   useSharedValue,
 } from "react-native-reanimated";
 
@@ -60,53 +60,6 @@ export default function GroupDetailsScreen() {
     },
     [],
   );
-
-  // Animation styles
-  const zoneBannerAnimatedStyle = useAnimatedStyle(() => {
-    const bannerPaddingVertical = interpolate(
-      scrollY.value,
-      [0, 100],
-      [24, 12],
-      Extrapolate.CLAMP,
-    );
-    return {
-      paddingBottom: bannerPaddingVertical,
-    };
-  });
-
-  const animatedBannerEmojiStyle = useAnimatedStyle(() => ({
-    fontSize: interpolate(scrollY.value, [0, 100], [48, 32], Extrapolate.CLAMP),
-    marginBottom: interpolate(
-      scrollY.value,
-      [0, 100],
-      [12, 6],
-      Extrapolate.CLAMP,
-    ),
-  }));
-
-  const animatedBannerNameStyle = useAnimatedStyle(() => ({
-    fontSize: interpolate(scrollY.value, [0, 100], [28, 22], Extrapolate.CLAMP),
-    marginBottom: interpolate(
-      scrollY.value,
-      [0, 100],
-      [8, 4],
-      Extrapolate.CLAMP,
-    ),
-  }));
-
-  const animatedBannerDescriptionStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [0, 50], [1, 0], Extrapolate.CLAMP),
-    transform: [
-      {
-        scale: interpolate(
-          scrollY.value,
-          [0, 50],
-          [1, 0.95],
-          Extrapolate.CLAMP,
-        ),
-      },
-    ],
-  }));
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -181,37 +134,13 @@ export default function GroupDetailsScreen() {
 
     return (
       <>
-        {/* Group Banner */}
-        <Animated.View
-          style={[styles.zoneBanner, zoneBannerAnimatedStyle]}
-          layout={LinearTransition.springify()}
-        >
-          <TouchableOpacity
-            onPress={handleBack}
-            style={styles.bannerBackButton}
-          >
-            <ArrowLeft size={20} color={COLORS.textPrimary} />
-          </TouchableOpacity>
-          <Animated.Text
-            style={[styles.zoneBannerEmoji, animatedBannerEmojiStyle]}
-          >
-            {group.emoji || "👥"}
-          </Animated.Text>
-          <Animated.Text
-            style={[styles.zoneBannerName, animatedBannerNameStyle]}
-          >
-            {group.name}
-          </Animated.Text>
-          <Animated.Text
-            style={[
-              styles.zoneBannerDescription,
-              animatedBannerDescriptionStyle,
-            ]}
-          >
-            {group.description ||
-              "Join this group to connect with like-minded people"}
-          </Animated.Text>
-        </Animated.View>
+        <GroupBanner
+          emoji={group.emoji}
+          name={group.name}
+          description={group.description}
+          onBack={handleBack}
+          scrollY={scrollY}
+        />
 
         {/* Group Details Section */}
         <Animated.View
@@ -220,12 +149,7 @@ export default function GroupDetailsScreen() {
           layout={LinearTransition.springify()}
         >
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Globe size={20} color={COLORS.accent} />
-              </View>
-              <Text style={styles.sectionTitle}>Group Info</Text>
-            </View>
+            <SectionHeader icon={Globe} title="Group Info" />
             <View style={styles.detailsContainer}>
               <View style={styles.detailRow}>
                 <View style={styles.detailIconContainer}>
@@ -261,12 +185,7 @@ export default function GroupDetailsScreen() {
 
           {group.categories && group.categories.length > 0 && (
             <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <View style={styles.sectionIconContainer}>
-                  <Tag size={20} color={COLORS.accent} />
-                </View>
-                <Text style={styles.sectionTitle}>Categories</Text>
-              </View>
+              <SectionHeader icon={Tag} title="Categories" />
               <View style={styles.categoriesContainer}>
                 {group.categories.map((category) => (
                   <View key={category.id} style={styles.categoryTag}>
@@ -279,21 +198,12 @@ export default function GroupDetailsScreen() {
 
           {/* Add Group Members Section */}
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Users size={20} color={COLORS.accent} />
-              </View>
-              <Text style={styles.sectionTitle}>Members</Text>
-              <TouchableOpacity
-                style={styles.sectionActionButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push(`/group/${id}/members`);
-                }}
-              >
-                <Text style={styles.sectionActionText}>View All</Text>
-              </TouchableOpacity>
-            </View>
+            <SectionHeader
+              icon={Users}
+              title="Members"
+              actionText="View All"
+              onActionPress={() => router.push(`/group/${id}/members`)}
+            />
             <GroupMembership
               groupId={id}
               isOwner={group.ownerId === apiClient.getCurrentUser()?.id}
@@ -306,21 +216,12 @@ export default function GroupDetailsScreen() {
 
           {/* Add Group Events Section */}
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconContainer}>
-                <Calendar size={20} color={COLORS.accent} />
-              </View>
-              <Text style={styles.sectionTitle}>Events</Text>
-              <TouchableOpacity
-                style={styles.sectionActionButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push(`/group/${id}/events`);
-                }}
-              >
-                <Text style={styles.sectionActionText}>View All</Text>
-              </TouchableOpacity>
-            </View>
+            <SectionHeader
+              icon={Calendar}
+              title="Events"
+              actionText="View All"
+              onActionPress={() => router.push(`/group/${id}/events`)}
+            />
             <View style={styles.eventsPreview}>
               <Text style={styles.eventsPreviewText}>
                 View and manage group events, including meetups, workshops, and
@@ -331,15 +232,7 @@ export default function GroupDetailsScreen() {
         </Animated.View>
       </>
     );
-  }, [
-    group,
-    handleBack,
-    zoneBannerAnimatedStyle,
-    animatedBannerEmojiStyle,
-    animatedBannerNameStyle,
-    animatedBannerDescriptionStyle,
-    router,
-  ]);
+  }, [group, handleBack, scrollY, router]);
 
   if (loading) {
     return (
@@ -355,7 +248,7 @@ export default function GroupDetailsScreen() {
   if (error || !group) {
     return (
       <ScreenLayout>
-        <TouchableOpacity onPress={handleBack} style={styles.bannerBackButton}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <ArrowLeft size={20} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <View style={styles.loadingContainer}>
@@ -377,49 +270,21 @@ export default function GroupDetailsScreen() {
         {renderHeader()}
         <View style={styles.actionButtonContainer}>
           {isAdmin ? (
-            <TouchableOpacity
-              style={[
-                styles.deleteGroupButton,
-                isDeleting && styles.actionButtonDisabled,
-              ]}
+            <ActionButton
+              variant="danger"
+              label="Delete Group"
+              icon={Trash2}
               onPress={handleDeleteGroup}
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Trash2
-                    size={18}
-                    color="#fff"
-                    style={styles.actionButtonIcon}
-                  />
-                  <Text style={styles.actionButtonText}>Delete Group</Text>
-                </>
-              )}
-            </TouchableOpacity>
+              isLoading={isDeleting}
+            />
           ) : (
-            <TouchableOpacity
-              style={[
-                styles.leaveGroupButton,
-                isLeaving && styles.actionButtonDisabled,
-              ]}
+            <ActionButton
+              variant="danger"
+              label="Leave Group"
+              icon={LogOut}
               onPress={handleLeaveGroup}
-              disabled={isLeaving}
-            >
-              {isLeaving ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <LogOut
-                    size={18}
-                    color="#fff"
-                    style={styles.actionButtonIcon}
-                  />
-                  <Text style={styles.actionButtonText}>Leave Group</Text>
-                </>
-              )}
-            </TouchableOpacity>
+              isLoading={isLeaving}
+            />
           )}
         </View>
       </Animated.ScrollView>
@@ -450,48 +315,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontFamily: "SpaceMono",
   },
-  // Banner Styles
-  zoneBanner: {
-    paddingTop: 50,
-    paddingBottom: 24,
-    paddingHorizontal: 20,
-    backgroundColor: COLORS.cardBackground,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.08)",
-  },
-  bannerBackButton: {
-    position: "absolute",
-    top: 48,
-    left: 16,
-    zIndex: 10,
-    padding: 8,
-    backgroundColor: "rgba(0,0,0,0.2)",
-    borderRadius: 20,
-  },
-  zoneBannerEmoji: {
-    fontSize: 48,
-    textAlign: "center",
-    marginBottom: 12,
-    fontFamily: "SpaceMono",
-  },
-  zoneBannerName: {
-    color: COLORS.textPrimary,
-    fontSize: 28,
-    fontFamily: "SpaceMono",
-    fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 8,
-    letterSpacing: 0.5,
-  },
-  zoneBannerDescription: {
-    color: COLORS.textSecondary,
-    fontSize: 15,
-    fontFamily: "SpaceMono",
-    lineHeight: 22,
-    textAlign: "center",
-    letterSpacing: 0.3,
-    paddingHorizontal: 10,
-  },
   // Details Section Styles
   detailsSection: {
     paddingHorizontal: 16,
@@ -499,28 +322,6 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    marginLeft: 4,
-  },
-  sectionIconContainer: {
-    width: 36,
-    height: 36,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontFamily: "SpaceMono",
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    marginLeft: 12,
-    letterSpacing: 0.3,
   },
   detailsContainer: {
     backgroundColor: "rgba(0, 0, 0, 0.2)",
@@ -588,19 +389,6 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     letterSpacing: 0.2,
   },
-  sectionActionButton: {
-    marginLeft: "auto",
-    backgroundColor: "rgba(255,255,255,0.1)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  sectionActionText: {
-    color: COLORS.accent,
-    fontSize: 13,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-  },
   eventsPreview: {
     backgroundColor: "rgba(0,0,0,0.2)",
     borderRadius: 16,
@@ -617,34 +405,13 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 32,
   },
-  leaveGroupButton: {
-    backgroundColor: "#DC2626", // Red-600
-    borderRadius: 12,
-    paddingVertical: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 16,
-  },
-  deleteGroupButton: {
-    backgroundColor: "#991B1B", // Red-800 - darker for delete action
-    borderRadius: 12,
-    paddingVertical: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 16,
-  },
-  actionButtonDisabled: {
-    opacity: 0.7,
-  },
-  actionButtonIcon: {
-    marginRight: 8,
-  },
-  actionButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
+  backButton: {
+    position: "absolute",
+    top: 48,
+    left: 16,
+    zIndex: 10,
+    padding: 8,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    borderRadius: 20,
   },
 });
