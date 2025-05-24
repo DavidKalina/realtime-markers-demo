@@ -244,15 +244,52 @@ export class FilterProcessor {
     try {
       if (channel.startsWith("event_changes")) {
         const data = JSON.parse(message);
+        console.log("[FilterProcessor] Received event change:", {
+          operation: data.operation,
+          eventId: data.record?.id,
+          isPrivate: data.record?.isPrivate,
+          creatorId: data.record?.creatorId,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          sharedWith: data.record?.sharedWith?.map((s: any) => s.sharedWithId),
+          rawData: data, // Log the full data for debugging
+        });
+
+        // Validate the event data
+        if (!data.record || !data.record.id) {
+          console.error("[FilterProcessor] Invalid event data received:", data);
+          return;
+        }
+
         await this.eventProcessor.processEvent(data);
         this.stats.eventsProcessed++;
 
         // Get affected users and notify them
         const affectedUsers = await this.getAffectedUsers(data.record);
+        console.log("[FilterProcessor] Affected users for event:", {
+          eventId: data.record?.id,
+          affectedUsers: Array.from(affectedUsers),
+          totalUsers: this.userFilters.size,
+          operation: data.operation,
+          isPrivate: data.record?.isPrivate,
+          creatorId: data.record?.creatorId,
+        });
+
+        if (affectedUsers.size === 0) {
+          console.log("[FilterProcessor] No affected users found for event:", {
+            eventId: data.record.id,
+            operation: data.operation,
+            isPrivate: data.record.isPrivate,
+            creatorId: data.record.creatorId,
+          });
+        }
+
         await this.notifyAffectedUsers(affectedUsers, data);
       }
     } catch (error) {
-      console.error(`Error handling pattern message: ${error}`);
+      console.error(`Error handling pattern message: ${error}`, {
+        channel,
+        message,
+      });
     }
   };
 
@@ -368,14 +405,44 @@ export class FilterProcessor {
       const intersectingViewports =
         await this.viewportProcessor.getIntersectingViewports(eventBounds);
 
-      // Add users from intersecting viewports
+      console.log("[FilterProcessor] Intersecting viewports:", {
+        eventId: event.id,
+        intersectingViewports: intersectingViewports.map((v) => v.userId),
+      });
+
+      // Add users from intersecting viewports, but only if they have access to the event
       for (const { userId } of intersectingViewports) {
-        affectedUsers.add(userId);
+        // Check if user has access to the event before adding them
+        const hasAccess = this.filterMatcher.isEventAccessible(event, userId);
+        console.log("[FilterProcessor] User access check:", {
+          eventId: event.id,
+          userId,
+          hasAccess,
+          isPrivate: event.isPrivate,
+          creatorId: event.creatorId,
+          sharedWith: event.sharedWith?.map((s) => s.sharedWithId),
+        });
+
+        if (hasAccess) {
+          affectedUsers.add(userId);
+        }
       }
 
       // Add users who might see the event regardless of viewport
       for (const [userId, filters] of this.userFilters.entries()) {
-        if (this.filterMatcher.eventMatchesFilters(event, filters, userId)) {
+        const matchesFilters = this.filterMatcher.eventMatchesFilters(
+          event,
+          filters,
+          userId,
+        );
+        console.log("[FilterProcessor] Filter match check:", {
+          eventId: event.id,
+          userId,
+          matchesFilters,
+          filterCount: filters.length,
+        });
+
+        if (matchesFilters) {
           affectedUsers.add(userId);
         }
       }
@@ -391,6 +458,14 @@ export class FilterProcessor {
     event: { operation: string; record: Event },
   ): Promise<void> {
     const { operation, record } = event;
+
+    console.log("[FilterProcessor] Notifying affected users:", {
+      eventId: record.id,
+      operation,
+      affectedUserCount: affectedUsers.size,
+      isPrivate: record.isPrivate,
+      creatorId: record.creatorId,
+    });
 
     for (const userId of affectedUsers) {
       const filters = this.userFilters.get(userId) || [];
@@ -408,9 +483,29 @@ export class FilterProcessor {
         ? this.viewportProcessor.isEventInViewport(record, viewport)
         : true;
 
+      console.log("[FilterProcessor] Final visibility check:", {
+        eventId: record.id,
+        userId,
+        matchesFilters,
+        inViewport,
+        hasViewport: !!viewport,
+        filterCount: filters.length,
+        operation,
+        isPrivate: record.isPrivate,
+        creatorId: record.creatorId,
+      });
+
       if (matchesFilters && inViewport) {
         switch (operation) {
           case "CREATE":
+          case "INSERT": // Add support for INSERT operation
+            console.log("[FilterProcessor] Publishing new event to user:", {
+              eventId: record.id,
+              userId,
+              operation,
+              isPrivate: record.isPrivate,
+              creatorId: record.creatorId,
+            });
             await this.eventPublisher.publishFilteredEvents(userId, "add", [
               record,
             ]);

@@ -27,6 +27,7 @@ export class EventProcessor {
         await this.handleUpdate(record);
         break;
       case "CREATE":
+      case "INSERT":
         await this.handleCreate(record);
         break;
       default:

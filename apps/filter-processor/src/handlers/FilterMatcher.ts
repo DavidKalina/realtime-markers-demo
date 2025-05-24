@@ -211,7 +211,7 @@ export class FilterMatcher {
     return threshold;
   }
 
-  private isEventAccessible(event: Event, userId: string): boolean {
+  public isEventAccessible(event: Event, userId: string): boolean {
     // Public events are always accessible
     if (!event.isPrivate) return true;
 

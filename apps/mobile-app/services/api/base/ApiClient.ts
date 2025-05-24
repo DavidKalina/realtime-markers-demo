@@ -167,21 +167,49 @@ export class BaseApiClient {
     url: string,
     options: RequestInit = {},
   ): Promise<Response> {
+    // Ensure we're fully initialized before making any requests
     await this.ensureInitialized();
-    const requestOptions = this.createRequestOptions(options);
+
+    // Get a fresh access token, which will handle refresh if needed
+    const accessToken = await this.getAccessToken();
+    if (!accessToken) {
+      throw new Error("No access token available");
+    }
+
+    const requestOptions = this.createRequestOptions({
+      ...options,
+      headers: {
+        ...options.headers,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
     const response = await fetch(url, requestOptions);
 
-    if (response.status === 401 && this.tokens?.refreshToken) {
+    if (response.status === 401) {
       console.log("Received 401, attempting to refresh token");
       const refreshSuccess = await this.refreshTokens();
 
       if (refreshSuccess) {
         console.log("Token refresh succeeded, retrying original request");
-        const newRequestOptions = this.createRequestOptions(options);
+        // Get the new access token after refresh
+        const newAccessToken = await this.getAccessToken();
+        if (!newAccessToken) {
+          throw new Error("Failed to get new access token after refresh");
+        }
+
+        const newRequestOptions = this.createRequestOptions({
+          ...options,
+          headers: {
+            ...options.headers,
+            Authorization: `Bearer ${newAccessToken}`,
+          },
+        });
         return fetch(url, newRequestOptions);
       } else {
         console.log("Token refresh failed, clearing auth state");
         await this.clearAuthState();
+        throw new Error("Authentication failed");
       }
     }
 
