@@ -2,10 +2,8 @@ import { COLORS } from "@/components/Layout/ScreenLayout";
 import Tabs from "@/components/Layout/Tabs";
 import { apiClient, ClientGroupMembership } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
 import {
   CheckCircle,
-  ChevronRight,
   Clock,
   ListFilter,
   Shield,
@@ -62,7 +60,6 @@ export default function GroupMembership({
   isAdmin,
   onMembershipChange,
 }: GroupMembershipProps) {
-  const router = useRouter();
   const [members, setMembers] = useState<ClientGroupMembership[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -173,11 +170,6 @@ export default function GroupMembership({
     [handleManageMember],
   );
 
-  const handleViewAllMembers = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push(`/group/${groupId}/members`);
-  }, [groupId, router]);
-
   return (
     <View style={styles.container}>
       {error && <Text style={styles.errorText}>{error}</Text>}
@@ -261,14 +253,6 @@ export default function GroupMembership({
           </View>
         )}
       </View>
-
-      <TouchableOpacity
-        style={styles.viewAllButton}
-        onPress={handleViewAllMembers}
-      >
-        <Text style={styles.viewAllButtonText}>View All Members</Text>
-        <ChevronRight size={16} color={COLORS.accent} />
-      </TouchableOpacity>
 
       {!isOwner && !isAdmin && (
         <TouchableOpacity
@@ -396,21 +380,5 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     textAlign: "center",
     padding: 16,
-  },
-  viewAllButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 12,
-    marginTop: 12,
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderRadius: 12,
-    gap: 8,
-  },
-  viewAllButtonText: {
-    color: COLORS.accent,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
   },
 });

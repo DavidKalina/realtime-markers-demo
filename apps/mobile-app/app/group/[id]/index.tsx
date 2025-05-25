@@ -1,6 +1,6 @@
 import GroupMembership from "@/components/GroupMembership/GroupMembership";
 import ScreenLayout, { COLORS } from "@/components/Layout/ScreenLayout";
-import GroupBanner from "@/components/Layout/GroupBanner";
+import Banner from "@/components/Layout/Banner";
 import SectionHeader from "@/components/Layout/SectionHeader";
 import ActionButton from "@/components/Buttons/ActionButton";
 import { apiClient, ClientGroup } from "@/services/ApiClient";
@@ -134,7 +134,7 @@ export default function GroupDetailsScreen() {
 
     return (
       <>
-        <GroupBanner
+        <Banner
           emoji={group.emoji}
           name={group.name}
           description={group.description}
