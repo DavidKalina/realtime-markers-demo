@@ -28,7 +28,7 @@ const navigationIntegration = Sentry.reactNavigationIntegration({
 // Initialize Sentry before the app renders
 Sentry.init({
   dsn: "https://9c69ddf62f2bf7490416ba65f2d5dd2d@o4509054186815488.ingest.us.sentry.io/4509054187798528",
-  debug: __DEV__, // Only enable debug in development
+  debug: false, // Only enable debug in development
   tracesSampleRate: 0.1, // Sample only 10% of transactions
   integrations: [navigationIntegration],
   enableNativeFramesTracking: !isRunningInExpoGo(),

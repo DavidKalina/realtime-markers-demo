@@ -230,25 +230,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
+      console.log("Starting login process...");
+
+      // Check initial token state
+      const initialToken = await AsyncStorage.getItem("accessToken");
+      console.log("Initial token state:", { hasToken: !!initialToken });
+
       // Perform login and get the user directly from the response
       const loggedInUser = await apiClient.auth.login(email, password);
+      console.log("Login API call completed");
+
+      // Ensure we wait for any pending initialization
+      console.log("Waiting for initialization...");
+      await apiClient.ensureInitialized?.();
+      console.log("Initialization complete");
+
+      // Double check token sync
+      console.log("Syncing tokens with storage...");
+      const syncedTokens = await apiClient.syncTokensWithStorage();
+      console.log("Token sync result:", {
+        hasTokens: !!syncedTokens,
+        hasAccessToken: !!syncedTokens?.accessToken,
+        hasRefreshToken: !!syncedTokens?.refreshToken,
+      });
+
+      // Verify token in storage
+      const storedToken = await AsyncStorage.getItem("accessToken");
+      console.log("Token in AsyncStorage:", { hasToken: !!storedToken });
+
+      // Add a small delay to ensure state is fully synchronized
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Update context state with the user from login response
       setUser(loggedInUser);
       setIsAuthenticated(true);
 
-      // No need to sync tokens or get user profile again since login already did this
-      // The login method in AuthModule already:
-      // 1. Saves the auth state
-      // 2. Syncs tokens
-      // 3. Ensures initialization
-
-      console.log("Login successful:", {
+      // Final token check
+      const finalToken = await AsyncStorage.getItem("accessToken");
+      console.log("Login process complete:", {
         userId: loggedInUser.id,
         isAuthenticated: true,
+        hasToken: !!finalToken,
+        apiClientHasToken: !!apiClient.getAccessToken(),
+        apiClientIsAuthenticated: apiClient.isAuthenticated(),
       });
     } catch (error) {
       console.error("Login error:", error);
+      // Log token state on error
+      const errorToken = await AsyncStorage.getItem("accessToken");
+      console.error("Token state at error:", {
+        hasToken: !!errorToken,
+        apiClientHasToken: !!apiClient.getAccessToken(),
+        apiClientIsAuthenticated: apiClient.isAuthenticated(),
+      });
+
       // Ensure we clear any partial auth state on error
       await apiClient.clearAuthState();
       setUser(null);
