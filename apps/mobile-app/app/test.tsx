@@ -14,24 +14,18 @@ import {
 } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import Feed, { FeedItem } from "@/components/Layout/Feed";
+import UserStats from "@/components/Layout/UserStats";
 
 // Overview Tab Components
-const UserStats = () => (
-  <View style={styles.statsContainer}>
-    <View style={styles.statItem}>
-      <Text style={styles.statValue}>1,234</Text>
-      <Text style={styles.statLabel}>Followers</Text>
-    </View>
-    <View style={styles.statItem}>
-      <Text style={styles.statValue}>567</Text>
-      <Text style={styles.statLabel}>Following</Text>
-    </View>
-    <View style={styles.statItem}>
-      <Text style={styles.statValue}>89</Text>
-      <Text style={styles.statLabel}>Posts</Text>
-    </View>
-  </View>
-);
+const UserStatsSection = () => {
+  const stats = [
+    { value: "1,234", label: "Followers", badge: "+12" },
+    { value: "567", label: "Following" },
+    { value: "89", label: "Posts", badge: "New" },
+  ];
+
+  return <UserStats items={stats} />;
+};
 
 const ActivityFeed = () => {
   const items = useMemo(() => generateActivityItems(), []);
@@ -180,7 +174,7 @@ const TestScreen = () => {
           {
             title: "Profile Stats",
             icon: Home,
-            content: <UserStats />,
+            content: <UserStatsSection />,
             onPress: () => console.log("Navigate to detailed stats"),
             actionButton: {
               label: "View All",
@@ -341,34 +335,8 @@ const TestScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 12,
-  },
-  statItem: {
-    alignItems: "center",
-  },
-  statValue: {
-    color: COLORS.textPrimary,
-    fontSize: 20,
-    fontFamily: "SpaceMono",
-    fontWeight: "700",
-  },
-  statLabel: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    marginTop: 4,
-  },
   activityContainer: {
     paddingVertical: 12,
-  },
-  activityText: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-    marginBottom: 8,
   },
   favoritesContainer: {
     paddingVertical: 12,
