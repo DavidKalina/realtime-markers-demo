@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useProfile } from "@/hooks/useProfile";
+import { useFetchMyFriends } from "@/hooks/useFetchMyFriends";
 import { PlanType } from "@/services/ApiClient";
 import React, { useState, useMemo } from "react";
 import {
@@ -63,6 +64,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     setShowDeleteDialog,
     setPassword,
   } = useProfile(onBack);
+  const { friends, isLoading: isLoadingFriends } = useFetchMyFriends();
 
   const [activeTab, setActiveTab] = useState<TabType>("profile");
   const [mapSettings, setMapSettings] = useState({
@@ -358,29 +360,22 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           {
             title: "Friends",
             icon: UserPlus,
-            content: (
+            content: isLoadingFriends ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={COLORS.accent} />
+                <Text style={styles.loadingText}>Loading friends...</Text>
+              </View>
+            ) : (
               <List
-                items={[
-                  {
-                    id: "friend1",
-                    icon: User,
-                    title: "John Doe",
-                    description: "Last active 5m ago",
-                    badge: "Online",
-                  },
-                  {
-                    id: "friend2",
-                    icon: User,
-                    title: "Jane Smith",
-                    description: "Last active 1h ago",
-                  },
-                  {
-                    id: "friend3",
-                    icon: User,
-                    title: "Mike Johnson",
-                    description: "Last active 2d ago",
-                  },
-                ]}
+                items={friends.slice(0, 5).map((friend) => ({
+                  id: friend.id,
+                  icon: User,
+                  title: friend.displayName || friend.email || "Unknown User",
+                  description: friend.lastSeen
+                    ? `Last seen ${formatLastActive(friend.lastSeen)}`
+                    : "Never seen",
+                  badge: friend.isOnline ? "Online" : undefined,
+                }))}
                 scrollable={false}
                 onItemPress={(item) => console.log("Friend pressed:", item)}
                 onViewAllPress={() => console.log("View all friends")}
@@ -409,6 +404,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     memberSince,
     profileData,
     mapSettings,
+    friends,
+    isLoadingFriends,
   ]);
 
   // Memoize footer buttons based on active tab
@@ -457,6 +454,20 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         return [];
     }
   }, [activeTab, handleLogout, setShowDeleteDialog]);
+
+  // Helper function to format last active time
+  const formatLastActive = (date: string) => {
+    const now = new Date();
+    const lastActive = new Date(date);
+    const diffInMinutes = Math.floor(
+      (now.getTime() - lastActive.getTime()) / (1000 * 60),
+    );
+
+    if (diffInMinutes < 1) return "just now";
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+    return `${Math.floor(diffInMinutes / 1440)}d ago`;
+  };
 
   if (loading) {
     return (
@@ -567,15 +578,18 @@ const styles = StyleSheet.create({
 
   // Loading state
   loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
+    padding: 16,
     alignItems: "center",
-    backgroundColor: "#1a1a1a",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
   },
   loadingText: {
-    marginTop: 12,
-    color: "#a0a0a0",
-    fontSize: 14,
+    marginTop: 8,
+    color: COLORS.textSecondary,
+    fontSize: 12,
     fontFamily: "SpaceMono",
   },
 });
