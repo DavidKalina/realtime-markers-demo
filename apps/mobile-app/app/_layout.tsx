@@ -107,10 +107,12 @@ function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="scan" />
           <Stack.Screen name="user" />
-          <Stack.Screen name="saved" />
+          <Stack.Screen name="saved/index" />
+          <Stack.Screen name="saved/list" />
           <Stack.Screen name="cluster" />
           <Stack.Screen name="filter" />
-          <Stack.Screen name="search" />
+          <Stack.Screen name="search/index" />
+          <Stack.Screen name="search/list" />
           <Stack.Screen name="details" />
           <Stack.Screen name="friends" />
           <Stack.Screen name="notifications" />
@@ -124,7 +126,8 @@ function RootLayout() {
             }}
           />
           <Stack.Screen name="create-group" />
-          <Stack.Screen name="groups" />
+          <Stack.Screen name="groups/index" />
+          <Stack.Screen name="groups/list" />
           <Stack.Screen
             name="group/[id]/index"
             options={{
