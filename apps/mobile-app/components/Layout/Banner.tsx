@@ -3,33 +3,34 @@ import { ArrowLeft } from "lucide-react-native";
 import React from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
 import Animated, {
-  Extrapolate,
+  Extrapolation,
   interpolate,
   LinearTransition,
+  SharedValue,
   useAnimatedStyle,
 } from "react-native-reanimated";
 
-interface GroupBannerProps {
+interface BannerProps {
   emoji?: string;
   name: string;
   description?: string;
   onBack: () => void;
-  scrollY: Animated.SharedValue<number>;
+  scrollY: SharedValue<number>;
 }
 
-export default function GroupBanner({
+export default function Banner({
   emoji,
   name,
   description,
   onBack,
   scrollY,
-}: GroupBannerProps) {
+}: BannerProps) {
   const zoneBannerAnimatedStyle = useAnimatedStyle(() => {
     const bannerPaddingVertical = interpolate(
       scrollY.value,
       [0, 100],
       [24, 12],
-      Extrapolate.CLAMP,
+      Extrapolation.CLAMP,
     );
     return {
       paddingBottom: bannerPaddingVertical,
@@ -37,34 +38,44 @@ export default function GroupBanner({
   });
 
   const animatedBannerEmojiStyle = useAnimatedStyle(() => ({
-    fontSize: interpolate(scrollY.value, [0, 100], [48, 32], Extrapolate.CLAMP),
+    fontSize: interpolate(
+      scrollY.value,
+      [0, 100],
+      [48, 32],
+      Extrapolation.CLAMP,
+    ),
     marginBottom: interpolate(
       scrollY.value,
       [0, 100],
       [12, 6],
-      Extrapolate.CLAMP,
+      Extrapolation.CLAMP,
     ),
   }));
 
   const animatedBannerNameStyle = useAnimatedStyle(() => ({
-    fontSize: interpolate(scrollY.value, [0, 100], [28, 22], Extrapolate.CLAMP),
+    fontSize: interpolate(
+      scrollY.value,
+      [0, 100],
+      [28, 22],
+      Extrapolation.CLAMP,
+    ),
     marginBottom: interpolate(
       scrollY.value,
       [0, 100],
       [8, 4],
-      Extrapolate.CLAMP,
+      Extrapolation.CLAMP,
     ),
   }));
 
   const animatedBannerDescriptionStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [0, 50], [1, 0], Extrapolate.CLAMP),
+    opacity: interpolate(scrollY.value, [0, 50], [1, 0], Extrapolation.CLAMP),
     transform: [
       {
         scale: interpolate(
           scrollY.value,
           [0, 50],
           [1, 0.95],
-          Extrapolate.CLAMP,
+          Extrapolation.CLAMP,
         ),
       },
     ],

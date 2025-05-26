@@ -15,7 +15,7 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import Banner from "../Layout/Banner";
-import ScreenLayout from "../Layout/ScreenLayout";
+import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 import AccountDetailsComponent from "./AccountDetails";
 import ActionsSectionComponent from "./ActionsSection";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
@@ -24,28 +24,6 @@ import PlanSectionComponent from "./PlanSection";
 interface UserProfileProps {
   onBack?: () => void;
 }
-
-// Unified color theme matching ClusterEventsView
-const COLORS = {
-  background: "#1a1a1a",
-  cardBackground: "#2a2a2a",
-  textPrimary: "#f8f9fa",
-  textSecondary: "#a0a0a0",
-  accent: "#93c5fd",
-  divider: "rgba(255, 255, 255, 0.08)",
-  buttonBackground: "rgba(255, 255, 255, 0.05)",
-  buttonBorder: "rgba(255, 255, 255, 0.1)",
-  success: {
-    background: "rgba(64, 192, 87, 0.12)",
-    border: "rgba(64, 192, 87, 0.2)",
-    text: "#40c057",
-  },
-  error: {
-    background: "rgba(220, 38, 38, 0.1)",
-    border: "rgba(220, 38, 38, 0.3)",
-    text: "#dc2626",
-  },
-};
 
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { user } = useAuth();
