@@ -2,7 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useProfile } from "@/hooks/useProfile";
 import { PlanType } from "@/services/ApiClient";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -18,11 +18,25 @@ import {
   Mail,
   Calendar,
   Edit,
+  Crown,
+  Zap,
+  Users,
+  UserPlus,
 } from "lucide-react-native";
-import Screen, { Section } from "../Layout/Screen";
+import Screen from "../Layout/Screen";
 import { COLORS } from "../Layout/ScreenLayout";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
 import List, { StyledSwitch } from "../Layout/List";
+import Badge from "../Layout/Badge";
+
+type TabType = "profile" | "groups" | "friends";
+type ButtonVariant =
+  | "primary"
+  | "outline"
+  | "warning"
+  | "error"
+  | "secondary"
+  | "ghost";
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -50,6 +64,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     setPassword,
   } = useProfile(onBack);
 
+  const [activeTab, setActiveTab] = useState<TabType>("profile");
   const [mapSettings, setMapSettings] = useState({
     isPitched: isPitched,
     useLightStyle: currentStyle === "light",
@@ -80,6 +95,369 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       });
     };
 
+  const tabs = [
+    {
+      icon: User,
+      label: "Profile",
+      value: "profile" as TabType,
+    },
+    {
+      icon: Users,
+      label: "Groups",
+      value: "groups" as TabType,
+    },
+    {
+      icon: UserPlus,
+      label: "Friends",
+      value: "friends" as TabType,
+    },
+  ];
+
+  // Memoize sections based on active tab
+  const sections = useMemo(() => {
+    switch (activeTab) {
+      case "profile":
+        return [
+          {
+            title: "Plan Details",
+            icon: User,
+            content: (
+              <View style={styles.planSection}>
+                <View style={styles.planHeader}>
+                  <Badge
+                    label={
+                      planDetails?.planType === PlanType.FREE
+                        ? "Free Plan"
+                        : "Pro Plan"
+                    }
+                    variant={
+                      planDetails?.planType === PlanType.FREE
+                        ? "default"
+                        : "pro"
+                    }
+                    icon={
+                      planDetails?.planType === PlanType.PRO ? (
+                        <Crown size={16} color="#fbbf24" />
+                      ) : (
+                        <Zap size={16} color={COLORS.textSecondary} />
+                      )
+                    }
+                    style={styles.planBadge}
+                  />
+                </View>
+                <View style={styles.progressBar}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${progressWidth}%` },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.planDescription}>
+                  {planDetails?.remainingScans} scans remaining this week
+                </Text>
+              </View>
+            ),
+            actionButton: {
+              label: "Upgrade",
+              onPress: () => {}, // Add upgrade handler
+              variant: "primary" as ButtonVariant,
+            },
+          },
+          {
+            title: "Account Settings",
+            icon: Settings,
+            content: (
+              <List
+                items={[
+                  {
+                    id: "email",
+                    icon: Mail,
+                    title: "Email",
+                    description: user?.email || "No email set",
+                    rightElement: (
+                      <TouchableOpacity
+                        onPress={() => console.log("Edit email")}
+                      >
+                        <Edit size={16} color={COLORS.textSecondary} />
+                      </TouchableOpacity>
+                    ),
+                  },
+                  {
+                    id: "memberSince",
+                    icon: Calendar,
+                    title: "Member Since",
+                    description: memberSince,
+                  },
+                  {
+                    id: "bio",
+                    icon: User,
+                    title: "Bio",
+                    description: profileData?.bio || "No bio set",
+                    rightElement: (
+                      <TouchableOpacity onPress={() => console.log("Edit bio")}>
+                        <Edit size={16} color={COLORS.textSecondary} />
+                      </TouchableOpacity>
+                    ),
+                  },
+                ]}
+                scrollable={false}
+                onItemPress={(item) =>
+                  console.log("Account item pressed:", item)
+                }
+              />
+            ),
+          },
+          {
+            title: "Map Settings",
+            icon: Map,
+            content: (
+              <List
+                items={[
+                  {
+                    id: "mapStyle",
+                    icon: Map,
+                    title: "Map Style",
+                    description: "Choose your preferred map style",
+                    rightElement: (
+                      <View style={styles.mapStyleButtons}>
+                        <TouchableOpacity
+                          style={[
+                            styles.mapStyleButton,
+                            mapSettings.useLightStyle &&
+                              styles.mapStyleButtonActive,
+                          ]}
+                          onPress={() =>
+                            handleMapSettingChange("useLightStyle")(true)
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.mapStyleButtonText,
+                              mapSettings.useLightStyle &&
+                                styles.mapStyleButtonTextActive,
+                            ]}
+                          >
+                            Light
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.mapStyleButton,
+                            mapSettings.useDarkStyle &&
+                              styles.mapStyleButtonActive,
+                          ]}
+                          onPress={() =>
+                            handleMapSettingChange("useDarkStyle")(true)
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.mapStyleButtonText,
+                              mapSettings.useDarkStyle &&
+                                styles.mapStyleButtonTextActive,
+                            ]}
+                          >
+                            Dark
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.mapStyleButton,
+                            mapSettings.useStreetStyle &&
+                              styles.mapStyleButtonActive,
+                          ]}
+                          onPress={() =>
+                            handleMapSettingChange("useStreetStyle")(true)
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.mapStyleButtonText,
+                              mapSettings.useStreetStyle &&
+                                styles.mapStyleButtonTextActive,
+                            ]}
+                          >
+                            Colorful
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ),
+                  },
+                  {
+                    id: "mapPitch",
+                    icon: MapPin,
+                    title: "Map Pitch",
+                    description: "Enable 3D building view",
+                    rightElement: (
+                      <StyledSwitch
+                        value={mapSettings.isPitched}
+                        onValueChange={handleMapSettingChange("isPitched")}
+                      />
+                    ),
+                    isActive: mapSettings.isPitched,
+                  },
+                ]}
+                scrollable={false}
+                onItemPress={(item) =>
+                  console.log("Map setting pressed:", item)
+                }
+              />
+            ),
+          },
+        ];
+      case "groups":
+        return [
+          {
+            title: "My Groups",
+            icon: Users,
+            content: (
+              <List
+                items={[
+                  {
+                    id: "group1",
+                    icon: Users,
+                    title: "Photography Enthusiasts",
+                    description: "12 members • Last active 2h ago",
+                    badge: "Active",
+                  },
+                  {
+                    id: "group2",
+                    icon: Users,
+                    title: "Urban Explorers",
+                    description: "45 members • Last active 1d ago",
+                  },
+                  {
+                    id: "group3",
+                    icon: Users,
+                    title: "Nature Lovers",
+                    description: "28 members • Last active 3d ago",
+                  },
+                ]}
+                scrollable={false}
+                onItemPress={(item) => console.log("Group pressed:", item)}
+                onViewAllPress={() => console.log("View all groups")}
+                emptyState={{
+                  icon: Users,
+                  title: "No Groups Yet",
+                  description: "Join or create a group to get started",
+                }}
+              />
+            ),
+            actionButton: {
+              label: "Create Group",
+              onPress: () => console.log("Create new group"),
+              variant: "primary" as ButtonVariant,
+            },
+          },
+        ];
+      case "friends":
+        return [
+          {
+            title: "Friends",
+            icon: UserPlus,
+            content: (
+              <List
+                items={[
+                  {
+                    id: "friend1",
+                    icon: User,
+                    title: "John Doe",
+                    description: "Last active 5m ago",
+                    badge: "Online",
+                  },
+                  {
+                    id: "friend2",
+                    icon: User,
+                    title: "Jane Smith",
+                    description: "Last active 1h ago",
+                  },
+                  {
+                    id: "friend3",
+                    icon: User,
+                    title: "Mike Johnson",
+                    description: "Last active 2d ago",
+                  },
+                ]}
+                scrollable={false}
+                onItemPress={(item) => console.log("Friend pressed:", item)}
+                onViewAllPress={() => console.log("View all friends")}
+                emptyState={{
+                  icon: UserPlus,
+                  title: "No Friends Yet",
+                  description: "Add friends to see them here",
+                }}
+              />
+            ),
+            actionButton: {
+              label: "Add Friends",
+              onPress: () => console.log("Add new friends"),
+              variant: "primary" as ButtonVariant,
+            },
+          },
+        ];
+      default:
+        return [];
+    }
+  }, [
+    activeTab,
+    planDetails,
+    progressWidth,
+    user,
+    memberSince,
+    profileData,
+    mapSettings,
+  ]);
+
+  // Memoize footer buttons based on active tab
+  const footerButtons = useMemo(() => {
+    switch (activeTab) {
+      case "profile":
+        return [
+          {
+            label: "Log Out",
+            onPress: handleLogout,
+            variant: "outline" as const,
+          },
+          {
+            label: "Delete Account",
+            onPress: () => setShowDeleteDialog(true),
+            variant: "error" as const,
+          },
+        ];
+      case "groups":
+        return [
+          {
+            label: "Join Group",
+            onPress: () => console.log("Join group"),
+            variant: "primary" as const,
+          },
+          {
+            label: "Discover",
+            onPress: () => console.log("Discover groups"),
+            variant: "outline" as const,
+          },
+        ];
+      case "friends":
+        return [
+          {
+            label: "Find Friends",
+            onPress: () => console.log("Find friends"),
+            variant: "primary" as const,
+          },
+          {
+            label: "Invite",
+            onPress: () => console.log("Invite friends"),
+            variant: "outline" as const,
+          },
+        ];
+      default:
+        return [];
+    }
+  }, [activeTab, handleLogout, setShowDeleteDialog]);
+
   if (loading) {
     return (
       <Screen>
@@ -91,188 +469,25 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     );
   }
 
-  const sections: Section[] = [
-    {
-      title: "Plan Details",
-      icon: User,
-      content: (
-        <View style={styles.planSection}>
-          <Text style={styles.planTitle}>
-            {planDetails?.planType === PlanType.FREE ? "Free Plan" : "Pro Plan"}
-          </Text>
-          <View style={styles.progressBar}>
-            <View
-              style={[styles.progressFill, { width: `${progressWidth}%` }]}
-            />
-          </View>
-          <Text style={styles.planDescription}>
-            {planDetails?.remainingScans} scans remaining this week
-          </Text>
-        </View>
-      ),
-      actionButton: {
-        label: "Upgrade",
-        onPress: () => {}, // Add upgrade handler
-        variant: "primary",
-      },
-    },
-    {
-      title: "Account Settings",
-      icon: Settings,
-      content: (
-        <List
-          items={[
-            {
-              id: "email",
-              icon: Mail,
-              title: "Email",
-              description: user?.email || "No email set",
-              rightElement: (
-                <TouchableOpacity onPress={() => console.log("Edit email")}>
-                  <Edit size={16} color={COLORS.textSecondary} />
-                </TouchableOpacity>
-              ),
-            },
-            {
-              id: "memberSince",
-              icon: Calendar,
-              title: "Member Since",
-              description: memberSince,
-            },
-            {
-              id: "bio",
-              icon: User,
-              title: "Bio",
-              description: profileData?.bio || "No bio set",
-              rightElement: (
-                <TouchableOpacity onPress={() => console.log("Edit bio")}>
-                  <Edit size={16} color={COLORS.textSecondary} />
-                </TouchableOpacity>
-              ),
-            },
-          ]}
-          scrollable={false}
-          onItemPress={(item) => console.log("Account item pressed:", item)}
-        />
-      ),
-    },
-    {
-      title: "Map Settings",
-      icon: Map,
-      content: (
-        <List
-          items={[
-            {
-              id: "mapStyle",
-              icon: Map,
-              title: "Map Style",
-              description: "Choose your preferred map style",
-              rightElement: (
-                <View style={styles.mapStyleButtons}>
-                  <TouchableOpacity
-                    style={[
-                      styles.mapStyleButton,
-                      mapSettings.useLightStyle && styles.mapStyleButtonActive,
-                    ]}
-                    onPress={() =>
-                      handleMapSettingChange("useLightStyle")(true)
-                    }
-                  >
-                    <Text
-                      style={[
-                        styles.mapStyleButtonText,
-                        mapSettings.useLightStyle &&
-                          styles.mapStyleButtonTextActive,
-                      ]}
-                    >
-                      Light
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.mapStyleButton,
-                      mapSettings.useDarkStyle && styles.mapStyleButtonActive,
-                    ]}
-                    onPress={() => handleMapSettingChange("useDarkStyle")(true)}
-                  >
-                    <Text
-                      style={[
-                        styles.mapStyleButtonText,
-                        mapSettings.useDarkStyle &&
-                          styles.mapStyleButtonTextActive,
-                      ]}
-                    >
-                      Dark
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.mapStyleButton,
-                      mapSettings.useStreetStyle && styles.mapStyleButtonActive,
-                    ]}
-                    onPress={() =>
-                      handleMapSettingChange("useStreetStyle")(true)
-                    }
-                  >
-                    <Text
-                      style={[
-                        styles.mapStyleButtonText,
-                        mapSettings.useStreetStyle &&
-                          styles.mapStyleButtonTextActive,
-                      ]}
-                    >
-                      Colorful
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ),
-            },
-            {
-              id: "mapPitch",
-              icon: MapPin,
-              title: "Map Pitch",
-              description: "Enable 3D building view",
-              rightElement: (
-                <StyledSwitch
-                  value={mapSettings.isPitched}
-                  onValueChange={handleMapSettingChange("isPitched")}
-                />
-              ),
-              isActive: mapSettings.isPitched,
-            },
-          ]}
-          scrollable={false}
-          onItemPress={(item) => console.log("Map setting pressed:", item)}
-        />
-      ),
-    },
-  ];
-
-  const footerButtons = [
-    {
-      label: "Log Out",
-      onPress: handleLogout,
-      variant: "outline" as const,
-    },
-    {
-      label: "Delete Account",
-      onPress: () => setShowDeleteDialog(true),
-      variant: "error" as const,
-    },
-  ];
-
   return (
     <>
-      <Screen
+      <Screen<TabType>
         bannerTitle={user?.displayName || user?.email || ""}
         bannerDescription={
-          profileData?.bio || "View and manage your profile settings"
+          activeTab === "profile"
+            ? profileData?.bio || "View and manage your profile settings"
+            : activeTab === "groups"
+              ? "Manage your groups and communities"
+              : "Connect with friends and share experiences"
         }
-        bannerEmoji="👤"
+        bannerEmoji={
+          activeTab === "profile" ? "👤" : activeTab === "groups" ? "👥" : "👋"
+        }
         showBackButton={true}
         onBack={handleBack}
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         sections={sections}
         footerButtons={footerButtons}
       />
@@ -325,12 +540,13 @@ const styles = StyleSheet.create({
   planSection: {
     padding: 4,
   },
-  planTitle: {
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-    color: COLORS.textPrimary,
-    marginBottom: 8,
+  planHeader: {
+    marginBottom: 12,
+    alignItems: "flex-start",
+  },
+  planBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   progressBar: {
     height: 4,
