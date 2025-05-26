@@ -2,6 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useFetchMyFriends } from "@/hooks/useFetchMyFriends";
+import { useUserGroups } from "@/hooks/useUserGroups";
 import { PlanType } from "@/services/ApiClient";
 import React, { useState, useMemo } from "react";
 import {
@@ -65,6 +66,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     setPassword,
   } = useProfile(onBack);
   const { friends, isLoading: isLoadingFriends } = useFetchMyFriends();
+  const {
+    groups,
+    isLoading: isLoadingGroups,
+    error: groupsError,
+    hasMore,
+    refresh: refreshGroups,
+    loadMore: loadMoreGroups,
+    retry: retryGroups,
+  } = useUserGroups();
 
   const [activeTab, setActiveTab] = useState<TabType>("profile");
   const [mapSettings, setMapSettings] = useState({
@@ -73,6 +83,20 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     useDarkStyle: currentStyle === "dark",
     useStreetStyle: currentStyle === "street",
   });
+
+  // Helper function to format last active time
+  const formatLastActive = (date: string) => {
+    const now = new Date();
+    const lastActive = new Date(date);
+    const diffInMinutes = Math.floor(
+      (now.getTime() - lastActive.getTime()) / (1000 * 60),
+    );
+
+    if (diffInMinutes < 1) return "just now";
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+    return `${Math.floor(diffInMinutes / 1440)}d ago`;
+  };
 
   const handleMapSettingChange =
     (key: keyof typeof mapSettings) => (value: boolean) => {
@@ -317,30 +341,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             icon: Users,
             content: (
               <List
-                items={[
-                  {
-                    id: "group1",
-                    icon: Users,
-                    title: "Photography Enthusiasts",
-                    description: "12 members • Last active 2h ago",
-                    badge: "Active",
-                  },
-                  {
-                    id: "group2",
-                    icon: Users,
-                    title: "Urban Explorers",
-                    description: "45 members • Last active 1d ago",
-                  },
-                  {
-                    id: "group3",
-                    icon: Users,
-                    title: "Nature Lovers",
-                    description: "28 members • Last active 3d ago",
-                  },
-                ]}
+                items={groups.slice(0, 10).map((group) => ({
+                  id: group.id,
+                  icon: Users,
+                  title: group.name,
+                  description: `${group.memberCount} members${
+                    group.updatedAt
+                      ? ` • Updated ${formatLastActive(group.updatedAt)}`
+                      : ""
+                  }`,
+                  badge: group.visibility === "PUBLIC" ? "Public" : "Private",
+                }))}
                 scrollable={false}
                 onItemPress={(item) => console.log("Group pressed:", item)}
-                onViewAllPress={() => console.log("View all groups")}
                 emptyState={{
                   icon: Users,
                   title: "No Groups Yet",
@@ -406,6 +419,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     mapSettings,
     friends,
     isLoadingFriends,
+    groups,
+    isLoadingGroups,
+    groupsError,
+    hasMore,
+    loadMoreGroups,
+    refreshGroups,
+    retryGroups,
   ]);
 
   // Memoize footer buttons based on active tab
@@ -455,20 +475,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     }
   }, [activeTab, handleLogout, setShowDeleteDialog]);
 
-  // Helper function to format last active time
-  const formatLastActive = (date: string) => {
-    const now = new Date();
-    const lastActive = new Date(date);
-    const diffInMinutes = Math.floor(
-      (now.getTime() - lastActive.getTime()) / (1000 * 60),
-    );
-
-    if (diffInMinutes < 1) return "just now";
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
-    return `${Math.floor(diffInMinutes / 1440)}d ago`;
-  };
-
   if (loading) {
     return (
       <Screen>
@@ -501,6 +507,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         onTabChange={setActiveTab}
         sections={sections}
         footerButtons={footerButtons}
+        isScrollable={activeTab !== "groups"}
       />
 
       <DeleteAccountModalComponent
@@ -591,6 +598,43 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 12,
     fontFamily: "SpaceMono",
+  },
+
+  errorContainer: {
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+  },
+  errorText: {
+    color: COLORS.errorText,
+    fontSize: 12,
+    fontFamily: "SpaceMono",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  retryButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.accent,
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
+  },
+
+  groupsList: {
+    flex: 1,
+    minHeight: 200,
+  },
+  groupsListContent: {
+    paddingBottom: 16,
   },
 });
 
