@@ -16,6 +16,7 @@ import {
   Bell as BellIcon,
 } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import Feed, { FeedItem } from "@/components/Layout/Feed";
 import UserStats from "@/components/Layout/UserStats";
 import List, { StyledSwitch } from "@/components/Layout/List";
@@ -32,6 +33,7 @@ const UserStatsSection = () => {
 };
 
 const ActivityFeed = () => {
+  const router = useRouter();
   const items = useMemo(() => generateActivityItems(), []);
 
   const handleItemPress = (item: FeedItem) => {
@@ -40,8 +42,10 @@ const ActivityFeed = () => {
   };
 
   const handleViewAll = () => {
-    console.log("View all activities");
-    // Navigate to full activity feed
+    router.push({
+      pathname: "/test/list",
+      params: { type: "activity", title: "Activity Feed" },
+    });
   };
 
   return (
@@ -60,6 +64,7 @@ const ActivityFeed = () => {
 };
 
 const FavoriteItems = () => {
+  const router = useRouter();
   const items = [
     {
       id: "1",
@@ -82,11 +87,19 @@ const FavoriteItems = () => {
     },
   ];
 
+  const handleViewAll = () => {
+    router.push({
+      pathname: "/test/list",
+      params: { type: "favorites", title: "Favorite Locations" },
+    });
+  };
+
   return (
     <List
       items={items}
       onItemPress={(item) => console.log("Favorite item pressed:", item)}
       scrollable={false}
+      onViewAllPress={handleViewAll}
       emptyState={{
         icon: Heart,
         title: "No Favorites Yet",
@@ -97,6 +110,7 @@ const FavoriteItems = () => {
 };
 
 const NotificationSettings = () => {
+  const router = useRouter();
   const [settings, setSettings] = useState({
     pushNotifications: true,
     emailUpdates: false,
@@ -150,11 +164,19 @@ const NotificationSettings = () => {
     },
   ];
 
+  const handleViewAll = () => {
+    router.push({
+      pathname: "/test/list",
+      params: { type: "settings", title: "Settings" },
+    });
+  };
+
   return (
     <List
       items={items}
       onItemPress={(item) => console.log("Setting pressed:", item)}
       scrollable={false}
+      onViewAllPress={handleViewAll}
       emptyState={{
         icon: Settings,
         title: "No Settings Available",
@@ -239,6 +261,7 @@ type TabType = "overview" | "activity" | "map";
 
 const TestScreen = () => {
   const navigation = useNavigation();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("overview");
 
   const tabs = [
@@ -279,10 +302,18 @@ const TestScreen = () => {
             title: "Recent Activity",
             icon: Bell,
             content: <ActivityFeed />,
-            onPress: () => console.log("Navigate to activity feed"),
+            onPress: () =>
+              router.push({
+                pathname: "/test/list",
+                params: { type: "activity", title: "Activity Feed" },
+              }),
             actionButton: {
               label: "See More",
-              onPress: () => console.log("See more activity"),
+              onPress: () =>
+                router.push({
+                  pathname: "/test/list",
+                  params: { type: "activity", title: "Activity Feed" },
+                }),
               variant: "outline" as const,
             },
           },
@@ -290,10 +321,18 @@ const TestScreen = () => {
             title: "Favorites",
             icon: Heart,
             content: <FavoriteItems />,
-            onPress: () => console.log("Navigate to favorites"),
+            onPress: () =>
+              router.push({
+                pathname: "/test/list",
+                params: { type: "favorites", title: "Favorite Locations" },
+              }),
             actionButton: {
               label: "Manage",
-              onPress: () => console.log("Manage favorites"),
+              onPress: () =>
+                router.push({
+                  pathname: "/test/list",
+                  params: { type: "favorites", title: "Favorite Locations" },
+                }),
               variant: "secondary" as const,
             },
           },
@@ -301,10 +340,18 @@ const TestScreen = () => {
             title: "Settings",
             icon: Settings,
             content: <NotificationSettings />,
-            onPress: () => console.log("Navigate to settings"),
+            onPress: () =>
+              router.push({
+                pathname: "/test/list",
+                params: { type: "settings", title: "Settings" },
+              }),
             actionButton: {
               label: "Edit",
-              onPress: () => console.log("Edit settings"),
+              onPress: () =>
+                router.push({
+                  pathname: "/test/list",
+                  params: { type: "settings", title: "Settings" },
+                }),
               variant: "primary" as const,
             },
           },
@@ -340,7 +387,7 @@ const TestScreen = () => {
       default:
         return [];
     }
-  }, [activeTab]);
+  }, [activeTab, router]);
 
   // Memoize footer buttons based on active tab
   const footerButtons = useMemo(() => {

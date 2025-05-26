@@ -99,7 +99,8 @@ function RootLayout() {
             },
           }}
         >
-          <Stack.Screen name="test" />
+          <Stack.Screen name="test/index" />
+          <Stack.Screen name="test/list" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="register" />
           <Stack.Screen name="login" />

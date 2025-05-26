@@ -11,6 +11,7 @@ import SectionHeader from "./SectionHeader";
 import Card from "./Card";
 import { LucideIcon } from "lucide-react-native";
 import Tabs from "./Tabs";
+import ScreenContent from "./ScreenContent";
 
 export interface Section {
   title: string;
@@ -71,6 +72,9 @@ export interface ScreenProps<T extends string = string> {
   contentStyle?: ViewStyle;
   noSafeArea?: boolean;
   noAnimation?: boolean;
+
+  // Add new prop for scrollable content
+  isScrollable?: boolean;
 }
 
 const Screen = <T extends string>({
@@ -89,6 +93,7 @@ const Screen = <T extends string>({
   contentStyle,
   noSafeArea,
   noAnimation,
+  isScrollable = true, // Default to true for backward compatibility
 }: ScreenProps<T>) => {
   const scrollY = useSharedValue(0);
 
@@ -104,6 +109,56 @@ const Screen = <T extends string>({
     }
   };
 
+  const renderContent = () => (
+    <ScreenContent>
+      {tabs && activeTab && onTabChange && (
+        <Tabs items={tabs} activeTab={activeTab} onTabPress={onTabChange} />
+      )}
+
+      <View
+        style={[
+          styles.contentContainer,
+          !isScrollable && styles.contentWrapper,
+        ]}
+      >
+        {children}
+
+        {sections.map((section, index) => (
+          <View key={index} style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <SectionHeader title={section.title} icon={section.icon} />
+              {section.actionButton && (
+                <Button
+                  title={section.actionButton.label}
+                  onPress={section.actionButton.onPress}
+                  variant={section.actionButton.variant || "ghost"}
+                  size="small"
+                />
+              )}
+            </View>
+            <Card onPress={section.onPress} style={styles.card}>
+              {section.content}
+            </Card>
+          </View>
+        ))}
+
+        {footerButtons.length > 0 && (
+          <View style={styles.footer}>
+            {footerButtons.map((button, index) => (
+              <Button
+                key={index}
+                title={button.label}
+                onPress={button.onPress}
+                variant={button.variant || "primary"}
+                style={styles.footerButton}
+              />
+            ))}
+          </View>
+        )}
+      </View>
+    </ScreenContent>
+  );
+
   return (
     <ScreenLayout
       style={style}
@@ -111,71 +166,47 @@ const Screen = <T extends string>({
       noSafeArea={noSafeArea}
       noAnimation={noAnimation}
     >
-      <Animated.ScrollView
-        showsVerticalScrollIndicator={false}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {(bannerTitle || showBackButton) && (
-          <Banner
-            name={bannerTitle || ""}
-            description={bannerDescription}
-            emoji={bannerEmoji}
-            onBack={handleBack}
-            scrollY={scrollY}
-          />
-        )}
-
-        {tabs && activeTab && onTabChange && (
-          <View style={styles.tabsContainer}>
-            <Tabs items={tabs} activeTab={activeTab} onTabPress={onTabChange} />
-          </View>
-        )}
-
-        <View style={styles.contentContainer}>
-          {children}
-
-          {sections.map((section, index) => (
-            <View key={index} style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <SectionHeader title={section.title} icon={section.icon} />
-                {section.actionButton && (
-                  <Button
-                    title={section.actionButton.label}
-                    onPress={section.actionButton.onPress}
-                    variant={section.actionButton.variant || "ghost"}
-                    size="small"
-                  />
-                )}
-              </View>
-              <Card onPress={section.onPress} style={styles.card}>
-                {section.content}
-              </Card>
-            </View>
-          ))}
-
-          {footerButtons.length > 0 && (
-            <View style={styles.footer}>
-              {footerButtons.map((button, index) => (
-                <Button
-                  key={index}
-                  title={button.label}
-                  onPress={button.onPress}
-                  variant={button.variant || "primary"}
-                  style={styles.footerButton}
-                />
-              ))}
-            </View>
+      {isScrollable ? (
+        <Animated.ScrollView
+          showsVerticalScrollIndicator={false}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {(bannerTitle || showBackButton) && (
+            <Banner
+              name={bannerTitle || ""}
+              description={bannerDescription}
+              emoji={bannerEmoji}
+              onBack={handleBack}
+              scrollY={scrollY}
+            />
           )}
+          {renderContent()}
+        </Animated.ScrollView>
+      ) : (
+        <View style={styles.container}>
+          {(bannerTitle || showBackButton) && (
+            <Banner
+              name={bannerTitle || ""}
+              description={bannerDescription}
+              emoji={bannerEmoji}
+              onBack={handleBack}
+              scrollY={scrollY}
+            />
+          )}
+          {renderContent()}
         </View>
-      </Animated.ScrollView>
+      )}
     </ScreenLayout>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },
@@ -183,14 +214,15 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   contentContainer: {
+    flex: 1,
     paddingTop: 24,
   },
-  tabsContainer: {
-    paddingHorizontal: 16,
+  contentWrapper: {
+    flex: 1,
+    minHeight: 0, // This is important for flex to work properly with nested scrollable views
   },
   section: {
     marginBottom: 24,
-    paddingHorizontal: 16,
   },
   sectionHeader: {
     flexDirection: "row",
