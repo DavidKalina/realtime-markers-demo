@@ -106,12 +106,15 @@ export default function Banner({
 
 const styles = StyleSheet.create({
   zoneBanner: {
+    height: 200,
     paddingTop: 50,
     paddingBottom: 24,
     paddingHorizontal: 20,
     backgroundColor: COLORS.cardBackground,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255,255,255,0.08)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   bannerBackButton: {
     position: "absolute",
@@ -145,5 +148,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     letterSpacing: 0.3,
     paddingHorizontal: 10,
+    maxWidth: "90%",
   },
 });
