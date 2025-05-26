@@ -1,7 +1,8 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useProfile } from "@/hooks/useProfile";
-import React, { useMemo } from "react";
+import { PlanType } from "@/services/ApiClient";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -9,17 +10,19 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Animated, {
-  FadeInDown,
-  useAnimatedScrollHandler,
-  useSharedValue,
-} from "react-native-reanimated";
-import Banner from "../Layout/Banner";
-import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
-import AccountDetailsComponent from "./AccountDetails";
-import ActionsSectionComponent from "./ActionsSection";
+import {
+  User,
+  Settings,
+  Map,
+  MapPin,
+  Mail,
+  Calendar,
+  Edit,
+} from "lucide-react-native";
+import Screen, { Section } from "../Layout/Screen";
+import { COLORS } from "../Layout/ScreenLayout";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
-import PlanSectionComponent from "./PlanSection";
+import List, { StyledSwitch } from "../Layout/List";
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -47,126 +50,232 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     setPassword,
   } = useProfile(onBack);
 
-  // Animation values
-  const scrollY = useSharedValue(0);
-
-  // Scroll handler
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
+  const [mapSettings, setMapSettings] = useState({
+    isPitched: isPitched,
+    useLightStyle: currentStyle === "light",
+    useDarkStyle: currentStyle === "dark",
+    useStreetStyle: currentStyle === "street",
   });
 
-  // Memoize map style buttons to prevent unnecessary re-renders
-  const mapStyleButtons = useMemo(
-    () => (
-      <View style={styles.mapStyleButtons}>
-        <TouchableOpacity
-          style={[
-            styles.mapStyleButton,
-            currentStyle === "light" && styles.mapStyleButtonActive,
-          ]}
-          onPress={() => handleMapStyleChange("light")}
-        >
-          <Text
-            style={[
-              styles.mapStyleButtonText,
-              currentStyle === "light" && styles.mapStyleButtonTextActive,
-            ]}
-          >
-            Light
-          </Text>
-        </TouchableOpacity>
+  const handleMapSettingChange =
+    (key: keyof typeof mapSettings) => (value: boolean) => {
+      setMapSettings((prev) => {
+        const newSettings = { ...prev, [key]: value };
 
-        <TouchableOpacity
-          style={[
-            styles.mapStyleButton,
-            currentStyle === "dark" && styles.mapStyleButtonActive,
-          ]}
-          onPress={() => handleMapStyleChange("dark")}
-        >
-          <Text
-            style={[
-              styles.mapStyleButtonText,
-              currentStyle === "dark" && styles.mapStyleButtonTextActive,
-            ]}
-          >
-            Dark
-          </Text>
-        </TouchableOpacity>
+        // Handle map style changes
+        if (key === "useLightStyle" && value) {
+          handleMapStyleChange("light");
+        } else if (key === "useDarkStyle" && value) {
+          handleMapStyleChange("dark");
+        } else if (key === "useStreetStyle" && value) {
+          handleMapStyleChange("street");
+        }
 
-        <TouchableOpacity
-          style={[
-            styles.mapStyleButton,
-            currentStyle === "street" && styles.mapStyleButtonActive,
-          ]}
-          onPress={() => handleMapStyleChange("street")}
-        >
-          <Text
-            style={[
-              styles.mapStyleButtonText,
-              currentStyle === "street" && styles.mapStyleButtonTextActive,
-            ]}
-          >
-            Colorful
-          </Text>
-        </TouchableOpacity>
-      </View>
-    ),
-    [currentStyle, handleMapStyleChange],
-  );
+        // Handle pitch changes
+        if (key === "isPitched") {
+          togglePitch();
+        }
+
+        return newSettings;
+      });
+    };
 
   if (loading) {
     return (
-      <ScreenLayout>
+      <Screen>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#93c5fd" />
           <Text style={styles.loadingText}>Loading Profile...</Text>
         </View>
-      </ScreenLayout>
+      </Screen>
     );
   }
 
-  return (
-    <ScreenLayout>
-      <Animated.ScrollView
-        showsVerticalScrollIndicator={false}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-      >
-        <Banner
-          emoji="👤"
-          name={user?.displayName || user?.email || ""}
-          description={
-            profileData?.bio || "View and manage your profile settings"
-          }
-          onBack={handleBack}
-          scrollY={scrollY}
+  const sections: Section[] = [
+    {
+      title: "Plan Details",
+      icon: User,
+      content: (
+        <View style={styles.planSection}>
+          <Text style={styles.planTitle}>
+            {planDetails?.planType === PlanType.FREE ? "Free Plan" : "Pro Plan"}
+          </Text>
+          <View style={styles.progressBar}>
+            <View
+              style={[styles.progressFill, { width: `${progressWidth}%` }]}
+            />
+          </View>
+          <Text style={styles.planDescription}>
+            {planDetails?.remainingScans} scans remaining this week
+          </Text>
+        </View>
+      ),
+      actionButton: {
+        label: "Upgrade",
+        onPress: () => {}, // Add upgrade handler
+        variant: "primary",
+      },
+    },
+    {
+      title: "Account Settings",
+      icon: Settings,
+      content: (
+        <List
+          items={[
+            {
+              id: "email",
+              icon: Mail,
+              title: "Email",
+              description: user?.email || "No email set",
+              rightElement: (
+                <TouchableOpacity onPress={() => console.log("Edit email")}>
+                  <Edit size={16} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              ),
+            },
+            {
+              id: "memberSince",
+              icon: Calendar,
+              title: "Member Since",
+              description: memberSince,
+            },
+            {
+              id: "bio",
+              icon: User,
+              title: "Bio",
+              description: profileData?.bio || "No bio set",
+              rightElement: (
+                <TouchableOpacity onPress={() => console.log("Edit bio")}>
+                  <Edit size={16} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              ),
+            },
+          ]}
+          scrollable={false}
+          onItemPress={(item) => console.log("Account item pressed:", item)}
         />
+      ),
+    },
+    {
+      title: "Map Settings",
+      icon: Map,
+      content: (
+        <List
+          items={[
+            {
+              id: "mapStyle",
+              icon: Map,
+              title: "Map Style",
+              description: "Choose your preferred map style",
+              rightElement: (
+                <View style={styles.mapStyleButtons}>
+                  <TouchableOpacity
+                    style={[
+                      styles.mapStyleButton,
+                      mapSettings.useLightStyle && styles.mapStyleButtonActive,
+                    ]}
+                    onPress={() =>
+                      handleMapSettingChange("useLightStyle")(true)
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.mapStyleButtonText,
+                        mapSettings.useLightStyle &&
+                          styles.mapStyleButtonTextActive,
+                      ]}
+                    >
+                      Light
+                    </Text>
+                  </TouchableOpacity>
 
-        <PlanSectionComponent
-          planDetails={planDetails}
-          progressWidth={progressWidth}
+                  <TouchableOpacity
+                    style={[
+                      styles.mapStyleButton,
+                      mapSettings.useDarkStyle && styles.mapStyleButtonActive,
+                    ]}
+                    onPress={() => handleMapSettingChange("useDarkStyle")(true)}
+                  >
+                    <Text
+                      style={[
+                        styles.mapStyleButtonText,
+                        mapSettings.useDarkStyle &&
+                          styles.mapStyleButtonTextActive,
+                      ]}
+                    >
+                      Dark
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.mapStyleButton,
+                      mapSettings.useStreetStyle && styles.mapStyleButtonActive,
+                    ]}
+                    onPress={() =>
+                      handleMapSettingChange("useStreetStyle")(true)
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.mapStyleButtonText,
+                        mapSettings.useStreetStyle &&
+                          styles.mapStyleButtonTextActive,
+                      ]}
+                    >
+                      Colorful
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ),
+            },
+            {
+              id: "mapPitch",
+              icon: MapPin,
+              title: "Map Pitch",
+              description: "Enable 3D building view",
+              rightElement: (
+                <StyledSwitch
+                  value={mapSettings.isPitched}
+                  onValueChange={handleMapSettingChange("isPitched")}
+                />
+              ),
+              isActive: mapSettings.isPitched,
+            },
+          ]}
+          scrollable={false}
+          onItemPress={(item) => console.log("Map setting pressed:", item)}
         />
-        <AccountDetailsComponent
-          profileData={profileData}
-          user={user}
-          memberSince={memberSince}
-          mapStyleButtons={mapStyleButtons}
-          isPitched={isPitched}
-          togglePitch={togglePitch}
-        />
-        <ActionsSectionComponent
-          handleLogout={handleLogout}
-          setShowDeleteDialog={setShowDeleteDialog}
-        />
-        <Animated.View
-          entering={FadeInDown.duration(600).delay(1100).springify()}
-          style={styles.versionContainer}
-        >
-          <Text style={styles.versionText}>App Version 1.0.0</Text>
-        </Animated.View>
-      </Animated.ScrollView>
+      ),
+    },
+  ];
+
+  const footerButtons = [
+    {
+      label: "Log Out",
+      onPress: handleLogout,
+      variant: "outline" as const,
+    },
+    {
+      label: "Delete Account",
+      onPress: () => setShowDeleteDialog(true),
+      variant: "error" as const,
+    },
+  ];
+
+  return (
+    <>
+      <Screen
+        bannerTitle={user?.displayName || user?.email || ""}
+        bannerDescription={
+          profileData?.bio || "View and manage your profile settings"
+        }
+        bannerEmoji="👤"
+        showBackButton={true}
+        onBack={handleBack}
+        sections={sections}
+        footerButtons={footerButtons}
+      />
 
       <DeleteAccountModalComponent
         visible={showDeleteDialog}
@@ -177,58 +286,67 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         onClose={handleCloseDeleteDialog}
         onDelete={handleDeleteAccount}
       />
-    </ScreenLayout>
+    </>
   );
 };
 
-// Inline styles
 const styles = StyleSheet.create({
   // Map style buttons
   mapStyleButtons: {
     flexDirection: "row",
-    gap: 6,
-    marginTop: 6,
+    gap: 4,
   },
-
   mapStyleButton: {
-    flex: 1,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: COLORS.buttonBackground,
     borderWidth: 1,
     borderColor: COLORS.buttonBorder,
-    minHeight: 32,
+    minHeight: 28,
   },
-
   mapStyleButtonActive: {
     backgroundColor: "rgba(147, 197, 253, 0.15)",
     borderColor: "rgba(147, 197, 253, 0.3)",
   },
-
   mapStyleButtonText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "SpaceMono",
     fontWeight: "600",
     color: COLORS.textSecondary,
   },
-
   mapStyleButtonTextActive: {
     color: COLORS.accent,
   },
 
-  // Version info
-  versionContainer: {
-    alignItems: "center",
-    marginVertical: 16,
+  // Plan section
+  planSection: {
+    padding: 4,
   },
-
-  versionText: {
-    color: COLORS.textSecondary,
+  planTitle: {
+    fontSize: 16,
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: COLORS.buttonBackground,
+    borderRadius: 2,
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: COLORS.accent,
+    borderRadius: 2,
+  },
+  planDescription: {
     fontSize: 12,
     fontFamily: "SpaceMono",
+    color: COLORS.textSecondary,
   },
 
   // Loading state
@@ -238,7 +356,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#1a1a1a",
   },
-
   loadingText: {
     marginTop: 12,
     color: "#a0a0a0",
