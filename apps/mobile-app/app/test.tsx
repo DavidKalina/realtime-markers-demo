@@ -11,10 +11,14 @@ import {
   Users,
   MessageCircle,
   Star,
+  Moon,
+  Mail,
+  Bell as BellIcon,
 } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import Feed, { FeedItem } from "@/components/Layout/Feed";
 import UserStats from "@/components/Layout/UserStats";
+import List, { StyledSwitch } from "@/components/Layout/List";
 
 // Overview Tab Components
 const UserStatsSection = () => {
@@ -55,21 +59,110 @@ const ActivityFeed = () => {
   );
 };
 
-const FavoriteItems = () => (
-  <View style={styles.favoritesContainer}>
-    <Text style={styles.favoriteItem}>⭐️ Favorite Item 1</Text>
-    <Text style={styles.favoriteItem}>⭐️ Favorite Item 2</Text>
-    <Text style={styles.favoriteItem}>⭐️ Favorite Item 3</Text>
-  </View>
-);
+const FavoriteItems = () => {
+  const items = [
+    {
+      id: "1",
+      icon: Star,
+      title: "Favorite Location 1",
+      description: "Last visited 2 days ago",
+      badge: "New",
+    },
+    {
+      id: "2",
+      icon: Star,
+      title: "Favorite Location 2",
+      description: "Last visited 1 week ago",
+    },
+    {
+      id: "3",
+      icon: Star,
+      title: "Favorite Location 3",
+      description: "Last visited 2 weeks ago",
+    },
+  ];
 
-const NotificationSettings = () => (
-  <View style={styles.settingsContainer}>
-    <Text style={styles.settingItem}>🔔 Push Notifications</Text>
-    <Text style={styles.settingItem}>📧 Email Updates</Text>
-    <Text style={styles.settingItem}>🌙 Dark Mode</Text>
-  </View>
-);
+  return (
+    <List
+      items={items}
+      onItemPress={(item) => console.log("Favorite item pressed:", item)}
+      scrollable={false}
+      emptyState={{
+        icon: Heart,
+        title: "No Favorites Yet",
+        description: "Your favorite locations will appear here",
+      }}
+    />
+  );
+};
+
+const NotificationSettings = () => {
+  const [settings, setSettings] = useState({
+    pushNotifications: true,
+    emailUpdates: false,
+    darkMode: true,
+  });
+
+  const handleSettingChange =
+    (key: keyof typeof settings) => (value: boolean) => {
+      setSettings((prev) => ({ ...prev, [key]: value }));
+    };
+
+  const items = [
+    {
+      id: "1",
+      icon: BellIcon,
+      title: "Push Notifications",
+      description: "Receive notifications on your device",
+      rightElement: (
+        <StyledSwitch
+          value={settings.pushNotifications}
+          onValueChange={handleSettingChange("pushNotifications")}
+        />
+      ),
+      isActive: settings.pushNotifications,
+    },
+    {
+      id: "2",
+      icon: Mail,
+      title: "Email Updates",
+      description: "Get updates via email",
+      rightElement: (
+        <StyledSwitch
+          value={settings.emailUpdates}
+          onValueChange={handleSettingChange("emailUpdates")}
+        />
+      ),
+      isActive: settings.emailUpdates,
+    },
+    {
+      id: "3",
+      icon: Moon,
+      title: "Dark Mode",
+      description: "Use dark theme",
+      rightElement: (
+        <StyledSwitch
+          value={settings.darkMode}
+          onValueChange={handleSettingChange("darkMode")}
+        />
+      ),
+      isActive: settings.darkMode,
+    },
+  ];
+
+  return (
+    <List
+      items={items}
+      onItemPress={(item) => console.log("Setting pressed:", item)}
+      scrollable={false}
+      emptyState={{
+        icon: Settings,
+        title: "No Settings Available",
+        description: "Settings will appear here",
+      }}
+    />
+  );
+};
 
 // Activity Feed Data
 const generateActivityItems = (): FeedItem[] => [
@@ -263,11 +356,6 @@ const TestScreen = () => {
             label: "Share Profile",
             onPress: () => console.log("Share profile"),
             variant: "outline" as const,
-          },
-          {
-            label: "Logout",
-            onPress: () => console.log("Logout"),
-            variant: "error" as const,
           },
         ];
       case "activity":
