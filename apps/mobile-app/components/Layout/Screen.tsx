@@ -6,7 +6,6 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import { View, StyleSheet, ViewStyle } from "react-native";
-import { COLORS } from "./ScreenLayout";
 import Button from "./Button";
 import SectionHeader from "./SectionHeader";
 import Card from "./Card";
@@ -204,13 +203,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   footer: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-    backgroundColor: COLORS.cardBackground,
+    marginTop: 24,
+    marginHorizontal: 16,
+    flexDirection: "row",
+    gap: 12,
   },
   footerButton: {
-    marginBottom: 8,
+    flex: 1,
   },
 });
 
