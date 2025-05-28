@@ -12,6 +12,7 @@ import DeleteAccountModalComponent from "./DeleteAccountModal";
 import ProfileSection from "./ProfileSection";
 import GroupsSection from "./GroupsSection";
 import FriendsSection from "./FriendsSection";
+import { router } from "expo-router";
 
 type TabType = "profile" | "groups" | "friends";
 
@@ -191,7 +192,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         return [
           {
             label: "Discover",
-            onPress: () => console.log("Discover groups"),
+            onPress: () => router.push("/groups"),
             variant: "outline" as const,
           },
         ];

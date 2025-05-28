@@ -7,60 +7,6 @@ import List from "@/components/Layout/List";
 const GroupsScreen = () => {
   const router = useRouter();
 
-  // Mock data for groups - replace with real data later
-  const recentGroups = [
-    {
-      id: "1",
-      icon: Users,
-      title: "Photography Enthusiasts",
-      description: "Share and discuss photography tips",
-      badge: "New",
-    },
-    {
-      id: "2",
-      icon: Users,
-      title: "Hiking Club",
-      description: "Weekly hiking meetups",
-    },
-    {
-      id: "3",
-      icon: Users,
-      title: "Tech Meetup",
-      description: "Local tech community",
-    },
-  ];
-
-  const favoriteGroups = [
-    {
-      id: "4",
-      icon: Star,
-      title: "Coffee Lovers",
-      description: "Discover new coffee shops",
-    },
-    {
-      id: "5",
-      icon: Star,
-      title: "Book Club",
-      description: "Monthly book discussions",
-    },
-  ];
-
-  const nearbyGroups = [
-    {
-      id: "6",
-      icon: Map,
-      title: "Yoga Studio",
-      description: "0.5 miles away",
-      badge: "2 new",
-    },
-    {
-      id: "7",
-      icon: Map,
-      title: "Art Gallery",
-      description: "1.2 miles away",
-    },
-  ];
-
   const sections = useMemo(
     () => [
       {
@@ -68,7 +14,7 @@ const GroupsScreen = () => {
         icon: Users,
         content: (
           <List
-            items={recentGroups}
+            items={[]}
             onItemPress={(item) =>
               router.push({
                 pathname: "/group/[id]",
@@ -104,7 +50,7 @@ const GroupsScreen = () => {
         icon: Star,
         content: (
           <List
-            items={favoriteGroups}
+            items={[]}
             onItemPress={(item) =>
               router.push({
                 pathname: "/group/[id]",
@@ -140,7 +86,7 @@ const GroupsScreen = () => {
         icon: Map,
         content: (
           <List
-            items={nearbyGroups}
+            items={[]}
             onItemPress={(item) =>
               router.push({
                 pathname: "/group/[id]",
@@ -193,6 +139,7 @@ const GroupsScreen = () => {
 
   return (
     <Screen
+      onBack={() => router.back()}
       bannerTitle="Groups"
       bannerDescription="Discover and join groups in your area"
       bannerEmoji="👥"
