@@ -30,6 +30,7 @@ import { COLORS } from "../Layout/ScreenLayout";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
 import List, { StyledSwitch } from "../Layout/List";
 import Badge from "../Layout/Badge";
+import { useRouter } from "expo-router";
 
 type TabType = "profile" | "groups" | "friends";
 type ButtonVariant =
@@ -75,6 +76,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     loadMore: loadMoreGroups,
     retry: retryGroups,
   } = useUserGroups();
+  const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<TabType>("profile");
   const [mapSettings, setMapSettings] = useState({
@@ -363,7 +365,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             ),
             actionButton: {
               label: "Create Group",
-              onPress: () => console.log("Create new group"),
+              onPress: () => router.push("/create-group"),
               variant: "primary" as ButtonVariant,
             },
           },

@@ -36,7 +36,7 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
 
   // If user is authenticated but on a non-auth page (like login), redirect to home
   if (!requireAuth && isAuthenticated) {
-    return <Redirect href="/test" />;
+    return <Redirect href="/" />;
   }
 
   // If user is authenticated but hasn't completed onboarding, redirect to onboarding
