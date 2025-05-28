@@ -7,7 +7,6 @@ import {
   MapPin,
   Mail,
   Calendar,
-  Edit,
   Crown,
   Zap,
   LucideIcon,
@@ -116,11 +115,6 @@ const ProfileSection = ({
               icon: Mail,
               title: "Email",
               description: user?.email || "No email set",
-              rightElement: (
-                <TouchableOpacity onPress={() => console.log("Edit email")}>
-                  <Edit size={16} color={COLORS.textSecondary} />
-                </TouchableOpacity>
-              ),
             },
             {
               id: "memberSince",
@@ -133,11 +127,6 @@ const ProfileSection = ({
               icon: User,
               title: "Bio",
               description: profileData?.bio || "No bio set",
-              rightElement: (
-                <TouchableOpacity onPress={() => console.log("Edit bio")}>
-                  <Edit size={16} color={COLORS.textSecondary} />
-                </TouchableOpacity>
-              ),
             },
           ]}
           scrollable={false}
