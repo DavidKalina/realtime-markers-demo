@@ -190,11 +190,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       case "groups":
         return [
           {
-            label: "Join Group",
-            onPress: () => console.log("Join group"),
-            variant: "primary" as const,
-          },
-          {
             label: "Discover",
             onPress: () => console.log("Discover groups"),
             variant: "outline" as const,
