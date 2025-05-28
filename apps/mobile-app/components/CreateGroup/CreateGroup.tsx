@@ -5,7 +5,14 @@ import { apiClient } from "@/services/ApiClient";
 import { GroupVisibility } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Globe, Lock, Tag, Users } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Globe,
+  Lock,
+  MapPin,
+  Tag,
+  Users,
+} from "lucide-react-native";
 import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -32,6 +39,13 @@ import Animated, {
 import Input from "../Input/Input";
 import TextArea from "../Input/TextArea";
 import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
+import { Select, SelectOption } from "../Select/Select";
+
+// Create a wrapper component that matches the expected icon type
+const MapPinIcon: React.FC<{ size: number; color: string }> = ({
+  size,
+  color,
+}) => <MapPin size={size} color={color} />;
 
 const CreateGroup: React.FC = () => {
   const router = useRouter();
@@ -49,6 +63,9 @@ const CreateGroup: React.FC = () => {
   );
   const [allowMemberEventCreation, setAllowMemberEventCreation] =
     useState(false);
+  const [headquarters, setHeadquarters] = useState<SelectOption | undefined>();
+  const [searchResults, setSearchResults] = useState<SelectOption[]>([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
 
   // Refs for inputs
   const nameInputRef = useRef<TextInput>(null);
@@ -66,6 +83,36 @@ const CreateGroup: React.FC = () => {
       router.back();
     }
   }, [router]);
+
+  const handleSearchPlaces = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearchingPlaces(true);
+    try {
+      const result = await apiClient.places.searchPlace({ query });
+
+      if (result.success && result.place) {
+        setSearchResults([
+          {
+            id: result.place.placeId,
+            label: result.place.name,
+            description: result.place.address,
+            icon: MapPinIcon,
+          },
+        ]);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error("Error searching places:", error);
+      setError("Failed to search places. Please try again.");
+    } finally {
+      setIsSearchingPlaces(false);
+    }
+  };
 
   const handleCreateGroup = async () => {
     if (!name.trim()) {
@@ -92,6 +139,13 @@ const CreateGroup: React.FC = () => {
         visibility,
         allowMemberEventCreation,
         categoryIds: [],
+        headquarters: headquarters
+          ? {
+              placeId: headquarters.id,
+              name: headquarters.label,
+              address: headquarters.description,
+            }
+          : undefined,
       };
 
       await apiClient.groups.createGroup(groupData);
@@ -265,6 +319,24 @@ const CreateGroup: React.FC = () => {
                         </Text>
                       </View>
                     </TouchableOpacity>
+
+                    {/* Headquarters Section */}
+                    <View style={styles.section}>
+                      <View style={styles.sectionHeader}>
+                        <MapPin size={18} color={COLORS.accent} />
+                        <Text style={styles.sectionTitle}>Headquarters</Text>
+                      </View>
+                      <Select
+                        value={headquarters}
+                        options={searchResults}
+                        placeholder="Search for a location..."
+                        searchable
+                        loading={isSearchingPlaces}
+                        onSearch={handleSearchPlaces}
+                        onChange={setHeadquarters}
+                        onClear={() => setHeadquarters(undefined)}
+                      />
+                    </View>
 
                     {/* Categories Section */}
                     <View style={styles.categoriesSection}>
@@ -481,6 +553,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontFamily: "SpaceMono",
     letterSpacing: 0.5,
+  },
+  section: {
+    marginTop: 8,
   },
 });
 

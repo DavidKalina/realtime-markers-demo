@@ -3,6 +3,7 @@
 import { BaseApiClient } from "./api/base/ApiClient";
 import { EventApiClient } from "./api/modules/events";
 import { ClusterApiClient } from "./api/modules/clusters";
+import { PlacesApiClient } from "./api/modules/places";
 import { authModule } from "./api/modules/auth";
 import { groupsModule } from "./api/modules/groups";
 import { friendsModule } from "./api/modules/friends";
@@ -22,6 +23,7 @@ export * from "./api/modules/filters";
 export * from "./api/modules/rsvp";
 export * from "./api/modules/plans";
 export * from "./api/modules/clusters";
+export * from "./api/modules/places";
 
 export class ApiClient extends BaseApiClient {
   public readonly auth = authModule;
@@ -33,11 +35,13 @@ export class ApiClient extends BaseApiClient {
   public readonly rsvp = rsvpModule;
   public readonly plans = plansModule;
   public readonly clusters: ClusterApiClient;
+  public readonly places: PlacesApiClient;
 
   constructor(baseUrl: string) {
     super(baseUrl);
     this.events = new EventApiClient(baseUrl);
     this.clusters = new ClusterApiClient(baseUrl);
+    this.places = new PlacesApiClient(baseUrl);
   }
 
   override setBaseUrl(baseUrl: string): void {
@@ -45,6 +49,7 @@ export class ApiClient extends BaseApiClient {
     // Update base URL for modules that are instances
     this.events.setBaseUrl(baseUrl);
     this.clusters.setBaseUrl(baseUrl);
+    this.places.setBaseUrl(baseUrl);
   }
 }
 

@@ -10,6 +10,7 @@ export const placesRouter = new Hono<AppContext>();
 
 // Apply IP, rate limiting, and auth middleware to all routes
 placesRouter.use("*", ip());
+placesRouter.use("*", authMiddleware);
 placesRouter.use(
   "*",
   rateLimit({
@@ -21,7 +22,6 @@ placesRouter.use(
     },
   }),
 );
-placesRouter.use("*", authMiddleware);
 
 // POST /api/places/search
 // Search for a place using Google Places API

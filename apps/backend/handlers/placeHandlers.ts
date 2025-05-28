@@ -16,11 +16,26 @@ const placeSearchSchema = z.object({
 
 export const searchPlace = async (c: Context<AppContext>) => {
   try {
+    console.log("🔍 Places Search Request:", {
+      method: c.req.method,
+      path: c.req.path,
+      headers: {
+        authorization: c.req.header("authorization"),
+        "content-type": c.req.header("content-type"),
+      },
+      timestamp: new Date().toISOString(),
+    });
+
     const body = await c.req.json();
+    console.log("🔍 Places Search Body:", body);
 
     // Validate request body
     const validationResult = placeSearchSchema.safeParse(body);
     if (!validationResult.success) {
+      console.log(
+        "🔍 Places Search Validation Failed:",
+        validationResult.error.errors,
+      );
       return c.json(
         {
           success: false,
@@ -31,6 +46,7 @@ export const searchPlace = async (c: Context<AppContext>) => {
     }
 
     const { query, coordinates } = validationResult.data;
+    console.log("🔍 Places Search Validated Input:", { query, coordinates });
 
     // Get the geocoding service instance
     const geocodingService = GoogleGeocodingService.getInstance();
@@ -40,6 +56,13 @@ export const searchPlace = async (c: Context<AppContext>) => {
       query,
       coordinates,
     );
+
+    console.log("🔍 Places Search Result:", {
+      success: result.success,
+      error: result.error,
+      hasPlace: !!result.place,
+      timestamp: new Date().toISOString(),
+    });
 
     // Return the result
     if (!result.success) {
