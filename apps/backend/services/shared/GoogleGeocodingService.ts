@@ -974,4 +974,89 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
       return "UTC";
     }
   }
+
+  public async searchPlaceForFrontend(
+    query: string,
+    userCoordinates?: { lat: number; lng: number },
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    place?: {
+      name: string;
+      address: string;
+      coordinates: [number, number];
+      placeId: string;
+      types: string[];
+      rating?: number;
+      userRatingsTotal?: number;
+      distance?: number;
+      locationNotes?: string;
+    };
+  }> {
+    try {
+      if (!query.trim()) {
+        return {
+          success: false,
+          error: "Search query cannot be empty",
+        };
+      }
+
+      // Get user's city/state if coordinates are provided
+      let userCityState = "";
+      if (userCoordinates) {
+        userCityState = await this.reverseGeocodeCityState(
+          userCoordinates.lat,
+          userCoordinates.lng,
+        );
+      }
+
+      // Use the existing searchPlaces method
+      const placesResult = await this.searchPlaces(
+        query,
+        "", // No additional location context needed
+        userCoordinates,
+        userCityState,
+      );
+
+      if (!placesResult) {
+        return {
+          success: false,
+          error: "No places found matching your search",
+        };
+      }
+
+      // Calculate distance if user coordinates are provided
+      let distance: number | undefined;
+      if (userCoordinates) {
+        distance = this.calculateDistance(
+          userCoordinates.lat,
+          userCoordinates.lng,
+          placesResult.coordinates[1],
+          placesResult.coordinates[0],
+        );
+      }
+
+      return {
+        success: true,
+        place: {
+          name: placesResult.name,
+          address: placesResult.formattedAddress,
+          coordinates: placesResult.coordinates,
+          placeId: placesResult.placeId,
+          types: placesResult.types,
+          rating: placesResult.rating,
+          userRatingsTotal: placesResult.userRatingsTotal,
+          distance,
+          locationNotes: placesResult.locationNotes,
+        },
+      };
+    } catch (error) {
+      console.error("Error in frontend place search:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Unknown error occurred",
+      };
+    }
+  }
 }

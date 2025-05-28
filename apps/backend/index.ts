@@ -40,6 +40,7 @@ import { NotificationService } from "./services/NotificationService";
 import { NotificationHandler } from "./services/NotificationHandler";
 import { notificationsRouter } from "./routes/notifications";
 import { groupsRouter } from "./routes/groups";
+import { placesRouter } from "./routes/places";
 import { redisService, redisClient } from "./services/shared/redis";
 import { Redis } from "ioredis";
 import { RedisService } from "./services/shared/RedisService";
@@ -340,6 +341,7 @@ app.route("/api/internal", internalRouter);
 app.route("/api/friendships", friendshipsRouter);
 app.route("/api/notifications", notificationsRouter);
 app.route("/api/groups", groupsRouter);
+app.route("/api/places", placesRouter);
 // =============================================================================
 // Jobs API - Server-Sent Events
 // =============================================================================
