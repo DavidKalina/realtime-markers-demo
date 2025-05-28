@@ -250,7 +250,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         onTabChange={setActiveTab}
         sections={sections}
         footerButtons={footerButtons}
-        isScrollable={activeTab !== "groups"}
+        isScrollable
       />
 
       <DeleteAccountModalComponent
