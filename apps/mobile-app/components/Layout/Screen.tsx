@@ -1,5 +1,5 @@
 import React from "react";
-import ScreenLayout from "./ScreenLayout";
+import ScreenLayout, { COLORS } from "./ScreenLayout";
 import Banner from "./Banner";
 import Animated, {
   useAnimatedScrollHandler,
@@ -93,7 +93,7 @@ const Screen = <T extends string>({
   contentStyle,
   noSafeArea,
   noAnimation,
-  isScrollable = true, // Default to true for backward compatibility
+  isScrollable = true,
 }: ScreenProps<T>) => {
   const scrollY = useSharedValue(0);
 
@@ -119,6 +119,7 @@ const Screen = <T extends string>({
         style={[
           styles.contentContainer,
           !isScrollable && styles.contentWrapper,
+          footerButtons.length > 0 && styles.contentWithFooter,
         ]}
       >
         {children}
@@ -141,9 +142,57 @@ const Screen = <T extends string>({
             </Card>
           </View>
         ))}
+      </View>
+    </ScreenContent>
+  );
+
+  return (
+    <ScreenLayout
+      style={style}
+      contentStyle={contentStyle}
+      noSafeArea={noSafeArea}
+      noAnimation={noAnimation}
+    >
+      <View style={styles.mainContainer}>
+        {isScrollable ? (
+          <Animated.ScrollView
+            showsVerticalScrollIndicator={false}
+            onScroll={scrollHandler}
+            scrollEventThrottle={16}
+            style={styles.scrollView}
+            contentContainerStyle={[
+              styles.scrollContent,
+              footerButtons.length > 0 && styles.scrollContentWithFooter,
+            ]}
+          >
+            {(bannerTitle || showBackButton) && (
+              <Banner
+                name={bannerTitle || ""}
+                description={bannerDescription}
+                emoji={bannerEmoji}
+                onBack={handleBack}
+                scrollY={scrollY}
+              />
+            )}
+            {renderContent()}
+          </Animated.ScrollView>
+        ) : (
+          <View style={styles.container}>
+            {(bannerTitle || showBackButton) && (
+              <Banner
+                name={bannerTitle || ""}
+                description={bannerDescription}
+                emoji={bannerEmoji}
+                onBack={handleBack}
+                scrollY={scrollY}
+              />
+            )}
+            {renderContent()}
+          </View>
+        )}
 
         {footerButtons.length > 0 && (
-          <View style={styles.footer}>
+          <View style={styles.fixedFooter}>
             {footerButtons.map((button, index) => (
               <Button
                 key={index}
@@ -156,54 +205,15 @@ const Screen = <T extends string>({
           </View>
         )}
       </View>
-    </ScreenContent>
-  );
-
-  return (
-    <ScreenLayout
-      style={style}
-      contentStyle={contentStyle}
-      noSafeArea={noSafeArea}
-      noAnimation={noAnimation}
-    >
-      {isScrollable ? (
-        <Animated.ScrollView
-          showsVerticalScrollIndicator={false}
-          onScroll={scrollHandler}
-          scrollEventThrottle={16}
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {(bannerTitle || showBackButton) && (
-            <Banner
-              name={bannerTitle || ""}
-              description={bannerDescription}
-              emoji={bannerEmoji}
-              onBack={handleBack}
-              scrollY={scrollY}
-            />
-          )}
-          {renderContent()}
-        </Animated.ScrollView>
-      ) : (
-        <View style={styles.container}>
-          {(bannerTitle || showBackButton) && (
-            <Banner
-              name={bannerTitle || ""}
-              description={bannerDescription}
-              emoji={bannerEmoji}
-              onBack={handleBack}
-              scrollY={scrollY}
-            />
-          )}
-          {renderContent()}
-        </View>
-      )}
     </ScreenLayout>
   );
 };
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    position: "relative",
+  },
   container: {
     flex: 1,
   },
@@ -213,13 +223,19 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
+  scrollContentWithFooter: {
+    paddingBottom: 100, // Add padding to account for fixed footer
+  },
   contentContainer: {
     flex: 1,
     paddingTop: 24,
   },
+  contentWithFooter: {
+    paddingBottom: 24, // Add padding when footer is present
+  },
   contentWrapper: {
     flex: 1,
-    minHeight: 0, // This is important for flex to work properly with nested scrollable views
+    minHeight: 0,
   },
   section: {
     marginBottom: 24,
@@ -234,9 +250,16 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
   },
-  footer: {
-    marginTop: 24,
-    marginHorizontal: 16,
+  fixedFooter: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.background,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
     flexDirection: "row",
     gap: 12,
   },
