@@ -1173,57 +1173,49 @@ Respond with a JSON object containing:
       direction = "forward",
     } = params;
 
-    // Create base query builder
-    const queryBuilder = this.groupRepository
-      .createQueryBuilder("group")
-      .leftJoinAndSelect("group.owner", "owner")
-      .leftJoinAndSelect("group.categories", "categories")
-      .where("group.visibility = :visibility", {
+    // First, get the groups within range using a subquery
+    const distanceSubquery = this.groupRepository
+      .createQueryBuilder("g")
+      .select("g.id", "id")
+      .addSelect(
+        `ST_Distance(
+          g.location::geography,
+          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+        ) / 1000`,
+        "distance",
+      )
+      .where("g.visibility = :visibility", {
         visibility: GroupVisibility.PUBLIC,
       })
-      .andWhere("group.headquarters_location IS NOT NULL"); // Only include groups with headquarters
+      .andWhere(
+        `ST_DWithin(
+          g.location::geography,
+          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+          :maxDistance
+        )`,
+        {
+          lng: coordinates.lng,
+          lat: coordinates.lat,
+          maxDistance: maxDistance * 1000, // Convert km to meters
+        },
+      );
 
     // Add category filter if provided
     if (categoryId) {
-      queryBuilder.andWhere("categories.id = :categoryId", { categoryId });
+      distanceSubquery.andWhere(
+        "EXISTS (SELECT 1 FROM group_categories gc WHERE gc.group_id = g.id AND gc.category_id = :categoryId)",
+        {
+          categoryId,
+        },
+      );
     }
 
     // Add minimum member count filter if provided
     if (minMemberCount) {
-      queryBuilder.andWhere("group.memberCount >= :minMemberCount", {
+      distanceSubquery.andWhere("g.member_count >= :minMemberCount", {
         minMemberCount,
       });
     }
-
-    // Add distance filter using PostGIS
-    queryBuilder.andWhere(
-      `ST_DWithin(
-        group.headquarters_location::geography,
-        ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
-        :maxDistance
-      )`,
-      {
-        lng: coordinates.lng,
-        lat: coordinates.lat,
-        maxDistance: maxDistance * 1000, // Convert km to meters
-      },
-    );
-
-    // Fix the addSelect call
-    queryBuilder
-      .addSelect(
-        (qb) =>
-          qb.select(
-            `ST_Distance(
-          group.headquarters_location::geography,
-          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
-        )`,
-            "distance",
-          ),
-        "distance",
-      )
-      .setParameter("lng", coordinates.lng)
-      .setParameter("lat", coordinates.lat);
 
     // Add cursor-based pagination
     if (cursor) {
@@ -1231,61 +1223,101 @@ Respond with a JSON object containing:
       const [distance, id] = decodedCursor.split(":");
 
       if (direction === "forward") {
-        queryBuilder.andWhere(
+        distanceSubquery.andWhere(
           `(ST_Distance(
-            group.headquarters_location::geography,
+            g.location::geography,
             ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
-          ) > :distance OR (
+          ) / 1000 > :distance OR (
             ST_Distance(
-              group.headquarters_location::geography,
+              g.location::geography,
               ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
-            ) = :distance AND group.id < :id
+            ) / 1000 = :distance AND g.id < :id
           ))`,
-          { lng: coordinates.lng, lat: coordinates.lat, distance, id },
+          { distance: parseFloat(distance), id },
         );
       } else {
-        queryBuilder.andWhere(
+        distanceSubquery.andWhere(
           `(ST_Distance(
-            group.headquarters_location::geography,
+            g.location::geography,
             ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
-          ) < :distance OR (
+          ) / 1000 < :distance OR (
             ST_Distance(
-              group.headquarters_location::geography,
+              g.location::geography,
               ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
-            ) = :distance AND group.id > :id
+            ) / 1000 = :distance AND g.id > :id
           ))`,
-          { lng: coordinates.lng, lat: coordinates.lat, distance, id },
+          { distance: parseFloat(distance), id },
         );
       }
     }
 
-    // Add ordering by distance and limit
-    queryBuilder
-      .orderBy("distance", direction === "forward" ? "ASC" : "DESC")
-      .addOrderBy("group.id", direction === "forward" ? "ASC" : "DESC")
+    // Add ordering
+    distanceSubquery
+      .orderBy(
+        `ST_Distance(
+          g.location::geography,
+          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+        ) / 1000`,
+        direction === "forward" ? "ASC" : "DESC",
+      )
+      .addOrderBy("g.id", direction === "forward" ? "ASC" : "DESC")
       .take(limit + 1);
 
-    const groups = (await queryBuilder.getMany()) as GroupWithDistance[];
+    // Execute the subquery to get IDs and distances
+    const distanceResults = await distanceSubquery.getRawMany();
+    const groupIds = distanceResults.map((result) => result.id);
+    const distanceMap = new Map<string, number>(
+      distanceResults.map((result) => [result.id, result.distance]),
+    );
+
+    if (groupIds.length === 0) {
+      return {
+        groups: [],
+        nextCursor: undefined,
+        prevCursor: undefined,
+      };
+    }
+
+    // Now fetch the full group data for the IDs we found
+    const queryBuilder = this.groupRepository
+      .createQueryBuilder("group")
+      .leftJoinAndSelect("group.owner", "owner")
+      .leftJoinAndSelect("group.categories", "categories")
+      .where("group.id IN (:...groupIds)", { groupIds })
+      .orderBy(
+        "CASE group.id " +
+          groupIds.map((id, index) => `WHEN '${id}' THEN ${index}`).join(" ") +
+          " END",
+      );
+
+    const groups = await queryBuilder.getMany();
     const hasMore = groups.length > limit;
     const results = hasMore ? groups.slice(0, limit) : groups;
 
-    // Create cursor based on distance and ID
+    // Add distances to the results
+    const groupsWithDistance = results.map((group) => ({
+      ...group,
+      distance: distanceMap.get(group.id) || 0,
+    })) as GroupWithDistance[];
+
     const nextCursor =
       hasMore && direction === "forward"
         ? Buffer.from(
-            `${results[results.length - 1].distance}:${results[results.length - 1].id}`,
+            `${groupsWithDistance[groupsWithDistance.length - 1].distance}:${
+              groupsWithDistance[groupsWithDistance.length - 1].id
+            }`,
           ).toString("base64")
         : undefined;
 
     const prevCursor =
       hasMore && direction === "backward"
-        ? Buffer.from(`${results[0].distance}:${results[0].id}`).toString(
-            "base64",
-          )
+        ? Buffer.from(
+            `${groupsWithDistance[0].distance}:${groupsWithDistance[0].id}`,
+          ).toString("base64")
         : undefined;
 
     const response = {
-      groups: results as GroupWithDistance[],
+      groups: groupsWithDistance,
       nextCursor,
       prevCursor,
     };

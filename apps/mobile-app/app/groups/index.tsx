@@ -4,7 +4,9 @@ import { Users, Star, Map } from "lucide-react-native";
 import Screen from "@/components/Layout/Screen";
 import List, { ListItem } from "@/components/Layout/List";
 import { useRecentGroups } from "@/hooks/useRecentGroups";
-import { ActivityIndicator, View } from "react-native";
+import { useNearbyGroups } from "@/hooks/useNearbyGroups";
+import { useUserLocation } from "@/contexts/LocationContext";
+import { ActivityIndicator, View, Alert } from "react-native";
 import { COLORS } from "@/components/Layout/ScreenLayout";
 
 const RecentGroupsSection = () => {
@@ -69,6 +71,108 @@ const RecentGroupsSection = () => {
   );
 };
 
+const NearbyGroupsSection = () => {
+  const router = useRouter();
+  const { userLocation, isLoadingLocation, getUserLocation } =
+    useUserLocation();
+  const { groups, isLoading, error } = useNearbyGroups({
+    initialLimit: 3, // Match the maxItems in List component
+    coordinates: userLocation
+      ? { lat: userLocation[1], lng: userLocation[0] }
+      : { lat: 0, lng: 0 }, // Provide default coordinates when location is not available
+    autoFetch: !!userLocation, // Only auto-fetch if we have coordinates
+  });
+
+  // Request location if not available
+  React.useEffect(() => {
+    if (!userLocation && !isLoadingLocation) {
+      Alert.alert(
+        "Location Access Required",
+        "Please enable location access to see nearby groups.",
+        [
+          {
+            text: "Enable Location",
+            onPress: getUserLocation,
+          },
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+        ],
+      );
+    }
+  }, [userLocation, isLoadingLocation, getUserLocation]);
+
+  const listItems = useMemo<ListItem[]>(() => {
+    if (!userLocation) return []; // Don't show any groups if we don't have location
+    return groups.map((group) => ({
+      id: group.id,
+      icon: Users,
+      title: group.name,
+      description: group.description,
+      badge: group.memberCount,
+      onPress: () => {
+        router.push({
+          pathname: "/group/[id]",
+          params: { id: group.id },
+        });
+      },
+    }));
+  }, [groups, router, userLocation]);
+
+  if (isLoadingLocation || isLoading) {
+    return (
+      <View style={{ padding: 20, alignItems: "center" }}>
+        <ActivityIndicator color={COLORS.accent} />
+      </View>
+    );
+  }
+
+  if (!userLocation) {
+    return (
+      <List
+        items={[]}
+        emptyState={{
+          icon: Map,
+          title: "Location Access Required",
+          description: "Enable location access to see nearby groups",
+        }}
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <List
+        items={[]}
+        emptyState={{
+          icon: Map,
+          title: "Error loading groups",
+          description: error,
+        }}
+      />
+    );
+  }
+
+  return (
+    <List
+      items={listItems}
+      maxItems={3}
+      onViewAllPress={() =>
+        router.push({
+          pathname: "/groups/list",
+          params: { filter: "nearby" },
+        })
+      }
+      emptyState={{
+        icon: Map,
+        title: "No Nearby Groups",
+        description: "Groups near your location will appear here",
+      }}
+    />
+  );
+};
+
 const GroupsScreen = () => {
   const router = useRouter();
 
@@ -127,29 +231,7 @@ const GroupsScreen = () => {
       {
         title: "Nearby Groups",
         icon: Map,
-        content: (
-          <List
-            items={[]}
-            onItemPress={(item) =>
-              router.push({
-                pathname: "/group/[id]",
-                params: { id: item.id },
-              })
-            }
-            onViewAllPress={() =>
-              router.push({
-                pathname: "/groups/list",
-                params: { filter: "nearby" },
-              })
-            }
-            maxItems={2}
-            emptyState={{
-              icon: Map,
-              title: "No Nearby Groups",
-              description: "Groups near your location will appear here",
-            }}
-          />
-        ),
+        content: <NearbyGroupsSection />,
         actionButton: {
           label: "Explore",
           onPress: () =>
