@@ -105,13 +105,86 @@ Respond with a JSON object containing:
     }
   }
 
+  /**
+   * Check if a tag is appropriate using OpenAI
+   */
+  private async isTagAppropriate(tag: string): Promise<boolean> {
+    try {
+      const prompt = `Please analyze if the following group tag/category is appropriate for a general audience platform. Consider:
+1. No profanity or offensive language
+2. No hate speech or discriminatory content
+3. No impersonation of public figures
+4. No explicit sexual content
+5. No promotion of harmful activities
+6. Tag should be relevant to group categorization (e.g., "hiking", "music", "technology" are good; "random", "test", "123" are not)
+
+Tag to analyze: "${tag}"
+
+Respond with a JSON object containing:
+{
+  "isAppropriate": boolean,
+  "reason": string
+}`;
+
+      const response = await OpenAIService.executeChatCompletion({
+        model: OpenAIModel.GPT4OMini,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+      });
+
+      const responseContent = response.choices[0].message.content;
+      if (!responseContent) {
+        throw new Error("No content received from OpenAI");
+      }
+      const result = JSON.parse(responseContent);
+      return result.isAppropriate;
+    } catch (error) {
+      console.error("Error checking tag appropriateness:", error);
+      // If we can't check appropriateness, default to allowing the tag
+      // This is safer than blocking legitimate tags if the service is down
+      return true;
+    }
+  }
+
+  // Add new method to process tags
   private async processGroupTags(tags: string[]): Promise<Category[]> {
     if (!tags || tags.length === 0) {
       return [];
     }
 
-    // Process tags using CategoryProcessingService
-    return this.categoryProcessingService.getOrCreateCategories(tags);
+    // Check each tag for appropriateness
+    const inappropriateTags: string[] = [];
+    const appropriateTags: string[] = [];
+
+    // Check all tags in parallel
+    const appropriatenessChecks = await Promise.all(
+      tags.map(async (tag) => {
+        const isAppropriate = await this.isTagAppropriate(tag);
+        return { tag, isAppropriate };
+      }),
+    );
+
+    // Separate appropriate and inappropriate tags
+    appropriatenessChecks.forEach(({ tag, isAppropriate }) => {
+      if (isAppropriate) {
+        appropriateTags.push(tag);
+      } else {
+        inappropriateTags.push(tag);
+      }
+    });
+
+    // If there are inappropriate tags, throw an error with details
+    if (inappropriateTags.length > 0) {
+      throw new Error(
+        `The following tags contain inappropriate content: ${inappropriateTags.join(", ")}`,
+      );
+    }
+
+    // Process only the appropriate tags
+    return this.categoryProcessingService.getOrCreateCategories(
+      appropriateTags,
+    );
   }
 
   async createGroup(userId: string, groupData: CreateGroupDto): Promise<Group> {
@@ -120,6 +193,7 @@ Respond with a JSON object containing:
       throw new Error("Owner user not found");
     }
 
+    // Check group name and description appropriateness
     if (!(await this.isContentAppropriate(groupData.name))) {
       throw new Error("Group name contains inappropriate content.");
     }
@@ -149,17 +223,28 @@ Respond with a JSON object containing:
       categories = [...explicitCategories];
     }
 
-    // Process tags if provided
+    // Process tags if provided - this will now also check for appropriateness
     if (groupData.tags && groupData.tags.length > 0) {
-      const tagCategories = await this.processGroupTags(groupData.tags);
-      // Merge with existing categories, avoiding duplicates
-      const categoryMap = new Map(categories.map((cat) => [cat.id, cat]));
-      tagCategories.forEach((cat) => {
-        if (!categoryMap.has(cat.id)) {
-          categoryMap.set(cat.id, cat);
+      try {
+        const tagCategories = await this.processGroupTags(groupData.tags);
+        // Merge with existing categories, avoiding duplicates
+        const categoryMap = new Map(categories.map((cat) => [cat.id, cat]));
+        tagCategories.forEach((cat) => {
+          if (!categoryMap.has(cat.id)) {
+            categoryMap.set(cat.id, cat);
+          }
+        });
+        categories = Array.from(categoryMap.values());
+      } catch (error) {
+        // Rethrow the error with a more user-friendly message
+        if (
+          error instanceof Error &&
+          error.message.includes("inappropriate content")
+        ) {
+          throw error;
         }
-      });
-      categories = Array.from(categoryMap.values());
+        throw new Error("Failed to process group tags. Please try again.");
+      }
     }
 
     // Extract headquarters data if provided
