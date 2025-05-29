@@ -6,10 +6,14 @@ import List, { ListItem } from "@/components/Layout/List";
 import { useGroupDetails, useGroupActions } from "@/hooks/useGroupDetails";
 
 // Define types for our data
-interface GroupMember {
+interface GroupMembership {
   id: string;
-  name: string;
   role: string;
+  user: {
+    id: string;
+    displayName: string;
+    // add other user fields if needed
+  };
 }
 
 interface GroupEvent {
@@ -26,7 +30,7 @@ interface Group {
   emoji?: string;
   visibility: string;
   address: string;
-  members: GroupMember[];
+  memberships: GroupMembership[];
   events: GroupEvent[];
 }
 
@@ -37,6 +41,7 @@ const GroupDetailsScreen = () => {
   const { isLeaving, isDeleting, handleLeaveGroup, handleDeleteGroup } =
     useGroupActions(group);
 
+  console.log(group);
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
       router.back();
@@ -69,14 +74,16 @@ const GroupDetailsScreen = () => {
     [],
   );
 
+  console.log(group);
+
   // Convert members to list items
   const convertToMemberItems = useCallback(
     (groupData: Group): ListItem[] =>
-      groupData.members?.slice(0, 5).map((member: GroupMember) => ({
-        id: member.id,
+      groupData.memberships?.slice(0, 5).map((membership: GroupMembership) => ({
+        id: membership.user.id,
         icon: Users,
-        title: member.name,
-        description: member.role,
+        title: membership.user.displayName,
+        description: membership.role,
       })),
     [],
   );
