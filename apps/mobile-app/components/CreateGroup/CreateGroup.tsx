@@ -13,7 +13,7 @@ import {
   Tag,
   Users,
 } from "lucide-react-native";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useRef, useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -71,6 +71,7 @@ const CreateGroup: React.FC = () => {
   const nameInputRef = useRef<TextInput>(null);
   const descriptionInputRef = useRef<TextInput>(null);
   const buttonScale = useSharedValue(1);
+  const searchTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Animation styles
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
@@ -84,35 +85,52 @@ const CreateGroup: React.FC = () => {
     }
   }, [router]);
 
-  const handleSearchPlaces = async (query: string) => {
+  const handleSearchPlaces = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
       return;
     }
 
-    setIsSearchingPlaces(true);
-    try {
-      const result = await apiClient.places.searchCityState({ query });
-
-      if (result.success && result.cityState) {
-        setSearchResults([
-          {
-            id: result.cityState.placeId,
-            label: `${result.cityState.city}, ${result.cityState.state}`,
-            description: result.cityState.formattedAddress,
-            icon: MapPinIcon,
-          },
-        ]);
-      } else {
-        setSearchResults([]);
-      }
-    } catch (error) {
-      console.error("Error searching cities:", error);
-      setError("Failed to search cities. Please try again.");
-    } finally {
-      setIsSearchingPlaces(false);
+    // Clear any existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
-  };
+
+    // Set a new timeout to debounce the search
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsSearchingPlaces(true);
+      try {
+        const result = await apiClient.places.searchCityState({ query });
+
+        if (result.success && result.cityState) {
+          setSearchResults([
+            {
+              id: result.cityState.placeId,
+              label: `${result.cityState.city}, ${result.cityState.state}`,
+              description: result.cityState.formattedAddress,
+              icon: MapPinIcon,
+            },
+          ]);
+        } else {
+          setSearchResults([]);
+        }
+      } catch (error) {
+        console.error("Error searching cities:", error);
+        setError("Failed to search cities. Please try again.");
+      } finally {
+        setIsSearchingPlaces(false);
+      }
+    }, 500); // 500ms debounce delay
+  }, []);
+
+  // Cleanup timeout on component unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleCreateGroup = async () => {
     if (!name.trim()) {
