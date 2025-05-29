@@ -163,7 +163,20 @@ Respond with a JSON object containing:
       });
       await transactionalEntityManager.save(membership);
 
-      await this.invalidateGroupCaches(savedGroup.id);
+      // Invalidate all relevant caches
+      await Promise.all([
+        // Invalidate the specific group cache
+        GroupCacheService.invalidateGroup(savedGroup.id),
+        // Invalidate user's groups cache since they're now a member
+        GroupCacheService.invalidateUserGroups(userId),
+        // Invalidate search caches since a new group is added
+        GroupCacheService.invalidateSearchCaches(),
+        // Invalidate recent groups cache
+        GroupCacheService.invalidateRecentGroupsCache(),
+        // Invalidate nearby groups cache since a new group with location is added
+        GroupCacheService.invalidateNearbyGroupsCache(),
+      ]);
+
       return savedGroup;
     });
   }

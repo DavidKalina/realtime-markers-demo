@@ -295,21 +295,32 @@ export class GroupCacheService extends CacheService {
   }
 
   static async invalidateSearchCaches(): Promise<void> {
-    await Promise.all([
-      this.invalidateByPattern(`${this.GROUP_SEARCH_PREFIX}*`),
-      this.invalidateByPattern(`${this.GROUP_PUBLIC_PREFIX}*`),
-    ]);
+    await this.invalidateByPattern(`${this.GROUP_SEARCH_PREFIX}*`);
+  }
+
+  static async invalidateRecentGroupsCache(): Promise<void> {
+    await this.invalidateByPattern(`${this.RECENT_GROUPS_PREFIX}*`);
+  }
+
+  static async invalidateNearbyGroupsCache(): Promise<void> {
+    await this.invalidateByPattern(`${this.NEARBY_GROUPS_PREFIX}*`);
   }
 
   static async invalidateAllGroupCaches(): Promise<void> {
-    await Promise.all([
-      this.invalidateByPattern(`${this.GROUP_PREFIX}*`),
-      this.invalidateByPattern(`${this.GROUP_MEMBERS_PREFIX}*`),
-      this.invalidateByPattern(`${this.GROUP_SEARCH_PREFIX}*`),
-      this.invalidateByPattern(`${this.GROUP_PUBLIC_PREFIX}*`),
-      this.invalidateByPattern(`${this.GROUP_EVENTS_PREFIX}*`),
-      this.invalidateByPattern(`${this.GROUP_USER_PREFIX}*`),
-    ]);
+    const patterns = [
+      this.GROUP_PREFIX,
+      this.GROUP_MEMBERS_PREFIX,
+      this.GROUP_SEARCH_PREFIX,
+      this.GROUP_PUBLIC_PREFIX,
+      this.GROUP_EVENTS_PREFIX,
+      this.GROUP_USER_PREFIX,
+      this.RECENT_GROUPS_PREFIX,
+      this.NEARBY_GROUPS_PREFIX,
+    ];
+
+    await Promise.all(
+      patterns.map((pattern) => this.invalidateByPattern(`${pattern}*`)),
+    );
   }
 
   static async getRecentGroups(
