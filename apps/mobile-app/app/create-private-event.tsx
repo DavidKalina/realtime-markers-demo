@@ -1,8 +1,6 @@
 import { CheckboxGroup } from "@/components/CheckboxGroup/CheckboxGroup";
 import EmbeddedDateRangeCalendar from "@/components/EmbeddedDateRangeCalendar";
-import EventScopeSelector, {
-  EventScope,
-} from "@/components/EventScopeSelector/EventScopeSelector";
+import EventScopeSelector from "@/components/EventScopeSelector/EventScopeSelector";
 import Input from "@/components/Input/Input";
 import TextArea from "@/components/Input/TextArea";
 import Header from "@/components/Layout/Header";
@@ -30,6 +28,7 @@ import {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
+import { useEventScope } from "@/hooks/useEventScope";
 
 // Unified color theme matching Login screen
 const COLORS = {
@@ -52,8 +51,12 @@ const CreatePrivateEvent = () => {
     latitude: number;
     longitude: number;
   } | null>(null);
-  const [eventScope, setEventScope] = useState<EventScope>("FRIENDS");
-  const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>();
+
+  // Use the new hook for event scope management
+  const { eventScope, selectedGroupId, handleScopeChange } = useEventScope({
+    initialScope: params.groupId ? "GROUP" : "FRIENDS",
+    initialGroupId: params.groupId as string,
+  });
 
   // Get coordinates from params
   useEffect(() => {
@@ -159,15 +162,6 @@ const CreatePrivateEvent = () => {
     }
   };
 
-  const handleScopeChange = (scope: EventScope, groupId?: string) => {
-    setEventScope(scope);
-    setSelectedGroupId(groupId);
-    // Clear selected friends when switching to group scope
-    if (scope === "GROUP") {
-      setSelectedFriends([]);
-    }
-  };
-
   const handleSubmit = async () => {
     if (isSubmitting) return;
 
@@ -185,6 +179,12 @@ const CreatePrivateEvent = () => {
     // Additional validation for friend-scoped events
     if (eventScope === "FRIENDS" && selectedFriends.length === 0) {
       Alert.alert("Error", "Please select at least one friend to share with");
+      return;
+    }
+
+    // Additional validation for group-scoped events
+    if (eventScope === "GROUP" && !selectedGroupId) {
+      Alert.alert("Error", "Please select a group to share with");
       return;
     }
 

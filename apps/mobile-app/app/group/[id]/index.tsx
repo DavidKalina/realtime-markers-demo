@@ -1,9 +1,10 @@
 import React, { useCallback, useMemo } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Users, Calendar, MapPin, Info } from "lucide-react-native";
+import { Users, Calendar, MapPin, Info, Plus } from "lucide-react-native";
 import Screen from "@/components/Layout/Screen";
 import List, { ListItem } from "@/components/Layout/List";
 import { useGroupDetails, useGroupActions } from "@/hooks/useGroupDetails";
+import Button from "@/components/Layout/Button";
 
 // Define types for our data
 interface GroupMembership {
@@ -101,12 +102,19 @@ const GroupDetailsScreen = () => {
     [],
   );
 
+  const handleCreateEvent = useCallback(() => {
+    router.push({
+      pathname: "/create-private-event",
+      params: { groupId: id },
+    });
+  }, [router, id]);
+
   // Memoize sections
   const sections = useMemo(() => {
     if (!group) return [];
 
     const groupData = group as unknown as Group;
-    return [
+    const sections = [
       {
         title: "Group Info",
         icon: Info,
@@ -177,6 +185,25 @@ const GroupDetailsScreen = () => {
         },
       },
     ];
+
+    // Add event creation section for admins/owners
+    if (isAdmin) {
+      sections.push({
+        title: "Event Management",
+        icon: Plus,
+        content: (
+          <Button
+            title="Create New Event"
+            onPress={handleCreateEvent}
+            variant="primary"
+            size="large"
+            fullWidth
+          />
+        ),
+      });
+    }
+
+    return sections;
   }, [
     group,
     convertToInfoItems,
@@ -184,6 +211,8 @@ const GroupDetailsScreen = () => {
     convertToEventItems,
     handleViewAllPress,
     router,
+    isAdmin,
+    handleCreateEvent,
   ]);
 
   // Memoize footer buttons

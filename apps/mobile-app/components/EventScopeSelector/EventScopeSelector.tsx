@@ -1,8 +1,20 @@
-import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import React, { useMemo } from "react";
+import { StyleSheet, Text, View, ActivityIndicator } from "react-native";
 import { Users, Globe } from "lucide-react-native";
-import { apiClient, ClientGroup } from "@/services/ApiClient";
 import { COLORS } from "@/components/Layout/ScreenLayout";
+import { useEventScope } from "@/hooks/useEventScope";
+import { Select, SelectOption } from "@/components/Select/Select";
+
+// Create wrapper components for the icons to match the expected type
+const UsersIcon: React.FC<{ size: number; color: string }> = ({
+  size,
+  color,
+}) => <Users size={size} color={color} />;
+
+const GlobeIcon: React.FC<{ size: number; color: string }> = ({
+  size,
+  color,
+}) => <Globe size={size} color={color} />;
 
 export type EventScope = "FRIENDS" | "GROUP";
 
@@ -10,143 +22,113 @@ interface EventScopeSelectorProps {
   onScopeChange: (scope: EventScope, groupId?: string) => void;
   selectedScope: EventScope;
   selectedGroupId?: string;
+  initialScope?: EventScope;
+  initialGroupId?: string;
 }
 
 export const EventScopeSelector: React.FC<EventScopeSelectorProps> = ({
   onScopeChange,
   selectedScope,
   selectedGroupId,
+  initialScope,
+  initialGroupId,
 }) => {
-  const [userGroups, setUserGroups] = useState<ClientGroup[]>([]);
-  const [, setIsLoading] = useState(true);
+  const {
+    ownedGroups,
+    isLoading,
+    error,
+    handleScopeChange: handleInternalScopeChange,
+  } = useEventScope({
+    initialScope,
+    initialGroupId,
+  });
 
-  useEffect(() => {
-    const fetchUserGroups = async () => {
-      try {
-        const response = await apiClient.groups.getUserGroups();
-        setUserGroups(response.groups);
-      } catch (error) {
-        console.error("Error fetching user groups:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const handleScopeChange = (scope: EventScope, groupId?: string) => {
+    handleInternalScopeChange(scope, groupId);
+    onScopeChange(scope, groupId);
+  };
 
-    fetchUserGroups();
-  }, []);
-
-  const ownedGroups = userGroups.filter(
-    (group) => group.ownerId === apiClient.auth.getCurrentUser()?.id,
+  // Create scope options
+  const scopeOptions = useMemo<SelectOption[]>(
+    () => [
+      {
+        id: "FRIENDS",
+        label: "Private Event",
+        description: "Share with selected friends",
+        icon: UsersIcon,
+      },
+      ...(ownedGroups.length > 0
+        ? [
+            {
+              id: "GROUP",
+              label: "Group Event",
+              description:
+                ownedGroups.length === 1
+                  ? `Share with ${ownedGroups[0].name}`
+                  : `Share with ${ownedGroups.length} groups`,
+              icon: GlobeIcon,
+            },
+          ]
+        : []),
+    ],
+    [ownedGroups],
   );
+
+  // Create group options if needed
+  const groupOptions = useMemo<SelectOption[]>(() => {
+    if (selectedScope !== "GROUP" || ownedGroups.length <= 1) return [];
+
+    return ownedGroups.map((group) => ({
+      id: group.id,
+      label: group.name,
+      description: "Group event",
+    }));
+  }, [selectedScope, ownedGroups]);
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.sectionLabel}>Event Scope</Text>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={COLORS.accent} />
+          <Text style={styles.loadingText}>Loading groups...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.sectionLabel}>Event Scope</Text>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <Text style={styles.sectionLabel}>Event Scope</Text>
 
-      <View style={styles.optionsContainer}>
-        {/* Friends Option */}
-        <TouchableOpacity
-          style={[
-            styles.option,
-            selectedScope === "FRIENDS" && styles.selectedOption,
-          ]}
-          onPress={() => onScopeChange("FRIENDS")}
-        >
-          <View style={styles.optionContent}>
-            <Users
-              size={20}
-              color={
-                selectedScope === "FRIENDS"
-                  ? COLORS.accent
-                  : COLORS.textSecondary
-              }
-            />
-            <View style={styles.optionTextContainer}>
-              <Text
-                style={[
-                  styles.optionTitle,
-                  selectedScope === "FRIENDS" && styles.selectedText,
-                ]}
-              >
-                Private Event
-              </Text>
-              <Text
-                style={[
-                  styles.optionDescription,
-                  selectedScope === "FRIENDS" && styles.selectedText,
-                ]}
-              >
-                Share with selected friends
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
+      <Select
+        value={scopeOptions.find((opt) => opt.id === selectedScope)}
+        options={scopeOptions}
+        onChange={(option) => handleScopeChange(option.id as EventScope)}
+        placeholder="Select event scope"
+        label="Event Type"
+      />
 
-        {/* Group Option */}
-        {ownedGroups.length > 0 && (
-          <TouchableOpacity
-            style={[
-              styles.option,
-              selectedScope === "GROUP" && styles.selectedOption,
-            ]}
-            onPress={() => onScopeChange("GROUP", ownedGroups[0].id)}
-          >
-            <View style={styles.optionContent}>
-              <Globe
-                size={20}
-                color={
-                  selectedScope === "GROUP"
-                    ? COLORS.accent
-                    : COLORS.textSecondary
-                }
-              />
-              <View style={styles.optionTextContainer}>
-                <Text
-                  style={[
-                    styles.optionTitle,
-                    selectedScope === "GROUP" && styles.selectedText,
-                  ]}
-                >
-                  Group Event
-                </Text>
-                <Text
-                  style={[
-                    styles.optionDescription,
-                    selectedScope === "GROUP" && styles.selectedText,
-                  ]}
-                >
-                  {ownedGroups.length === 1
-                    ? `Share with ${ownedGroups[0].name}`
-                    : `Share with ${ownedGroups.length} groups`}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Group Selection Dropdown (if multiple groups) */}
       {selectedScope === "GROUP" && ownedGroups.length > 1 && (
         <View style={styles.groupSelector}>
-          {ownedGroups.map((group) => (
-            <TouchableOpacity
-              key={group.id}
-              style={[
-                styles.groupOption,
-                selectedGroupId === group.id && styles.selectedGroupOption,
-              ]}
-              onPress={() => onScopeChange("GROUP", group.id)}
-            >
-              <Text
-                style={[
-                  styles.groupOptionText,
-                  selectedGroupId === group.id && styles.selectedText,
-                ]}
-              >
-                {group.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          <Select
+            value={groupOptions.find((opt) => opt.id === selectedGroupId)}
+            options={groupOptions}
+            onChange={(option) => handleScopeChange("GROUP", option.id)}
+            placeholder="Select a group"
+            label="Select Group"
+          />
         </View>
       )}
     </View>
@@ -164,61 +146,31 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     marginBottom: 12,
   },
-  optionsContainer: {
-    gap: 12,
-  },
-  option: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  selectedOption: {
-    borderColor: COLORS.accent,
-    backgroundColor: "rgba(147, 197, 253, 0.1)",
-  },
-  optionContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  optionTextContainer: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  optionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    marginBottom: 4,
-  },
-  optionDescription: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
-  },
-  selectedText: {
-    color: COLORS.accent,
-  },
   groupSelector: {
     marginTop: 12,
-    gap: 8,
   },
-  groupOption: {
+  loadingContainer: {
+    padding: 16,
+    alignItems: "center",
     backgroundColor: COLORS.cardBackground,
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 12,
   },
-  selectedGroupOption: {
-    borderColor: COLORS.accent,
-    backgroundColor: "rgba(147, 197, 253, 0.1)",
-  },
-  groupOptionText: {
+  loadingText: {
+    marginTop: 8,
+    color: COLORS.textSecondary,
     fontSize: 14,
-    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
+  },
+  errorContainer: {
+    padding: 16,
+    backgroundColor: "rgba(255, 0, 0, 0.1)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 0, 0, 0.2)",
+  },
+  errorText: {
+    color: "#ff6b6b",
+    fontSize: 14,
     fontFamily: "SpaceMono",
   },
 });
