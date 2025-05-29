@@ -13,6 +13,7 @@ import {
 import { User } from "../entities/User";
 import { GroupCacheService } from "./shared/GroupCacheService";
 import { OpenAIModel, OpenAIService } from "./shared/OpenAIService"; // Reusing from AuthService for content moderation
+import { CategoryProcessingService } from "./CategoryProcessingService";
 
 interface CursorPaginationParams {
   cursor?: string;
@@ -50,6 +51,7 @@ export class GroupService {
   private categoryRepository: Repository<Category>;
   private eventRepository: Repository<Event>;
   private dataSource: DataSource;
+  private categoryProcessingService: CategoryProcessingService;
 
   constructor(dataSource: DataSource) {
     this.dataSource = dataSource;
@@ -58,6 +60,9 @@ export class GroupService {
     this.groupMembershipRepository = dataSource.getRepository(GroupMembership);
     this.categoryRepository = dataSource.getRepository(Category);
     this.eventRepository = dataSource.getRepository(Event);
+    this.categoryProcessingService = new CategoryProcessingService(
+      this.categoryRepository,
+    );
 
     // Log the table name to verify
     console.log("Group table name:", this.groupRepository.metadata.tableName);
@@ -100,6 +105,15 @@ Respond with a JSON object containing:
     }
   }
 
+  private async processGroupTags(tags: string[]): Promise<Category[]> {
+    if (!tags || tags.length === 0) {
+      return [];
+    }
+
+    // Process tags using CategoryProcessingService
+    return this.categoryProcessingService.getOrCreateCategories(tags);
+  }
+
   async createGroup(userId: string, groupData: CreateGroupDto): Promise<Group> {
     const owner = await this.userRepository.findOneBy({ id: userId });
     if (!owner) {
@@ -126,11 +140,26 @@ Respond with a JSON object containing:
       );
     }
 
+    // Process both explicit categories and tags
     let categories: Category[] = [];
     if (groupData.categoryIds && groupData.categoryIds.length > 0) {
-      categories = await this.categoryRepository.findBy({
+      const explicitCategories = await this.categoryRepository.findBy({
         id: In(groupData.categoryIds),
       });
+      categories = [...explicitCategories];
+    }
+
+    // Process tags if provided
+    if (groupData.tags && groupData.tags.length > 0) {
+      const tagCategories = await this.processGroupTags(groupData.tags);
+      // Merge with existing categories, avoiding duplicates
+      const categoryMap = new Map(categories.map((cat) => [cat.id, cat]));
+      tagCategories.forEach((cat) => {
+        if (!categoryMap.has(cat.id)) {
+          categoryMap.set(cat.id, cat);
+        }
+      });
+      categories = Array.from(categoryMap.values());
     }
 
     // Extract headquarters data if provided

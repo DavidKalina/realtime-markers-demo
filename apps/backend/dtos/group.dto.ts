@@ -22,6 +22,7 @@ export interface CreateGroupDto {
   headquarters?: HeadquartersInfo;
   allowMemberEventCreation?: boolean;
   categoryIds?: string[];
+  tags?: string[]; // Add tags field for user-provided tags
 }
 
 export interface UpdateGroupDto {
