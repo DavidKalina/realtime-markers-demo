@@ -11,12 +11,8 @@ import type {
   UpdateGroupDto,
   UpdateMemberRoleDto,
 } from "../dtos/group.dto";
-
-// Helper function to get services from context
-function getServices(c: Context<AppContext>) {
-  const groupService = c.get("groupService");
-  return { groupService };
-}
+import { getServices } from "../services/shared/getServices";
+import { AppError } from "../utils/errors";
 
 // Helper function to get userId from token (assuming it's set by authMiddleware)
 function getAuthenticatedUserId(c: Context<AppContext>): string {
@@ -86,12 +82,16 @@ export const getGroupHandler = async (c: Context<AppContext>) => {
     return c.json(group);
   } catch (error) {
     console.error("Error fetching group:", error);
-    return c.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to fetch group",
-      },
-      500,
-    );
+    if (error instanceof AppError) {
+      return c.json(
+        { error: error.message },
+        error.statusCode as 400 | 401 | 403 | 404 | 409 | 429 | 500,
+      );
+    }
+    if (error instanceof Error) {
+      return c.json({ error: error.message }, 500 as const);
+    }
+    return c.json({ error: "Internal server error" }, 500 as const);
   }
 };
 
@@ -529,5 +529,48 @@ export const getGroupEventsHandler = async (c: Context<AppContext>) => {
       },
       500,
     );
+  }
+};
+
+export const getRecentGroupsHandler = async (c: Context<AppContext>) => {
+  try {
+    const {
+      cursor,
+      limit = "10",
+      direction = "forward",
+      categoryId,
+      minMemberCount,
+      maxDistance,
+      lat,
+      lng,
+    } = c.req.query();
+
+    const userCoordinates =
+      lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : undefined;
+
+    const { groupService } = getServices(c);
+    const result = await groupService.recentGroups({
+      cursor,
+      limit: parseInt(limit, 10),
+      direction: direction as "forward" | "backward",
+      categoryId: categoryId || undefined,
+      minMemberCount: minMemberCount ? parseInt(minMemberCount, 10) : undefined,
+      maxDistance: maxDistance ? parseFloat(maxDistance) : undefined,
+      userCoordinates,
+    });
+
+    return c.json(result);
+  } catch (error: unknown) {
+    console.error("Error in getRecentGroupsHandler:", error);
+    if (error instanceof AppError) {
+      return c.json(
+        { error: error.message },
+        error.statusCode as 400 | 401 | 403 | 404 | 409 | 429 | 500,
+      );
+    }
+    if (error instanceof Error) {
+      return c.json({ error: error.message }, 500 as const);
+    }
+    return c.json({ error: "Internal server error" }, 500 as const);
   }
 };
