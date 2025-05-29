@@ -226,6 +226,13 @@ const GroupsListScreen = () => {
       bannerEmoji="👥"
       showBackButton
       onBack={() => router.back()}
+      footerButtons={[
+        {
+          label: "Create Group",
+          onPress: () => router.push("/create-group"),
+          variant: "primary" as const,
+        },
+      ]}
     >
       <Input
         placeholder="Search groups..."
