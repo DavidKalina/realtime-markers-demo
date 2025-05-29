@@ -153,6 +153,7 @@ const SearchIndexScreen = () => {
 
   return (
     <Screen
+      onBack={() => router.back()}
       bannerTitle="Discover Events"
       bannerDescription="Find events happening near you and around the world"
       bannerEmoji="🔍"

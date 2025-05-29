@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { Search as SearchIcon, X, MapPin } from "lucide-react-native";
 import {
   View,
@@ -16,18 +16,17 @@ import { COLORS } from "@/components/Layout/ScreenLayout";
 import useEventSearch from "@/hooks/useEventSearch";
 import { useLocationStore } from "@/stores/useLocationStore";
 
-// Define Event type to exactly match EventType from useEventSearch
+// Define Event type to match EventType from useEventSearch
 interface Event {
   id: string;
   title: string;
   description?: string;
   location: string;
-  distance: string; // Changed to string to match EventType
+  distance: string;
 }
 
-const SearchListScreen = () => {
+const SavedListScreen = () => {
   const router = useRouter();
-  const { filter } = useLocalSearchParams<{ filter?: string }>();
   const searchInputRef = useRef<TextInput>(null);
   const storedMarkers = useLocationStore((state) => state.markers);
 
@@ -86,29 +85,11 @@ const SearchListScreen = () => {
   }, []);
 
   const getBannerTitle = () => {
-    switch (filter) {
-      case "nearby":
-        return "Nearby Events";
-      case "upcoming":
-        return "Upcoming Events";
-      case "popular":
-        return "Popular Events";
-      default:
-        return "Search Events";
-    }
+    return "Saved Events";
   };
 
   const getBannerDescription = () => {
-    switch (filter) {
-      case "nearby":
-        return "Events happening near you";
-      case "upcoming":
-        return "Events coming up soon";
-      case "popular":
-        return "Most popular events";
-      default:
-        return "Find events, venues, and categories";
-    }
+    return "Browse and search your saved events";
   };
 
   const renderEventItem = useCallback(
@@ -158,7 +139,7 @@ const SearchListScreen = () => {
       isScrollable={false}
       bannerTitle={getBannerTitle()}
       bannerDescription={getBannerDescription()}
-      bannerEmoji="🔍"
+      bannerEmoji="🔖"
       showBackButton
       onBack={handleBack}
       noAnimation
@@ -168,7 +149,7 @@ const SearchListScreen = () => {
         icon={SearchIcon}
         rightIcon={searchQuery !== "" ? X : undefined}
         onRightIconPress={handleClearSearch}
-        placeholder="Search events, venues, categories..."
+        placeholder="Search your saved events..."
         value={searchQuery}
         onChangeText={handleSearchInput}
         returnKeyType="search"
@@ -190,8 +171,8 @@ const SearchListScreen = () => {
         error={error}
         emptyListMessage={
           searchQuery.trim()
-            ? "No events found matching your search"
-            : "No events found"
+            ? "No saved events found matching your search"
+            : "No saved events found"
         }
         onRetry={async () => await searchEvents(true)}
       />
@@ -249,4 +230,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SearchListScreen;
+export default SavedListScreen;
