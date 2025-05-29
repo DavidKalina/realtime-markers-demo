@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useRef } from "react";
 import { useRouter } from "expo-router";
 import { Search as SearchIcon, X, MapPin } from "lucide-react-native";
 import {
@@ -13,8 +13,7 @@ import Screen from "@/components/Layout/Screen";
 import Input from "@/components/Input/Input";
 import InfiniteScrollFlatList from "@/components/Layout/InfintieScrollFlatList";
 import { COLORS } from "@/components/Layout/ScreenLayout";
-import useEventSearch from "@/hooks/useEventSearch";
-import { useLocationStore } from "@/stores/useLocationStore";
+import { useSavedEvents } from "@/hooks/useSavedEvents";
 
 // Define Event type to match EventType from useEventSearch
 interface Event {
@@ -28,38 +27,27 @@ interface Event {
 const SavedListScreen = () => {
   const router = useRouter();
   const searchInputRef = useRef<TextInput>(null);
-  const storedMarkers = useLocationStore((state) => state.markers);
+  const [searchQuery, setSearchQuery] = React.useState("");
 
-  // Use our custom hook for search functionality
-  const {
-    searchQuery,
-    setSearchQuery,
-    eventResults,
-    isLoading,
-    error,
-    searchEvents,
-    handleLoadMore: loadMoreEvents,
-    clearSearch,
-  } = useEventSearch({ initialMarkers: storedMarkers });
+  const { events, isLoading, error, hasMore, loadMore, refresh } =
+    useSavedEvents();
 
   // Search input handlers
-  const handleSearchInput = useCallback(
-    (text: string) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setSearchQuery(text);
-    },
-    [setSearchQuery],
-  );
+  const handleSearchInput = useCallback((text: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSearchQuery(text);
+  }, []);
 
   const handleSearch = useCallback(async () => {
-    await searchEvents(true);
-  }, [searchEvents]);
+    // TODO: Implement search functionality when backend supports it
+    await refresh();
+  }, [refresh]);
 
   const handleClearSearch = useCallback(() => {
     Haptics.selectionAsync();
-    clearSearch();
+    setSearchQuery("");
     searchInputRef.current?.focus();
-  }, [clearSearch]);
+  }, []);
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -78,19 +66,11 @@ const SavedListScreen = () => {
   );
 
   // Auto-focus the search input when the screen opens
-  useEffect(() => {
+  React.useEffect(() => {
     setTimeout(() => {
       searchInputRef.current?.focus();
     }, 500);
   }, []);
-
-  const getBannerTitle = () => {
-    return "Saved Events";
-  };
-
-  const getBannerDescription = () => {
-    return "Browse and search your saved events";
-  };
 
   const renderEventItem = useCallback(
     (event: Event) => (
@@ -125,20 +105,24 @@ const SavedListScreen = () => {
     [handleEventPress],
   );
 
-  const handleLoadMore = useCallback(async (): Promise<void> => {
-    try {
-      await loadMoreEvents();
-    } catch (error) {
-      console.error("Error loading more events:", error);
-      throw error; // Re-throw to let InfiniteScrollFlatList handle the error
-    }
-  }, [loadMoreEvents]);
+  // Filter events based on search query
+  const filteredEvents = React.useMemo(() => {
+    if (!searchQuery.trim()) return events;
+
+    const query = searchQuery.toLowerCase();
+    return events.filter(
+      (event) =>
+        event.title.toLowerCase().includes(query) ||
+        event.description?.toLowerCase().includes(query) ||
+        event.location.toLowerCase().includes(query),
+    );
+  }, [events, searchQuery]);
 
   return (
     <Screen
       isScrollable={false}
-      bannerTitle={getBannerTitle()}
-      bannerDescription={getBannerDescription()}
+      bannerTitle="Saved Events"
+      bannerDescription="Browse and search your saved events"
       bannerEmoji="🔖"
       showBackButton
       onBack={handleBack}
@@ -161,20 +145,20 @@ const SavedListScreen = () => {
         style={{ marginHorizontal: 16, marginBottom: 16 }}
       />
       <InfiniteScrollFlatList
-        data={eventResults as unknown as Event[]}
+        data={filteredEvents}
         renderItem={renderEventItem}
-        fetchMoreData={handleLoadMore}
-        onRefresh={async () => await searchEvents(true)}
+        fetchMoreData={loadMore}
+        onRefresh={refresh}
         isLoading={isLoading}
-        isRefreshing={isLoading && eventResults.length === 0}
-        hasMore={!error && eventResults.length > 0}
+        isRefreshing={isLoading && events.length === 0}
+        hasMore={hasMore && !error}
         error={error}
         emptyListMessage={
           searchQuery.trim()
             ? "No saved events found matching your search"
             : "No saved events found"
         }
-        onRetry={async () => await searchEvents(true)}
+        onRetry={refresh}
       />
     </Screen>
   );

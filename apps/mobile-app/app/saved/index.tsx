@@ -3,8 +3,7 @@ import { useRouter } from "expo-router";
 import { Bookmark, MapPin } from "lucide-react-native";
 import Screen from "@/components/Layout/Screen";
 import List from "@/components/Layout/List";
-import useEventSearch from "@/hooks/useEventSearch";
-import { useLocationStore } from "@/stores/useLocationStore";
+import { useSavedEvents } from "@/hooks/useSavedEvents";
 
 // Define Event type to match EventType from useEventSearch
 interface Event {
@@ -17,20 +16,7 @@ interface Event {
 
 const SavedIndexScreen = () => {
   const router = useRouter();
-  const storedMarkers = useLocationStore((state) => state.markers);
-
-  // Use our custom hook for saved events
-  const {
-    eventResults: savedEvents,
-    setSearchQuery: setSavedQuery,
-    searchEvents: searchSaved,
-  } = useEventSearch({ initialMarkers: storedMarkers });
-
-  // Set initial search query for saved events
-  React.useEffect(() => {
-    setSavedQuery("saved");
-    searchSaved(true);
-  }, [setSavedQuery, searchSaved]);
+  const { events: savedEvents, isLoading, error, refresh } = useSavedEvents();
 
   const handleEventPress = useCallback(
     (event: Event) => {
@@ -45,7 +31,6 @@ const SavedIndexScreen = () => {
   const handleViewAllPress = useCallback(
     (filter: string) => {
       router.push({
-        // TODO: Replace with proper route type once /saved/list is registered in the app's routing system
         pathname: "/saved/list",
         params: { filter },
       });
@@ -81,9 +66,19 @@ const SavedIndexScreen = () => {
             onViewAllPress={() => handleViewAllPress("saved")}
             emptyState={{
               icon: Bookmark,
-              title: "No Saved Events",
-              description: "Events you save will appear here",
+              title: isLoading
+                ? "Loading..."
+                : error
+                  ? "Error Loading Events"
+                  : "No Saved Events",
+              description: isLoading
+                ? "Please wait while we load your saved events"
+                : error
+                  ? "Tap to try again"
+                  : "Events you save will appear here",
             }}
+            refreshing={isLoading}
+            onRefresh={refresh}
           />
         ),
         onPress: () => handleViewAllPress("saved"),
@@ -94,7 +89,15 @@ const SavedIndexScreen = () => {
         },
       },
     ],
-    [savedEvents, convertToListItem, handleEventPress, handleViewAllPress],
+    [
+      savedEvents,
+      convertToListItem,
+      handleEventPress,
+      handleViewAllPress,
+      isLoading,
+      error,
+      refresh,
+    ],
   );
 
   return (
