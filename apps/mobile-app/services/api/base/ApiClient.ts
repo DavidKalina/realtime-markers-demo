@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthTokens, User } from "./types";
+import { categoriesModule } from "../modules/categories";
 
 export class BaseApiClient {
   protected baseUrl: string;
@@ -408,4 +409,7 @@ export class BaseApiClient {
   async refreshAuthTokens(): Promise<boolean> {
     return this.refreshTokens();
   }
+
+  // Add categories module
+  readonly categories = categoriesModule;
 }

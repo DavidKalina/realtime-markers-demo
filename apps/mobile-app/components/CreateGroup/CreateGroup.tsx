@@ -5,15 +5,8 @@ import { apiClient } from "@/services/ApiClient";
 import { GroupVisibility } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import {
-  ArrowLeft,
-  Globe,
-  Lock,
-  MapPin,
-  Tag,
-  Users,
-} from "lucide-react-native";
-import React, { useCallback, useRef, useState, useEffect } from "react";
+import { ArrowLeft, Globe, Lock, MapPin, Users } from "lucide-react-native";
+import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -40,6 +33,8 @@ import Input from "../Input/Input";
 import TextArea from "../Input/TextArea";
 import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 import { Select, SelectOption } from "../Select/Select";
+import { CategorySelector } from "../CategorySelector/CategorySelector";
+import { useCategories } from "@/hooks/useCategories";
 
 // Create a wrapper component that matches the expected icon type
 const MapPinIcon: React.FC<{ size: number; color: string }> = ({
@@ -66,6 +61,16 @@ const CreateGroup: React.FC = () => {
   const [headquarters, setHeadquarters] = useState<SelectOption | undefined>();
   const [searchResults, setSearchResults] = useState<SelectOption[]>([]);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+
+  // Use the categories hook
+  const {
+    selectedCategories,
+    availableCategories,
+    isLoading: isLoadingCategories,
+    error: categoryError,
+    handleSearchCategories,
+    handleCategoriesChange,
+  } = useCategories({ maxCategories: 5 });
 
   // Refs for inputs
   const nameInputRef = useRef<TextInput>(null);
@@ -123,15 +128,6 @@ const CreateGroup: React.FC = () => {
     }, 500); // 500ms debounce delay
   }, []);
 
-  // Cleanup timeout on component unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, []);
-
   const handleCreateGroup = async () => {
     if (!name.trim()) {
       setError("Group name is required");
@@ -168,7 +164,7 @@ const CreateGroup: React.FC = () => {
         emoji: emoji || undefined,
         visibility,
         allowMemberEventCreation,
-        categoryIds: [],
+        categoryIds: selectedCategories.map((category) => category.id),
         headquarters:
           selectedHeadquarters &&
           cityStateData?.success &&
@@ -377,10 +373,15 @@ const CreateGroup: React.FC = () => {
 
                     {/* Categories Section */}
                     <View style={styles.categoriesSection}>
-                      <View style={styles.sectionHeader}>
-                        <Tag size={18} color={COLORS.accent} />
-                        <Text style={styles.sectionTitle}>Categories</Text>
-                      </View>
+                      <CategorySelector
+                        selectedCategories={selectedCategories}
+                        availableCategories={availableCategories}
+                        onCategoriesChange={handleCategoriesChange}
+                        onSearchCategories={handleSearchCategories}
+                        isLoading={isLoadingCategories}
+                        error={categoryError || undefined}
+                        maxCategories={5}
+                      />
                     </View>
 
                     {/* Create Button */}

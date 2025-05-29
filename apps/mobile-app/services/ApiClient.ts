@@ -11,6 +11,7 @@ import { notificationsModule } from "./api/modules/notifications";
 import { filtersModule } from "./api/modules/filters";
 import { rsvpModule } from "./api/modules/rsvp";
 import { plansModule } from "./api/modules/plans";
+import { categoriesModule } from "./api/modules/categories";
 
 // Re-export types and enums
 export * from "./api/base/types";
@@ -36,6 +37,7 @@ export class ApiClient extends BaseApiClient {
   public readonly plans = plansModule;
   public readonly clusters: ClusterApiClient;
   public readonly places: PlacesApiClient;
+  public readonly categories = categoriesModule;
 
   constructor(baseUrl: string) {
     super(baseUrl);
