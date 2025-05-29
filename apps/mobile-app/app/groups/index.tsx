@@ -12,12 +12,12 @@ const NearbyGroupsSection = () => {
   const router = useRouter();
   const { userLocation, isLoadingLocation, getUserLocation } =
     useUserLocation();
-  const { groups, isLoading, error } = useNearbyGroups({
-    initialLimit: 3, // Match the maxItems in List component
+  const { groups, isLoading, error, refresh } = useNearbyGroups({
+    initialLimit: 10,
     coordinates: userLocation
       ? { lat: userLocation[1], lng: userLocation[0] }
-      : { lat: 0, lng: 0 }, // Provide default coordinates when location is not available
-    autoFetch: !!userLocation, // Only auto-fetch if we have coordinates
+      : { lat: 0, lng: 0 },
+    autoFetch: !!userLocation,
   });
 
   // Request location if not available
@@ -41,7 +41,7 @@ const NearbyGroupsSection = () => {
   }, [userLocation, isLoadingLocation, getUserLocation]);
 
   const listItems = useMemo<ListItem[]>(() => {
-    if (!userLocation) return []; // Don't show any groups if we don't have location
+    if (!userLocation) return [];
     return groups.map((group) => ({
       id: group.id,
       icon: Users,
@@ -74,6 +74,9 @@ const NearbyGroupsSection = () => {
           title: "Location Access Required",
           description: "Enable location access to see nearby groups",
         }}
+        scrollable
+        refreshing={isLoading}
+        onRefresh={refresh}
       />
     );
   }
@@ -87,6 +90,9 @@ const NearbyGroupsSection = () => {
           title: "Error loading groups",
           description: error,
         }}
+        scrollable
+        refreshing={isLoading}
+        onRefresh={refresh}
       />
     );
   }
@@ -94,13 +100,9 @@ const NearbyGroupsSection = () => {
   return (
     <List
       items={listItems}
-      maxItems={3}
-      onViewAllPress={() =>
-        router.push({
-          pathname: "/groups/list",
-          params: { filter: "nearby" },
-        })
-      }
+      scrollable
+      refreshing={isLoading}
+      onRefresh={refresh}
       emptyState={{
         icon: Map,
         title: "No Nearby Groups",

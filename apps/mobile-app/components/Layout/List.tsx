@@ -8,6 +8,7 @@ import {
   ScrollView,
   Switch,
   Platform,
+  RefreshControl,
 } from "react-native";
 import { COLORS } from "./ScreenLayout";
 import { LucideIcon } from "lucide-react-native";
@@ -45,6 +46,8 @@ export interface ListProps {
   scrollable?: boolean;
   animated?: boolean;
   delay?: number;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }
 
 export const StyledSwitch = React.memo<{
@@ -168,6 +171,8 @@ const List: React.FC<ListProps> = ({
   scrollable = true,
   animated = true,
   delay = 0,
+  refreshing = false,
+  onRefresh,
 }) => {
   const displayItems = maxItems ? items.slice(0, maxItems) : items;
   const hasMore = maxItems ? items.length > maxItems : false;
@@ -210,6 +215,11 @@ const List: React.FC<ListProps> = ({
         style={[styles.container, style]}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          ) : undefined
+        }
       >
         {content}
       </ScrollView>
