@@ -100,6 +100,12 @@ export interface CreateGroupPayload {
   address?: string;
   allowMemberEventCreation?: boolean;
   categoryIds?: string[];
+  headquarters?: {
+    placeId: string;
+    name: string;
+    address: string;
+    coordinates: { type: "Point"; coordinates: [number, number] };
+  };
 }
 
 export interface UpdateGroupPayload {
@@ -113,6 +119,12 @@ export interface UpdateGroupPayload {
   address?: string;
   allowMemberEventCreation?: boolean;
   categoryIds?: string[];
+  headquarters?: {
+    placeId: string;
+    name: string;
+    address: string;
+    coordinates: { type: "Point"; coordinates: [number, number] };
+  };
 }
 
 export interface ManageMembershipStatusPayload {

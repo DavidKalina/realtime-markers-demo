@@ -1027,4 +1027,117 @@ Respond with a JSON object containing:
     await GroupCacheService.setGroupSearch(params, response);
     return response;
   }
+
+  async recentGroups(
+    params: CursorPaginationParams & {
+      categoryId?: string;
+      minMemberCount?: number;
+      maxDistance?: number;
+      userCoordinates?: { lat: number; lng: number };
+    } = {},
+  ): Promise<{
+    groups: Group[];
+    nextCursor?: string;
+    prevCursor?: string;
+  }> {
+    // Try cache first
+    const cached = await GroupCacheService.getRecentGroups(params);
+    if (cached) {
+      return cached;
+    }
+
+    const {
+      categoryId,
+      minMemberCount,
+      maxDistance,
+      userCoordinates,
+      cursor,
+      limit = 10,
+      direction = "forward",
+    } = params;
+
+    // Create base query builder
+    const queryBuilder = this.groupRepository
+      .createQueryBuilder("group")
+      .leftJoinAndSelect("group.owner", "owner")
+      .leftJoinAndSelect("group.categories", "categories")
+      .where("group.visibility = :visibility", {
+        visibility: GroupVisibility.PUBLIC,
+      });
+
+    // Add category filter if provided
+    if (categoryId) {
+      queryBuilder.andWhere("categories.id = :categoryId", { categoryId });
+    }
+
+    // Add minimum member count filter if provided
+    if (minMemberCount) {
+      queryBuilder.andWhere("group.memberCount >= :minMemberCount", {
+        minMemberCount,
+      });
+    }
+
+    // Add distance filter if user coordinates and max distance are provided
+    if (userCoordinates && maxDistance) {
+      queryBuilder.andWhere(
+        `ST_DWithin(
+          group.headquarters_location::geography,
+          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+          :maxDistance
+        )`,
+        {
+          lng: userCoordinates.lng,
+          lat: userCoordinates.lat,
+          maxDistance: maxDistance * 1000, // Convert km to meters
+        },
+      );
+    }
+
+    // Add cursor-based pagination
+    if (cursor) {
+      const decodedCursor = Buffer.from(cursor, "base64").toString();
+      const [timestamp, id] = decodedCursor.split(":");
+
+      if (direction === "forward") {
+        queryBuilder.andWhere(
+          "(group.createdAt < :timestamp OR (group.createdAt = :timestamp AND group.id < :id))",
+          { timestamp, id },
+        );
+      } else {
+        queryBuilder.andWhere(
+          "(group.createdAt > :timestamp OR (group.createdAt = :timestamp AND group.id > :id))",
+          { timestamp, id },
+        );
+      }
+    }
+
+    // Add ordering and limit
+    queryBuilder
+      .orderBy("group.createdAt", direction === "forward" ? "DESC" : "ASC")
+      .addOrderBy("group.id", direction === "forward" ? "DESC" : "ASC")
+      .take(limit + 1);
+
+    const groups = await queryBuilder.getMany();
+    const hasMore = groups.length > limit;
+    const results = hasMore ? groups.slice(0, limit) : groups;
+
+    const nextCursor =
+      hasMore && direction === "forward"
+        ? this.createCursor(results[results.length - 1])
+        : undefined;
+
+    const prevCursor =
+      hasMore && direction === "backward"
+        ? this.createCursor(results[0])
+        : undefined;
+
+    const response = {
+      groups: results,
+      nextCursor,
+      prevCursor,
+    };
+
+    await GroupCacheService.setRecentGroups(params, response);
+    return response;
+  }
 }

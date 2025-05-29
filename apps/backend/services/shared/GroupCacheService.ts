@@ -31,12 +31,14 @@ export class GroupCacheService extends CacheService {
   private static readonly GROUP_PUBLIC_PREFIX = "group:public:";
   private static readonly GROUP_EVENTS_PREFIX = "group:events:";
   private static readonly GROUP_USER_PREFIX = "group:user:";
+  private static readonly RECENT_GROUPS_PREFIX = "recent_groups:";
 
   // Cache TTLs
   private static readonly GROUP_TTL = 300; // 5 minutes
   private static readonly GROUP_SEARCH_TTL = 60; // 1 minute
   private static readonly GROUP_MEMBERS_TTL = 300; // 5 minutes
   private static readonly GROUP_EVENTS_TTL = 300; // 5 minutes
+  private static readonly CACHE_TTL = 5 * 60; // 5 minutes
 
   // Group data caching
   static async getGroup(groupId: string): Promise<Group | null> {
@@ -269,8 +271,12 @@ export class GroupCacheService extends CacheService {
   static async invalidateGroup(groupId: string): Promise<void> {
     const patterns = [
       `${this.GROUP_PREFIX}${groupId}`,
+      `${this.GROUP_PUBLIC_PREFIX}*`,
+      `${this.GROUP_USER_PREFIX}*`,
       `${this.GROUP_MEMBERS_PREFIX}${groupId}:*`,
       `${this.GROUP_EVENTS_PREFIX}${groupId}:*`,
+      `${this.GROUP_SEARCH_PREFIX}*`,
+      `${this.RECENT_GROUPS_PREFIX}*`,
     ];
 
     await Promise.all(
@@ -298,5 +304,63 @@ export class GroupCacheService extends CacheService {
       this.invalidateByPattern(`${this.GROUP_EVENTS_PREFIX}*`),
       this.invalidateByPattern(`${this.GROUP_USER_PREFIX}*`),
     ]);
+  }
+
+  static async getRecentGroups(
+    params: {
+      categoryId?: string;
+      minMemberCount?: number;
+      maxDistance?: number;
+      userCoordinates?: { lat: number; lng: number };
+      cursor?: string;
+      limit?: number;
+      direction?: "forward" | "backward";
+    } = {},
+  ): Promise<{
+    groups: Group[];
+    nextCursor?: string;
+    prevCursor?: string;
+  } | null> {
+    const cacheKey =
+      this.RECENT_GROUPS_PREFIX +
+      (Object.keys(params).length > 0
+        ? this.generateCacheKey(params as Record<string, unknown>)
+        : "default");
+    const cached = await this.get<string>(cacheKey, {
+      useMemoryCache: true,
+      ttlSeconds: this.CACHE_TTL,
+    });
+    return cached ? JSON.parse(cached) : null;
+  }
+
+  static async setRecentGroups(
+    params: {
+      categoryId?: string;
+      minMemberCount?: number;
+      maxDistance?: number;
+      userCoordinates?: { lat: number; lng: number };
+      cursor?: string;
+      limit?: number;
+      direction?: "forward" | "backward";
+    },
+    data: {
+      groups: Group[];
+      nextCursor?: string;
+      prevCursor?: string;
+    },
+  ): Promise<void> {
+    const cacheKey = this.RECENT_GROUPS_PREFIX + this.generateCacheKey(params);
+    await this.set(cacheKey, JSON.stringify(data), {
+      useMemoryCache: true,
+      ttlSeconds: this.CACHE_TTL,
+    });
+  }
+
+  private static generateCacheKey(params: Record<string, unknown>): string {
+    return Object.entries(params)
+      .filter(([, value]) => value !== undefined)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}:${JSON.stringify(value)}`)
+      .join("|");
   }
 }

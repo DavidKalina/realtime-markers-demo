@@ -76,6 +76,19 @@ interface ApiEvent {
   group?: ClientGroup | null;
 }
 
+interface RecentGroupsParams {
+  cursor?: string;
+  limit?: number;
+  direction?: "forward" | "backward";
+  categoryId?: string;
+  minMemberCount?: number;
+  maxDistance?: number;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+}
+
 export class GroupsModule extends BaseApiClient {
   private mapGroupToClientGroup(group: ApiGroup): ClientGroup {
     return {
@@ -388,6 +401,41 @@ export class GroupsModule extends BaseApiClient {
 
     return {
       events: mappedEvents,
+      nextCursor: data.nextCursor,
+      prevCursor: data.prevCursor,
+    };
+  }
+
+  async recentGroups(params: RecentGroupsParams = {}): Promise<{
+    groups: ClientGroup[];
+    nextCursor?: string;
+    prevCursor?: string;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params.cursor) queryParams.append("cursor", params.cursor);
+    if (params.limit) queryParams.append("limit", params.limit.toString());
+    if (params.direction) queryParams.append("direction", params.direction);
+    if (params.categoryId) queryParams.append("categoryId", params.categoryId);
+    if (params.minMemberCount)
+      queryParams.append("minMemberCount", params.minMemberCount.toString());
+    if (params.maxDistance)
+      queryParams.append("maxDistance", params.maxDistance.toString());
+    if (params.coordinates) {
+      queryParams.append("lat", params.coordinates.lat.toString());
+      queryParams.append("lng", params.coordinates.lng.toString());
+    }
+
+    const response = await this.fetchWithAuth(
+      `${this.baseUrl}/api/groups/recent?${queryParams.toString()}`,
+    );
+    const data = await this.handleResponse<{
+      groups: ApiGroup[];
+      nextCursor?: string;
+      prevCursor?: string;
+    }>(response);
+
+    return {
+      groups: data.groups.map(this.mapGroupToClientGroup),
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };

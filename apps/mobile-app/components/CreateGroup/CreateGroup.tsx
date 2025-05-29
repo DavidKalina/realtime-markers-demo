@@ -148,8 +148,11 @@ const CreateGroup: React.FC = () => {
           ? {
               placeId: selectedHeadquarters.id,
               name: selectedHeadquarters.label,
-              address: selectedHeadquarters.description,
-              coordinates: [0, 0], // This will be populated by the backend using the placeId
+              address: selectedHeadquarters.description || "",
+              coordinates: {
+                type: "Point" as const,
+                coordinates: [0, 0] as [number, number],
+              },
             }
           : undefined,
       };
