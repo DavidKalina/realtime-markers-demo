@@ -93,6 +93,13 @@ groupsRouter.get("/:groupId/members", groupHandlers.getGroupMembersHandler); // 
 // Get events for a specific group with search, filtering, and pagination
 groupsRouter.get("/:groupId/events", groupHandlers.getGroupEventsHandler); // Auth checks within handler
 
+// Get recent groups with filtering and pagination (requires auth)
+groupsRouter.get(
+  "/recent",
+  authMiddleware,
+  groupHandlers.getRecentGroupsHandler,
+);
+
 // List public groups (no auth required) - Must be last to avoid catching other routes
 groupsRouter.get("/", groupHandlers.listPublicGroupsHandler);
 
