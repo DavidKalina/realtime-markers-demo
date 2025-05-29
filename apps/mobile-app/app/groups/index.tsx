@@ -1,13 +1,13 @@
-import React, { useMemo } from "react";
-import { useRouter } from "expo-router";
-import { Users, Star, Map } from "lucide-react-native";
-import Screen from "@/components/Layout/Screen";
 import List, { ListItem } from "@/components/Layout/List";
-import { useRecentGroups } from "@/hooks/useRecentGroups";
-import { useNearbyGroups } from "@/hooks/useNearbyGroups";
-import { useUserLocation } from "@/contexts/LocationContext";
-import { ActivityIndicator, View, Alert } from "react-native";
+import Screen from "@/components/Layout/Screen";
 import { COLORS } from "@/components/Layout/ScreenLayout";
+import { useUserLocation } from "@/contexts/LocationContext";
+import { useNearbyGroups } from "@/hooks/useNearbyGroups";
+import { useRecentGroups } from "@/hooks/useRecentGroups";
+import { useRouter } from "expo-router";
+import { Map, Users } from "lucide-react-native";
+import React, { useMemo } from "react";
+import { ActivityIndicator, Alert, View } from "react-native";
 
 const RecentGroupsSection = () => {
   const router = useRouter();
@@ -178,56 +178,6 @@ const GroupsScreen = () => {
 
   const sections = useMemo(
     () => [
-      {
-        title: "Recent Groups",
-        icon: Users,
-        content: <RecentGroupsSection />,
-        actionButton: {
-          label: "View All",
-          onPress: () =>
-            router.push({
-              pathname: "/groups/list",
-              params: { filter: "recent" },
-            }),
-          variant: "ghost" as const,
-        },
-      },
-      {
-        title: "Favorite Groups",
-        icon: Star,
-        content: (
-          <List
-            items={[]}
-            onItemPress={(item) =>
-              router.push({
-                pathname: "/group/[id]",
-                params: { id: item.id },
-              })
-            }
-            onViewAllPress={() =>
-              router.push({
-                pathname: "/groups/list",
-                params: { filter: "favorites" },
-              })
-            }
-            maxItems={2}
-            emptyState={{
-              icon: Star,
-              title: "No Favorite Groups",
-              description: "Groups you've favorited will appear here",
-            }}
-          />
-        ),
-        actionButton: {
-          label: "Manage",
-          onPress: () =>
-            router.push({
-              pathname: "/groups/list",
-              params: { filter: "favorites" },
-            }),
-          variant: "secondary" as const,
-        },
-      },
       {
         title: "Nearby Groups",
         icon: Map,
