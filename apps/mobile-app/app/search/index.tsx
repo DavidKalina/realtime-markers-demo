@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useEffect } from "react";
 import { useRouter } from "expo-router";
-import { MapPin, Star, Clock } from "lucide-react-native";
+import { MapPin, Clock } from "lucide-react-native";
 import Screen from "@/components/Layout/Screen";
 import List from "@/components/Layout/List";
 import useEventSearch from "@/hooks/useEventSearch";
@@ -27,12 +27,6 @@ const SearchIndexScreen = () => {
   } = useEventSearch({ initialMarkers: storedMarkers });
 
   const {
-    eventResults: popularEvents,
-    setSearchQuery: setPopularQuery,
-    searchEvents: searchPopular,
-  } = useEventSearch({ initialMarkers: storedMarkers });
-
-  const {
     eventResults: upcomingEvents,
     setSearchQuery: setUpcomingQuery,
     searchEvents: searchUpcoming,
@@ -41,16 +35,14 @@ const SearchIndexScreen = () => {
   // Set initial search queries
   useEffect(() => {
     setNearbyQuery("nearby");
-    setPopularQuery("popular");
     setUpcomingQuery("upcoming");
-  }, [setNearbyQuery, setPopularQuery, setUpcomingQuery]);
+  }, [setNearbyQuery, setUpcomingQuery]);
 
   // Trigger initial searches
   useEffect(() => {
     searchNearby(true);
-    searchPopular(true);
     searchUpcoming(true);
-  }, [searchNearby, searchPopular, searchUpcoming]);
+  }, [searchNearby, searchUpcoming]);
 
   const handleEventPress = useCallback(
     (event: Event) => {
@@ -113,31 +105,6 @@ const SearchIndexScreen = () => {
         },
       },
       {
-        title: "Popular Events",
-        icon: Star,
-        content: (
-          <List
-            items={popularEvents.map(convertToListItem)}
-            onItemPress={(item) =>
-              handleEventPress(popularEvents.find((e) => e.id === item.id)!)
-            }
-            scrollable={false}
-            onViewAllPress={() => handleViewAllPress("popular")}
-            emptyState={{
-              icon: Star,
-              title: "No Popular Events",
-              description: "Popular events will appear here",
-            }}
-          />
-        ),
-        onPress: () => handleViewAllPress("popular"),
-        actionButton: {
-          label: "View All",
-          onPress: () => handleViewAllPress("popular"),
-          variant: "outline" as const,
-        },
-      },
-      {
         title: "Upcoming Events",
         icon: Clock,
         content: (
@@ -165,7 +132,6 @@ const SearchIndexScreen = () => {
     ],
     [
       nearbyEvents,
-      popularEvents,
       upcomingEvents,
       convertToListItem,
       handleEventPress,
