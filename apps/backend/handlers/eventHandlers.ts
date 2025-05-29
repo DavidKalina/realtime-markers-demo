@@ -132,6 +132,7 @@ export const processEventImageHandler: EventHandler = async (c) => {
 
     console.log("userLat", userLat);
     console.log("userLng", userLng);
+    console.log("imageEntry", imageEntry);
 
     const userCoordinates =
       userLat && userLng

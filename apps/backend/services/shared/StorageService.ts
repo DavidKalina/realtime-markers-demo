@@ -4,6 +4,7 @@ import { GetObjectCommand, S3 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { EventEmitter } from "events";
 import { v4 as uuidv4 } from "uuid";
+import { Readable } from "stream";
 
 export class StorageService extends EventEmitter {
   private static instance: StorageService;
@@ -160,10 +161,16 @@ export class StorageService extends EventEmitter {
       // Upload to DO Space if client is initialized
       if (this.s3Client) {
         const startTime = Date.now();
+
+        // Create a readable stream from the buffer
+        const stream = new Readable();
+        stream.push(imageBuffer);
+        stream.push(null); // Signal end of stream
+
         await this.s3Client.putObject({
           Bucket: this.bucketName,
           Key: key,
-          Body: imageBuffer,
+          Body: stream,
           ContentType: "image/jpeg",
           Metadata: metadata,
         });

@@ -69,6 +69,8 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         },
       );
 
+      console.log("originalImageUrl", originalImageUrl);
+
       // Process the image
       const scanResult =
         await this.eventProcessingService.processFlyerFromImage(
