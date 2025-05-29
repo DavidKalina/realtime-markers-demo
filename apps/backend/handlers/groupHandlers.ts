@@ -574,3 +574,53 @@ export const getRecentGroupsHandler = async (c: Context<AppContext>) => {
     return c.json({ error: "Internal server error" }, 500 as const);
   }
 };
+
+export const getNearbyGroupsHandler = async (c: Context<AppContext>) => {
+  try {
+    const {
+      lat,
+      lng,
+      maxDistance,
+      categoryId,
+      minMemberCount,
+      cursor,
+      limit = "10",
+      direction = "forward",
+    } = c.req.query();
+
+    if (!lat || !lng) {
+      return c.json(
+        { error: "Missing required query parameters: lat and lng" },
+        400,
+      );
+    }
+
+    const { groupService } = getServices(c);
+    const result = await groupService.getNearbyGroups({
+      coordinates: {
+        lat: parseFloat(lat),
+        lng: parseFloat(lng),
+      },
+      maxDistance: maxDistance ? parseFloat(maxDistance) : undefined,
+      categoryId: categoryId || undefined,
+      minMemberCount: minMemberCount ? parseInt(minMemberCount, 10) : undefined,
+      cursor: cursor || undefined,
+      limit: parseInt(limit, 10),
+      direction: direction as "forward" | "backward",
+    });
+
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching nearby groups:", error);
+    if (error instanceof AppError) {
+      return c.json(
+        { error: error.message },
+        error.statusCode as 400 | 401 | 403 | 404 | 409 | 429 | 500,
+      );
+    }
+    if (error instanceof Error) {
+      return c.json({ error: error.message }, 500 as const);
+    }
+    return c.json({ error: "Internal server error" }, 500 as const);
+  }
+};

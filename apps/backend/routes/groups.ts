@@ -36,6 +36,9 @@ groupsRouter.get(
   groupHandlers.getRecentGroupsHandler,
 );
 
+// Add this before the /:groupId route
+groupsRouter.get("/nearby", groupHandlers.getNearbyGroupsHandler);
+
 // Get a specific group (publicly accessible for public groups, auth for private)
 groupsRouter.get("/:groupId", groupHandlers.getGroupHandler); // Auth check is within handler
 

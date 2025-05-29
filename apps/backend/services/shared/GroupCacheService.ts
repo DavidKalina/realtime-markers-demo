@@ -24,6 +24,10 @@ interface GetGroupEventsParams extends CursorPaginationParams {
   endDate?: Date;
 }
 
+interface GroupWithDistance extends Group {
+  distance: number;
+}
+
 export class GroupCacheService extends CacheService {
   private static readonly GROUP_PREFIX = "group:";
   private static readonly GROUP_MEMBERS_PREFIX = "group:members:";
@@ -32,6 +36,7 @@ export class GroupCacheService extends CacheService {
   private static readonly GROUP_EVENTS_PREFIX = "group:events:";
   private static readonly GROUP_USER_PREFIX = "group:user:";
   private static readonly RECENT_GROUPS_PREFIX = "recent_groups:";
+  private static readonly NEARBY_GROUPS_PREFIX = "nearby_groups:";
 
   // Cache TTLs
   private static readonly GROUP_TTL = 300; // 5 minutes
@@ -277,6 +282,7 @@ export class GroupCacheService extends CacheService {
       `${this.GROUP_EVENTS_PREFIX}${groupId}:*`,
       `${this.GROUP_SEARCH_PREFIX}*`,
       `${this.RECENT_GROUPS_PREFIX}*`,
+      `${this.NEARBY_GROUPS_PREFIX}*`,
     ];
 
     await Promise.all(
@@ -351,6 +357,49 @@ export class GroupCacheService extends CacheService {
   ): Promise<void> {
     const cacheKey = this.RECENT_GROUPS_PREFIX + this.generateCacheKey(params);
     await this.set(cacheKey, JSON.stringify(data), {
+      useMemoryCache: true,
+      ttlSeconds: this.CACHE_TTL,
+    });
+  }
+
+  static async getNearbyGroups(params: {
+    coordinates: { lat: number; lng: number };
+    maxDistance?: number;
+    categoryId?: string;
+    minMemberCount?: number;
+    cursor?: string;
+    limit?: number;
+    direction?: "forward" | "backward";
+  }): Promise<{
+    groups: GroupWithDistance[];
+    nextCursor?: string;
+    prevCursor?: string;
+  } | null> {
+    const cacheKey = this.NEARBY_GROUPS_PREFIX + this.generateCacheKey(params);
+    return this.get(cacheKey, {
+      useMemoryCache: true,
+      ttlSeconds: this.CACHE_TTL,
+    });
+  }
+
+  static async setNearbyGroups(
+    params: {
+      coordinates: { lat: number; lng: number };
+      maxDistance?: number;
+      categoryId?: string;
+      minMemberCount?: number;
+      cursor?: string;
+      limit?: number;
+      direction?: "forward" | "backward";
+    },
+    data: {
+      groups: GroupWithDistance[];
+      nextCursor?: string;
+      prevCursor?: string;
+    },
+  ): Promise<void> {
+    const cacheKey = this.NEARBY_GROUPS_PREFIX + this.generateCacheKey(params);
+    await this.set(cacheKey, data, {
       useMemoryCache: true,
       ttlSeconds: this.CACHE_TTL,
     });

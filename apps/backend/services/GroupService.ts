@@ -32,6 +32,17 @@ interface GetGroupEventsParams extends CursorPaginationParams {
   endDate?: Date;
 }
 
+interface NearbyGroupsParams extends CursorPaginationParams {
+  coordinates: { lat: number; lng: number };
+  maxDistance?: number; // in kilometers
+  categoryId?: string;
+  minMemberCount?: number;
+}
+
+interface GroupWithDistance extends Group {
+  distance: number;
+}
+
 export class GroupService {
   private userRepository: Repository<User>;
   private groupRepository: Repository<Group>;
@@ -1138,6 +1149,148 @@ Respond with a JSON object containing:
     };
 
     await GroupCacheService.setRecentGroups(params, response);
+    return response;
+  }
+
+  async getNearbyGroups(params: NearbyGroupsParams): Promise<{
+    groups: GroupWithDistance[];
+    nextCursor?: string;
+    prevCursor?: string;
+  }> {
+    // Try cache first
+    const cached = await GroupCacheService.getNearbyGroups(params);
+    if (cached) {
+      return cached;
+    }
+
+    const {
+      coordinates,
+      maxDistance = 50, // Default 50km radius
+      categoryId,
+      minMemberCount,
+      cursor,
+      limit = 10,
+      direction = "forward",
+    } = params;
+
+    // Create base query builder
+    const queryBuilder = this.groupRepository
+      .createQueryBuilder("group")
+      .leftJoinAndSelect("group.owner", "owner")
+      .leftJoinAndSelect("group.categories", "categories")
+      .where("group.visibility = :visibility", {
+        visibility: GroupVisibility.PUBLIC,
+      })
+      .andWhere("group.headquarters_location IS NOT NULL"); // Only include groups with headquarters
+
+    // Add category filter if provided
+    if (categoryId) {
+      queryBuilder.andWhere("categories.id = :categoryId", { categoryId });
+    }
+
+    // Add minimum member count filter if provided
+    if (minMemberCount) {
+      queryBuilder.andWhere("group.memberCount >= :minMemberCount", {
+        minMemberCount,
+      });
+    }
+
+    // Add distance filter using PostGIS
+    queryBuilder.andWhere(
+      `ST_DWithin(
+        group.headquarters_location::geography,
+        ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+        :maxDistance
+      )`,
+      {
+        lng: coordinates.lng,
+        lat: coordinates.lat,
+        maxDistance: maxDistance * 1000, // Convert km to meters
+      },
+    );
+
+    // Fix the addSelect call
+    queryBuilder
+      .addSelect(
+        (qb) =>
+          qb.select(
+            `ST_Distance(
+          group.headquarters_location::geography,
+          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+        )`,
+            "distance",
+          ),
+        "distance",
+      )
+      .setParameter("lng", coordinates.lng)
+      .setParameter("lat", coordinates.lat);
+
+    // Add cursor-based pagination
+    if (cursor) {
+      const decodedCursor = Buffer.from(cursor, "base64").toString();
+      const [distance, id] = decodedCursor.split(":");
+
+      if (direction === "forward") {
+        queryBuilder.andWhere(
+          `(ST_Distance(
+            group.headquarters_location::geography,
+            ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+          ) > :distance OR (
+            ST_Distance(
+              group.headquarters_location::geography,
+              ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+            ) = :distance AND group.id < :id
+          ))`,
+          { lng: coordinates.lng, lat: coordinates.lat, distance, id },
+        );
+      } else {
+        queryBuilder.andWhere(
+          `(ST_Distance(
+            group.headquarters_location::geography,
+            ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+          ) < :distance OR (
+            ST_Distance(
+              group.headquarters_location::geography,
+              ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+            ) = :distance AND group.id > :id
+          ))`,
+          { lng: coordinates.lng, lat: coordinates.lat, distance, id },
+        );
+      }
+    }
+
+    // Add ordering by distance and limit
+    queryBuilder
+      .orderBy("distance", direction === "forward" ? "ASC" : "DESC")
+      .addOrderBy("group.id", direction === "forward" ? "ASC" : "DESC")
+      .take(limit + 1);
+
+    const groups = (await queryBuilder.getMany()) as GroupWithDistance[];
+    const hasMore = groups.length > limit;
+    const results = hasMore ? groups.slice(0, limit) : groups;
+
+    // Create cursor based on distance and ID
+    const nextCursor =
+      hasMore && direction === "forward"
+        ? Buffer.from(
+            `${results[results.length - 1].distance}:${results[results.length - 1].id}`,
+          ).toString("base64")
+        : undefined;
+
+    const prevCursor =
+      hasMore && direction === "backward"
+        ? Buffer.from(`${results[0].distance}:${results[0].id}`).toString(
+            "base64",
+          )
+        : undefined;
+
+    const response = {
+      groups: results as GroupWithDistance[],
+      nextCursor,
+      prevCursor,
+    };
+
+    await GroupCacheService.setNearbyGroups(params, response);
     return response;
   }
 }

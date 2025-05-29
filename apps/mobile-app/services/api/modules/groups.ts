@@ -89,6 +89,19 @@ interface RecentGroupsParams {
   };
 }
 
+export interface NearbyGroupsParams {
+  cursor?: string;
+  limit?: number;
+  direction?: "forward" | "backward";
+  categoryId?: string;
+  minMemberCount?: number;
+  maxDistance?: number;
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+}
+
 export class GroupsModule extends BaseApiClient {
   private mapGroupToClientGroup(group: ApiGroup): ClientGroup {
     return {
@@ -427,6 +440,50 @@ export class GroupsModule extends BaseApiClient {
 
     const response = await this.fetchWithAuth(
       `${this.baseUrl}/api/groups/recent?${queryParams.toString()}`,
+    );
+    const data = await this.handleResponse<{
+      groups: ApiGroup[];
+      nextCursor?: string;
+      prevCursor?: string;
+    }>(response);
+
+    return {
+      groups: data.groups.map(this.mapGroupToClientGroup),
+      nextCursor: data.nextCursor,
+      prevCursor: data.prevCursor,
+    };
+  }
+
+  async nearbyGroups(params: NearbyGroupsParams): Promise<{
+    groups: ClientGroup[];
+    nextCursor?: string;
+    prevCursor?: string;
+  }> {
+    const queryParams = new URLSearchParams();
+
+    if (params.cursor) {
+      queryParams.append("cursor", params.cursor);
+    }
+    if (params.limit) {
+      queryParams.append("limit", params.limit.toString());
+    }
+    if (params.direction) {
+      queryParams.append("direction", params.direction);
+    }
+    if (params.categoryId) {
+      queryParams.append("categoryId", params.categoryId);
+    }
+    if (params.minMemberCount) {
+      queryParams.append("minMemberCount", params.minMemberCount.toString());
+    }
+    if (params.maxDistance) {
+      queryParams.append("maxDistance", params.maxDistance.toString());
+    }
+    queryParams.append("lat", params.coordinates.lat.toString());
+    queryParams.append("lng", params.coordinates.lng.toString());
+
+    const response = await this.fetchWithAuth(
+      `${this.baseUrl}/api/groups/nearby?${queryParams.toString()}`,
     );
     const data = await this.handleResponse<{
       groups: ApiGroup[];
