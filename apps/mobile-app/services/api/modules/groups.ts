@@ -10,8 +10,31 @@ import {
   ManageMembershipStatusPayload,
   UpdateGroupPayload,
   UpdateMemberRolePayload,
+  GroupVisibility,
 } from "../base/types";
 import { EventType } from "@/types/types";
+
+// Add headquarters type
+interface Headquarters {
+  placeId: string;
+  name: string;
+  address: string;
+  coordinates: [number, number];
+}
+
+// Extend the imported ApiGroup type
+declare module "../base/types" {
+  interface ApiGroup {
+    headquartersPlaceId?: string;
+    headquartersName?: string;
+    headquartersAddress?: string;
+    headquartersLocation?: { type: string; coordinates: [number, number] };
+  }
+
+  interface ClientGroup {
+    headquarters?: Headquarters;
+  }
+}
 
 // Add ApiEvent interface to match the backend response
 interface ApiEvent {
@@ -60,7 +83,7 @@ export class GroupsModule extends BaseApiClient {
       name: group.name,
       description: group.description || "",
       emoji: group.emoji,
-      visibility: group.visibility,
+      visibility: group.visibility as GroupVisibility,
       address: group.address,
       memberCount: group.memberCount,
       ownerId: group.ownerId,
@@ -68,6 +91,14 @@ export class GroupsModule extends BaseApiClient {
       categories: group.categories,
       createdAt: group.createdAt,
       updatedAt: group.updatedAt,
+      headquarters: group.headquartersPlaceId
+        ? {
+            placeId: group.headquartersPlaceId,
+            name: group.headquartersName || "",
+            address: group.headquartersAddress || "",
+            coordinates: group.headquartersLocation?.coordinates || [0, 0],
+          }
+        : undefined,
     };
   }
 
