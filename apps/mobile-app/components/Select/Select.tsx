@@ -172,9 +172,19 @@ export const Select: React.FC<SelectProps> = ({
               </View>
             )}
             <View style={styles.selectedTextContainer}>
-              <Text style={styles.selectedLabel}>{value.label}</Text>
+              <Text
+                style={styles.selectedLabel}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {value.label}
+              </Text>
               {value.description && (
-                <Text style={styles.selectedDescription}>
+                <Text
+                  style={styles.selectedDescription}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
                   {value.description}
                 </Text>
               )}
@@ -311,6 +321,7 @@ const styles = StyleSheet.create({
   },
   selectedTextContainer: {
     flex: 1,
+    flexShrink: 1,
   },
   selectedLabel: {
     color: COLORS.textPrimary,
