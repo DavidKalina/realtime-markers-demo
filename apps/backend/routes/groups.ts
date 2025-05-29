@@ -29,6 +29,13 @@ groupsRouter.post("/create", authMiddleware, groupHandlers.createGroupHandler);
 // Search groups (requires auth)
 groupsRouter.get("/search", authMiddleware, groupHandlers.searchGroupsHandler);
 
+// Get recent groups with filtering and pagination (requires auth)
+groupsRouter.get(
+  "/recent",
+  authMiddleware,
+  groupHandlers.getRecentGroupsHandler,
+);
+
 // Get a specific group (publicly accessible for public groups, auth for private)
 groupsRouter.get("/:groupId", groupHandlers.getGroupHandler); // Auth check is within handler
 
@@ -92,13 +99,6 @@ groupsRouter.get("/:groupId/members", groupHandlers.getGroupMembersHandler); // 
 // --- Group Events ---
 // Get events for a specific group with search, filtering, and pagination
 groupsRouter.get("/:groupId/events", groupHandlers.getGroupEventsHandler); // Auth checks within handler
-
-// Get recent groups with filtering and pagination (requires auth)
-groupsRouter.get(
-  "/recent",
-  authMiddleware,
-  groupHandlers.getRecentGroupsHandler,
-);
 
 // List public groups (no auth required) - Must be last to avoid catching other routes
 groupsRouter.get("/", groupHandlers.listPublicGroupsHandler);
