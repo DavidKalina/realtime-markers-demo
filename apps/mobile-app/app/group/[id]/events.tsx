@@ -1,10 +1,11 @@
 import ScreenLayout, { COLORS } from "@/components/Layout/ScreenLayout";
-import { apiClient, ClientGroup } from "@/services/ApiClient";
+import { useGroupDetails } from "@/hooks/useGroupDetails";
+import { useGroupEvents } from "@/hooks/useGroupEvents";
 import { EventType } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Calendar, Clock, MapPin, Plus } from "lucide-react-native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -19,64 +20,25 @@ import Animated, {
 } from "react-native-reanimated";
 
 export default function GroupEventsScreen() {
-  console.log("GroupEventsScreen component definition");
   const { id } = useLocalSearchParams<{ id: string }>();
-  console.log("GroupEventsScreen params:", { id });
   const router = useRouter();
-  const [group, setGroup] = useState<ClientGroup | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [events, setEvents] = useState<EventType[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | undefined>();
-
-  const isMounted = useRef(true);
-
-  const loadGroupDetails = useCallback(async () => {
-    console.log("loadGroupDetails called with id:", id);
-    if (!id) {
-      console.log("No id provided, returning early");
-      return;
-    }
-
-    try {
-      console.log("Setting loading state to true");
-      setLoading(true);
-      console.log("Fetching group and events data...");
-      const [groupData, eventsData] = await Promise.all([
-        apiClient.groups.getGroupById(id),
-        apiClient.groups.getGroupEvents(id, { limit: 20 }),
-      ]);
-      console.log("Data fetched successfully:", {
-        group: groupData ? "exists" : "null",
-        eventsCount: eventsData.events.length,
-        hasNextCursor: !!eventsData.nextCursor,
-      });
-      if (isMounted.current) {
-        setGroup(groupData);
-        setEvents(eventsData.events);
-        setNextCursor(eventsData.nextCursor);
-        setError(null);
-      }
-    } catch (err) {
-      if (isMounted.current) {
-        setError("Failed to load group events");
-        console.error("Error fetching group:", err);
-      }
-    } finally {
-      if (isMounted.current) {
-        setLoading(false);
-      }
-    }
-  }, [id]);
-
-  useEffect(() => {
-    console.log("GroupEventsScreen mounted with id:", id);
-    loadGroupDetails();
-    return () => {
-      console.log("GroupEventsScreen unmounting");
-      isMounted.current = false;
-    };
-  }, [loadGroupDetails]);
+  const {
+    group,
+    loading: groupLoading,
+    error: groupError,
+  } = useGroupDetails(id);
+  const {
+    events,
+    isLoading: eventsLoading,
+    isRefreshing,
+    error: eventsError,
+    hasMore,
+    refresh,
+    loadMore,
+  } = useGroupEvents({
+    groupId: id,
+    pageSize: 20,
+  });
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -87,32 +49,8 @@ export default function GroupEventsScreen() {
 
   const handleCreateEvent = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Navigate to create event screen
     router.push(`/create-private-event?groupId=${id}`);
-  }, []);
-
-  const loadMoreEvents = useCallback(async () => {
-    if (!nextCursor || loading) {
-      console.log("Skipping loadMoreEvents:", { nextCursor, loading });
-      return;
-    }
-
-    console.log("Loading more events with cursor:", nextCursor);
-    try {
-      const eventsData = await apiClient.groups.getGroupEvents(id, {
-        cursor: nextCursor,
-        limit: 20,
-      });
-
-      console.log("Successfully loaded more events:", eventsData.events.length);
-      if (isMounted.current) {
-        setEvents((prev) => [...prev, ...eventsData.events]);
-        setNextCursor(eventsData.nextCursor);
-      }
-    } catch (err) {
-      console.error("Error loading more events:", err);
-    }
-  }, [id, nextCursor, loading]);
+  }, [router, id]);
 
   const handleEventPress = useCallback(
     (eventId: string) => {
@@ -188,13 +126,16 @@ export default function GroupEventsScreen() {
   );
 
   const renderFooter = () => {
-    if (!nextCursor) return null;
+    if (!hasMore) return null;
     return (
       <View style={styles.footer}>
         <ActivityIndicator size="small" color={COLORS.accent} />
       </View>
     );
   };
+
+  const loading = groupLoading || eventsLoading;
+  const error = groupError || eventsError;
 
   if (loading && events.length === 0) {
     return (
@@ -233,8 +174,10 @@ export default function GroupEventsScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.eventsList}
           showsVerticalScrollIndicator={false}
-          onEndReached={loadMoreEvents}
+          onEndReached={loadMore}
           onEndReachedThreshold={0.5}
+          onRefresh={refresh}
+          refreshing={isRefreshing}
           ListFooterComponent={renderFooter}
         />
       </Animated.View>

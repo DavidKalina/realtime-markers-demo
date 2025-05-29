@@ -4,7 +4,9 @@ import { Users, Calendar, MapPin, Info, Plus } from "lucide-react-native";
 import Screen from "@/components/Layout/Screen";
 import List, { ListItem } from "@/components/Layout/List";
 import { useGroupDetails, useGroupActions } from "@/hooks/useGroupDetails";
+import { useGroupEvents } from "@/hooks/useGroupEvents";
 import Button from "@/components/Layout/Button";
+import { EventType } from "@/types/types";
 
 // Define types for our data
 interface GroupMembership {
@@ -17,13 +19,6 @@ interface GroupMembership {
   };
 }
 
-interface GroupEvent {
-  id: string;
-  title: string;
-  location: string;
-  date: string;
-}
-
 interface Group {
   id: string;
   name: string;
@@ -32,17 +27,28 @@ interface Group {
   visibility: string;
   address: string;
   memberships: GroupMembership[];
-  events: GroupEvent[];
 }
 
 const GroupDetailsScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { group, loading, error, isAdmin } = useGroupDetails(id);
+  const {
+    group,
+    loading: groupLoading,
+    error: groupError,
+    isAdmin,
+  } = useGroupDetails(id);
   const { isLeaving, isDeleting, handleLeaveGroup, handleDeleteGroup } =
     useGroupActions(group);
+  const {
+    events,
+    isLoading: eventsLoading,
+    error: eventsError,
+  } = useGroupEvents({
+    groupId: id,
+    pageSize: 5, // Only show 5 events in the preview
+  });
 
-  console.log(group);
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
       router.back();
@@ -75,8 +81,6 @@ const GroupDetailsScreen = () => {
     [],
   );
 
-  console.log(group);
-
   // Convert members to list items
   const convertToMemberItems = useCallback(
     (groupData: Group): ListItem[] =>
@@ -91,14 +95,32 @@ const GroupDetailsScreen = () => {
 
   // Convert events to list items
   const convertToEventItems = useCallback(
-    (groupData: Group): ListItem[] =>
-      groupData.events?.slice(0, 5).map((event: GroupEvent) => ({
-        id: event.id,
-        icon: Calendar,
-        title: event.title,
-        description: event.location,
-        badge: event.date,
-      })),
+    (events: EventType[]): ListItem[] =>
+      events.map((event: EventType) => {
+        // Format the date safely
+        let dateStr = "No date";
+        try {
+          if (event.eventDate) {
+            const date = new Date(event.eventDate);
+            if (!isNaN(date.getTime())) {
+              dateStr = date.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("Error formatting event date:", e);
+        }
+
+        return {
+          id: event.id,
+          icon: Calendar,
+          title: event.title,
+          description: event.location || "No location",
+          badge: dateStr,
+        };
+      }),
     [],
   );
 
@@ -161,12 +183,9 @@ const GroupDetailsScreen = () => {
         icon: Calendar,
         content: (
           <List
-            items={convertToEventItems(groupData)}
+            items={convertToEventItems(events)}
             onItemPress={(item) => {
-              router.push({
-                pathname: "/details",
-                params: { id: item.id },
-              });
+              router.push(`/details?eventId=${item?.id}`);
             }}
             scrollable={false}
             onViewAllPress={() => handleViewAllPress("events")}
@@ -206,6 +225,7 @@ const GroupDetailsScreen = () => {
     return sections;
   }, [
     group,
+    events,
     convertToInfoItems,
     convertToMemberItems,
     convertToEventItems,
@@ -227,6 +247,9 @@ const GroupDetailsScreen = () => {
     ],
     [isAdmin, handleDeleteGroup, handleLeaveGroup, isDeleting, isLeaving],
   );
+
+  const loading = groupLoading || eventsLoading;
+  const error = groupError || eventsError;
 
   if (loading) {
     return (

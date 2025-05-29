@@ -4,6 +4,8 @@ import React from "react";
 
 const DetailScreen = () => {
   const { eventId } = useLocalSearchParams();
+
+  console.log("DetailScreen eventId:", eventId);
   return <EventDetails eventId={eventId.toString()} />;
 };
 

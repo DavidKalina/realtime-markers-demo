@@ -99,6 +99,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   const [isRsvped, setIsRsvped] = useState(false);
   const [rsvpState, setRsvpState] = useState<"idle" | "loading">("idle");
 
+  console.log("EventDetails eventId:", eventId);
+
   const {
     handleBack,
     loading,
@@ -243,8 +245,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
         description: event.description,
         eventDate: event.eventDate,
         emoji: event.emoji,
-        latitude: event.coordinates[1].toString(), // latitude is second coordinate
-        longitude: event.coordinates[0].toString(), // longitude is first coordinate
+        latitude: event.coordinates[1]?.toString(), // latitude is second coordinate
+        longitude: event.coordinates[0]?.toString(), // longitude is first coordinate
         address: event.location,
         locationNotes: event.locationNotes,
         sharedWithIds: event.sharedWithIds,
@@ -287,7 +289,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
           >
             <EventMapPreview
               coordinates={coordinates}
-              eventId={event.id}
+              eventId={eventId}
               title={event.title}
               emoji={event.emoji}
               isPrivate={event.isPrivate}
