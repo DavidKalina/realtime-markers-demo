@@ -137,6 +137,13 @@ const CreateGroup: React.FC = () => {
         (result) => result.id === headquarters?.id,
       );
 
+      // Get the full city state data to access coordinates
+      const cityStateData = selectedHeadquarters
+        ? await apiClient.places.searchCityState({
+            query: selectedHeadquarters.label,
+          })
+        : null;
+
       const groupData = {
         name: name.trim(),
         description: description.trim() || undefined,
@@ -144,17 +151,20 @@ const CreateGroup: React.FC = () => {
         visibility,
         allowMemberEventCreation,
         categoryIds: [],
-        headquarters: selectedHeadquarters
-          ? {
-              placeId: selectedHeadquarters.id,
-              name: selectedHeadquarters.label,
-              address: selectedHeadquarters.description || "",
-              coordinates: {
-                type: "Point" as const,
-                coordinates: [0, 0] as [number, number],
-              },
-            }
-          : undefined,
+        headquarters:
+          selectedHeadquarters &&
+          cityStateData?.success &&
+          cityStateData.cityState
+            ? {
+                placeId: selectedHeadquarters.id,
+                name: selectedHeadquarters.label,
+                address: selectedHeadquarters.description || "",
+                coordinates: {
+                  type: "Point" as const,
+                  coordinates: cityStateData.cityState.coordinates,
+                },
+              }
+            : undefined,
       };
 
       await apiClient.groups.createGroup(groupData);
