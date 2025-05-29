@@ -168,6 +168,7 @@ export class GroupsModule extends BaseApiClient {
       cursor?: string;
       limit?: number;
       direction?: "forward" | "backward";
+      categoryId?: string;
     } = {},
   ): Promise<{
     groups: ClientGroup[];
@@ -178,6 +179,7 @@ export class GroupsModule extends BaseApiClient {
     if (params.cursor) queryParams.append("cursor", params.cursor);
     if (params.limit) queryParams.append("limit", params.limit.toString());
     if (params.direction) queryParams.append("direction", params.direction);
+    if (params.categoryId) queryParams.append("categoryId", params.categoryId);
 
     const response = await this.fetchWithAuth(
       `${this.baseUrl}/api/groups?${queryParams.toString()}`,
