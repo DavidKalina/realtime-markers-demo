@@ -42,21 +42,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setIsLoading(true);
 
       try {
-        // Sync tokens from storage
-        await apiClient.syncTokensWithStorage();
+        // Sync tokens from storage and handle refresh if needed
+        const syncedTokens = await apiClient.syncTokensWithStorage();
 
-        // Check if we have tokens to work with
-        const accessToken = await AsyncStorage.getItem("accessToken");
-        const refreshToken = await AsyncStorage.getItem("refreshToken");
-
-        if (accessToken && refreshToken) {
+        if (syncedTokens?.accessToken) {
           try {
             // Try to get user profile to validate token
             const userProfile = await apiClient.auth.getUserProfile();
 
-            // Make sure we have the user object correctly set
             if (userProfile) {
-              await AsyncStorage.setItem("user", JSON.stringify(userProfile));
               setUser(userProfile);
               setIsAuthenticated(true);
 
@@ -66,7 +60,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 await AsyncStorage.getItem("@active_filters");
               if (storedFilters) {
                 const activeIds = JSON.parse(storedFilters);
-                // Ensure the filters are properly applied
                 await applyFilters(activeIds);
               } else {
                 // If no stored filters, fetch and apply the oldest filter
@@ -82,71 +75,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               }
             }
           } catch (profileError) {
-            // Only attempt token refresh if we have a refresh token
-            if (refreshToken) {
-              const refreshed = await apiClient.refreshAuthTokens();
-
-              if (refreshed) {
-                try {
-                  const userProfile = await apiClient.auth.getUserProfile();
-
-                  await AsyncStorage.setItem(
-                    "user",
-                    JSON.stringify(userProfile),
-                  );
-                  setUser(userProfile);
-                  setIsAuthenticated(true);
-
-                  // Sync filters and active filter IDs
-                  await fetchFilters();
-                  const storedFilters =
-                    await AsyncStorage.getItem("@active_filters");
-                  if (storedFilters) {
-                    const activeIds = JSON.parse(storedFilters);
-                    // Ensure the filters are properly applied
-                    await applyFilters(activeIds);
-                  } else {
-                    // If no stored filters, fetch and apply the oldest filter
-                    const filters = await apiClient.filters.getFilters();
-                    if (filters.length > 0) {
-                      const oldestFilter = filters.sort(
-                        (a: Filter, b: Filter) =>
-                          new Date(a.createdAt).getTime() -
-                          new Date(b.createdAt).getTime(),
-                      )[0];
-                      await applyFilters([oldestFilter.id]);
-                    }
-                  }
-                } catch (secondProfileError) {
-                  console.error(
-                    "Failed to get user profile after token refresh:",
-                    secondProfileError,
-                  );
-                  await apiClient.clearAuthState();
-                  setUser(null);
-                  setIsAuthenticated(false);
-                }
-              } else {
-                console.log("Token refresh failed, clearing auth state");
-                await apiClient.clearAuthState();
-                setUser(null);
-                setIsAuthenticated(false);
-              }
-            } else {
-              console.log("No refresh token available, clearing auth state");
-              await apiClient.clearAuthState();
-              setUser(null);
-              setIsAuthenticated(false);
-            }
+            console.error("Failed to get user profile:", profileError);
+            await apiClient.clearAuthState();
+            setUser(null);
+            setIsAuthenticated(false);
           }
         } else {
-          console.log("No tokens found in storage, user is not authenticated");
+          console.log("No valid tokens found, user is not authenticated");
           setUser(null);
           setIsAuthenticated(false);
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
-        // On any error during initialization, clear auth state and redirect to login
         await apiClient.clearAuthState();
         setUser(null);
         setIsAuthenticated(false);
@@ -232,58 +172,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       console.log("Starting login process...");
 
-      // Check initial token state
-      const initialToken = await AsyncStorage.getItem("accessToken");
-      console.log("Initial token state:", { hasToken: !!initialToken });
-
       // Perform login and get the user directly from the response
       const loggedInUser = await apiClient.auth.login(email, password);
       console.log("Login API call completed");
-
-      // Ensure we wait for any pending initialization
-      console.log("Waiting for initialization...");
-      await apiClient.ensureInitialized?.();
-      console.log("Initialization complete");
-
-      // Double check token sync
-      console.log("Syncing tokens with storage...");
-      const syncedTokens = await apiClient.syncTokensWithStorage();
-      console.log("Token sync result:", {
-        hasTokens: !!syncedTokens,
-        hasAccessToken: !!syncedTokens?.accessToken,
-        hasRefreshToken: !!syncedTokens?.refreshToken,
-      });
-
-      // Verify token in storage
-      const storedToken = await AsyncStorage.getItem("accessToken");
-      console.log("Token in AsyncStorage:", { hasToken: !!storedToken });
-
-      // Add a small delay to ensure state is fully synchronized
-      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Update context state with the user from login response
       setUser(loggedInUser);
       setIsAuthenticated(true);
 
-      // Final token check
-      const finalToken = await AsyncStorage.getItem("accessToken");
+      // Final state check
       console.log("Login process complete:", {
         userId: loggedInUser.id,
         isAuthenticated: true,
-        hasToken: !!finalToken,
-        apiClientHasToken: !!apiClient.getAccessToken(),
         apiClientIsAuthenticated: apiClient.isAuthenticated(),
       });
     } catch (error) {
       console.error("Login error:", error);
-      // Log token state on error
-      const errorToken = await AsyncStorage.getItem("accessToken");
-      console.error("Token state at error:", {
-        hasToken: !!errorToken,
-        apiClientHasToken: !!apiClient.getAccessToken(),
-        apiClientIsAuthenticated: apiClient.isAuthenticated(),
-      });
-
       // Ensure we clear any partial auth state on error
       await apiClient.clearAuthState();
       setUser(null);

@@ -268,18 +268,16 @@ Respond with a JSON object containing:
       role: user.role,
     };
 
-    const expiresIn = this.accessTokenExpiry as SignOptions["expiresIn"];
-
     const accessToken = jwt.sign(
       payload,
       this.jwtSecret as jwt.Secret,
-      { expiresIn }, // "1h"
+      { expiresIn: this.accessTokenExpiry }, // "1h"
     );
 
     const refreshToken = jwt.sign(
       { userId: user.id },
       this.refreshSecret as jwt.Secret,
-      { expiresIn }, // "7d"
+      { expiresIn: this.refreshTokenExpiry }, // "7d"
     );
 
     return { accessToken, refreshToken };

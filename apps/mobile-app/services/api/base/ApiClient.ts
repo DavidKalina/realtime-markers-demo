@@ -9,6 +9,7 @@ export class BaseApiClient {
   private isInitialized: boolean = false;
   private initializationPromise: Promise<void> | null = null;
   private tokenSyncPromise: Promise<AuthTokens | null> | null = null;
+  private tokenRefreshPromise: Promise<boolean> | null = null;
 
   constructor(baseUrl: string = process.env.EXPO_PUBLIC_API_URL!) {
     this.baseUrl = baseUrl;
@@ -264,16 +265,15 @@ export class BaseApiClient {
     if (!this.tokens?.accessToken) return true;
 
     try {
-      const url = `${this.baseUrl}/api/auth/me`;
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.tokens.accessToken}`,
-        },
-      });
+      // Decode the JWT token to check expiry locally
+      const tokenParts = this.tokens.accessToken.split(".");
+      if (tokenParts.length !== 3) return true;
 
-      return response.status === 401;
+      const payload = JSON.parse(atob(tokenParts[1]));
+      const expiryTime = payload.exp * 1000; // Convert to milliseconds
+
+      // Add a 30-second buffer to prevent edge cases
+      return Date.now() >= expiryTime - 30000;
     } catch (error) {
       console.error("Error checking token expiration:", error);
       return true;
@@ -281,60 +281,67 @@ export class BaseApiClient {
   }
 
   protected async refreshTokens(): Promise<boolean> {
-    if (!this.tokens?.refreshToken) {
-      console.log("No refresh token available");
-      return false;
+    // If there's already a refresh in progress, wait for it
+    if (this.tokenRefreshPromise) {
+      console.log("Token refresh already in progress, waiting...");
+      return this.tokenRefreshPromise;
     }
 
-    try {
-      console.log("Attempting to refresh token");
-      const url = `${this.baseUrl}/api/auth/refresh-token`;
+    this.tokenRefreshPromise = (async () => {
+      try {
+        if (!this.tokens?.refreshToken) {
+          console.log("No refresh token available");
+          return false;
+        }
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ refreshToken: this.tokens.refreshToken }),
-      });
+        console.log("Attempting to refresh token");
+        const url = `${this.baseUrl}/api/auth/refresh-token`;
 
-      if (!response.ok) {
-        console.error("Token refresh failed with status:", response.status);
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ refreshToken: this.tokens.refreshToken }),
+        });
+
+        if (!response.ok) {
+          console.error("Token refresh failed with status:", response.status);
+          await this.clearAuthState();
+          return false;
+        }
+
+        const data = await response.json();
+
+        if (!data.accessToken) {
+          console.error("Invalid refresh token response:", data);
+          await this.clearAuthState();
+          return false;
+        }
+
+        const newTokens: AuthTokens = {
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken || this.tokens.refreshToken,
+        };
+
+        // Update in-memory state first
+        this.tokens = newTokens;
+
+        // Then save to storage atomically
+        await this.saveAuthState(this.user!, newTokens);
+
+        console.log("Token refresh successful");
+        return true;
+      } catch (error) {
+        console.error("Token refresh error:", error);
+        await this.clearAuthState();
         return false;
+      } finally {
+        this.tokenRefreshPromise = null;
       }
+    })();
 
-      const data = await response.json();
-
-      if (!data.accessToken) {
-        console.error("Invalid refresh token response:", data);
-        return false;
-      }
-
-      const newTokens: AuthTokens = {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken || this.tokens.refreshToken,
-      };
-
-      this.tokens = newTokens;
-
-      await Promise.all([
-        AsyncStorage.setItem("accessToken", newTokens.accessToken),
-        newTokens.refreshToken
-          ? AsyncStorage.setItem("refreshToken", newTokens.refreshToken)
-          : Promise.resolve(),
-      ]);
-
-      console.log("Token refresh successful");
-      return true;
-    } catch (error) {
-      console.error("Token refresh error:", error);
-      return false;
-    }
-  }
-
-  // Utility methods
-  setBaseUrl(url: string): void {
-    this.baseUrl = url;
+    return this.tokenRefreshPromise;
   }
 
   async syncTokensWithStorage(): Promise<AuthTokens | null> {
@@ -352,19 +359,33 @@ export class BaseApiClient {
           AsyncStorage.getItem("refreshToken"),
         ]);
 
-        if (accessToken) {
-          this.tokens = {
-            accessToken,
-            refreshToken: refreshToken || undefined,
-          };
-          console.log("Tokens synced from storage:", {
-            hasAccessToken: true,
-            hasRefreshToken: !!refreshToken,
-          });
-        } else {
+        if (!accessToken) {
           this.tokens = null;
           console.log("No tokens found in storage during sync");
+          return null;
         }
+
+        // If we have a token, check if it's expired
+        const isExpired = await this.isTokenExpired();
+        if (isExpired && refreshToken) {
+          // Try to refresh the token
+          const refreshed = await this.refreshTokens();
+          if (!refreshed) {
+            this.tokens = null;
+            return null;
+          }
+          return this.tokens;
+        }
+
+        // If token is still valid, update in-memory state
+        this.tokens = {
+          accessToken,
+          refreshToken: refreshToken || undefined,
+        };
+        console.log("Tokens synced from storage:", {
+          hasAccessToken: true,
+          hasRefreshToken: !!refreshToken,
+        });
 
         return this.tokens;
       } catch (error) {
@@ -376,6 +397,11 @@ export class BaseApiClient {
     })();
 
     return this.tokenSyncPromise;
+  }
+
+  // Utility methods
+  setBaseUrl(url: string): void {
+    this.baseUrl = url;
   }
 
   // Add public method for token refresh
