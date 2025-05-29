@@ -132,6 +132,11 @@ const CreateGroup: React.FC = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
+      // Get the selected headquarters data from the search results
+      const selectedHeadquarters = searchResults.find(
+        (result) => result.id === headquarters?.id,
+      );
+
       const groupData = {
         name: name.trim(),
         description: description.trim() || undefined,
@@ -139,11 +144,12 @@ const CreateGroup: React.FC = () => {
         visibility,
         allowMemberEventCreation,
         categoryIds: [],
-        headquarters: headquarters
+        headquarters: selectedHeadquarters
           ? {
-              placeId: headquarters.id,
-              name: headquarters.label,
-              address: headquarters.description,
+              placeId: selectedHeadquarters.id,
+              name: selectedHeadquarters.label,
+              address: selectedHeadquarters.description,
+              coordinates: [0, 0], // This will be populated by the backend using the placeId
             }
           : undefined,
       };

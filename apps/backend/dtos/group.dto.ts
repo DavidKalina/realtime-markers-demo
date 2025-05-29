@@ -3,6 +3,13 @@ import { GroupMemberRole } from "../entities/GroupMembership"; // Assuming Group
 import type { GroupVisibility } from "../entities/Group";
 import type { Point } from "geojson";
 
+export interface HeadquartersInfo {
+  placeId: string;
+  name: string;
+  address: string;
+  coordinates: Point;
+}
+
 export interface CreateGroupDto {
   name: string;
   description?: string;
@@ -12,6 +19,7 @@ export interface CreateGroupDto {
   visibility?: GroupVisibility; // Default to PUBLIC if not provided
   location?: Point;
   address?: string;
+  headquarters?: HeadquartersInfo;
   allowMemberEventCreation?: boolean;
   categoryIds?: string[];
 }
@@ -25,6 +33,7 @@ export interface UpdateGroupDto {
   visibility?: GroupVisibility;
   location?: Point;
   address?: string;
+  headquarters?: HeadquartersInfo;
   allowMemberEventCreation?: boolean;
   categoryIds?: string[]; // Allow updating categories
 }

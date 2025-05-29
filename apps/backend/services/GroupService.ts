@@ -102,7 +102,7 @@ Respond with a JSON object containing:
       throw new Error("Group description contains inappropriate content.");
     }
 
-    // Check for existing group with the same name (optional, but good for uniqueness)
+    // Check for existing group with the same name
     const existingGroup = await this.groupRepository.findOneBy({
       name: groupData.name,
     });
@@ -119,9 +119,21 @@ Respond with a JSON object containing:
       });
     }
 
+    // Extract headquarters data if provided
+    const { headquarters, ...restGroupData } = groupData;
+    const headquartersData = headquarters
+      ? {
+          headquartersPlaceId: headquarters.placeId,
+          headquartersName: headquarters.name,
+          headquartersAddress: headquarters.address,
+          headquartersLocation: headquarters.coordinates,
+        }
+      : {};
+
     return this.dataSource.transaction(async (transactionalEntityManager) => {
       const group = transactionalEntityManager.create(Group, {
-        ...groupData,
+        ...restGroupData,
+        ...headquartersData,
         ownerId: userId,
         owner: owner,
         categories: categories,
@@ -241,14 +253,29 @@ Respond with a JSON object containing:
         group.categories = []; // Clear categories if an empty array is passed
       }
     }
-    // Remove categoryIds from updateData to prevent TypeORM from trying to set it directly
-    const { ...restOfUpdateData } = updateData;
 
-    await this.groupRepository.update(groupId, restOfUpdateData);
+    // Extract headquarters data if provided
+    const { headquarters, ...restUpdateData } = updateData;
+    const headquartersData = headquarters
+      ? {
+          headquartersPlaceId: headquarters.placeId,
+          headquartersName: headquarters.name,
+          headquartersAddress: headquarters.address,
+          headquartersLocation: headquarters.coordinates,
+        }
+      : {};
+
+    // Update the group with all fields
+    await this.groupRepository.update(groupId, {
+      ...restUpdateData,
+      ...headquartersData,
+    });
+
     // If categories were part of updateData, save the group entity to persist ManyToMany relation changes
     if (updateData.categoryIds) {
       await this.groupRepository.save(group);
     }
+
     await this.invalidateGroupCaches(groupId);
     return this.getGroupById(groupId);
   }
