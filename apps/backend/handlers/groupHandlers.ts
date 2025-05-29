@@ -33,22 +33,69 @@ export const createGroupHandler = async (c: Context<AppContext>) => {
       return c.json({ error: "Group name is required" }, 400);
     }
 
+    // Validate tags if provided
+    if (groupData.tags) {
+      if (!Array.isArray(groupData.tags)) {
+        return c.json({ error: "Tags must be an array of strings" }, 400);
+      }
+      if (groupData.tags.some((tag) => typeof tag !== "string")) {
+        return c.json({ error: "All tags must be strings" }, 400);
+      }
+      if (groupData.tags.some((tag) => !tag.trim())) {
+        return c.json({ error: "Tags cannot be empty strings" }, 400);
+      }
+      // Remove duplicates and trim whitespace
+      groupData.tags = [...new Set(groupData.tags.map((tag) => tag.trim()))];
+    }
+
     const { groupService } = getServices(c);
     const group = await groupService.createGroup(userId, groupData);
     return c.json(group, 201);
   } catch (error) {
     console.error("Error creating group:", error);
-    if (
-      error instanceof Error &&
-      (error.message.includes("already exists") ||
-        error.message.includes("inappropriate content"))
-    ) {
-      return c.json({ error: error.message }, 400);
+
+    // Handle specific error cases
+    if (error instanceof Error) {
+      // Handle inappropriate content errors
+      if (error.message.includes("inappropriate content")) {
+        return c.json(
+          {
+            error: error.message,
+            type: "content_moderation",
+          },
+          400,
+        );
+      }
+
+      // Handle duplicate group name
+      if (error.message.includes("already exists")) {
+        return c.json(
+          {
+            error: error.message,
+            type: "duplicate_name",
+          },
+          409,
+        );
+      }
+
+      // Handle tag processing errors
+      if (error.message.includes("Failed to process group tags")) {
+        return c.json(
+          {
+            error: "Unable to process tags at this time. Please try again.",
+            type: "tag_processing_error",
+          },
+          500,
+        );
+      }
     }
+
+    // Generic error handling
     return c.json(
       {
         error:
           error instanceof Error ? error.message : "Failed to create group",
+        type: "unknown_error",
       },
       500,
     );
@@ -101,6 +148,23 @@ export const updateGroupHandler = async (c: Context<AppContext>) => {
     const groupId = c.req.param("groupId");
     const updateData = await c.req.json<UpdateGroupDto>();
 
+    // Validate tags if provided
+    if (updateData.tags) {
+      if (!Array.isArray(updateData.tags)) {
+        return c.json({ error: "Tags must be an array of strings" }, 400);
+      }
+      if (updateData.tags.some((tag: unknown) => typeof tag !== "string")) {
+        return c.json({ error: "All tags must be strings" }, 400);
+      }
+      if (updateData.tags.some((tag: string) => !tag.trim())) {
+        return c.json({ error: "Tags cannot be empty strings" }, 400);
+      }
+      // Remove duplicates and trim whitespace
+      updateData.tags = [
+        ...new Set(updateData.tags.map((tag: string) => tag.trim())),
+      ];
+    }
+
     const { groupService } = getServices(c);
     const updatedGroup = await groupService.updateGroup(
       groupId,
@@ -108,24 +172,60 @@ export const updateGroupHandler = async (c: Context<AppContext>) => {
       updateData,
     );
     if (!updatedGroup) {
-      return c.json({ error: "Group not found or update failed" }, 404); // Or 403 if permission issue
+      return c.json(
+        {
+          error: "Group not found or update failed",
+          type: "not_found",
+        },
+        404,
+      );
     }
     return c.json(updatedGroup);
   } catch (error) {
     console.error("Error updating group:", error);
-    if (error instanceof Error && error.message.includes("not authorized")) {
-      return c.json({ error: error.message }, 403);
+
+    // Handle specific error cases
+    if (error instanceof Error) {
+      // Handle inappropriate content errors
+      if (error.message.includes("inappropriate content")) {
+        return c.json(
+          {
+            error: error.message,
+            type: "content_moderation",
+          },
+          400,
+        );
+      }
+
+      // Handle authorization errors
+      if (error.message.includes("not authorized")) {
+        return c.json(
+          {
+            error: error.message,
+            type: "unauthorized",
+          },
+          403,
+        );
+      }
+
+      // Handle tag processing errors
+      if (error.message.includes("Failed to process group tags")) {
+        return c.json(
+          {
+            error: "Unable to process tags at this time. Please try again.",
+            type: "tag_processing_error",
+          },
+          500,
+        );
+      }
     }
-    if (
-      error instanceof Error &&
-      error.message.includes("inappropriate content")
-    ) {
-      return c.json({ error: error.message }, 400);
-    }
+
+    // Generic error handling
     return c.json(
       {
         error:
           error instanceof Error ? error.message : "Failed to update group",
+        type: "unknown_error",
       },
       500,
     );

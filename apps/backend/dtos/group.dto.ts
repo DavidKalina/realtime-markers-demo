@@ -37,6 +37,7 @@ export interface UpdateGroupDto {
   headquarters?: HeadquartersInfo;
   allowMemberEventCreation?: boolean;
   categoryIds?: string[]; // Allow updating categories
+  tags?: string[]; // Allow updating tags
 }
 
 export interface UpdateMemberRoleDto {
