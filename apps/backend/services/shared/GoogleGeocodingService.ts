@@ -1059,4 +1059,152 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
       };
     }
   }
+
+  public async searchCityState(
+    query: string,
+    userCoordinates?: { lat: number; lng: number },
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    cityState?: {
+      city: string;
+      state: string;
+      coordinates: [number, number];
+      formattedAddress: string;
+      placeId: string;
+      distance?: number;
+    };
+  }> {
+    try {
+      if (!query.trim()) {
+        return {
+          success: false,
+          error: "Search query cannot be empty",
+        };
+      }
+
+      // Use the Places API with type restrictions for cities
+      const url = "https://places.googleapis.com/v1/places:searchText";
+      const requestBody = {
+        textQuery: query,
+        locationBias: userCoordinates
+          ? {
+              circle: {
+                center: {
+                  latitude: userCoordinates.lat,
+                  longitude: userCoordinates.lng,
+                },
+                radius: 50000.0, // 50km radius for city search
+              },
+            }
+          : undefined,
+        // Restrict to administrative areas and localities
+        includedTypes: [
+          "locality",
+          "administrative_area_level_1",
+          "administrative_area_level_2",
+        ],
+      };
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": process.env.GOOGLE_GEOCODING_API_KEY || "",
+          "X-Goog-FieldMask":
+            "places.displayName,places.formattedAddress,places.location,places.id,places.types",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Places API request failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.places || data.places.length === 0) {
+        return {
+          success: false,
+          error: "No cities or states found matching your search",
+        };
+      }
+
+      interface Place {
+        types: string[];
+        formattedAddress: string;
+        location: {
+          latitude: number;
+          longitude: number;
+        };
+        id: string;
+      }
+
+      // Find the first result that is a city or state
+      const result = data.places.find((place: Place) =>
+        place.types.some((type: string) =>
+          [
+            "locality",
+            "administrative_area_level_1",
+            "administrative_area_level_2",
+          ].includes(type),
+        ),
+      );
+
+      if (!result) {
+        return {
+          success: false,
+          error: "No cities or states found matching your search",
+        };
+      }
+
+      // Parse the address components to get city and state
+      const addressParts = result.formattedAddress.split(", ");
+      let city = "";
+      let state = "";
+
+      // The last part is usually the state
+      state = addressParts[addressParts.length - 1];
+
+      // The second-to-last part is usually the city
+      if (addressParts.length >= 2) {
+        city = addressParts[addressParts.length - 2];
+      }
+
+      // If we only got a state (like "California"), use it as both city and state
+      if (addressParts.length === 1) {
+        city = state;
+      }
+
+      // Calculate distance if user coordinates are provided
+      let distance: number | undefined;
+      if (userCoordinates) {
+        distance = this.calculateDistance(
+          userCoordinates.lat,
+          userCoordinates.lng,
+          result.location.latitude,
+          result.location.longitude,
+        );
+      }
+
+      return {
+        success: true,
+        cityState: {
+          city,
+          state,
+          coordinates: [result.location.longitude, result.location.latitude],
+          formattedAddress: result.formattedAddress,
+          placeId: result.id,
+          distance,
+        },
+      };
+    } catch (error) {
+      console.error("Error in city/state search:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Unknown error occurred",
+      };
+    }
+  }
 }

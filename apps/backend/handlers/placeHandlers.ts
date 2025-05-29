@@ -81,3 +81,34 @@ export const searchPlace = async (c: Context<AppContext>) => {
     );
   }
 };
+
+export async function searchCityState(c: Context<AppContext>) {
+  try {
+    const { query, coordinates } = await c.req.json();
+
+    if (!query || typeof query !== "string") {
+      return c.json(
+        {
+          success: false,
+          error: "Query parameter is required and must be a string",
+        },
+        400,
+      );
+    }
+
+    const geocodingService = GoogleGeocodingService.getInstance();
+    const result = await geocodingService.searchCityState(query, coordinates);
+
+    return c.json(result);
+  } catch (error) {
+    console.error("Error in searchCityState handler:", error);
+    return c.json(
+      {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Unknown error occurred",
+      },
+      500,
+    );
+  }
+}

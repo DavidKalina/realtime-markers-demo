@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { searchPlace } from "../handlers/placeHandlers";
+import { searchPlace, searchCityState } from "../handlers/placeHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
@@ -26,3 +26,7 @@ placesRouter.use(
 // POST /api/places/search
 // Search for a place using Google Places API
 placesRouter.post("/search", searchPlace);
+
+// POST /api/places/search-city-state
+// Search for cities and states using Google Places API
+placesRouter.post("/search-city-state", searchCityState);
