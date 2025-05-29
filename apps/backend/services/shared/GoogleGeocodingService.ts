@@ -1085,6 +1085,8 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
 
       // Use the Places API with type restrictions for cities
       const url = "https://places.googleapis.com/v1/places:searchText";
+
+      // Construct the request body according to Places API v1 format
       const requestBody = {
         textQuery: query,
         locationBias: userCoordinates
@@ -1098,12 +1100,8 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
               },
             }
           : undefined,
-        // Restrict to administrative areas and localities
-        includedTypes: [
-          "locality",
-          "administrative_area_level_1",
-          "administrative_area_level_2",
-        ],
+        // Add language code for better results
+        languageCode: "en",
       };
 
       const response = await fetch(url, {
@@ -1118,7 +1116,11 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
       });
 
       if (!response.ok) {
-        throw new Error(`Places API request failed: ${response.statusText}`);
+        const errorData = await response.json().catch(() => null);
+        console.error("Places API error response:", errorData);
+        throw new Error(
+          `Places API request failed: ${response.statusText}${errorData ? ` - ${JSON.stringify(errorData)}` : ""}`,
+        );
       }
 
       const data = await response.json();
@@ -1138,10 +1140,13 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           longitude: number;
         };
         id: string;
+        displayName: {
+          text: string;
+        };
       }
 
-      // Find the first result that is a city or state
-      const result = data.places.find((place: Place) =>
+      // Filter results to only include cities and states
+      const cityStateResults = data.places.filter((place: Place) =>
         place.types.some((type: string) =>
           [
             "locality",
@@ -1151,12 +1156,15 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
         ),
       );
 
-      if (!result) {
+      if (cityStateResults.length === 0) {
         return {
           success: false,
           error: "No cities or states found matching your search",
         };
       }
+
+      // Use the first result that matches our criteria
+      const result = cityStateResults[0];
 
       // Parse the address components to get city and state
       const addressParts = result.formattedAddress.split(", ");

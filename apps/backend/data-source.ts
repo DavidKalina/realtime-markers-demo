@@ -22,6 +22,7 @@ import { CreateNotificationsTable1710000000009 } from "./migrations/171000000000
 import { AddEventRsvpToggledNotificationType1710000000010 } from "./migrations/1710000000010-AddEventRsvpToggledNotificationType";
 import { AddGroupsFeature1710000000011 } from "./migrations/1710000000011-AddGroupsFeature";
 import { AddLevelingSystem1710000000003 } from "./migrations/AddLevelingSystem1710000000003";
+import { AddGroupHeadquarters1716927400000 } from "./migrations/1716927400000-AddGroupHeadquarters";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -51,6 +52,7 @@ const AppDataSource = new DataSource({
     CreateNotificationsTable1710000000009,
     AddEventRsvpToggledNotificationType1710000000010,
     AddGroupsFeature1710000000011,
+    AddGroupHeadquarters1716927400000,
   ],
   migrationsTableName: "migrations",
   migrationsRun: true, // Automatically run migrations on startup

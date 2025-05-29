@@ -72,6 +72,25 @@ export class Group {
   @Column({ type: "text", nullable: true })
   address?: string; // Human-readable address for the group's general location
 
+  // Headquarters information
+  @Column({ name: "headquarters_place_id", type: "varchar", nullable: true })
+  headquartersPlaceId?: string;
+
+  @Column({ name: "headquarters_name", type: "varchar", nullable: true })
+  headquartersName?: string;
+
+  @Column({ name: "headquarters_address", type: "text", nullable: true })
+  headquartersAddress?: string;
+
+  @Column({
+    name: "headquarters_location",
+    type: "geometry",
+    spatialFeatureType: "Point",
+    srid: 4326,
+    nullable: true,
+  })
+  headquartersLocation?: Point;
+
   @Column({ name: "member_count", type: "integer", default: 1 }) // Starts with owner
   memberCount!: number;
 

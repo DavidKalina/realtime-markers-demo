@@ -92,14 +92,14 @@ const CreateGroup: React.FC = () => {
 
     setIsSearchingPlaces(true);
     try {
-      const result = await apiClient.places.searchPlace({ query });
+      const result = await apiClient.places.searchCityState({ query });
 
-      if (result.success && result.place) {
+      if (result.success && result.cityState) {
         setSearchResults([
           {
-            id: result.place.placeId,
-            label: result.place.name,
-            description: result.place.address,
+            id: result.cityState.placeId,
+            label: `${result.cityState.city}, ${result.cityState.state}`,
+            description: result.cityState.formattedAddress,
             icon: MapPinIcon,
           },
         ]);
@@ -107,8 +107,8 @@ const CreateGroup: React.FC = () => {
         setSearchResults([]);
       }
     } catch (error) {
-      console.error("Error searching places:", error);
-      setError("Failed to search places. Please try again.");
+      console.error("Error searching cities:", error);
+      setError("Failed to search cities. Please try again.");
     } finally {
       setIsSearchingPlaces(false);
     }
@@ -329,7 +329,7 @@ const CreateGroup: React.FC = () => {
                       <Select
                         value={headquarters}
                         options={searchResults}
-                        placeholder="Search for a location..."
+                        placeholder="Search for a city or state..."
                         searchable
                         loading={isSearchingPlaces}
                         onSearch={handleSearchPlaces}
