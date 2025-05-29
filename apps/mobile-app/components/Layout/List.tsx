@@ -1,25 +1,26 @@
+import { LucideIcon } from "lucide-react-native";
 import React from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ViewStyle,
-  ScrollView,
-  Switch,
   Platform,
   RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+  ViewStyle,
 } from "react-native";
-import { COLORS } from "./ScreenLayout";
-import { LucideIcon } from "lucide-react-native";
 import Animated, {
   FadeIn,
-  FadeInDown,
-  useAnimatedStyle,
-  withSpring,
+  LinearTransition,
   useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import Button from "./Button";
+import { COLORS } from "./ScreenLayout";
 
 export interface ListItem {
   id: string;
@@ -77,10 +78,10 @@ const ListItem = React.memo<{
   const scale = useSharedValue(1);
 
   const handlePress = () => {
-    scale.value = withSpring(0.98, { damping: 10 });
-    setTimeout(() => {
-      scale.value = withSpring(1, { damping: 10 });
-    }, 100);
+    scale.value = withSequence(
+      withTiming(0.95, { duration: 100 }),
+      withSpring(1, { damping: 15, stiffness: 200 }),
+    );
 
     if (onPress) {
       onPress(item);
@@ -89,27 +90,20 @@ const ListItem = React.memo<{
     }
   };
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
   const ListItemComponent = animated ? Animated.View : View;
 
   return (
     <ListItemComponent
-      style={[styles.itemContainer, animatedStyle]}
+      style={[styles.itemContainer]}
+      layout={LinearTransition.springify().damping(15).stiffness(200)}
       entering={
-        animated
-          ? FadeInDown.duration(400)
-              .delay(delay + index * 100)
-              .springify()
-          : undefined
+        animated ? FadeIn.duration(300).delay(delay + index * 50) : undefined
       }
     >
       <TouchableOpacity
         style={[styles.item, item.isActive && styles.activeItem]}
         onPress={handlePress}
-        activeOpacity={0.9}
+        activeOpacity={1}
       >
         {Icon && (
           <View style={styles.itemIconContainer}>
