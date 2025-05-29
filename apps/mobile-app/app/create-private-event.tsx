@@ -5,11 +5,12 @@ import Input from "@/components/Input/Input";
 import TextArea from "@/components/Input/TextArea";
 import Header from "@/components/Layout/Header";
 import ScreenLayout from "@/components/Layout/ScreenLayout";
+import { Select, SelectOption } from "@/components/Select/Select";
 import { Friend, apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Book, List } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import { Book, List, MapPin as MapPinIcon } from "lucide-react-native";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -42,6 +43,27 @@ const COLORS = {
   buttonBorder: "rgba(255, 255, 255, 0.1)",
 };
 
+const MapPin = ({ size, color }: { size: number; color: string }) => (
+  <MapPinIcon size={size} color={color} />
+);
+
+// Add useDebounce hook at the top of the file
+const useDebounce = <T,>(value: T, delay: number): T => {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
 const CreatePrivateEvent = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -51,6 +73,20 @@ const CreatePrivateEvent = () => {
     latitude: number;
     longitude: number;
   } | null>(null);
+  const [locationData, setLocationData] = useState<{
+    placeId: string;
+    name: string;
+    address: string;
+    types?: string[];
+    rating?: number;
+    userRatingsTotal?: number;
+    locationNotes?: string;
+  } | null>(null);
+  const [searchResults, setSearchResults] = useState<SelectOption[]>([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const [locationError, setLocationError] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 500); // 500ms delay
 
   // Use the new hook for event scope management
   const { eventScope, selectedGroupId, handleScopeChange } = useEventScope({
@@ -162,6 +198,77 @@ const CreatePrivateEvent = () => {
     }
   };
 
+  // Update handleSearchPlaces to use the debounced query
+  const handleSearchPlaces = useCallback(async (query: string) => {
+    setSearchQuery(query); // Just update the query state, actual search will be triggered by debounced value
+  }, []);
+
+  // Add effect to handle the actual search with debounced value
+  useEffect(() => {
+    const performSearch = async () => {
+      if (!debouncedSearchQuery.trim()) {
+        setSearchResults([]);
+        return;
+      }
+
+      setIsSearchingPlaces(true);
+      try {
+        const result = await apiClient.places.searchPlace({
+          query: debouncedSearchQuery,
+        });
+
+        if (result.success && result.place) {
+          setSearchResults([
+            {
+              id: result.place.placeId,
+              label: result.place.name,
+              description: result.place.address,
+              icon: MapPin,
+            },
+          ]);
+        } else {
+          setSearchResults([]);
+        }
+      } catch (error) {
+        console.error("Error searching places:", error);
+        setLocationError("Failed to search places. Please try again.");
+      } finally {
+        setIsSearchingPlaces(false);
+      }
+    };
+
+    performSearch();
+  }, [debouncedSearchQuery]);
+
+  const handleLocationSelect = useCallback(async (option: SelectOption) => {
+    try {
+      // Get the full place data to access coordinates
+      const placeData = await apiClient.places.searchPlace({
+        query: option.label,
+      });
+
+      if (placeData.success && placeData.place?.coordinates) {
+        const [lng, lat] = placeData.place.coordinates;
+        setCoordinates({ latitude: lat, longitude: lng });
+        setLocationData({
+          placeId: placeData.place.placeId,
+          name: placeData.place.name,
+          address: placeData.place.address,
+          types: placeData.place.types,
+          rating: placeData.place.rating,
+          userRatingsTotal: placeData.place.userRatingsTotal,
+          locationNotes: placeData.place.locationNotes,
+        });
+        setLocationError("");
+      } else {
+        throw new Error("Invalid place data received");
+      }
+    } catch (error) {
+      console.error("Error getting place details:", error);
+      setLocationError("Failed to get place details. Please try again.");
+    }
+  }, []);
+
   const handleSubmit = async () => {
     if (isSubmitting) return;
 
@@ -171,7 +278,7 @@ const CreatePrivateEvent = () => {
       return;
     }
 
-    if (!coordinates) {
+    if (!coordinates || !locationData) {
       Alert.alert("Error", "Location is required");
       return;
     }
@@ -223,6 +330,13 @@ const CreatePrivateEvent = () => {
             number,
             number,
           ],
+          placeId: locationData.placeId,
+          name: locationData.name,
+          address: locationData.address,
+          types: locationData.types,
+          rating: locationData.rating,
+          userRatingsTotal: locationData.userRatingsTotal,
+          locationNotes: locationData.locationNotes,
         },
         sharedWithIds:
           eventScope === "FRIENDS"
@@ -266,6 +380,15 @@ const CreatePrivateEvent = () => {
       setIsSubmitting(false);
     }
   };
+
+  const selectedLocation: SelectOption | undefined = locationData
+    ? {
+        id: locationData.placeId,
+        label: locationData.name,
+        description: locationData.address,
+        icon: MapPin,
+      }
+    : undefined;
 
   const localDate = new Date(date);
   localDate.setHours(date.getHours());
@@ -323,6 +446,30 @@ const CreatePrivateEvent = () => {
                   </Text>
                 </View>
               )}
+            </View>
+
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <MapPinIcon size={18} color={COLORS.accent} />
+                <Text style={styles.sectionTitle}>Location</Text>
+              </View>
+              <Select
+                value={selectedLocation}
+                options={searchResults}
+                placeholder="Search for a place..."
+                searchable
+                loading={isSearchingPlaces}
+                onSearch={handleSearchPlaces}
+                onChange={handleLocationSelect}
+                onClear={() => {
+                  setCoordinates(null);
+                  setLocationData(null);
+                  setLocationError("");
+                  setSearchQuery(""); // Clear the search query
+                }}
+                error={locationError}
+                style={styles.input}
+              />
             </View>
 
             {/* Only show friend selection for friend-scoped events */}
@@ -441,6 +588,21 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontSize: 12,
     fontFamily: "SpaceMono",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
+  },
+  input: {
+    marginBottom: 16,
   },
 });
 
