@@ -1,57 +1,106 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
+import { Bell, Mail, MailOpen, Trash2 } from "lucide-react-native";
 
-import ScreenLayout from "@/components/Layout/ScreenLayout";
+import Screen from "@/components/Layout/Screen";
+import List from "@/components/Layout/List";
 import { useNotifications } from "@/hooks/useNotifications";
-import { NotificationHeader } from "@/components/Notifications/NotificationHeader";
-import { NotificationList } from "@/components/Notifications/NotificationList";
+import { COLORS } from "@/components/Layout/ScreenLayout";
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const {
     notifications,
     refreshing,
-    unreadCount,
-    loading,
     initialLoading,
     activeFilter,
     onRefresh,
-    onEndReached,
     handleMarkAsRead,
     handleDeleteNotification,
-    handleClearAll,
     setFilter,
   } = useNotifications();
 
+  const tabs = [
+    {
+      icon: Mail,
+      label: "All",
+      value: "all" as const,
+    },
+    {
+      icon: MailOpen,
+      label: "Unread",
+      value: "unread" as const,
+    },
+  ];
+
+  const listItems = notifications.map((notification) => ({
+    id: notification.id,
+    title: notification.title,
+    description: notification.message,
+    icon: Bell,
+    isActive: !notification.read,
+    rightElement: (
+      <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={() => handleDeleteNotification(notification.id)}
+      >
+        <Trash2 size={18} color={COLORS.textSecondary} />
+      </TouchableOpacity>
+    ),
+    onPress: () => handleMarkAsRead(notification.id),
+  }));
+
   return (
-    <ScreenLayout>
-      <NotificationHeader
-        unreadCount={unreadCount}
-        activeFilter={activeFilter}
-        onBack={() => router.back()}
-        onClearAll={handleClearAll}
-        onFilterChange={setFilter}
+    <Screen
+      bannerTitle="Notifications"
+      showBackButton
+      onBack={() => router.back()}
+      tabs={tabs}
+      activeTab={activeFilter}
+      onTabChange={setFilter}
+      isScrollable={false}
+      style={styles.screen}
+    >
+      <List
+        items={listItems}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        emptyState={
+          initialLoading
+            ? undefined
+            : {
+                icon: Bell,
+                title:
+                  activeFilter === "unread"
+                    ? "No unread notifications"
+                    : "No notifications yet",
+                description:
+                  "You'll see your notifications here when they arrive",
+              }
+        }
+        style={styles.list}
       />
-      <View style={styles.contentArea}>
-        <NotificationList
-          notifications={notifications}
-          refreshing={refreshing}
-          loading={loading}
-          initialLoading={initialLoading}
-          activeFilter={activeFilter}
-          onRefresh={onRefresh}
-          onEndReached={onEndReached}
-          onMarkAsRead={handleMarkAsRead}
-          onDelete={handleDeleteNotification}
-        />
-      </View>
-    </ScreenLayout>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  contentArea: {
+  screen: {
     flex: 1,
+  },
+  list: {
+    flex: 1,
+  },
+  deleteButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: COLORS.buttonBackground,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
 });
