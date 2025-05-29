@@ -99,15 +99,17 @@ const GroupsListScreen = () => {
         if (refresh) {
           setGroups(response.groups);
         } else {
-          const existingGroupIds = new Set(
-            groups.map((group: ClientGroup) => group.id),
-          );
-          const newGroups = response.groups.filter(
-            (group: ClientGroup) => !existingGroupIds.has(group.id),
-          );
-          if (newGroups.length > 0) {
-            setGroups((prev) => [...prev, ...newGroups]);
-          }
+          setGroups((prevGroups) => {
+            const existingGroupIds = new Set(
+              prevGroups.map((group) => group.id),
+            );
+            const newGroups = response.groups.filter(
+              (group) => !existingGroupIds.has(group.id),
+            );
+            return newGroups.length > 0
+              ? [...prevGroups, ...newGroups]
+              : prevGroups;
+          });
         }
 
         setError(null);
@@ -123,7 +125,7 @@ const GroupsListScreen = () => {
         }
       }
     },
-    [cursor, groups, searchQuery, filter],
+    [cursor, searchQuery, filter],
   );
 
   // Effect to handle search with debounce
@@ -218,6 +220,7 @@ const GroupsListScreen = () => {
 
   return (
     <Screen
+      isScrollable={false}
       bannerTitle={getBannerTitle()}
       bannerDescription={getBannerDescription()}
       bannerEmoji="👥"

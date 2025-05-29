@@ -3,73 +3,10 @@ import Screen from "@/components/Layout/Screen";
 import { COLORS } from "@/components/Layout/ScreenLayout";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useNearbyGroups } from "@/hooks/useNearbyGroups";
-import { useRecentGroups } from "@/hooks/useRecentGroups";
 import { useRouter } from "expo-router";
 import { Map, Users } from "lucide-react-native";
 import React, { useMemo } from "react";
 import { ActivityIndicator, Alert, View } from "react-native";
-
-const RecentGroupsSection = () => {
-  const router = useRouter();
-  const { groups, isLoading, error } = useRecentGroups({
-    initialLimit: 3, // Match the maxItems in List component
-  });
-
-  const listItems = useMemo<ListItem[]>(() => {
-    return groups.map((group) => ({
-      id: group.id,
-      icon: Users,
-      title: group.name,
-      description: group.description,
-      badge: group.memberCount,
-      onPress: () => {
-        router.push({
-          pathname: "/group/[id]",
-          params: { id: group.id },
-        });
-      },
-    }));
-  }, [groups, router]);
-
-  if (isLoading) {
-    return (
-      <View style={{ padding: 20, alignItems: "center" }}>
-        <ActivityIndicator color={COLORS.accent} />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <List
-        items={[]}
-        emptyState={{
-          icon: Users,
-          title: "Error loading groups",
-          description: error,
-        }}
-      />
-    );
-  }
-
-  return (
-    <List
-      items={listItems}
-      maxItems={3}
-      onViewAllPress={() =>
-        router.push({
-          pathname: "/groups/list",
-          params: { filter: "recent" },
-        })
-      }
-      emptyState={{
-        icon: Users,
-        title: "No recent groups",
-        description: "Groups you've recently interacted with will appear here",
-      }}
-    />
-  );
-};
 
 const NearbyGroupsSection = () => {
   const router = useRouter();
