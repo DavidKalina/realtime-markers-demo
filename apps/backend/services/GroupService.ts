@@ -34,7 +34,7 @@ interface GetGroupEventsParams extends CursorPaginationParams {
 
 interface NearbyGroupsParams extends CursorPaginationParams {
   coordinates: { lat: number; lng: number };
-  maxDistance?: number; // in kilometers
+  maxDistance?: number; // in kilometers, default 60km
   categoryId?: string;
   minMemberCount?: number;
 }
@@ -58,6 +58,9 @@ export class GroupService {
     this.groupMembershipRepository = dataSource.getRepository(GroupMembership);
     this.categoryRepository = dataSource.getRepository(Category);
     this.eventRepository = dataSource.getRepository(Event);
+
+    // Log the table name to verify
+    console.log("Group table name:", this.groupRepository.metadata.tableName);
   }
 
   private async isContentAppropriate(content: string): Promise<boolean> {
@@ -1178,7 +1181,7 @@ Respond with a JSON object containing:
 
     const {
       coordinates,
-      maxDistance = 50, // Default 50km radius
+      maxDistance = 60, // Increased default to 60km radius
       categoryId,
       minMemberCount,
       cursor,
@@ -1186,13 +1189,72 @@ Respond with a JSON object containing:
       direction = "forward",
     } = params;
 
-    // First, get the groups within range using a subquery
+    // Validate maxDistance
+    if (maxDistance < 1 || maxDistance > 1000) {
+      throw new Error("maxDistance must be between 1 and 1000 kilometers");
+    }
+
+    // Log input parameters
+    console.log("DEBUG - Nearby groups search params:", {
+      coordinates,
+      maxDistance,
+      categoryId,
+      minMemberCount,
+      cursor,
+      limit,
+      direction,
+    });
+
+    // Single detailed debug query to verify coordinates and distance
+    const debugQuery = this.groupRepository
+      .createQueryBuilder("g")
+      .select("g.id", "id")
+      .addSelect("g.name", "name")
+      .addSelect("ST_AsText(g.headquarters_location)", "location_text")
+      .addSelect("ST_X(g.headquarters_location::geometry)", "group_lng")
+      .addSelect("ST_Y(g.headquarters_location::geometry)", "group_lat")
+      .addSelect(
+        `ST_Distance(
+          g.headquarters_location::geography,
+          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+        ) / 1000`,
+        "distance_km",
+      )
+      .where("g.visibility = :visibility", {
+        visibility: GroupVisibility.PUBLIC,
+      })
+      .andWhere("g.headquarters_location IS NOT NULL");
+
+    // Execute debug query
+    const debugResults = await debugQuery
+      .setParameters({
+        lng: coordinates.lng,
+        lat: coordinates.lat,
+        visibility: GroupVisibility.PUBLIC,
+      })
+      .getRawMany();
+
+    // Log detailed debug information
+    console.log("DEBUG - Input coordinates:", {
+      search: {
+        lat: coordinates.lat,
+        lng: coordinates.lng,
+        point: `POINT(${coordinates.lng} ${coordinates.lat})`,
+      },
+    });
+    console.log(
+      "DEBUG - Group locations and distances:",
+      JSON.stringify(debugResults, null, 2),
+    );
+
+    // Now proceed with the actual distance query
     const distanceSubquery = this.groupRepository
       .createQueryBuilder("g")
       .select("g.id", "id")
+      .addSelect("ST_AsText(g.headquarters_location)", "location_text")
       .addSelect(
         `ST_Distance(
-          g.location::geography,
+          g.headquarters_location::geography,
           ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
         ) / 1000`,
         "distance",
@@ -1200,9 +1262,10 @@ Respond with a JSON object containing:
       .where("g.visibility = :visibility", {
         visibility: GroupVisibility.PUBLIC,
       })
+      .andWhere("g.headquarters_location IS NOT NULL")
       .andWhere(
         `ST_DWithin(
-          g.location::geography,
+          g.headquarters_location::geography,
           ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
           :maxDistance
         )`,
@@ -1213,77 +1276,20 @@ Respond with a JSON object containing:
         },
       );
 
-    // Add category filter if provided
-    if (categoryId) {
-      distanceSubquery.andWhere(
-        "EXISTS (SELECT 1 FROM group_categories gc WHERE gc.group_id = g.id AND gc.category_id = :categoryId)",
-        {
-          categoryId,
-        },
-      );
-    }
-
-    // Add minimum member count filter if provided
-    if (minMemberCount) {
-      distanceSubquery.andWhere("g.member_count >= :minMemberCount", {
-        minMemberCount,
-      });
-    }
-
-    // Add cursor-based pagination
-    if (cursor) {
-      const decodedCursor = Buffer.from(cursor, "base64").toString();
-      const [distance, id] = decodedCursor.split(":");
-
-      if (direction === "forward") {
-        distanceSubquery.andWhere(
-          `(ST_Distance(
-            g.location::geography,
-            ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
-          ) / 1000 > :distance OR (
-            ST_Distance(
-              g.location::geography,
-              ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
-            ) / 1000 = :distance AND g.id < :id
-          ))`,
-          { distance: parseFloat(distance), id },
-        );
-      } else {
-        distanceSubquery.andWhere(
-          `(ST_Distance(
-            g.location::geography,
-            ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
-          ) / 1000 < :distance OR (
-            ST_Distance(
-              g.location::geography,
-              ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
-            ) / 1000 = :distance AND g.id > :id
-          ))`,
-          { distance: parseFloat(distance), id },
-        );
-      }
-    }
-
-    // Add ordering
-    distanceSubquery
-      .orderBy(
-        `ST_Distance(
-          g.location::geography,
-          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
-        ) / 1000`,
-        direction === "forward" ? "ASC" : "DESC",
-      )
-      .addOrderBy("g.id", direction === "forward" ? "ASC" : "DESC")
-      .take(limit + 1);
-
-    // Execute the subquery to get IDs and distances
+    // Execute the distance query
     const distanceResults = await distanceSubquery.getRawMany();
+    console.log(
+      "DEBUG - Groups within distance:",
+      JSON.stringify(distanceResults, null, 2),
+    );
+
     const groupIds = distanceResults.map((result) => result.id);
     const distanceMap = new Map<string, number>(
       distanceResults.map((result) => [result.id, result.distance]),
     );
 
     if (groupIds.length === 0) {
+      console.log("DEBUG - No groups found within distance");
       return {
         groups: [],
         nextCursor: undefined,
