@@ -7,6 +7,9 @@ import Input from "@/components/Input/Input";
 import { Select, SelectOption } from "@/components/Select/Select";
 import { apiClient } from "@/services/ApiClient";
 import { COLORS } from "@/components/Layout/ScreenLayout";
+import { CategorySelector } from "@/components/CategorySelector/CategorySelector";
+import { useCategories } from "@/hooks/useCategories";
+import { Category } from "@/services/api/base/types";
 
 // Define types locally since we can't import from @/types/group
 enum GroupVisibility {
@@ -18,6 +21,7 @@ interface CreateGroupPayload {
   name: string;
   description?: string;
   visibility: GroupVisibility;
+  categories: Category[];
   headquarters: {
     placeId: string;
     name: string;
@@ -51,6 +55,7 @@ const CreateGroupScreen = () => {
     name: "",
     description: "",
     visibility: GroupVisibility.PUBLIC,
+    categories: [],
     headquarters: {
       placeId: "",
       name: "",
@@ -61,6 +66,27 @@ const CreateGroupScreen = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [searchResults, setSearchResults] = useState<SelectOption[]>([]);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+
+  // Add useCategories hook
+  const {
+    selectedCategories,
+    availableCategories,
+    isLoading: isCategoriesLoading,
+    error: categoriesError,
+    handleSearchCategories,
+    handleCategoriesChange,
+  } = useCategories({
+    maxCategories: 5,
+    initialCategories: formData.categories,
+  });
+
+  // Update formData when categories change
+  React.useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      categories: selectedCategories,
+    }));
+  }, [selectedCategories]);
 
   const validateForm = useCallback(() => {
     const newErrors: Record<string, string> = {};
@@ -81,9 +107,13 @@ const CreateGroupScreen = () => {
       newErrors.headquarters = "Group location is required";
     }
 
+    if (categoriesError) {
+      newErrors.categories = categoriesError;
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData]);
+  }, [formData, categoriesError]);
 
   const handleSearchPlaces = useCallback(async (query: string) => {
     if (!query.trim()) {
@@ -250,6 +280,19 @@ const CreateGroupScreen = () => {
           error={errors.description}
           style={styles.input}
         />
+
+        {/* Add CategorySelector component */}
+        <View style={styles.section}>
+          <CategorySelector
+            selectedCategories={selectedCategories}
+            availableCategories={availableCategories}
+            onCategoriesChange={handleCategoriesChange}
+            onSearchCategories={handleSearchCategories}
+            isLoading={isCategoriesLoading}
+            error={errors.categories}
+            maxCategories={5}
+          />
+        </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
