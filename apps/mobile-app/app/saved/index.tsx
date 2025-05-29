@@ -22,7 +22,7 @@ const SavedIndexScreen = () => {
     (event: Event) => {
       router.push({
         pathname: "/details" as const,
-        params: { id: event.id },
+        params: { eventId: event.id },
       });
     },
     [router],
