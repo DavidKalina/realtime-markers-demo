@@ -175,16 +175,16 @@ const List: React.FC<ListProps> = ({
   onRefresh,
 }) => {
   const displayItems = maxItems ? items.slice(0, maxItems) : items;
-  const hasMore = maxItems ? items.length > maxItems : false;
+  const hasMore = maxItems ? items?.length > maxItems : false;
 
-  if (items.length === 0 && emptyState) {
+  if (items?.length === 0 && emptyState) {
     return <EmptyState {...emptyState} />;
   }
 
   const content = (
     <>
       <View style={styles.itemsContainer}>
-        {displayItems.map((item, index) => (
+        {displayItems?.map((item, index) => (
           <ListItem
             key={item.id}
             item={item}
@@ -198,7 +198,7 @@ const List: React.FC<ListProps> = ({
       {hasMore && onViewAllPress && (
         <View style={styles.viewAllContainer}>
           <Button
-            title={`View All (${items.length})`}
+            title={`View All (${items?.length})`}
             onPress={onViewAllPress}
             variant="outline"
             size="small"

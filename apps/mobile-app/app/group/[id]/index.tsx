@@ -1,30 +1,41 @@
-import React, { useCallback } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useMemo } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import Animated, {
-  FadeInDown,
-  LinearTransition,
-} from "react-native-reanimated";
-import ScreenLayout, { COLORS } from "@/components/Layout/ScreenLayout";
-import {
-  useGroupDetails,
-  useGroupActions,
-  useGroupScroll,
-} from "@/hooks/useGroupDetails";
-import { GroupHeader } from "@/components/Group/GroupHeader";
-import { GroupInfoSection } from "@/components/Group/GroupInfoSection";
-import { GroupCategoriesSection } from "@/components/Group/GroupCategoriesSection";
-import { GroupMembersSection } from "@/components/Group/GroupMembersSection";
-import { GroupEventsSection } from "@/components/Group/GroupEventsSection";
-import { GroupActionButton } from "@/components/Group/GroupActionButton";
+import { Users, Calendar, MapPin, Info } from "lucide-react-native";
+import Screen from "@/components/Layout/Screen";
+import List, { ListItem } from "@/components/Layout/List";
+import { useGroupDetails, useGroupActions } from "@/hooks/useGroupDetails";
 
-export default function GroupDetailsScreen() {
+// Define types for our data
+interface GroupMember {
+  id: string;
+  name: string;
+  role: string;
+}
+
+interface GroupEvent {
+  id: string;
+  title: string;
+  location: string;
+  date: string;
+}
+
+interface Group {
+  id: string;
+  name: string;
+  description: string;
+  emoji?: string;
+  visibility: string;
+  address: string;
+  members: GroupMember[];
+  events: GroupEvent[];
+}
+
+const GroupDetailsScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { group, loading, error, isAdmin, refreshGroup } = useGroupDetails(id);
+  const { group, loading, error, isAdmin } = useGroupDetails(id);
   const { isLeaving, isDeleting, handleLeaveGroup, handleDeleteGroup } =
     useGroupActions(group);
-  const { scrollY, handleScroll } = useGroupScroll();
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -32,109 +43,189 @@ export default function GroupDetailsScreen() {
     }
   }, [router]);
 
-  const renderContent = useCallback(() => {
-    if (!group) return null;
+  const handleViewAllPress = useCallback(
+    (type: "members" | "events") => {
+      router.push(`/group/${id}/${type}`);
+    },
+    [router, id],
+  );
 
-    return (
-      <Animated.View
-        style={styles.detailsSection}
-        entering={FadeInDown.duration(600).delay(200)}
-        layout={LinearTransition.springify()}
-      >
-        <GroupInfoSection
-          memberCount={group.memberCount}
-          visibility={group.visibility}
-          address={group.address}
-        />
-        <GroupCategoriesSection categories={group.categories} />
-        <GroupMembersSection
-          groupId={id}
-          isOwner={isAdmin}
-          onMembershipChange={refreshGroup}
-          onViewAllPress={() => router.push(`/group/${id}/members`)}
-        />
-        <GroupEventsSection
-          onViewAllPress={() => router.push(`/group/${id}/events`)}
-        />
-      </Animated.View>
-    );
-  }, [group, id, isAdmin, refreshGroup, router]);
+  // Convert group info to list items
+  const convertToInfoItems = useCallback(
+    (groupData: Group): ListItem[] => [
+      {
+        id: "visibility",
+        icon: Info,
+        title: "Visibility",
+        description: groupData.visibility,
+      },
+      {
+        id: "address",
+        icon: MapPin,
+        title: "Location",
+        description: groupData.address,
+      },
+    ],
+    [],
+  );
+
+  // Convert members to list items
+  const convertToMemberItems = useCallback(
+    (groupData: Group): ListItem[] =>
+      groupData.members?.slice(0, 5).map((member: GroupMember) => ({
+        id: member.id,
+        icon: Users,
+        title: member.name,
+        description: member.role,
+      })),
+    [],
+  );
+
+  // Convert events to list items
+  const convertToEventItems = useCallback(
+    (groupData: Group): ListItem[] =>
+      groupData.events?.slice(0, 5).map((event: GroupEvent) => ({
+        id: event.id,
+        icon: Calendar,
+        title: event.title,
+        description: event.location,
+        badge: event.date,
+      })),
+    [],
+  );
+
+  // Memoize sections
+  const sections = useMemo(() => {
+    if (!group) return [];
+
+    const groupData = group as unknown as Group;
+    return [
+      {
+        title: "Group Info",
+        icon: Info,
+        content: (
+          <List
+            items={convertToInfoItems(groupData)}
+            scrollable={false}
+            emptyState={{
+              icon: Info,
+              title: "No Group Info",
+              description: "Group information will appear here",
+            }}
+          />
+        ),
+      },
+      {
+        title: "Members",
+        icon: Users,
+        content: (
+          <List
+            items={convertToMemberItems(groupData)}
+            onItemPress={(item) => {
+              // Handle member press if needed
+              console.log("Member pressed:", item.id);
+            }}
+            scrollable={false}
+            onViewAllPress={() => handleViewAllPress("members")}
+            emptyState={{
+              icon: Users,
+              title: "No Members",
+              description: "Group members will appear here",
+            }}
+          />
+        ),
+        onPress: () => handleViewAllPress("members"),
+        actionButton: {
+          label: "View All",
+          onPress: () => handleViewAllPress("members"),
+          variant: "outline" as const,
+        },
+      },
+      {
+        title: "Events",
+        icon: Calendar,
+        content: (
+          <List
+            items={convertToEventItems(groupData)}
+            onItemPress={(item) => {
+              router.push({
+                pathname: "/details",
+                params: { id: item.id },
+              });
+            }}
+            scrollable={false}
+            onViewAllPress={() => handleViewAllPress("events")}
+            emptyState={{
+              icon: Calendar,
+              title: "No Events",
+              description: "Group events will appear here",
+            }}
+          />
+        ),
+        onPress: () => handleViewAllPress("events"),
+        actionButton: {
+          label: "View All",
+          onPress: () => handleViewAllPress("events"),
+          variant: "outline" as const,
+        },
+      },
+    ];
+  }, [
+    group,
+    convertToInfoItems,
+    convertToMemberItems,
+    convertToEventItems,
+    handleViewAllPress,
+    router,
+  ]);
+
+  // Memoize footer buttons
+  const footerButtons = useMemo(
+    () => [
+      {
+        label: isAdmin ? "Delete Group" : "Leave Group",
+        onPress: isAdmin ? handleDeleteGroup : handleLeaveGroup,
+        variant: "error" as const,
+        loading: isAdmin ? isDeleting : isLeaving,
+      },
+    ],
+    [isAdmin, handleDeleteGroup, handleLeaveGroup, isDeleting, isLeaving],
+  );
 
   if (loading) {
     return (
-      <ScreenLayout>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
-          <Text style={styles.loadingText}>Loading Group Details...</Text>
-        </View>
-      </ScreenLayout>
+      <Screen
+        onBack={handleBack}
+        bannerTitle="Loading..."
+        bannerDescription="Please wait while we load the group details"
+        bannerEmoji="⏳"
+        sections={[]}
+      />
     );
   }
 
   if (error || !group) {
     return (
-      <ScreenLayout>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.errorText}>{error || "Group not found"}</Text>
-        </View>
-      </ScreenLayout>
+      <Screen
+        onBack={handleBack}
+        bannerTitle="Error"
+        bannerDescription={error || "Group not found"}
+        bannerEmoji="❌"
+        sections={[]}
+      />
     );
   }
 
   return (
-    <ScreenLayout>
-      <Animated.ScrollView
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.contentContainer}
-        bounces={true}
-      >
-        <GroupHeader
-          emoji={group.emoji || ""}
-          name={group.name}
-          description={group.description}
-          onBack={handleBack}
-          scrollY={scrollY}
-        />
-        {renderContent()}
-        <GroupActionButton
-          isAdmin={isAdmin}
-          onLeave={handleLeaveGroup}
-          onDelete={handleDeleteGroup}
-          isLeaving={isLeaving}
-          isDeleting={isDeleting}
-        />
-      </Animated.ScrollView>
-    </ScreenLayout>
+    <Screen
+      onBack={handleBack}
+      bannerTitle={group.name}
+      bannerDescription={group.description}
+      bannerEmoji={group.emoji || "👥"}
+      sections={sections}
+      footerButtons={footerButtons}
+    />
   );
-}
+};
 
-const styles = StyleSheet.create({
-  contentContainer: {
-    paddingBottom: 32,
-    flexGrow: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: COLORS.background,
-  },
-  loadingText: {
-    marginTop: 12,
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-  },
-  errorText: {
-    color: COLORS.errorText,
-    fontSize: 16,
-    textAlign: "center",
-    fontFamily: "SpaceMono",
-  },
-  detailsSection: {
-    paddingHorizontal: 16,
-    marginTop: 24,
-  },
-});
+export default GroupDetailsScreen;
