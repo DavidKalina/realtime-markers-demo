@@ -26,30 +26,47 @@ export class BaseApiClient {
         AsyncStorage.getItem("refreshToken"),
       ]);
 
-      if (userJson) this.user = JSON.parse(userJson);
+      if (userJson) {
+        this.user = JSON.parse(userJson);
+        console.log("User loaded from storage");
+      }
+
       if (accessToken) {
         this.tokens = {
           accessToken,
           refreshToken: refreshToken || undefined,
         };
-        console.log("Initial tokens loaded from storage");
+        console.log("Initial tokens loaded from storage:", {
+          hasAccessToken: true,
+          hasRefreshToken: !!refreshToken,
+        });
       } else {
         console.log("No initial tokens found in storage");
       }
 
       this.notifyAuthListeners(this.isAuthenticated());
       this.isInitialized = true;
+      console.log("Auth state loaded successfully");
     } catch (error) {
       console.error("Error loading auth state:", error);
-      this.isInitialized = true;
+      this.isInitialized = true; // Mark as initialized even on error to prevent infinite loops
+      throw error; // Re-throw to let callers handle the error
     }
   }
 
   public async ensureInitialized(): Promise<void> {
     if (this.isInitialized) return;
+
     if (this.initializationPromise) {
+      console.log("Waiting for existing initialization to complete...");
       await this.initializationPromise;
+      return;
     }
+
+    console.log("Starting initialization...");
+    this.initializationPromise = this.loadAuthState();
+    await this.initializationPromise;
+    console.log("Initialization complete");
   }
 
   protected async saveAuthState(user: User, tokens: AuthTokens): Promise<void> {
@@ -206,7 +223,10 @@ export class BaseApiClient {
     console.log("Fetching with auth:", { url });
 
     // Ensure we're fully initialized before making any requests
-    await this.ensureInitialized();
+    if (!this.isInitialized) {
+      console.log("Waiting for initialization to complete...");
+      await this.ensureInitialized();
+    }
     console.log("Initialization complete for fetch");
 
     // Get a fresh access token, which will handle refresh if needed
@@ -214,6 +234,12 @@ export class BaseApiClient {
     console.log("Got access token for fetch:", { hasToken: !!accessToken });
 
     if (!accessToken) {
+      // If we're still initializing, wait a bit and try again
+      if (!this.isInitialized) {
+        console.log("Still initializing, waiting before retry...");
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return this.fetchWithAuth(url, options);
+      }
       console.error("No access token available for fetch");
       throw new Error("No access token available");
     }

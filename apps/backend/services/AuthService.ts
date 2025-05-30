@@ -233,6 +233,8 @@ Respond with a JSON object containing:
       console.log("User exists, current refresh token in DB:", {
         hasRefreshToken: !!userExists.refreshToken,
         tokenLength: userExists.refreshToken?.length,
+        tokenPrefix: userExists.refreshToken?.substring(0, 20) + "...",
+        incomingTokenPrefix: refreshToken.substring(0, 20) + "...",
       });
 
       // Now find user with matching refresh token
@@ -246,6 +248,13 @@ Respond with a JSON object containing:
       if (!user) {
         console.log(
           "No user found with matching refresh token. Token mismatch detected.",
+          {
+            storedTokenPrefix:
+              userExists.refreshToken?.substring(0, 20) + "...",
+            incomingTokenPrefix: refreshToken.substring(0, 20) + "...",
+            storedTokenLength: userExists.refreshToken?.length,
+            incomingTokenLength: refreshToken.length,
+          },
         );
         throw new Error("Invalid refresh token");
       }
