@@ -23,6 +23,8 @@ interface InputProps extends Omit<TextInputProps, "style"> {
   delay?: number;
   style?: ViewStyle;
   loading?: boolean;
+  value?: string;
+  onChangeText?: (text: string) => void;
 }
 
 const Input = forwardRef<TextInput, InputProps>(
@@ -35,10 +37,16 @@ const Input = forwardRef<TextInput, InputProps>(
       delay = 0,
       style,
       loading = false,
+      value = "",
+      onChangeText,
       ...props
     },
     ref,
   ) => {
+    const handleChangeText = (text: string) => {
+      onChangeText?.(text);
+    };
+
     return (
       <Animated.View
         entering={FadeInDown.duration(600).delay(delay).springify()}
@@ -54,6 +62,8 @@ const Input = forwardRef<TextInput, InputProps>(
           ref={ref}
           style={[styles.input, error && styles.errorInput]}
           placeholderTextColor="#808080"
+          value={value}
+          onChangeText={handleChangeText}
           {...props}
         />
         {loading ? (

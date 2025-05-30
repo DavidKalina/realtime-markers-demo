@@ -97,21 +97,35 @@ const EditGroupScreen = () => {
 
   // Initialize form with group data
   useEffect(() => {
-    if (group && group.headquarters && group.categories) {
-      const [lng, lat] = group.headquarters.coordinates;
+    if (group) {
+      // The coordinates come as [lng, lat] from the API
+      const coordinates = group.location?.coordinates || [0, 0];
+      const [lng, lat] = coordinates;
       setFormData({
         name: group.name || "",
         description: group.description || "",
         visibility: group.visibility as GroupVisibility,
-        categoryIds: group.categories.map((cat) => cat.id),
+        categoryIds: group.categories?.map((cat) => cat.id) || [],
         tags: [],
         headquarters: {
-          placeId: group.headquarters.placeId || "",
-          name: group.headquarters.name || "",
-          address: group.headquarters.address || "",
-          coordinates: { lat, lng },
+          placeId: group.address || "",
+          name: group.address || "",
+          address: group.address || "",
+          coordinates: { lat, lng }, // Store as {lat, lng} for the form
         },
       });
+
+      // Also set the initial search results for the headquarters
+      if (group.address) {
+        setSearchResults([
+          {
+            id: group.address,
+            label: group.address,
+            description: group.address,
+            icon: MapPinIcon,
+          },
+        ]);
+      }
     }
   }, [group]);
 
