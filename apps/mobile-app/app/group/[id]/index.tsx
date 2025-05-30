@@ -150,6 +150,10 @@ const GroupDetailsScreen = () => {
     });
   }, [router, id]);
 
+  const handleEditGroup = useCallback(() => {
+    router.push(`/group/${id}/edit`);
+  }, [router, id]);
+
   // Memoize sections
   const sections = useMemo(() => {
     if (!group) return [];
@@ -273,6 +277,15 @@ const GroupDetailsScreen = () => {
   // Memoize footer buttons
   const footerButtons = useMemo(
     () => [
+      ...(isAdmin
+        ? [
+            {
+              label: "Edit Group",
+              onPress: handleEditGroup,
+              variant: "outline" as const,
+            },
+          ]
+        : []),
       {
         label: isAdmin ? "Delete Group" : "Leave Group",
         onPress: isAdmin ? handleDeleteGroup : handleLeaveGroup,
@@ -280,7 +293,14 @@ const GroupDetailsScreen = () => {
         loading: isAdmin ? isDeleting : isLeaving,
       },
     ],
-    [isAdmin, handleDeleteGroup, handleLeaveGroup, isDeleting, isLeaving],
+    [
+      isAdmin,
+      handleDeleteGroup,
+      handleLeaveGroup,
+      isDeleting,
+      isLeaving,
+      handleEditGroup,
+    ],
   );
 
   const loading = groupLoading || eventsLoading;

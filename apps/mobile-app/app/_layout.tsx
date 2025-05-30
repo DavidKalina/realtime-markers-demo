@@ -147,6 +147,13 @@ function RootLayout() {
               animationDuration: 200,
             }}
           />
+          <Stack.Screen
+            name="group/[id]/edit"
+            options={{
+              animation: "fade_from_bottom",
+              animationDuration: 200,
+            }}
+          />
           <Stack.Screen name="+not-found" />
         </Stack>
         <StatusBar style="auto" />
