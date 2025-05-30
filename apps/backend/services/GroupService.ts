@@ -358,13 +358,17 @@ Respond with a JSON object containing:
     userId: string,
     updateData: UpdateGroupDto,
   ): Promise<Group | null> {
+    console.log("Starting group update for groupId:", groupId);
+    console.log("Update data received:", JSON.stringify(updateData, null, 2));
+
     const group = await this.groupRepository.findOne({
       where: { id: groupId },
-      relations: ["owner"],
+      relations: ["owner", "categories"],
     });
     if (!group) {
       throw new Error("Group not found");
     }
+    console.log("Current group state:", JSON.stringify(group, null, 2));
 
     const userRole = await this.getUserRoleInGroup(groupId, userId);
     if (group.ownerId !== userId && userRole !== GroupMemberRole.ADMIN) {
@@ -395,40 +399,57 @@ Respond with a JSON object containing:
         }
       : {};
 
-    // Update the group with all fields except categories
-    await this.groupRepository.update(groupId, {
-      ...restUpdateData,
-      ...headquartersData,
-    });
+    // Use a transaction to ensure all updates happen atomically
+    return this.dataSource.transaction(async (transactionalEntityManager) => {
+      // Update the group with all fields
+      const updateResult = await transactionalEntityManager.update(
+        Group,
+        { id: groupId },
+        {
+          ...restUpdateData,
+          ...headquartersData,
+        },
+      );
+      console.log("Update result:", updateResult);
 
-    // Handle categories update separately
-    if (categoryIds !== undefined) {
-      if (categoryIds.length > 0) {
-        group.categories = await this.categoryRepository.findBy({
-          id: In(categoryIds),
-        });
-      } else {
-        group.categories = []; // Clear categories if an empty array is passed
+      // Handle categories update if provided
+      if (categoryIds !== undefined) {
+        console.log("Updating categories with IDs:", categoryIds);
+        if (categoryIds.length > 0) {
+          const categories = await transactionalEntityManager.findBy(Category, {
+            id: In(categoryIds),
+          });
+          console.log("Found categories:", JSON.stringify(categories, null, 2));
+          group.categories = categories;
+        } else {
+          console.log("Clearing all categories");
+          group.categories = []; // Clear categories if an empty array is passed
+        }
+        // Update the group's categories using the join table
+        await transactionalEntityManager
+          .createQueryBuilder()
+          .relation(Group, "categories")
+          .of(group)
+          .addAndRemove(categoryIds, []);
       }
-      // Save the group entity to persist the category changes
-      await this.groupRepository.save(group);
-    }
 
-    // Invalidate all relevant caches
-    await Promise.all([
-      // Invalidate the specific group cache
-      GroupCacheService.invalidateGroup(groupId),
-      // Invalidate user's groups cache since they're a member
-      GroupCacheService.invalidateUserGroups(userId),
-      // Invalidate search caches since group data changed
-      GroupCacheService.invalidateSearchCaches(),
-      // Invalidate recent groups cache
-      GroupCacheService.invalidateRecentGroupsCache(),
-      // Invalidate nearby groups cache if location changed
-      GroupCacheService.invalidateNearbyGroupsCache(),
-    ]);
+      // Invalidate all relevant caches
+      await Promise.all([
+        GroupCacheService.invalidateGroup(groupId),
+        GroupCacheService.invalidateUserGroups(userId),
+        GroupCacheService.invalidateSearchCaches(),
+        GroupCacheService.invalidateRecentGroupsCache(),
+        GroupCacheService.invalidateNearbyGroupsCache(),
+      ]);
 
-    return this.getGroupById(groupId);
+      // Fetch and return the updated group
+      const updatedGroup = await transactionalEntityManager.findOne(Group, {
+        where: { id: groupId },
+        relations: ["owner", "categories", "memberships", "memberships.user"],
+      });
+      console.log("Final group state:", JSON.stringify(updatedGroup, null, 2));
+      return updatedGroup;
+    });
   }
 
   async deleteGroup(groupId: string, userId: string): Promise<boolean> {
