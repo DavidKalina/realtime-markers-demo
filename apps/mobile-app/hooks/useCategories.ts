@@ -23,8 +23,7 @@ export const useCategories = ({
   maxCategories = 5,
   initialCategories = [],
 }: UseCategoriesOptions = {}): UseCategoriesReturn => {
-  const [selectedCategories, setSelectedCategories] =
-    useState<Category[]>(initialCategories);
+  const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
   const [availableCategories, setAvailableCategories] = useState<Category[]>(
     [],
   );
@@ -32,7 +31,7 @@ export const useCategories = ({
   const [error, setError] = useState<string | null>(null);
   const hasInitializedRef = useRef(false);
 
-  // Load initial categories
+  // Load initial categories and set them only once on mount
   useEffect(() => {
     const loadCategories = async () => {
       try {
@@ -48,6 +47,12 @@ export const useCategories = ({
         });
 
         setAvailableCategories(allCategories);
+
+        // Only set selected categories from initialCategories on first mount
+        if (!hasInitializedRef.current) {
+          setSelectedCategories(initialCategories);
+          hasInitializedRef.current = true;
+        }
       } catch (error) {
         console.error("Error loading categories:", error);
         setError("Failed to load categories. Please try again.");
@@ -57,15 +62,7 @@ export const useCategories = ({
     };
 
     loadCategories();
-  }, []); // Remove initialCategories dependency since we only need to load once
-
-  // Only update selected categories from initialCategories on first mount
-  useEffect(() => {
-    if (!hasInitializedRef.current && initialCategories.length > 0) {
-      setSelectedCategories(initialCategories);
-      hasInitializedRef.current = true;
-    }
-  }, [initialCategories]);
+  }, []); // Empty dependency array since we only want to run this once
 
   const handleSearchCategories = useCallback(async (query: string) => {
     try {

@@ -384,19 +384,8 @@ Respond with a JSON object containing:
       throw new Error("Group description contains inappropriate content.");
     }
 
-    // Handle categories update
-    if (updateData.categoryIds) {
-      if (updateData.categoryIds.length > 0) {
-        group.categories = await this.categoryRepository.findBy({
-          id: In(updateData.categoryIds),
-        });
-      } else {
-        group.categories = []; // Clear categories if an empty array is passed
-      }
-    }
-
-    // Extract headquarters data if provided
-    const { headquarters, ...restUpdateData } = updateData;
+    // Extract headquarters data and categoryIds from updateData
+    const { headquarters, categoryIds, ...restUpdateData } = updateData;
     const headquartersData = headquarters
       ? {
           headquartersPlaceId: headquarters.placeId,
@@ -406,18 +395,39 @@ Respond with a JSON object containing:
         }
       : {};
 
-    // Update the group with all fields
+    // Update the group with all fields except categories
     await this.groupRepository.update(groupId, {
       ...restUpdateData,
       ...headquartersData,
     });
 
-    // If categories were part of updateData, save the group entity to persist ManyToMany relation changes
-    if (updateData.categoryIds) {
+    // Handle categories update separately
+    if (categoryIds !== undefined) {
+      if (categoryIds.length > 0) {
+        group.categories = await this.categoryRepository.findBy({
+          id: In(categoryIds),
+        });
+      } else {
+        group.categories = []; // Clear categories if an empty array is passed
+      }
+      // Save the group entity to persist the category changes
       await this.groupRepository.save(group);
     }
 
-    await this.invalidateGroupCaches(groupId);
+    // Invalidate all relevant caches
+    await Promise.all([
+      // Invalidate the specific group cache
+      GroupCacheService.invalidateGroup(groupId),
+      // Invalidate user's groups cache since they're a member
+      GroupCacheService.invalidateUserGroups(userId),
+      // Invalidate search caches since group data changed
+      GroupCacheService.invalidateSearchCaches(),
+      // Invalidate recent groups cache
+      GroupCacheService.invalidateRecentGroupsCache(),
+      // Invalidate nearby groups cache if location changed
+      GroupCacheService.invalidateNearbyGroupsCache(),
+    ]);
+
     return this.getGroupById(groupId);
   }
 

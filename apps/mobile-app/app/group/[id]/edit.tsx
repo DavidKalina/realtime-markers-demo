@@ -76,6 +76,7 @@ const EditGroupScreen = () => {
     loading: groupLoading,
     error: groupError,
     isAdmin,
+    refreshGroup,
   } = useGroupDetails(id);
 
   // Redirect if not admin
@@ -260,10 +261,9 @@ const EditGroupScreen = () => {
 
       // Transform the coordinates to match the expected type
       const payload: UpdateGroupPayload = {
-        ...formData,
-        categoryIds:
-          existingCategoryIds.length > 0 ? existingCategoryIds : undefined,
-        tags: newCategoryNames.length > 0 ? newCategoryNames : undefined,
+        name: formData.name,
+        description: formData.description,
+        visibility: formData.visibility,
         headquarters: {
           ...formData.headquarters,
           coordinates: {
@@ -274,9 +274,20 @@ const EditGroupScreen = () => {
             ],
           },
         },
+        categoryIds: existingCategoryIds, // Always include categoryIds, even if empty
       };
 
+      // Only include tags if we have new categories
+      if (newCategoryNames.length > 0) {
+        payload.tags = newCategoryNames;
+      }
+
+      console.log("Sending update payload:", JSON.stringify(payload, null, 2));
       await apiClient.groups.updateGroup(id, payload);
+
+      // Refresh the group data after successful update
+      await refreshGroup();
+
       Alert.alert(
         "Success",
         "Group updated successfully!",
@@ -297,7 +308,7 @@ const EditGroupScreen = () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, router, validateForm, selectedCategories, id]);
+  }, [formData, router, validateForm, selectedCategories, id, refreshGroup]);
 
   const selectedHeadquarters: SelectOption | undefined = formData.headquarters
     .placeId
