@@ -21,7 +21,8 @@ interface CreateGroupPayload {
   name: string;
   description?: string;
   visibility: GroupVisibility;
-  categories: Category[];
+  categoryIds?: string[]; // For existing categories
+  tags?: string[]; // For new categories
   headquarters: {
     placeId: string;
     name: string;
@@ -55,7 +56,8 @@ const CreateGroupScreen = () => {
     name: "",
     description: "",
     visibility: GroupVisibility.PUBLIC,
-    categories: [],
+    categoryIds: [],
+    tags: [],
     headquarters: {
       placeId: "",
       name: "",
@@ -77,14 +79,15 @@ const CreateGroupScreen = () => {
     handleCategoriesChange,
   } = useCategories({
     maxCategories: 5,
-    initialCategories: formData.categories,
+    initialCategories:
+      formData.categoryIds?.map((id) => ({ id }) as Category) || [],
   });
 
   // Update formData when categories change
   React.useEffect(() => {
     setFormData((prev) => ({
       ...prev,
-      categories: selectedCategories,
+      categoryIds: selectedCategories.map((category) => category.id),
     }));
   }, [selectedCategories]);
 
@@ -184,9 +187,21 @@ const CreateGroupScreen = () => {
 
     setIsSubmitting(true);
     try {
+      // Separate existing categories from new ones
+      const existingCategoryIds = selectedCategories
+        .filter((cat) => !cat.id.startsWith("new-"))
+        .map((cat) => cat.id);
+
+      const newCategoryNames = selectedCategories
+        .filter((cat) => cat.id.startsWith("new-"))
+        .map((cat) => cat.name);
+
       // Transform the coordinates to match the expected type
       const payload: CreateGroupPayload = {
         ...formData,
+        categoryIds:
+          existingCategoryIds.length > 0 ? existingCategoryIds : undefined,
+        tags: newCategoryNames.length > 0 ? newCategoryNames : undefined,
         headquarters: {
           ...formData.headquarters,
           coordinates: {
@@ -225,7 +240,7 @@ const CreateGroupScreen = () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, router, validateForm]);
+  }, [formData, router, validateForm, selectedCategories]);
 
   const selectedHeadquarters: SelectOption | undefined = formData.headquarters
     .placeId

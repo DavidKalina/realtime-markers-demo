@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Users, Calendar, MapPin, Info, Plus } from "lucide-react-native";
+import { Users, Calendar, MapPin, Info, Plus, Tag } from "lucide-react-native";
 import Screen from "@/components/Layout/Screen";
 import List, { ListItem } from "@/components/Layout/List";
 import { useGroupDetails, useGroupActions } from "@/hooks/useGroupDetails";
@@ -27,6 +27,12 @@ interface Group {
   visibility: string;
   address: string;
   memberships: GroupMembership[];
+  categories: {
+    id: string;
+    name: string;
+    icon?: string;
+    description?: string;
+  }[];
 }
 
 const GroupDetailsScreen = () => {
@@ -78,6 +84,19 @@ const GroupDetailsScreen = () => {
         description: groupData.address,
       },
     ],
+    [],
+  );
+
+  // Convert categories to list items
+  const convertToCategoryItems = useCallback(
+    (groupData: Group): ListItem[] =>
+      groupData.categories?.map((category) => ({
+        id: category.id,
+        icon: Tag,
+        title: category.name,
+        description: category.description,
+        badge: category.icon,
+      })) || [],
     [],
   );
 
@@ -148,6 +167,21 @@ const GroupDetailsScreen = () => {
               icon: Info,
               title: "No Group Info",
               description: "Group information will appear here",
+            }}
+          />
+        ),
+      },
+      {
+        title: "Categories",
+        icon: Tag,
+        content: (
+          <List
+            items={convertToCategoryItems(groupData)}
+            scrollable={false}
+            emptyState={{
+              icon: Tag,
+              title: "No Categories",
+              description: "Group categories will appear here",
             }}
           />
         ),
@@ -227,6 +261,7 @@ const GroupDetailsScreen = () => {
     group,
     events,
     convertToInfoItems,
+    convertToCategoryItems,
     convertToMemberItems,
     convertToEventItems,
     handleViewAllPress,
