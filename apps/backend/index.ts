@@ -41,6 +41,7 @@ import { NotificationHandler } from "./services/NotificationHandler";
 import { notificationsRouter } from "./routes/notifications";
 import { groupsRouter } from "./routes/groups";
 import { placesRouter } from "./routes/places";
+import { categoriesRouter } from "./routes/categories";
 import { redisService, redisClient } from "./services/shared/redis";
 import { Redis } from "ioredis";
 import { RedisService } from "./services/shared/RedisService";
@@ -342,6 +343,7 @@ app.route("/api/friendships", friendshipsRouter);
 app.route("/api/notifications", notificationsRouter);
 app.route("/api/groups", groupsRouter);
 app.route("/api/places", placesRouter);
+app.route("/api/categories", categoriesRouter);
 // =============================================================================
 // Jobs API - Server-Sent Events
 // =============================================================================
