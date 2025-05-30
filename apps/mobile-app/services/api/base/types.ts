@@ -164,6 +164,10 @@ export interface ApiGroup {
   }>;
   createdAt: string;
   updatedAt: string;
+  headquartersPlaceId?: string;
+  headquartersName?: string;
+  headquartersAddress?: string;
+  headquartersLocation?: { type: string; coordinates: [number, number] };
 }
 
 export interface ApiGroupMember {

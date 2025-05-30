@@ -98,9 +98,12 @@ const EditGroupScreen = () => {
   // Initialize form with group data
   useEffect(() => {
     if (group) {
-      // The coordinates come as [lng, lat] from the API
-      const coordinates = group.location?.coordinates || [0, 0];
+      console.log("Group data from API:", JSON.stringify(group, null, 2));
+
+      // Get coordinates from headquarters if available
+      const coordinates = group.headquarters?.coordinates || [0, 0];
       const [lng, lat] = coordinates;
+
       setFormData({
         name: group.name || "",
         description: group.description || "",
@@ -108,20 +111,20 @@ const EditGroupScreen = () => {
         categoryIds: group.categories?.map((cat) => cat.id) || [],
         tags: [],
         headquarters: {
-          placeId: group.address || "",
-          name: group.address || "",
-          address: group.address || "",
-          coordinates: { lat, lng }, // Store as {lat, lng} for the form
+          placeId: group.headquarters?.placeId || "",
+          name: group.headquarters?.name || "",
+          address: group.headquarters?.address || "",
+          coordinates: { lat, lng },
         },
       });
 
-      // Also set the initial search results for the headquarters
-      if (group.address) {
+      // Set the initial search results for the headquarters if we have headquarters data
+      if (group.headquarters?.placeId) {
         setSearchResults([
           {
-            id: group.address,
-            label: group.address,
-            description: group.address,
+            id: group.headquarters.placeId,
+            label: group.headquarters.name,
+            description: group.headquarters.address,
             icon: MapPinIcon,
           },
         ]);
@@ -129,7 +132,7 @@ const EditGroupScreen = () => {
     }
   }, [group]);
 
-  // Add useCategories hook
+  // Add useCategories hook with proper initial categories
   const {
     selectedCategories,
     availableCategories,
@@ -139,7 +142,11 @@ const EditGroupScreen = () => {
     handleCategoriesChange,
   } = useCategories({
     maxCategories: 5,
-    initialCategories: group?.categories || [],
+    initialCategories:
+      group?.categories?.map((cat) => ({
+        id: cat.id,
+        name: cat.name,
+      })) || [], // Ensure we pass the correct category format
   });
 
   // Update formData when categories change

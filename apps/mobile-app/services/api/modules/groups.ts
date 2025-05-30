@@ -140,7 +140,8 @@ export class GroupsModule extends BaseApiClient {
   async getGroupById(groupId: string): Promise<ClientGroup> {
     const url = `${this.baseUrl}/api/groups/${groupId}`;
     const response = await this.fetchWithAuth(url);
-    return this.handleResponse<ClientGroup>(response);
+    const data = await this.handleResponse<ApiGroup>(response);
+    return this.mapGroupToClientGroup(data);
   }
 
   async updateGroup(
