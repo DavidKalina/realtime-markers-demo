@@ -40,6 +40,9 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [newCategoryInput, setNewCategoryInput] = useState("");
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<
+    SelectOption | undefined
+  >();
 
   const handleSelectCategory = useCallback(
     (option: SelectOption) => {
@@ -59,6 +62,7 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
 
       onCategoriesChange([...selectedCategories, category]);
       setSearchQuery("");
+      setSelectedOption(undefined); // Reset the selected option after adding
     },
     [
       selectedCategories,
@@ -161,13 +165,17 @@ export const CategorySelector: React.FC<CategorySelectorProps> = ({
           ) : (
             <>
               <Select
-                value={undefined}
+                value={selectedOption}
                 options={filteredOptions}
                 placeholder="Search categories..."
                 searchable
                 loading={isLoading}
                 onSearch={onSearchCategories}
                 onChange={handleSelectCategory}
+                onClear={() => {
+                  setSelectedOption(undefined);
+                  setSearchQuery("");
+                }}
                 style={styles.select}
               />
               <TouchableOpacity

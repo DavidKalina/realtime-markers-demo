@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Category } from "@/services/api/base/types";
 import { apiClient } from "@/services/ApiClient";
 
@@ -30,6 +30,7 @@ export const useCategories = ({
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasInitializedRef = useRef(false);
 
   // Load initial categories
   useEffect(() => {
@@ -37,7 +38,16 @@ export const useCategories = ({
       try {
         setIsLoading(true);
         const categories = await apiClient.categories.getAllCategories();
-        setAvailableCategories(categories);
+
+        // Merge available categories with initial categories to ensure we have all needed categories
+        const allCategories = [...categories];
+        initialCategories.forEach((initialCat) => {
+          if (!allCategories.some((cat) => cat.id === initialCat.id)) {
+            allCategories.push(initialCat);
+          }
+        });
+
+        setAvailableCategories(allCategories);
       } catch (error) {
         console.error("Error loading categories:", error);
         setError("Failed to load categories. Please try again.");
@@ -47,7 +57,15 @@ export const useCategories = ({
     };
 
     loadCategories();
-  }, []);
+  }, []); // Remove initialCategories dependency since we only need to load once
+
+  // Only update selected categories from initialCategories on first mount
+  useEffect(() => {
+    if (!hasInitializedRef.current && initialCategories.length > 0) {
+      setSelectedCategories(initialCategories);
+      hasInitializedRef.current = true;
+    }
+  }, [initialCategories]);
 
   const handleSearchCategories = useCallback(async (query: string) => {
     try {

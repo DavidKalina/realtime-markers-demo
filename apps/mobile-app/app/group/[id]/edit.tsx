@@ -142,11 +142,7 @@ const EditGroupScreen = () => {
     handleCategoriesChange,
   } = useCategories({
     maxCategories: 5,
-    initialCategories:
-      group?.categories?.map((cat) => ({
-        id: cat.id,
-        name: cat.name,
-      })) || [], // Ensure we pass the correct category format
+    initialCategories: group?.categories || [], // Use categories directly
   });
 
   // Update formData when categories change
