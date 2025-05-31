@@ -28,14 +28,24 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
+  // If we have an external count, use it exclusively
+  useEffect(() => {
+    if (externalCount !== undefined) {
+      console.log("NotificationBadge - using external count:", externalCount);
+      setUnreadCount(externalCount);
+      setIsLoading(false);
+    }
+  }, [externalCount]);
+
+  // Only fetch if we don't have an external count
   useFocusEffect(
     useCallback(() => {
+      // If we have an external count, don't fetch
       if (externalCount !== undefined) {
-        setUnreadCount(externalCount);
-        setIsLoading(false);
         return;
       }
 
+      console.log("NotificationBadge - fetching count (no external count)");
       let isActive = true;
 
       const fetchUnreadCount = async () => {
@@ -45,6 +55,7 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
         try {
           const { count } =
             await apiClient.notifications.getUnreadNotificationCount();
+          console.log("NotificationBadge - fetched count:", count);
           if (isActive) {
             setUnreadCount(count);
           }
@@ -65,16 +76,16 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
       return () => {
         isActive = false;
       };
-    }, [externalCount]),
+    }, [externalCount]), // Only re-run if externalCount changes
   );
 
+  // Handle new notifications only if we don't have an external count
   useEffect(() => {
+    // If we have an external count, don't handle notifications directly
     if (externalCount !== undefined) {
-      setUnreadCount(externalCount);
+      return;
     }
-  }, [externalCount]);
 
-  useEffect(() => {
     const handleNewNotification = () => {
       setUnreadCount((prev) => prev + 1);
       scale.value = withSequence(
@@ -91,12 +102,29 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [externalCount]); // Only re-run if externalCount changes
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
+  // If we have an external count, use it directly without loading state
+  if (externalCount !== undefined) {
+    if (!isActive || externalCount === 0) {
+      return null;
+    }
+    return (
+      <Animated.View style={[styles.container, animatedStyle]}>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>
+            {externalCount > 99 ? "99+" : externalCount}
+          </Text>
+        </View>
+      </Animated.View>
+    );
+  }
+
+  // Otherwise use the internal state
   if (isLoading || (!isActive && unreadCount === 0)) {
     return null;
   }

@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter } from "expo-router";
 import { Bell, Mail, MailOpen, Trash2 } from "lucide-react-native";
 
 import Screen from "@/components/Layout/Screen";
@@ -23,12 +23,11 @@ export default function NotificationsScreen() {
     resetUnreadCount,
   } = useNotifications();
 
-  // Reset unread count when screen is focused
-  useFocusEffect(
-    React.useCallback(() => {
-      resetUnreadCount();
-    }, [resetUnreadCount]),
-  );
+  // Reset unread count when screen mounts
+  useEffect(() => {
+    console.log("NotificationsScreen - screen mounted, resetting unread count");
+    resetUnreadCount();
+  }, []); // Empty dependency array means this runs once when mounted
 
   // Mark all notifications as read when the screen is opened
   useEffect(() => {
