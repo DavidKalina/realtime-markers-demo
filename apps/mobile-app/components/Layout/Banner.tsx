@@ -1,6 +1,6 @@
 import { COLORS } from "./ScreenLayout";
 import { ArrowLeft } from "lucide-react-native";
-import React from "react";
+import React, { useEffect } from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
 import Animated, {
   Extrapolation,
@@ -8,6 +8,11 @@ import Animated, {
   LinearTransition,
   SharedValue,
   useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  withSequence,
+  Easing,
 } from "react-native-reanimated";
 
 interface BannerProps {
@@ -81,6 +86,35 @@ export default function Banner({
     ],
   }));
 
+  // Add floating animation values
+  const floatX = useSharedValue(0);
+  const floatY = useSharedValue(0);
+
+  useEffect(() => {
+    // Start the floating animation when component mounts
+    floatX.value = withRepeat(
+      withSequence(
+        withTiming(2, { duration: 2500, easing: Easing.inOut(Easing.sin) }),
+        withTiming(-2, { duration: 2500, easing: Easing.inOut(Easing.sin) }),
+      ),
+      -1,
+      true,
+    );
+
+    floatY.value = withRepeat(
+      withSequence(
+        withTiming(8, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
+        withTiming(-8, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
+      ),
+      -1,
+      true,
+    );
+  }, []);
+
+  const floatingEmojiStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: floatX.value }, { translateY: floatY.value }],
+  }));
+
   return (
     <Animated.View
       style={[styles.zoneBanner, zoneBannerAnimatedStyle]}
@@ -89,9 +123,13 @@ export default function Banner({
       <TouchableOpacity onPress={onBack} style={styles.bannerBackButton}>
         <ArrowLeft size={20} color={COLORS.textPrimary} />
       </TouchableOpacity>
-      <Animated.Text style={[styles.zoneBannerEmoji, animatedBannerEmojiStyle]}>
-        {emoji || "👥"}
-      </Animated.Text>
+      <Animated.View style={floatingEmojiStyle}>
+        <Animated.Text
+          style={[styles.zoneBannerEmoji, animatedBannerEmojiStyle]}
+        >
+          {emoji || "👥"}
+        </Animated.Text>
+      </Animated.View>
       <Animated.Text style={[styles.zoneBannerName, animatedBannerNameStyle]}>
         {name}
       </Animated.Text>

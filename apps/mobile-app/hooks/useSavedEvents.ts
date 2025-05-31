@@ -5,6 +5,7 @@ import { EventType } from "@/types/types";
 interface UseSavedEventsOptions {
   initialLimit?: number;
   autoFetch?: boolean;
+  type?: "personal" | "friends";
 }
 
 interface UseSavedEventsResult {
@@ -22,6 +23,7 @@ interface UseSavedEventsResult {
 export const useSavedEvents = ({
   initialLimit = 10,
   autoFetch = true,
+  type = "personal",
 }: UseSavedEventsOptions = {}): UseSavedEventsResult => {
   const [events, setEvents] = useState<EventType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,12 +37,14 @@ export const useSavedEvents = ({
   // Use refs to track state that shouldn't trigger re-renders
   const isLoadingRef = useRef(isLoading);
   const cursorRef = useRef(cursor);
+  const typeRef = useRef(type);
 
   // Keep refs in sync with state
   useEffect(() => {
     isLoadingRef.current = isLoading;
     cursorRef.current = cursor;
-  }, [isLoading, cursor]);
+    typeRef.current = type;
+  }, [isLoading, cursor, type]);
 
   const fetchEvents = useCallback(
     async (refresh = false) => {
@@ -54,10 +58,16 @@ export const useSavedEvents = ({
           setIsFetchingMore(true);
         }
 
-        const response = await apiClient.events.getSavedEvents({
-          limit: initialLimit,
-          cursor: refresh ? undefined : cursorRef.current,
-        });
+        const response =
+          typeRef.current === "personal"
+            ? await apiClient.events.getSavedEvents({
+                limit: initialLimit,
+                cursor: refresh ? undefined : cursorRef.current,
+              })
+            : await apiClient.events.getFriendsSavedEvents({
+                limit: initialLimit,
+                cursor: refresh ? undefined : cursorRef.current,
+              });
 
         setHasMore(!!response.nextCursor);
         setCursor(response.nextCursor);
@@ -79,15 +89,17 @@ export const useSavedEvents = ({
 
         setError(null);
       } catch (err) {
-        setError("Failed to load saved events. Please try again.");
-        console.error("Error fetching saved events:", err);
+        setError(
+          `Failed to load ${typeRef.current === "personal" ? "your" : "friends'"} saved events. Please try again.`,
+        );
+        console.error(`Error fetching ${typeRef.current} saved events:`, err);
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
         setIsFetchingMore(false);
       }
     },
-    [initialLimit], // Only depend on initialLimit
+    [initialLimit, type],
   );
 
   const loadMore = useCallback(async () => {

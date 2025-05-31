@@ -109,7 +109,6 @@ function RootLayout() {
             <Stack.Screen name="scan" />
             <Stack.Screen name="user" />
             <Stack.Screen name="saved/index" />
-            <Stack.Screen name="saved/list" />
             <Stack.Screen name="cluster" />
             <Stack.Screen name="filter" />
             <Stack.Screen name="search/index" />
