@@ -72,7 +72,7 @@ const SearchListScreen = () => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       router.push({
         pathname: "/details" as const,
-        params: { id: event.id },
+        params: { eventId: event.id },
       });
     },
     [router],
