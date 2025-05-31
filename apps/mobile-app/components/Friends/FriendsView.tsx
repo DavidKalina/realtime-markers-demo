@@ -470,23 +470,6 @@ const FriendsView: React.FC = () => {
                     </Text>
                   )}
                 </View>
-                <Text style={styles.helpTitle}>How to add friends</Text>
-                <View style={styles.helpContent}>
-                  <View style={styles.helpItem}>
-                    <UserPlus size={16} color={COLORS.accent} />
-                    <Text style={styles.helpText}>Enter their username</Text>
-                  </View>
-                  <View style={styles.helpItem}>
-                    <User size={16} color={COLORS.accent} />
-                    <Text style={styles.helpText}>Enter their friend code</Text>
-                  </View>
-                  <View style={styles.helpItem}>
-                    <Users size={16} color={COLORS.accent} />
-                    <Text style={styles.helpText}>
-                      Share your friend code with them
-                    </Text>
-                  </View>
-                </View>
               </View>
             ),
           },
@@ -644,12 +627,13 @@ const styles = StyleSheet.create({
   helpItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 6,
   },
   helpText: {
     color: COLORS.textSecondary,
     fontSize: 14,
     fontFamily: "SpaceMono",
+    lineHeight: 18,
   },
   actionFeedback: {
     fontSize: 13,
