@@ -35,7 +35,6 @@ interface EventDetails {
   timezone?: string; // IANA timezone identifier (e.g., "America/New_York")
   locationNotes?: string; // Additional location context like building, room, etc.
   userCityState?: string; // User's city and state for location context
-  groupId?: string; // Optional ID of the group this event belongs to
 }
 
 interface ScanResult {
@@ -62,7 +61,6 @@ interface PrivateEventInput {
   locationNotes?: string;
   isPrivate: boolean;
   sharedWithIds?: string[];
-  groupId?: string; // Add groupId field
 }
 
 export class EventProcessingService {

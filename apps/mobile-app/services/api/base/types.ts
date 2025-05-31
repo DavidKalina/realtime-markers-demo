@@ -48,147 +48,6 @@ export interface PaginatedResponse<T> {
   page: number;
   limit: number;
 }
-
-// Group types
-export type GroupVisibility = "PUBLIC" | "PRIVATE";
-export type GroupMemberRole = "MEMBER" | "ADMIN";
-export type GroupMembershipStatus =
-  | "PENDING"
-  | "APPROVED"
-  | "REJECTED"
-  | "BANNED";
-
-export interface ClientGroup {
-  id: string;
-  name: string;
-  description?: string;
-  emoji?: string;
-  bannerImageUrl?: string;
-  avatarImageUrl?: string;
-  visibility: GroupVisibility;
-  ownerId: string;
-  owner?: User;
-  location?: { type: "Point"; coordinates: [number, number] };
-  address?: string;
-  memberCount: number;
-  allowMemberEventCreation: boolean;
-  categories?: { id: string; name: string }[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ClientGroupMembership {
-  id: string;
-  userId: string;
-  groupId: string;
-  user: User;
-  group?: ClientGroup;
-  role: GroupMemberRole;
-  status: GroupMembershipStatus;
-  joinedAt: string;
-  updatedAt: string;
-}
-
-export interface CreateGroupPayload {
-  name: string;
-  description?: string;
-  emoji?: string;
-  bannerImageUrl?: string;
-  avatarImageUrl?: string;
-  visibility?: GroupVisibility;
-  location?: { type: "Point"; coordinates: [number, number] };
-  address?: string;
-  allowMemberEventCreation?: boolean;
-  categoryIds?: string[];
-  headquarters?: {
-    placeId: string;
-    name: string;
-    address: string;
-    coordinates: { type: "Point"; coordinates: [number, number] };
-  };
-}
-
-export interface UpdateGroupPayload {
-  name?: string;
-  description?: string;
-  emoji?: string;
-  bannerImageUrl?: string;
-  avatarImageUrl?: string;
-  visibility?: GroupVisibility;
-  location?: { type: "Point"; coordinates: [number, number] };
-  address?: string;
-  allowMemberEventCreation?: boolean;
-  categoryIds?: string[];
-  headquarters?: {
-    placeId: string;
-    name: string;
-    address: string;
-    coordinates: { type: "Point"; coordinates: [number, number] };
-  };
-}
-
-export interface ManageMembershipStatusPayload {
-  status: "APPROVED" | "REJECTED" | "BANNED";
-  role?: GroupMemberRole;
-}
-
-export interface UpdateMemberRolePayload {
-  role: GroupMemberRole;
-}
-
-export interface GetGroupEventsParams extends CursorPaginationParams {
-  query?: string;
-  categoryId?: string;
-  startDate?: string;
-  endDate?: string;
-}
-
-export interface GetGroupMembersParams extends CursorPaginationParams {
-  status?: GroupMembershipStatus;
-}
-
-// API Group interfaces
-export interface ApiGroup {
-  id: string;
-  name: string;
-  description?: string;
-  emoji?: string;
-  visibility: "PUBLIC" | "PRIVATE";
-  address?: string;
-  memberCount: number;
-  ownerId: string;
-  allowMemberEventCreation: boolean;
-  categories?: Array<{
-    id: string;
-    name: string;
-  }>;
-  createdAt: string;
-  updatedAt: string;
-  headquartersPlaceId?: string;
-  headquartersName?: string;
-  headquartersAddress?: string;
-  headquartersLocation?: { type: string; coordinates: [number, number] };
-}
-
-export interface ApiGroupMember {
-  id: string;
-  userId: string;
-  groupId: string;
-  role: "ADMIN" | "MEMBER";
-  status: "PENDING" | "APPROVED" | "REJECTED" | "BANNED";
-  joinedAt: string;
-  updatedAt: string;
-  user: {
-    id: string;
-    email: string;
-    displayName: string;
-    avatarUrl?: string;
-    role: "USER" | "ADMIN";
-    isVerified: boolean;
-  };
-}
-
-// Event-related types
 export interface ApiEvent {
   id: string;
   title: string;
@@ -224,8 +83,6 @@ export interface ApiEvent {
   detectedQrData?: string | null;
   isPrivate?: boolean;
   shares?: { sharedWithId: string; sharedById: string }[];
-  groupId?: string | null;
-  group?: ClientGroup | null;
 }
 
 export interface GetEventsParams {
@@ -341,8 +198,6 @@ export interface NotificationData {
   eventTitle?: string;
   friendId?: string;
   friendName?: string;
-  groupId?: string;
-  groupName?: string;
   level?: number;
   achievementId?: string;
   achievementName?: string;
@@ -362,12 +217,6 @@ export interface Notification {
     | "FRIEND_ACCEPTED"
     | "LEVEL_UP"
     | "ACHIEVEMENT_UNLOCKED"
-    | "GROUP_INVITE"
-    | "GROUP_JOIN_REQUEST"
-    | "GROUP_JOIN_ACCEPTED"
-    | "GROUP_JOIN_REJECTED"
-    | "GROUP_ROLE_UPDATED"
-    | "GROUP_EVENT_CREATED"
     | "SYSTEM";
   title: string;
   message: string;
@@ -397,12 +246,6 @@ export type NotificationType =
   | "FRIEND_ACCEPTED"
   | "LEVEL_UP"
   | "ACHIEVEMENT_UNLOCKED"
-  | "GROUP_INVITE"
-  | "GROUP_JOIN_REQUEST"
-  | "GROUP_JOIN_ACCEPTED"
-  | "GROUP_JOIN_REJECTED"
-  | "GROUP_ROLE_UPDATED"
-  | "GROUP_EVENT_CREATED"
   | "SYSTEM";
 
 export interface NotificationCounts {
@@ -491,8 +334,6 @@ export interface EventType {
   createdAt: string;
   updatedAt: string;
   sharedWithIds: string[];
-  groupId?: string | null;
-  group?: ClientGroup | null;
   savedBy?: {
     id: string;
     displayName: string;

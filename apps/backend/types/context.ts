@@ -10,7 +10,6 @@ import { LevelingService } from "../services/LevelingService";
 import { FriendshipService } from "../services/FriendshipService";
 import { NotificationService } from "../services/NotificationService";
 import { RedisService } from "../services/shared/RedisService";
-import { GroupService } from "../services/GroupService";
 import { AuthService } from "../services/AuthService";
 
 export interface AppVariables {
@@ -25,7 +24,6 @@ export interface AppVariables {
   levelingService: LevelingService;
   friendshipService: FriendshipService;
   notificationService: NotificationService;
-  groupService: GroupService;
   authService: AuthService;
   user?: { userId: string; email: string; role: string };
   userId?: string;

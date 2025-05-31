@@ -21,7 +21,6 @@ interface PrivateEventDetails {
   categories?: { id: string }[];
   timezone?: string;
   locationNotes?: string;
-  groupId?: string;
   isPrivate: boolean;
   sharedWithIds?: string[];
 }
@@ -134,8 +133,6 @@ export class ProcessPrivateEventHandler extends BaseJobHandler {
         embedding: scanResult.embedding,
         isPrivate: true,
         sharedWithIds: (job.data.sharedWithIds as string[]) || [],
-        groupId: (job.data as { eventDetails?: { groupId?: string } })
-          ?.eventDetails?.groupId,
       });
 
       // Create discovery record if creator exists

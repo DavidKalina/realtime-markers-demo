@@ -49,7 +49,6 @@ interface CreateEventInput {
   embedding: number[];
   isPrivate?: boolean;
   sharedWithIds?: string[]; // Optional array of user IDs to share the event with
-  groupId?: string; // Optional ID of the group this event belongs to
 }
 
 export class EventService {
@@ -275,7 +274,6 @@ export class EventService {
       detectedQrData: input.detectedQrData,
       originalImageUrl: input.originalImageUrl || undefined,
       isPrivate: input.isPrivate || false,
-      groupId: input.groupId,
     };
 
     // Create event instance

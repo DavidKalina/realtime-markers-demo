@@ -46,7 +46,6 @@ export interface PrivateEventJobData {
       categories?: { id: string }[];
       timezone?: string;
       locationNotes?: string;
-      groupId?: string;
     };
     creatorId: string;
     sharedWithIds: string[];

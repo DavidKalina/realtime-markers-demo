@@ -164,8 +164,6 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         detectedQrData: scanResult.qrCodeData,
         originalImageUrl: originalImageUrl,
         embedding: scanResult.embedding,
-        groupId: (job.data as { eventDetails?: { groupId?: string } })
-          ?.eventDetails?.groupId,
       });
 
       // Create discovery record if creator exists

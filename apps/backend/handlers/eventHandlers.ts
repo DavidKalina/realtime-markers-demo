@@ -707,8 +707,6 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
       return c.json({ error: "sharedWithIds must be an array" }, 400);
     }
 
-    console.log("GROUP_ID", data.groupId);
-
     // Create job for private event processing
     const jobId = await jobQueue.enqueuePrivateEventJob(
       {
@@ -723,7 +721,6 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
         categories: data.categories,
         timezone: data.timezone,
         locationNotes: data.locationNotes,
-        groupId: data.groupId,
       },
       user.userId,
       data.sharedWithIds || [],

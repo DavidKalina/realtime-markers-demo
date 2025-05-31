@@ -249,9 +249,6 @@ async function initializeServices() {
     dataSource,
   );
 
-  // Initialize the GroupService
-
-  // Initialize the AuthService
   const authService = new AuthService(
     dataSource.getRepository(User),
     userPreferencesService,
