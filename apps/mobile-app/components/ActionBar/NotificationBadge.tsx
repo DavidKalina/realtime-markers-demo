@@ -31,7 +31,6 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
   // If we have an external count, use it exclusively
   useEffect(() => {
     if (externalCount !== undefined) {
-      console.log("NotificationBadge - using external count:", externalCount);
       setUnreadCount(externalCount);
       setIsLoading(false);
     }
@@ -45,7 +44,6 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
         return;
       }
 
-      console.log("NotificationBadge - fetching count (no external count)");
       let isActive = true;
 
       const fetchUnreadCount = async () => {
@@ -55,7 +53,6 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
         try {
           const { count } =
             await apiClient.notifications.getUnreadNotificationCount();
-          console.log("NotificationBadge - fetched count:", count);
           if (isActive) {
             setUnreadCount(count);
           }
@@ -76,7 +73,7 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
       return () => {
         isActive = false;
       };
-    }, [externalCount]), // Only re-run if externalCount changes
+    }, [externalCount]),
   );
 
   // Handle new notifications only if we don't have an external count
@@ -102,7 +99,7 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
     return () => {
       unsubscribe();
     };
-  }, [externalCount]); // Only re-run if externalCount changes
+  }, [externalCount]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],

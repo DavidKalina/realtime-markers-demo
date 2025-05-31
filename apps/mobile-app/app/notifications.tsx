@@ -25,7 +25,6 @@ export default function NotificationsScreen() {
 
   // Reset unread count when screen mounts
   useEffect(() => {
-    console.log("NotificationsScreen - screen mounted, resetting unread count");
     resetUnreadCount();
   }, []); // Empty dependency array means this runs once when mounted
 

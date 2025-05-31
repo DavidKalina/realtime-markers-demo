@@ -157,20 +157,13 @@ export function useNotifications() {
   }, []);
 
   const resetUnreadCount = useCallback(async () => {
-    console.log("useNotifications - resetting unread count");
     try {
       // Just set the local state to 0 without making an API call
       setUnreadCount(0);
-      console.log("useNotifications - unread count reset to 0");
     } catch (error) {
       console.error("Error resetting unread count:", error);
     }
   }, []);
-
-  // Add logging for unread count changes
-  useEffect(() => {
-    console.log("useNotifications - unreadCount changed:", unreadCount);
-  }, [unreadCount]);
 
   return {
     notifications,
