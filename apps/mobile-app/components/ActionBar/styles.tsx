@@ -3,7 +3,7 @@ import { Platform, StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
   bottomBar: {
-    height: 65, // Reduced height
+    height: 60, // Reduced height since we removed labels
     backgroundColor: "#1a1a1a", // Match Cluster Events view background
     flexDirection: "row",
     alignItems: "center",
@@ -32,11 +32,11 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   actionButton: {
-    padding: 4, // Reduced padding
-    borderRadius: 8, // Slightly smaller corners
-    marginHorizontal: 2, // Reduced margin
-    width: 48, // Reduced width
-    height: 48, // Reduced height
+    padding: 8,
+    borderRadius: 12,
+    marginHorizontal: 4,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",
@@ -69,8 +69,8 @@ export const styles = StyleSheet.create({
     color: "#93c5fd", // Match Cluster Events view accent
   },
   actionButtonIcon: {
-    width: 18, // Smaller icon container
-    height: 18, // Smaller icon container
+    width: 24, // Increased icon container size
+    height: 24, // Increased icon container size
     justifyContent: "center",
     alignItems: "center",
   },

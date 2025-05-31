@@ -25,7 +25,6 @@ import React, {
 import {
   Platform,
   StyleProp,
-  Text,
   TouchableOpacity,
   View,
   ViewStyle,
@@ -96,7 +95,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
       // Animate button - more subtle scale
       scaleValue.value = withSequence(
-        withTiming(0.95, BUTTON_PRESS_ANIMATION), // Less dramatic scaling
+        withTiming(0.95, BUTTON_PRESS_ANIMATION),
         withTiming(1, BUTTON_RELEASE_ANIMATION),
       );
 
@@ -106,21 +105,8 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
     // Compute button style only when active state changes
     const buttonStyle = useMemo(
-      () => [
-        styles.actionButton,
-        styles.labeledActionButton,
-        disabled && { opacity: 0.5 },
-      ],
+      () => [styles.actionButton, disabled && { opacity: 0.5 }],
       [disabled],
-    );
-
-    // Compute label style based on active state
-    const labelStyle = useMemo(
-      () => [
-        styles.actionButtonLabel,
-        isActive && styles.activeActionButtonLabel,
-      ],
-      [isActive],
     );
 
     // Create a wrapper for the icon to ensure consistent sizing
@@ -128,7 +114,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
       // Clone the icon element to add color prop if active
       const iconElement = React.cloneElement(icon as React.ReactElement, {
         color: iconColor,
-        size: 16, // Updated size to match new container
+        size: 22, // Increased icon size
       });
 
       return <View style={styles.actionButtonIcon}>{iconElement}</View>;
@@ -139,13 +125,12 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
         style={buttonStyle}
         disabled={disabled}
         onPress={handlePress}
-        activeOpacity={0.7} // More responsive feel
+        activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={`${label} button`}
         accessibilityState={{ disabled: !!disabled, selected: isActive }}
       >
         {iconWithWrapper}
-        <Text style={labelStyle}>{label}</Text>
       </TouchableOpacity>
     );
   },
@@ -304,7 +289,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           .map((tab) => ({
             key: tab.key,
             label: tab.label,
-            icon: <tab.icon size={16} color="#fff" />,
+            icon: <tab.icon size={22} color="#fff" />, // Increased icon size
             action: actionHandlers[tab.key],
             disabled: tab.requiresLocation && !userLocation,
           })),
