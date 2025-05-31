@@ -150,21 +150,31 @@ export class BaseApiClient {
     return this.user;
   }
 
-  async getAccessToken(): Promise<string | null> {
+  protected async getAccessToken(): Promise<string | null> {
     await this.ensureInitialized();
 
-    // If we have tokens in memory, use them
-    if (this.tokens?.accessToken) {
-      console.log("Using token from memory");
+    // If we have tokens in memory and they're not expired, use them
+    if (this.tokens?.accessToken && !(await this.isTokenExpired())) {
+      console.log("Using valid token from memory");
       return this.tokens.accessToken;
     }
 
-    // Otherwise, try to sync from storage
-    console.log("No token in memory, syncing from storage...");
+    // If token is expired but we have a refresh token, try to refresh
+    if (this.tokens?.refreshToken) {
+      console.log("Token expired, attempting refresh...");
+      const refreshSuccess = await this.refreshTokens();
+      if (refreshSuccess && this.tokens?.accessToken) {
+        console.log("Token refresh successful");
+        return this.tokens.accessToken;
+      }
+    }
+
+    // If we get here, try to sync from storage as a last resort
+    console.log("Attempting to sync tokens from storage...");
     const syncedTokens = await this.syncTokensWithStorage();
 
     if (!syncedTokens?.accessToken) {
-      console.log("No token available after sync");
+      console.log("No valid token available after all attempts");
       return null;
     }
 
@@ -385,7 +395,7 @@ export class BaseApiClient {
     return this.tokenRefreshPromise;
   }
 
-  async syncTokensWithStorage(): Promise<AuthTokens | null> {
+  public async syncTokensWithStorage(): Promise<AuthTokens | null> {
     // If there's already a sync in progress, wait for it
     if (this.tokenSyncPromise) {
       console.log("Token sync already in progress, waiting...");
@@ -401,48 +411,59 @@ export class BaseApiClient {
       try {
         console.log("Starting token sync with storage...");
 
-        // If we have valid tokens in memory, use them
+        // First check if we have valid tokens in memory
         if (this.tokens?.accessToken && !(await this.isTokenExpired())) {
-          console.log("Using valid tokens from memory");
+          console.log("Using valid tokens from memory during sync");
           return this.tokens;
         }
 
+        // If we have an expired access token but a refresh token, try to refresh
+        if (this.tokens?.refreshToken) {
+          console.log("Attempting token refresh during sync...");
+          const refreshSuccess = await this.refreshTokens();
+          if (refreshSuccess && this.tokens?.accessToken) {
+            console.log("Token refresh successful during sync");
+            return this.tokens;
+          }
+        }
+
+        // If we get here, try to load from storage
         const [accessToken, refreshToken] = await Promise.all([
           AsyncStorage.getItem("accessToken"),
           AsyncStorage.getItem("refreshToken"),
         ]);
 
         if (!accessToken) {
+          console.log("No tokens found in storage");
           this.tokens = null;
-          console.log("No tokens found in storage during sync");
           return null;
         }
 
-        // If we have a token, check if it's expired
-        const isExpired = await this.isTokenExpired();
-        if (isExpired && refreshToken) {
-          // Try to refresh the token
-          const refreshed = await this.refreshTokens();
-          if (!refreshed) {
-            this.tokens = null;
-            return null;
+        // If we have a refresh token, try to refresh the access token
+        if (refreshToken) {
+          console.log("Found refresh token in storage, attempting refresh...");
+          const refreshSuccess = await this.refreshTokens();
+          if (refreshSuccess && this.tokens?.accessToken) {
+            console.log("Token refresh successful from storage");
+            return this.tokens;
           }
-          return this.tokens;
         }
 
-        // If token is still valid, update in-memory state
+        // If we get here, just use the access token from storage
         this.tokens = {
           accessToken,
           refreshToken: refreshToken || undefined,
         };
-        console.log("Tokens synced from storage:", {
+
+        console.log("Using tokens from storage:", {
           hasAccessToken: true,
           hasRefreshToken: !!refreshToken,
         });
 
         return this.tokens;
       } catch (error) {
-        console.error("Error syncing tokens with storage:", error);
+        console.error("Error during token sync:", error);
+        this.tokens = null;
         return null;
       } finally {
         this.tokenSyncPromise = null;
