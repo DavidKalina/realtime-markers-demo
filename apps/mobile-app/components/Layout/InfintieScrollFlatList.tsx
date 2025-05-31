@@ -195,27 +195,32 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 14,
     color: "#666",
+    fontFamily: "SpaceMono",
   },
   errorText: {
     fontSize: 14,
     color: "#e74c3c",
     textAlign: "center",
+    fontFamily: "SpaceMono",
   },
   retryText: {
     fontSize: 14,
     color: "#3498db",
     marginTop: 8,
     textDecorationLine: "underline",
+    fontFamily: "SpaceMono",
   },
   emptyText: {
     fontSize: 16,
     color: "#666",
     textAlign: "center",
+    fontFamily: "SpaceMono",
   },
   endText: {
     fontSize: 12,
     color: "#999",
     fontStyle: "italic",
+    fontFamily: "SpaceMono",
   },
 });
 

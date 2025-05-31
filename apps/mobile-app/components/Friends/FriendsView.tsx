@@ -1,22 +1,17 @@
 import { apiClient, Friend, FriendRequest } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { Search, User, UserPlus, Users } from "lucide-react-native";
+import { Check, Search, User, UserPlus, Users, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Screen, { Section } from "../Layout/Screen";
 import { COLORS } from "../Layout/ScreenLayout";
 import Input from "../Input/Input";
-import Card from "../Layout/Card";
-import List from "../Layout/List";
+import InfiniteScrollFlatList from "../Layout/InfintieScrollFlatList";
 
 type TabType = "friends" | "requests" | "add";
+
+const PAGE_SIZE = 20;
 
 const FriendsView: React.FC = () => {
   const router = useRouter();
@@ -26,6 +21,7 @@ const FriendsView: React.FC = () => {
     (FriendRequest & { type: "incoming" | "outgoing" })[]
   >([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionStates, setActionStates] = useState<
     Record<string, { status: "success" | "error"; message: string } | null>
@@ -37,6 +33,13 @@ const FriendsView: React.FC = () => {
     message: string;
   } | null>(null);
 
+  // Pagination state
+  const [friendsPage, setFriendsPage] = useState(1);
+  const [requestsPage, setRequestsPage] = useState(1);
+  const [hasMoreFriends, setHasMoreFriends] = useState(true);
+  const [hasMoreRequests, setHasMoreRequests] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
@@ -47,63 +50,118 @@ const FriendsView: React.FC = () => {
     setActiveTab(tab);
   }, []);
 
-  // Fetch friends and requests
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [friendsResponse, incomingResponse, outgoingResponse] =
-          await Promise.all([
-            apiClient.friends.getFriends(),
-            apiClient.friends.getPendingFriendRequests(),
-            apiClient.friends.getOutgoingFriendRequests(),
-          ]);
+  // Fetch friends with pagination
+  const fetchFriends = useCallback(async (page: number, isRefresh = false) => {
+    try {
+      const response = await apiClient.friends.getFriends();
+      const newFriends = response;
 
-        console.log(
-          "Incoming requests:",
-          JSON.stringify(incomingResponse, null, 2),
-        );
-        console.log(
-          "Outgoing requests:",
-          JSON.stringify(outgoingResponse, null, 2),
-        );
+      if (isRefresh) {
+        setFriends(newFriends);
+      } else {
+        setFriends((prev) => [...prev, ...newFriends]);
+      }
 
-        setFriends(friendsResponse);
+      setHasMoreFriends(newFriends.length === PAGE_SIZE);
+      setError(null);
+    } catch (err) {
+      setError("Failed to load friends. Please try again.");
+      console.error("Error fetching friends:", err);
+    }
+  }, []);
 
-        // Combine and label the requests
-        const combinedRequests = [
-          ...incomingResponse
-            .filter((req): req is FriendRequest =>
-              Boolean(req && req.requester),
-            )
-            .map((req) => ({
-              ...req,
-              type: "incoming" as const,
-            })),
-          ...outgoingResponse
-            .filter((req): req is FriendRequest =>
-              Boolean(req && req.addressee),
-            )
-            .map((req) => ({
-              ...req,
-              type: "outgoing" as const,
-            })),
-        ].sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
+  // Fetch requests with pagination
+  const fetchRequests = useCallback(async (page: number, isRefresh = false) => {
+    try {
+      const [incomingResponse, outgoingResponse] = await Promise.all([
+        apiClient.friends.getPendingFriendRequests(),
+        apiClient.friends.getOutgoingFriendRequests(),
+      ]);
 
+      const combinedRequests = [
+        ...incomingResponse
+          .filter((req): req is FriendRequest => Boolean(req && req.requester))
+          .map((req) => ({ ...req, type: "incoming" as const })),
+        ...outgoingResponse
+          .filter((req): req is FriendRequest => Boolean(req && req.addressee))
+          .map((req) => ({ ...req, type: "outgoing" as const })),
+      ].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+
+      if (isRefresh) {
         setRequests(combinedRequests);
-        setError(null);
-      } catch (err) {
-        setError("Failed to load friends data. Please try again.");
-        console.error("Error fetching friends data:", err);
+      } else {
+        setRequests((prev) => [...prev, ...combinedRequests]);
+      }
+
+      setHasMoreRequests(combinedRequests.length === PAGE_SIZE);
+      setError(null);
+    } catch (err) {
+      setError("Failed to load friend requests. Please try again.");
+      console.error("Error fetching friend requests:", err);
+    }
+  }, []);
+
+  // Initial data fetch
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      setIsLoading(true);
+      try {
+        await Promise.all([fetchFriends(1, true), fetchRequests(1, true)]);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchData();
-  }, []);
+    fetchInitialData();
+  }, [fetchFriends, fetchRequests]);
+
+  // Handle refresh
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      if (activeTab === "friends") {
+        await fetchFriends(1, true);
+        setFriendsPage(1);
+      } else if (activeTab === "requests") {
+        await fetchRequests(1, true);
+        setRequestsPage(1);
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [activeTab, fetchFriends, fetchRequests]);
+
+  // Handle load more
+  const handleLoadMore = useCallback(async () => {
+    if (isLoadingMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      if (activeTab === "friends" && hasMoreFriends) {
+        const nextPage = friendsPage + 1;
+        await fetchFriends(nextPage);
+        setFriendsPage(nextPage);
+      } else if (activeTab === "requests" && hasMoreRequests) {
+        const nextPage = requestsPage + 1;
+        await fetchRequests(nextPage);
+        setRequestsPage(nextPage);
+      }
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [
+    activeTab,
+    friendsPage,
+    requestsPage,
+    hasMoreFriends,
+    hasMoreRequests,
+    isLoadingMore,
+    fetchFriends,
+    fetchRequests,
+  ]);
 
   const showActionFeedback = (
     requestId: string,
@@ -208,6 +266,123 @@ const FriendsView: React.FC = () => {
     { icon: Search, label: "Add", value: "add" as TabType },
   ];
 
+  const renderFriendItem = useCallback(
+    (friend: Friend) => (
+      <View style={styles.listItem}>
+        <View style={styles.avatarContainer}>
+          <User size={20} color={COLORS.accent} />
+        </View>
+        <View style={styles.listItemContent}>
+          <Text style={styles.listItemTitle} numberOfLines={1}>
+            {friend.displayName || friend.email}
+          </Text>
+          {friend.displayName && (
+            <Text style={styles.listItemDescription} numberOfLines={1}>
+              {friend.email}
+            </Text>
+          )}
+        </View>
+      </View>
+    ),
+    [],
+  );
+
+  const renderRequestItem = useCallback(
+    (request: FriendRequest & { type: "incoming" | "outgoing" }) => {
+      if (
+        !request ||
+        (request.type === "incoming" && !request.requester) ||
+        (request.type === "outgoing" && !request.addressee)
+      ) {
+        return <View style={[styles.listItem, styles.emptyItem]} />;
+      }
+
+      const user =
+        request.type === "incoming" ? request.requester : request.addressee;
+      const isIncoming = request.type === "incoming";
+
+      return (
+        <View style={styles.listItem}>
+          <View style={styles.avatarSection}>
+            <View style={styles.avatarContainer}>
+              <User
+                size={20}
+                color={isIncoming ? COLORS.accent : COLORS.textSecondary}
+              />
+            </View>
+            <View
+              style={[
+                styles.badgeContainer,
+                isIncoming ? styles.incomingBadge : styles.outgoingBadge,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.badgeText,
+                  { color: isIncoming ? "#2b8a3e" : "#4f46e5" },
+                ]}
+              >
+                {isIncoming ? "Incoming" : "Outgoing"}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.listItemContent}>
+            <View style={styles.listItemHeader}>
+              <Text style={styles.listItemTitle} numberOfLines={1}>
+                {user.displayName || user.email}
+              </Text>
+            </View>
+            {user.displayName && (
+              <Text style={styles.listItemDescription} numberOfLines={1}>
+                {user.email}
+              </Text>
+            )}
+          </View>
+          {actionStates[request.id] ? (
+            <Text
+              style={[
+                styles.actionFeedback,
+                actionStates[request.id]?.status === "success"
+                  ? styles.successText
+                  : styles.errorText,
+              ]}
+            >
+              {actionStates[request.id]?.message}
+            </Text>
+          ) : isIncoming ? (
+            <View style={styles.requestActions}>
+              <TouchableOpacity
+                style={[styles.iconButton, styles.acceptButton]}
+                onPress={() => handleAcceptRequest(request.id)}
+              >
+                <Check size={14} color="#40c057" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.iconButton, styles.rejectButton]}
+                onPress={() => handleRejectRequest(request.id)}
+              >
+                <X size={14} color="#dc2626" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.iconButton, styles.rejectButton]}
+              onPress={() => handleCancelRequest(request.id)}
+            >
+              <X size={14} color="#dc2626" />
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    },
+    [
+      actionStates,
+      handleAcceptRequest,
+      handleRejectRequest,
+      handleCancelRequest,
+    ],
+  );
+
   // Memoize sections based on active tab
   const sections = React.useMemo<Section[]>(() => {
     switch (activeTab) {
@@ -216,45 +391,22 @@ const FriendsView: React.FC = () => {
           {
             title: "Friends",
             icon: Users,
-            content: isLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={COLORS.accent} />
-              </View>
-            ) : error ? (
-              <Card>
-                <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{error}</Text>
-                  <TouchableOpacity
-                    style={styles.retryButton}
-                    onPress={() => setIsLoading(true)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.retryButtonText}>Retry</Text>
-                  </TouchableOpacity>
-                </View>
-              </Card>
-            ) : friends.length === 0 ? (
-              <Card>
-                <View style={styles.emptyContainer}>
-                  <Users
-                    size={40}
-                    color={COLORS.accent}
-                    style={{ opacity: 0.6 }}
-                  />
-                  <Text style={styles.emptyTitle}>No friends yet</Text>
-                  <Text style={styles.emptyDescription}>
-                    Add friends to share events and discover together!
-                  </Text>
-                </View>
-              </Card>
-            ) : (
-              <List
-                items={friends.map((friend) => ({
-                  id: friend.id,
-                  icon: User,
-                  title: friend.displayName || friend.email,
-                  description: friend.displayName ? friend.email : undefined,
-                }))}
+            content: (
+              <InfiniteScrollFlatList
+                data={friends}
+                renderItem={renderFriendItem}
+                fetchMoreData={handleLoadMore}
+                onRefresh={handleRefresh}
+                isLoading={isLoading}
+                isRefreshing={isRefreshing}
+                hasMore={hasMoreFriends}
+                error={error}
+                emptyListMessage="No friends yet. Add friends to share events and discover together!"
+                onRetry={() => {
+                  setError(null);
+                  setIsLoading(true);
+                  fetchFriends(1, true);
+                }}
               />
             ),
           },
@@ -265,103 +417,22 @@ const FriendsView: React.FC = () => {
           {
             title: "Friend Requests",
             icon: UserPlus,
-            content: isLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={COLORS.accent} />
-              </View>
-            ) : error ? (
-              <Card>
-                <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{error}</Text>
-                  <TouchableOpacity
-                    style={styles.retryButton}
-                    onPress={() => setIsLoading(true)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.retryButtonText}>Retry</Text>
-                  </TouchableOpacity>
-                </View>
-              </Card>
-            ) : requests.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <UserPlus
-                  size={40}
-                  color={COLORS.accent}
-                  style={{ opacity: 0.6 }}
-                />
-                <Text style={styles.emptyTitle}>No pending requests</Text>
-                <Text style={styles.emptyDescription}>
-                  Friend requests you send or receive will appear here
-                </Text>
-              </View>
-            ) : (
-              <List
-                items={requests
-                  .filter(
-                    (
-                      request,
-                    ): request is FriendRequest & {
-                      type: "incoming" | "outgoing";
-                    } =>
-                      Boolean(
-                        request &&
-                          ((request.type === "incoming" && request.requester) ||
-                            (request.type === "outgoing" && request.addressee)),
-                      ),
-                  )
-                  .map((request) => ({
-                    id: request.id,
-                    icon: User,
-                    title:
-                      request.type === "incoming"
-                        ? request.requester.displayName ||
-                          request.requester.email
-                        : request.addressee.displayName ||
-                          request.addressee.email,
-                    description:
-                      request.type === "incoming"
-                        ? request.requester.displayName
-                          ? request.requester.email
-                          : undefined
-                        : request.addressee.displayName
-                          ? request.addressee.email
-                          : undefined,
-                    badge: request.type.toUpperCase(),
-                    rightElement: actionStates[request.id] ? (
-                      <Text
-                        style={[
-                          styles.actionFeedback,
-                          actionStates[request.id]?.status === "success"
-                            ? styles.successText
-                            : styles.errorText,
-                        ]}
-                      >
-                        {actionStates[request.id]?.message}
-                      </Text>
-                    ) : request.type === "incoming" ? (
-                      <View style={styles.requestActions}>
-                        <TouchableOpacity
-                          style={[styles.actionButton, styles.acceptButton]}
-                          onPress={() => handleAcceptRequest(request.id)}
-                        >
-                          <Text style={styles.acceptButtonText}>Accept</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.actionButton, styles.rejectButton]}
-                          onPress={() => handleRejectRequest(request.id)}
-                        >
-                          <Text style={styles.rejectButtonText}>Reject</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.rejectButton]}
-                        onPress={() => handleCancelRequest(request.id)}
-                      >
-                        <Text style={styles.rejectButtonText}>Cancel</Text>
-                      </TouchableOpacity>
-                    ),
-                  }))}
+            content: (
+              <InfiniteScrollFlatList
+                data={requests}
+                renderItem={renderRequestItem}
+                fetchMoreData={handleLoadMore}
+                onRefresh={handleRefresh}
+                isLoading={isLoading}
+                isRefreshing={isRefreshing}
+                hasMore={hasMoreRequests}
+                error={error}
+                emptyListMessage="No pending requests. Friend requests you send or receive will appear here."
+                onRetry={() => {
+                  setError(null);
+                  setIsLoading(true);
+                  fetchRequests(1, true);
+                }}
               />
             ),
           },
@@ -429,11 +500,16 @@ const FriendsView: React.FC = () => {
     friends,
     requests,
     isLoading,
+    isRefreshing,
     error,
-    actionStates,
-    searchQuery,
-    isSearching,
-    searchFeedback,
+    hasMoreFriends,
+    hasMoreRequests,
+    renderFriendItem,
+    renderRequestItem,
+    handleLoadMore,
+    handleRefresh,
+    fetchFriends,
+    fetchRequests,
   ]);
 
   // Memoize footer buttons based on active tab
@@ -488,7 +564,7 @@ const FriendsView: React.FC = () => {
       onTabChange={handleTabSwitch}
       sections={sections}
       footerButtons={footerButtons}
-      isScrollable
+      isScrollable={false}
     />
   );
 };
@@ -576,10 +652,11 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
   },
   actionFeedback: {
-    flex: 1,
     fontSize: 13,
     fontFamily: "SpaceMono",
     textAlign: "right",
+    marginLeft: 8,
+    minWidth: 120,
   },
   feedbackText: {
     marginTop: 8,
@@ -592,33 +669,23 @@ const styles = StyleSheet.create({
   },
   requestActions: {
     flexDirection: "row",
-    gap: 6,
+    gap: 3,
   },
-  actionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+  iconButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
   },
   acceptButton: {
-    backgroundColor: "rgba(64, 192, 87, 0.12)",
-    borderColor: "rgba(64, 192, 87, 0.3)",
-  },
-  acceptButtonText: {
-    color: "#40c057",
-    fontSize: 13,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
+    backgroundColor: "rgba(64, 192, 87, 0.08)",
+    borderColor: "rgba(64, 192, 87, 0.2)",
   },
   rejectButton: {
-    backgroundColor: "rgba(220, 38, 38, 0.1)",
-    borderColor: "rgba(220, 38, 38, 0.3)",
-  },
-  rejectButtonText: {
-    color: "#dc2626",
-    fontSize: 13,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
+    backgroundColor: "rgba(220, 38, 38, 0.08)",
+    borderColor: "rgba(220, 38, 38, 0.2)",
   },
   addFriendsContainer: {
     flex: 1,
@@ -626,6 +693,86 @@ const styles = StyleSheet.create({
     display: "flex",
     flexDirection: "column",
     gap: 12,
+  },
+  listItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    marginHorizontal: 12,
+    marginVertical: 4,
+    backgroundColor: COLORS.background,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  avatarSection: {
+    flexDirection: "column",
+    alignItems: "center",
+    marginRight: 10,
+    gap: 3,
+  },
+  avatarContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(64, 192, 87, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeContainer: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 3,
+  },
+  incomingBadge: {
+    backgroundColor: "rgba(64, 192, 87, 0.15)",
+  },
+  outgoingBadge: {
+    backgroundColor: "rgba(99, 102, 241, 0.15)",
+  },
+  badgeText: {
+    fontSize: 9,
+    fontFamily: "SpaceMono",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  listItemContent: {
+    flex: 1,
+    marginRight: 6,
+  },
+  listItemHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 1,
+  },
+  listItemTitle: {
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+    color: COLORS.textPrimary,
+    fontWeight: "600",
+    flex: 1,
+  },
+  listItemDescription: {
+    fontSize: 12,
+    fontFamily: "SpaceMono",
+    color: COLORS.textSecondary,
+  },
+  emptyItem: {
+    opacity: 0,
+    height: 0,
+    marginVertical: 0,
+    padding: 0,
+    borderWidth: 0,
   },
 });
 

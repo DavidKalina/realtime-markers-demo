@@ -1,17 +1,16 @@
+import { LucideIcon } from "lucide-react-native";
 import React from "react";
-import ScreenLayout, { COLORS } from "./ScreenLayout";
-import Banner from "./Banner";
+import { Pressable, StyleSheet, View, ViewStyle } from "react-native";
 import Animated, {
   useAnimatedScrollHandler,
   useSharedValue,
 } from "react-native-reanimated";
-import { View, StyleSheet, ViewStyle } from "react-native";
+import Banner from "./Banner";
 import Button from "./Button";
-import SectionHeader from "./SectionHeader";
-import Card from "./Card";
-import { LucideIcon } from "lucide-react-native";
-import Tabs from "./Tabs";
 import ScreenContent from "./ScreenContent";
+import ScreenLayout, { COLORS } from "./ScreenLayout";
+import SectionHeader from "./SectionHeader";
+import Tabs from "./Tabs";
 
 export interface Section {
   title: string;
@@ -137,9 +136,9 @@ const Screen = <T extends string>({
                 />
               )}
             </View>
-            <Card onPress={section.onPress} style={styles.card}>
+            <Pressable onPress={section.onPress} style={styles.card}>
               {section.content}
-            </Card>
+            </Pressable>
           </View>
         ))}
       </View>
