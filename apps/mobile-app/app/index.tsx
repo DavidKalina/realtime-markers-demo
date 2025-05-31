@@ -1,5 +1,4 @@
 /* eslint-disable prefer-const */
-import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { AuthWrapper } from "@/components/AuthWrapper";
 import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
@@ -522,8 +521,6 @@ function HomeScreen() {
             />
           )}
         </View>
-
-        <ActionBar />
       </View>
     </AuthWrapper>
   );
