@@ -37,14 +37,12 @@ export const useSavedEvents = ({
   // Use refs to track state that shouldn't trigger re-renders
   const isLoadingRef = useRef(isLoading);
   const cursorRef = useRef(cursor);
-  const typeRef = useRef(type);
 
   // Keep refs in sync with state
   useEffect(() => {
     isLoadingRef.current = isLoading;
     cursorRef.current = cursor;
-    typeRef.current = type;
-  }, [isLoading, cursor, type]);
+  }, [isLoading, cursor]);
 
   const fetchEvents = useCallback(
     async (refresh = false) => {
@@ -58,41 +56,48 @@ export const useSavedEvents = ({
           setIsFetchingMore(true);
         }
 
+        // Add a cache-busting timestamp to ensure fresh data
+        const timestamp = Date.now();
         const response =
-          typeRef.current === "personal"
+          type === "personal"
             ? await apiClient.events.getSavedEvents({
                 limit: initialLimit,
                 cursor: refresh ? undefined : cursorRef.current,
+                _t: timestamp, // Add cache-busting parameter
               })
             : await apiClient.events.getFriendsSavedEvents({
                 limit: initialLimit,
                 cursor: refresh ? undefined : cursorRef.current,
+                _t: timestamp, // Add cache-busting parameter
               });
 
-        setHasMore(!!response.nextCursor);
-        setCursor(response.nextCursor);
+        // Only update state if this is still the current type
+        if (type === "personal" || type === "friends") {
+          setHasMore(!!response.nextCursor);
+          setCursor(response.nextCursor);
 
-        if (refresh) {
-          setEvents(response.events);
-        } else {
-          setEvents((prevEvents) => {
-            // Filter out duplicates based on event ID
-            const existingEventIds = new Set(
-              prevEvents.map((event) => event.id),
-            );
-            const newEvents = response.events.filter(
-              (event) => !existingEventIds.has(event.id),
-            );
-            return [...prevEvents, ...newEvents];
-          });
+          if (refresh) {
+            setEvents(response.events);
+          } else {
+            setEvents((prevEvents) => {
+              // Filter out duplicates based on event ID
+              const existingEventIds = new Set(
+                prevEvents.map((event) => event.id),
+              );
+              const newEvents = response.events.filter(
+                (event) => !existingEventIds.has(event.id),
+              );
+              return [...prevEvents, ...newEvents];
+            });
+          }
         }
 
         setError(null);
       } catch (err) {
         setError(
-          `Failed to load ${typeRef.current === "personal" ? "your" : "friends'"} saved events. Please try again.`,
+          `Failed to load ${type === "personal" ? "your" : "friends'"} saved events. Please try again.`,
         );
-        console.error(`Error fetching ${typeRef.current} saved events:`, err);
+        console.error(`Error fetching ${type} saved events:`, err);
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
@@ -101,6 +106,23 @@ export const useSavedEvents = ({
     },
     [initialLimit, type],
   );
+
+  // Reset state when type changes
+  useEffect(() => {
+    // Clear all state immediately
+    setEvents([]);
+    setCursor(undefined);
+    setHasMore(true);
+    setError(null);
+    setIsLoading(true);
+    setIsRefreshing(false);
+    setIsFetchingMore(false);
+
+    // Then fetch new data if autoFetch is enabled
+    if (autoFetch) {
+      fetchEvents(true);
+    }
+  }, [type, autoFetch, fetchEvents]);
 
   const loadMore = useCallback(async () => {
     if (!hasMore) {

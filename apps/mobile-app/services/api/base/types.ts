@@ -93,6 +93,7 @@ export interface GetEventsParams {
   categoryId?: string;
   startDate?: string;
   endDate?: string;
+  _t?: number; // Cache-busting timestamp
 }
 
 export interface CreateEventPayload {
