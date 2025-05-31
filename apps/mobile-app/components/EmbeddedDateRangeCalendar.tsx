@@ -23,6 +23,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { COLORS } from "./Layout/ScreenLayout";
+import * as Haptics from "expo-haptics";
 
 // Helper for dimmed text color
 const getDimmedTextColor = (baseColor: string, opacity: number = 0.5) => {
@@ -39,6 +40,13 @@ interface EmbeddedDateRangeCalendarProps {
   date: Date;
   onDateChange: (date: Date) => void;
 }
+
+// Add helper function to check if a date is at least 15 minutes in the future
+const isAtLeast15MinutesInFuture = (date: Date) => {
+  const now = new Date();
+  const minDate = new Date(now.getTime() + 15 * 60 * 1000); // 15 minutes from now
+  return date >= minDate;
+};
 
 const TimeSelector: React.FC<{
   date: Date;
@@ -62,7 +70,14 @@ const TimeSelector: React.FC<{
         date.getSeconds(),
         date.getMilliseconds(),
       );
-      onTimeChange(newDate);
+
+      // Only update if the new time is valid
+      if (isAtLeast15MinutesInFuture(newDate)) {
+        onTimeChange(newDate);
+      } else {
+        // Provide haptic feedback for invalid time
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
     },
     [date, onTimeChange],
   );
@@ -77,7 +92,14 @@ const TimeSelector: React.FC<{
         date.getSeconds(),
         date.getMilliseconds(),
       );
-      onTimeChange(newDate);
+
+      // Only update if the new time is valid
+      if (isAtLeast15MinutesInFuture(newDate)) {
+        onTimeChange(newDate);
+      } else {
+        // Provide haptic feedback for invalid time
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
     },
     [date, onTimeChange],
   );
@@ -91,8 +113,18 @@ const TimeSelector: React.FC<{
       date.getSeconds(),
       date.getMilliseconds(),
     );
-    onTimeChange(newDate);
+
+    // Only update if the new time is valid
+    if (isAtLeast15MinutesInFuture(newDate)) {
+      onTimeChange(newDate);
+    } else {
+      // Provide haptic feedback for invalid time
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
   }, [date, hours, isPM, onTimeChange]);
+
+  // Add warning text if time is invalid
+  const isTimeValid = isAtLeast15MinutesInFuture(date);
 
   const hoursGesture = Gesture.Pan()
     .onUpdate((e) => {
@@ -138,38 +170,69 @@ const TimeSelector: React.FC<{
 
   return (
     <View style={styles.timeSelector}>
-      <View style={styles.timeBlockContainer}>
-        <View style={styles.timeBlockMask}>
-          <GestureDetector gesture={hoursGesture}>
-            <Animated.View style={[styles.timeBlock, hoursAnimatedStyle]}>
-              <Text style={styles.timeText}>
-                {displayHours.toString().padStart(2, "0")}
-              </Text>
-            </Animated.View>
-          </GestureDetector>
+      <View style={styles.timePickerContainer}>
+        <View style={styles.timeBlockContainer}>
+          <View style={styles.timeBlockMask}>
+            <GestureDetector gesture={hoursGesture}>
+              <Animated.View style={[styles.timeBlock, hoursAnimatedStyle]}>
+                <Text
+                  style={[
+                    styles.timeText,
+                    !isTimeValid && styles.invalidTimeText,
+                  ]}
+                >
+                  {displayHours.toString().padStart(2, "0")}
+                </Text>
+              </Animated.View>
+            </GestureDetector>
+          </View>
         </View>
-      </View>
-      <Text style={styles.timeSeparator}>:</Text>
-      <View style={styles.timeBlockContainer}>
-        <View style={styles.timeBlockMask}>
-          <GestureDetector gesture={minutesGesture}>
-            <Animated.View style={[styles.timeBlock, minutesAnimatedStyle]}>
-              <Text style={styles.timeText}>
-                {minutes.toString().padStart(2, "0")}
-              </Text>
-            </Animated.View>
-          </GestureDetector>
-        </View>
-      </View>
-      <TouchableOpacity
-        style={[styles.amPmButton, isPM && styles.amPmButtonActive]}
-        onPress={toggleAmPm}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.amPmText, isPM && styles.amPmTextActive]}>
-          {isPM ? "PM" : "AM"}
+        <Text
+          style={[styles.timeSeparator, !isTimeValid && styles.invalidTimeText]}
+        >
+          :
         </Text>
-      </TouchableOpacity>
+        <View style={styles.timeBlockContainer}>
+          <View style={styles.timeBlockMask}>
+            <GestureDetector gesture={minutesGesture}>
+              <Animated.View style={[styles.timeBlock, minutesAnimatedStyle]}>
+                <Text
+                  style={[
+                    styles.timeText,
+                    !isTimeValid && styles.invalidTimeText,
+                  ]}
+                >
+                  {minutes.toString().padStart(2, "0")}
+                </Text>
+              </Animated.View>
+            </GestureDetector>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={[
+            styles.amPmButton,
+            isPM && styles.amPmButtonActive,
+            !isTimeValid && styles.invalidAmPmButton,
+          ]}
+          onPress={toggleAmPm}
+          activeOpacity={0.8}
+        >
+          <Text
+            style={[
+              styles.amPmText,
+              isPM && styles.amPmTextActive,
+              !isTimeValid && styles.invalidTimeText,
+            ]}
+          >
+            {isPM ? "PM" : "AM"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      {!isTimeValid && (
+        <Text style={styles.warningText}>
+          Must be at least 15 minutes in the future
+        </Text>
+      )}
     </View>
   );
 };
@@ -219,7 +282,14 @@ const EmbeddedDateRangeCalendar: React.FC<EmbeddedDateRangeCalendarProps> = ({
         date.getSeconds(),
         date.getMilliseconds(),
       );
-      onDateChange(newDate);
+
+      // Only update if the new date is valid
+      if (isAtLeast15MinutesInFuture(newDate)) {
+        onDateChange(newDate);
+      } else {
+        // Provide haptic feedback for invalid date
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
     },
     [date, onDateChange],
   );
@@ -239,7 +309,7 @@ const EmbeddedDateRangeCalendar: React.FC<EmbeddedDateRangeCalendarProps> = ({
   const getDayStyles = useCallback(
     (dayDate: Date) => {
       const isSelected = dayDate.toDateString() === date.toDateString();
-      const isDisabled = dayDate < new Date(new Date().setHours(0, 0, 0, 0));
+      const isDisabled = !isAtLeast15MinutesInFuture(dayDate);
 
       return {
         container: [
@@ -428,6 +498,10 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.divider,
   },
   timeSelector: {
+    alignItems: "center",
+    gap: 8,
+  },
+  timePickerContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -489,6 +563,18 @@ const styles = StyleSheet.create({
   },
   amPmTextActive: {
     color: COLORS.background,
+  },
+  invalidTimeText: {
+    color: COLORS.errorText,
+  },
+  invalidAmPmButton: {
+    borderColor: COLORS.errorText,
+  },
+  warningText: {
+    color: COLORS.errorText,
+    fontSize: 12,
+    fontFamily: "SpaceMono",
+    textAlign: "center",
   },
 });
 

@@ -86,10 +86,17 @@ const CreatePrivateEvent = () => {
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const [locationError, setLocationError] = useState<string>("");
 
+  // Add helper function to check if a date is at least 15 minutes in the future
+  const isAtLeast15MinutesInFuture = useCallback((date: Date) => {
+    const now = new Date();
+    const minDate = new Date(now.getTime() + 15 * 60 * 1000); // 15 minutes from now
+    return date >= minDate;
+  }, []);
+
   // Initialize state with values from params if they exist
   const [date, setDate] = useState(() => {
     const now = new Date();
-    const minDate = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes from now
+    const minDate = new Date(now.getTime() + 15 * 60 * 1000); // 15 minutes from now
     return params.eventDate ? new Date(params.eventDate as string) : minDate;
   });
   const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
@@ -240,14 +247,11 @@ const CreatePrivateEvent = () => {
       return;
     }
 
-    // Check if the selected date is at least 5 minutes in the future
-    const now = new Date();
-    const minDate = new Date(now.getTime() + 5 * 60 * 1000);
-
-    if (date < minDate) {
+    // Check if the selected date is at least 15 minutes in the future
+    if (!isAtLeast15MinutesInFuture(date)) {
       Alert.alert(
         "Error",
-        "Event must be scheduled at least 5 minutes in the future",
+        "Event must be scheduled at least 15 minutes in the future",
       );
       return;
     }
