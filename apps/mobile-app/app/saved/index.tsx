@@ -1,6 +1,12 @@
 import React, { useCallback, useRef } from "react";
 import { useRouter } from "expo-router";
-import { Search as SearchIcon, X, Bookmark, Users } from "lucide-react-native";
+import {
+  Search as SearchIcon,
+  X,
+  Bookmark,
+  Users,
+  Compass,
+} from "lucide-react-native";
 import {
   View,
   Text,
@@ -26,7 +32,7 @@ interface Event {
   emoji?: string;
 }
 
-type SavedTab = "personal" | "friends";
+type SavedTab = "personal" | "friends" | "discovered";
 
 const SavedListScreen = () => {
   const router = useRouter();
@@ -48,8 +54,13 @@ const SavedListScreen = () => {
     },
     {
       icon: Users,
-      label: "Friends' Events",
+      label: "Friends",
       value: "friends" as SavedTab,
+    },
+    {
+      icon: Compass,
+      label: "Discovered",
+      value: "discovered" as SavedTab,
     },
   ];
 
@@ -166,7 +177,7 @@ const SavedListScreen = () => {
         icon={SearchIcon}
         rightIcon={searchQuery !== "" ? X : undefined}
         onRightIconPress={handleClearSearch}
-        placeholder={`Search ${activeTab === "personal" ? "your" : "friends'"} saved events...`}
+        placeholder={`Search ${activeTab === "personal" ? "your" : activeTab === "friends" ? "friends'" : "discovered"} saved events...`}
         value={searchQuery}
         onChangeText={handleSearchInput}
         returnKeyType="search"

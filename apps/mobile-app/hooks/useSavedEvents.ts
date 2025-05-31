@@ -5,7 +5,7 @@ import { EventType } from "@/types/types";
 interface UseSavedEventsOptions {
   initialLimit?: number;
   autoFetch?: boolean;
-  type?: "personal" | "friends";
+  type?: "personal" | "friends" | "discovered";
 }
 
 interface UseSavedEventsResult {
@@ -58,21 +58,38 @@ export const useSavedEvents = ({
 
         // Add a cache-busting timestamp to ensure fresh data
         const timestamp = Date.now();
-        const response =
-          type === "personal"
-            ? await apiClient.events.getSavedEvents({
-                limit: initialLimit,
-                cursor: refresh ? undefined : cursorRef.current,
-                _t: timestamp, // Add cache-busting parameter
-              })
-            : await apiClient.events.getFriendsSavedEvents({
-                limit: initialLimit,
-                cursor: refresh ? undefined : cursorRef.current,
-                _t: timestamp, // Add cache-busting parameter
-              });
+        let response;
+
+        switch (type) {
+          case "personal":
+            response = await apiClient.events.getSavedEvents({
+              limit: initialLimit,
+              cursor: refresh ? undefined : cursorRef.current,
+              _t: timestamp,
+            });
+            break;
+          case "friends":
+            response = await apiClient.events.getFriendsSavedEvents({
+              limit: initialLimit,
+              cursor: refresh ? undefined : cursorRef.current,
+              _t: timestamp,
+            });
+            break;
+          case "discovered":
+            response = await apiClient.events.getUserDiscoveredEvents({
+              limit: initialLimit,
+              cursor: refresh ? undefined : cursorRef.current,
+              _t: timestamp,
+            });
+            break;
+        }
 
         // Only update state if this is still the current type
-        if (type === "personal" || type === "friends") {
+        if (
+          type === "personal" ||
+          type === "friends" ||
+          type === "discovered"
+        ) {
           setHasMore(!!response.nextCursor);
           setCursor(response.nextCursor);
 
@@ -95,7 +112,13 @@ export const useSavedEvents = ({
         setError(null);
       } catch (err) {
         setError(
-          `Failed to load ${type === "personal" ? "your" : "friends'"} saved events. Please try again.`,
+          `Failed to load ${
+            type === "personal"
+              ? "your"
+              : type === "friends"
+                ? "friends'"
+                : "discovered"
+          } saved events. Please try again.`,
         );
         console.error(`Error fetching ${type} saved events:`, err);
       } finally {
