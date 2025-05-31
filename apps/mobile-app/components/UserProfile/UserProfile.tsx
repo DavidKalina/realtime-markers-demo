@@ -1,18 +1,16 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
-import { useProfile } from "@/hooks/useProfile";
 import { useFetchMyFriends } from "@/hooks/useFetchMyFriends";
-import { useUserGroups } from "@/hooks/useUserGroups";
-import React, { useState, useMemo } from "react";
+import { useProfile } from "@/hooks/useProfile";
+import { router } from "expo-router";
+import { LucideIcon, User, UserPlus } from "lucide-react-native";
+import React, { useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { User, Users, UserPlus, LucideIcon } from "lucide-react-native";
 import Screen, { Section as ScreenSection } from "../Layout/Screen";
 import { COLORS } from "../Layout/ScreenLayout";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
-import ProfileSection from "./ProfileSection";
-import GroupsSection from "./GroupsSection";
 import FriendsSection from "./FriendsSection";
-import { router } from "expo-router";
+import ProfileSection from "./ProfileSection";
 
 type TabType = "profile" | "groups" | "friends";
 
@@ -42,12 +40,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     setPassword,
   } = useProfile(onBack);
   const { friends, isLoading: isLoadingFriends } = useFetchMyFriends();
-  const {
-    groups,
-    isLoading: isLoadingGroups,
-    error: groupsError,
-    retry: retryGroups,
-  } = useUserGroups();
 
   const [activeTab, setActiveTab] = useState<TabType>("profile");
   const [mapSettings, setMapSettings] = useState({
@@ -87,11 +79,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       value: "profile" as TabType,
     },
     {
-      icon: Users,
-      label: "Groups",
-      value: "groups" as TabType,
-    },
-    {
       icon: UserPlus,
       label: "Friends",
       value: "friends" as TabType,
@@ -119,24 +106,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               handleMapSettingChange(key)(value),
           onUpgradePress: () => console.log("Upgrade pressed"),
         });
-      case "groups":
-        return [
-          {
-            title: "My Groups",
-            icon: Users as LucideIcon,
-            content: GroupsSection({
-              groups,
-              isLoading: isLoadingGroups,
-              error: groupsError || undefined,
-              onRetry: retryGroups,
-            }),
-            actionButton: {
-              label: "Create Group",
-              onPress: () => console.log("Create group"),
-              variant: "primary" as const,
-            },
-          },
-        ];
       case "friends":
         return [
           {
@@ -166,10 +135,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     mapSettings,
     friends,
     isLoadingFriends,
-    groups,
-    isLoadingGroups,
-    groupsError,
-    retryGroups,
   ]);
 
   // Memoize footer buttons based on active tab
