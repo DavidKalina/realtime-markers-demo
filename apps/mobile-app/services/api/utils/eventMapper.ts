@@ -32,7 +32,5 @@ export const mapEventToEventType = (apiEvent: ApiEvent): EventType => {
     createdAt: apiEvent.createdAt,
     updatedAt: apiEvent.updatedAt,
     sharedWithIds: apiEvent.shares?.map((share) => share.sharedWithId) || [],
-    groupId: apiEvent.groupId,
-    group: apiEvent.group,
   };
 };
