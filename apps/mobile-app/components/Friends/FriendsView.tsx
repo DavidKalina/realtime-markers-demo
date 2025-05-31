@@ -71,34 +71,22 @@ const FriendsView: React.FC = () => {
 
         // Combine and label the requests
         const combinedRequests = [
-          ...incomingResponse.map((req) => {
-            console.log(
-              "Labeling incoming request:",
-              req.id,
-              "requester:",
-              req.requester.id,
-              "addressee:",
-              req.addressee.id,
-            );
-            return {
+          ...incomingResponse
+            .filter((req): req is FriendRequest =>
+              Boolean(req && req.requester),
+            )
+            .map((req) => ({
               ...req,
               type: "incoming" as const,
-            };
-          }),
-          ...outgoingResponse.map((req) => {
-            console.log(
-              "Labeling outgoing request:",
-              req.id,
-              "requester:",
-              req.requester.id,
-              "addressee:",
-              req.addressee.id,
-            );
-            return {
+            })),
+          ...outgoingResponse
+            .filter((req): req is FriendRequest =>
+              Boolean(req && req.addressee),
+            )
+            .map((req) => ({
               ...req,
               type: "outgoing" as const,
-            };
-          }),
+            })),
         ].sort(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -308,58 +296,72 @@ const FriendsView: React.FC = () => {
               </View>
             ) : (
               <List
-                items={requests.map((request) => ({
-                  id: request.id,
-                  icon: User,
-                  title:
-                    request.type === "incoming"
-                      ? request.requester.displayName || request.requester.email
-                      : request.addressee.displayName ||
-                        request.addressee.email,
-                  description:
-                    request.type === "incoming"
-                      ? request.requester.displayName
-                        ? request.requester.email
-                        : undefined
-                      : request.addressee.displayName
-                        ? request.addressee.email
-                        : undefined,
-                  badge: request.type.toUpperCase(),
-                  rightElement: actionStates[request.id] ? (
-                    <Text
-                      style={[
-                        styles.actionFeedback,
-                        actionStates[request.id]?.status === "success"
-                          ? styles.successText
-                          : styles.errorText,
-                      ]}
-                    >
-                      {actionStates[request.id]?.message}
-                    </Text>
-                  ) : request.type === "incoming" ? (
-                    <View style={styles.requestActions}>
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.acceptButton]}
-                        onPress={() => handleAcceptRequest(request.id)}
+                items={requests
+                  .filter(
+                    (
+                      request,
+                    ): request is FriendRequest & {
+                      type: "incoming" | "outgoing";
+                    } =>
+                      Boolean(
+                        request &&
+                          ((request.type === "incoming" && request.requester) ||
+                            (request.type === "outgoing" && request.addressee)),
+                      ),
+                  )
+                  .map((request) => ({
+                    id: request.id,
+                    icon: User,
+                    title:
+                      request.type === "incoming"
+                        ? request.requester.displayName ||
+                          request.requester.email
+                        : request.addressee.displayName ||
+                          request.addressee.email,
+                    description:
+                      request.type === "incoming"
+                        ? request.requester.displayName
+                          ? request.requester.email
+                          : undefined
+                        : request.addressee.displayName
+                          ? request.addressee.email
+                          : undefined,
+                    badge: request.type.toUpperCase(),
+                    rightElement: actionStates[request.id] ? (
+                      <Text
+                        style={[
+                          styles.actionFeedback,
+                          actionStates[request.id]?.status === "success"
+                            ? styles.successText
+                            : styles.errorText,
+                        ]}
                       >
-                        <Text style={styles.acceptButtonText}>Accept</Text>
-                      </TouchableOpacity>
+                        {actionStates[request.id]?.message}
+                      </Text>
+                    ) : request.type === "incoming" ? (
+                      <View style={styles.requestActions}>
+                        <TouchableOpacity
+                          style={[styles.actionButton, styles.acceptButton]}
+                          onPress={() => handleAcceptRequest(request.id)}
+                        >
+                          <Text style={styles.acceptButtonText}>Accept</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.actionButton, styles.rejectButton]}
+                          onPress={() => handleRejectRequest(request.id)}
+                        >
+                          <Text style={styles.rejectButtonText}>Reject</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
                       <TouchableOpacity
                         style={[styles.actionButton, styles.rejectButton]}
-                        onPress={() => handleRejectRequest(request.id)}
+                        onPress={() => handleCancelRequest(request.id)}
                       >
-                        <Text style={styles.rejectButtonText}>Reject</Text>
+                        <Text style={styles.rejectButtonText}>Cancel</Text>
                       </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.rejectButton]}
-                      onPress={() => handleCancelRequest(request.id)}
-                    >
-                      <Text style={styles.rejectButtonText}>Cancel</Text>
-                    </TouchableOpacity>
-                  ),
-                }))}
+                    ),
+                  }))}
               />
             ),
           },
