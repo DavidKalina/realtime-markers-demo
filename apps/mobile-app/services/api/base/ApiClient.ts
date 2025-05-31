@@ -310,12 +310,19 @@ export class BaseApiClient {
     // If there's already a refresh in progress, wait for it
     if (this.tokenRefreshPromise) {
       console.log("Token refresh already in progress, waiting...");
-      return this.tokenRefreshPromise;
+      try {
+        return await this.tokenRefreshPromise;
+      } catch (error) {
+        console.error("Error waiting for token refresh:", error);
+        return false;
+      }
     }
 
     this.tokenRefreshPromise = (async () => {
       try {
-        if (!this.tokens?.refreshToken) {
+        // Get the current refresh token before starting the refresh
+        const currentRefreshToken = this.tokens?.refreshToken;
+        if (!currentRefreshToken) {
           console.log("No refresh token available");
           return false;
         }
@@ -328,7 +335,7 @@ export class BaseApiClient {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ refreshToken: this.tokens.refreshToken }),
+          body: JSON.stringify({ refreshToken: currentRefreshToken }),
         });
 
         if (!response.ok) {
@@ -347,14 +354,22 @@ export class BaseApiClient {
 
         const newTokens: AuthTokens = {
           accessToken: data.accessToken,
-          refreshToken: data.refreshToken || this.tokens.refreshToken,
+          refreshToken: data.refreshToken || currentRefreshToken,
         };
 
         // Update in-memory state first
         this.tokens = newTokens;
 
         // Then save to storage atomically
-        await this.saveAuthState(this.user!, newTokens);
+        if (this.user) {
+          await this.saveAuthState(this.user, newTokens);
+        } else {
+          // If we don't have a user, just save the tokens
+          await Promise.all([
+            AsyncStorage.setItem("accessToken", newTokens.accessToken),
+            AsyncStorage.setItem("refreshToken", newTokens.refreshToken || ""),
+          ]);
+        }
 
         console.log("Token refresh successful");
         return true;
@@ -374,12 +389,24 @@ export class BaseApiClient {
     // If there's already a sync in progress, wait for it
     if (this.tokenSyncPromise) {
       console.log("Token sync already in progress, waiting...");
-      return this.tokenSyncPromise;
+      try {
+        return await this.tokenSyncPromise;
+      } catch (error) {
+        console.error("Error waiting for token sync:", error);
+        return null;
+      }
     }
 
     this.tokenSyncPromise = (async () => {
       try {
         console.log("Starting token sync with storage...");
+
+        // If we have valid tokens in memory, use them
+        if (this.tokens?.accessToken && !(await this.isTokenExpired())) {
+          console.log("Using valid tokens from memory");
+          return this.tokens;
+        }
+
         const [accessToken, refreshToken] = await Promise.all([
           AsyncStorage.getItem("accessToken"),
           AsyncStorage.getItem("refreshToken"),
