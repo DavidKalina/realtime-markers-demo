@@ -6,7 +6,7 @@ import {
   EventTypes,
 } from "@/services/EventBroker";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import {
   BookMarkedIcon,
   Camera,
@@ -156,7 +156,7 @@ interface TabConfig {
 }
 
 // Define route type to match expo-router's expected types
-type AppRoute = "/search" | "/scan" | "/saved" | "/user";
+type AppRoute = "/search" | "/scan" | "/saved" | "/user" | "/";
 
 // Define all possible tabs in a single configuration object
 const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
@@ -202,6 +202,26 @@ const getEnabledTabs = (config: Record<string, TabConfig>) => {
   return Object.values(config).filter((tab) => tab.enabled);
 };
 
+// Helper function to get the active tab key from the current path
+const getActiveTabKey = (pathname: string): string | null => {
+  // Handle root path
+  if (pathname === "/") return "locate";
+
+  // Handle saved routes
+  if (pathname.startsWith("/saved")) return "saved";
+
+  // Handle search routes
+  if (pathname.startsWith("/search")) return "search";
+
+  // Handle exact matches
+  const exactMatch = Object.entries(TAB_CONFIG).find(
+    ([, config]) => config.route === pathname,
+  );
+  if (exactMatch) return exactMatch[0];
+
+  return null;
+};
+
 export const ActionBar: React.FC<ActionBarProps> = React.memo(
   ({
     animatedStyle,
@@ -215,6 +235,10 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     const insets = useSafeAreaInsets();
     const { userLocation } = useUserLocation();
     const router = useRouter();
+    const pathname = usePathname();
+
+    // Get the active tab based on the current route
+    const activeTab = useMemo(() => getActiveTabKey(pathname), [pathname]);
 
     // Memoize the camera animation event to prevent recreation
     const cameraAnimationEvent = useMemo(() => {
@@ -289,11 +313,12 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           .map((tab) => ({
             key: tab.key,
             label: tab.label,
-            icon: <tab.icon size={22} color="#fff" />, // Increased icon size
+            icon: <tab.icon size={22} color="#fff" />,
             action: actionHandlers[tab.key],
             disabled: tab.requiresLocation && !userLocation,
+            isActive: tab.key === activeTab, // Add isActive based on current route
           })),
-      [userLocation, actionHandlers],
+      [userLocation, actionHandlers, activeTab],
     );
 
     // Filter actions based on the availableActions prop - only recalculate when dependencies change
@@ -341,7 +366,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
               label={action.label}
               icon={action.icon}
               onPress={action.action}
-              isActive={activeAction === action.key}
+              isActive={action.isActive || activeAction === action.key}
               disabled={action.disabled}
             />
           ))}
