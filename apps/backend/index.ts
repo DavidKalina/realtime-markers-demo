@@ -39,13 +39,11 @@ import type { AppContext } from "./types/context";
 import { NotificationService } from "./services/NotificationService";
 import { NotificationHandler } from "./services/NotificationHandler";
 import { notificationsRouter } from "./routes/notifications";
-import { groupsRouter } from "./routes/groups";
 import { placesRouter } from "./routes/places";
 import { categoriesRouter } from "./routes/categories";
 import { redisService, redisClient } from "./services/shared/redis";
 import { Redis } from "ioredis";
 import { RedisService } from "./services/shared/RedisService";
-import { GroupService } from "./services/GroupService";
 import { AuthService } from "./services/AuthService";
 import { User } from "./entities/User";
 
@@ -252,7 +250,6 @@ async function initializeServices() {
   );
 
   // Initialize the GroupService
-  const groupService = new GroupService(dataSource);
 
   // Initialize the AuthService
   const authService = new AuthService(
@@ -307,7 +304,6 @@ async function initializeServices() {
     friendshipService,
     notificationService,
     notificationHandler,
-    groupService,
     authService,
   };
 }
@@ -327,7 +323,6 @@ app.use("*", async (c, next) => {
   c.set("levelingService", services.levelingService);
   c.set("friendshipService", services.friendshipService);
   c.set("notificationService", services.notificationService);
-  c.set("groupService", services.groupService);
   c.set("authService", services.authService);
   await next();
 });
@@ -341,7 +336,6 @@ app.route("/api/plans", plansRouter);
 app.route("/api/internal", internalRouter);
 app.route("/api/friendships", friendshipsRouter);
 app.route("/api/notifications", notificationsRouter);
-app.route("/api/groups", groupsRouter);
 app.route("/api/places", placesRouter);
 app.route("/api/categories", categoriesRouter);
 // =============================================================================
