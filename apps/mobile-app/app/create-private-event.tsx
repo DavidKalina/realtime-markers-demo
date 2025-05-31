@@ -1,6 +1,5 @@
 import { CheckboxGroup } from "@/components/CheckboxGroup/CheckboxGroup";
 import EmbeddedDateRangeCalendar from "@/components/EmbeddedDateRangeCalendar";
-import EventScopeSelector from "@/components/EventScopeSelector/EventScopeSelector";
 import Input from "@/components/Input/Input";
 import TextArea from "@/components/Input/TextArea";
 import Header from "@/components/Layout/Header";
@@ -10,7 +9,7 @@ import { Friend, apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Book, List, MapPin as MapPinIcon } from "lucide-react-native";
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -29,7 +28,6 @@ import {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
-import { useEventScope } from "@/hooks/useEventScope";
 
 // Unified color theme matching Login screen
 const COLORS = {
@@ -88,13 +86,6 @@ const CreatePrivateEvent = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 500); // 500ms delay
 
-  // Use the new hook for event scope management
-  const { eventScope, selectedGroupId, handleScopeChange } = useEventScope({
-    initialScope: params.groupId ? "GROUP" : "FRIENDS",
-    initialGroupId: params.groupId as string,
-  });
-
-  // Get coordinates from params
   useEffect(() => {
     if (params.latitude && params.longitude) {
       const lat = parseFloat(params.latitude as string);
@@ -283,18 +274,6 @@ const CreatePrivateEvent = () => {
       return;
     }
 
-    // Additional validation for friend-scoped events
-    if (eventScope === "FRIENDS" && selectedFriends.length === 0) {
-      Alert.alert("Error", "Please select at least one friend to share with");
-      return;
-    }
-
-    // Additional validation for group-scoped events
-    if (eventScope === "GROUP" && !selectedGroupId) {
-      Alert.alert("Error", "Please select a group to share with");
-      return;
-    }
-
     // Check if the selected date is at least 5 minutes in the future
     const now = new Date();
     const minDate = new Date(now.getTime() + 5 * 60 * 1000);
@@ -338,16 +317,13 @@ const CreatePrivateEvent = () => {
           userRatingsTotal: locationData.userRatingsTotal,
           locationNotes: locationData.locationNotes,
         },
-        sharedWithIds:
-          eventScope === "FRIENDS"
-            ? selectedFriends.map((friend) => friend.id)
-            : [],
+        sharedWithIds: selectedFriends.map((friend) => friend.id),
+
         userCoordinates: {
           lat: coordinates.latitude,
           lng: coordinates.longitude,
         },
         isPrivate: true,
-        groupId: eventScope === "GROUP" ? selectedGroupId : undefined,
       };
 
       if (params.id) {
@@ -410,13 +386,6 @@ const CreatePrivateEvent = () => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.container}>
-            {/* Event Scope Selector */}
-            <EventScopeSelector
-              selectedScope={eventScope}
-              selectedGroupId={selectedGroupId}
-              onScopeChange={handleScopeChange}
-            />
-
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Event Details</Text>
               <Input
@@ -472,17 +441,14 @@ const CreatePrivateEvent = () => {
               />
             </View>
 
-            {/* Only show friend selection for friend-scoped events */}
-            {eventScope === "FRIENDS" && (
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Invite Friends</Text>
-                <CheckboxGroup
-                  selectedFriends={selectedFriends}
-                  onSelectionChange={setSelectedFriends}
-                  buttonText="Select Friends to Invite"
-                />
-              </View>
-            )}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Invite Friends</Text>
+              <CheckboxGroup
+                selectedFriends={selectedFriends}
+                onSelectionChange={setSelectedFriends}
+                buttonText="Select Friends to Invite"
+              />
+            </View>
 
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Date & Time</Text>
