@@ -81,7 +81,11 @@ Respond with a JSON object containing:
         response_format: { type: "json_object" },
       });
 
-      const result = JSON.parse(response.choices[0].message.content);
+      const responseContent = response.choices[0].message.content;
+      if (!responseContent) {
+        throw new Error("No content received from OpenAI");
+      }
+      const result = JSON.parse(responseContent);
       return result.isAppropriate;
     } catch (error) {
       console.error("Error checking content appropriateness:", error);
@@ -207,12 +211,33 @@ Respond with a JSON object containing:
    */
   async refreshToken(refreshToken: string): Promise<AuthTokens> {
     try {
+      console.log("Starting token refresh process...");
+
       // Verify the refresh token
       const decoded = jwt.verify(refreshToken, this.refreshSecret) as {
         userId: string;
       };
+      console.log("Refresh token verified, userId:", decoded.userId);
 
-      // Find user with this refresh token
+      // First check if user exists at all
+      const userExists = await this.userRepository.findOne({
+        where: { id: decoded.userId },
+        select: ["id", "refreshToken"], // Explicitly select refreshToken
+      });
+
+      if (!userExists) {
+        console.log("User not found in database");
+        throw new Error("Invalid refresh token");
+      }
+
+      console.log("User exists, current refresh token in DB:", {
+        hasRefreshToken: !!userExists.refreshToken,
+        tokenLength: userExists.refreshToken?.length,
+        tokenPrefix: userExists.refreshToken?.substring(0, 20) + "...",
+        incomingTokenPrefix: refreshToken.substring(0, 20) + "...",
+      });
+
+      // Now find user with matching refresh token
       const user = await this.userRepository.findOne({
         where: {
           id: decoded.userId,
@@ -221,19 +246,61 @@ Respond with a JSON object containing:
       });
 
       if (!user) {
+        console.log(
+          "No user found with matching refresh token. Token mismatch detected.",
+          {
+            storedTokenPrefix:
+              userExists.refreshToken?.substring(0, 20) + "...",
+            incomingTokenPrefix: refreshToken.substring(0, 20) + "...",
+            storedTokenLength: userExists.refreshToken?.length,
+            incomingTokenLength: refreshToken.length,
+          },
+        );
         throw new Error("Invalid refresh token");
       }
 
       // Generate new tokens
       const tokens = this.generateTokens(user);
+      console.log("Generated new tokens");
 
-      // Update refresh token in database
-      user.refreshToken = tokens.refreshToken;
-      await this.userRepository.save(user);
+      try {
+        // Update refresh token in database
+        user.refreshToken = tokens.refreshToken;
+        console.log("Attempting to save user with new refresh token...");
+        await this.userRepository.save(user);
+        console.log("Successfully saved new refresh token");
+      } catch (saveError) {
+        console.error("Error saving refresh token:", saveError);
+        // If it's a database error, log more details
+        if (saveError instanceof Error) {
+          console.error("Save error details:", {
+            message: saveError.message,
+            stack: saveError.stack,
+          });
+        }
+        throw new Error("Failed to update refresh token");
+      }
 
       return tokens;
     } catch (error) {
-      throw new Error("Invalid refresh token");
+      console.error("Token refresh error details:", {
+        error:
+          error instanceof Error
+            ? {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+              }
+            : error,
+      });
+
+      if (error instanceof jwt.TokenExpiredError) {
+        throw new Error("Refresh token expired");
+      }
+      if (error instanceof jwt.JsonWebTokenError) {
+        throw new Error("Invalid refresh token");
+      }
+      throw error;
     }
   }
 
@@ -264,18 +331,16 @@ Respond with a JSON object containing:
       role: user.role,
     };
 
-    const expiresIn = this.accessTokenExpiry as SignOptions["expiresIn"];
-
     const accessToken = jwt.sign(
       payload,
       this.jwtSecret as jwt.Secret,
-      { expiresIn }, // "1h"
+      { expiresIn: this.accessTokenExpiry }, // "1h"
     );
 
     const refreshToken = jwt.sign(
       { userId: user.id },
       this.refreshSecret as jwt.Secret,
-      { expiresIn }, // "7d"
+      { expiresIn: this.refreshTokenExpiry }, // "7d"
     );
 
     return { accessToken, refreshToken };

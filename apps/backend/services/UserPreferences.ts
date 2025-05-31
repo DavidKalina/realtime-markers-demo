@@ -1,9 +1,9 @@
 // This would be added to the backend service as src/services/UserPreferencesService.ts
 import { DataSource, Repository } from "typeorm";
-import Redis from "ioredis";
 import { Filter as FilterEntity } from "../entities/Filter";
 import { EmbeddingService } from "./shared/EmbeddingService";
-import { OpenAIService } from "./shared/OpenAIService";
+import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
+import { RedisService } from "./shared/RedisService";
 
 interface Filter {
   id: string;
@@ -35,12 +35,12 @@ interface Filter {
  */
 export class UserPreferencesService {
   private filterRepository: Repository<Filter>;
-  private redisClient: Redis;
+  private redisService: RedisService;
   private embeddingService: EmbeddingService;
 
-  constructor(dataSource: DataSource, redisClient: Redis) {
+  constructor(dataSource: DataSource, redisService: RedisService) {
     this.filterRepository = dataSource.getRepository(FilterEntity);
-    this.redisClient = redisClient;
+    this.redisService = redisService;
     this.embeddingService = EmbeddingService.getInstance();
   }
 
@@ -61,7 +61,7 @@ Example valid responses: 🎉 🎨 🎭
 Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
 
       const completion = await OpenAIService.executeChatCompletion({
-        model: "gpt-4o-mini-2024-07-18",
+        model: OpenAIModel.GPT4OMini,
         messages: [
           {
             role: "system",
@@ -75,8 +75,6 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
         ],
         temperature: 0.7,
         max_tokens: 4,
-        presence_penalty: 0,
-        frequency_penalty: 0,
       });
 
       const emoji = completion.choices[0].message.content?.trim();
@@ -329,15 +327,12 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
       // Get the active filters for the user
       const activeFilters = await this.getActiveFilters(userId);
 
-      // Publish the event to Redis
-      await this.redisClient.publish(
-        "filter-changes",
-        JSON.stringify({
-          userId,
-          filters: activeFilters,
-          timestamp: new Date().toISOString(),
-        }),
-      );
+      // Publish the event to Redis using RedisService with the new publishMessage method
+      await this.redisService.publishMessage("filter-changes", {
+        userId,
+        filters: activeFilters,
+        timestamp: new Date().toISOString(),
+      });
     } catch (error) {
       console.error(
         `Error publishing filter change for user ${userId}:`,
@@ -364,16 +359,13 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
       // Get only the active filters after update
       const activeFilters = updatedFilters.filter((filter) => filter.isActive);
 
-      // Publish filter change event with the active filters
+      // Publish filter change event with the active filters using the new publishMessage method
       try {
-        await this.redisClient.publish(
-          "filter-changes",
-          JSON.stringify({
-            userId,
-            filters: activeFilters,
-            timestamp: new Date().toISOString(),
-          }),
-        );
+        await this.redisService.publishMessage("filter-changes", {
+          userId,
+          filters: activeFilters,
+          timestamp: new Date().toISOString(),
+        });
       } catch (redisError) {
         console.error("Error publishing filter change to Redis:", redisError);
         // Continue even if Redis publishing fails

@@ -22,6 +22,18 @@ notificationsRouter.use(
 );
 notificationsRouter.use("*", authMiddleware);
 
+// Mark all notifications as read - must be before other routes to avoid conflicts
+notificationsRouter.post("/read/all", async (c) => {
+  const notificationService = c.get("notificationService");
+  const user = c.get("user");
+  if (!user) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  await notificationService.markAllAsRead(user.userId);
+  return c.json({ success: true });
+});
+
 // Get all notifications for the authenticated user
 notificationsRouter.get("/", async (c) => {
   const notificationService = c.get("notificationService");

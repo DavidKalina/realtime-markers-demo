@@ -7,19 +7,15 @@ import dataSource from "../data-source";
 import type { AppContext } from "../types/context";
 import { UserPreferencesService } from "../services/UserPreferences";
 import { LevelingService } from "../services/LevelingService";
-import Redis from "ioredis";
-
-// Create Redis client
-const redis = new Redis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD,
-});
+import { redisService } from "../services/shared/redis";
 
 // Create an instance of AuthService (or import it if already instantiated)
 const userRepository = dataSource.getRepository(User);
-const userPreferencesService = new UserPreferencesService(dataSource, redis);
-const levelingService = new LevelingService(dataSource, redis);
+const userPreferencesService = new UserPreferencesService(
+  dataSource,
+  redisService,
+);
+const levelingService = new LevelingService(dataSource, redisService);
 const authService = new AuthService(
   userRepository,
   userPreferencesService,

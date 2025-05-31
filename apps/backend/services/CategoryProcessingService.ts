@@ -1,6 +1,6 @@
 import { In, Repository } from "typeorm";
 import { Category } from "../entities/Category";
-import { CacheService } from "./shared/CacheService";
+import { CategoryCacheService } from "./shared/CategoryCacheService";
 import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
 
 export class CategoryProcessingService {
@@ -16,14 +16,43 @@ export class CategoryProcessingService {
       categoryNames.map((name) => this.normalizeCategoryName(name)),
     );
 
+    // Try to get categories from cache first
+    const cachedCategories = await Promise.all(
+      normalizedNames.map(async (name) => {
+        const cached = await CategoryCacheService.getCategory(name);
+        return cached;
+      }),
+    );
+
+    // Filter out cached categories and get names that need to be fetched/created
+    const cachedCategoriesMap = new Map(
+      cachedCategories
+        .filter((cat): cat is Category => cat !== null)
+        .map((cat) => [cat.name, cat]),
+    );
+    const uncachedNames = normalizedNames.filter(
+      (name) => !cachedCategoriesMap.has(name),
+    );
+
+    if (uncachedNames.length === 0) {
+      return Array.from(cachedCategoriesMap.values());
+    }
+
     // Find all existing categories in one query
     const existingCategories = await this.categoryRepository.find({
-      where: { name: In(normalizedNames) },
+      where: { name: In(uncachedNames) },
     });
+
+    // Cache the existing categories
+    await Promise.all(
+      existingCategories.map((category) =>
+        CategoryCacheService.setCategory(category),
+      ),
+    );
 
     // Determine which categories need to be created
     const existingNamesSet = new Set(existingCategories.map((cat) => cat.name));
-    const newCategoryNames = normalizedNames.filter(
+    const newCategoryNames = uncachedNames.filter(
       (name) => !existingNamesSet.has(name),
     );
 
@@ -33,11 +62,22 @@ export class CategoryProcessingService {
       newCategories = newCategoryNames.map((name) =>
         this.categoryRepository.create({ name }),
       );
-      await this.categoryRepository.save(newCategories);
+      newCategories = await this.categoryRepository.save(newCategories);
+
+      // Cache the new categories
+      await Promise.all(
+        newCategories.map((category) =>
+          CategoryCacheService.setCategory(category),
+        ),
+      );
     }
 
-    // Return combined list
-    return [...existingCategories, ...newCategories];
+    // Return combined list of cached, existing, and new categories
+    return [
+      ...Array.from(cachedCategoriesMap.values()),
+      ...existingCategories,
+      ...newCategories,
+    ];
   }
 
   private async findSimilarCategory(
@@ -103,11 +143,9 @@ export class CategoryProcessingService {
 
   async extractAndProcessCategories(imageText: string): Promise<Category[]> {
     // Check cache first
-    const cachedCategories = CacheService.getCachedCategories(imageText);
+    const cachedCategories = await CategoryCacheService.getCategoryList();
     if (cachedCategories) {
-      return await this.categoryRepository.find({
-        where: { name: In(cachedCategories) },
-      });
+      return cachedCategories;
     }
 
     const response = await OpenAIService.executeChatCompletion({
@@ -132,39 +170,42 @@ export class CategoryProcessingService {
     );
     const suggestedCategories: string[] = parsedResponse.categories || [];
 
-    // Save to cache
-    CacheService.setCachedCategories(imageText, suggestedCategories);
-
     if (suggestedCategories.length === 0) {
       return [];
     }
 
-    // Normalize all category names in parallel
-    const normalizedNames = await Promise.all(
-      suggestedCategories.map((name) => this.normalizeCategoryName(name)),
-    );
+    // Get or create the categories
+    const categories = await this.getOrCreateCategories(suggestedCategories);
 
-    // Find all existing categories in one query
-    const existingCategories = await this.categoryRepository.find({
-      where: { name: In(normalizedNames) },
-    });
+    // Cache the results
+    await CategoryCacheService.setCategoryList(categories);
 
-    // Determine which categories need to be created
-    const existingNamesSet = new Set(existingCategories.map((cat) => cat.name));
-    const newCategoryNames = normalizedNames.filter(
-      (name) => !existingNamesSet.has(name),
-    );
+    return categories;
+  }
 
-    // Create all new categories in one batch
-    let newCategories: Category[] = [];
-    if (newCategoryNames.length > 0) {
-      newCategories = newCategoryNames.map((name) =>
-        this.categoryRepository.create({ name }),
-      );
-      await this.categoryRepository.save(newCategories);
+  // Add a method to get all categories with caching
+  async getAllCategories(): Promise<Category[]> {
+    const cachedCategories = await CategoryCacheService.getCategoryList();
+    if (cachedCategories) {
+      return cachedCategories;
     }
 
-    // Return combined list
-    return [...existingCategories, ...newCategories];
+    const categories = await this.categoryRepository.find({
+      order: { name: "ASC" },
+    });
+
+    await CategoryCacheService.setCategoryList(categories);
+    return categories;
+  }
+
+  // Add a method to invalidate category caches
+  async invalidateCategoryCaches(categoryIds?: string[]): Promise<void> {
+    if (categoryIds) {
+      await Promise.all(
+        categoryIds.map((id) => CategoryCacheService.invalidateCategory(id)),
+      );
+    } else {
+      await CategoryCacheService.invalidateAllCategories();
+    }
   }
 }

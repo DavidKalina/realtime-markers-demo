@@ -1,26 +1,44 @@
-import apiClient, { Friend, FriendRequest } from "@/services/ApiClient";
+import { apiClient, Friend, FriendRequest } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { Search, User, UserPlus, Users } from "lucide-react-native";
+import { Check, Search, User, UserPlus, Users, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import Header from "../Layout/Header";
-import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
-import Tabs, { TabItem } from "../Layout/Tabs";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Screen, { Section } from "../Layout/Screen";
+import { COLORS } from "../Layout/ScreenLayout";
 import Input from "../Input/Input";
-import Card from "../Layout/Card";
+import InfiniteScrollFlatList from "../Layout/InfintieScrollFlatList";
 
 type TabType = "friends" | "requests" | "add";
+
+const PAGE_SIZE = 20;
 
 const FriendsView: React.FC = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("friends");
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [requests, setRequests] = useState<
+    (FriendRequest & { type: "incoming" | "outgoing" })[]
+  >([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [actionStates, setActionStates] = useState<
+    Record<string, { status: "success" | "error"; message: string } | null>
+  >({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchFeedback, setSearchFeedback] = useState<{
+    status: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  // Pagination state
+  const [friendsPage, setFriendsPage] = useState(1);
+  const [requestsPage, setRequestsPage] = useState(1);
+  const [hasMoreFriends, setHasMoreFriends] = useState(true);
+  const [hasMoreRequests, setHasMoreRequests] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -32,165 +50,118 @@ const FriendsView: React.FC = () => {
     setActiveTab(tab);
   }, []);
 
-  const tabItems: TabItem<TabType>[] = [
-    { icon: Users, label: "Friends", value: "friends" },
-    { icon: UserPlus, label: "Requests", value: "requests" },
-    { icon: Search, label: "Add", value: "add" },
-  ];
+  // Fetch friends with pagination
+  const fetchFriends = useCallback(async (page: number, isRefresh = false) => {
+    try {
+      const response = await apiClient.friends.getFriends();
+      const newFriends = response;
 
-  return (
-    <ScreenLayout>
-      <Header title="Friends" onBack={handleBack} />
-
-      <Tabs<TabType>
-        items={tabItems}
-        activeTab={activeTab}
-        onTabPress={handleTabSwitch}
-        style={styles.tabsContainer}
-      />
-
-      <View style={styles.contentArea}>
-        {activeTab === "friends" && <FriendsList />}
-        {activeTab === "requests" && <FriendRequestsList />}
-        {activeTab === "add" && <AddFriends />}
-      </View>
-    </ScreenLayout>
-  );
-};
-
-const FriendsList: React.FC = () => {
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchFriends = async () => {
-      try {
-        const response = await apiClient.getFriends();
-        setFriends(response);
-        setError(null);
-      } catch (err) {
-        setError("Failed to load friends. Please try again.");
-        console.error("Error fetching friends:", err);
-      } finally {
-        setIsLoading(false);
+      if (isRefresh) {
+        setFriends(newFriends);
+      } else {
+        setFriends((prev) => [...prev, ...newFriends]);
       }
-    };
 
-    fetchFriends();
+      setHasMoreFriends(newFriends.length === PAGE_SIZE);
+      setError(null);
+    } catch (err) {
+      setError("Failed to load friends. Please try again.");
+      console.error("Error fetching friends:", err);
+    }
   }, []);
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
-      </View>
-    );
-  }
+  // Fetch requests with pagination
+  const fetchRequests = useCallback(async (page: number, isRefresh = false) => {
+    try {
+      const [incomingResponse, outgoingResponse] = await Promise.all([
+        apiClient.friends.getPendingFriendRequests(),
+        apiClient.friends.getOutgoingFriendRequests(),
+      ]);
 
-  if (error) {
-    return (
-      <Card>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => setIsLoading(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      </Card>
-    );
-  }
+      const combinedRequests = [
+        ...incomingResponse
+          .filter((req): req is FriendRequest => Boolean(req && req.requester))
+          .map((req) => ({ ...req, type: "incoming" as const })),
+        ...outgoingResponse
+          .filter((req): req is FriendRequest => Boolean(req && req.addressee))
+          .map((req) => ({ ...req, type: "outgoing" as const })),
+      ].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
 
-  if (friends.length === 0) {
-    return (
-      <Card>
-        <View style={styles.emptyContainer}>
-          <Users size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />
-          <Text style={styles.emptyTitle}>No friends yet</Text>
-          <Text style={styles.emptyDescription}>
-            Add friends to share events and discover together!
-          </Text>
-        </View>
-      </Card>
-    );
-  }
-
-  return (
-    <View>
-      {friends.map((friend) => (
-        <Card key={friend.id} style={styles.friendCard}>
-          <View style={styles.friendHeader}>
-            <View style={styles.friendIconContainer}>
-              <Text style={styles.avatarText}>
-                {friend.displayName?.[0]?.toUpperCase() ||
-                  friend.email[0].toUpperCase()}
-              </Text>
-            </View>
-            <View style={styles.friendInfo}>
-              <Text style={styles.friendName}>
-                {friend.displayName || friend.email}
-              </Text>
-              {friend.displayName && (
-                <Text style={styles.friendEmail}>{friend.email}</Text>
-              )}
-            </View>
-          </View>
-        </Card>
-      ))}
-    </View>
-  );
-};
-
-const FriendRequestsList: React.FC = () => {
-  const [requests, setRequests] = useState<
-    (FriendRequest & { type: "incoming" | "outgoing" })[]
-  >([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [actionStates, setActionStates] = useState<
-    Record<string, { status: "success" | "error"; message: string } | null>
-  >({});
-
-  useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const [incomingResponse, outgoingResponse] = await Promise.all([
-          apiClient.getPendingFriendRequests(),
-          apiClient.getOutgoingFriendRequests(),
-        ]);
-
-        // Combine and label the requests
-        const combinedRequests = [
-          ...incomingResponse.map((req) => ({
-            ...req,
-            type: "incoming" as const,
-          })),
-          ...outgoingResponse.map((req) => ({
-            ...req,
-            type: "outgoing" as const,
-          })),
-        ].sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        );
-
+      if (isRefresh) {
         setRequests(combinedRequests);
-        setError(null);
-      } catch (err) {
-        console.log("ERROR", err);
-        setError("Failed to load friend requests. Please try again.");
-        console.error("Error fetching friend requests:", err);
+      } else {
+        setRequests((prev) => [...prev, ...combinedRequests]);
+      }
+
+      setHasMoreRequests(combinedRequests.length === PAGE_SIZE);
+      setError(null);
+    } catch (err) {
+      setError("Failed to load friend requests. Please try again.");
+      console.error("Error fetching friend requests:", err);
+    }
+  }, []);
+
+  // Initial data fetch
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      setIsLoading(true);
+      try {
+        await Promise.all([fetchFriends(1, true), fetchRequests(1, true)]);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchRequests();
-  }, []);
+    fetchInitialData();
+  }, [fetchFriends, fetchRequests]);
+
+  // Handle refresh
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      if (activeTab === "friends") {
+        await fetchFriends(1, true);
+        setFriendsPage(1);
+      } else if (activeTab === "requests") {
+        await fetchRequests(1, true);
+        setRequestsPage(1);
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [activeTab, fetchFriends, fetchRequests]);
+
+  // Handle load more
+  const handleLoadMore = useCallback(async () => {
+    if (isLoadingMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      if (activeTab === "friends" && hasMoreFriends) {
+        const nextPage = friendsPage + 1;
+        await fetchFriends(nextPage);
+        setFriendsPage(nextPage);
+      } else if (activeTab === "requests" && hasMoreRequests) {
+        const nextPage = requestsPage + 1;
+        await fetchRequests(nextPage);
+        setRequestsPage(nextPage);
+      }
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [
+    activeTab,
+    friendsPage,
+    requestsPage,
+    hasMoreFriends,
+    hasMoreRequests,
+    isLoadingMore,
+    fetchFriends,
+    fetchRequests,
+  ]);
 
   const showActionFeedback = (
     requestId: string,
@@ -202,7 +173,6 @@ const FriendRequestsList: React.FC = () => {
       [requestId]: { status, message },
     }));
 
-    // Only remove the request after showing the success message
     if (status === "success") {
       setTimeout(() => {
         setRequests((prev) =>
@@ -211,7 +181,6 @@ const FriendRequestsList: React.FC = () => {
       }, 1000);
     }
 
-    // Clear the message after 2 seconds
     setTimeout(() => {
       setActionStates((prev) => ({
         ...prev,
@@ -222,7 +191,7 @@ const FriendRequestsList: React.FC = () => {
 
   const handleAcceptRequest = async (requestId: string) => {
     try {
-      await apiClient.acceptFriendRequest(requestId);
+      await apiClient.friends.acceptFriendRequest(requestId);
       showActionFeedback(requestId, "success", "Friend request accepted");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
@@ -234,7 +203,7 @@ const FriendRequestsList: React.FC = () => {
 
   const handleRejectRequest = async (requestId: string) => {
     try {
-      await apiClient.rejectFriendRequest(requestId);
+      await apiClient.friends.rejectFriendRequest(requestId);
       showActionFeedback(requestId, "success", "Friend request rejected");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
@@ -246,7 +215,7 @@ const FriendRequestsList: React.FC = () => {
 
   const handleCancelRequest = async (requestId: string) => {
     try {
-      await apiClient.cancelFriendRequest(requestId);
+      await apiClient.friends.cancelFriendRequest(requestId);
       showActionFeedback(requestId, "success", "Friend request canceled");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
@@ -254,148 +223,6 @@ const FriendRequestsList: React.FC = () => {
       console.error("Error canceling friend request:", err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
-  };
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => setIsLoading(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      </Card>
-    );
-  }
-
-  if (requests.length === 0) {
-    return (
-      <Card>
-        <View style={styles.emptyContainer}>
-          <UserPlus size={40} color={COLORS.accent} style={{ opacity: 0.6 }} />
-          <Text style={styles.emptyTitle}>No pending requests</Text>
-          <Text style={styles.emptyDescription}>
-            Friend requests you send or receive will appear here
-          </Text>
-        </View>
-      </Card>
-    );
-  }
-
-  return (
-    <View>
-      {requests.map((request) => (
-        <Card key={request.id} style={styles.requestCard}>
-          <View style={styles.requestTypeContainer}>
-            <Text
-              style={[
-                styles.requestTypeText,
-                request.type === "outgoing"
-                  ? styles.outgoingText
-                  : styles.incomingText,
-              ]}
-            >
-              {request.type === "outgoing" ? "OUTGOING" : "INCOMING"}
-            </Text>
-          </View>
-          <View style={styles.friendHeader}>
-            <View style={styles.friendIconContainer}>
-              <Text style={styles.avatarText}>
-                {request.type === "outgoing"
-                  ? request.addressee.displayName?.[0]?.toUpperCase() ||
-                    request.addressee.email[0].toUpperCase()
-                  : request.requester.displayName?.[0]?.toUpperCase() ||
-                    request.requester.email[0].toUpperCase()}
-              </Text>
-            </View>
-            <View style={styles.friendInfo}>
-              <Text style={styles.friendName}>
-                {request.type === "outgoing"
-                  ? request.addressee.displayName || request.addressee.email
-                  : request.requester.displayName || request.requester.email}
-              </Text>
-              {(request.type === "outgoing"
-                ? request.addressee.displayName
-                : request.requester.displayName) && (
-                <Text style={styles.friendEmail}>
-                  {request.type === "outgoing"
-                    ? request.addressee.email
-                    : request.requester.email}
-                </Text>
-              )}
-            </View>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.requestActions}>
-            {actionStates[request.id] && (
-              <Text
-                style={[
-                  styles.actionFeedback,
-                  actionStates[request.id]?.status === "success"
-                    ? styles.successText
-                    : styles.errorText,
-                ]}
-              >
-                {actionStates[request.id]?.message}
-              </Text>
-            )}
-            {!actionStates[request.id] &&
-              (request.type === "incoming" ? (
-                <>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.acceptButton]}
-                    onPress={() => handleAcceptRequest(request.id)}
-                  >
-                    <Text style={styles.acceptButtonText}>Accept</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.rejectButton]}
-                    onPress={() => handleRejectRequest(request.id)}
-                  >
-                    <Text style={styles.rejectButtonText}>Reject</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.rejectButton]}
-                  onPress={() => handleCancelRequest(request.id)}
-                >
-                  <Text style={styles.rejectButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              ))}
-          </View>
-        </Card>
-      ))}
-    </View>
-  );
-};
-
-const AddFriends: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
-  const [feedback, setFeedback] = useState<{
-    status: "success" | "error";
-    message: string;
-  } | null>(null);
-
-  const showFeedback = (status: "success" | "error", message: string) => {
-    setFeedback({ status, message });
-    setTimeout(() => {
-      setFeedback(null);
-    }, 2000);
   };
 
   const handleSearch = async () => {
@@ -406,20 +233,26 @@ const AddFriends: React.FC = () => {
       if (searchQuery.includes("@")) {
         // Handle email search
       } else if (searchQuery.length === 6 && /^[A-Z0-9]+$/.test(searchQuery)) {
-        await apiClient.sendFriendRequestByCode(searchQuery);
-        showFeedback("success", "Friend request sent");
-        setSearchQuery(""); // Clear input on success
+        await apiClient.friends.sendFriendRequestByCode(searchQuery);
+        setSearchFeedback({
+          status: "success",
+          message: "Friend request sent",
+        });
+        setSearchQuery("");
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
-        await apiClient.sendFriendRequestByUsername(searchQuery);
-        showFeedback("success", "Friend request sent");
-        setSearchQuery(""); // Clear input on success
+        await apiClient.friends.sendFriendRequestByUsername(searchQuery);
+        setSearchFeedback({
+          status: "success",
+          message: "Friend request sent",
+        });
+        setSearchQuery("");
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to send friend request";
-      showFeedback("error", errorMessage);
+      setSearchFeedback({ status: "error", message: errorMessage });
       console.error("Error sending friend request:", err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
@@ -427,78 +260,310 @@ const AddFriends: React.FC = () => {
     }
   };
 
-  return (
-    <View>
-      <Card style={styles.searchCard}>
-        <View style={styles.searchContainer}>
-          <Input
-            icon={Search}
-            placeholder="Enter username or friend code"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-            onSubmitEditing={handleSearch}
-            autoCapitalize="none"
-            autoCorrect={false}
-            loading={isSearching}
-          />
-          {feedback && (
+  const tabs = [
+    { icon: Users, label: "Friends", value: "friends" as TabType },
+    { icon: UserPlus, label: "Requests", value: "requests" as TabType },
+    { icon: Search, label: "Add", value: "add" as TabType },
+  ];
+
+  const renderFriendItem = useCallback(
+    (friend: Friend) => (
+      <View style={styles.listItem}>
+        <View style={styles.avatarContainer}>
+          <User size={20} color={COLORS.accent} />
+        </View>
+        <View style={styles.listItemContent}>
+          <Text style={styles.listItemTitle} numberOfLines={1}>
+            {friend.displayName || friend.email}
+          </Text>
+          {friend.displayName && (
+            <Text style={styles.listItemDescription} numberOfLines={1}>
+              {friend.email}
+            </Text>
+          )}
+        </View>
+      </View>
+    ),
+    [],
+  );
+
+  const renderRequestItem = useCallback(
+    (request: FriendRequest & { type: "incoming" | "outgoing" }) => {
+      if (
+        !request ||
+        (request.type === "incoming" && !request.requester) ||
+        (request.type === "outgoing" && !request.addressee)
+      ) {
+        return <View style={[styles.listItem, styles.emptyItem]} />;
+      }
+
+      const user =
+        request.type === "incoming" ? request.requester : request.addressee;
+      const isIncoming = request.type === "incoming";
+
+      return (
+        <View style={styles.listItem}>
+          <View style={styles.avatarSection}>
+            <View style={styles.avatarContainer}>
+              <User
+                size={20}
+                color={isIncoming ? COLORS.accent : COLORS.textSecondary}
+              />
+            </View>
+            <View
+              style={[
+                styles.badgeContainer,
+                isIncoming ? styles.incomingBadge : styles.outgoingBadge,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.badgeText,
+                  { color: isIncoming ? "#2b8a3e" : "#4f46e5" },
+                ]}
+              >
+                {isIncoming ? "Incoming" : "Outgoing"}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.listItemContent}>
+            <View style={styles.listItemHeader}>
+              <Text style={styles.listItemTitle} numberOfLines={1}>
+                {user.displayName || user.email}
+              </Text>
+            </View>
+            {user.displayName && (
+              <Text style={styles.listItemDescription} numberOfLines={1}>
+                {user.email}
+              </Text>
+            )}
+          </View>
+          {actionStates[request.id] ? (
             <Text
               style={[
-                styles.feedbackText,
-                feedback.status === "success"
+                styles.actionFeedback,
+                actionStates[request.id]?.status === "success"
                   ? styles.successText
                   : styles.errorText,
               ]}
             >
-              {feedback.message}
+              {actionStates[request.id]?.message}
             </Text>
+          ) : isIncoming ? (
+            <View style={styles.requestActions}>
+              <TouchableOpacity
+                style={[styles.iconButton, styles.acceptButton]}
+                onPress={() => handleAcceptRequest(request.id)}
+              >
+                <Check size={14} color="#40c057" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.iconButton, styles.rejectButton]}
+                onPress={() => handleRejectRequest(request.id)}
+              >
+                <X size={14} color="#dc2626" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.iconButton, styles.rejectButton]}
+              onPress={() => handleCancelRequest(request.id)}
+            >
+              <X size={14} color="#dc2626" />
+            </TouchableOpacity>
           )}
         </View>
-      </Card>
-      <Card style={styles.helpCard}>
-        <Text style={styles.helpTitle}>How to add friends</Text>
-        <View style={styles.helpContent}>
-          <View style={styles.helpItem}>
-            <UserPlus size={16} color={COLORS.accent} />
-            <Text style={styles.helpText}>Enter their username</Text>
-          </View>
-          <View style={styles.helpItem}>
-            <User size={16} color={COLORS.accent} />
-            <Text style={styles.helpText}>Enter their friend code</Text>
-          </View>
-          <View style={styles.helpItem}>
-            <Users size={16} color={COLORS.accent} />
-            <Text style={styles.helpText}>
-              Share your friend code with them
-            </Text>
-          </View>
-        </View>
-      </Card>
-    </View>
+      );
+    },
+    [
+      actionStates,
+      handleAcceptRequest,
+      handleRejectRequest,
+      handleCancelRequest,
+    ],
+  );
+
+  // Memoize sections based on active tab
+  const sections = React.useMemo<Section[]>(() => {
+    switch (activeTab) {
+      case "friends":
+        return [
+          {
+            title: "Friends",
+            icon: Users,
+            content: (
+              <InfiniteScrollFlatList
+                data={friends}
+                renderItem={renderFriendItem}
+                fetchMoreData={handleLoadMore}
+                onRefresh={handleRefresh}
+                isLoading={isLoading}
+                isRefreshing={isRefreshing}
+                hasMore={hasMoreFriends}
+                error={error}
+                emptyListMessage="No friends yet. Add friends to share events and discover together!"
+                onRetry={() => {
+                  setError(null);
+                  setIsLoading(true);
+                  fetchFriends(1, true);
+                }}
+              />
+            ),
+          },
+        ];
+
+      case "requests":
+        return [
+          {
+            title: "Friend Requests",
+            icon: UserPlus,
+            content: (
+              <InfiniteScrollFlatList
+                data={requests}
+                renderItem={renderRequestItem}
+                fetchMoreData={handleLoadMore}
+                onRefresh={handleRefresh}
+                isLoading={isLoading}
+                isRefreshing={isRefreshing}
+                hasMore={hasMoreRequests}
+                error={error}
+                emptyListMessage="No pending requests. Friend requests you send or receive will appear here."
+                onRetry={() => {
+                  setError(null);
+                  setIsLoading(true);
+                  fetchRequests(1, true);
+                }}
+              />
+            ),
+          },
+        ];
+
+      case "add":
+        return [
+          {
+            title: "Add Friends",
+            icon: Search,
+            content: (
+              <View style={styles.addFriendsContainer}>
+                <View style={styles.searchContainer}>
+                  <Input
+                    icon={Search}
+                    placeholder="Enter username or friend code"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    returnKeyType="search"
+                    onSubmitEditing={handleSearch}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    loading={isSearching}
+                  />
+                  {searchFeedback && (
+                    <Text
+                      style={[
+                        styles.feedbackText,
+                        searchFeedback.status === "success"
+                          ? styles.successText
+                          : styles.errorText,
+                      ]}
+                    >
+                      {searchFeedback.message}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ),
+          },
+        ];
+
+      default:
+        return [];
+    }
+  }, [
+    activeTab,
+    friends,
+    requests,
+    isLoading,
+    isRefreshing,
+    error,
+    hasMoreFriends,
+    hasMoreRequests,
+    renderFriendItem,
+    renderRequestItem,
+    handleLoadMore,
+    handleRefresh,
+    fetchFriends,
+    fetchRequests,
+  ]);
+
+  // Memoize footer buttons based on active tab
+  const footerButtons = React.useMemo(() => {
+    switch (activeTab) {
+      case "friends":
+        return [
+          {
+            label: "Add Friends",
+            onPress: () => setActiveTab("add"),
+            variant: "primary" as const,
+          },
+        ];
+      case "requests":
+        return [
+          {
+            label: "Add Friends",
+            onPress: () => setActiveTab("add"),
+            variant: "primary" as const,
+          },
+        ];
+      case "add":
+        return [
+          {
+            label: "Back to Friends",
+            onPress: () => setActiveTab("friends"),
+            variant: "outline" as const,
+          },
+        ];
+      default:
+        return [];
+    }
+  }, [activeTab]);
+
+  return (
+    <Screen<TabType>
+      bannerTitle="Friends"
+      bannerDescription={
+        activeTab === "friends"
+          ? "Connect with friends and share experiences"
+          : activeTab === "requests"
+            ? "Manage your friend requests"
+            : "Add new friends to your network"
+      }
+      bannerEmoji={
+        activeTab === "friends" ? "👥" : activeTab === "requests" ? "📨" : "🔍"
+      }
+      showBackButton={true}
+      onBack={handleBack}
+      tabs={tabs}
+      activeTab={activeTab}
+      onTabChange={handleTabSwitch}
+      sections={sections}
+      footerButtons={footerButtons}
+      isScrollable={false}
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  contentArea: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  tabsContainer: {
-    marginHorizontal: 16,
-    marginVertical: 12,
-  },
   loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
+    padding: 32,
     alignItems: "center",
+    justifyContent: "center",
   },
   errorContainer: {
     padding: 20,
     alignItems: "center",
   },
   errorText: {
-    color: "#dc2626",
+    color: COLORS.errorText,
     fontSize: 14,
     fontFamily: "SpaceMono",
     marginBottom: 12,
@@ -535,113 +600,6 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     textAlign: "center",
   },
-  friendCard: {
-    marginBottom: 8,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: COLORS.divider,
-  },
-  requestCard: {
-    marginBottom: 8,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: COLORS.divider,
-    position: "relative",
-  },
-  requestTypeContainer: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-    backgroundColor: COLORS.buttonBackground,
-    borderWidth: 1,
-    borderColor: COLORS.divider,
-  },
-  requestTypeText: {
-    fontSize: 10,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-  },
-  outgoingText: {
-    color: COLORS.textSecondary,
-  },
-  incomingText: {
-    color: COLORS.accent,
-  },
-  friendHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  friendIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: COLORS.buttonBackground,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
-  avatarText: {
-    color: COLORS.accent,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-  },
-  friendInfo: {
-    marginLeft: 10,
-    flex: 1,
-  },
-  friendName: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  friendEmail: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.divider,
-    marginVertical: 8,
-  },
-  requestActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 6,
-  },
-  actionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  acceptButton: {
-    backgroundColor: "rgba(64, 192, 87, 0.12)",
-    borderColor: "rgba(64, 192, 87, 0.3)",
-  },
-  acceptButtonText: {
-    color: "#40c057",
-    fontSize: 13,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-  },
-  rejectButton: {
-    backgroundColor: "rgba(220, 38, 38, 0.1)",
-    borderColor: "rgba(220, 38, 38, 0.3)",
-  },
-  rejectButtonText: {
-    color: "#dc2626",
-    fontSize: 13,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-  },
   searchCard: {
     padding: 12,
     borderWidth: 1,
@@ -669,18 +627,20 @@ const styles = StyleSheet.create({
   helpItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 6,
   },
   helpText: {
     color: COLORS.textSecondary,
     fontSize: 14,
     fontFamily: "SpaceMono",
+    lineHeight: 18,
   },
   actionFeedback: {
-    flex: 1,
     fontSize: 13,
     fontFamily: "SpaceMono",
     textAlign: "right",
+    marginLeft: 8,
+    minWidth: 120,
   },
   feedbackText: {
     marginTop: 8,
@@ -690,6 +650,113 @@ const styles = StyleSheet.create({
   },
   successText: {
     color: "#40c057",
+  },
+  requestActions: {
+    flexDirection: "row",
+    gap: 3,
+  },
+  iconButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
+  acceptButton: {
+    backgroundColor: "rgba(64, 192, 87, 0.08)",
+    borderColor: "rgba(64, 192, 87, 0.2)",
+  },
+  rejectButton: {
+    backgroundColor: "rgba(220, 38, 38, 0.08)",
+    borderColor: "rgba(220, 38, 38, 0.2)",
+  },
+  addFriendsContainer: {
+    flex: 1,
+    padding: 4,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  listItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    marginHorizontal: 12,
+    marginVertical: 4,
+    backgroundColor: COLORS.background,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  avatarSection: {
+    flexDirection: "column",
+    alignItems: "center",
+    marginRight: 10,
+    gap: 3,
+  },
+  avatarContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(64, 192, 87, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeContainer: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 3,
+  },
+  incomingBadge: {
+    backgroundColor: "rgba(64, 192, 87, 0.15)",
+  },
+  outgoingBadge: {
+    backgroundColor: "rgba(99, 102, 241, 0.15)",
+  },
+  badgeText: {
+    fontSize: 9,
+    fontFamily: "SpaceMono",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  listItemContent: {
+    flex: 1,
+    marginRight: 6,
+  },
+  listItemHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 1,
+  },
+  listItemTitle: {
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+    color: COLORS.textPrimary,
+    fontWeight: "600",
+    flex: 1,
+  },
+  listItemDescription: {
+    fontSize: 12,
+    fontFamily: "SpaceMono",
+    color: COLORS.textSecondary,
+  },
+  emptyItem: {
+    opacity: 0,
+    height: 0,
+    marginVertical: 0,
+    padding: 0,
+    borderWidth: 0,
   },
 });
 

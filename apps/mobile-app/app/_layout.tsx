@@ -12,6 +12,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
+import { View } from "react-native";
 
 import { JobSessionInitializer } from "@/components/JobSessionInitializer";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -20,6 +21,7 @@ import { MapStyleProvider } from "@/contexts/MapStyleContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { isRunningInExpoGo } from "expo";
+import { ActionBar } from "@/components/ActionBar/ActionBar";
 
 const navigationIntegration = Sentry.reactNavigationIntegration({
   enableTimeToInitialDisplay: !isRunningInExpoGo(),
@@ -28,7 +30,7 @@ const navigationIntegration = Sentry.reactNavigationIntegration({
 // Initialize Sentry before the app renders
 Sentry.init({
   dsn: "https://9c69ddf62f2bf7490416ba65f2d5dd2d@o4509054186815488.ingest.us.sentry.io/4509054187798528",
-  debug: __DEV__, // Only enable debug in development
+  debug: false, // Only enable debug in development
   tracesSampleRate: 0.1, // Sample only 10% of transactions
   integrations: [navigationIntegration],
   enableNativeFramesTracking: !isRunningInExpoGo(),
@@ -87,66 +89,47 @@ function RootLayout() {
       }}
     >
       <Providers>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: "fade_from_bottom",
-            animationDuration: 200,
-            gestureEnabled: true,
-            gestureDirection: "horizontal",
-            contentStyle: {
-              backgroundColor: "transparent",
-            },
-          }}
-        >
-          <Stack.Screen name="onboarding" />
-          <Stack.Screen name="register" />
-          <Stack.Screen name="login" />
-          <Stack.Screen name="index" />
-          <Stack.Screen name="scan" />
-          <Stack.Screen name="user" />
-          <Stack.Screen name="saved" />
-          <Stack.Screen name="cluster" />
-          <Stack.Screen name="filter" />
-          <Stack.Screen name="search" />
-          <Stack.Screen name="details" />
-          <Stack.Screen name="friends" />
-          <Stack.Screen name="notifications" />
-          <Stack.Screen
-            name="create-private-event"
-            options={{
-              presentation: "modal",
-              animation: "slide_from_bottom",
+        <View style={{ flex: 1 }}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: "fade_from_bottom",
+              animationDuration: 200,
               gestureEnabled: true,
-              gestureDirection: "vertical",
+              gestureDirection: "horizontal",
+              contentStyle: {
+                backgroundColor: "transparent",
+              },
             }}
-          />
-          <Stack.Screen name="create-group" />
-          <Stack.Screen name="groups" />
-          <Stack.Screen
-            name="group/[id]/index"
-            options={{
-              animation: "fade_from_bottom",
-              animationDuration: 200,
-            }}
-          />
-          <Stack.Screen
-            name="group/[id]/members"
-            options={{
-              animation: "fade_from_bottom",
-              animationDuration: 200,
-            }}
-          />
-          <Stack.Screen
-            name="group/[id]/events"
-            options={{
-              animation: "fade_from_bottom",
-              animationDuration: 200,
-            }}
-          />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <StatusBar style="auto" />
+          >
+            <Stack.Screen name="onboarding" />
+            <Stack.Screen name="register" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="index" />
+            <Stack.Screen name="scan" />
+            <Stack.Screen name="user" />
+            <Stack.Screen name="saved/index" />
+            <Stack.Screen name="cluster" />
+            <Stack.Screen name="filter" />
+            <Stack.Screen name="search/index" />
+            <Stack.Screen name="search/list" />
+            <Stack.Screen name="details" />
+            <Stack.Screen name="friends" />
+            <Stack.Screen name="notifications" />
+            <Stack.Screen
+              name="create-private-event"
+              options={{
+                presentation: "modal",
+                animation: "slide_from_bottom",
+                gestureEnabled: true,
+                gestureDirection: "vertical",
+              }}
+            />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+          <ActionBar />
+          <StatusBar style="auto" />
+        </View>
       </Providers>
     </PostHogProvider>
   );

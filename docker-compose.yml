@@ -26,20 +26,17 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
-  # Only include Adminer in development environments
-  # adminer:
-  #   image: adminer:latest
-  #   ports:
-  #     - "127.0.0.1:8080:8080"  # Only accessible from the host machine
-  #   networks:
-  #     - marker-network
-  #   depends_on:
-  #     - postgres
-  #   security_opt:
-  #     - no-new-privileges:true
-  #   restart: unless-stopped
-  #   profiles:
-  #     - dev
+  adminer:
+    image: adminer:latest
+    ports:
+      - "127.0.0.1:8080:8080" # Only accessible from the host machine
+    networks:
+      - marker-network
+    depends_on:
+      - postgres
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine

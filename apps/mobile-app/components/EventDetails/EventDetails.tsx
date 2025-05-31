@@ -1,6 +1,6 @@
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useFlyOverCamera } from "@/hooks/useFlyOverCamera";
-import apiClient from "@/services/ApiClient";
+import { apiClient } from "@/services/ApiClient";
 import { formatDate } from "@/utils/dateTimeFormatting";
 import MapboxGL from "@rnmapbox/maps";
 import * as Haptics from "expo-haptics";
@@ -99,6 +99,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   const [isRsvped, setIsRsvped] = useState(false);
   const [rsvpState, setRsvpState] = useState<"idle" | "loading">("idle");
 
+  console.log("EventDetails eventId:", eventId);
+
   const {
     handleBack,
     loading,
@@ -132,7 +134,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
       setImageError(null);
 
       try {
-        const localUri = await apiClient.streamEventImage(event.id);
+        const localUri = await apiClient.events.streamEventImage(event.id);
         if (isMounted) {
           setImageUrl(localUri);
         }
@@ -182,7 +184,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   useEffect(() => {
     const checkRsvpStatus = async () => {
       try {
-        const { isRsvped } = await apiClient.isEventRsvped(eventId);
+        const { isRsvped } = await apiClient.rsvp.isEventRsvped(eventId);
         setIsRsvped(isRsvped);
       } catch (error) {
         console.error("Error checking RSVP status:", error);
@@ -198,7 +200,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
     setRsvpState("loading");
     try {
-      const { rsvped } = await apiClient.toggleRsvp(eventId);
+      const { rsvped } = await apiClient.rsvp.toggleRSVP(eventId);
       setIsRsvped(rsvped);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch (error) {
@@ -221,7 +223,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   const handleDeleteEvent = async () => {
     setIsDeleting(true);
     try {
-      await apiClient.deleteEvent(eventId);
+      await apiClient.events.deleteEvent(eventId);
       handleBack?.();
     } catch (error) {
       console.error("Error deleting event:", error);
@@ -243,8 +245,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
         description: event.description,
         eventDate: event.eventDate,
         emoji: event.emoji,
-        latitude: event.coordinates[1].toString(), // latitude is second coordinate
-        longitude: event.coordinates[0].toString(), // longitude is first coordinate
+        latitude: event.coordinates[1]?.toString(), // latitude is second coordinate
+        longitude: event.coordinates[0]?.toString(), // longitude is first coordinate
         address: event.location,
         locationNotes: event.locationNotes,
         sharedWithIds: event.sharedWithIds,
@@ -287,7 +289,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
           >
             <EventMapPreview
               coordinates={coordinates}
-              eventId={event.id}
+              eventId={eventId}
               title={event.title}
               emoji={event.emoji}
               isPrivate={event.isPrivate}

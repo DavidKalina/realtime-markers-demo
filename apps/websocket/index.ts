@@ -133,19 +133,43 @@ redisSub.on("message", (channel, message) => {
   if (channel === "discovered_events") {
     try {
       const data = JSON.parse(message);
+      console.log(
+        "Parsed discovered event data:",
+        JSON.stringify(data, null, 2),
+      );
+
+      // Validate the message structure
+      if (!data || typeof data !== "object") {
+        console.error(
+          "Invalid discovered event message format - data is not an object:",
+          data,
+        );
+        return;
+      }
+
+      // Handle the nested data structure
+      const event = data.data?.event;
+      const timestamp = data.timestamp || new Date().toISOString();
+
+      if (!event) {
+        console.error(
+          "Invalid discovered event message format - no event found in data.event:",
+          data,
+        );
+        return;
+      }
+
       // Format the message properly before sending to clients
       const formattedMessage = JSON.stringify({
         type: MessageTypes.EVENT_DISCOVERED,
-        event: data.event,
-        timestamp: new Date().toISOString(),
+        event,
+        timestamp,
       });
 
-      console.log(data);
-
-      console.log("data.event.creatorId", data.event.creatorId);
+      console.log("Processing discovered event:", event);
 
       // Get all clients for the creator user
-      const userClients = userToClients.get(data.event.creatorId);
+      const userClients = userToClients.get(event.creatorId);
 
       if (userClients) {
         for (const clientId of userClients) {
@@ -163,10 +187,15 @@ redisSub.on("message", (channel, message) => {
           }
         }
       } else {
-        console.log(`No clients found for user ${data.event.creatorId}`);
+        console.log(`No clients found for user ${event.creatorId}`);
       }
     } catch (error) {
-      console.error("Error processing discovery event:", error);
+      console.error(
+        "Error processing discovery event:",
+        error,
+        "Raw data:",
+        message,
+      );
     }
   } else if (channel === "notifications") {
     try {
@@ -351,13 +380,29 @@ function getRedisSubscriberForUser(userId: string): Redis {
 
     // Subscribe to user's filtered events channel
     subscriber.subscribe(`user:${userId}:filtered-events`);
+    console.log(`Subscribed to user:${userId}:filtered-events`);
 
     // Handle messages for this user
     subscriber.on("message", (channel, message) => {
+      console.log(
+        `[WebSocket] Received message on channel ${channel} for user ${userId}:`,
+        message,
+      );
       if (channel === `user:${userId}:filtered-events`) {
         // Forward the filtered events to all clients for this user
         forwardMessageToUserClients(userId, message);
       }
+    });
+
+    subscriber.on("error", (error) => {
+      console.error(
+        `[WebSocket] Redis subscriber error for user ${userId}:`,
+        error,
+      );
+    });
+
+    subscriber.on("connect", () => {
+      console.log(`[WebSocket] Redis subscriber connected for user ${userId}`);
     });
   }
 
@@ -367,16 +412,25 @@ function getRedisSubscriberForUser(userId: string): Redis {
 // Forward a message to all clients for a user
 function forwardMessageToUserClients(userId: string, message: string): void {
   const clientIds = userToClients.get(userId);
-  if (!clientIds) return;
+  if (!clientIds) {
+    console.log(
+      `[WebSocket] No clients found for user ${userId} to forward message to`,
+    );
+    return;
+  }
 
   let parsedMessage;
   try {
     parsedMessage = JSON.parse(message);
     console.log(
-      `Forwarding message type ${parsedMessage.type} to ${clientIds.size} clients of user ${userId}`,
+      `[WebSocket] Forwarding message type ${parsedMessage.type} to ${clientIds.size} clients of user ${userId}`,
+      parsedMessage,
     );
   } catch (error) {
-    console.error(`Error parsing message for user ${userId}:`, error);
+    console.error(
+      `[WebSocket] Error parsing message for user ${userId}:`,
+      error,
+    );
     return;
   }
 
@@ -385,9 +439,17 @@ function forwardMessageToUserClients(userId: string, message: string): void {
     if (client) {
       try {
         client.send(message);
+        console.log(
+          `[WebSocket] Successfully sent message to client ${clientId}`,
+        );
       } catch (error) {
-        console.error(`Error sending message to client ${clientId}:`, error);
+        console.error(
+          `[WebSocket] Error sending message to client ${clientId}:`,
+          error,
+        );
       }
+    } else {
+      console.log(`[WebSocket] Client ${clientId} not found in clients map`);
     }
   }
 }

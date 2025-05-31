@@ -1,7 +1,5 @@
 // types.ts - Updated to align with Marker interface
 
-import { ClientGroup } from "@/services/ApiClient";
-
 // Coordinates type for location data
 export type Coordinates = [number, number]; // [longitude, latitude]
 
@@ -56,8 +54,6 @@ export interface EventType {
   };
   isPrivate?: boolean;
   sharedWithIds?: string[]; // Add shared user IDs
-  groupId?: string | null;
-  group?: ClientGroup | null;
 }
 
 // Mapbox viewport format for map integration
@@ -73,9 +69,4 @@ export interface Marker {
   id: string;
   coordinates: Coordinates;
   data: EventType;
-}
-
-export enum GroupVisibility {
-  PUBLIC = "PUBLIC",
-  PRIVATE = "PRIVATE",
 }

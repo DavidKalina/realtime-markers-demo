@@ -1,12 +1,9 @@
 import { useAuth } from "@/contexts/AuthContext";
 import React, { useMemo } from "react";
 import { StatusBar as RNStatusBar, StyleSheet, Text, View } from "react-native";
-import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
-import DateRangeIndicator from "./DateRangeIndicator";
-import EmojiIndicator from "./EmojiIndicator";
-import NotificationIndicator from "./NotificationIndicator";
 import XPBar from "./XPBar";
 
 interface StatusBarProps {
@@ -14,26 +11,11 @@ interface StatusBarProps {
   children?: React.ReactNode;
 }
 
-const ANIMATION_CONFIG = {
-  damping: 15,
-  mass: 1,
-  stiffness: 200,
-};
-
 const StatusBar: React.FC<StatusBarProps> = ({
   backgroundColor = "#1a1a1a", // Match Cluster Events view background
 }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-
-  const indicators = useMemo(
-    () => [
-      <EmojiIndicator key="emoji" />,
-      <DateRangeIndicator key="date" />,
-      <NotificationIndicator key="notifications" />,
-    ],
-    [],
-  );
 
   const containerStyle = useMemo(
     () => [
@@ -53,7 +35,6 @@ const StatusBar: React.FC<StatusBarProps> = ({
         backgroundColor={backgroundColor}
         translucent
       />
-      <XPBar backgroundColor={backgroundColor} />
       <View style={styles.indicatorsRow}>
         <Animated.View
           entering={FadeIn.delay(300).springify()}
@@ -62,34 +43,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
           <Text style={styles.username}>
             {user?.displayName || user?.email}
           </Text>
-        </Animated.View>
-        <Animated.View
-          style={styles.indicatorsContainer}
-          layout={LinearTransition.duration(300)}
-        >
-          {indicators.map((indicator, index) => (
-            <React.Fragment key={index}>
-              <Animated.View
-                entering={FadeIn.delay(300 + index * 100)
-                  .springify()
-                  .damping(ANIMATION_CONFIG.damping)
-                  .mass(ANIMATION_CONFIG.mass)
-                  .stiffness(ANIMATION_CONFIG.stiffness)}
-              >
-                {indicator}
-              </Animated.View>
-              {index < indicators.length - 1 && (
-                <Animated.View
-                  entering={FadeIn.delay(300 + index * 100)
-                    .springify()
-                    .damping(ANIMATION_CONFIG.damping)
-                    .mass(ANIMATION_CONFIG.mass)
-                    .stiffness(ANIMATION_CONFIG.stiffness)}
-                  style={styles.divider}
-                />
-              )}
-            </React.Fragment>
-          ))}
+          <XPBar backgroundColor={backgroundColor} />
         </Animated.View>
       </View>
       <View style={styles.discoveryContainer}>
@@ -124,17 +78,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     fontFamily: "SpaceMono",
-  },
-  indicatorsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  divider: {
-    width: 1,
-    height: 22,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    marginHorizontal: 2,
   },
   discoveryContainer: {
     position: "absolute",

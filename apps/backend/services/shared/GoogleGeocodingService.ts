@@ -974,4 +974,245 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
       return "UTC";
     }
   }
+
+  public async searchPlaceForFrontend(
+    query: string,
+    userCoordinates?: { lat: number; lng: number },
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    place?: {
+      name: string;
+      address: string;
+      coordinates: [number, number];
+      placeId: string;
+      types: string[];
+      rating?: number;
+      userRatingsTotal?: number;
+      distance?: number;
+      locationNotes?: string;
+    };
+  }> {
+    try {
+      if (!query.trim()) {
+        return {
+          success: false,
+          error: "Search query cannot be empty",
+        };
+      }
+
+      // Get user's city/state if coordinates are provided
+      let userCityState = "";
+      if (userCoordinates) {
+        userCityState = await this.reverseGeocodeCityState(
+          userCoordinates.lat,
+          userCoordinates.lng,
+        );
+      }
+
+      // Use the existing searchPlaces method
+      const placesResult = await this.searchPlaces(
+        query,
+        "", // No additional location context needed
+        userCoordinates,
+        userCityState,
+      );
+
+      if (!placesResult) {
+        return {
+          success: false,
+          error: "No places found matching your search",
+        };
+      }
+
+      // Calculate distance if user coordinates are provided
+      let distance: number | undefined;
+      if (userCoordinates) {
+        distance = this.calculateDistance(
+          userCoordinates.lat,
+          userCoordinates.lng,
+          placesResult.coordinates[1],
+          placesResult.coordinates[0],
+        );
+      }
+
+      return {
+        success: true,
+        place: {
+          name: placesResult.name,
+          address: placesResult.formattedAddress,
+          coordinates: placesResult.coordinates,
+          placeId: placesResult.placeId,
+          types: placesResult.types,
+          rating: placesResult.rating,
+          userRatingsTotal: placesResult.userRatingsTotal,
+          distance,
+          locationNotes: placesResult.locationNotes,
+        },
+      };
+    } catch (error) {
+      console.error("Error in frontend place search:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Unknown error occurred",
+      };
+    }
+  }
+
+  public async searchCityState(
+    query: string,
+    userCoordinates?: { lat: number; lng: number },
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    cityState?: {
+      city: string;
+      state: string;
+      coordinates: [number, number];
+      formattedAddress: string;
+      placeId: string;
+      distance?: number;
+    };
+  }> {
+    try {
+      if (!query.trim()) {
+        return {
+          success: false,
+          error: "Search query cannot be empty",
+        };
+      }
+
+      // Use the Places API with type restrictions for cities
+      const url = "https://places.googleapis.com/v1/places:searchText";
+
+      // Construct the request body according to Places API v1 format
+      const requestBody = {
+        textQuery: query,
+        locationBias: userCoordinates
+          ? {
+              circle: {
+                center: {
+                  latitude: userCoordinates.lat,
+                  longitude: userCoordinates.lng,
+                },
+                radius: 50000.0, // 50km radius for city search
+              },
+            }
+          : undefined,
+        // Add language code for better results
+        languageCode: "en",
+      };
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": process.env.GOOGLE_GEOCODING_API_KEY || "",
+          "X-Goog-FieldMask":
+            "places.displayName,places.formattedAddress,places.location,places.id,places.types",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        console.error("Places API error response:", errorData);
+        throw new Error(
+          `Places API request failed: ${response.statusText}${errorData ? ` - ${JSON.stringify(errorData)}` : ""}`,
+        );
+      }
+
+      const data = await response.json();
+
+      if (!data.places || data.places.length === 0) {
+        return {
+          success: false,
+          error: "No cities or states found matching your search",
+        };
+      }
+
+      interface Place {
+        types: string[];
+        formattedAddress: string;
+        location: {
+          latitude: number;
+          longitude: number;
+        };
+        id: string;
+        displayName: {
+          text: string;
+        };
+      }
+
+      // Filter results to only include cities and states
+      const cityStateResults = data.places.filter((place: Place) =>
+        place.types.some((type: string) =>
+          [
+            "locality",
+            "administrative_area_level_1",
+            "administrative_area_level_2",
+          ].includes(type),
+        ),
+      );
+
+      if (cityStateResults.length === 0) {
+        return {
+          success: false,
+          error: "No cities or states found matching your search",
+        };
+      }
+
+      // Use the first result that matches our criteria
+      const result = cityStateResults[0];
+
+      // Parse the address components to get city and state
+      const addressParts = result.formattedAddress.split(", ");
+      let city = "";
+      let state = "";
+
+      // The last part is usually the state
+      state = addressParts[addressParts.length - 1];
+
+      // The second-to-last part is usually the city
+      if (addressParts.length >= 2) {
+        city = addressParts[addressParts.length - 2];
+      }
+
+      // If we only got a state (like "California"), use it as both city and state
+      if (addressParts.length === 1) {
+        city = state;
+      }
+
+      // Calculate distance if user coordinates are provided
+      let distance: number | undefined;
+      if (userCoordinates) {
+        distance = this.calculateDistance(
+          userCoordinates.lat,
+          userCoordinates.lng,
+          result.location.latitude,
+          result.location.longitude,
+        );
+      }
+
+      return {
+        success: true,
+        cityState: {
+          city,
+          state,
+          coordinates: [result.location.longitude, result.location.latitude],
+          formattedAddress: result.formattedAddress,
+          placeId: result.id,
+          distance,
+        },
+      };
+    } catch (error) {
+      console.error("Error in city/state search:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Unknown error occurred",
+      };
+    }
+  }
 }

@@ -3,7 +3,6 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { streamSSE } from "hono/streaming";
-import Redis from "ioredis";
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import AppDataSource from "./data-source";
@@ -40,94 +39,16 @@ import type { AppContext } from "./types/context";
 import { NotificationService } from "./services/NotificationService";
 import { NotificationHandler } from "./services/NotificationHandler";
 import { notificationsRouter } from "./routes/notifications";
-import { groupsRouter } from "./routes/groups";
+import { placesRouter } from "./routes/places";
+import { categoriesRouter } from "./routes/categories";
+import { redisService, redisClient } from "./services/shared/redis";
+import { Redis } from "ioredis";
+import { RedisService } from "./services/shared/RedisService";
+import { AuthService } from "./services/AuthService";
+import { User } from "./entities/User";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
-
-const redisConfig = {
-  host: process.env.REDIS_HOST || "redis",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD,
-  maxRetriesPerRequest: 3,
-  retryStrategy: (times: number) => {
-    const delay = Math.min(times * 50, 2000);
-    console.log(`Redis retry attempt ${times} with delay ${delay}ms`);
-    return delay;
-  },
-  reconnectOnError: (err: Error) => {
-    console.log("Redis reconnectOnError triggered:", {
-      message: err.message,
-      stack: err.stack,
-      name: err.name,
-    });
-    return true;
-  },
-  enableOfflineQueue: true,
-  connectTimeout: 10000,
-  commandTimeout: 5000,
-  lazyConnect: true,
-  authRetry: true,
-  enableReadyCheck: true,
-};
-
-// Initialize Redis clients
-const redisPub = new Redis(redisConfig);
-
-// Add comprehensive error handling for Redis
-redisPub.on("error", (error: Error & { code?: string }) => {
-  console.error("Redis connection error:", {
-    message: error.message,
-    code: error.code,
-    stack: error.stack,
-    host: process.env.REDIS_HOST,
-    port: process.env.REDIS_PORT,
-    hasPassword: !!process.env.REDIS_PASSWORD,
-    env: {
-      REDIS_HOST: process.env.REDIS_HOST,
-      REDIS_PORT: process.env.REDIS_PORT,
-      REDIS_PASSWORD: process.env.REDIS_PASSWORD ? "***" : "not set",
-    },
-  });
-});
-
-// Add authentication error handler
-redisPub.on("authError", (error: Error) => {
-  console.error("Redis authentication error:", {
-    message: error.message,
-    stack: error.stack,
-    hasPassword: !!process.env.REDIS_PASSWORD,
-  });
-});
-
-redisPub.on("connect", () => {
-  console.log("Redis connected successfully");
-  // Test the connection with a PING
-  redisPub
-    .ping()
-    .then(() => {
-      console.log("Redis PING successful");
-    })
-    .catch((err) => {
-      console.error("Redis PING failed:", err);
-    });
-});
-
-redisPub.on("ready", () => {
-  console.log("Redis is ready to accept commands");
-});
-
-redisPub.on("close", () => {
-  console.log("Redis connection closed");
-});
-
-redisPub.on("reconnecting", (times: number) => {
-  console.log(`Redis reconnecting... Attempt ${times}`);
-});
-
-redisPub.on("end", () => {
-  console.log("Redis connection ended");
-});
 
 // Add a global error handler for unhandled Redis errors
 process.on("unhandledRejection", (reason, promise) => {
@@ -142,7 +63,7 @@ process.on("uncaughtException", (error) => {
 async function testRedisConnection() {
   try {
     console.log("Testing Redis connection...");
-    const result = await redisPub.ping();
+    const result = await redisClient.ping();
     console.log("Redis connection test successful:", result);
     return true;
   } catch (error) {
@@ -177,7 +98,7 @@ RateLimitService.getInstance().initRedis({
 });
 
 // Add performance monitoring after Redis initialization
-app.use("*", performanceMonitor(redisPub));
+app.use("*", performanceMonitor(redisClient));
 
 app.use("*", async (c, next) => {
   const url = c.req.url;
@@ -248,14 +169,15 @@ OpenAIService.initRedis({
   password: process.env.REDIS_PASSWORD || undefined,
 });
 
-const jobQueue = new JobQueue(redisPub);
+const jobQueue = new JobQueue(redisClient);
 
 CacheService.initRedis({
-  host: redisConfig.host,
-  port: redisConfig.port,
+  host: process.env.REDIS_HOST || "localhost",
+  port: parseInt(process.env.REDIS_PORT || "6379"),
   password: process.env.REDIS_PASSWORD ?? "",
 });
 
+// Initialize services
 async function initializeServices() {
   console.log("Initializing database connection...");
   const dataSource = await initializeDatabase();
@@ -271,7 +193,11 @@ async function initializeServices() {
     categoryRepository,
   );
 
-  const eventService = new EventService(dataSource, redisPub);
+  // Create RedisService instance
+  const redisService = RedisService.getInstance(redisClient);
+
+  // Initialize EventService with RedisService
+  const eventService = new EventService(dataSource, redisService);
 
   // Create the event similarity service
   const eventSimilarityService = new EventSimilarityService(
@@ -303,7 +229,7 @@ async function initializeServices() {
   // Initialize the UserPreferencesService
   const userPreferencesService = new UserPreferencesService(
     dataSource,
-    redisPub,
+    redisService,
   );
 
   const storageService = StorageService.getInstance();
@@ -312,20 +238,27 @@ async function initializeServices() {
   const planService = new PlanService(dataSource);
 
   // Initialize the LevelingService
-  const levelingService = new LevelingService(dataSource, redisPub);
+  const levelingService = new LevelingService(dataSource, redisService);
 
   // Initialize the FriendshipService
   const friendshipService = new FriendshipService(dataSource);
 
   // Initialize the NotificationService
   const notificationService = NotificationService.getInstance(
-    redisPub,
+    redisClient,
+    dataSource,
+  );
+
+  const authService = new AuthService(
+    dataSource.getRepository(User),
+    userPreferencesService,
+    levelingService,
     dataSource,
   );
 
   // Initialize and start the NotificationHandler
   const notificationHandler = NotificationHandler.getInstance(
-    redisPub,
+    redisClient,
     dataSource,
   );
   await notificationHandler.start();
@@ -368,6 +301,7 @@ async function initializeServices() {
     friendshipService,
     notificationService,
     notificationHandler,
+    authService,
   };
 }
 
@@ -378,13 +312,15 @@ app.use("*", async (c, next) => {
   c.set("eventService", services.eventService);
   c.set("eventProcessingService", services.eventProcessingService);
   c.set("jobQueue", jobQueue);
-  c.set("redisClient", redisPub);
+  c.set("redisClient", redisClient);
+  c.set("redisService", redisService);
   c.set("userPreferencesService", services.userPreferencesService);
   c.set("storageService", services.storageService);
   c.set("planService", services.planService);
   c.set("levelingService", services.levelingService);
   c.set("friendshipService", services.friendshipService);
   c.set("notificationService", services.notificationService);
+  c.set("authService", services.authService);
   await next();
 });
 
@@ -397,7 +333,8 @@ app.route("/api/plans", plansRouter);
 app.route("/api/internal", internalRouter);
 app.route("/api/friendships", friendshipsRouter);
 app.route("/api/notifications", notificationsRouter);
-app.route("/api/groups", groupsRouter);
+app.route("/api/places", placesRouter);
+app.route("/api/categories", categoriesRouter);
 // =============================================================================
 // Jobs API - Server-Sent Events
 // =============================================================================
@@ -408,7 +345,8 @@ app.get("/api/jobs/:jobId/stream", async (c) => {
 
   // Use Hono's streamSSE
   return streamSSE(c, async (stream) => {
-    // Create a dedicated Redis subscriber client
+    // Create a dedicated Redis subscriber client for streaming
+    // Note: We keep direct Redis usage here since it's for streaming
     const redisSubscriber = new Redis({
       host: process.env.REDIS_HOST || "localhost",
       port: parseInt(process.env.REDIS_PORT || "6379"),
@@ -417,10 +355,10 @@ app.get("/api/jobs/:jobId/stream", async (c) => {
 
     try {
       // Send initial job state
-      const initialData = await redisPub.get(`job:${jobId}`);
+      const initialData = await redisService.get(`job:${jobId}`);
 
       if (initialData) {
-        await stream.writeSSE({ data: initialData });
+        await stream.writeSSE({ data: JSON.stringify(initialData) });
       } else {
         await stream.writeSSE({
           data: JSON.stringify({ id: jobId, status: "not_found" }),

@@ -377,7 +377,12 @@ export class SessionManager {
     }
 
     try {
-      const jobUpdate = JSON.parse(message);
+      const parsedMessage = JSON.parse(message);
+      // Handle both direct job updates and wrapped updates from JobQueue
+      const jobUpdate =
+        parsedMessage.type === "JOB_UPDATE"
+          ? parsedMessage.data
+          : parsedMessage;
       const jobId = jobUpdate.id;
 
       if (!jobId) {

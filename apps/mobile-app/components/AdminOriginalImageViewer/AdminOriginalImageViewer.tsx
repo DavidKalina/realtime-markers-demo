@@ -20,7 +20,7 @@ import {
 } from "lucide-react-native";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
-import apiClient from "@/services/ApiClient";
+import { apiClient } from "@/services/ApiClient";
 
 interface AdminOriginalImageViewerProps {
   eventId: string;
@@ -48,7 +48,7 @@ const AdminOriginalImageViewer: React.FC<AdminOriginalImageViewerProps> = ({
 
       try {
         // Get the local file URI
-        const localUri = await apiClient.streamEventImage(eventId);
+        const localUri = await apiClient.events.streamEventImage(eventId);
 
         if (isMounted) {
           setImageUrl(localUri);

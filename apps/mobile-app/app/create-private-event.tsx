@@ -1,17 +1,15 @@
 import { CheckboxGroup } from "@/components/CheckboxGroup/CheckboxGroup";
 import EmbeddedDateRangeCalendar from "@/components/EmbeddedDateRangeCalendar";
-import EventScopeSelector, {
-  EventScope,
-} from "@/components/EventScopeSelector/EventScopeSelector";
 import Input from "@/components/Input/Input";
 import TextArea from "@/components/Input/TextArea";
 import Header from "@/components/Layout/Header";
 import ScreenLayout from "@/components/Layout/ScreenLayout";
+import { Select, SelectOption } from "@/components/Select/Select";
 import { Friend, apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Book, List } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import { Book, List, MapPin as MapPinIcon } from "lucide-react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -43,6 +41,27 @@ const COLORS = {
   buttonBorder: "rgba(255, 255, 255, 0.1)",
 };
 
+const MapPin = ({ size, color }: { size: number; color: string }) => (
+  <MapPinIcon size={size} color={color} />
+);
+
+// Add useDebounce hook at the top of the file
+const useDebounce = <T,>(value: T, delay: number): T => {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
 const CreatePrivateEvent = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -52,10 +71,21 @@ const CreatePrivateEvent = () => {
     latitude: number;
     longitude: number;
   } | null>(null);
-  const [eventScope, setEventScope] = useState<EventScope>("FRIENDS");
-  const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>();
+  const [locationData, setLocationData] = useState<{
+    placeId: string;
+    name: string;
+    address: string;
+    types?: string[];
+    rating?: number;
+    userRatingsTotal?: number;
+    locationNotes?: string;
+  } | null>(null);
+  const [searchResults, setSearchResults] = useState<SelectOption[]>([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const [locationError, setLocationError] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 500); // 500ms delay
 
-  // Get coordinates from params
   useEffect(() => {
     if (params.latitude && params.longitude) {
       const lat = parseFloat(params.latitude as string);
@@ -79,9 +109,7 @@ const CreatePrivateEvent = () => {
   const [eventDescription, setEventDescription] = useState(
     (params.description as string) || "",
   );
-  const [selectedEmoji, setSelectedEmoji] = useState(
-    (params.emoji as string) || "",
-  );
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const buttonScale = useSharedValue(1);
 
@@ -91,13 +119,17 @@ const CreatePrivateEvent = () => {
       if (params.id) {
         try {
           // Get the event details including shares
-          const event = await apiClient.getEventById(params.id as string);
+          const event = await apiClient.events.getEventById(
+            params.id as string,
+          );
           if (event) {
             // Get all friends
-            const friends = await apiClient.getFriends();
+            const friends = await apiClient.friends.getFriends();
 
             // Get the shares for this event
-            const shares = await apiClient.getEventShares(params.id as string);
+            const shares = await apiClient.events.getEventShares(
+              params.id as string,
+            );
 
             // Get the IDs of users the event is shared with
             const sharedWithIds = shares.map((share) => share.sharedWithId);
@@ -111,7 +143,6 @@ const CreatePrivateEvent = () => {
             // Also set other event details if they exist
             if (event.title) setEventName(event.title);
             if (event.description) setEventDescription(event.description);
-            if (event.emoji) setSelectedEmoji(event.emoji);
             if (event.eventDate) setDate(new Date(event.eventDate));
             if (
               event.location &&
@@ -155,14 +186,76 @@ const CreatePrivateEvent = () => {
     }
   };
 
-  const handleScopeChange = (scope: EventScope, groupId?: string) => {
-    setEventScope(scope);
-    setSelectedGroupId(groupId);
-    // Clear selected friends when switching to group scope
-    if (scope === "GROUP") {
-      setSelectedFriends([]);
+  // Update handleSearchPlaces to use the debounced query
+  const handleSearchPlaces = useCallback(async (query: string) => {
+    setSearchQuery(query); // Just update the query state, actual search will be triggered by debounced value
+  }, []);
+
+  // Add effect to handle the actual search with debounced value
+  useEffect(() => {
+    const performSearch = async () => {
+      if (!debouncedSearchQuery.trim()) {
+        setSearchResults([]);
+        return;
+      }
+
+      setIsSearchingPlaces(true);
+      try {
+        const result = await apiClient.places.searchPlace({
+          query: debouncedSearchQuery,
+        });
+
+        if (result.success && result.place) {
+          setSearchResults([
+            {
+              id: result.place.placeId,
+              label: result.place.name,
+              description: result.place.address,
+              icon: MapPin,
+            },
+          ]);
+        } else {
+          setSearchResults([]);
+        }
+      } catch (error) {
+        console.error("Error searching places:", error);
+        setLocationError("Failed to search places. Please try again.");
+      } finally {
+        setIsSearchingPlaces(false);
+      }
+    };
+
+    performSearch();
+  }, [debouncedSearchQuery]);
+
+  const handleLocationSelect = useCallback(async (option: SelectOption) => {
+    try {
+      // Get the full place data to access coordinates
+      const placeData = await apiClient.places.searchPlace({
+        query: option.label,
+      });
+
+      if (placeData.success && placeData.place?.coordinates) {
+        const [lng, lat] = placeData.place.coordinates;
+        setCoordinates({ latitude: lat, longitude: lng });
+        setLocationData({
+          placeId: placeData.place.placeId,
+          name: placeData.place.name,
+          address: placeData.place.address,
+          types: placeData.place.types,
+          rating: placeData.place.rating,
+          userRatingsTotal: placeData.place.userRatingsTotal,
+          locationNotes: placeData.place.locationNotes,
+        });
+        setLocationError("");
+      } else {
+        throw new Error("Invalid place data received");
+      }
+    } catch (error) {
+      console.error("Error getting place details:", error);
+      setLocationError("Failed to get place details. Please try again.");
     }
-  };
+  }, []);
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
@@ -173,14 +266,8 @@ const CreatePrivateEvent = () => {
       return;
     }
 
-    if (!coordinates) {
+    if (!coordinates || !locationData) {
       Alert.alert("Error", "Location is required");
-      return;
-    }
-
-    // Additional validation for friend-scoped events
-    if (eventScope === "FRIENDS" && selectedFriends.length === 0) {
-      Alert.alert("Error", "Please select at least one friend to share with");
       return;
     }
 
@@ -211,6 +298,7 @@ const CreatePrivateEvent = () => {
       const eventData = {
         title: eventName.trim(),
         description: eventDescription.trim(),
+        eventDate: date.toISOString(),
         date: date.toISOString(),
         location: {
           type: "Point",
@@ -218,22 +306,26 @@ const CreatePrivateEvent = () => {
             number,
             number,
           ],
+          placeId: locationData.placeId,
+          name: locationData.name,
+          address: locationData.address,
+          types: locationData.types,
+          rating: locationData.rating,
+          userRatingsTotal: locationData.userRatingsTotal,
+          locationNotes: locationData.locationNotes,
         },
-        sharedWithIds:
-          eventScope === "FRIENDS"
-            ? selectedFriends.map((friend) => friend.id)
-            : [],
+        sharedWithIds: selectedFriends.map((friend) => friend.id),
+
         userCoordinates: {
           lat: coordinates.latitude,
           lng: coordinates.longitude,
         },
         isPrivate: true,
-        groupId: eventScope === "GROUP" ? selectedGroupId : undefined,
       };
 
       if (params.id) {
         // Update existing event
-        await apiClient.updateEvent(params.id as string, eventData);
+        await apiClient.events.updateEvent(params.id as string, eventData);
         Alert.alert("Success", "Your event has been updated.", [
           {
             text: "OK",
@@ -242,7 +334,7 @@ const CreatePrivateEvent = () => {
         ]);
       } else {
         // Create new event
-        await apiClient.createPrivateEvent(eventData);
+        await apiClient.events.createPrivateEvent(eventData);
         Alert.alert(
           "Success",
           "Your event is being created. You'll be notified when it's ready.",
@@ -261,6 +353,15 @@ const CreatePrivateEvent = () => {
       setIsSubmitting(false);
     }
   };
+
+  const selectedLocation: SelectOption | undefined = locationData
+    ? {
+        id: locationData.placeId,
+        label: locationData.name,
+        description: locationData.address,
+        icon: MapPin,
+      }
+    : undefined;
 
   const localDate = new Date(date);
   localDate.setHours(date.getHours());
@@ -282,13 +383,6 @@ const CreatePrivateEvent = () => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.container}>
-            {/* Event Scope Selector */}
-            <EventScopeSelector
-              selectedScope={eventScope}
-              selectedGroupId={selectedGroupId}
-              onScopeChange={handleScopeChange}
-            />
-
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Event Details</Text>
               <Input
@@ -310,27 +404,40 @@ const CreatePrivateEvent = () => {
                 onChangeText={setEventDescription}
                 blurOnSubmit={false}
               />
-
-              {!selectedEmoji && (
-                <View style={styles.callout}>
-                  <Text style={styles.calloutText}>
-                    No emoji selected - AI will infer one
-                  </Text>
-                </View>
-              )}
             </View>
 
-            {/* Only show friend selection for friend-scoped events */}
-            {eventScope === "FRIENDS" && (
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Invite Friends</Text>
-                <CheckboxGroup
-                  selectedFriends={selectedFriends}
-                  onSelectionChange={setSelectedFriends}
-                  buttonText="Select Friends to Invite"
-                />
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <MapPinIcon size={18} color={COLORS.accent} />
+                <Text style={styles.sectionTitle}>Location</Text>
               </View>
-            )}
+              <Select
+                value={selectedLocation}
+                options={searchResults}
+                placeholder="Search for a place..."
+                searchable
+                loading={isSearchingPlaces}
+                onSearch={handleSearchPlaces}
+                onChange={handleLocationSelect}
+                onClear={() => {
+                  setCoordinates(null);
+                  setLocationData(null);
+                  setLocationError("");
+                  setSearchQuery(""); // Clear the search query
+                }}
+                error={locationError}
+                style={styles.input}
+              />
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Invite Friends</Text>
+              <CheckboxGroup
+                selectedFriends={selectedFriends}
+                onSelectionChange={setSelectedFriends}
+                buttonText="Select Friends to Invite"
+              />
+            </View>
 
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Date & Time</Text>
@@ -436,6 +543,21 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontSize: 12,
     fontFamily: "SpaceMono",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
+  },
+  input: {
+    marginBottom: 16,
   },
 });
 

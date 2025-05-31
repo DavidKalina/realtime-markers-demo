@@ -7,7 +7,6 @@ import {
   ManyToMany,
 } from "typeorm";
 import { Event } from "./Event";
-import { Group } from "./Group";
 
 @Entity("categories")
 export class Category {
@@ -22,10 +21,6 @@ export class Category {
 
   @Column({ type: "varchar", nullable: true })
   icon?: string;
-
-  @ManyToMany(() => Group, (group) => group.categories)
-  // JoinTable is defined on the Group side, TypeORM handles it
-  groups!: Group[];
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

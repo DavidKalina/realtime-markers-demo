@@ -2,33 +2,30 @@ import { DataSource, Repository } from "typeorm";
 import { User } from "../entities/User";
 import { Level } from "../entities/Level";
 import { UserLevel } from "../entities/UserLevel";
-import { Redis } from "ioredis";
+import { RedisService } from "./shared/RedisService";
+import { LevelingCacheService } from "./shared/LevelingCacheService";
 
 export class LevelingService {
   private userRepository: Repository<User>;
   private levelRepository: Repository<Level>;
   private userLevelRepository: Repository<UserLevel>;
-  private redis: Redis;
-  private levelsCache: Level[] | null = null;
-  private lastCacheUpdate: number = 0;
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private redisService: RedisService;
 
-  constructor(dataSource: DataSource, redis: Redis) {
+  constructor(dataSource: DataSource, redisService: RedisService) {
     this.userRepository = dataSource.getRepository(User);
     this.levelRepository = dataSource.getRepository(Level);
     this.userLevelRepository = dataSource.getRepository(UserLevel);
-    this.redis = redis;
+    this.redisService = redisService;
   }
 
   /**
    * Get all levels with caching
    */
   private async getAllLevels(): Promise<Level[]> {
-    const now = Date.now();
-
-    // Return cached levels if they exist and are not expired
-    if (this.levelsCache && now - this.lastCacheUpdate < this.CACHE_TTL) {
-      return this.levelsCache;
+    // Try to get from cache first
+    const cachedLevels = await LevelingCacheService.getLevels();
+    if (cachedLevels) {
+      return cachedLevels;
     }
 
     // Fetch fresh levels from database
@@ -40,9 +37,8 @@ export class LevelingService {
       throw new Error("No levels found in database");
     }
 
-    // Update cache
-    this.levelsCache = levels;
-    this.lastCacheUpdate = now;
+    // Cache the levels
+    await LevelingCacheService.setLevels(levels);
 
     return levels;
   }
@@ -58,6 +54,9 @@ export class LevelingService {
     user.totalXp += amount;
     await this.userRepository.save(user);
 
+    // Update XP cache
+    await LevelingCacheService.setUserXp(userId, user.totalXp);
+
     // Get current level before XP award
     const oldLevel = await this.getCurrentLevel(userId);
 
@@ -70,29 +69,32 @@ export class LevelingService {
       await this.userRepository.save(user);
 
       // Publish level-up event
-      await this.redis.publish(
-        "level-update",
-        JSON.stringify({
+      await this.redisService.publish("level-update", {
+        type: "LEVEL_UP",
+        data: {
           userId,
           level: newLevel.levelNumber,
           title: newLevel.title,
           action: "level_up",
           timestamp: new Date().toISOString(),
-        }),
-      );
+        },
+      });
+
+      // Invalidate user's level info cache
+      await LevelingCacheService.invalidateUserCaches(userId);
     }
 
     // Publish XP award event
-    await this.redis.publish(
-      "level-update",
-      JSON.stringify({
+    await this.redisService.publish("level-update", {
+      type: "XP_AWARDED",
+      data: {
         userId,
         action: "xp_awarded",
         amount,
         totalXp: user.totalXp,
         timestamp: new Date().toISOString(),
-      }),
-    );
+      },
+    });
 
     // Update current level progress
     const userLevel = await this.userLevelRepository.findOne({
@@ -121,14 +123,7 @@ export class LevelingService {
    * Get user's current level
    */
   private async getCurrentLevel(userId: string): Promise<Level> {
-    const levels = await this.levelRepository.find({
-      order: { levelNumber: "ASC" },
-    });
-
-    if (levels.length === 0) {
-      throw new Error("No levels found in database");
-    }
-
+    const levels = await this.getAllLevels();
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new Error("User not found");
@@ -156,14 +151,76 @@ export class LevelingService {
       }
     }
 
-    console.log("Level determination:", {
-      userId,
-      totalXp: user.totalXp,
-      determinedLevel: currentLevel.levelNumber,
-      requiredXp: currentLevel.requiredXp,
-    });
-
     return currentLevel;
+  }
+
+  /**
+   * Get user's current level information
+   */
+  async getUserLevelInfo(userId: string): Promise<{
+    currentLevel: number;
+    currentTitle: string;
+    totalXp: number;
+    nextLevelXp: number;
+    progress: number;
+  }> {
+    // Try to get from cache first
+    const cachedInfo = await LevelingCacheService.getUserLevelInfo(userId);
+    if (cachedInfo) {
+      return cachedInfo;
+    }
+
+    // Get user and levels in parallel
+    const [user, levels] = await Promise.all([
+      this.userRepository.findOne({ where: { id: userId } }),
+      this.getAllLevels(),
+    ]);
+
+    if (!user) throw new Error("User not found");
+
+    try {
+      const currentLevel = this.determineLevel(levels, user.totalXp);
+      const nextLevel = levels.find(
+        (l) => l.levelNumber === currentLevel.levelNumber + 1,
+      );
+
+      // Calculate progress based on current level
+      let progress = 0;
+      if (nextLevel) {
+        // Calculate progress towards next level, considering rolled over XP
+        const xpForCurrentLevel = currentLevel.requiredXp;
+        const xpForNextLevel = nextLevel.requiredXp;
+        const xpNeededForNextLevel = xpForNextLevel - xpForCurrentLevel;
+        const xpProgress = user.totalXp - xpForCurrentLevel;
+
+        progress = Math.min((xpProgress / xpNeededForNextLevel) * 100, 100);
+      } else {
+        // If there's no next level, progress is 100%
+        progress = 100;
+      }
+
+      const levelInfo = {
+        currentLevel: currentLevel.levelNumber,
+        currentTitle: currentLevel.title,
+        totalXp: user.totalXp,
+        nextLevelXp: nextLevel?.requiredXp ?? currentLevel.requiredXp,
+        progress: progress,
+      };
+
+      // Cache the level info
+      await LevelingCacheService.setUserLevelInfo(userId, levelInfo);
+
+      return levelInfo;
+    } catch (error) {
+      console.error("Error getting level info:", error);
+      return {
+        currentLevel: 1,
+        currentTitle: "Novice Explorer",
+        totalXp: user.totalXp,
+        nextLevelXp: 100,
+        progress: Math.min((user.totalXp / 100) * 100, 100),
+      };
+    }
   }
 
   /**
@@ -192,77 +249,6 @@ export class LevelingService {
     }
 
     return currentLevel;
-  }
-
-  /**
-   * Get user's current level information
-   */
-  async getUserLevelInfo(userId: string): Promise<{
-    currentLevel: number;
-    currentTitle: string;
-    totalXp: number;
-    nextLevelXp: number;
-    progress: number;
-  }> {
-    // Get user and levels in parallel
-    const [user, levels] = await Promise.all([
-      this.userRepository.findOne({ where: { id: userId } }),
-      this.getAllLevels(),
-    ]);
-
-    if (!user) throw new Error("User not found");
-
-    try {
-      const currentLevel = this.determineLevel(levels, user.totalXp);
-      const nextLevel = levels.find(
-        (l) => l.levelNumber === currentLevel.levelNumber + 1,
-      );
-
-      // Calculate progress based on current level
-      let progress = 0;
-      if (nextLevel) {
-        // Calculate progress towards next level, considering rolled over XP
-        const xpForCurrentLevel = currentLevel.requiredXp;
-        const xpForNextLevel = nextLevel.requiredXp;
-        const xpNeededForNextLevel = xpForNextLevel - xpForCurrentLevel;
-        const xpProgress = user.totalXp - xpForCurrentLevel; // This already includes rolled over XP
-
-        progress = Math.min((xpProgress / xpNeededForNextLevel) * 100, 100);
-      } else {
-        // If there's no next level, progress is 100%
-        progress = 100;
-      }
-
-      console.log("Level info calculation:", {
-        userId,
-        totalXp: user.totalXp,
-        currentLevel: currentLevel.levelNumber,
-        currentLevelRequiredXp: currentLevel.requiredXp,
-        nextLevelRequiredXp: nextLevel?.requiredXp,
-        xpProgress: user.totalXp - currentLevel.requiredXp,
-        xpNeededForNextLevel: nextLevel
-          ? nextLevel.requiredXp - currentLevel.requiredXp
-          : 0,
-        calculatedProgress: progress,
-      });
-
-      return {
-        currentLevel: currentLevel.levelNumber,
-        currentTitle: currentLevel.title,
-        totalXp: user.totalXp,
-        nextLevelXp: nextLevel?.requiredXp ?? currentLevel.requiredXp,
-        progress: progress,
-      };
-    } catch (error) {
-      console.error("Error getting level info:", error);
-      return {
-        currentLevel: 1,
-        currentTitle: "Novice Explorer",
-        totalXp: user.totalXp,
-        nextLevelXp: 100,
-        progress: Math.min((user.totalXp / 100) * 100, 100),
-      };
-    }
   }
 
   /**
@@ -309,6 +295,8 @@ export class LevelingService {
     }
 
     await this.userRepository.save(user);
+    // Invalidate user caches after applying rewards
+    await LevelingCacheService.invalidateUserCaches(userId);
   }
 
   /**
@@ -339,15 +327,19 @@ export class LevelingService {
     userLevel.isCompleted = false;
     await this.userLevelRepository.save(userLevel);
 
+    // Invalidate all user caches
+    await LevelingCacheService.invalidateUserCaches(userId);
+
     // Publish reset event
-    await this.redis.publish(
-      "level-update",
-      JSON.stringify({
+    await this.redisService.publish("level-update", {
+      type: "LEVEL_RESET",
+      data: {
         userId,
         level: 1,
         title: "Novice Explorer",
         action: "reset",
-      }),
-    );
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 }

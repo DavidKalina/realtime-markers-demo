@@ -79,7 +79,7 @@ const XPBar: React.FC<XPBarProps> = React.memo(
     // Memoize the fetch function
     const fetchLatestXPData = useCallback(async () => {
       try {
-        const user = await apiClient.getUserProfile();
+        const user = await apiClient.auth.getUserProfile();
 
         const newLevelInfo = {
           currentLevel: user.level || 1,
@@ -179,19 +179,17 @@ const XPBar: React.FC<XPBarProps> = React.memo(
 
     return (
       <View style={containerStyle}>
-        <View style={styles.content}>
-          <View style={styles.levelInfo}>
-            <View style={styles.levelTitleContainer}>
-              <Text style={styles.levelText}>Lv. {levelInfo.currentLevel}</Text>
-              <Text style={styles.titleText}>{levelInfo.currentTitle}</Text>
-            </View>
-            <AnimatedXPGainText style={[styles.xpGainText, xpGainStyle]}>
-              +{xpGainAmount} XP
-            </AnimatedXPGainText>
+        <View style={styles.levelInfo}>
+          <View style={styles.levelTitleContainer}>
+            <Text style={styles.levelText}>Lv. {levelInfo.currentLevel}</Text>
+            <Text style={styles.titleText}>{levelInfo.currentTitle}</Text>
           </View>
-          <View style={styles.progressContainer}>
-            <Animated.View style={progressStyle} />
-          </View>
+          <AnimatedXPGainText style={[styles.xpGainText, xpGainStyle]}>
+            +{xpGainAmount} XP
+          </AnimatedXPGainText>
+        </View>
+        <View style={styles.progressContainer}>
+          <Animated.View style={progressStyle} />
         </View>
       </View>
     );
@@ -206,9 +204,7 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingVertical: 4,
   },
-  content: {
-    paddingHorizontal: 12,
-  },
+
   levelInfo: {
     flexDirection: "row",
     alignItems: "center",
