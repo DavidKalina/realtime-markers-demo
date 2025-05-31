@@ -227,6 +227,8 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     animatedStyle,
     availableActions = getEnabledTabs(TAB_CONFIG).map((tab) => tab.key),
   }) => {
+    const pathname = usePathname();
+
     const activeActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
       null,
     );
@@ -235,7 +237,6 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     const insets = useSafeAreaInsets();
     const { userLocation } = useUserLocation();
     const router = useRouter();
-    const pathname = usePathname();
 
     // Get the active tab based on the current route
     const activeTab = useMemo(() => getActiveTabKey(pathname), [pathname]);
@@ -361,6 +362,12 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
       ],
       [],
     );
+
+    // Hide ActionBar on specific routes
+    const hiddenRoutes = ["/register", "/login", "/onboarding"];
+    if (hiddenRoutes.includes(pathname)) {
+      return null;
+    }
 
     return (
       <View style={containerStyle}>

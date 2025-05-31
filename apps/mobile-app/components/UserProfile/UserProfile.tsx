@@ -3,13 +3,15 @@ import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useFetchMyFriends } from "@/hooks/useFetchMyFriends";
 import { useProfile } from "@/hooks/useProfile";
 import { LucideIcon, User, UserPlus } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import Screen, { Section as ScreenSection } from "../Layout/Screen";
 import { COLORS } from "../Layout/ScreenLayout";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
 import FriendsSection from "./FriendsSection";
 import ProfileSection from "./ProfileSection";
+import * as Haptics from "expo-haptics";
 
 type TabType = "profile" | "groups" | "friends";
 
@@ -18,6 +20,7 @@ interface UserProfileProps {
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
+  const router = useRouter();
   const { user } = useAuth();
   const { currentStyle, isPitched, togglePitch } = useMapStyle();
   const {
@@ -70,6 +73,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         return newSettings;
       });
     };
+
+  const handleNavigateToFriends = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/friends");
+  }, [router]);
 
   const tabs = [
     {
@@ -155,20 +163,20 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       case "friends":
         return [
           {
-            label: "Find Friends",
-            onPress: () => console.log("Find friends"),
+            label: "View All Friends",
+            onPress: handleNavigateToFriends,
             variant: "primary" as const,
           },
           {
-            label: "Invite",
-            onPress: () => console.log("Invite friends"),
+            label: "Add Friends",
+            onPress: handleNavigateToFriends,
             variant: "outline" as const,
           },
         ];
       default:
         return [];
     }
-  }, [activeTab, handleLogout, setShowDeleteDialog]);
+  }, [activeTab, handleLogout, setShowDeleteDialog, handleNavigateToFriends]);
 
   if (loading) {
     return (
