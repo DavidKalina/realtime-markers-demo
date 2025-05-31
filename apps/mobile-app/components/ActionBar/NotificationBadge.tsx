@@ -17,15 +17,25 @@ const ANIMATION_CONFIG = {
 
 interface NotificationBadgeProps {
   isActive: boolean;
+  externalCount?: number;
 }
 
-const NotificationBadge: React.FC<NotificationBadgeProps> = ({ isActive }) => {
+const NotificationBadge: React.FC<NotificationBadgeProps> = ({
+  isActive,
+  externalCount,
+}) => {
   const scale = useSharedValue(1);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
+      if (externalCount !== undefined) {
+        setUnreadCount(externalCount);
+        setIsLoading(false);
+        return;
+      }
+
       let isActive = true;
 
       const fetchUnreadCount = async () => {
@@ -55,8 +65,14 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({ isActive }) => {
       return () => {
         isActive = false;
       };
-    }, []),
+    }, [externalCount]),
   );
+
+  useEffect(() => {
+    if (externalCount !== undefined) {
+      setUnreadCount(externalCount);
+    }
+  }, [externalCount]);
 
   useEffect(() => {
     const handleNewNotification = () => {

@@ -39,6 +39,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles";
 import NotificationBadge from "./NotificationBadge";
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface ActionBarProps {
   isStandalone?: boolean;
@@ -54,6 +55,7 @@ interface ActionButtonProps {
   onPress: () => void;
   isActive: boolean;
   disabled?: boolean;
+  unreadCount?: number;
 }
 
 // Pre-define animation configurations to avoid recreating them on render
@@ -69,7 +71,7 @@ const BUTTON_RELEASE_ANIMATION = {
 
 // Create a separate component for each action button to properly handle hooks
 const ActionButton: React.FC<ActionButtonProps> = React.memo(
-  ({ label, icon, onPress, isActive, disabled, actionKey }) => {
+  ({ label, icon, onPress, isActive, disabled, actionKey, unreadCount }) => {
     // Each button has its own scale animation
     const scaleValue = useSharedValue(1);
 
@@ -135,7 +137,10 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
         <View style={styles.actionButtonIcon}>
           {iconWithWrapper}
           {actionKey === "notifications" && (
-            <NotificationBadge isActive={isActive} />
+            <NotificationBadge
+              isActive={isActive}
+              externalCount={unreadCount}
+            />
           )}
         </View>
       </TouchableOpacity>
@@ -147,7 +152,8 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
       prevProps.isActive === nextProps.isActive &&
       prevProps.disabled === nextProps.disabled &&
       prevProps.actionKey === nextProps.actionKey &&
-      prevProps.label === nextProps.label
+      prevProps.label === nextProps.label &&
+      prevProps.unreadCount === nextProps.unreadCount
     );
   },
 );
@@ -248,6 +254,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     availableActions = getEnabledTabs(TAB_CONFIG).map((tab) => tab.key),
   }) => {
     const pathname = usePathname();
+    const { unreadCount } = useNotifications();
 
     const activeActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
       null,
@@ -401,6 +408,9 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
               onPress={action.action}
               isActive={action.isActive || activeAction === action.key}
               disabled={action.disabled}
+              unreadCount={
+                action.key === "notifications" ? unreadCount : undefined
+              }
             />
           ))}
         </View>

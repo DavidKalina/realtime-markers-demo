@@ -156,6 +156,15 @@ export function useNotifications() {
     setActiveFilter(filter);
   }, []);
 
+  const resetUnreadCount = useCallback(async () => {
+    try {
+      // Just set the local state to 0 without making an API call
+      setUnreadCount(0);
+    } catch (error) {
+      console.error("Error resetting unread count:", error);
+    }
+  }, []);
+
   return {
     notifications,
     refreshing,
@@ -170,5 +179,6 @@ export function useNotifications() {
     handleDeleteNotification,
     handleClearAll,
     setFilter,
+    resetUnreadCount,
   };
 }
