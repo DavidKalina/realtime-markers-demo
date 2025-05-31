@@ -275,15 +275,21 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
         if (!tab) return;
 
         // Special handling for locate action
-        if (action === "locate" && cameraAnimationEvent) {
-          publish<CameraAnimateToLocationEvent>(
-            EventTypes.CAMERA_ANIMATE_TO_LOCATION,
-            cameraAnimationEvent,
-          );
-        }
-
-        // Handle navigation if route is defined
-        if (tab.route) {
+        if (action === "locate") {
+          if (pathname === "/") {
+            // If we're on root, trigger the locate animation
+            if (cameraAnimationEvent) {
+              publish<CameraAnimateToLocationEvent>(
+                EventTypes.CAMERA_ANIMATE_TO_LOCATION,
+                cameraAnimationEvent,
+              );
+            }
+          } else {
+            // If we're not on root, navigate to root
+            router.push("/");
+          }
+        } else if (tab.route) {
+          // Handle navigation for other tabs if route is defined
           router.push(tab.route as AppRoute);
         }
 
@@ -293,7 +299,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           activeActionTimeoutRef.current = null;
         }, 500);
       },
-      [publish, cameraAnimationEvent, router],
+      [publish, cameraAnimationEvent, router, pathname],
     );
 
     // Create individual action handlers with proper memoization

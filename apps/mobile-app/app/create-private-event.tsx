@@ -109,9 +109,7 @@ const CreatePrivateEvent = () => {
   const [eventDescription, setEventDescription] = useState(
     (params.description as string) || "",
   );
-  const [selectedEmoji, setSelectedEmoji] = useState(
-    (params.emoji as string) || "",
-  );
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const buttonScale = useSharedValue(1);
 
@@ -145,7 +143,6 @@ const CreatePrivateEvent = () => {
             // Also set other event details if they exist
             if (event.title) setEventName(event.title);
             if (event.description) setEventDescription(event.description);
-            if (event.emoji) setSelectedEmoji(event.emoji);
             if (event.eventDate) setDate(new Date(event.eventDate));
             if (
               event.location &&
@@ -407,14 +404,6 @@ const CreatePrivateEvent = () => {
                 onChangeText={setEventDescription}
                 blurOnSubmit={false}
               />
-
-              {!selectedEmoji && (
-                <View style={styles.callout}>
-                  <Text style={styles.calloutText}>
-                    No emoji selected - AI will infer one
-                  </Text>
-                </View>
-              )}
             </View>
 
             <View style={styles.section}>
