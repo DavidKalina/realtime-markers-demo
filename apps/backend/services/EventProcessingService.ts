@@ -16,6 +16,7 @@ import type {
 import { ProgressReportingService } from "./event-processing/ProgressReportingService";
 import type { JobQueue } from "./JobQueue";
 import { EmbeddingService } from "./shared/EmbeddingService";
+import type { EventStructuredData } from "./event-processing/dto/ImageProcessingResult";
 
 interface LocationContext {
   userCoordinates?: { lat: number; lng: number };
@@ -61,6 +62,16 @@ interface PrivateEventInput {
   locationNotes?: string;
   isPrivate: boolean;
   sharedWithIds?: string[];
+}
+
+/**
+ * Result of processing multiple events from a single image
+ */
+export interface MultiEventScanResult {
+  events: ScanResult[];
+  isMultiEvent: boolean;
+  extractedAt: string;
+  error?: string;
 }
 
 export class EventProcessingService {
@@ -293,5 +304,254 @@ export class EventProcessingService {
 
     // Get embedding using the embedding service
     return await this.embeddingService.getEmbedding(textForEmbedding);
+  }
+
+  /**
+   * Process a flyer that may contain multiple events
+   * @param imageData Buffer or string containing image data
+   * @param progressCallback Optional callback for progress updates
+   * @param locationContext Optional location context for better resolution
+   * @param jobId Optional job ID for progress tracking
+   * @returns Array of scan results for each event found
+   */
+  async processMultiEventFlyer(
+    imageData: Buffer | string,
+    progressCallback?: ProgressCallback,
+    locationContext?: LocationContext,
+    jobId?: string,
+  ): Promise<MultiEventScanResult> {
+    const workflow = this.createWorkflow(jobId, progressCallback);
+
+    // Define total steps for this workflow
+    const TOTAL_STEPS = 7; // One more step for multi-event detection
+    workflow.startSession(TOTAL_STEPS, "Multi-Event Processing");
+
+    try {
+      // Step 1: Process image and detect multiple events
+      await workflow.updateProgress(
+        1,
+        "Processing image and detecting events...",
+      );
+      const multiEventResult =
+        await this.imageProcessingService.processMultiEventImage(imageData);
+
+      if (!multiEventResult.success) {
+        throw new Error(
+          multiEventResult.error || "Failed to process multi-event image",
+        );
+      }
+
+      // Step 2: Process each event
+      const eventResults: ScanResult[] = [];
+      const totalEvents = multiEventResult.events.length;
+
+      for (let i = 0; i < totalEvents; i++) {
+        const event = multiEventResult.events[i];
+        await workflow.updateProgress(
+          2 + i,
+          `Processing event ${i + 1} of ${totalEvents}...`,
+        );
+
+        // Skip events with low confidence
+        if (event.confidence < 0.5) {
+          console.warn(
+            `Skipping event ${i + 1} due to low confidence: ${event.confidence}`,
+          );
+          continue;
+        }
+
+        // Extract event details using the structured data if available
+        const extractionResult =
+          await this.eventExtractionService.extractEventDetails(
+            event.structuredData
+              ? this.formatStructuredData(event.structuredData)
+              : event.rawText,
+            locationContext,
+          );
+
+        // Generate embedding
+        const eventDetailsWithCategories = extractionResult.event;
+        const finalEmbedding = await this.generateEmbedding(
+          eventDetailsWithCategories,
+        );
+
+        // Check for duplicates
+        const similarity =
+          await this.dependencies.eventSimilarityService.findSimilarEvents(
+            finalEmbedding,
+            {
+              title: eventDetailsWithCategories.title,
+              date: eventDetailsWithCategories.date,
+              endDate: eventDetailsWithCategories.endDate,
+              coordinates: eventDetailsWithCategories.location.coordinates as [
+                number,
+                number,
+              ],
+              address: eventDetailsWithCategories.address,
+              description: eventDetailsWithCategories.description,
+              timezone: eventDetailsWithCategories.timezone,
+            },
+          );
+
+        const isDuplicate = similarity.isDuplicate;
+
+        if (isDuplicate && similarity.matchingEventId) {
+          await this.dependencies.eventSimilarityService.handleDuplicateScan(
+            similarity.matchingEventId,
+          );
+
+          await workflow.updateProgress(
+            2 + i,
+            `Event ${i + 1} is a duplicate`,
+            {
+              isDuplicate: true,
+              matchingEventId: similarity.matchingEventId,
+              similarityScore: similarity.score.toFixed(2),
+              matchReason: similarity.matchReason || "High similarity score",
+              matchDetails: similarity.matchDetails || {},
+            },
+          );
+        }
+
+        eventResults.push({
+          confidence: event.confidence,
+          eventDetails: eventDetailsWithCategories,
+          similarity,
+          isDuplicate: isDuplicate || false,
+          qrCodeDetected: event.qrCodeDetected,
+          qrCodeData: event.qrCodeData,
+          embedding: finalEmbedding,
+        });
+      }
+
+      // Step 7: Complete processing
+      await workflow.completeSession("Multi-event processing complete", {
+        totalEvents: totalEvents,
+        processedEvents: eventResults.length,
+        isMultiEvent: multiEventResult.isMultiEvent,
+      });
+
+      return {
+        events: eventResults,
+        isMultiEvent: multiEventResult.isMultiEvent,
+        extractedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Unknown error processing multi-event flyer";
+      await workflow.completeSession("Multi-event processing failed", {
+        error: errorMessage,
+      });
+
+      return {
+        events: [],
+        isMultiEvent: false,
+        extractedAt: new Date().toISOString(),
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * Format structured data into a text format for event extraction
+   * @param data Structured data from image processing
+   * @returns Formatted text for event extraction
+   */
+  private formatStructuredData(data: EventStructuredData): string {
+    const parts: string[] = [];
+
+    if (data.title) parts.push(`Event Title: ${data.title}`);
+    if (data.dateTime) parts.push(`Date and Time: ${data.dateTime}`);
+    if (data.timezone) parts.push(`Timezone: ${data.timezone}`);
+    if (data.venueAddress) parts.push(`VENUE ADDRESS: ${data.venueAddress}`);
+    if (data.venueName) parts.push(`VENUE NAME: ${data.venueName}`);
+    if (data.organizer) parts.push(`ORGANIZER: ${data.organizer}`);
+    if (data.description) parts.push(`Description: ${data.description}`);
+    if (data.contactInfo) parts.push(`Contact Info: ${data.contactInfo}`);
+    if (data.socialMedia) parts.push(`Social Media: ${data.socialMedia}`);
+    if (data.otherDetails) parts.push(`Other Details: ${data.otherDetails}`);
+
+    return parts.join("\n");
+  }
+
+  /**
+   * Smart processing method that detects whether an image contains multiple events
+   * and routes to the appropriate processing method
+   * @param imageData Buffer or string containing image data
+   * @param progressCallback Optional callback for progress updates
+   * @param locationContext Optional location context for better resolution
+   * @param jobId Optional job ID for progress tracking
+   * @returns Either a single ScanResult or MultiEventScanResult
+   */
+  async processEventFlyer(
+    imageData: Buffer | string,
+    progressCallback?: ProgressCallback,
+    locationContext?: LocationContext,
+    jobId?: string,
+  ): Promise<ScanResult | MultiEventScanResult> {
+    const workflow = this.createWorkflow(jobId, progressCallback);
+
+    // Define total steps for this workflow
+    const TOTAL_STEPS = 2; // Detection + Processing
+    workflow.startSession(TOTAL_STEPS, "Event Flyer Processing");
+
+    try {
+      // Step 1: Check if image contains multiple events
+      await workflow.updateProgress(1, "Detecting event type...");
+      const multiEventResult =
+        await this.imageProcessingService.processMultiEventImage(imageData);
+
+      // Step 2: Process based on event type
+      if (multiEventResult.isMultiEvent && multiEventResult.events.length > 1) {
+        await workflow.updateProgress(2, "Processing multiple events...");
+        return await this.processMultiEventFlyer(
+          imageData,
+          progressCallback,
+          locationContext,
+          jobId,
+        );
+      } else {
+        // If it's a single event or detection failed, process as single event
+        await workflow.updateProgress(2, "Processing single event...");
+        return await this.processFlyerFromImage(
+          imageData,
+          progressCallback,
+          locationContext,
+          jobId,
+        );
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Unknown error processing event flyer";
+      await workflow.completeSession("Event flyer processing failed", {
+        error: errorMessage,
+      });
+
+      // Return a failed single event result
+      return {
+        confidence: 0,
+        eventDetails: {
+          emoji: "❌",
+          title: "Processing Failed",
+          date: new Date().toISOString(),
+          address: "",
+          location: { type: "Point", coordinates: [0, 0] },
+          description: errorMessage,
+          categories: [],
+        },
+        similarity: {
+          score: 0,
+          isDuplicate: false,
+        },
+        isDuplicate: false,
+        qrCodeDetected: false,
+        embedding: [],
+        error: errorMessage,
+      } as ScanResult;
+    }
   }
 }

@@ -7,13 +7,19 @@ import { PlanService } from "../../services/PlanService";
 import { StorageService } from "../../services/shared/StorageService";
 import { isEventTemporalyRelevant } from "../../utils/isEventTemporalyRelevant";
 import type { Point } from "geojson";
+import type { MultiEventScanResult } from "../../services/EventProcessingService";
+import type { Event } from "../../entities/Event";
+import type { Category } from "../../entities/Category";
 
 // Helper function to convert Point to [number, number]
 function pointToCoordinates(point: Point): [number, number] {
-  if (!point.coordinates || point.coordinates.length < 2) {
-    throw new Error("Invalid Point coordinates");
-  }
   return [point.coordinates[0], point.coordinates[1]];
+}
+
+interface ProcessedEvent extends Omit<Event, "location"> {
+  isDuplicate?: boolean;
+  confidenceScore?: number;
+  location: Point;
 }
 
 export class ProcessFlyerHandler extends BaseJobHandler {
@@ -51,16 +57,19 @@ export class ProcessFlyerHandler extends BaseJobHandler {
       }
 
       // Get the image buffer from Redis
-      const bufferData = await context.redisService.get<Buffer>(
+      const bufferData = await context.redisService.get<{ data: number[] }>(
         `job:${jobId}:buffer`,
       );
       if (!bufferData) {
         throw new Error("Image data not found");
       }
 
+      // Convert the array back to a Buffer
+      const imageBuffer = Buffer.from(bufferData.data);
+
       // Upload image
       const originalImageUrl = await this.storageService.uploadImage(
-        bufferData,
+        imageBuffer,
         "original-flyers",
         {
           jobId: jobId,
@@ -71,19 +80,50 @@ export class ProcessFlyerHandler extends BaseJobHandler {
 
       console.log("originalImageUrl", originalImageUrl);
 
-      // Process the image
-      const scanResult =
-        await this.eventProcessingService.processFlyerFromImage(
-          bufferData,
-          undefined, // No need for progress callback
-          {
-            userCoordinates: job.data.userCoordinates as
-              | { lat: number; lng: number }
-              | undefined,
-          },
+      // Process the image using smart processing
+      const scanResult = await this.eventProcessingService.processEventFlyer(
+        imageBuffer,
+        undefined, // No need for progress callback
+        {
+          userCoordinates: job.data.userCoordinates as
+            | { lat: number; lng: number }
+            | undefined,
+        },
+        jobId,
+      );
+
+      // Handle multi-event result
+      if ("events" in scanResult) {
+        // Process each event from the multi-event result
+        const processedEvents = await this.processMultiEventResult(
+          scanResult,
           jobId,
+          context,
+          job.data.creatorId as string | undefined,
+          originalImageUrl,
         );
 
+        // Mark as completed with success for multi-event
+        await this.completeJob(
+          jobId,
+          context,
+          {
+            events: processedEvents.map((event) => ({
+              eventId: event.id,
+              title: event.title,
+              coordinates: pointToCoordinates(event.location),
+              confidence: event.confidenceScore,
+              isDuplicate: event.isDuplicate,
+            })),
+            message: `Successfully processed ${processedEvents.length} events from the flyer!`,
+            isMultiEvent: true,
+          },
+          processedEvents.map((e) => e.id).join(","),
+        );
+        return;
+      }
+
+      // Handle single event result (existing logic)
       // Check confidence score
       if (scanResult.confidence < 0.75) {
         await this.completeJob(jobId, context, {
@@ -226,5 +266,122 @@ export class ProcessFlyerHandler extends BaseJobHandler {
       // Clean up the buffer data
       await context.redisService.del(`job:${jobId}:buffer`);
     }
+  }
+
+  /**
+   * Process multiple events from a multi-event scan result
+   * @param scanResult The multi-event scan result
+   * @param jobId The job ID
+   * @param context The job handler context
+   * @param creatorId Optional creator ID
+   * @param originalImageUrl The URL of the original image
+   * @returns Array of processed events
+   */
+  private async processMultiEventResult(
+    scanResult: MultiEventScanResult,
+    jobId: string,
+    context: JobHandlerContext,
+    creatorId?: string,
+    originalImageUrl?: string | null,
+  ): Promise<ProcessedEvent[]> {
+    const processedEvents: ProcessedEvent[] = [];
+
+    for (const eventResult of scanResult.events) {
+      // Skip low confidence events
+      if (eventResult.confidence < 0.75) {
+        console.warn(
+          `Skipping event due to low confidence: ${eventResult.confidence}`,
+        );
+        continue;
+      }
+
+      // Check for duplicates
+      if (eventResult.isDuplicate && eventResult.similarity.matchingEventId) {
+        const existingEvent = await this.eventService.getEventById(
+          eventResult.similarity.matchingEventId,
+        );
+
+        if (existingEvent) {
+          processedEvents.push({
+            ...existingEvent,
+            isDuplicate: true,
+            confidenceScore: eventResult.confidence,
+          } as ProcessedEvent);
+          continue;
+        }
+      }
+
+      // Validate event date
+      const eventDate = new Date(eventResult.eventDetails.date);
+      const dateValidation = isEventTemporalyRelevant(eventDate);
+      if (!dateValidation.valid) {
+        console.warn(
+          `Skipping event due to invalid date: ${dateValidation.reason}`,
+        );
+        continue;
+      }
+
+      // Create the event
+      const newEvent = await this.eventService.createEvent({
+        emoji: eventResult.eventDetails.emoji || "📍",
+        emojiDescription: eventResult.eventDetails.emojiDescription,
+        title: eventResult.eventDetails.title || "Untitled Event",
+        eventDate: new Date(eventResult.eventDetails.date),
+        endDate: eventResult.eventDetails.endDate
+          ? new Date(eventResult.eventDetails.endDate)
+          : undefined,
+        location: eventResult.eventDetails.location,
+        description: eventResult.eventDetails.description,
+        confidenceScore: eventResult.confidence,
+        address: eventResult.eventDetails.address,
+        locationNotes: eventResult.eventDetails.locationNotes || "",
+        categoryIds:
+          eventResult.eventDetails.categories?.map((cat: Category) => cat.id) ||
+          [],
+        creatorId: creatorId || "", // Use empty string as fallback since it's required
+        qrDetectedInImage: eventResult.qrCodeDetected || false,
+        detectedQrData: eventResult.qrCodeData,
+        originalImageUrl: originalImageUrl || undefined,
+        embedding: eventResult.embedding,
+      });
+
+      // Create discovery record if creator exists
+      if (creatorId) {
+        await this.eventService.createDiscoveryRecord(creatorId, newEvent.id);
+      }
+
+      // Get the shares for the event
+      const eventShares = await this.eventService.getEventShares(newEvent.id);
+
+      // Publish notifications
+      const eventChangeMessage = {
+        operation: "INSERT",
+        record: {
+          ...newEvent,
+          coordinates: pointToCoordinates(newEvent.location),
+          ...(newEvent.isPrivate && { sharedWith: eventShares }),
+        },
+      };
+
+      await context.redisService
+        .getClient()
+        .publish("event_changes", JSON.stringify(eventChangeMessage));
+
+      await context.redisService.publish("discovered_events", {
+        type: "EVENT_DISCOVERED",
+        data: {
+          event: {
+            ...newEvent,
+            coordinates: pointToCoordinates(newEvent.location),
+            ...(newEvent.isPrivate && { sharedWith: eventShares }),
+          },
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      processedEvents.push(newEvent as ProcessedEvent);
+    }
+
+    return processedEvents;
   }
 }

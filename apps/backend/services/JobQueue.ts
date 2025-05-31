@@ -84,7 +84,9 @@ export class JobQueue {
 
     // If buffer data is provided, store separately
     if (options.bufferData) {
-      await this.redisService.set(`job:${jobId}:buffer`, options.bufferData);
+      // Convert Buffer to array of numbers for storage
+      const bufferArray = Array.from(options.bufferData);
+      await this.redisService.set(`job:${jobId}:buffer`, { data: bufferArray });
     }
 
     // Add to processing queue
