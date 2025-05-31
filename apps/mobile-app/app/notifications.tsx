@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { Bell, Mail, MailOpen, Trash2 } from "lucide-react-native";
@@ -7,6 +7,7 @@ import Screen from "@/components/Layout/Screen";
 import List from "@/components/Layout/List";
 import { useNotifications } from "@/hooks/useNotifications";
 import { COLORS } from "@/components/Layout/ScreenLayout";
+import { apiClient } from "@/services/ApiClient";
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -20,6 +21,18 @@ export default function NotificationsScreen() {
     handleDeleteNotification,
     setFilter,
   } = useNotifications();
+
+  // Mark all notifications as read when the screen is opened
+  useEffect(() => {
+    const markAllAsRead = async () => {
+      try {
+        await apiClient.notifications.markAllNotificationsAsRead();
+      } catch (error) {
+        console.error("Error marking all notifications as read:", error);
+      }
+    };
+    markAllAsRead();
+  }, []);
 
   const tabs = [
     {

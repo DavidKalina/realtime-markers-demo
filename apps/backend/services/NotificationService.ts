@@ -242,4 +242,44 @@ export class NotificationService {
       where: { userId, read: false },
     });
   }
+
+  /**
+   * Mark all notifications as read for a user
+   */
+  async markAllAsRead(userId: string): Promise<void> {
+    // Update in database
+    await this.notificationRepository.update(
+      { userId, read: false },
+      { read: true, readAt: new Date() },
+    );
+
+    // Update in Redis
+    const notifications = await this.notificationRepository.find({
+      where: { userId },
+    });
+
+    // Update each notification in Redis
+    for (const notification of notifications) {
+      const notificationData: NotificationData = {
+        id: notification.id,
+        type: notification.type,
+        userId: notification.userId,
+        title: notification.title,
+        message: notification.message,
+        data: notification.data,
+        createdAt: notification.createdAt.toISOString(),
+        read: true,
+        readAt: notification.readAt?.toISOString(),
+      };
+
+      await this.redisService.hset(
+        `notifications:${userId}`,
+        notification.id,
+        notificationData,
+      );
+    }
+
+    // Invalidate cache
+    await NotificationCacheService.invalidateNotificationCache(userId);
+  }
 }

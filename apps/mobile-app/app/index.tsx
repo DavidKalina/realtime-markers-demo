@@ -5,6 +5,7 @@ import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import StatusBar from "@/components/StatusBar/StatusBar";
+import DateRangeIndicator from "@/components/StatusBar/DateRangeIndicator";
 import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
 import {
   DEFAULT_CAMERA_SETTINGS,
@@ -31,6 +32,7 @@ import React, {
 } from "react";
 import { Platform, View } from "react-native";
 import { runOnJS } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -55,6 +57,23 @@ const styles = {
   statusBarSpacer: {
     height: 80, // Match the height of the StatusBar component
   },
+  floatingDateButton: {
+    position: "absolute" as const,
+    top: 100, // Position below the status bar
+    right: 16,
+    zIndex: 1000,
+    backgroundColor: "rgba(26, 26, 26, 0.9)",
+    borderRadius: 20,
+    padding: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
 };
 
 function HomeScreen() {
@@ -64,6 +83,7 @@ function HomeScreen() {
   const { publish } = useEventBroker();
   const { mapStyle, isPitched } = useMapStyle();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   // Store references
   const { selectMapItem, setZoomLevel, zoomLevel } = useLocationStore();
@@ -464,6 +484,27 @@ function HomeScreen() {
   // Use the simulated notifications hook (disabled by default)
   useSimulatedNotifications({ enabled: false });
 
+  const floatingDateButtonStyle = useMemo(
+    () => ({
+      position: "absolute" as const,
+      top: insets.top, // StatusBar height (40) + padding (20)
+      right: 8,
+      zIndex: 1000,
+      backgroundColor: "rgba(26, 26, 26, 0.9)",
+      borderRadius: 20,
+      padding: 8,
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+    }),
+    [insets.top],
+  );
+
   return (
     <AuthWrapper>
       <View style={styles.container}>
@@ -520,6 +561,10 @@ function HomeScreen() {
               onAnimationComplete={handleRippleComplete}
             />
           )}
+
+          <View style={floatingDateButtonStyle}>
+            <DateRangeIndicator />
+          </View>
         </View>
       </View>
     </AuthWrapper>
