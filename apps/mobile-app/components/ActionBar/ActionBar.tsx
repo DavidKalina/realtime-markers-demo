@@ -14,6 +14,7 @@ import {
   SearchIcon,
   User,
   LucideIcon,
+  Bell,
 } from "lucide-react-native";
 import React, {
   useCallback,
@@ -37,6 +38,7 @@ import {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles";
+import NotificationBadge from "./NotificationBadge";
 
 interface ActionBarProps {
   isStandalone?: boolean;
@@ -67,7 +69,7 @@ const BUTTON_RELEASE_ANIMATION = {
 
 // Create a separate component for each action button to properly handle hooks
 const ActionButton: React.FC<ActionButtonProps> = React.memo(
-  ({ label, icon, onPress, isActive, disabled }) => {
+  ({ label, icon, onPress, isActive, disabled, actionKey }) => {
     // Each button has its own scale animation
     const scaleValue = useSharedValue(1);
 
@@ -130,7 +132,12 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
         accessibilityLabel={`${label} button`}
         accessibilityState={{ disabled: !!disabled, selected: isActive }}
       >
-        {iconWithWrapper}
+        <View style={styles.actionButtonIcon}>
+          {iconWithWrapper}
+          {actionKey === "notifications" && (
+            <NotificationBadge isActive={isActive} />
+          )}
+        </View>
       </TouchableOpacity>
     );
   },
@@ -156,7 +163,13 @@ interface TabConfig {
 }
 
 // Define route type to match expo-router's expected types
-type AppRoute = "/search" | "/scan" | "/saved" | "/user" | "/";
+type AppRoute =
+  | "/search"
+  | "/scan"
+  | "/saved"
+  | "/user"
+  | "/"
+  | "/notifications";
 
 // Define all possible tabs in a single configuration object
 const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
@@ -179,6 +192,13 @@ const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
     label: "Locate",
     icon: Navigation,
     requiresLocation: true,
+    enabled: true,
+  },
+  notifications: {
+    key: "notifications",
+    label: "Messages",
+    icon: Bell,
+    route: "/notifications",
     enabled: true,
   },
   saved: {

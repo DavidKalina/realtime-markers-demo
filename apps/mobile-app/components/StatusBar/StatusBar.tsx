@@ -5,7 +5,6 @@ import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
 import DateRangeIndicator from "./DateRangeIndicator";
-import NotificationIndicator from "./NotificationIndicator";
 import XPBar from "./XPBar";
 
 interface StatusBarProps {
@@ -25,13 +24,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
-  const indicators = useMemo(
-    () => [
-      <DateRangeIndicator key="date" />,
-      <NotificationIndicator key="notifications" />,
-    ],
-    [],
-  );
+  const indicators = useMemo(() => [<DateRangeIndicator key="date" />], []);
 
   const containerStyle = useMemo(
     () => [
