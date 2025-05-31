@@ -4,7 +4,6 @@ import Input from "@/components/Input/Input";
 import TextArea from "@/components/Input/TextArea";
 import Header from "@/components/Layout/Header";
 import ScreenLayout from "@/components/Layout/ScreenLayout";
-import { Select, SelectOption } from "@/components/Select/Select";
 import { Friend, apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -29,6 +28,10 @@ import {
   withSpring,
 } from "react-native-reanimated";
 import type { CreateEventPayload } from "@/services/api/base/types";
+import {
+  LocationSelector,
+  LocationOption,
+} from "@/components/LocationSelector/LocationSelector";
 
 // Unified color theme matching Login screen
 const COLORS = {
@@ -40,27 +43,6 @@ const COLORS = {
   divider: "rgba(255, 255, 255, 0.08)",
   buttonBackground: "rgba(255, 255, 255, 0.05)",
   buttonBorder: "rgba(255, 255, 255, 0.1)",
-};
-
-const MapPin = ({ size, color }: { size: number; color: string }) => (
-  <MapPinIcon size={size} color={color} />
-);
-
-// Add useDebounce hook at the top of the file
-const useDebounce = <T,>(value: T, delay: number): T => {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
 };
 
 const CreatePrivateEvent = () => {
@@ -82,20 +64,27 @@ const CreatePrivateEvent = () => {
     }
     return null;
   });
-  const [locationData, setLocationData] = useState<{
-    placeId: string;
-    name: string;
-    address: string;
-    types?: string[];
-    rating?: number;
-    userRatingsTotal?: number;
-    locationNotes?: string;
-  } | null>(null);
-  const [searchResults, setSearchResults] = useState<SelectOption[]>([]);
+  const [locationData, setLocationData] = useState<LocationOption | null>(
+    () => {
+      // Initialize from params if they exist
+      if (params.latitude && params.longitude) {
+        const lat = parseFloat(params.latitude as string);
+        const lng = parseFloat(params.longitude as string);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return {
+            id: "initial",
+            name: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+            address: "Selected coordinates",
+            coordinates: [lng, lat],
+          };
+        }
+      }
+      return null;
+    },
+  );
+  const [searchResults, setSearchResults] = useState<LocationOption[]>([]);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const [locationError, setLocationError] = useState<string>("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const debouncedSearchQuery = useDebounce(searchQuery, 500); // 500ms delay
 
   // Initialize state with values from params if they exist
   const [date, setDate] = useState(() => {
@@ -185,75 +174,55 @@ const CreatePrivateEvent = () => {
     }
   };
 
-  // Update handleSearchPlaces to use the debounced query
   const handleSearchPlaces = useCallback(async (query: string) => {
-    setSearchQuery(query); // Just update the query state, actual search will be triggered by debounced value
-  }, []);
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
 
-  // Add effect to handle the actual search with debounced value
-  useEffect(() => {
-    const performSearch = async () => {
-      if (!debouncedSearchQuery.trim()) {
-        setSearchResults([]);
-        return;
-      }
-
-      setIsSearchingPlaces(true);
-      try {
-        const result = await apiClient.places.searchPlace({
-          query: debouncedSearchQuery,
-        });
-
-        if (result.success && result.place) {
-          setSearchResults([
-            {
-              id: result.place.placeId,
-              label: result.place.name,
-              description: result.place.address,
-              icon: MapPin,
-            },
-          ]);
-        } else {
-          setSearchResults([]);
-        }
-      } catch (error) {
-        console.error("Error searching places:", error);
-        setLocationError("Failed to search places. Please try again.");
-      } finally {
-        setIsSearchingPlaces(false);
-      }
-    };
-
-    performSearch();
-  }, [debouncedSearchQuery]);
-
-  const handleLocationSelect = useCallback(async (option: SelectOption) => {
+    setIsSearchingPlaces(true);
     try {
-      // Get the full place data to access coordinates
-      const placeData = await apiClient.places.searchPlace({
-        query: option.label,
+      const result = await apiClient.places.searchPlace({
+        query: query,
       });
 
-      if (placeData.success && placeData.place?.coordinates) {
-        const [lng, lat] = placeData.place.coordinates;
-        setCoordinates({ latitude: lat, longitude: lng });
-        setLocationData({
-          placeId: placeData.place.placeId,
-          name: placeData.place.name,
-          address: placeData.place.address,
-          types: placeData.place.types,
-          rating: placeData.place.rating,
-          userRatingsTotal: placeData.place.userRatingsTotal,
-          locationNotes: placeData.place.locationNotes,
-        });
-        setLocationError("");
+      if (result.success && result.place) {
+        setSearchResults([
+          {
+            id: result.place.placeId,
+            name: result.place.name,
+            address: result.place.address,
+            coordinates: result.place.coordinates,
+            types: result.place.types,
+            rating: result.place.rating,
+            userRatingsTotal: result.place.userRatingsTotal,
+            locationNotes: result.place.locationNotes,
+          },
+        ]);
       } else {
-        throw new Error("Invalid place data received");
+        setSearchResults([]);
       }
     } catch (error) {
-      console.error("Error getting place details:", error);
-      setLocationError("Failed to get place details. Please try again.");
+      console.error("Error searching places:", error);
+      setLocationError("Failed to search places. Please try again.");
+    } finally {
+      setIsSearchingPlaces(false);
     }
+  }, []);
+
+  const handleLocationSelect = useCallback((location: LocationOption) => {
+    setLocationData(location);
+    setCoordinates({
+      latitude: location.coordinates[1],
+      longitude: location.coordinates[0],
+    });
+    setLocationError("");
+  }, []);
+
+  const handleLocationClear = useCallback(() => {
+    setLocationData(null);
+    setCoordinates(null);
+    setLocationError("");
   }, []);
 
   const handleSubmit = async () => {
@@ -355,15 +324,6 @@ const CreatePrivateEvent = () => {
     }
   };
 
-  const selectedLocation: SelectOption | undefined = locationData
-    ? {
-        id: locationData.placeId,
-        label: locationData.name,
-        description: locationData.address,
-        icon: MapPin,
-      }
-    : undefined;
-
   const localDate = new Date(date);
   localDate.setHours(date.getHours());
   localDate.setMinutes(date.getMinutes());
@@ -412,22 +372,15 @@ const CreatePrivateEvent = () => {
                 <MapPinIcon size={18} color={COLORS.accent} />
                 <Text style={styles.sectionTitle}>Location</Text>
               </View>
-              <Select
-                value={selectedLocation}
-                options={searchResults}
-                placeholder="Search for a place..."
-                searchable
-                loading={isSearchingPlaces}
+              <LocationSelector
+                selectedLocation={locationData}
+                onLocationSelect={handleLocationSelect}
+                onLocationClear={handleLocationClear}
                 onSearch={handleSearchPlaces}
-                onChange={handleLocationSelect}
-                onClear={() => {
-                  setCoordinates(null);
-                  setLocationData(null);
-                  setLocationError("");
-                  setSearchQuery(""); // Clear the search query
-                }}
+                isLoading={isSearchingPlaces}
+                searchResults={searchResults}
                 error={locationError}
-                style={styles.input}
+                buttonText="Search for a place..."
               />
             </View>
 
