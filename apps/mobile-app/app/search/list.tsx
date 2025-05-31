@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Search as SearchIcon, X, MapPin } from "lucide-react-native";
+import { Search as SearchIcon, X } from "lucide-react-native";
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ interface Event {
   description?: string;
   location: string;
   distance: string; // Changed to string to match EventType
+  emoji?: string; // Added emoji field
 }
 
 const SearchListScreen = () => {
@@ -119,24 +120,25 @@ const SearchListScreen = () => {
         activeOpacity={0.7}
       >
         <View style={styles.eventContent}>
-          <Text style={styles.eventTitle} numberOfLines={1}>
-            {event.title}
-          </Text>
-          {event.description && (
-            <Text style={styles.eventDescription} numberOfLines={2}>
-              {event.description}
-            </Text>
-          )}
-          <View style={styles.eventFooter}>
-            <View style={styles.locationContainer}>
-              <MapPin size={14} color={COLORS.textSecondary} />
-              <Text style={styles.locationText} numberOfLines={1}>
-                {event.location || "Location not specified"}
-              </Text>
-            </View>
-            {event.distance && (
-              <Text style={styles.distanceText}>{event.distance}</Text>
+          <View style={styles.eventHeader}>
+            {event.emoji && (
+              <View style={styles.emojiContainer}>
+                <Text style={styles.emoji}>{event.emoji}</Text>
+              </View>
             )}
+            <View style={styles.titleContainer}>
+              <Text style={styles.eventTitle} numberOfLines={1}>
+                {event.title}
+              </Text>
+              {event.description && (
+                <Text style={styles.eventDescription} numberOfLines={2}>
+                  {event.description}
+                </Text>
+              )}
+              {event.distance && (
+                <Text style={styles.distanceText}>{event.distance}</Text>
+              )}
+            </View>
           </View>
         </View>
       </TouchableOpacity>
@@ -201,12 +203,31 @@ const SearchListScreen = () => {
 
 const styles = StyleSheet.create({
   eventItem: {
-    paddingVertical: 12,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.06)",
   },
   eventContent: {
+    flex: 1,
+  },
+  eventHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  emojiContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  emoji: {
+    fontSize: 18,
+  },
+  titleContainer: {
     flex: 1,
   },
   eventTitle: {
@@ -220,26 +241,9 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 14,
     fontFamily: "SpaceMono",
-    marginBottom: 8,
     opacity: 0.8,
-  },
-  eventFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  locationContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    marginRight: 8,
-  },
-  locationText: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    marginLeft: 4,
-    opacity: 0.8,
+    lineHeight: 20,
+    marginBottom: 4,
   },
   distanceText: {
     color: COLORS.accent,
