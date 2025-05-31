@@ -99,7 +99,8 @@ export interface GetEventsParams {
 export interface CreateEventPayload {
   title: string;
   description?: string;
-  eventDate: string;
+  eventDate?: string; // Optional for regular events
+  date?: string; // Optional for private events
   endDate?: string;
   location: {
     type?: string;

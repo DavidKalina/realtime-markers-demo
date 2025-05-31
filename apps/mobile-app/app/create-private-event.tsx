@@ -28,6 +28,7 @@ import {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
+import type { CreateEventPayload } from "@/services/api/base/types";
 
 // Unified color theme matching Login screen
 const COLORS = {
@@ -70,7 +71,17 @@ const CreatePrivateEvent = () => {
   const [coordinates, setCoordinates] = useState<{
     latitude: number;
     longitude: number;
-  } | null>(null);
+  } | null>(() => {
+    // Initialize from params if they exist
+    if (params.latitude && params.longitude) {
+      const lat = parseFloat(params.latitude as string);
+      const lng = parseFloat(params.longitude as string);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return { latitude: lat, longitude: lng };
+      }
+    }
+    return null;
+  });
   const [locationData, setLocationData] = useState<{
     placeId: string;
     name: string;
@@ -85,18 +96,6 @@ const CreatePrivateEvent = () => {
   const [locationError, setLocationError] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 500); // 500ms delay
-
-  useEffect(() => {
-    if (params.latitude && params.longitude) {
-      const lat = parseFloat(params.latitude as string);
-      const lng = parseFloat(params.longitude as string);
-
-      if (!isNaN(lat) && !isNaN(lng)) {
-        setCoordinates({ latitude: lat, longitude: lng });
-        console.log("Received coordinates:", { latitude: lat, longitude: lng });
-      }
-    }
-  }, [params.latitude, params.longitude]);
 
   // Initialize state with values from params if they exist
   const [date, setDate] = useState(() => {
@@ -266,8 +265,9 @@ const CreatePrivateEvent = () => {
       return;
     }
 
-    if (!coordinates || !locationData) {
-      Alert.alert("Error", "Location is required");
+    // Check if we have coordinates (either from params or selected location)
+    if (!coordinates) {
+      Alert.alert("Error", "Location coordinates are required");
       return;
     }
 
@@ -295,32 +295,33 @@ const CreatePrivateEvent = () => {
     setIsSubmitting(true);
 
     try {
-      const eventData = {
+      const eventData: CreateEventPayload = {
         title: eventName.trim(),
         description: eventDescription.trim(),
-        eventDate: date.toISOString(),
         date: date.toISOString(),
+        eventDate: date.toISOString(),
+        sharedWithIds: selectedFriends.map((friend) => friend.id),
+        isPrivate: true,
+        // Location is required by the API, and we've validated coordinates exist
         location: {
           type: "Point",
           coordinates: [coordinates.longitude, coordinates.latitude] as [
             number,
             number,
           ],
-          placeId: locationData.placeId,
-          name: locationData.name,
-          address: locationData.address,
-          types: locationData.types,
-          rating: locationData.rating,
-          userRatingsTotal: locationData.userRatingsTotal,
-          locationNotes: locationData.locationNotes,
         },
-        sharedWithIds: selectedFriends.map((friend) => friend.id),
+      };
 
-        userCoordinates: {
-          lat: coordinates.latitude,
-          lng: coordinates.longitude,
-        },
-        isPrivate: true,
+      // Add additional location data if available
+      if (locationData) {
+        eventData.address = locationData.address;
+        eventData.locationNotes = locationData.locationNotes;
+      }
+
+      // Include userCoordinates since we have coordinates
+      eventData.userCoordinates = {
+        lat: coordinates.latitude,
+        lng: coordinates.longitude,
       };
 
       if (params.id) {
