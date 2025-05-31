@@ -1,21 +1,45 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { MapStyleType, useMapStyle } from "@/contexts/MapStyleContext";
-import { apiClient, PlanType, User } from "@/services/ApiClient";
+import { apiClient, PlanType, User, PlanDetails } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+
+// Cache TTL in milliseconds (5 minutes)
+const CACHE_TTL = 5 * 60 * 1000;
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+interface Cache {
+  profile?: CacheEntry<User>;
+  planDetails?: CacheEntry<PlanDetails>;
+}
+
+// Global cache instance
+const globalCache: Cache = {};
+
+// Request queue to prevent concurrent requests
+let requestQueue: Promise<void> = Promise.resolve();
+const queueRequest = <T>(request: () => Promise<T>): Promise<T> => {
+  const result = requestQueue.then(
+    () => request(),
+    () => request(),
+  );
+  requestQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+};
 
 interface UseProfileReturn {
   // Data
   loading: boolean;
   profileData: User | null;
-  planDetails: {
-    planType: PlanType;
-    weeklyScanCount: number;
-    scanLimit: number;
-    remainingScans: number;
-    lastReset: Date | null;
-  } | null;
+  planDetails: PlanDetails | null;
   memberSince: string;
   progressWidth: number;
   deleteError: string;
@@ -46,13 +70,10 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
   const [password, setPassword] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-  const [planDetails, setPlanDetails] = useState<{
-    planType: PlanType;
-    weeklyScanCount: number;
-    scanLimit: number;
-    remainingScans: number;
-    lastReset: Date | null;
-  } | null>(null);
+  const [planDetails, setPlanDetails] = useState<PlanDetails | null>(null);
+
+  // Cache ref to track cache updates
+  const cacheRef = useRef(globalCache);
 
   // Handle map style change
   const handleMapStyleChange = useCallback(
@@ -63,23 +84,55 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
     [setMapStyle],
   );
 
-  // Combined data fetching with caching
+  // Combined data fetching with caching and request queuing
   useEffect(() => {
     let isMounted = true;
     const controller = new AbortController();
 
     const fetchUserData = async () => {
       try {
-        // Fetch both profile and plan details in parallel
+        // Check cache first
+        const now = Date.now();
+        const cache = cacheRef.current;
+
+        // Helper function to check if cache is valid
+        const isCacheValid = <T>(entry?: CacheEntry<T>) => {
+          return entry && now - entry.timestamp < CACHE_TTL;
+        };
+
+        // Queue profile request if cache is invalid
+        const profilePromise = isCacheValid(cache.profile)
+          ? Promise.resolve(cache.profile!.data)
+          : queueRequest(async () => {
+              const data = await apiClient.auth.getUserProfile();
+              if (isMounted) {
+                cache.profile = { data, timestamp: now };
+                return data;
+              }
+              return null;
+            });
+
+        // Queue plan details request if cache is invalid
+        const planPromise = isCacheValid(cache.planDetails)
+          ? Promise.resolve(cache.planDetails!.data)
+          : queueRequest(async () => {
+              const data = await apiClient.plans.getPlanDetails();
+              if (isMounted) {
+                cache.planDetails = { data, timestamp: now };
+                return data;
+              }
+              return null;
+            });
+
+        // Wait for both requests to complete
         const [profileResponse, planResponse] = await Promise.all([
-          apiClient.auth.getUserProfile(),
-          apiClient.plans.getPlanDetails(),
+          profilePromise,
+          planPromise,
         ]);
 
         if (isMounted) {
-          setProfileData(profileResponse);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setPlanDetails(planResponse as any);
+          if (profileResponse) setProfileData(profileResponse);
+          if (planResponse) setPlanDetails(planResponse);
           setLoading(false);
         }
       } catch (error) {
