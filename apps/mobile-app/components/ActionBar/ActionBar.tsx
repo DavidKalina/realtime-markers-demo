@@ -13,7 +13,6 @@ import {
   Navigation,
   SearchIcon,
   User,
-  UsersRound,
   LucideIcon,
 } from "lucide-react-native";
 import React, {
@@ -172,7 +171,7 @@ interface TabConfig {
 }
 
 // Define route type to match expo-router's expected types
-type AppRoute = "/search" | "/scan" | "/saved" | "/groups" | "/user";
+type AppRoute = "/search" | "/scan" | "/saved" | "/user";
 
 // Define all possible tabs in a single configuration object
 const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
@@ -203,13 +202,6 @@ const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
     icon: BookMarkedIcon,
     route: "/saved",
     enabled: true,
-  },
-  groups: {
-    key: "groups",
-    label: "Groups",
-    icon: UsersRound,
-    route: "/groups",
-    enabled: false,
   },
   user: {
     key: "user",

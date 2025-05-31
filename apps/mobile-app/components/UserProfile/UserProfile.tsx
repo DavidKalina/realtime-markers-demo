@@ -2,7 +2,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useFetchMyFriends } from "@/hooks/useFetchMyFriends";
 import { useProfile } from "@/hooks/useProfile";
-import { router } from "expo-router";
 import { LucideIcon, User, UserPlus } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
@@ -151,14 +150,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             label: "Delete Account",
             onPress: () => setShowDeleteDialog(true),
             variant: "error" as const,
-          },
-        ];
-      case "groups":
-        return [
-          {
-            label: "Discover",
-            onPress: () => router.push("/groups"),
-            variant: "outline" as const,
           },
         ];
       case "friends":
