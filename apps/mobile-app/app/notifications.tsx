@@ -72,6 +72,7 @@ export default function NotificationsScreen() {
 
   return (
     <Screen
+      bannerEmoji="🔔"
       bannerTitle="Notifications"
       showBackButton
       onBack={() => router.back()}
