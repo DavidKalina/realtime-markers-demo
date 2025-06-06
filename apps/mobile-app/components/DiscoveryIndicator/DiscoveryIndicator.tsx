@@ -15,6 +15,7 @@ import Animated, {
   LinearTransition,
 } from "react-native-reanimated";
 import * as Crypto from "expo-crypto";
+import { COLORS } from "../Layout/ScreenLayout";
 
 interface DiscoveryIndicatorProps {
   position?:
@@ -303,10 +304,10 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   wrapper: {
-    width: 280,
+    width: 220,
   },
   itemContainer: {
-    width: 280,
+    width: 220,
   },
   pressable: {
     width: "100%",
@@ -314,22 +315,22 @@ const styles = StyleSheet.create({
   indicator: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1a1a1a",
+    backgroundColor: COLORS.cardBackground,
     borderRadius: 12,
     padding: 8,
     paddingRight: 8,
-    width: 260,
+    width: 200,
     minHeight: 40,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    shadowColor: "#000",
+    borderColor: COLORS.buttonBorder,
+    shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
   },
   notificationIndicator: {
-    backgroundColor: "rgba(26, 26, 26, 0.95)",
+    backgroundColor: COLORS.cardBackgroundAlt,
   },
   iconContainer: {
     width: 24,
@@ -338,19 +339,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: COLORS.buttonBackground,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: COLORS.buttonBorder,
   },
   titleText: {
-    color: "rgba(255, 255, 255, 0.9)",
+    color: COLORS.textPrimary,
     fontSize: 12,
     fontFamily: "SpaceMono",
     fontWeight: "600",
     letterSpacing: 0.5,
   },
   messageText: {
-    color: "rgba(255, 255, 255, 0.6)",
+    color: COLORS.textSecondary,
     fontSize: 10,
     fontFamily: "SpaceMono",
     marginTop: 2,
@@ -358,7 +359,7 @@ const styles = StyleSheet.create({
   emojiText: {
     fontSize: 12,
     textAlign: "center",
-    color: "rgba(255, 255, 255, 0.9)",
+    color: COLORS.textPrimary,
   },
   tapIndicator: {
     marginLeft: 4,
