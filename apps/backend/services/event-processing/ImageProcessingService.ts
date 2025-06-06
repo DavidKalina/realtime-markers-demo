@@ -657,28 +657,58 @@ Make sure to clearly separate each event and provide confidence scores for each.
       return match ? match[1].trim() : undefined;
     };
 
+    // Determine if event is recurring based on explicit "Is Recurring: yes" match
     const isRecurring = /Is Recurring:\s*yes/i.test(content);
 
-    console.log(`isRecurring: ${isRecurring}`);
+    // Extract and normalize recurrence frequency
+    const recurrenceFrequencyStr = extractField(
+      "Recurrence Frequency",
+    )?.toUpperCase();
+    let recurrenceFrequency: RecurrenceFrequency | undefined = undefined;
+    if (
+      recurrenceFrequencyStr &&
+      Object.values(RecurrenceFrequency).includes(
+        recurrenceFrequencyStr as RecurrenceFrequency,
+      )
+    ) {
+      recurrenceFrequency = recurrenceFrequencyStr as RecurrenceFrequency;
+    }
 
-    const recurrenceFrequency = extractField("Recurrence Frequency") as
-      | RecurrenceFrequency
-      | undefined;
+    // Extract and normalize recurrence days
     const recurrenceDaysStr = extractField("Recurrence Days");
-    const recurrenceTime = extractField("Recurrence Time");
+    let recurrenceDays: DayOfWeek[] | undefined = undefined;
+    if (recurrenceDaysStr) {
+      const days = recurrenceDaysStr
+        .split(",")
+        .map((day) => day.trim().toUpperCase())
+        .filter((day) => Object.values(DayOfWeek).includes(day as DayOfWeek))
+        .map((day) => day as DayOfWeek);
+      recurrenceDays = days.length > 0 ? days : undefined;
+    }
 
-    console.log(`recurrenceTime: ${recurrenceTime}`);
+    // Extract and normalize recurrence time (must be in HH:mm format)
+    const recurrenceTimeStr = extractField("Recurrence Time");
+    let recurrenceTime: string | undefined = undefined;
+    if (
+      recurrenceTimeStr &&
+      /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(recurrenceTimeStr)
+    ) {
+      recurrenceTime = recurrenceTimeStr;
+    }
 
-    const recurrenceStartDate = extractField("Recurrence Start Date");
-
-    console.log(`recurrenceStartDate: ${recurrenceStartDate}`);
-    const recurrenceEndDate = extractField("Recurrence End Date");
-
-    console.log(`recurrenceDaysStr: ${recurrenceDaysStr}`);
-
+    // Extract and normalize recurrence interval
     const recurrenceIntervalStr = extractField("Recurrence Interval");
+    let recurrenceInterval: number | undefined = undefined;
+    if (recurrenceIntervalStr) {
+      const parsed = parseInt(recurrenceIntervalStr, 10);
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        recurrenceInterval = parsed;
+      }
+    }
 
-    console.log(`recurrenceEndDate: ${recurrenceEndDate}`);
+    // Extract and normalize recurrence dates
+    const recurrenceStartDate = extractField("Recurrence Start Date");
+    const recurrenceEndDate = extractField("Recurrence End Date");
 
     return {
       title: extractField("Event Title") || "",
@@ -691,22 +721,15 @@ Make sure to clearly separate each event and provide confidence scores for each.
       contactInfo: extractField("Contact Info"),
       socialMedia: extractField("Social Media"),
       otherDetails: extractField("Other Details"),
-      // Add recurrence fields
-      isRecurring,
+      // Recurrence fields with deterministic values
+      isRecurring: isRecurring || false, // Default to false if not explicitly yes
       recurrencePattern: extractField("Recurrence Pattern"),
-      recurrenceFrequency:
-        recurrenceFrequency?.toUpperCase() as RecurrenceFrequency,
-      recurrenceDays: recurrenceDaysStr
-        ?.split(",")
-        .map((day) => day.trim().toUpperCase() as DayOfWeek),
-      recurrenceTime: recurrenceTime || undefined,
-      recurrenceStartDate,
-      recurrenceEndDate,
-      recurrenceInterval: recurrenceIntervalStr
-        ? Number.isNaN(parseInt(recurrenceIntervalStr, 10))
-          ? null
-          : parseInt(recurrenceIntervalStr, 10)
-        : null,
+      recurrenceFrequency, // Will be undefined if not a valid enum value
+      recurrenceDays, // Will be undefined if no valid days found
+      recurrenceTime, // Will be undefined if not in HH:mm format
+      recurrenceStartDate, // Will be undefined if not provided
+      recurrenceEndDate, // Will be undefined if not provided
+      recurrenceInterval, // Will be undefined if not a positive number
     };
   }
 
