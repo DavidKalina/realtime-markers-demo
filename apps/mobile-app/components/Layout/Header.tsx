@@ -17,6 +17,7 @@ interface HeaderProps {
   rightIcon?: React.ReactNode;
   style?: ViewStyle;
   animated?: boolean;
+  titleContent?: React.ReactNode;
 }
 
 // Memoize the header styles
@@ -47,7 +48,6 @@ const headerStyles = StyleSheet.create({
     fontWeight: "700",
     color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
-    textAlign: "center",
     letterSpacing: 0.5,
   },
   rightIconContainer: {
@@ -63,6 +63,20 @@ const headerStyles = StyleSheet.create({
   placeholderIcon: {
     width: 40,
     height: 40,
+  },
+  titleContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  titleText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
+    letterSpacing: 0.5,
   },
 });
 
@@ -82,15 +96,11 @@ const BackButton = React.memo(({ onBack }: { onBack: () => void }) => (
 
 // Memoize the right icon component
 const RightIcon = React.memo(({ icon }: { icon?: React.ReactNode }) =>
-  icon ? (
-    <View style={headerStyles.rightIconContainer}>{icon}</View>
-  ) : (
-    <View style={headerStyles.placeholderIcon} />
-  ),
+  icon ? icon : <View style={headerStyles.placeholderIcon} />,
 );
 
 const Header: React.FC<HeaderProps> = React.memo(
-  ({ title, onBack, rightIcon, style, animated = true }) => {
+  ({ title, onBack, rightIcon, style, animated = true, titleContent }) => {
     const HeaderComponent = animated ? Animated.View : View;
 
     // Memoize the header style
@@ -106,9 +116,12 @@ const Header: React.FC<HeaderProps> = React.memo(
         ) : (
           <View style={headerStyles.placeholderIcon} />
         )}
-        <Text style={headerStyles.headerTitle} numberOfLines={1}>
-          {title}
-        </Text>
+        <View style={headerStyles.titleContainer}>
+          <Text style={headerStyles.titleText} numberOfLines={1}>
+            {title}
+          </Text>
+          {titleContent}
+        </View>
         {rightIcon ? (
           <RightIcon icon={rightIcon} />
         ) : (

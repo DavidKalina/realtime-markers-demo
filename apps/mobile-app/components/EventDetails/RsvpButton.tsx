@@ -88,9 +88,6 @@ const RsvpButton: React.FC<RsvpButtonProps> = ({
 
 const styles = StyleSheet.create({
   rsvpButton: {
-    position: "absolute",
-    top: 24,
-    right: 72, // Position to the left of the SaveButton
     width: 44,
     height: 44,
     borderRadius: 14,

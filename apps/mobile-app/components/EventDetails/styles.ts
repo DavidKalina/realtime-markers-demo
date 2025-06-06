@@ -103,6 +103,14 @@ export const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     lineHeight: 32,
   },
+  eventTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: 16,
+    fontFamily: "SpaceMono",
+    lineHeight: 32,
+  },
   saveButton: {
     paddingHorizontal: 20,
     paddingVertical: 10,

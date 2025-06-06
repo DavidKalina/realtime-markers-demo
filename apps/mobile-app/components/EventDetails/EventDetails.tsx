@@ -298,8 +298,25 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     <ScreenLayout>
       <StatusBar barStyle="light-content" />
 
-      {/* Header with back button */}
-      <Header title="Event Details" onBack={handleBack} />
+      {/* Header with back button and action buttons */}
+      <Header
+        title="Details"
+        onBack={handleBack}
+        rightIcon={
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <RsvpButton
+              isRsvped={isRsvped}
+              rsvpState={rsvpState}
+              onRsvp={handleToggleRsvp}
+            />
+            <SaveButton
+              isSaved={isSaved}
+              savingState={savingState}
+              onSave={handleToggleSave}
+            />
+          </View>
+        }
+      />
 
       <ScrollView
         style={styles.container}
@@ -331,47 +348,22 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
           <EmojiContainer emoji={event.emoji} />
         </View>
 
-        {/* Event Title and Save Button */}
-        <View style={styles.titleContainer}>
-          <Text
-            numberOfLines={2}
-            style={[styles.title, { maxWidth: "80%" }]}
-            adjustsFontSizeToFit={false}
-            allowFontScaling={false}
-          >
-            {event.title}
-          </Text>
-          <RsvpButton
-            isRsvped={isRsvped}
-            rsvpState={rsvpState}
-            onRsvp={handleToggleRsvp}
-          />
-          <SaveButton
-            isSaved={isSaved}
-            savingState={savingState}
-            onSave={handleToggleSave}
-          />
-        </View>
-
         {/* Event Details */}
         <Animated.View
           entering={FadeInDown.duration(600).delay(300).springify()}
           style={styles.detailsContainer}
         >
+          {/* Title */}
+          <Text style={styles.eventTitle}>{event.title}</Text>
+
           {/* Description */}
           {event.description && (
             <View style={styles.detailRow}>
               <View style={styles.iconContainer}>
                 <Info size={18} color={COLORS.accent} strokeWidth={2.5} />
               </View>
-              <View style={styles.descriptionContainer}>
-                <Text
-                  style={styles.detailText}
-                  numberOfLines={3}
-                  ellipsizeMode="tail"
-                >
-                  {event.description}
-                </Text>
+              <View style={[styles.descriptionContainer, { flex: 1 }]}>
+                <Text style={styles.detailText}>{event.description}</Text>
               </View>
             </View>
           )}
@@ -444,7 +436,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
             <View style={styles.iconContainer}>
               <MapPin size={18} color={COLORS.accent} strokeWidth={2.5} />
             </View>
-            <View style={styles.locationContainer}>
+            <View style={[styles.locationContainer, { flex: 1 }]}>
               <Text style={styles.detailText}>
                 {event.location}
                 {distanceInfo && (
