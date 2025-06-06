@@ -100,7 +100,8 @@ export class EventProcessingService {
   constructor(private dependencies: IEventProcessingServiceDependencies) {
     // Initialize the image processing service (use provided or create new one)
     this.imageProcessingService =
-      dependencies.imageProcessingService || new ImageProcessingService();
+      dependencies.imageProcessingService ||
+      ImageProcessingService.getInstance();
 
     // Use provided location service
     this.locationResolutionService = dependencies.locationResolutionService;
