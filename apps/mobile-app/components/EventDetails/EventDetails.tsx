@@ -300,7 +300,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
 
       {/* Header with back button and action buttons */}
       <Header
-        title="Details"
+        title=""
         onBack={handleBack}
         rightIcon={
           <View style={{ flexDirection: "row", gap: 12 }}>
