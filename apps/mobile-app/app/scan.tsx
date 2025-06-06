@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
   contentArea: {
     flex: 1,
     padding: 8,
-    minHeight: 400, // Ensure minimum height for camera view
+    minHeight: 400,
   },
   cameraCard: {
     flex: 1,
@@ -689,24 +689,23 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     position: "relative",
   },
-  // Subtle scan counter at bottom of screen
   scanCountBadge: {
     position: "absolute",
     bottom: 8,
     right: 16,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    backgroundColor: COLORS.textPrimary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: COLORS.accent,
   },
   scanCountText: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
+    color: COLORS.cardBackground,
+    fontSize: 12,
     fontFamily: "SpaceMono",
+    fontWeight: "600",
   },
-  // No Scans Overlay
   noScansOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0, 0, 0, 0.85)",
@@ -722,7 +721,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 24,
     alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
@@ -766,20 +765,20 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   upgradeButtonText: {
-    color: "#000000",
+    color: COLORS.textPrimary,
     fontSize: 16,
     fontWeight: "600",
     fontFamily: "SpaceMono",
   },
   dismissButton: {
-    backgroundColor: "transparent",
+    backgroundColor: COLORS.buttonBackground,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,
     width: "100%",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
+    borderColor: COLORS.buttonBorder,
   },
   dismissButtonText: {
     color: COLORS.textSecondary,
