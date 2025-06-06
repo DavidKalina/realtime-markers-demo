@@ -12,7 +12,7 @@ interface StatusBarProps {
 }
 
 const StatusBar: React.FC<StatusBarProps> = ({
-  backgroundColor = "#1a1a1a", // Match Cluster Events view background
+  backgroundColor = "#f8fafc", // Updated to match new light background
 }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -31,7 +31,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
   return (
     <View style={containerStyle}>
       <RNStatusBar
-        barStyle="light-content"
+        barStyle="dark-content" // Changed to dark-content for light theme
         backgroundColor={backgroundColor}
         translucent
       />
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 1000,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.05)",
+    borderBottomColor: "rgba(0, 0, 0, 0.05)", // Updated for light theme
   },
   indicatorsRow: {
     flexDirection: "row",
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   username: {
-    color: "rgba(255, 255, 255, 0.9)",
+    color: "#0f172a", // Updated to dark text for light theme
     fontSize: 14,
     fontWeight: "500",
     fontFamily: "SpaceMono",

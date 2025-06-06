@@ -54,7 +54,7 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
         scaleBarEnabled={false}
         ref={mapRef}
         style={styles.mapPreview}
-        styleURL={MapboxGL.StyleURL.Dark}
+        styleURL={MapboxGL.StyleURL.Light}
         logoEnabled={false}
         attributionEnabled={false}
         onDidFinishLoadingMap={onMapReady}
@@ -79,7 +79,7 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
                 emoji,
                 isPrivate,
                 eventDate,
-                color: "#4a148c",
+                color: COLORS.accent,
               },
             }}
             isSelected={false}
@@ -91,18 +91,38 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
       {/* Image overlay for public events */}
       {!isPrivate &&
         (imageLoading ? (
-          <View style={styles.privateEventImageOverlay}>
+          <View
+            style={[
+              styles.privateEventImageOverlay,
+              { backgroundColor: `${COLORS.accent}10` },
+            ]}
+          >
             <ActivityIndicator size="small" color={COLORS.accent} />
           </View>
         ) : imageError ? (
-          <View style={styles.privateEventImageOverlay}>
-            <Text style={styles.privateEventImageError}>{imageError}</Text>
+          <View
+            style={[
+              styles.privateEventImageOverlay,
+              { backgroundColor: `${COLORS.errorBackground}` },
+            ]}
+          >
+            <Text
+              style={[
+                styles.privateEventImageError,
+                { color: COLORS.errorText },
+              ]}
+            >
+              {imageError}
+            </Text>
           </View>
         ) : imageUrl ? (
           <TouchableOpacity
             onPress={onImagePress}
             activeOpacity={0.9}
-            style={styles.privateEventImageOverlay}
+            style={[
+              styles.privateEventImageOverlay,
+              { backgroundColor: `${COLORS.accent}10` },
+            ]}
           >
             <Image
               source={{ uri: imageUrl }}

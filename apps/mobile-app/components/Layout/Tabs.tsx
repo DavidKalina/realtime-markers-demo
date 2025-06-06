@@ -82,12 +82,20 @@ function Tabs<T extends string>({
 
 const styles = StyleSheet.create({
   tabsContainer: {
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
+    backgroundColor: "#ffffff",
     borderRadius: 16,
     marginVertical: 20,
     flexDirection: "row",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: "rgba(0, 0, 0, 0.05)",
+    shadowColor: "rgba(0, 0, 0, 0.05)",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   tab: {
     flex: 1,
@@ -99,9 +107,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   activeTab: {
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    backgroundColor: "rgba(245, 158, 11, 0.1)",
     borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.3)",
+    borderColor: "rgba(245, 158, 11, 0.2)",
   },
   tabIcon: {
     marginRight: 6,

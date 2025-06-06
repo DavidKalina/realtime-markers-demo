@@ -84,7 +84,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
     // Memoize the icon color based on active state
     const iconColor = useMemo(
-      () => (isActive ? "#93c5fd" : "#fff"),
+      () => (isActive ? "#f59e0b" : "#64748b"), // Updated to use amber accent color
       [isActive],
     );
 

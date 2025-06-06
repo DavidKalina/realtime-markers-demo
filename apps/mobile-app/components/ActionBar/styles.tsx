@@ -1,10 +1,11 @@
 // styles/action.ts - Updated with more refined button selection styles
 import { Platform, StyleSheet } from "react-native";
+import { COLORS } from "../Layout/ScreenLayout";
 
 export const styles = StyleSheet.create({
   bottomBar: {
     height: 60, // Reduced height since we removed labels
-    backgroundColor: "#1a1a1a", // Match Cluster Events view background
+    backgroundColor: COLORS.background, // Match Cluster Events view background
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
