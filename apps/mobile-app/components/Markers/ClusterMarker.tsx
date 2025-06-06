@@ -38,19 +38,22 @@ interface ClusterMarkerProps {
 // Color schemes with teardrop design
 const COLOR_SCHEMES = {
   small: {
-    fill: COLORS.background,
-    stroke: COLORS.textPrimary,
+    fill: "#1a1a1a",
+    stroke: "white",
     text: COLORS.textPrimary,
+    circleStroke: "#E2E8F0",
   },
   medium: {
-    fill: COLORS.background,
-    stroke: COLORS.textPrimary,
+    fill: "#1a1a1a",
+    stroke: "white",
     text: COLORS.textPrimary,
+    circleStroke: "#E2E8F0",
   },
   large: {
-    fill: COLORS.background,
-    stroke: COLORS.accent, // Use accent color for large clusters
+    fill: COLORS.accent,
+    stroke: COLORS.accentDark,
     text: COLORS.textPrimary,
+    circleStroke: COLORS.accentDark,
   },
 };
 
@@ -142,7 +145,7 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
           strokeWidth={count > 5 ? "4" : "3"}
           highlightStrokeWidth={count > 5 ? "3" : "2.5"}
           circleRadius={count > 5 ? "14" : "12"}
-          circleStroke={count > 15 ? COLORS.accent : COLORS.buttonBorder}
+          circleStroke={colorScheme.circleStroke}
           circleStrokeWidth={count > 15 ? "2" : "1"}
         />
       ),
@@ -349,7 +352,10 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
               <Text
                 style={[
                   styles.countText,
-                  { fontSize: count > 99 ? 14 : count > 9 ? 16 : 18 },
+                  {
+                    fontSize: count > 99 ? 14 : count > 9 ? 16 : 18,
+                    color: colorScheme.text,
+                  },
                 ]}
               >
                 {formattedCount}
@@ -410,7 +416,6 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontWeight: "bold",
-    color: "#fff",
     fontFamily: "SpaceMono",
     textAlign: "center",
     lineHeight: 24,
