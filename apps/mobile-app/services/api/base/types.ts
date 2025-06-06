@@ -83,6 +83,23 @@ export interface ApiEvent {
   detectedQrData?: string | null;
   isPrivate?: boolean;
   shares?: { sharedWithId: string; sharedById: string }[];
+  // Recurring event fields
+  isRecurring?: boolean;
+  recurrenceFrequency?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";
+  recurrenceDays?: (
+    | "SUNDAY"
+    | "MONDAY"
+    | "TUESDAY"
+    | "WEDNESDAY"
+    | "THURSDAY"
+    | "FRIDAY"
+    | "SATURDAY"
+  )[];
+  recurrenceStartDate?: string;
+  recurrenceEndDate?: string;
+  recurrenceInterval?: number;
+  recurrenceTime?: string;
+  recurrenceExceptions?: string[];
 }
 
 export interface GetEventsParams {
@@ -118,6 +135,23 @@ export interface CreateEventPayload {
     lat: number;
     lng: number;
   };
+  // Recurring event fields
+  isRecurring?: boolean;
+  recurrenceFrequency?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";
+  recurrenceDays?: (
+    | "SUNDAY"
+    | "MONDAY"
+    | "TUESDAY"
+    | "WEDNESDAY"
+    | "THURSDAY"
+    | "FRIDAY"
+    | "SATURDAY"
+  )[];
+  recurrenceStartDate?: string;
+  recurrenceEndDate?: string;
+  recurrenceInterval?: number;
+  recurrenceTime?: string;
+  recurrenceExceptions?: string[];
 }
 
 export interface UpdateEventPayload extends Partial<CreateEventPayload> {}
