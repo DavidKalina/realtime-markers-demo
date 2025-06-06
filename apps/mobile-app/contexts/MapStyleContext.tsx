@@ -42,7 +42,7 @@ const getMapStyleURL = (style: MapStyleType): string => {
 
 export const MapStyleProvider: React.FC<{ children: React.ReactNode }> =
   React.memo(({ children }) => {
-    const [currentStyle, setCurrentStyle] = useState<MapStyleType>("dark");
+    const [currentStyle, setCurrentStyle] = useState<MapStyleType>("street");
     const [isPitched, setIsPitched] = useState(true);
 
     // Memoize the style URL to prevent recalculation
