@@ -7,14 +7,10 @@ import {
   MapPin,
   Mail,
   Calendar,
-  Crown,
-  Zap,
   LucideIcon,
 } from "lucide-react-native";
-import { PlanType } from "@/services/ApiClient";
 import { COLORS } from "../Layout/ScreenLayout";
 import List, { StyledSwitch } from "../Layout/List";
-import Badge from "../Layout/Badge";
 
 interface Section {
   title: string;
@@ -28,11 +24,6 @@ interface Section {
 }
 
 interface ProfileSectionProps {
-  planDetails?: {
-    planType: PlanType;
-    remainingScans: number;
-  };
-  progressWidth: number;
   user?: {
     email?: string;
   };
@@ -49,61 +40,16 @@ interface ProfileSectionProps {
   onMapSettingChange: (
     key: "isPitched" | "useLightStyle" | "useDarkStyle" | "useStreetStyle",
   ) => (value: boolean) => void;
-  onUpgradePress: () => void;
 }
 
 const ProfileSection = ({
-  planDetails,
-  progressWidth,
   user,
   memberSince,
   profileData,
   mapSettings,
   onMapSettingChange,
-  onUpgradePress,
 }: ProfileSectionProps): Section[] => {
   const sections: Section[] = [
-    {
-      title: "Plan Details",
-      icon: User,
-      content: (
-        <View style={styles.planSection}>
-          <View style={styles.planHeader}>
-            <Badge
-              label={
-                planDetails?.planType === PlanType.FREE
-                  ? "Free Plan"
-                  : "Pro Plan"
-              }
-              variant={
-                planDetails?.planType === PlanType.FREE ? "default" : "pro"
-              }
-              icon={
-                planDetails?.planType === PlanType.PRO ? (
-                  <Crown size={16} color="#fbbf24" />
-                ) : (
-                  <Zap size={16} color={COLORS.textSecondary} />
-                )
-              }
-              style={styles.planBadge}
-            />
-          </View>
-          <View style={styles.progressBar}>
-            <View
-              style={[styles.progressFill, { width: `${progressWidth}%` }]}
-            />
-          </View>
-          <Text style={styles.planDescription}>
-            {planDetails?.remainingScans} scans remaining this week
-          </Text>
-        </View>
-      ),
-      actionButton: {
-        label: "Upgrade",
-        onPress: onUpgradePress,
-        variant: "primary" as const,
-      },
-    },
     {
       title: "Account Settings",
       icon: Settings,
@@ -152,7 +98,11 @@ const ProfileSection = ({
                       styles.mapStyleButton,
                       mapSettings.useLightStyle && styles.mapStyleButtonActive,
                     ]}
-                    onPress={() => onMapSettingChange("useLightStyle")(true)}
+                    onPress={() => {
+                      onMapSettingChange("useLightStyle")(true);
+                      onMapSettingChange("useDarkStyle")(false);
+                      onMapSettingChange("useStreetStyle")(false);
+                    }}
                   >
                     <Text
                       style={[
@@ -170,7 +120,11 @@ const ProfileSection = ({
                       styles.mapStyleButton,
                       mapSettings.useDarkStyle && styles.mapStyleButtonActive,
                     ]}
-                    onPress={() => onMapSettingChange("useDarkStyle")(true)}
+                    onPress={() => {
+                      onMapSettingChange("useLightStyle")(false);
+                      onMapSettingChange("useDarkStyle")(true);
+                      onMapSettingChange("useStreetStyle")(false);
+                    }}
                   >
                     <Text
                       style={[
@@ -188,7 +142,11 @@ const ProfileSection = ({
                       styles.mapStyleButton,
                       mapSettings.useStreetStyle && styles.mapStyleButtonActive,
                     ]}
-                    onPress={() => onMapSettingChange("useStreetStyle")(true)}
+                    onPress={() => {
+                      onMapSettingChange("useLightStyle")(false);
+                      onMapSettingChange("useDarkStyle")(false);
+                      onMapSettingChange("useStreetStyle")(true);
+                    }}
                   >
                     <Text
                       style={[
@@ -255,33 +213,6 @@ const styles = StyleSheet.create({
   },
   mapStyleButtonTextActive: {
     color: COLORS.accent,
-  },
-  planSection: {
-    padding: 4,
-  },
-  planHeader: {
-    marginBottom: 12,
-    alignItems: "flex-start",
-  },
-  planBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: COLORS.buttonBackground,
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: COLORS.accent,
-    borderRadius: 2,
-  },
-  planDescription: {
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    color: COLORS.textSecondary,
   },
 });
 

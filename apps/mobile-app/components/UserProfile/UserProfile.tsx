@@ -26,9 +26,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const {
     loading,
     profileData,
-    planDetails,
     memberSince,
-    progressWidth,
     deleteError,
     isDeleting,
     showDeleteDialog,
@@ -97,13 +95,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     switch (activeTab) {
       case "profile":
         return ProfileSection({
-          planDetails: planDetails
-            ? {
-                planType: planDetails.planType,
-                remainingScans: planDetails.remainingScans,
-              }
-            : undefined,
-          progressWidth,
           user: user ? { email: user.email } : undefined,
           memberSince: memberSince as string,
           profileData: profileData ? { bio: profileData.bio } : undefined,
@@ -111,7 +102,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           onMapSettingChange:
             (key: keyof typeof mapSettings) => (value: boolean) =>
               handleMapSettingChange(key)(value),
-          onUpgradePress: () => console.log("Upgrade pressed"),
         });
       case "friends":
         return [
@@ -122,11 +112,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               friends,
               isLoading: isLoadingFriends,
             }),
-            actionButton: {
-              label: "Add Friends",
-              onPress: () => console.log("Add friends"),
-              variant: "primary" as const,
-            },
           },
         ];
       default:
@@ -134,8 +119,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     }
   }, [
     activeTab,
-    planDetails,
-    progressWidth,
     user,
     memberSince,
     profileData,
