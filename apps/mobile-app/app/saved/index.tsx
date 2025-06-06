@@ -7,31 +7,20 @@ import {
   Users,
   Compass,
 } from "lucide-react-native";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  TextInput,
-} from "react-native";
+import { TextInput } from "react-native";
 import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
 import Input from "@/components/Input/Input";
 import InfiniteScrollFlatList from "@/components/Layout/InfintieScrollFlatList";
-import { COLORS } from "@/components/Layout/ScreenLayout";
+import EventListItem, {
+  EventListItemProps,
+} from "@/components/Event/EventListItem";
 import { useSavedEvents } from "@/hooks/useSavedEvents";
 
-// Define Event type to match EventType from useEventSearch
-interface Event {
-  id: string;
-  title: string;
-  description?: string;
-  location: string;
-  distance: string;
-  emoji?: string;
-}
-
 type SavedTab = "personal" | "friends" | "discovered";
+
+// Type for events from the API
+type EventType = Omit<EventListItemProps, "onPress">;
 
 const SavedListScreen = () => {
   const router = useRouter();
@@ -91,7 +80,7 @@ const SavedListScreen = () => {
   }, [router]);
 
   const handleEventPress = useCallback(
-    (event: Event) => {
+    (event: EventType) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       router.push({
         pathname: "/details" as const,
@@ -109,35 +98,8 @@ const SavedListScreen = () => {
   }, []);
 
   const renderEventItem = useCallback(
-    (event: Event) => (
-      <TouchableOpacity
-        style={styles.eventItem}
-        onPress={() => handleEventPress(event)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.eventContent}>
-          <View style={styles.eventHeader}>
-            {event.emoji && (
-              <View style={styles.emojiContainer}>
-                <Text style={styles.emoji}>{event.emoji}</Text>
-              </View>
-            )}
-            <View style={styles.titleContainer}>
-              <Text style={styles.eventTitle} numberOfLines={1}>
-                {event.title}
-              </Text>
-              {event.description && (
-                <Text style={styles.eventDescription} numberOfLines={2}>
-                  {event.description}
-                </Text>
-              )}
-              {event.distance && (
-                <Text style={styles.distanceText}>{event.distance}</Text>
-              )}
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
+    (event: EventType) => (
+      <EventListItem {...event} onPress={handleEventPress} />
     ),
     [handleEventPress],
   );
@@ -202,58 +164,5 @@ const SavedListScreen = () => {
     </Screen>
   );
 };
-
-const styles = StyleSheet.create({
-  eventItem: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-  },
-  eventContent: {
-    flex: 1,
-  },
-  eventHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  emojiContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.cardBackgroundAlt,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
-  emoji: {
-    fontSize: 18,
-  },
-  titleContainer: {
-    flex: 1,
-  },
-  eventTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  eventDescription: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-    lineHeight: 20,
-    marginBottom: 4,
-  },
-  distanceText: {
-    color: COLORS.accent,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-  },
-});
 
 export default SavedListScreen;
