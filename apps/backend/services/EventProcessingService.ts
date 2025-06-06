@@ -43,7 +43,7 @@ interface EventDetails {
   recurrenceTime?: string;
   recurrenceStartDate?: string;
   recurrenceEndDate?: string;
-  recurrenceInterval?: number;
+  recurrenceInterval?: number | null;
 }
 
 interface ScanResult {

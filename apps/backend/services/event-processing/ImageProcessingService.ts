@@ -38,7 +38,7 @@ export interface EventStructuredData {
   recurrenceTime?: string;
   recurrenceStartDate?: string;
   recurrenceEndDate?: string;
-  recurrenceInterval?: number;
+  recurrenceInterval?: number | null;
 }
 
 export class ImageProcessingService implements IImageProcessingService {
@@ -619,6 +619,8 @@ Make sure to clearly separate each event and provide confidence scores for each.
       // Extract confidence score from the response
       const confidence = this.extractConfidenceScore(content);
 
+      console.log(`confidence: ${confidence}`);
+
       // Check if Vision API detected a QR code
       const qrDetected = /QR code.*?:\s*yes/i.test(content);
 
@@ -656,14 +658,27 @@ Make sure to clearly separate each event and provide confidence scores for each.
     };
 
     const isRecurring = /Is Recurring:\s*yes/i.test(content);
+
+    console.log(`isRecurring: ${isRecurring}`);
+
     const recurrenceFrequency = extractField("Recurrence Frequency") as
       | RecurrenceFrequency
       | undefined;
     const recurrenceDaysStr = extractField("Recurrence Days");
     const recurrenceTime = extractField("Recurrence Time");
+
+    console.log(`recurrenceTime: ${recurrenceTime}`);
+
     const recurrenceStartDate = extractField("Recurrence Start Date");
+
+    console.log(`recurrenceStartDate: ${recurrenceStartDate}`);
     const recurrenceEndDate = extractField("Recurrence End Date");
+
+    console.log(`recurrenceDaysStr: ${recurrenceDaysStr}`);
+
     const recurrenceIntervalStr = extractField("Recurrence Interval");
+
+    console.log(`recurrenceEndDate: ${recurrenceEndDate}`);
 
     return {
       title: extractField("Event Title") || "",
@@ -679,16 +694,19 @@ Make sure to clearly separate each event and provide confidence scores for each.
       // Add recurrence fields
       isRecurring,
       recurrencePattern: extractField("Recurrence Pattern"),
-      recurrenceFrequency,
+      recurrenceFrequency:
+        recurrenceFrequency?.toUpperCase() as RecurrenceFrequency,
       recurrenceDays: recurrenceDaysStr
         ?.split(",")
-        .map((day) => day.trim() as DayOfWeek),
-      recurrenceTime,
+        .map((day) => day.trim().toUpperCase() as DayOfWeek),
+      recurrenceTime: recurrenceTime || undefined,
       recurrenceStartDate,
       recurrenceEndDate,
       recurrenceInterval: recurrenceIntervalStr
-        ? parseInt(recurrenceIntervalStr, 10)
-        : undefined,
+        ? Number.isNaN(parseInt(recurrenceIntervalStr, 10))
+          ? null
+          : parseInt(recurrenceIntervalStr, 10)
+        : null,
     };
   }
 
