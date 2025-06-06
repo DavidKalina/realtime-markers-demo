@@ -16,6 +16,7 @@ import {
   Share,
   Tag,
   X,
+  Repeat,
 } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -85,6 +86,30 @@ const EmojiContainer = ({ emoji = "📍" }: { emoji?: string }) => {
       </Animated.View>
     </View>
   );
+};
+
+// Add helper functions before the EventDetails component
+const formatRecurrenceFrequency = (frequency?: string): string => {
+  if (!frequency) return "";
+  switch (frequency) {
+    case "DAILY":
+      return "Daily";
+    case "WEEKLY":
+      return "Weekly";
+    case "BIWEEKLY":
+      return "Every 2 weeks";
+    case "MONTHLY":
+      return "Monthly";
+    case "YEARLY":
+      return "Yearly";
+    default:
+      return frequency.toLowerCase();
+  }
+};
+
+const formatRecurrenceDays = (days?: string[]): string => {
+  if (!days || days.length === 0) return "";
+  return days.join(", ");
 };
 
 const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
@@ -363,6 +388,56 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
               <Text style={styles.detailTextSecondary}>{"\n"}1:00 PM MDT</Text>
             </Text>
           </View>
+
+          {/* Recurring Event Details */}
+          {event.isRecurring && (
+            <Animated.View
+              entering={FadeInDown.duration(600).delay(400).springify()}
+              style={[styles.detailRow, styles.recurringDetailsContainer]}
+            >
+              <View style={styles.iconContainer}>
+                <Repeat size={18} color={COLORS.accent} strokeWidth={2.5} />
+              </View>
+              <View style={styles.recurringDetailsContent}>
+                <Text style={styles.detailText}>
+                  Recurring Event
+                  {event.recurrenceInterval && event.recurrenceInterval > 1 && (
+                    <Text style={styles.detailTextSecondary}>
+                      {"\n"}Every {event.recurrenceInterval}{" "}
+                      {formatRecurrenceFrequency(
+                        event.recurrenceFrequency,
+                      ).toLowerCase()}
+                      s
+                    </Text>
+                  )}
+                  {!event.recurrenceInterval && (
+                    <Text style={styles.detailTextSecondary}>
+                      {"\n"}
+                      {formatRecurrenceFrequency(event.recurrenceFrequency)}
+                    </Text>
+                  )}
+                  {event.recurrenceDays && event.recurrenceDays.length > 0 && (
+                    <Text style={styles.detailTextSecondary}>
+                      {"\n"}on {formatRecurrenceDays(event.recurrenceDays)}
+                    </Text>
+                  )}
+                  {event.recurrenceTime && (
+                    <Text style={styles.detailTextSecondary}>
+                      {"\n"}at {event.recurrenceTime}
+                    </Text>
+                  )}
+                  {event.recurrenceStartDate && event.recurrenceEndDate && (
+                    <Text style={styles.detailTextSecondary}>
+                      {"\n"}from{" "}
+                      {new Date(event.recurrenceStartDate).toLocaleDateString()}{" "}
+                      to{" "}
+                      {new Date(event.recurrenceEndDate).toLocaleDateString()}
+                    </Text>
+                  )}
+                </Text>
+              </View>
+            </Animated.View>
+          )}
 
           {/* Location */}
           <TouchableOpacity style={styles.detailRow} onPress={handleOpenMaps}>

@@ -538,4 +538,17 @@ export const styles = StyleSheet.create({
     textAlign: "center",
     padding: 8,
   },
+  recurringDetailsContainer: {
+    marginTop: 8,
+    marginBottom: 8,
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  recurringDetailsContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
 });
