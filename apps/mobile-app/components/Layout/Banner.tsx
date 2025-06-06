@@ -13,6 +13,7 @@ import Animated, {
   withTiming,
   withSequence,
   Easing,
+  withSpring,
 } from "react-native-reanimated";
 
 interface BannerProps {
@@ -73,6 +74,30 @@ export default function Banner({ emoji, name, onBack, scrollY }: BannerProps) {
     transform: [{ translateX: floatX.value }, { translateY: floatY.value }],
   }));
 
+  // Add back button animation
+  const backButtonScale = useSharedValue(1);
+  const backButtonRotation = useSharedValue(0);
+
+  const handleBackPress = () => {
+    backButtonScale.value = withSequence(
+      withSpring(0.9, { damping: 10 }),
+      withSpring(1, { damping: 10 }),
+    );
+    backButtonRotation.value = withSequence(
+      withTiming(-0.1, { duration: 100, easing: Easing.ease }),
+      withTiming(0.1, { duration: 100, easing: Easing.ease }),
+      withTiming(0, { duration: 100, easing: Easing.ease }),
+    );
+    onBack();
+  };
+
+  const backButtonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: backButtonScale.value },
+      { rotate: `${backButtonRotation.value}rad` },
+    ],
+  }));
+
   return (
     <Animated.View
       style={[styles.zoneBanner, zoneBannerAnimatedStyle]}
@@ -80,9 +105,17 @@ export default function Banner({ emoji, name, onBack, scrollY }: BannerProps) {
     >
       <View style={styles.bannerContent}>
         <View style={styles.backButtonPlaceholder} />
-        <TouchableOpacity onPress={onBack} style={styles.bannerBackButton}>
-          <ArrowLeft size={20} color={COLORS.textPrimary} />
-        </TouchableOpacity>
+        <Animated.View
+          style={[styles.bannerBackButton, backButtonAnimatedStyle]}
+        >
+          <TouchableOpacity
+            onPress={handleBackPress}
+            style={styles.backButtonTouchable}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={20} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+        </Animated.View>
         <View style={styles.titleContainer}>
           <View style={styles.titleContent}>
             <Animated.View style={floatingEmojiStyle}>
@@ -123,15 +156,29 @@ const styles = StyleSheet.create({
   bannerBackButton: {
     position: "absolute",
     left: 16,
-    top: "50%",
-    transform: [{ translateY: -20 }],
-    padding: 6,
-    backgroundColor: "rgba(0,0,0,0.15)",
-    borderRadius: 16,
-    height: 44,
+    top: 0,
+    bottom: 0,
     width: 44,
     alignItems: "center",
     justifyContent: "center",
+  },
+  backButtonTouchable: {
+    width: 36, // Slightly smaller than container
+    height: 36, // Slightly smaller than container
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.15)",
+    borderRadius: 18, // Half of width/height
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   titleContainer: {
     flex: 1,

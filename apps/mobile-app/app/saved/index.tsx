@@ -18,7 +18,6 @@ import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
 import Input from "@/components/Input/Input";
 import InfiniteScrollFlatList from "@/components/Layout/InfintieScrollFlatList";
-import Tabs from "@/components/Layout/Tabs";
 import { COLORS } from "@/components/Layout/ScreenLayout";
 import { useSavedEvents } from "@/hooks/useSavedEvents";
 
@@ -160,18 +159,14 @@ const SavedListScreen = () => {
     <Screen
       isScrollable={false}
       bannerTitle="Saved Events"
-      bannerDescription="Browse and search your saved events"
       bannerEmoji="🔖"
       showBackButton
       onBack={handleBack}
       noAnimation
+      tabs={tabItems}
+      activeTab={activeTab}
+      onTabChange={handleTabPress}
     >
-      <Tabs
-        items={tabItems}
-        activeTab={activeTab}
-        onTabPress={handleTabPress}
-        style={{ marginHorizontal: 16 }}
-      />
       <Input
         ref={searchInputRef}
         icon={SearchIcon}
@@ -213,7 +208,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    borderBottomColor: COLORS.divider,
   },
   eventContent: {
     flex: 1,
@@ -226,10 +221,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: COLORS.cardBackgroundAlt,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
   },
   emoji: {
     fontSize: 18,
@@ -248,7 +245,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 14,
     fontFamily: "SpaceMono",
-    opacity: 0.8,
     lineHeight: 20,
     marginBottom: 4,
   },
