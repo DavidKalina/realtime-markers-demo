@@ -88,10 +88,32 @@ export class EventService {
     const now = new Date();
 
     // Find events that are outdated:
-    // 1. Any event that has passed its start date
+    // 1. Non-recurring events that have passed their start date
+    // 2. Recurring events that have passed their end date (if specified)
     const eventsToDelete = await this.eventRepository
       .createQueryBuilder("event")
-      .where("event.event_date < :now", { now })
+      .where(
+        new Brackets((qb) => {
+          qb.where(
+            new Brackets((qb2) => {
+              qb2
+                .where("event.is_recurring = :isRecurring", {
+                  isRecurring: false,
+                })
+                .andWhere("event.event_date < :now", { now });
+            }),
+          ).orWhere(
+            new Brackets((qb2) => {
+              qb2
+                .where("event.is_recurring = :isRecurring", {
+                  isRecurring: true,
+                })
+                .andWhere("event.recurrence_end_date IS NOT NULL")
+                .andWhere("event.recurrence_end_date < :now", { now });
+            }),
+          );
+        }),
+      )
       .take(batchSize + 1) // Get one extra to check if there are more
       .getMany();
 

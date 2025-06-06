@@ -7,6 +7,7 @@ import type { ImageProcessingResult } from "./dto/ImageProcessingResult";
 import { OpenAIModel, OpenAIService } from "../shared/OpenAIService";
 import jsQR from "jsqr";
 import { Jimp } from "jimp";
+import { RecurrenceFrequency, DayOfWeek } from "../../entities/Event";
 
 // New interface for multi-event results
 export interface MultiEventProcessingResult {
@@ -15,6 +16,29 @@ export interface MultiEventProcessingResult {
   events: ImageProcessingResult[];
   extractedAt: string;
   error?: string;
+}
+
+// Update the ImageProcessingResult interface to include recurrence info
+export interface EventStructuredData {
+  title: string;
+  dateTime: string;
+  timezone?: string;
+  venueAddress?: string;
+  venueName?: string;
+  organizer?: string;
+  description?: string;
+  contactInfo?: string;
+  socialMedia?: string;
+  otherDetails?: string;
+  // Add recurrence fields
+  isRecurring?: boolean;
+  recurrencePattern?: string; // Raw text describing the recurrence
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceDays?: DayOfWeek[];
+  recurrenceTime?: string;
+  recurrenceStartDate?: string;
+  recurrenceEndDate?: string;
+  recurrenceInterval?: number;
 }
 
 export class ImageProcessingService implements IImageProcessingService {
@@ -225,6 +249,16 @@ For EACH event found, extract:
 - Any social media handles
 - Any other important details
 
+Also include for each event:
+Is Recurring: [yes/no]
+Recurrence Pattern: [if recurring, describe the pattern in detail]
+Recurrence Frequency: [DAILY/WEEKLY/BIWEEKLY/MONTHLY/YEARLY or N/A]
+Recurrence Days: [comma-separated list of days if applicable]
+Recurrence Time: [time in HH:mm format if applicable]
+Recurrence Start Date: [start date of the series if specified]
+Recurrence End Date: [end date of the series if specified]
+Recurrence Interval: [number for intervals like "every 2 weeks"]
+
 Format your response as:
 
 EVENT_COUNT: [number of events found]
@@ -233,6 +267,14 @@ EVENT_1:
 QR Code Present: [yes/no]
 Event Title: [title]
 Date and Time: [full date and time]
+Is Recurring: [yes/no]
+Recurrence Pattern: [if recurring, describe the pattern in detail]
+Recurrence Frequency: [DAILY/WEEKLY/BIWEEKLY/MONTHLY/YEARLY or N/A]
+Recurrence Days: [comma-separated list of days if applicable]
+Recurrence Time: [time in HH:mm format if applicable]
+Recurrence Start Date: [start date of the series if specified]
+Recurrence End Date: [end date of the series if specified]
+Recurrence Interval: [number for intervals like "every 2 weeks"]
 Timezone: [timezone, or N/A]
 VENUE ADDRESS: [full address]
 VENUE NAME: [venue name, if distinct from address, otherwise N/A]
@@ -493,8 +535,6 @@ Make sure to clearly separate each event and provide confidence scores for each.
     base64Image: string,
   ): Promise<ImageProcessingResult> {
     try {
-      // In the callVisionAPI method, update the prompt:
-      // In the callVisionAPI method, update the prompt:
       const response = await OpenAIService.executeChatCompletion({
         model: this.VISION_MODEL as OpenAIModel,
         messages: [
@@ -515,6 +555,12 @@ Make sure to clearly separate each event and provide confidence scores for each.
                  * **Plausibility Check:** Assess if the extracted time seems reasonable for this type of event based on the overall context of the flyer.
                  * **Other Digit Checks:** Also verify: 11 vs 1, 12 vs 2, 4 vs 9.
                  * **Format:** Verify AM/PM indicators. Include minutes if present (e.g., :00). State time precisely as seen (e.g., 1:00 PM).
+               - **IMPORTANT: Check for Recurring Event Patterns:**
+                 * Look for phrases like "every", "weekly", "monthly", "daily", "bi-weekly"
+                 * Look for specific days mentioned (e.g., "every Monday", "Tuesdays and Thursdays")
+                 * Look for date ranges or duration (e.g., "through December", "until further notice")
+                 * Look for time patterns (e.g., "every day at 7 PM", "weekly at 3 PM")
+                 * Look for exceptions or special dates
                - Any timezone information (EST, PST, GMT, etc.)
                - Full Location Details:
                  * PRIMARY VENUE: Focus on the most prominently displayed location in the image.
@@ -532,16 +578,18 @@ Make sure to clearly separate each event and provide confidence scores for each.
                - Any social media handles
                - Any other important details (e.g., "All are welcome...")
 
-               IMPORTANT: For location extraction:
-               1. Use the EXACT venue name/address as shown in the image.
-               2. Clearly distinguish between the EVENT VENUE (where it happens) and the EVENT ORGANIZER (who is hosting).
-               3. Consider VISUAL HIERARCHY - larger, more central text is often the title or venue. Smaller text at the top/bottom is often the organizer.
-               4. Report organization details (like "YSA 36TH WARD") as the ORGANIZER.
-
                Format your response with clear separation:
                QR Code Present: [yes/no]
                Event Title: [title]
                Date and Time: [full date and time, paying attention to the 1 vs 7 check]
+               Is Recurring: [yes/no]
+               Recurrence Pattern: [if recurring, describe the pattern in detail]
+               Recurrence Frequency: [DAILY/WEEKLY/BIWEEKLY/MONTHLY/YEARLY or N/A]
+               Recurrence Days: [comma-separated list of days if applicable]
+               Recurrence Time: [time in HH:mm format if applicable]
+               Recurrence Start Date: [start date of the series if specified]
+               Recurrence End Date: [end date of the series if specified]
+               Recurrence Interval: [number for intervals like "every 2 weeks"]
                Timezone: [timezone, or N/A]
                VENUE ADDRESS: [full address]
                VENUE NAME: [venue name, if distinct from address, otherwise N/A]
@@ -574,12 +622,16 @@ Make sure to clearly separate each event and provide confidence scores for each.
       // Check if Vision API detected a QR code
       const qrDetected = /QR code.*?:\s*yes/i.test(content);
 
+      // Extract structured data including recurrence information
+      const structuredData = this.extractStructuredData(content);
+
       return {
         success: true,
         rawText: content,
         confidence: confidence,
         extractedAt: new Date().toISOString(),
         qrCodeDetected: qrDetected,
+        structuredData,
       };
     } catch (error) {
       console.error("Error calling Vision API:", error);
@@ -594,6 +646,50 @@ Make sure to clearly separate each event and provide confidence scores for each.
             : "Unknown error processing image",
       };
     }
+  }
+
+  private extractStructuredData(content: string): EventStructuredData {
+    const extractField = (fieldName: string): string | undefined => {
+      const regex = new RegExp(`${fieldName}:\\s*([^\\n]+)`, "i");
+      const match = content.match(regex);
+      return match ? match[1].trim() : undefined;
+    };
+
+    const isRecurring = /Is Recurring:\s*yes/i.test(content);
+    const recurrenceFrequency = extractField("Recurrence Frequency") as
+      | RecurrenceFrequency
+      | undefined;
+    const recurrenceDaysStr = extractField("Recurrence Days");
+    const recurrenceTime = extractField("Recurrence Time");
+    const recurrenceStartDate = extractField("Recurrence Start Date");
+    const recurrenceEndDate = extractField("Recurrence End Date");
+    const recurrenceIntervalStr = extractField("Recurrence Interval");
+
+    return {
+      title: extractField("Event Title") || "",
+      dateTime: extractField("Date and Time") || "",
+      timezone: extractField("Timezone"),
+      venueAddress: extractField("VENUE ADDRESS"),
+      venueName: extractField("VENUE NAME"),
+      organizer: extractField("ORGANIZER"),
+      description: extractField("Description"),
+      contactInfo: extractField("Contact Info"),
+      socialMedia: extractField("Social Media"),
+      otherDetails: extractField("Other Details"),
+      // Add recurrence fields
+      isRecurring,
+      recurrencePattern: extractField("Recurrence Pattern"),
+      recurrenceFrequency,
+      recurrenceDays: recurrenceDaysStr
+        ?.split(",")
+        .map((day) => day.trim() as DayOfWeek),
+      recurrenceTime,
+      recurrenceStartDate,
+      recurrenceEndDate,
+      recurrenceInterval: recurrenceIntervalStr
+        ? parseInt(recurrenceIntervalStr, 10)
+        : undefined,
+    };
   }
 
   /**
