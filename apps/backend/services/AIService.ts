@@ -1,5 +1,10 @@
 import { openai } from "@ai-sdk/openai";
-import { generateObject, type LanguageModel } from "ai";
+import {
+  generateObject,
+  type LanguageModel,
+  embed,
+  type EmbedResult,
+} from "ai";
 import { AIResponseSchema } from "./shared/schemas/eventSchemas";
 import {
   getEventImageAnalysisMessages,
@@ -10,6 +15,7 @@ import {
 export class AiService {
   private static instance: AiService;
   model: LanguageModel = openai("gpt-4o");
+  embeddingModel = openai.embedding("text-embedding-3-small");
 
   private constructor(model: LanguageModel) {
     this.model = model;
@@ -47,5 +53,33 @@ export class AiService {
     // Validate the response
     const validatedResult = AIResponseSchema.parse(result.object);
     return { object: validatedResult };
+  }
+
+  public static async generateEmbeddings(
+    text: string,
+  ): Promise<EmbedResult<string>> {
+    const service = this.getInstance();
+
+    const embeddings = await embed({
+      model: service.embeddingModel,
+      value: text,
+    });
+
+    return embeddings;
+  }
+
+  public static async generateEmbeddingsBatch(
+    texts: string[],
+  ): Promise<EmbedResult<string>[]> {
+    const service = this.getInstance();
+
+    const embeddingsPromises = texts.map((text) =>
+      embed({
+        model: service.embeddingModel,
+        value: text,
+      }),
+    );
+
+    return Promise.all(embeddingsPromises);
   }
 }
