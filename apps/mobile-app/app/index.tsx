@@ -33,6 +33,7 @@ import React, {
 import { Platform, View } from "react-native";
 import { runOnJS } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { COLORS } from "@/components/Layout/ScreenLayout";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -490,7 +491,7 @@ function HomeScreen() {
       top: insets.top, // StatusBar height (40) + padding (20)
       right: 8,
       zIndex: 1000,
-      backgroundColor: "rgba(26, 26, 26, 0.9)",
+      backgroundColor: COLORS.cardBackgroundAlt,
       borderRadius: 20,
       padding: 8,
       shadowColor: "#000",
