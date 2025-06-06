@@ -32,5 +32,13 @@ export const mapEventToEventType = (apiEvent: ApiEvent): EventType => {
     createdAt: apiEvent.createdAt,
     updatedAt: apiEvent.updatedAt,
     sharedWithIds: apiEvent.shares?.map((share) => share.sharedWithId) || [],
+    isRecurring: apiEvent.isRecurring,
+    recurrenceFrequency: apiEvent.recurrenceFrequency,
+    recurrenceDays: apiEvent.recurrenceDays,
+    recurrenceStartDate: apiEvent.recurrenceStartDate,
+    recurrenceEndDate: apiEvent.recurrenceEndDate,
+    recurrenceInterval: apiEvent.recurrenceInterval,
+    recurrenceTime: apiEvent.recurrenceTime,
+    recurrenceExceptions: apiEvent.recurrenceExceptions,
   };
 };

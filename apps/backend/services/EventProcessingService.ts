@@ -17,6 +17,7 @@ import { ProgressReportingService } from "./event-processing/ProgressReportingSe
 import type { JobQueue } from "./JobQueue";
 import { EmbeddingService } from "./shared/EmbeddingService";
 import type { EventStructuredData } from "./event-processing/dto/ImageProcessingResult";
+import { RecurrenceFrequency, DayOfWeek } from "../entities/Event";
 
 interface LocationContext {
   userCoordinates?: { lat: number; lng: number };
@@ -36,6 +37,13 @@ interface EventDetails {
   timezone?: string; // IANA timezone identifier (e.g., "America/New_York")
   locationNotes?: string; // Additional location context like building, room, etc.
   userCityState?: string; // User's city and state for location context
+  isRecurring?: boolean;
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceDays?: DayOfWeek[];
+  recurrenceTime?: string;
+  recurrenceStartDate?: string;
+  recurrenceEndDate?: string;
+  recurrenceInterval?: number | null;
 }
 
 interface ScanResult {
@@ -62,6 +70,13 @@ interface PrivateEventInput {
   locationNotes?: string;
   isPrivate: boolean;
   sharedWithIds?: string[];
+  isRecurring?: boolean;
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceDays?: DayOfWeek[];
+  recurrenceTime?: string;
+  recurrenceStartDate?: string;
+  recurrenceEndDate?: string;
+  recurrenceInterval?: number;
 }
 
 /**
@@ -162,9 +177,20 @@ export class EventProcessingService {
         locationContext,
       );
 
+    // Add recurrence information to event details
+    const eventDetailsWithCategories = {
+      ...extractionResult.event,
+      isRecurring: visionResult.structuredData?.isRecurring,
+      recurrenceFrequency: visionResult.structuredData?.recurrenceFrequency,
+      recurrenceDays: visionResult.structuredData?.recurrenceDays,
+      recurrenceTime: visionResult.structuredData?.recurrenceTime,
+      recurrenceStartDate: visionResult.structuredData?.recurrenceStartDate,
+      recurrenceEndDate: visionResult.structuredData?.recurrenceEndDate,
+      recurrenceInterval: visionResult.structuredData?.recurrenceInterval,
+    };
+
     // Step 4: Generate embedding
     await workflow.updateProgress(4, "Generating event embedding...");
-    const eventDetailsWithCategories = extractionResult.event;
     const finalEmbedding = await this.generateEmbedding(
       eventDetailsWithCategories,
     );
@@ -185,6 +211,10 @@ export class EventProcessingService {
           address: eventDetailsWithCategories.address,
           description: eventDetailsWithCategories.description,
           timezone: eventDetailsWithCategories.timezone,
+          isRecurring: eventDetailsWithCategories.isRecurring,
+          recurrenceFrequency: eventDetailsWithCategories.recurrenceFrequency,
+          recurrenceDays: eventDetailsWithCategories.recurrenceDays,
+          recurrenceTime: eventDetailsWithCategories.recurrenceTime,
         },
       );
 
@@ -253,21 +283,42 @@ export class EventProcessingService {
       categories,
     };
 
+    // Add recurrence information to event details
+    const eventDetailsWithRecurrence = {
+      ...eventDetails,
+      isRecurring: eventDetails.isRecurring,
+      recurrenceFrequency: eventDetails.recurrenceFrequency,
+      recurrenceDays: eventDetails.recurrenceDays,
+      recurrenceTime: eventDetails.recurrenceTime,
+      recurrenceStartDate: eventDetails.recurrenceStartDate,
+      recurrenceEndDate: eventDetails.recurrenceEndDate,
+      recurrenceInterval: eventDetails.recurrenceInterval,
+    };
+
     // Generate embedding
-    const finalEmbedding = await this.generateEmbedding(eventDetails);
+    const finalEmbedding = await this.generateEmbedding(
+      eventDetailsWithRecurrence,
+    );
 
     // Check for duplicates
     const similarity =
       await this.dependencies.eventSimilarityService.findSimilarEvents(
         finalEmbedding,
         {
-          title: eventDetails.title,
-          date: eventDetails.date,
-          endDate: eventDetails.endDate,
-          coordinates: eventDetails.location.coordinates as [number, number],
-          address: eventDetails.address,
-          description: eventDetails.description,
-          timezone: eventDetails.timezone,
+          title: eventDetailsWithRecurrence.title,
+          date: eventDetailsWithRecurrence.date,
+          endDate: eventDetailsWithRecurrence.endDate,
+          coordinates: eventDetailsWithRecurrence.location.coordinates as [
+            number,
+            number,
+          ],
+          address: eventDetailsWithRecurrence.address,
+          description: eventDetailsWithRecurrence.description,
+          timezone: eventDetailsWithRecurrence.timezone,
+          isRecurring: eventDetailsWithRecurrence.isRecurring,
+          recurrenceFrequency: eventDetailsWithRecurrence.recurrenceFrequency,
+          recurrenceDays: eventDetailsWithRecurrence.recurrenceDays,
+          recurrenceTime: eventDetailsWithRecurrence.recurrenceTime,
         },
       );
 
@@ -281,7 +332,7 @@ export class EventProcessingService {
 
     return {
       confidence: 1.0, // Private events are manually created, so confidence is always high
-      eventDetails,
+      eventDetails: eventDetailsWithRecurrence,
       similarity,
       isDuplicate: isDuplicate || false,
       qrCodeDetected: false,
@@ -300,6 +351,7 @@ export class EventProcessingService {
       DESCRIPTION: ${eventDetails.description || ""}
       LOCATION: ${eventDetails.address || ""}
       LOCATION_NOTES: ${eventDetails.locationNotes || ""}
+      ${eventDetails.isRecurring ? `RECURRENCE: ${eventDetails.recurrenceFrequency} ${eventDetails.recurrenceDays?.join(", ")} at ${eventDetails.recurrenceTime}` : ""}
       `.trim();
 
     // Get embedding using the embedding service
@@ -390,6 +442,11 @@ export class EventProcessingService {
               address: eventDetailsWithCategories.address,
               description: eventDetailsWithCategories.description,
               timezone: eventDetailsWithCategories.timezone,
+              isRecurring: eventDetailsWithCategories.isRecurring,
+              recurrenceFrequency:
+                eventDetailsWithCategories.recurrenceFrequency,
+              recurrenceDays: eventDetailsWithCategories.recurrenceDays,
+              recurrenceTime: eventDetailsWithCategories.recurrenceTime,
             },
           );
 
@@ -472,6 +529,25 @@ export class EventProcessingService {
     if (data.contactInfo) parts.push(`Contact Info: ${data.contactInfo}`);
     if (data.socialMedia) parts.push(`Social Media: ${data.socialMedia}`);
     if (data.otherDetails) parts.push(`Other Details: ${data.otherDetails}`);
+
+    // Add recurrence information
+    if (data.isRecurring) {
+      parts.push("Is Recurring: yes");
+      if (data.recurrencePattern)
+        parts.push(`Recurrence Pattern: ${data.recurrencePattern}`);
+      if (data.recurrenceFrequency)
+        parts.push(`Recurrence Frequency: ${data.recurrenceFrequency}`);
+      if (data.recurrenceDays?.length)
+        parts.push(`Recurrence Days: ${data.recurrenceDays.join(", ")}`);
+      if (data.recurrenceTime)
+        parts.push(`Recurrence Time: ${data.recurrenceTime}`);
+      if (data.recurrenceStartDate)
+        parts.push(`Recurrence Start Date: ${data.recurrenceStartDate}`);
+      if (data.recurrenceEndDate)
+        parts.push(`Recurrence End Date: ${data.recurrenceEndDate}`);
+      if (data.recurrenceInterval)
+        parts.push(`Recurrence Interval: ${data.recurrenceInterval}`);
+    }
 
     return parts.join("\n");
   }

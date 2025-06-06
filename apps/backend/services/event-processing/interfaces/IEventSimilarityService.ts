@@ -1,6 +1,22 @@
 // services/event-processing/interfaces/IEventSimilarityService.ts
 
 import type { SimilarityResult } from "../dto/SimilarityResult";
+import { RecurrenceFrequency, DayOfWeek } from "../../../entities/Event";
+
+export interface EventComparisonData {
+  title: string;
+  date: string;
+  endDate?: string;
+  coordinates: [number, number];
+  address?: string;
+  description?: string;
+  timezone?: string;
+  // Add recurrence fields
+  isRecurring?: boolean;
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceDays?: DayOfWeek[];
+  recurrenceTime?: string;
+}
 
 /**
  * Interface for event similarity detection and duplicate handling
@@ -14,15 +30,7 @@ export interface IEventSimilarityService {
    */
   findSimilarEvents(
     embedding: number[],
-    eventData: {
-      title: string;
-      date: string;
-      endDate?: string;
-      coordinates: [number, number];
-      address?: string;
-      description?: string;
-      timezone?: string;
-    },
+    eventData: EventComparisonData,
   ): Promise<SimilarityResult>;
 
   /**

@@ -28,6 +28,24 @@ export enum EventStatus {
   EXPIRED = "EXPIRED",
 }
 
+export enum RecurrenceFrequency {
+  DAILY = "DAILY",
+  WEEKLY = "WEEKLY",
+  BIWEEKLY = "BIWEEKLY",
+  MONTHLY = "MONTHLY",
+  YEARLY = "YEARLY",
+}
+
+export enum DayOfWeek {
+  SUNDAY = "SUNDAY",
+  MONDAY = "MONDAY",
+  TUESDAY = "TUESDAY",
+  WEDNESDAY = "WEDNESDAY",
+  THURSDAY = "THURSDAY",
+  FRIDAY = "FRIDAY",
+  SATURDAY = "SATURDAY",
+}
+
 @Entity("events")
 export class Event {
   @PrimaryGeneratedColumn("uuid")
@@ -158,4 +176,48 @@ export class Event {
 
   @UpdateDateColumn({ name: "updated_at", type: "timestamptz" })
   updatedAt!: Date;
+
+  @Column({ name: "is_recurring", type: "boolean", default: false })
+  isRecurring!: boolean;
+
+  @Column({
+    name: "recurrence_frequency",
+    type: "enum",
+    enum: RecurrenceFrequency,
+    nullable: true,
+  })
+  recurrenceFrequency?: RecurrenceFrequency;
+
+  @Column({
+    name: "recurrence_days",
+    type: "enum",
+    enum: DayOfWeek,
+    array: true,
+    nullable: true,
+  })
+  recurrenceDays?: DayOfWeek[];
+
+  @Column({
+    name: "recurrence_start_date",
+    type: "timestamptz",
+    nullable: true,
+  })
+  recurrenceStartDate?: Date;
+
+  @Column({ name: "recurrence_end_date", type: "timestamptz", nullable: true })
+  recurrenceEndDate?: Date;
+
+  @Column({ name: "recurrence_interval", type: "integer", nullable: true })
+  recurrenceInterval?: number; // e.g., every 2 weeks, every 3 months
+
+  @Column({ name: "recurrence_time", type: "time", nullable: true })
+  recurrenceTime?: string; // Store time in HH:mm format
+
+  @Column({
+    name: "recurrence_exceptions",
+    type: "date",
+    array: true,
+    nullable: true,
+  })
+  recurrenceExceptions?: Date[]; // Dates where the event doesn't occur
 }

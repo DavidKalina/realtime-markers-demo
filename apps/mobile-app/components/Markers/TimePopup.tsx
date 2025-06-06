@@ -11,6 +11,7 @@ import Animated, {
   ZoomIn,
   ZoomOut,
 } from "react-native-reanimated";
+import { COLORS } from "../Layout/ScreenLayout";
 
 interface TimePopupProps {
   time: string;
@@ -291,15 +292,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   badgeContainer: {
-    backgroundColor: "#1a1a1a",
+    backgroundColor: COLORS.textPrimary,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    shadowColor: "#000",
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    shadowColor: COLORS.shadow,
     shadowOffset: {
       width: 0,
       height: 3,
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 1,
   },
   countdownText: {
-    color: "rgba(255, 255, 255, 0.95)",
+    color: COLORS.cardBackground,
     fontSize: 11,
     lineHeight: 13,
     fontFamily: "SpaceMono",
@@ -332,7 +333,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   titleText: {
-    color: "rgba(255, 255, 255, 0.95)",
+    color: COLORS.cardBackground,
     fontSize: 11,
     lineHeight: 13,
     fontFamily: "SpaceMono",

@@ -103,6 +103,14 @@ export const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     lineHeight: 32,
   },
+  eventTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: 16,
+    fontFamily: "SpaceMono",
+    lineHeight: 32,
+  },
   saveButton: {
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -537,5 +545,18 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "center",
     padding: 8,
+  },
+  recurringDetailsContainer: {
+    marginTop: 8,
+    marginBottom: 8,
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  recurringDetailsContent: {
+    flex: 1,
+    marginLeft: 12,
   },
 });

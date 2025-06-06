@@ -89,9 +89,6 @@ const SaveButton: React.FC<SaveButtonProps> = ({
 
 const styles = StyleSheet.create({
   saveButton: {
-    position: "absolute",
-    top: 24,
-    right: 20,
     width: 44,
     height: 44,
     borderRadius: 14,

@@ -2,6 +2,7 @@
 
 import type { Point } from "geojson";
 import type { Category } from "../../../entities/Category";
+import { RecurrenceFrequency, DayOfWeek } from "../../../entities/Event";
 
 /**
  * Data transfer object for event extraction results
@@ -73,6 +74,41 @@ export interface EventExtractionResult {
      * Additional location context like building names, room numbers, etc.
      */
     locationNotes?: string;
+
+    /**
+     * Indicates whether the event is recurring
+     */
+    isRecurring?: boolean;
+
+    /**
+     * Recurrence frequency
+     */
+    recurrenceFrequency?: RecurrenceFrequency;
+
+    /**
+     * Recurrence days
+     */
+    recurrenceDays?: DayOfWeek[];
+
+    /**
+     * Recurrence time
+     */
+    recurrenceTime?: string;
+
+    /**
+     * Recurrence start date
+     */
+    recurrenceStartDate?: string;
+
+    /**
+     * Recurrence end date
+     */
+    recurrenceEndDate?: string;
+
+    /**
+     * Recurrence interval
+     */
+    recurrenceInterval?: number;
   };
 
   /**

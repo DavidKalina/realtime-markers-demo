@@ -1,4 +1,4 @@
-import * as Haptics from "expo-haptics";
+// import * as Haptics from "expo-haptics";
 import React from "react";
 import {
   ActivityIndicator,
@@ -16,6 +16,7 @@ import Animated, {
   BounceOut,
   LinearTransition,
 } from "react-native-reanimated";
+import { COLORS } from "@/components/Layout/ScreenLayout";
 
 interface DeleteAccountModalProps {
   visible: boolean;
@@ -67,7 +68,7 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
             style={styles.passwordInput}
             secureTextEntry
             placeholder="Enter your password"
-            placeholderTextColor="#666"
+            placeholderTextColor={COLORS.textSecondary}
             value={password}
             onChangeText={setPassword}
           />
@@ -121,22 +122,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalContent: {
-    backgroundColor: "#2a2a2a",
+    backgroundColor: COLORS.cardBackground,
     borderRadius: 16,
     padding: 24,
     width: "90%",
     maxWidth: 400,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#f8f9fa",
+    color: COLORS.textPrimary,
     fontFamily: "SpaceMono",
     marginBottom: 16,
     textAlign: "center",
   },
   dialogText: {
-    color: "#f8f9fa",
+    color: COLORS.textPrimary,
     fontSize: 15,
     fontFamily: "SpaceMono",
     lineHeight: 22,
@@ -144,24 +152,24 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   dialogSubText: {
-    color: "#a0a0a0",
+    color: COLORS.textSecondary,
     fontSize: 14,
     fontFamily: "SpaceMono",
     marginBottom: 12,
   },
   passwordInput: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: COLORS.cardBackgroundAlt,
     borderRadius: 12,
     padding: 12,
-    color: "#f8f9fa",
+    color: COLORS.textPrimary,
     fontSize: 15,
     fontFamily: "SpaceMono",
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: COLORS.buttonBorder,
   },
   errorText: {
-    color: "#dc2626",
+    color: COLORS.errorText,
     fontSize: 14,
     fontFamily: "SpaceMono",
     marginBottom: 16,
@@ -175,13 +183,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: COLORS.buttonBackground,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: COLORS.buttonBorder,
     alignItems: "center",
   },
   cancelButtonText: {
-    color: "#f8f9fa",
+    color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: "600",
     fontFamily: "SpaceMono",
@@ -190,7 +198,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: "#dc2626",
+    backgroundColor: COLORS.errorText,
     alignItems: "center",
   },
   deleteModalButtonDisabled: {

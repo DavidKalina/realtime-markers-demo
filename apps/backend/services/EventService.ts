@@ -9,7 +9,12 @@ import {
   In,
 } from "typeorm";
 import { Category } from "../entities/Category";
-import { Event, EventStatus } from "../entities/Event";
+import {
+  Event,
+  EventStatus,
+  RecurrenceFrequency,
+  DayOfWeek,
+} from "../entities/Event";
 import type { Filter } from "../entities/Filter";
 import { User } from "../entities/User";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
@@ -49,6 +54,13 @@ interface CreateEventInput {
   embedding: number[];
   isPrivate?: boolean;
   sharedWithIds?: string[]; // Optional array of user IDs to share the event with
+  isRecurring?: boolean;
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceDays?: DayOfWeek[];
+  recurrenceTime?: string;
+  recurrenceStartDate?: Date;
+  recurrenceEndDate?: Date;
+  recurrenceInterval?: number;
 }
 
 export class EventService {
@@ -88,10 +100,32 @@ export class EventService {
     const now = new Date();
 
     // Find events that are outdated:
-    // 1. Any event that has passed its start date
+    // 1. Non-recurring events that have passed their start date
+    // 2. Recurring events that have passed their end date (if specified)
     const eventsToDelete = await this.eventRepository
       .createQueryBuilder("event")
-      .where("event.event_date < :now", { now })
+      .where(
+        new Brackets((qb) => {
+          qb.where(
+            new Brackets((qb2) => {
+              qb2
+                .where("event.is_recurring = :isRecurring", {
+                  isRecurring: false,
+                })
+                .andWhere("event.event_date < :now", { now });
+            }),
+          ).orWhere(
+            new Brackets((qb2) => {
+              qb2
+                .where("event.is_recurring = :isRecurring", {
+                  isRecurring: true,
+                })
+                .andWhere("event.recurrence_end_date IS NOT NULL")
+                .andWhere("event.recurrence_end_date < :now", { now });
+            }),
+          );
+        }),
+      )
       .take(batchSize + 1) // Get one extra to check if there are more
       .getMany();
 
@@ -274,6 +308,13 @@ export class EventService {
       detectedQrData: input.detectedQrData,
       originalImageUrl: input.originalImageUrl || undefined,
       isPrivate: input.isPrivate || false,
+      isRecurring: input.isRecurring || false,
+      recurrenceFrequency: input.recurrenceFrequency,
+      recurrenceDays: input.recurrenceDays,
+      recurrenceTime: input.recurrenceTime,
+      recurrenceStartDate: input.recurrenceStartDate,
+      recurrenceEndDate: input.recurrenceEndDate,
+      recurrenceInterval: input.recurrenceInterval,
     };
 
     // Create event instance

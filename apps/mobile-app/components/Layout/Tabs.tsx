@@ -38,14 +38,17 @@ const TabButton = memo<{
     onPress={onPress}
     activeOpacity={0.7}
   >
-    <Icon
-      size={16}
-      color={isActive ? COLORS.accent : COLORS.textSecondary}
-      style={styles.tabIcon}
-    />
-    <Text style={[styles.tabText, isActive && styles.activeTabText]}>
-      {label}
-    </Text>
+    <View style={styles.tabContent}>
+      <Icon
+        size={20}
+        color={isActive ? COLORS.accent : COLORS.textSecondary}
+        style={styles.tabIcon}
+      />
+      <Text style={[styles.tabText, isActive && styles.activeTabText]}>
+        {label}
+      </Text>
+    </View>
+    {isActive && <View style={styles.underline} />}
   </TouchableOpacity>
 ));
 
@@ -82,39 +85,46 @@ function Tabs<T extends string>({
 
 const styles = StyleSheet.create({
   tabsContainer: {
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
-    borderRadius: 16,
-    marginVertical: 20,
     flexDirection: "row",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0, 0, 0, 0.05)",
+    paddingHorizontal: 16,
   },
   tab: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 10,
-    borderRadius: 12,
-    marginHorizontal: 2,
+    paddingVertical: 12,
+    position: "relative",
+  },
+  tabContent: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "center",
   },
   activeTab: {
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.3)",
+    // No background color needed for underlined style
+  },
+  underline: {
+    position: "absolute",
+    bottom: -1, // Align with the bottom border
+    left: "15%",
+    right: "15%",
+    height: 2,
+    backgroundColor: COLORS.accent,
+    borderRadius: 1,
   },
   tabIcon: {
     marginRight: 6,
   },
   tabText: {
-    fontSize: 12,
+    fontSize: 14,
     color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
     fontWeight: "500",
   },
   activeTabText: {
     color: COLORS.accent,
-    fontWeight: "700",
+    fontWeight: "600",
   },
 });
 

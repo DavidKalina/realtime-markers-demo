@@ -78,7 +78,6 @@ export interface ScreenProps<T extends string = string> {
 
 const Screen = <T extends string>({
   bannerTitle,
-  bannerDescription,
   bannerEmoji,
   showBackButton = true,
   onBack,
@@ -111,7 +110,9 @@ const Screen = <T extends string>({
   const renderContent = () => (
     <ScreenContent>
       {tabs && activeTab && onTabChange && (
-        <Tabs items={tabs} activeTab={activeTab} onTabPress={onTabChange} />
+        <View style={styles.tabsWrapper}>
+          <Tabs items={tabs} activeTab={activeTab} onTabPress={onTabChange} />
+        </View>
       )}
 
       <View
@@ -167,7 +168,6 @@ const Screen = <T extends string>({
             {(bannerTitle || showBackButton) && (
               <Banner
                 name={bannerTitle || ""}
-                description={bannerDescription}
                 emoji={bannerEmoji}
                 onBack={handleBack}
                 scrollY={scrollY}
@@ -180,7 +180,6 @@ const Screen = <T extends string>({
             {(bannerTitle || showBackButton) && (
               <Banner
                 name={bannerTitle || ""}
-                description={bannerDescription}
                 emoji={bannerEmoji}
                 onBack={handleBack}
                 scrollY={scrollY}
@@ -227,7 +226,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingTop: 24,
+    paddingTop: 16,
   },
   contentWithFooter: {
     paddingBottom: 24, // Add padding when footer is present
@@ -264,6 +263,11 @@ const styles = StyleSheet.create({
   },
   footerButton: {
     flex: 1,
+  },
+  tabsWrapper: {
+    marginHorizontal: -16,
+    marginTop: 0,
+    marginBottom: 0,
   },
 });
 

@@ -29,23 +29,7 @@ import Animated, {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
-
-// Unified color theme matching ClusterEventsView
-const COLORS = {
-  background: "#1a1a1a",
-  cardBackground: "#2a2a2a",
-  textPrimary: "#f8f9fa",
-  textSecondary: "#a0a0a0",
-  accent: "#93c5fd",
-  divider: "rgba(255, 255, 255, 0.08)",
-  buttonBackground: "rgba(255, 255, 255, 0.05)",
-  buttonBorder: "rgba(255, 255, 255, 0.1)",
-  error: {
-    background: "rgba(249, 117, 131, 0.1)",
-    border: "rgba(249, 117, 131, 0.3)",
-    text: "#f97583",
-  },
-};
+import { COLORS } from "@/components/Layout/ScreenLayout";
 
 const RegisterScreen: React.FC = () => {
   const router = useRouter();
@@ -159,7 +143,10 @@ const RegisterScreen: React.FC = () => {
     <AuthWrapper requireAuth={false}>
       <SafeAreaView style={styles.container}>
         <AnimatedMapBackground settings={{ styleURL: mapStyle }} />
-        <StatusBar barStyle="light-content" backgroundColor="#333" />
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={COLORS.background}
+        />
 
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -360,7 +347,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cardBackground,
     borderWidth: 1,
     borderColor: COLORS.divider,
-    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
@@ -369,22 +356,22 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   errorContainer: {
-    backgroundColor: COLORS.error.background,
+    backgroundColor: COLORS.errorBackground,
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: COLORS.error.border,
+    borderColor: COLORS.errorBorder,
   },
   errorText: {
-    color: COLORS.error.text,
+    color: COLORS.errorText,
     fontSize: 14,
     fontFamily: "SpaceMono",
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.cardBackground,
     borderRadius: 12,
     marginBottom: 16,
     paddingHorizontal: 12,
@@ -414,9 +401,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginVertical: 20,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    backgroundColor: "rgba(245, 158, 11, 0.1)",
     borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.3)",
+    borderColor: "rgba(245, 158, 11, 0.2)",
   },
   loginButtonText: {
     color: COLORS.accent,

@@ -11,6 +11,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { COLORS } from "@/components/Layout/ScreenLayout";
 
 // For debugging timings
 
@@ -114,21 +115,21 @@ export const ImagePoofIntoEmojiTransformation: React.FC<
         easing: Easing.inOut(Easing.cubic),
       });
 
-      // Start gentle bobbing animation immediately
+      // Start gentle bobbing animation immediately with slightly larger range
       yOffset.value = withRepeat(
         withSequence(
-          withTiming(-35, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
-          withTiming(-25, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+          withTiming(-40, { duration: 1500, easing: Easing.inOut(Easing.sin) }), // Increased range
+          withTiming(-20, { duration: 1500, easing: Easing.inOut(Easing.sin) }), // Increased range
         ),
-        -1, // Infinite
-        true, // Reverse
+        -1,
+        true,
       );
 
-      // Add subtle rotation during bobbing
+      // Add subtle rotation during bobbing with slightly larger range
       wobble.value = withRepeat(
         withSequence(
-          withTiming(2, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
-          withTiming(-2, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+          withTiming(3, { duration: 1500, easing: Easing.inOut(Easing.sin) }), // Increased range
+          withTiming(-3, { duration: 1500, easing: Easing.inOut(Easing.sin) }), // Increased range
         ),
         -1,
         true,
@@ -174,34 +175,34 @@ export const ImagePoofIntoEmojiTransformation: React.FC<
           easing: Easing.out(Easing.cubic),
         });
 
-        // Animate particles
+        // Animate particles with more dramatic movement
         particles.forEach((particle, i) => {
-          // Random direction for each particle
           const angle = Math.PI * 2 * (i / PARTICLE_COUNT);
-          const distance = 70 + Math.random() * 50;
+          const distance = 80 + Math.random() * 70; // Increased distance range
 
           particle.opacity.value = withSequence(
-            withTiming(1, { duration: 100 }),
-            withTiming(0, { duration: 500 }),
+            withTiming(1, { duration: 150 }), // Slightly longer fade in
+            withTiming(0, { duration: 600 }), // Longer fade out
           );
 
           particle.translateX.value = withTiming(Math.cos(angle) * distance, {
-            duration: 600,
+            duration: 800, // Longer duration
             easing: Easing.out(Easing.cubic),
           });
 
           particle.translateY.value = withTiming(Math.sin(angle) * distance, {
-            duration: 600,
+            duration: 800, // Longer duration
             easing: Easing.out(Easing.cubic),
           });
 
           particle.scale.value = withSequence(
-            withTiming(0.5 + Math.random() * 0.5, { duration: 100 }),
-            withTiming(0, { duration: 500 }),
+            withTiming(0.6 + Math.random() * 0.6, { duration: 150 }), // Larger scale range
+            withTiming(0, { duration: 600 }),
           );
 
-          particle.rotate.value = withTiming(Math.random() * 360, {
-            duration: 600,
+          particle.rotate.value = withTiming(Math.random() * 720, {
+            // More rotation
+            duration: 800,
           });
         });
 
@@ -294,6 +295,15 @@ const styles = StyleSheet.create({
     backfaceVisibility: "hidden",
     justifyContent: "center",
     alignItems: "center",
+    // Add a subtle shadow to make the image pop
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+    // Add a subtle border
+    borderWidth: 1,
+    borderColor: `${COLORS.accent}20`, // 12.5% opacity accent color
   },
   image: {
     width: "100%",
@@ -304,22 +314,52 @@ const styles = StyleSheet.create({
     position: "absolute",
     justifyContent: "center",
     alignItems: "center",
+    // Add a glow effect to the poof
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 8,
   },
   poofEmoji: {
     fontSize: 80,
+    // Add a text shadow to make the poof emoji pop
+    textShadowColor: `${COLORS.accent}80`, // 50% opacity accent color
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
   },
   emojiContainer: {
     position: "absolute",
     justifyContent: "center",
     alignItems: "center",
+    // Add a subtle glow effect to the final emoji
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    elevation: 6,
   },
   emoji: {
     fontSize: EMOJI_SIZE,
+    // Add a text shadow to make the emoji pop
+    textShadowColor: `${COLORS.accent}60`, // 37.5% opacity accent color
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
   },
   particle: {
     position: "absolute",
+    // Add a subtle glow to particles
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 3,
   },
   particleEmoji: {
     fontSize: 20,
+    // Add a text shadow to make particles pop
+    textShadowColor: `${COLORS.accent}80`, // 50% opacity accent color
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 6,
   },
 });

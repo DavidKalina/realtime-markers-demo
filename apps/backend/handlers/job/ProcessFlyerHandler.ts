@@ -22,6 +22,13 @@ interface ProcessedEvent extends Omit<Event, "location"> {
   location: Point;
 }
 
+// Utility to safely parse date strings or return undefined (NULL for DB)
+function parseDateOrNull(dateStr?: string): Date | undefined {
+  if (!dateStr) return undefined;
+  const date = new Date(dateStr);
+  return isNaN(date.getTime()) ? undefined : date;
+}
+
 export class ProcessFlyerHandler extends BaseJobHandler {
   readonly jobType = "process_flyer";
 
@@ -204,6 +211,13 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         detectedQrData: scanResult.qrCodeData,
         originalImageUrl: originalImageUrl,
         embedding: scanResult.embedding,
+        isRecurring: eventDetails.isRecurring,
+        recurrenceFrequency: eventDetails.recurrenceFrequency,
+        recurrenceDays: eventDetails.recurrenceDays,
+        recurrenceTime: eventDetails.recurrenceTime,
+        recurrenceStartDate: parseDateOrNull(eventDetails.recurrenceStartDate),
+        recurrenceEndDate: parseDateOrNull(eventDetails.recurrenceEndDate),
+        recurrenceInterval: eventDetails.recurrenceInterval,
       });
 
       // Create discovery record if creator exists

@@ -10,6 +10,7 @@ import AnimatedReanimated, {
   cancelAnimation,
   runOnJS,
 } from "react-native-reanimated";
+import { COLORS } from "@/components/Layout/ScreenLayout";
 
 interface MapRippleEffectProps {
   isVisible: boolean;
@@ -43,23 +44,24 @@ export const MapRippleEffect: React.FC<MapRippleEffectProps> = ({
       scale.value = 0;
       opacity.value = 1;
 
-      // Start animation sequence
+      // Start animation sequence with adjusted timing and opacity
       scale.value = withSequence(
-        withTiming(1, {
-          duration: 1000,
+        withTiming(1.2, {
+          // Slightly larger scale for more impact
+          duration: 1200, // Longer duration for better visibility
           easing: Easing.bezier(0.25, 0.1, 0.25, 1),
         }),
         withTiming(0, {
-          duration: 300,
+          duration: 400, // Slightly longer fade out
           easing: Easing.bezier(0.25, 0.1, 0.25, 1),
         }),
       );
 
       opacity.value = withSequence(
-        withTiming(0.8, { duration: 300 }),
+        withTiming(0.9, { duration: 400 }), // Higher initial opacity
         withDelay(
-          700,
-          withTiming(0, { duration: 300 }, handleAnimationComplete),
+          800, // Slightly longer delay
+          withTiming(0, { duration: 400 }, handleAnimationComplete), // Longer fade out
         ),
       );
     }
@@ -99,14 +101,18 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: `${COLORS.accent}40`, // 25% opacity accent color
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: `${COLORS.accent}80`, // 50% opacity accent color
   },
   rippleInner: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    backgroundColor: `${COLORS.accent}60`, // 37.5% opacity accent color
+    borderWidth: 1,
+    borderColor: `${COLORS.accent}90`, // 56.25% opacity accent color
   },
 });

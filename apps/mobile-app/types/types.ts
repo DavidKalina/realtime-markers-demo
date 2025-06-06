@@ -54,6 +54,23 @@ export interface EventType {
   };
   isPrivate?: boolean;
   sharedWithIds?: string[]; // Add shared user IDs
+  // Recurring event fields
+  isRecurring?: boolean;
+  recurrenceFrequency?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";
+  recurrenceDays?: (
+    | "SUNDAY"
+    | "MONDAY"
+    | "TUESDAY"
+    | "WEDNESDAY"
+    | "THURSDAY"
+    | "FRIDAY"
+    | "SATURDAY"
+  )[];
+  recurrenceStartDate?: string;
+  recurrenceEndDate?: string;
+  recurrenceInterval?: number;
+  recurrenceTime?: string;
+  recurrenceExceptions?: string[];
 }
 
 // Mapbox viewport format for map integration

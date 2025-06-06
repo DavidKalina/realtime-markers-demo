@@ -10,25 +10,25 @@ import Animated, { FadeIn } from "react-native-reanimated";
 
 // Unified color theme
 export const COLORS = {
-  background: "#1a1a1a",
-  cardBackground: "#2a2a2a",
-  cardBackgroundAlt: "#232323",
-  textPrimary: "#f8f9fa",
-  textSecondary: "#a0a0a0",
-  accent: "#93c5fd",
-  accentDark: "#3b82f6",
-  divider: "rgba(255, 255, 255, 0.08)",
-  buttonBackground: "rgba(255, 255, 255, 0.05)",
-  buttonBorder: "rgba(255, 255, 255, 0.1)",
-  shadow: "rgba(0, 0, 0, 0.5)",
+  background: "#f8fafc", // Light, clean background
+  cardBackground: "#ffffff", // Pure white for cards
+  cardBackgroundAlt: "#f1f5f9", // Slightly off-white for alternate cards
+  textPrimary: "#0f172a", // Deep blue-gray for primary text
+  textSecondary: "#64748b", // Medium gray for secondary text
+  accent: "#f59e0b", // Vibrant amber/orange
+  accentDark: "#d97706", // Darker amber for hover states
+  divider: "rgba(0, 0, 0, 0.08)", // Subtle divider
+  buttonBackground: "rgba(0, 0, 0, 0.05)", // Light button background
+  buttonBorder: "rgba(0, 0, 0, 0.1)", // Subtle button border
+  shadow: "rgba(0, 0, 0, 0.1)", // Lighter shadow
   // Warning colors
-  warningBackground: "rgba(253, 186, 116, 0.1)",
-  warningBorder: "rgba(253, 186, 116, 0.3)",
-  warningText: "#fdba74",
+  warningBackground: "rgba(251, 191, 36, 0.1)", // Bright yellow warning
+  warningBorder: "rgba(251, 191, 36, 0.3)",
+  warningText: "#d97706", // Warm orange warning text
   // Error colors
-  errorBackground: "rgba(248, 113, 113, 0.1)",
-  errorBorder: "rgba(248, 113, 113, 0.3)",
-  errorText: "#f87171",
+  errorBackground: "rgba(239, 68, 68, 0.1)", // Bright red error
+  errorBorder: "rgba(239, 68, 68, 0.3)",
+  errorText: "#dc2626", // Vibrant red error text
 };
 
 interface ScreenLayoutProps {
@@ -74,7 +74,10 @@ const ScreenLayout: React.FC<ScreenLayoutProps> = React.memo(
 
     return (
       <Container style={containerStyle}>
-        <StatusBar barStyle="light-content" backgroundColor="#333" />
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor={COLORS.background}
+        />
         <Content
           style={contentStyleMemo}
           entering={noAnimation ? undefined : FadeIn.duration(300)}

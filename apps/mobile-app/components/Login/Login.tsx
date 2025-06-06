@@ -40,6 +40,7 @@ import Animated, {
 import MapMojiHeader from "../AnimationHeader";
 import { AuthWrapper } from "../AuthWrapper";
 import Input from "../Input/Input";
+import { COLORS } from "../Layout/ScreenLayout";
 
 // Define types for our data
 interface Profile {
@@ -86,23 +87,6 @@ const TEST_PROFILES: Profile[] = [
     emoji: "👨‍💻",
   },
 ];
-
-// Unified color theme matching ClusterEventsView
-const COLORS = {
-  background: "#1a1a1a",
-  cardBackground: "#2a2a2a",
-  textPrimary: "#f8f9fa",
-  textSecondary: "#a0a0a0",
-  accent: "#93c5fd",
-  divider: "rgba(255, 255, 255, 0.08)",
-  buttonBackground: "rgba(255, 255, 255, 0.05)",
-  buttonBorder: "rgba(255, 255, 255, 0.1)",
-  error: {
-    background: "rgba(249, 117, 131, 0.1)",
-    border: "rgba(249, 117, 131, 0.3)",
-    text: "#f97583",
-  },
-};
 
 const Login: React.FC = () => {
   const router = useRouter();
@@ -198,11 +182,11 @@ const Login: React.FC = () => {
   const getRoleColor = (role: string) => {
     switch (role.toUpperCase()) {
       case "ADMIN":
-        return "#ffcc00";
+        return "#f59e0b";
       case "MODERATOR":
-        return "#4dabf7";
+        return "#3b82f6";
       default:
-        return "#adb5bd";
+        return "#64748b";
     }
   };
 
@@ -248,11 +232,295 @@ const Login: React.FC = () => {
     }, 150);
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: COLORS.background,
+    },
+
+    keyboardAvoidingView: {
+      flex: 1,
+      zIndex: 2,
+    },
+
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: "center",
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+    },
+
+    contentContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 20,
+    },
+
+    formContainer: {
+      width: "100%",
+      maxWidth: 400,
+      alignSelf: "center",
+      zIndex: 2,
+    },
+
+    formCard: {
+      width: "100%",
+      borderRadius: 20,
+      padding: 20,
+      backgroundColor: COLORS.cardBackground,
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      shadowColor: "rgba(0, 0, 0, 0.1)",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
+      elevation: 8,
+      position: "relative",
+      overflow: "hidden",
+    },
+
+    errorContainer: {
+      backgroundColor: COLORS.errorBackground,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: COLORS.errorBorder,
+    },
+
+    errorText: {
+      color: COLORS.errorText,
+      fontSize: 14,
+      fontFamily: "SpaceMono",
+    },
+
+    inputContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: COLORS.cardBackground,
+      borderRadius: 12,
+      marginBottom: 16,
+      paddingHorizontal: 12,
+      height: 55,
+      borderWidth: 1,
+      borderColor: COLORS.buttonBorder,
+    },
+
+    inputIcon: {
+      marginRight: 10,
+    },
+
+    input: {
+      flex: 1,
+      height: "100%",
+      color: COLORS.textPrimary,
+      fontSize: 16,
+      fontFamily: "SpaceMono",
+    },
+
+    eyeIcon: {
+      padding: 8,
+    },
+
+    loginButton: {
+      borderRadius: 12,
+      height: 55,
+      justifyContent: "center",
+      alignItems: "center",
+      marginVertical: 20,
+      backgroundColor: "rgba(245, 158, 11, 0.1)",
+      borderWidth: 1,
+      borderColor: "rgba(245, 158, 11, 0.2)",
+    },
+
+    loginButtonText: {
+      color: COLORS.accent,
+      fontSize: 16,
+      fontWeight: "600",
+      fontFamily: "SpaceMono",
+      letterSpacing: 0.5,
+    },
+
+    createAccountContainer: {
+      flexDirection: "row",
+      justifyContent: "center",
+      marginTop: 16,
+    },
+
+    createAccountText: {
+      color: COLORS.textSecondary,
+      fontSize: 14,
+      fontFamily: "SpaceMono",
+    },
+
+    createAccountLink: {
+      color: COLORS.accent,
+      fontSize: 14,
+      fontWeight: "600",
+      fontFamily: "SpaceMono",
+    },
+
+    profileSelectorContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: COLORS.cardBackgroundAlt,
+      borderRadius: 12,
+      marginBottom: 16,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: COLORS.buttonBorder,
+      height: 55,
+      zIndex: 4,
+    },
+
+    selectedProfileContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      flex: 1,
+    },
+
+    selectedProfileEmojiContainer: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: "rgba(245, 158, 11, 0.1)",
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 12,
+      borderWidth: 1,
+      borderColor: "rgba(245, 158, 11, 0.2)",
+    },
+
+    profileEmojiLarge: {
+      fontSize: 20,
+    },
+
+    selectedProfileName: {
+      color: COLORS.textPrimary,
+      fontSize: 15,
+      fontWeight: "500",
+      fontFamily: "SpaceMono",
+    },
+
+    noProfileContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      flex: 1,
+    },
+
+    placeholderAvatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: COLORS.buttonBackground,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 12,
+      borderWidth: 1,
+      borderColor: COLORS.buttonBorder,
+    },
+
+    selectProfileText: {
+      color: COLORS.textSecondary,
+      fontSize: 15,
+      fontFamily: "SpaceMono",
+    },
+
+    dropdownTrigger: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: COLORS.buttonBackground,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: COLORS.buttonBorder,
+    },
+
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0, 0, 0, 0.75)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 20,
+      zIndex: 10,
+    },
+
+    dropdownContainer: {
+      width: "90%",
+      maxWidth: 400,
+      maxHeight: 300,
+      backgroundColor: COLORS.cardBackground,
+      borderRadius: 20,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: COLORS.divider,
+      shadowColor: "rgba(0, 0, 0, 0.1)",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+
+    profileList: {
+      width: "100%",
+      paddingVertical: 4,
+    },
+
+    profileDropdownItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 12,
+      paddingHorizontal: 15,
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.divider,
+    },
+
+    profileEmojiContainer: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: COLORS.buttonBackground,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 12,
+      borderWidth: 1,
+      borderColor: COLORS.buttonBorder,
+    },
+
+    profileEmojiSmall: {
+      fontSize: 20,
+    },
+
+    profileDropdownName: {
+      color: COLORS.textPrimary,
+      fontSize: 15,
+      fontFamily: "SpaceMono",
+      flex: 1,
+    },
+
+    profileDropdownRole: {
+      fontSize: 12,
+      fontFamily: "SpaceMono",
+      fontWeight: "600",
+      textTransform: "uppercase",
+    },
+
+    loginButtonContainer: {
+      marginTop: 20,
+    },
+  });
+
   return (
     <AuthWrapper requireAuth={false}>
       <SafeAreaView style={styles.container}>
         <AnimatedMapBackground settings={{ styleURL: mapStyle }} />
-        <StatusBar barStyle="light-content" backgroundColor="#333" />
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={COLORS.background}
+        />
 
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -405,286 +673,5 @@ const Login: React.FC = () => {
     </AuthWrapper>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-
-  keyboardAvoidingView: {
-    flex: 1,
-    zIndex: 2,
-  },
-
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-
-  contentContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 20,
-  },
-
-  formContainer: {
-    width: "100%",
-    maxWidth: 400,
-    alignSelf: "center",
-    zIndex: 2,
-  },
-
-  formCard: {
-    width: "100%",
-    borderRadius: 20,
-    padding: 20,
-    backgroundColor: COLORS.cardBackground,
-    borderWidth: 1,
-    borderColor: COLORS.divider,
-    shadowColor: "rgba(0, 0, 0, 0.5)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    position: "relative",
-    overflow: "hidden",
-  },
-
-  errorContainer: {
-    backgroundColor: COLORS.error.background,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: COLORS.error.border,
-  },
-
-  errorText: {
-    color: COLORS.error.text,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-  },
-
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    marginBottom: 16,
-    paddingHorizontal: 12,
-    height: 55,
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
-
-  inputIcon: {
-    marginRight: 10,
-  },
-
-  input: {
-    flex: 1,
-    height: "100%",
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-  },
-
-  eyeIcon: {
-    padding: 8,
-  },
-
-  loginButton: {
-    borderRadius: 12,
-    height: 55,
-    justifyContent: "center",
-    alignItems: "center",
-    marginVertical: 20,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.3)",
-  },
-
-  loginButtonText: {
-    color: COLORS.accent,
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "SpaceMono",
-    letterSpacing: 0.5,
-  },
-
-  createAccountContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 16,
-  },
-
-  createAccountText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-  },
-
-  createAccountLink: {
-    color: COLORS.accent,
-    fontSize: 14,
-    fontWeight: "600",
-    fontFamily: "SpaceMono",
-  },
-
-  profileSelectorContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    marginBottom: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-    height: 55,
-    zIndex: 4,
-  },
-
-  selectedProfileContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-
-  selectedProfileEmojiContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.3)",
-  },
-
-  profileEmojiLarge: {
-    fontSize: 20,
-  },
-
-  selectedProfileName: {
-    color: COLORS.textPrimary,
-    fontSize: 15,
-    fontWeight: "500",
-    fontFamily: "SpaceMono",
-  },
-
-  noProfileContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-
-  placeholderAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
-
-  selectProfileText: {
-    color: COLORS.textSecondary,
-    fontSize: 15,
-    fontFamily: "SpaceMono",
-  },
-
-  dropdownTrigger: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-    zIndex: 10,
-  },
-
-  dropdownContainer: {
-    width: "90%",
-    maxWidth: 400,
-    maxHeight: 300,
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 20,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: COLORS.divider,
-    shadowColor: "rgba(0, 0, 0, 0.5)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-
-  profileList: {
-    width: "100%",
-    paddingVertical: 4,
-  },
-
-  profileDropdownItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-  },
-
-  profileEmojiContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
-
-  profileEmojiSmall: {
-    fontSize: 20,
-  },
-
-  profileDropdownName: {
-    color: COLORS.textPrimary,
-    fontSize: 15,
-    fontFamily: "SpaceMono",
-    flex: 1,
-  },
-
-  profileDropdownRole: {
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-
-  loginButtonContainer: {
-    marginTop: 20,
-  },
-});
 
 export default Login;

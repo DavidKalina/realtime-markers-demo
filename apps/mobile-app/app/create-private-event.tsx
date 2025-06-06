@@ -3,7 +3,7 @@ import EmbeddedDateRangeCalendar from "@/components/EmbeddedDateRangeCalendar";
 import Input from "@/components/Input/Input";
 import TextArea from "@/components/Input/TextArea";
 import Header from "@/components/Layout/Header";
-import ScreenLayout from "@/components/Layout/ScreenLayout";
+import ScreenLayout, { COLORS } from "@/components/Layout/ScreenLayout";
 import { Friend, apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -32,18 +32,6 @@ import {
   LocationSelector,
   LocationOption,
 } from "@/components/LocationSelector/LocationSelector";
-
-// Unified color theme matching Login screen
-const COLORS = {
-  background: "#1a1a1a",
-  cardBackground: "#2a2a2a",
-  textPrimary: "#f8f9fa",
-  textSecondary: "#a0a0a0",
-  accent: "#93c5fd",
-  divider: "rgba(255, 255, 255, 0.08)",
-  buttonBackground: "rgba(255, 255, 255, 0.05)",
-  buttonBorder: "rgba(255, 255, 255, 0.1)",
-};
 
 const CreatePrivateEvent = () => {
   const router = useRouter();
@@ -460,9 +448,9 @@ const styles = StyleSheet.create({
     height: 55,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    backgroundColor: `${COLORS.accent}15`,
     borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.3)",
+    borderColor: `${COLORS.accent}30`,
   },
   submitButtonText: {
     color: COLORS.accent,
@@ -491,11 +479,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   callout: {
-    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    backgroundColor: `${COLORS.accent}10`,
     padding: 8,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.2)",
+    borderColor: `${COLORS.accent}20`,
   },
   calloutText: {
     color: COLORS.accent,

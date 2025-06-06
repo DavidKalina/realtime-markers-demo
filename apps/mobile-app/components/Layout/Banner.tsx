@@ -1,7 +1,7 @@
 import { COLORS } from "./ScreenLayout";
 import { ArrowLeft } from "lucide-react-native";
 import React, { useEffect } from "react";
-import { StyleSheet, TouchableOpacity } from "react-native";
+import { StyleSheet, TouchableOpacity, View, Text } from "react-native";
 import Animated, {
   Extrapolation,
   interpolate,
@@ -13,28 +13,22 @@ import Animated, {
   withTiming,
   withSequence,
   Easing,
+  withSpring,
 } from "react-native-reanimated";
 
 interface BannerProps {
   emoji?: string;
   name: string;
-  description?: string;
   onBack: () => void;
   scrollY: SharedValue<number>;
 }
 
-export default function Banner({
-  emoji,
-  name,
-  description,
-  onBack,
-  scrollY,
-}: BannerProps) {
+export default function Banner({ emoji, name, onBack, scrollY }: BannerProps) {
   const zoneBannerAnimatedStyle = useAnimatedStyle(() => {
     const bannerPaddingVertical = interpolate(
       scrollY.value,
-      [0, 100],
-      [24, 12],
+      [0, 80],
+      [8, 6],
       Extrapolation.CLAMP,
     );
     return {
@@ -45,45 +39,10 @@ export default function Banner({
   const animatedBannerEmojiStyle = useAnimatedStyle(() => ({
     fontSize: interpolate(
       scrollY.value,
-      [0, 100],
-      [48, 32],
-      Extrapolation.CLAMP,
-    ),
-    marginBottom: interpolate(
-      scrollY.value,
-      [0, 100],
-      [12, 6],
-      Extrapolation.CLAMP,
-    ),
-  }));
-
-  const animatedBannerNameStyle = useAnimatedStyle(() => ({
-    fontSize: interpolate(
-      scrollY.value,
-      [0, 100],
+      [0, 80],
       [28, 22],
       Extrapolation.CLAMP,
     ),
-    marginBottom: interpolate(
-      scrollY.value,
-      [0, 100],
-      [8, 4],
-      Extrapolation.CLAMP,
-    ),
-  }));
-
-  const animatedBannerDescriptionStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [0, 50], [1, 0], Extrapolation.CLAMP),
-    transform: [
-      {
-        scale: interpolate(
-          scrollY.value,
-          [0, 50],
-          [1, 0.95],
-          Extrapolation.CLAMP,
-        ),
-      },
-    ],
   }));
 
   // Add floating animation values
@@ -91,11 +50,11 @@ export default function Banner({
   const floatY = useSharedValue(0);
 
   useEffect(() => {
-    // Start the floating animation when component mounts
+    // More subtle floating animation
     floatX.value = withRepeat(
       withSequence(
-        withTiming(2, { duration: 2500, easing: Easing.inOut(Easing.sin) }),
-        withTiming(-2, { duration: 2500, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1.5, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(-1.5, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
       ),
       -1,
       true,
@@ -103,8 +62,8 @@ export default function Banner({
 
     floatY.value = withRepeat(
       withSequence(
-        withTiming(8, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
-        withTiming(-8, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
+        withTiming(4, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+        withTiming(-4, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
       ),
       -1,
       true,
@@ -115,77 +74,140 @@ export default function Banner({
     transform: [{ translateX: floatX.value }, { translateY: floatY.value }],
   }));
 
+  // Add back button animation
+  const backButtonScale = useSharedValue(1);
+  const backButtonRotation = useSharedValue(0);
+
+  const handleBackPress = () => {
+    backButtonScale.value = withSequence(
+      withSpring(0.9, { damping: 10 }),
+      withSpring(1, { damping: 10 }),
+    );
+    backButtonRotation.value = withSequence(
+      withTiming(-0.1, { duration: 100, easing: Easing.ease }),
+      withTiming(0.1, { duration: 100, easing: Easing.ease }),
+      withTiming(0, { duration: 100, easing: Easing.ease }),
+    );
+    onBack();
+  };
+
+  const backButtonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: backButtonScale.value },
+      { rotate: `${backButtonRotation.value}rad` },
+    ],
+  }));
+
   return (
     <Animated.View
       style={[styles.zoneBanner, zoneBannerAnimatedStyle]}
       layout={LinearTransition.springify()}
     >
-      <TouchableOpacity onPress={onBack} style={styles.bannerBackButton}>
-        <ArrowLeft size={20} color={COLORS.textPrimary} />
-      </TouchableOpacity>
-      <Animated.View style={floatingEmojiStyle}>
-        <Animated.Text
-          style={[styles.zoneBannerEmoji, animatedBannerEmojiStyle]}
+      <View style={styles.bannerContent}>
+        <View style={styles.backButtonPlaceholder} />
+        <Animated.View
+          style={[styles.bannerBackButton, backButtonAnimatedStyle]}
         >
-          {emoji || "👥"}
-        </Animated.Text>
-      </Animated.View>
-      <Animated.Text style={[styles.zoneBannerName, animatedBannerNameStyle]}>
-        {name}
-      </Animated.Text>
-      <Animated.Text
-        style={[styles.zoneBannerDescription, animatedBannerDescriptionStyle]}
-      >
-        {description || "Join this group to connect with like-minded people"}
-      </Animated.Text>
+          <TouchableOpacity
+            onPress={handleBackPress}
+            style={styles.backButtonTouchable}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={20} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+        </Animated.View>
+        <View style={styles.titleContainer}>
+          <View style={styles.titleContent}>
+            <Animated.View style={floatingEmojiStyle}>
+              <Animated.Text
+                style={[styles.zoneBannerEmoji, animatedBannerEmojiStyle]}
+              >
+                {emoji || "👥"}
+              </Animated.Text>
+            </Animated.View>
+            <Text style={styles.zoneBannerName}>{name}</Text>
+          </View>
+        </View>
+        <View style={styles.backButtonPlaceholder} />
+      </View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   zoneBanner: {
-    height: 200,
-    paddingTop: 50,
-    paddingBottom: 24,
-    paddingHorizontal: 20,
+    height: 90,
     backgroundColor: COLORS.cardBackground,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255,255,255,0.08)",
     justifyContent: "center",
+    paddingTop: 2,
+  },
+  bannerContent: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  backButtonPlaceholder: {
+    width: 44,
+    height: 44,
   },
   bannerBackButton: {
     position: "absolute",
-    top: 48,
     left: 16,
-    zIndex: 10,
-    padding: 8,
-    backgroundColor: "rgba(0,0,0,0.2)",
-    borderRadius: 20,
+    top: 0,
+    bottom: 0,
+    width: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backButtonTouchable: {
+    width: 36, // Slightly smaller than container
+    height: 36, // Slightly smaller than container
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.15)",
+    borderRadius: 18, // Half of width/height
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    height: 44,
+  },
+  titleContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    height: "100%",
+    paddingVertical: 2,
   },
   zoneBannerEmoji: {
-    fontSize: 48,
-    textAlign: "center",
-    marginBottom: 12,
+    fontSize: 28,
     fontFamily: "SpaceMono",
+    lineHeight: 32,
+    height: 32,
+    textAlignVertical: "center",
   },
   zoneBannerName: {
     color: COLORS.textPrimary,
-    fontSize: 28,
+    fontSize: 22,
     fontFamily: "SpaceMono",
     fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 8,
-    letterSpacing: 0.5,
-  },
-  zoneBannerDescription: {
-    color: COLORS.textSecondary,
-    fontSize: 15,
-    fontFamily: "SpaceMono",
-    lineHeight: 22,
-    textAlign: "center",
-    letterSpacing: 0.3,
-    paddingHorizontal: 10,
-    maxWidth: "90%",
+    letterSpacing: 0.4,
+    lineHeight: 26,
+    height: 26,
+    textAlignVertical: "center",
   },
 });

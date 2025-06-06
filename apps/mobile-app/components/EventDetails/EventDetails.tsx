@@ -16,6 +16,7 @@ import {
   Share,
   Tag,
   X,
+  Repeat,
 } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -85,6 +86,30 @@ const EmojiContainer = ({ emoji = "📍" }: { emoji?: string }) => {
       </Animated.View>
     </View>
   );
+};
+
+// Add helper functions before the EventDetails component
+const formatRecurrenceFrequency = (frequency?: string): string => {
+  if (!frequency) return "";
+  switch (frequency) {
+    case "DAILY":
+      return "Daily";
+    case "WEEKLY":
+      return "Weekly";
+    case "BIWEEKLY":
+      return "Every 2 weeks";
+    case "MONTHLY":
+      return "Monthly";
+    case "YEARLY":
+      return "Yearly";
+    default:
+      return frequency.toLowerCase();
+  }
+};
+
+const formatRecurrenceDays = (days?: string[]): string => {
+  if (!days || days.length === 0) return "";
+  return days.join(", ");
 };
 
 const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
@@ -273,8 +298,25 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     <ScreenLayout>
       <StatusBar barStyle="light-content" />
 
-      {/* Header with back button */}
-      <Header title="Event Details" onBack={handleBack} />
+      {/* Header with back button and action buttons */}
+      <Header
+        title=""
+        onBack={handleBack}
+        rightIcon={
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <RsvpButton
+              isRsvped={isRsvped}
+              rsvpState={rsvpState}
+              onRsvp={handleToggleRsvp}
+            />
+            <SaveButton
+              isSaved={isSaved}
+              savingState={savingState}
+              onSave={handleToggleSave}
+            />
+          </View>
+        }
+      />
 
       <ScrollView
         style={styles.container}
@@ -306,47 +348,22 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
           <EmojiContainer emoji={event.emoji} />
         </View>
 
-        {/* Event Title and Save Button */}
-        <View style={styles.titleContainer}>
-          <Text
-            numberOfLines={2}
-            style={[styles.title, { maxWidth: "80%" }]}
-            adjustsFontSizeToFit={false}
-            allowFontScaling={false}
-          >
-            {event.title}
-          </Text>
-          <RsvpButton
-            isRsvped={isRsvped}
-            rsvpState={rsvpState}
-            onRsvp={handleToggleRsvp}
-          />
-          <SaveButton
-            isSaved={isSaved}
-            savingState={savingState}
-            onSave={handleToggleSave}
-          />
-        </View>
-
         {/* Event Details */}
         <Animated.View
           entering={FadeInDown.duration(600).delay(300).springify()}
           style={styles.detailsContainer}
         >
+          {/* Title */}
+          <Text style={styles.eventTitle}>{event.title}</Text>
+
           {/* Description */}
           {event.description && (
             <View style={styles.detailRow}>
               <View style={styles.iconContainer}>
                 <Info size={18} color={COLORS.accent} strokeWidth={2.5} />
               </View>
-              <View style={styles.descriptionContainer}>
-                <Text
-                  style={styles.detailText}
-                  numberOfLines={3}
-                  ellipsizeMode="tail"
-                >
-                  {event.description}
-                </Text>
+              <View style={[styles.descriptionContainer, { flex: 1 }]}>
+                <Text style={styles.detailText}>{event.description}</Text>
               </View>
             </View>
           )}
@@ -364,12 +381,62 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
             </Text>
           </View>
 
+          {/* Recurring Event Details */}
+          {event.isRecurring && (
+            <Animated.View
+              entering={FadeInDown.duration(600).delay(400).springify()}
+              style={[styles.detailRow, styles.recurringDetailsContainer]}
+            >
+              <View style={styles.iconContainer}>
+                <Repeat size={18} color={COLORS.accent} strokeWidth={2.5} />
+              </View>
+              <View style={styles.recurringDetailsContent}>
+                <Text style={styles.detailText}>
+                  Recurring Event
+                  {event.recurrenceInterval && event.recurrenceInterval > 1 && (
+                    <Text style={styles.detailTextSecondary}>
+                      {"\n"}Every {event.recurrenceInterval}{" "}
+                      {formatRecurrenceFrequency(
+                        event.recurrenceFrequency,
+                      ).toLowerCase()}
+                      s
+                    </Text>
+                  )}
+                  {!event.recurrenceInterval && (
+                    <Text style={styles.detailTextSecondary}>
+                      {"\n"}
+                      {formatRecurrenceFrequency(event.recurrenceFrequency)}
+                    </Text>
+                  )}
+                  {event.recurrenceDays && event.recurrenceDays.length > 0 && (
+                    <Text style={styles.detailTextSecondary}>
+                      {"\n"}on {formatRecurrenceDays(event.recurrenceDays)}
+                    </Text>
+                  )}
+                  {event.recurrenceTime && (
+                    <Text style={styles.detailTextSecondary}>
+                      {"\n"}at {event.recurrenceTime}
+                    </Text>
+                  )}
+                  {event.recurrenceStartDate && event.recurrenceEndDate && (
+                    <Text style={styles.detailTextSecondary}>
+                      {"\n"}from{" "}
+                      {new Date(event.recurrenceStartDate).toLocaleDateString()}{" "}
+                      to{" "}
+                      {new Date(event.recurrenceEndDate).toLocaleDateString()}
+                    </Text>
+                  )}
+                </Text>
+              </View>
+            </Animated.View>
+          )}
+
           {/* Location */}
           <TouchableOpacity style={styles.detailRow} onPress={handleOpenMaps}>
             <View style={styles.iconContainer}>
               <MapPin size={18} color={COLORS.accent} strokeWidth={2.5} />
             </View>
-            <View style={styles.locationContainer}>
+            <View style={[styles.locationContainer, { flex: 1 }]}>
               <Text style={styles.detailText}>
                 {event.location}
                 {distanceInfo && (

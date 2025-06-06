@@ -149,6 +149,25 @@ export class StorageService extends EventEmitter {
   }
 
   /**
+   * Sanitize metadata values to be S3-compatible
+   * S3 metadata values must be valid ASCII characters and cannot contain spaces or special characters
+   */
+  private sanitizeMetadata(
+    metadata: Record<string, string>,
+  ): Record<string, string> {
+    const sanitized: Record<string, string> = {};
+    for (const [key, value] of Object.entries(metadata)) {
+      // Replace spaces and special characters with underscores
+      // Also ensure the value is ASCII-compatible
+      sanitized[key] = value
+        .replace(/[^a-zA-Z0-9\-_.]/g, "_")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+    }
+    return sanitized;
+  }
+
+  /**
    * Perform the actual upload to S3/DO Spaces
    * @private
    */
@@ -163,6 +182,9 @@ export class StorageService extends EventEmitter {
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const key = `${prefix}/${timestamp}-${imageId}.jpg`;
 
+      // Sanitize metadata before upload
+      const sanitizedMetadata = this.sanitizeMetadata(metadata);
+
       // Upload to DO Space if client is initialized
       if (this.s3Client) {
         const startTime = Date.now();
@@ -173,7 +195,7 @@ export class StorageService extends EventEmitter {
           Key: key,
           Body: imageBuffer,
           ContentType: "image/jpeg",
-          Metadata: metadata,
+          Metadata: sanitizedMetadata,
           ContentEncoding: "binary",
           CacheControl: "public, max-age=31536000",
         });

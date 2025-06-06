@@ -29,7 +29,7 @@ interface LevelInfo {
 }
 
 const XPBar: React.FC<XPBarProps> = React.memo(
-  ({ backgroundColor = "#1a1a1a" }) => {
+  ({ backgroundColor = "#f8fafc" }) => {
     const { user } = useAuth();
     const [levelInfo, setLevelInfo] = React.useState<LevelInfo>({
       currentLevel: 1,
@@ -216,32 +216,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   levelText: {
-    color: "rgba(255, 255, 255, 0.8)",
+    color: "#0f172a",
     fontSize: 11,
     fontFamily: "SpaceMono",
     marginRight: 6,
+    fontWeight: "600",
   },
   titleText: {
-    color: "rgba(255, 255, 255, 0.6)",
+    color: "#64748b",
     fontSize: 11,
     fontFamily: "SpaceMono",
   },
   xpGainText: {
-    color: "#4ADE80",
+    color: "#22c55e",
     fontSize: 11,
     fontFamily: "SpaceMono",
     fontWeight: "bold",
   },
   progressContainer: {
     height: 3,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
     borderRadius: 1.5,
     overflow: "hidden",
     marginBottom: 2,
   },
   progressBar: {
     height: "100%",
-    backgroundColor: "#4ADE80",
+    backgroundColor: COLORS.accent,
     borderRadius: 1.5,
   },
   xpInfo: {
@@ -249,12 +250,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   xpText: {
-    color: "rgba(255, 255, 255, 0.6)",
+    color: "#64748b",
     fontSize: 10,
     fontFamily: "SpaceMono",
   },
   nextLevelText: {
-    color: "rgba(255, 255, 255, 0.5)",
+    color: "#94a3b8",
     fontSize: 10,
     fontFamily: "SpaceMono",
   },

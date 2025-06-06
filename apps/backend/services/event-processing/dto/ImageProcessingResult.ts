@@ -1,5 +1,7 @@
 // services/event-processing/dto/ImageProcessingResult.ts
 
+import { RecurrenceFrequency, DayOfWeek } from "../../../entities/Event";
+
 /**
  * Structured data extracted from an event image
  */
@@ -53,6 +55,16 @@ export interface EventStructuredData {
    * Any other important details
    */
   otherDetails?: string;
+
+  // Add recurrence fields
+  isRecurring?: boolean;
+  recurrencePattern?: string;
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceDays?: DayOfWeek[];
+  recurrenceTime?: string;
+  recurrenceStartDate?: string;
+  recurrenceEndDate?: string;
+  recurrenceInterval?: number | null;
 }
 
 /**

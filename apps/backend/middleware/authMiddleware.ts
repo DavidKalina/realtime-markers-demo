@@ -36,7 +36,10 @@ export const authMiddleware = async (c: Context<AppContext>, next: Next) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  // Optionally, attach the decoded payload to context so subsequent handlers can use it
-  c.set("user", decoded);
+  // Attach the decoded payload to context, ensuring we use 'id' consistently
+  c.set("user", {
+    ...decoded,
+    userId: decoded.id, // Add userId as an alias for backward compatibility
+  });
   return next();
 };
