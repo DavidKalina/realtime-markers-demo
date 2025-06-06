@@ -9,7 +9,12 @@ import {
   In,
 } from "typeorm";
 import { Category } from "../entities/Category";
-import { Event, EventStatus } from "../entities/Event";
+import {
+  Event,
+  EventStatus,
+  RecurrenceFrequency,
+  DayOfWeek,
+} from "../entities/Event";
 import type { Filter } from "../entities/Filter";
 import { User } from "../entities/User";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
@@ -49,6 +54,13 @@ interface CreateEventInput {
   embedding: number[];
   isPrivate?: boolean;
   sharedWithIds?: string[]; // Optional array of user IDs to share the event with
+  isRecurring?: boolean;
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceDays?: DayOfWeek[];
+  recurrenceTime?: string;
+  recurrenceStartDate?: Date;
+  recurrenceEndDate?: Date;
+  recurrenceInterval?: number;
 }
 
 export class EventService {
@@ -296,6 +308,13 @@ export class EventService {
       detectedQrData: input.detectedQrData,
       originalImageUrl: input.originalImageUrl || undefined,
       isPrivate: input.isPrivate || false,
+      isRecurring: input.isRecurring || false,
+      recurrenceFrequency: input.recurrenceFrequency,
+      recurrenceDays: input.recurrenceDays,
+      recurrenceTime: input.recurrenceTime,
+      recurrenceStartDate: input.recurrenceStartDate,
+      recurrenceEndDate: input.recurrenceEndDate,
+      recurrenceInterval: input.recurrenceInterval,
     };
 
     // Create event instance

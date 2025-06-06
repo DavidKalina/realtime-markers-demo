@@ -326,7 +326,7 @@ Respond with a JSON object containing:
    */
   private generateTokens(user: User): AuthTokens {
     const payload = {
-      userId: user.id,
+      id: user.id,
       email: user.email,
       role: user.role,
     };
@@ -338,7 +338,7 @@ Respond with a JSON object containing:
     );
 
     const refreshToken = jwt.sign(
-      { userId: user.id },
+      { id: user.id },
       this.refreshSecret as jwt.Secret,
       { expiresIn: this.refreshTokenExpiry }, // "7d"
     );

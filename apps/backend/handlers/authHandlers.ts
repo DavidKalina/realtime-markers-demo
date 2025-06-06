@@ -195,12 +195,12 @@ export const logoutHandler: AuthHandler = async (c) => {
 export const getCurrentUserHandler: AuthHandler = async (c) => {
   try {
     const user = c.get("user");
-    if (!user || !user.userId) {
+    if (!user || !user.id) {
       return c.json({ error: "Not authenticated" }, 401);
     }
 
     const { authService } = getServices(c);
-    const userData = await authService.getUserProfile(user.userId);
+    const userData = await authService.getUserProfile(user.id);
     if (!userData) {
       return c.json({ error: "User not found" }, 404);
     }
@@ -330,8 +330,8 @@ function getUserIdFromToken(c: Context<AppContext>): string | null {
     // Get services from context
     const { authService } = getServices(c);
     // Validate the token using the AuthService
-    const decoded = authService.validateToken(token) as { userId: string };
-    return decoded.userId;
+    const decoded = authService.validateToken(token) as { id: string };
+    return decoded.id;
   } catch (error) {
     return null;
   }

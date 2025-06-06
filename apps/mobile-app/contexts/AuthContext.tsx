@@ -15,6 +15,7 @@ interface AuthContextType {
     displayName?: string,
   ) => Promise<void>;
   logout: () => Promise<void>;
+  forceLogout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
   changePassword: (
     currentPassword: string,
@@ -235,6 +236,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const forceLogout = async () => {
+    setIsLoading(true);
+    try {
+      // Clear auth state without making an API call
+      await apiClient.clearAuthState();
+      setUser(null);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const updateProfile = async (updates: Partial<User>) => {
     setIsLoading(true);
     try {
@@ -266,9 +279,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         login,
         register,
         logout,
+        forceLogout,
         updateProfile,
         changePassword,
-        refreshAuth, // New method exposed to consumers
+        refreshAuth,
       }}
     >
       {children}
