@@ -2,6 +2,7 @@ import { openai } from "@ai-sdk/openai";
 import {
   generateObject,
   type LanguageModel,
+  type EmbeddingModel,
   embed,
   cosineSimilarity,
   type EmbedResult,
@@ -13,21 +14,50 @@ import {
   type ImageAnalysisPromptData,
 } from "./shared/prompts/eventPrompts";
 
+type ModelConfig = {
+  modelId: string;
+  envVar: string;
+  embeddingModelId?: string;
+};
+
+const MODEL_CONFIGS: Record<string, ModelConfig> = {
+  "gpt-4": {
+    modelId: "gpt-4",
+    envVar: "OPENAI_API_KEY",
+    embeddingModelId: "text-embedding-3-small",
+  },
+  "gpt-4o": {
+    modelId: "gpt-4o",
+    envVar: "OPENAI_API_KEY",
+    embeddingModelId: "text-embedding-3-small",
+  },
+  // Add more models here as needed
+};
+
 export class AiService {
   private static instance: AiService;
-  model: LanguageModel = openai("gpt-4o");
-  embeddingModel = openai.embedding("text-embedding-3-small");
+  model: LanguageModel;
+  embeddingModel: EmbeddingModel<string>;
 
-  private constructor(model: LanguageModel) {
-    this.model = model;
+  private constructor(modelConfig: ModelConfig) {
+    this.model = openai(modelConfig.modelId);
+    this.embeddingModel = openai.embedding(
+      modelConfig.embeddingModelId || "text-embedding-3-small",
+    );
   }
 
-  public static getInstance(): AiService {
+  public static getInstance(modelType: string = "gpt-4o"): AiService {
     if (!this.instance) {
-      if (!process.env.OPENAI_API_KEY) {
-        throw new Error("OPENAI_API_KEY is not set");
+      const config = MODEL_CONFIGS[modelType];
+      if (!config) {
+        throw new Error(`Unsupported model type: ${modelType}`);
       }
-      this.instance = new AiService(openai("gpt-4o"));
+
+      if (!process.env[config.envVar]) {
+        throw new Error(`${config.envVar} is not set for model ${modelType}`);
+      }
+
+      this.instance = new AiService(config);
     }
     return this.instance;
   }
