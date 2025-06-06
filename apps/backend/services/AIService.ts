@@ -1,51 +1,9 @@
 import { openai } from "@ai-sdk/openai";
 import { generateObject, type LanguageModel } from "ai";
-import { z } from "zod";
-import { RecurrenceFrequency, DayOfWeek } from "../entities/Event";
-
-const RecurrenceFrequencyEnum = z.nativeEnum(RecurrenceFrequency);
-const DayOfWeekEnum = z.nativeEnum(DayOfWeek);
-
-const EventStructuredDataSchema = z.object({
-  title: z.string(),
-  dateTime: z.string(),
-  timezone: z.string().default("UTC"),
-  venueAddress: z.string(),
-  venueName: z.string().optional(),
-  organizer: z.string().optional(),
-  description: z.string().optional(),
-  contactInfo: z.string().optional(),
-  socialMedia: z.string().optional(),
-  otherDetails: z.string().optional(),
-  isRecurring: z.boolean().default(false),
-  recurrencePattern: z.string().optional(),
-  recurrenceFrequency: RecurrenceFrequencyEnum.optional(),
-  recurrenceDays: z.array(DayOfWeekEnum).optional(),
-  recurrenceTime: z.string().optional(),
-  recurrenceStartDate: z.string().optional(),
-  recurrenceEndDate: z.string().optional(),
-  recurrenceInterval: z.number().nullable().optional(),
-});
-
-const EventSchema = z.object({
-  rawText: z.string(),
-  confidence: z.number().min(0).max(1),
-  qrCodeDetected: z.boolean().optional(),
-  qrCodeData: z.string().optional(),
-  structuredData: EventStructuredDataSchema,
-});
-
-const AIResponseSchema = z.object({
-  rawText: z.string(),
-  confidence: z.number().min(0).max(1),
-  qrCodeDetected: z.boolean().optional(),
-  qrCodeData: z.string().optional(),
-  isMultiEvent: z.boolean(),
-  events: z.array(EventSchema),
-  structuredData: EventStructuredDataSchema,
-});
-
-export type AIResponse = z.infer<typeof AIResponseSchema>;
+import {
+  AIResponseSchema,
+  type AIResponse,
+} from "./shared/schemas/eventSchemas";
 
 export class AiService {
   private static instance: AiService;
