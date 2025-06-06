@@ -3,6 +3,7 @@ import {
   generateObject,
   type LanguageModel,
   embed,
+  cosineSimilarity,
   type EmbedResult,
 } from "ai";
 import { AIResponseSchema } from "./shared/schemas/eventSchemas";
@@ -81,5 +82,25 @@ export class AiService {
     );
 
     return Promise.all(embeddingsPromises);
+  }
+
+  public static async calculateSimilarity(
+    text1: string,
+    text2: string,
+  ): Promise<number> {
+    const service = this.getInstance();
+
+    const [embedding1, embedding2] = await Promise.all([
+      embed({
+        model: service.embeddingModel,
+        value: text1,
+      }),
+      embed({
+        model: service.embeddingModel,
+        value: text2,
+      }),
+    ]);
+
+    return cosineSimilarity(embedding1.embedding, embedding2.embedding);
   }
 }
