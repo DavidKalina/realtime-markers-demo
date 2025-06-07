@@ -73,10 +73,14 @@ const FriendsView: React.FC = () => {
   // Fetch requests with pagination
   const fetchRequests = useCallback(async (page: number, isRefresh = false) => {
     try {
+      console.log("Fetching friend requests...");
       const [incomingResponse, outgoingResponse] = await Promise.all([
         apiClient.friends.getPendingFriendRequests(),
         apiClient.friends.getOutgoingFriendRequests(),
       ]);
+
+      console.log("Incoming friend requests:", incomingResponse);
+      console.log("Outgoing friend requests:", outgoingResponse);
 
       const combinedRequests = [
         ...incomingResponse
@@ -90,6 +94,8 @@ const FriendsView: React.FC = () => {
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
 
+      console.log("Combined and filtered requests:", combinedRequests);
+
       if (isRefresh) {
         setRequests(combinedRequests);
       } else {
@@ -99,6 +105,7 @@ const FriendsView: React.FC = () => {
       setHasMoreRequests(combinedRequests.length === PAGE_SIZE);
       setError(null);
     } catch (err) {
+      console.error("Error details:", err);
       setError("Failed to load friend requests. Please try again.");
       console.error("Error fetching friend requests:", err);
     }

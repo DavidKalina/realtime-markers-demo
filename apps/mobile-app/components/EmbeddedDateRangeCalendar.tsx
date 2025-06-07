@@ -71,11 +71,11 @@ const TimeSelector: React.FC<{
         date.getMilliseconds(),
       );
 
-      // Only update if the new time is valid
-      if (isAtLeast15MinutesInFuture(newDate)) {
-        onTimeChange(newDate);
-      } else {
-        // Provide haptic feedback for invalid time
+      // Always update the time, but show warning if invalid
+      onTimeChange(newDate);
+
+      // Provide haptic feedback only if the time is invalid
+      if (!isAtLeast15MinutesInFuture(newDate)) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
     },
@@ -93,11 +93,11 @@ const TimeSelector: React.FC<{
         date.getMilliseconds(),
       );
 
-      // Only update if the new time is valid
-      if (isAtLeast15MinutesInFuture(newDate)) {
-        onTimeChange(newDate);
-      } else {
-        // Provide haptic feedback for invalid time
+      // Always update the time, but show warning if invalid
+      onTimeChange(newDate);
+
+      // Provide haptic feedback only if the time is invalid
+      if (!isAtLeast15MinutesInFuture(newDate)) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
     },
@@ -114,11 +114,11 @@ const TimeSelector: React.FC<{
       date.getMilliseconds(),
     );
 
-    // Only update if the new time is valid
-    if (isAtLeast15MinutesInFuture(newDate)) {
-      onTimeChange(newDate);
-    } else {
-      // Provide haptic feedback for invalid time
+    // Always update the time, but show warning if invalid
+    onTimeChange(newDate);
+
+    // Provide haptic feedback only if the time is invalid
+    if (!isAtLeast15MinutesInFuture(newDate)) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
   }, [date, hours, isPM, onTimeChange]);

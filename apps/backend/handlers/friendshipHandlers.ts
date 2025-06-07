@@ -188,13 +188,16 @@ export const getPendingFriendRequestsHandler: FriendshipHandler = async (c) => {
   try {
     const user = c.get("user");
     if (!user || !user.userId) {
+      console.log("Authentication failed - no user or userId");
       return c.json({ error: "Authentication required" }, 401);
     }
 
+    console.log("Fetching pending friend requests for user:", user.userId);
     const friendshipService = c.get("friendshipService");
     const pendingRequests = await friendshipService.getPendingFriendRequests(
       user.userId,
     );
+    console.log("Found pending requests:", pendingRequests);
 
     return c.json(pendingRequests);
   } catch (error) {

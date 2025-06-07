@@ -82,11 +82,7 @@ const CreatePrivateEvent = () => {
   }, []);
 
   // Initialize state with values from params if they exist
-  const [date, setDate] = useState(() => {
-    const now = new Date();
-    const minDate = new Date(now.getTime() + 15 * 60 * 1000); // 15 minutes from now
-    return params.eventDate ? new Date(params.eventDate as string) : minDate;
-  });
+  const [date, setDate] = useState(new Date());
   const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
   const [eventName, setEventName] = useState((params.title as string) || "");
   const [eventDescription, setEventDescription] = useState(
