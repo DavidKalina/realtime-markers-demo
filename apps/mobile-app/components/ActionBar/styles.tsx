@@ -5,13 +5,13 @@ import { COLORS } from "../Layout/ScreenLayout";
 export const styles = StyleSheet.create({
   bottomBar: {
     height: 60, // Reduced height since we removed labels
-    backgroundColor: COLORS.background, // Match Cluster Events view background
+    backgroundColor: COLORS.cardBackground, // Match Cluster Events view background
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 4, // Reduced padding
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)", // Subtle border matching our card styles
+    borderTopColor: COLORS.divider,
     overflow: "hidden",
     ...Platform.select({
       ios: {
