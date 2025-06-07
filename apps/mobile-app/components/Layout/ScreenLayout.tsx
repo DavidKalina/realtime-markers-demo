@@ -37,6 +37,7 @@ interface ScreenLayoutProps {
   contentStyle?: ViewStyle;
   noSafeArea?: boolean;
   noAnimation?: boolean;
+  extendBannerToStatusBar?: boolean;
 }
 
 // Memoize the screen layout styles
@@ -48,6 +49,15 @@ const screenLayoutStyles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  statusBarBackground: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 44, // Approximate status bar height
+    backgroundColor: COLORS.cardBackground,
+    zIndex: 1,
+  },
 });
 
 const ScreenLayout: React.FC<ScreenLayoutProps> = React.memo(
@@ -57,6 +67,7 @@ const ScreenLayout: React.FC<ScreenLayoutProps> = React.memo(
     contentStyle,
     noSafeArea = false,
     noAnimation = false,
+    extendBannerToStatusBar = false,
   }) => {
     const Container = noSafeArea ? View : SafeAreaView;
     const Content = noAnimation ? View : Animated.View;
@@ -76,8 +87,14 @@ const ScreenLayout: React.FC<ScreenLayoutProps> = React.memo(
       <Container style={containerStyle}>
         <StatusBar
           barStyle="light-content"
-          backgroundColor={COLORS.background}
+          backgroundColor={
+            extendBannerToStatusBar ? COLORS.cardBackground : COLORS.background
+          }
+          translucent={extendBannerToStatusBar}
         />
+        {extendBannerToStatusBar && (
+          <View style={screenLayoutStyles.statusBarBackground} />
+        )}
         <Content
           style={contentStyleMemo}
           entering={noAnimation ? undefined : FadeIn.duration(300)}

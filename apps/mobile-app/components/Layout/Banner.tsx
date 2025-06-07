@@ -21,18 +21,27 @@ interface BannerProps {
   name: string;
   onBack: () => void;
   scrollY: SharedValue<number>;
+  extendToStatusBar?: boolean;
 }
 
-export default function Banner({ emoji, name, onBack, scrollY }: BannerProps) {
+export default function Banner({
+  emoji,
+  name,
+  onBack,
+  scrollY,
+  extendToStatusBar,
+}: BannerProps) {
   const zoneBannerAnimatedStyle = useAnimatedStyle(() => {
     const bannerPaddingVertical = interpolate(
       scrollY.value,
       [0, 80],
-      [8, 6],
+      [extendToStatusBar ? 44 : 8, 6],
       Extrapolation.CLAMP,
     );
     return {
-      paddingBottom: bannerPaddingVertical,
+      paddingTop: bannerPaddingVertical,
+      paddingBottom: 8,
+      marginTop: extendToStatusBar ? -44 : 0,
     };
   });
 
@@ -100,7 +109,11 @@ export default function Banner({ emoji, name, onBack, scrollY }: BannerProps) {
 
   return (
     <Animated.View
-      style={[styles.zoneBanner, zoneBannerAnimatedStyle]}
+      style={[
+        styles.zoneBanner,
+        zoneBannerAnimatedStyle,
+        extendToStatusBar && styles.extendedBanner,
+      ]}
       layout={LinearTransition.springify()}
     >
       <View style={styles.bannerContent}>
@@ -142,6 +155,11 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.08)",
     justifyContent: "center",
     paddingTop: 2,
+    zIndex: 2,
+  },
+  extendedBanner: {
+    position: "relative",
+    zIndex: 2,
   },
   bannerContent: {
     flex: 1,

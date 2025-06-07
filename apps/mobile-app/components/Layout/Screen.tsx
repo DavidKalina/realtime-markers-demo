@@ -43,6 +43,7 @@ export interface ScreenProps<T extends string = string> {
   bannerEmoji?: string;
   showBackButton?: boolean;
   onBack?: () => void;
+  extendBannerToStatusBar?: boolean;
 
   // Tabs props
   tabs?: TabItem<T>[];
@@ -92,6 +93,7 @@ const Screen = <T extends string>({
   noSafeArea,
   noAnimation,
   isScrollable = true,
+  extendBannerToStatusBar = true,
 }: ScreenProps<T>) => {
   const scrollY = useSharedValue(0);
 
@@ -152,6 +154,7 @@ const Screen = <T extends string>({
       contentStyle={contentStyle}
       noSafeArea={noSafeArea}
       noAnimation={noAnimation}
+      extendBannerToStatusBar={extendBannerToStatusBar}
     >
       <View style={styles.mainContainer}>
         {isScrollable ? (
@@ -171,6 +174,7 @@ const Screen = <T extends string>({
                 emoji={bannerEmoji}
                 onBack={handleBack}
                 scrollY={scrollY}
+                extendToStatusBar={extendBannerToStatusBar}
               />
             )}
             {renderContent()}
@@ -183,6 +187,7 @@ const Screen = <T extends string>({
                 emoji={bannerEmoji}
                 onBack={handleBack}
                 scrollY={scrollY}
+                extendToStatusBar={extendBannerToStatusBar}
               />
             )}
             {renderContent()}
