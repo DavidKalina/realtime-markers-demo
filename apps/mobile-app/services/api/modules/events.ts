@@ -203,6 +203,30 @@ export class EventApiClient extends BaseApiClient {
     };
   }
 
+  async getEventsByCategory(
+    categoryId: string,
+    params: GetEventsParams = {},
+  ): Promise<{
+    events: EventType[];
+    nextCursor?: string;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params.cursor) queryParams.append("cursor", params.cursor);
+    if (params.limit) queryParams.append("limit", params.limit.toString());
+
+    const url = `${this.baseUrl}/api/events/category/${categoryId}?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    const data = await this.handleResponse<{
+      events: ApiEvent[];
+      nextCursor?: string;
+    }>(response);
+
+    return {
+      events: data.events.map(mapEventToEventType),
+      nextCursor: data.nextCursor,
+    };
+  }
+
   // Event interaction methods
   async toggleSaveEvent(
     eventId: string,

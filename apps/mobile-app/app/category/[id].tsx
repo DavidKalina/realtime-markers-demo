@@ -51,8 +51,7 @@ const CategoryEventsScreen = () => {
         setIsLoading(true);
         setError(null);
 
-        const result = await apiClient.events.getEvents({
-          categoryId: id,
+        const result = await apiClient.events.getEventsByCategory(id, {
           limit: 20,
           cursor: refresh ? undefined : nextCursor,
         });
