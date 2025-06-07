@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     height: 90,
     backgroundColor: COLORS.cardBackground,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.08)",
+    borderBottomColor: COLORS.divider,
     justifyContent: "center",
     paddingTop: 2,
     zIndex: 2,
