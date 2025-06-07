@@ -31,6 +31,7 @@ eventsRouter.get("/discovered", handlers.getDiscoveredEventsHandler);
 eventsRouter.get("/nearby", handlers.getNearbyEventsHandler);
 eventsRouter.get("/categories", handlers.getCategoriesHandler);
 eventsRouter.get("/by-categories", handlers.getEventsByCategoriesHandler);
+eventsRouter.get("/category/:categoryId", handlers.getEventsByCategoryHandler);
 eventsRouter.get("/search", handlers.searchEventsHandler);
 eventsRouter.post("/process", handlers.processEventImageHandler);
 eventsRouter.post("/cluster-hub", handlers.getClusterHubDataHandler);

@@ -936,3 +936,32 @@ export const getEventSharesHandler: EventHandler = async (c) => {
     );
   }
 };
+
+export const getEventsByCategoryHandler: EventHandler = async (c) => {
+  try {
+    const categoryId = c.req.param("categoryId");
+    const limit = c.req.query("limit");
+    const cursor = c.req.query("cursor");
+
+    if (!categoryId) {
+      return c.json({ error: "Missing required parameter: categoryId" }, 400);
+    }
+
+    const eventService = c.get("eventService");
+    const result = await eventService.getEventsByCategory(categoryId, {
+      limit: limit ? parseInt(limit) : undefined,
+      cursor: cursor,
+    });
+
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching events by category:", error);
+    return c.json(
+      {
+        error: "Failed to fetch events by category",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+};

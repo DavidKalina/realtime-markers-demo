@@ -26,7 +26,7 @@ export interface EventType {
   distance: string;
   emoji: string;
   emojiDescription?: string;
-  categories: string[];
+  categories: { id: string; name: string }[];
   creator?: UserType;
   creatorId?: string;
   scanCount: number;

@@ -308,23 +308,22 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginLeft: 28,
+    paddingHorizontal: 20,
+    marginTop: 8,
   },
   categoryTag: {
-    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    backgroundColor: "rgba(147, 197, 253, 0.1)", // primary color with 10% opacity
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 9999, // rounded-full
     borderWidth: 1,
     borderColor: "rgba(147, 197, 253, 0.2)",
   },
   categoryText: {
-    fontSize: 13,
-    color: COLORS.accent,
+    color: COLORS.accent, // primary color
+    fontSize: 14,
     fontFamily: "SpaceMono",
     fontWeight: "500",
-    letterSpacing: 0.3,
-    lineHeight: 18,
   },
   // QR Code section styles
   qrSection: {

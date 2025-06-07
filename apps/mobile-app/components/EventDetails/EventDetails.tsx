@@ -14,7 +14,6 @@ import {
   QrCode,
   Scan,
   Share,
-  Tag,
   X,
   Repeat,
 } from "lucide-react-native";
@@ -279,6 +278,12 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     });
   };
 
+  useEffect(() => {
+    if (event?.categories) {
+      console.log("Categories:", event.categories);
+    }
+  }, [event?.categories]);
+
   if (loading) {
     return <LoadingEventDetails />;
   }
@@ -453,25 +458,21 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
         {/* Categories */}
         {event.categories && event.categories.length > 0 && (
           <Animated.View
-            entering={FadeInDown.duration(600).delay(500).springify()}
-            style={styles.categoriesSection}
+            entering={FadeInDown.delay(200).springify()}
+            style={styles.categoriesContainer}
           >
-            <View style={styles.categoriesHeader}>
-              <View style={styles.iconContainer}>
-                <Tag size={18} color={COLORS.accent} strokeWidth={2.5} />
-              </View>
-              <Text style={styles.categoriesTitle}>Categories</Text>
-              <Text style={[styles.detailTextSecondary, { marginLeft: 6 }]}>
-                ({event.categories.length})
-              </Text>
-            </View>
-            <View style={styles.categoriesContainer}>
-              {event.categories.map((category, index) => (
-                <View key={index} style={styles.categoryTag}>
-                  <Text style={styles.categoryText}>{category}</Text>
-                </View>
-              ))}
-            </View>
+            {event.categories.map((category) => (
+              <TouchableOpacity
+                key={category.id}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push(`/category/${category.id}`);
+                }}
+                style={styles.categoryTag}
+              >
+                <Text style={styles.categoryText}>{category.name}</Text>
+              </TouchableOpacity>
+            ))}
           </Animated.View>
         )}
 

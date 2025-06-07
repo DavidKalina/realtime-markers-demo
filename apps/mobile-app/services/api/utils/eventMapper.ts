@@ -15,7 +15,13 @@ export const mapEventToEventType = (apiEvent: ApiEvent): EventType => {
     distance: "",
     emoji: apiEvent.emoji || "📍",
     emojiDescription: apiEvent.emojiDescription,
-    categories: apiEvent.categories?.map((c) => c.name) || [],
+    categories: Array.isArray(apiEvent.categories)
+      ? apiEvent.categories.map((cat) =>
+          typeof cat === "string"
+            ? { id: cat, name: cat }
+            : { id: cat.id, name: cat.name },
+        )
+      : [],
     creator: apiEvent.creator,
     creatorId: apiEvent.creatorId,
     scanCount: apiEvent.scanCount || 0,

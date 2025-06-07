@@ -113,6 +113,7 @@ function RootLayout() {
             <Stack.Screen name="filter" />
             <Stack.Screen name="search/index" />
             <Stack.Screen name="search/list" />
+            <Stack.Screen name="category/[id]" />
             <Stack.Screen name="details" />
             <Stack.Screen name="friends" />
             <Stack.Screen name="notifications" />

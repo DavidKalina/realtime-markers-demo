@@ -1795,4 +1795,83 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
       where: { userId, eventId },
     });
   }
+
+  /**
+   * Get all events with a specific category using cursor-based pagination
+   * @param categoryId The ID of the category to filter by
+   * @param options Pagination options
+   * @returns An array of events with pagination info
+   */
+  async getEventsByCategory(
+    categoryId: string,
+    options: { limit?: number; cursor?: string } = {},
+  ): Promise<{ events: Event[]; nextCursor?: string }> {
+    const { limit = 10, cursor } = options;
+
+    // Parse cursor if provided
+    let cursorData: { eventDate: Date; eventId: string } | undefined;
+    if (cursor) {
+      try {
+        const jsonStr = Buffer.from(cursor, "base64").toString("utf-8");
+        cursorData = JSON.parse(jsonStr);
+      } catch (e) {
+        console.error("Invalid cursor format:", e);
+      }
+    }
+
+    // Build query
+    let queryBuilder = this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("category.id = :categoryId", { categoryId });
+
+    // Add cursor conditions if cursor is provided
+    if (cursorData) {
+      queryBuilder = queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where("event.eventDate < :eventDate", {
+            eventDate: cursorData.eventDate,
+          }).orWhere(
+            new Brackets((qb2) => {
+              qb2
+                .where("event.eventDate = :eventDate", {
+                  eventDate: cursorData.eventDate,
+                })
+                .andWhere("event.id < :eventId", {
+                  eventId: cursorData.eventId,
+                });
+            }),
+          );
+        }),
+      );
+    }
+
+    // Execute query
+    const events = await queryBuilder
+      .orderBy("event.eventDate", "DESC")
+      .addOrderBy("event.id", "DESC")
+      .take(limit + 1)
+      .getMany();
+
+    // Process results
+    const hasMore = events.length > limit;
+    const results = events.slice(0, limit);
+
+    // Generate next cursor if we have more results
+    let nextCursor: string | undefined;
+    if (hasMore && results.length > 0) {
+      const lastResult = results[results.length - 1];
+      const cursorObj = {
+        eventDate: lastResult.eventDate,
+        eventId: lastResult.id,
+      };
+      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString("base64");
+    }
+
+    return {
+      events: results,
+      nextCursor,
+    };
+  }
 }
