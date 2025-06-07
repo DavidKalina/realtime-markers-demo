@@ -148,6 +148,8 @@ const Screen = <T extends string>({
     </ScreenContent>
   );
 
+  const BANNER_HEIGHT = extendBannerToStatusBar ? 44 : 90;
+
   return (
     <ScreenLayout
       style={style}
@@ -157,6 +159,17 @@ const Screen = <T extends string>({
       extendBannerToStatusBar={extendBannerToStatusBar}
     >
       <View style={styles.mainContainer}>
+        {(bannerTitle || showBackButton) && (
+          <View style={styles.fixedBannerWrapper}>
+            <Banner
+              name={bannerTitle || ""}
+              emoji={bannerEmoji}
+              onBack={handleBack}
+              scrollY={scrollY}
+              extendToStatusBar={extendBannerToStatusBar}
+            />
+          </View>
+        )}
         {isScrollable ? (
           <Animated.ScrollView
             showsVerticalScrollIndicator={false}
@@ -165,35 +178,17 @@ const Screen = <T extends string>({
             style={styles.scrollView}
             contentContainerStyle={[
               styles.scrollContent,
+              { paddingTop: BANNER_HEIGHT },
               footerButtons.length > 0 && styles.scrollContentWithFooter,
             ]}
           >
-            {(bannerTitle || showBackButton) && (
-              <Banner
-                name={bannerTitle || ""}
-                emoji={bannerEmoji}
-                onBack={handleBack}
-                scrollY={scrollY}
-                extendToStatusBar={extendBannerToStatusBar}
-              />
-            )}
             {renderContent()}
           </Animated.ScrollView>
         ) : (
-          <View style={styles.container}>
-            {(bannerTitle || showBackButton) && (
-              <Banner
-                name={bannerTitle || ""}
-                emoji={bannerEmoji}
-                onBack={handleBack}
-                scrollY={scrollY}
-                extendToStatusBar={extendBannerToStatusBar}
-              />
-            )}
+          <View style={[styles.container, { paddingTop: BANNER_HEIGHT }]}>
             {renderContent()}
           </View>
         )}
-
         {footerButtons.length > 0 && (
           <View style={styles.fixedFooter}>
             {footerButtons.map((button, index) => (
@@ -273,6 +268,13 @@ const styles = StyleSheet.create({
     marginHorizontal: -16,
     marginTop: 0,
     marginBottom: 0,
+  },
+  fixedBannerWrapper: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
 });
 

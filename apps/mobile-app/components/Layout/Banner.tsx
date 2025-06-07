@@ -3,8 +3,6 @@ import { ArrowLeft } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { StyleSheet, TouchableOpacity, View, Text } from "react-native";
 import Animated, {
-  Extrapolation,
-  interpolate,
   LinearTransition,
   SharedValue,
   useAnimatedStyle,
@@ -28,38 +26,18 @@ export default function Banner({
   emoji,
   name,
   onBack,
-  scrollY,
   extendToStatusBar,
 }: BannerProps) {
-  const zoneBannerAnimatedStyle = useAnimatedStyle(() => {
-    const bannerPaddingVertical = interpolate(
-      scrollY.value,
-      [0, 80],
-      [extendToStatusBar ? 44 : 8, 6],
-      Extrapolation.CLAMP,
-    );
-    return {
-      paddingTop: bannerPaddingVertical,
-      paddingBottom: 8,
-      marginTop: extendToStatusBar ? -44 : 0,
-    };
-  });
-
-  const animatedBannerEmojiStyle = useAnimatedStyle(() => ({
-    fontSize: interpolate(
-      scrollY.value,
-      [0, 80],
-      [28, 22],
-      Extrapolation.CLAMP,
-    ),
+  const zoneBannerAnimatedStyle = useAnimatedStyle(() => ({
+    paddingTop: extendToStatusBar ? 44 : 8,
+    paddingBottom: 8,
+    marginTop: extendToStatusBar ? -44 : 0,
   }));
 
-  // Add floating animation values
   const floatX = useSharedValue(0);
   const floatY = useSharedValue(0);
 
   useEffect(() => {
-    // More subtle floating animation
     floatX.value = withRepeat(
       withSequence(
         withTiming(1.5, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
@@ -83,7 +61,6 @@ export default function Banner({
     transform: [{ translateX: floatX.value }, { translateY: floatY.value }],
   }));
 
-  // Add back button animation
   const backButtonScale = useSharedValue(1);
   const backButtonRotation = useSharedValue(0);
 
@@ -132,11 +109,7 @@ export default function Banner({
         <View style={styles.titleContainer}>
           <View style={styles.titleContent}>
             <Animated.View style={floatingEmojiStyle}>
-              <Animated.Text
-                style={[styles.zoneBannerEmoji, animatedBannerEmojiStyle]}
-              >
-                {emoji || "👥"}
-              </Animated.Text>
+              <Text style={styles.zoneBannerEmoji}>{emoji || "👥"}</Text>
             </Animated.View>
             <Text style={styles.zoneBannerName}>{name}</Text>
           </View>
@@ -156,6 +129,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingTop: 2,
     zIndex: 2,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
   },
   extendedBanner: {
     position: "relative",
@@ -181,12 +158,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   backButtonTouchable: {
-    width: 36, // Slightly smaller than container
-    height: 36, // Slightly smaller than container
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(0,0,0,0.15)",
-    borderRadius: 18, // Half of width/height
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
     shadowColor: "#000",
