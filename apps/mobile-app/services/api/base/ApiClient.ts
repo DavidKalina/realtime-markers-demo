@@ -167,6 +167,11 @@ export class BaseApiClient {
         console.log("Token refresh successful");
         return this.tokens.accessToken;
       }
+      // If refresh failed, immediately clear auth state and notify listeners
+      console.log("Token refresh failed, clearing auth state");
+      await this.clearAuthState();
+      this.notifyAuthListeners(false);
+      return null;
     }
 
     // If we get here, try to sync from storage as a last resort
@@ -175,6 +180,9 @@ export class BaseApiClient {
 
     if (!syncedTokens?.accessToken) {
       console.log("No valid token available after all attempts");
+      // Immediately clear auth state and notify listeners
+      await this.clearAuthState();
+      this.notifyAuthListeners(false);
       return null;
     }
 
