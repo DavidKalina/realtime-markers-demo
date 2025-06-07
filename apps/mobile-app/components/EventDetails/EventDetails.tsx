@@ -219,19 +219,37 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   }, [eventId]);
 
   // Add RSVP handler
-  const handleToggleRsvp = async () => {
+  const handleToggleRsvp = () => {
     if (rsvpState === "loading") return;
 
+    // Optimistically update the UI state
+    const newRsvpState = !isRsvped;
+    console.log("Current RSVP state:", { isRsvped, newRsvpState });
+    setIsRsvped(newRsvpState);
     setRsvpState("loading");
-    try {
-      const { rsvped } = await apiClient.rsvp.toggleRSVP(eventId);
-      setIsRsvped(rsvped);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch (error) {
-      console.error("Error toggling RSVP:", error);
-    } finally {
-      setRsvpState("idle");
-    }
+
+    // Make the API call
+    apiClient.rsvp
+      .toggleRSVP(eventId)
+      .then((response) => {
+        console.log("RSVP API Response:", {
+          response,
+          currentState: isRsvped,
+          optimisticState: newRsvpState,
+          status: response.status,
+        });
+        // Use the status to determine if user is RSVPed
+        setIsRsvped(response.status === "GOING");
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      })
+      .catch((error) => {
+        console.error("Error toggling RSVP:", error);
+        // Revert optimistic update on error
+        setIsRsvped(!newRsvpState);
+      })
+      .finally(() => {
+        setRsvpState("idle");
+      });
   };
 
   const handleImagePress = () => {

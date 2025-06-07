@@ -75,7 +75,10 @@ const RsvpButton: React.FC<RsvpButtonProps> = ({
         style={[StyleSheet.absoluteFill, styles.buttonContent, animatedStyle]}
       >
         {rsvpState === "loading" ? (
-          <ActivityIndicator size="small" color={COLORS.accent} />
+          <ActivityIndicator
+            size="small"
+            color={isRsvped ? COLORS.success : COLORS.accent}
+          />
         ) : isRsvped ? (
           <CalendarCheck size={24} color={COLORS.success} />
         ) : (
