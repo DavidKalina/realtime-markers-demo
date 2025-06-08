@@ -19,7 +19,9 @@ const markerToEventType = (marker: Marker): EventType => {
     locationNotes: marker.data.locationNotes,
     distance: marker.data.distance || "",
     emoji: marker.data.emoji || "📍",
-    categories: marker.data.categories || [],
+    categories: (marker.data.categories || []).map((cat) =>
+      typeof cat === "string" ? { id: cat, name: cat } : cat,
+    ),
     creator: marker.data.creator,
     scanCount: marker.data.scanCount ?? 1,
     saveCount: marker.data.saveCount ?? 0,
