@@ -3,6 +3,22 @@ import { BaseApiClient } from "../base/ApiClient";
 import { Friend, FriendRequest, FriendRequestCreateInput } from "../base/types";
 import { apiClient } from "../../ApiClient";
 
+// Extended type for friend requests with user details
+interface FriendRequestWithUsers extends FriendRequest {
+  requester?: {
+    id: string;
+    displayName: string;
+    email: string;
+    avatarUrl?: string;
+  };
+  addressee?: {
+    id: string;
+    displayName: string;
+    email: string;
+    avatarUrl?: string;
+  };
+}
+
 export class FriendsModule extends BaseApiModule {
   constructor(client: BaseApiClient) {
     super(client);
@@ -38,19 +54,19 @@ export class FriendsModule extends BaseApiModule {
   /**
    * Get pending friend requests received by the current user
    */
-  async getPendingFriendRequests(): Promise<FriendRequest[]> {
+  async getPendingFriendRequests(): Promise<FriendRequestWithUsers[]> {
     const url = `${this.client.baseUrl}/api/friendships/requests/pending`;
     const response = await this.fetchWithAuth(url);
-    return this.handleResponse<FriendRequest[]>(response);
+    return this.handleResponse<FriendRequestWithUsers[]>(response);
   }
 
   /**
    * Get outgoing friend requests sent by the current user
    */
-  async getOutgoingFriendRequests(): Promise<FriendRequest[]> {
+  async getOutgoingFriendRequests(): Promise<FriendRequestWithUsers[]> {
     const url = `${this.client.baseUrl}/api/friendships/requests/outgoing`;
     const response = await this.fetchWithAuth(url);
-    return this.handleResponse<FriendRequest[]>(response);
+    return this.handleResponse<FriendRequestWithUsers[]>(response);
   }
 
   /**
@@ -90,6 +106,17 @@ export class FriendsModule extends BaseApiModule {
   }
 
   /**
+   * Cancel an outgoing friend request
+   */
+  async cancelFriendRequest(id: string): Promise<void> {
+    const url = `${this.client.baseUrl}/api/friendships/requests/${id}/cancel`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+    });
+    await this.handleResponse<void>(response);
+  }
+
+  /**
    * Remove a friend
    */
   async removeFriend(id: string): Promise<void> {
@@ -107,6 +134,30 @@ export class FriendsModule extends BaseApiModule {
     const url = `${this.client.baseUrl}/api/friendships/search?query=${encodeURIComponent(query)}`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<Friend[]>(response);
+  }
+
+  /**
+   * Send a friend request by username
+   */
+  async sendFriendRequestByUsername(username: string): Promise<void> {
+    const url = `${this.client.baseUrl}/api/friendships/requests/by-username`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ username }),
+    });
+    await this.handleResponse<void>(response);
+  }
+
+  /**
+   * Send a friend request by friend code
+   */
+  async sendFriendRequestByCode(code: string): Promise<void> {
+    const url = `${this.client.baseUrl}/api/friendships/requests/by-code`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+    await this.handleResponse<void>(response);
   }
 }
 

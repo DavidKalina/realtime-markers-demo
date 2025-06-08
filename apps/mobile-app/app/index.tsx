@@ -142,8 +142,6 @@ function HomeScreen() {
           setHasRequestedInitialLocation(true);
           await AsyncStorage.setItem("hasRequestedInitialLocation", "true");
           getUserLocation();
-        } else {
-          console.log("[HomeScreen] Using existing location:", userLocation);
         }
       }
     };
@@ -467,7 +465,6 @@ function HomeScreen() {
   }, []);
 
   const handleRippleComplete = useCallback(() => {
-    console.log("Ripple animation completed");
     setShowRipple(false);
 
     if (longPressCoordinates) {

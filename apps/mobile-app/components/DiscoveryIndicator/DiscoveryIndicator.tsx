@@ -117,8 +117,6 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
       EventTypes.NOTIFICATION,
       (event: NotificationEvent) => {
         setItems((prev) => {
-          console.log("EVENT", event);
-
           // Check for duplicate notifications based on content
           const isDuplicate = prev?.some(
             (item) =>
@@ -129,7 +127,6 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
           );
 
           if (isDuplicate) {
-            console.log("Skipping duplicate notification");
             return prev;
           }
 

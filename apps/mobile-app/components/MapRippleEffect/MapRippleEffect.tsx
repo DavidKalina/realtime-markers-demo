@@ -37,8 +37,6 @@ export const MapRippleEffect: React.FC<MapRippleEffectProps> = ({
   };
 
   useEffect(() => {
-    console.log("MapRippleEffect mounted/updated:", { isVisible, position });
-
     if (isVisible) {
       // Reset values
       scale.value = 0;

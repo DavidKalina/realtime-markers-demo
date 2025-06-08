@@ -138,7 +138,6 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
     }
 
     if (error) {
-      console.log("error", error);
       return (
         <View style={styles.emptyContainer}>
           <Text style={styles.errorText}>Something went wrong</Text>

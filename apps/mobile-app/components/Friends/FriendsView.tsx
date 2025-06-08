@@ -14,12 +14,27 @@ type TabType = "friends" | "requests" | "add";
 
 const PAGE_SIZE = 20;
 
+interface FriendRequestWithUsers extends FriendRequest {
+  requester?: {
+    id: string;
+    displayName: string;
+    email: string;
+    avatarUrl?: string;
+  };
+  addressee?: {
+    id: string;
+    displayName: string;
+    email: string;
+    avatarUrl?: string;
+  };
+}
+
 const FriendsView: React.FC = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("friends");
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<
-    (FriendRequest & { type: "incoming" | "outgoing" })[]
+    (FriendRequestWithUsers & { type: "incoming" | "outgoing" })[]
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -74,14 +89,10 @@ const FriendsView: React.FC = () => {
   // Fetch requests with pagination
   const fetchRequests = useCallback(async (page: number, isRefresh = false) => {
     try {
-      console.log("Fetching friend requests...");
       const [incomingResponse, outgoingResponse] = await Promise.all([
         apiClient.friends.getPendingFriendRequests(),
         apiClient.friends.getOutgoingFriendRequests(),
       ]);
-
-      console.log("Incoming friend requests:", incomingResponse);
-      console.log("Outgoing friend requests:", outgoingResponse);
 
       const combinedRequests = [
         ...incomingResponse
@@ -94,8 +105,6 @@ const FriendsView: React.FC = () => {
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
-
-      console.log("Combined and filtered requests:", combinedRequests);
 
       if (isRefresh) {
         setRequests(combinedRequests);
@@ -289,7 +298,7 @@ const FriendsView: React.FC = () => {
   );
 
   const renderRequestItem = useCallback(
-    (request: FriendRequest & { type: "incoming" | "outgoing" }) => {
+    (request: FriendRequestWithUsers & { type: "incoming" | "outgoing" }) => {
       if (
         !request ||
         (request.type === "incoming" && !request.requester) ||
@@ -330,12 +339,12 @@ const FriendsView: React.FC = () => {
           <View style={styles.listItemContent}>
             <View style={styles.listItemHeader}>
               <Text style={styles.listItemTitle} numberOfLines={1}>
-                {user.displayName || user.email}
+                {user?.displayName || user?.email}
               </Text>
             </View>
-            {user.displayName && (
+            {user?.displayName && (
               <Text style={styles.listItemDescription} numberOfLines={1}>
-                {user.email}
+                {user?.email}
               </Text>
             )}
           </View>

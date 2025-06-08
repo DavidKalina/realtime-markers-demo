@@ -131,8 +131,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
     const [imageLoading, setImageLoading] = useState(false);
     const [imageError, setImageError] = useState<string | null>(null);
 
-    console.log("EventDetails eventId:", eventId);
-
     const {
       handleBack,
       loading,
@@ -337,12 +335,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
         };
       }
     }, [event?.coordinates, flyOver, stopFlyOver]);
-
-    useEffect(() => {
-      if (event?.categories) {
-        console.log("Categories:", event.categories);
-      }
-    }, [event?.categories]);
 
     if (loading) {
       return <LoadingEventDetails />;
