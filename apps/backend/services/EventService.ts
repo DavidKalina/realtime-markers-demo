@@ -789,7 +789,6 @@ export class EventService {
 
     // Execute query
     const events = await queryBuilder
-      .select("event")
       .addSelect(`(${scoreExpression})`, "score")
       .orderBy("score", "DESC")
       .addOrderBy("event.id", "ASC")
