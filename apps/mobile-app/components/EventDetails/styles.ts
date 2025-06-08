@@ -408,7 +408,7 @@ export const styles = StyleSheet.create({
   discoveredBySection: {
     marginHorizontal: 20,
     marginTop: 20,
-    backgroundColor: "rgba(0, 0, 0, 0.25)",
+    backgroundColor: COLORS.textPrimary,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
@@ -442,7 +442,7 @@ export const styles = StyleSheet.create({
   },
   discoveredByName: {
     fontSize: 16,
-    color: COLORS.textPrimary,
+    color: COLORS.textSecondary,
     fontFamily: "SpaceMono",
     fontWeight: "700",
     letterSpacing: 0.3,

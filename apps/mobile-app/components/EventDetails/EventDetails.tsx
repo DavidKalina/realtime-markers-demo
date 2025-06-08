@@ -189,7 +189,10 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           id: event.id,
           title: event.title,
           description: event.description,
-          eventDate: event.eventDate,
+          eventDate:
+            event.eventDate instanceof Date
+              ? event.eventDate.toISOString()
+              : event.eventDate,
           emoji: event.emoji,
           latitude: event.coordinates[1]?.toString(),
           longitude: event.coordinates[0]?.toString(),
@@ -208,7 +211,11 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
 
     const formattedDate = useMemo(() => {
       if (!event?.eventDate) return "";
-      return formatDate(event.eventDate, event.timezone).trim();
+      const dateStr =
+        event.eventDate instanceof Date
+          ? event.eventDate.toISOString()
+          : event.eventDate;
+      return formatDate(dateStr, event.timezone).trim();
     }, [event?.eventDate, event?.timezone]);
 
     const recurringEventDetails = useMemo(() => {
@@ -389,7 +396,11 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                 title={event.title}
                 emoji={event.emoji}
                 isPrivate={event.isPrivate}
-                eventDate={event.eventDate}
+                eventDate={
+                  event.eventDate instanceof Date
+                    ? event.eventDate.toISOString()
+                    : event.eventDate
+                }
                 imageUrl={imageUrl}
                 imageLoading={imageLoading}
                 imageError={imageError}

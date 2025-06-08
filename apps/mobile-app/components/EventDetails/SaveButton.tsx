@@ -8,12 +8,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-
-const COLORS = {
-  accent: "#93c5fd",
-  buttonBackground: "rgba(147, 197, 253, 0.1)",
-  success: "#40c057",
-};
+import { COLORS } from "../Layout/ScreenLayout";
 
 interface SaveButtonProps {
   isSaved: boolean;
@@ -56,7 +51,7 @@ const SaveButton: React.FC<SaveButtonProps> = ({
       backgroundColor: interpolateColor(
         color.value,
         [0, 1],
-        [COLORS.buttonBackground, COLORS.success + "20"],
+        [COLORS.buttonBackground, COLORS.accent + "20"],
       ),
     };
   });
@@ -78,7 +73,7 @@ const SaveButton: React.FC<SaveButtonProps> = ({
         {savingState === "loading" ? (
           <ActivityIndicator size="small" color={COLORS.accent} />
         ) : isSaved ? (
-          <BookmarkCheck size={24} color={COLORS.success} />
+          <BookmarkCheck size={24} color={COLORS.accent} />
         ) : (
           <Bookmark size={24} color={COLORS.accent} />
         )}
@@ -94,7 +89,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -107,7 +102,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: COLORS.buttonBorder,
   },
   loading: {
     opacity: 0.7,
