@@ -8,6 +8,7 @@ import Screen, { Section } from "../Layout/Screen";
 import { COLORS } from "../Layout/ScreenLayout";
 import Input from "../Input/Input";
 import InfiniteScrollFlatList from "../Layout/InfintieScrollFlatList";
+import FriendListItem from "./FriendListItem";
 
 type TabType = "friends" | "requests" | "add";
 
@@ -275,21 +276,14 @@ const FriendsView: React.FC = () => {
 
   const renderFriendItem = useCallback(
     (friend: Friend) => (
-      <View style={styles.listItem}>
-        <View style={styles.avatarContainer}>
-          <User size={20} color={COLORS.accent} />
-        </View>
-        <View style={styles.listItemContent}>
-          <Text style={styles.listItemTitle} numberOfLines={1}>
-            {friend.displayName || friend.email}
-          </Text>
-          {friend.displayName && (
-            <Text style={styles.listItemDescription} numberOfLines={1}>
-              {friend.email}
-            </Text>
-          )}
-        </View>
-      </View>
+      <FriendListItem
+        friend={friend}
+        emoji="👤"
+        onPress={(friend) => {
+          // TODO: Handle friend press - maybe navigate to friend profile or chat
+          console.log("Friend pressed:", friend);
+        }}
+      />
     ),
     [],
   );
