@@ -18,6 +18,8 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
   const [isSaved, setIsSaved] = useState(false);
   const [saveCount, setSaveCount] = useState(0);
   const [savingState, setSavingState] = useState<"idle" | "loading">("idle");
+  const [isRsvped, setIsRsvped] = useState(false);
+  const [rsvpState, setRsvpState] = useState<"idle" | "loading">("idle");
   const router = useRouter();
   const { getCachedEvent, setCachedEvent } = useEventCacheStore();
   const eventAnalytics = useEventAnalytics();
@@ -46,34 +48,43 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
             if (cachedEvent.saveCount !== undefined) {
               setSaveCount(cachedEvent.saveCount);
             }
+            // If we have cached event, still check RSVP status if authenticated
+            if (apiClient.isAuthenticated()) {
+              try {
+                const { isRsvped: rsvpStatus } =
+                  await apiClient.rsvp.isEventRsvped(eventId);
+                if (isMounted) {
+                  setIsRsvped(rsvpStatus);
+                }
+              } catch (rsvpErr) {
+                console.error("Error checking RSVP status:", rsvpErr);
+              }
+            }
           }
           setLoading(false);
           return;
         }
 
         // If not in cache, fetch from API
-        const eventData = await apiClient.events.getEventById(eventId);
+        const [eventData, rsvpStatus, saveStatus] = await Promise.all([
+          apiClient.events.getEventById(eventId),
+          apiClient.isAuthenticated()
+            ? apiClient.rsvp.isEventRsvped(eventId)
+            : Promise.resolve({ isRsvped: false }),
+          apiClient.isAuthenticated()
+            ? apiClient.events.isEventSaved(eventId)
+            : Promise.resolve({ isSaved: false }),
+        ]);
 
         if (isMounted) {
           setEvent(eventData);
+          setIsRsvped(rsvpStatus.isRsvped);
+          setIsSaved(saveStatus.isSaved);
           if (eventData.saveCount !== undefined) {
             setSaveCount(eventData.saveCount);
           }
           // Cache the event data
           setCachedEvent(eventId, eventData);
-        }
-
-        // Check if event is saved by the user
-        if (apiClient.isAuthenticated()) {
-          try {
-            const { isSaved: savedStatus } =
-              await apiClient.events.isEventSaved(eventId);
-            if (isMounted) {
-              setIsSaved(savedStatus);
-            }
-          } catch (saveErr) {
-            console.error("Error checking save status:", saveErr);
-          }
         }
       } catch (err) {
         if (isMounted) {
@@ -259,6 +270,34 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
     }
   };
 
+  // Add RSVP handler
+  const handleToggleRsvp = async () => {
+    if (rsvpState === "loading" || !event) return;
+
+    setRsvpState("loading");
+    const newRsvpState = !isRsvped;
+
+    try {
+      const response = await apiClient.rsvp.toggleRSVP(event.id!);
+      setIsRsvped(response.status === "GOING");
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      // Track the RSVP action using the available analytics method
+      // Since we don't have a specific RSVP tracking method, we'll use save tracking
+      eventAnalytics.trackEventSave(
+        event,
+        response.status === "GOING" ? "save" : "unsave",
+      );
+    } catch (error) {
+      console.error("Error toggling RSVP:", error);
+      // Revert optimistic update on error
+      setIsRsvped(!newRsvpState);
+      Alert.alert("Error", "Failed to update RSVP status. Please try again.");
+    } finally {
+      setRsvpState("idle");
+    }
+  };
+
   return {
     handleGetDirections,
     handleShare,
@@ -266,6 +305,7 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
     handleBack,
     handleOpenMaps,
     handleRetry,
+    handleToggleRsvp,
     loading,
     error,
     isSaved,
@@ -276,5 +316,7 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
     event,
     isLoadingLocation,
     userLocation,
+    isRsvped,
+    rsvpState,
   };
 };

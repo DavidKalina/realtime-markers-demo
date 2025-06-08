@@ -114,14 +114,12 @@ const formatRecurrenceDays = (days?: string[]): string => {
 const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
   const router = useRouter();
   const { mapStyle } = useMapStyle();
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageLoading, setImageLoading] = useState(false);
-  const [imageError, setImageError] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isRsvped, setIsRsvped] = useState(false);
-  const [rsvpState, setRsvpState] = useState<"idle" | "loading">("idle");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   console.log("EventDetails eventId:", eventId);
 
@@ -135,11 +133,14 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
     handleOpenMaps,
     handleShare,
     handleToggleSave,
+    handleToggleRsvp,
     savingState,
     isAdmin,
     isSaved,
     distanceInfo,
     userLocation,
+    isRsvped,
+    rsvpState,
   } = useEventDetails(eventId, onBack);
 
   // Add map refs for private event preview
@@ -203,54 +204,6 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
       };
     }
   }, [event?.coordinates, flyOver, stopFlyOver]);
-
-  // Add RSVP check effect
-  useEffect(() => {
-    const checkRsvpStatus = async () => {
-      try {
-        const { isRsvped } = await apiClient.rsvp.isEventRsvped(eventId);
-        setIsRsvped(isRsvped);
-      } catch (error) {
-        console.error("Error checking RSVP status:", error);
-      }
-    };
-
-    checkRsvpStatus();
-  }, [eventId]);
-
-  // Add RSVP handler
-  const handleToggleRsvp = () => {
-    if (rsvpState === "loading") return;
-
-    // Optimistically update the UI state
-    const newRsvpState = !isRsvped;
-    console.log("Current RSVP state:", { isRsvped, newRsvpState });
-    setIsRsvped(newRsvpState);
-    setRsvpState("loading");
-
-    // Make the API call
-    apiClient.rsvp
-      .toggleRSVP(eventId)
-      .then((response) => {
-        console.log("RSVP API Response:", {
-          response,
-          currentState: isRsvped,
-          optimisticState: newRsvpState,
-          status: response.status,
-        });
-        // Use the status to determine if user is RSVPed
-        setIsRsvped(response.status === "GOING");
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      })
-      .catch((error) => {
-        console.error("Error toggling RSVP:", error);
-        // Revert optimistic update on error
-        setIsRsvped(!newRsvpState);
-      })
-      .finally(() => {
-        setRsvpState("idle");
-      });
-  };
 
   const handleImagePress = () => {
     if (imageUrl) {
