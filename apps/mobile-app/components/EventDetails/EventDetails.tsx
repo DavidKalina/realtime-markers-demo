@@ -397,9 +397,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({ eventId, onBack }) => {
               <Calendar size={18} color={COLORS.accent} strokeWidth={2.5} />
             </View>
             <Text style={styles.detailText}>
-              {formatDate(event.eventDate, event.timezone)
-                .split("at")[0]
-                .trim()}
+              {formatDate(event.eventDate, event.timezone).trim()}
               <Text style={styles.detailTextSecondary}>{"\n"}1:00 PM MDT</Text>
             </Text>
           </View>
