@@ -12,7 +12,7 @@ export class FriendsModule extends BaseApiModule {
    * Get all friends of the current user
    */
   async getFriends(): Promise<Friend[]> {
-    const url = `${this.client.baseUrl}/api/friends`;
+    const url = `${this.client.baseUrl}/api/friendships`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<Friend[]>(response);
   }
@@ -21,7 +21,7 @@ export class FriendsModule extends BaseApiModule {
    * Get a specific friend by ID
    */
   async getFriend(id: string): Promise<Friend> {
-    const url = `${this.client.baseUrl}/api/friends/${id}`;
+    const url = `${this.client.baseUrl}/api/friendships/${id}`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<Friend>(response);
   }
@@ -30,7 +30,25 @@ export class FriendsModule extends BaseApiModule {
    * Get all friend requests received by the current user
    */
   async getFriendRequests(): Promise<FriendRequest[]> {
-    const url = `${this.client.baseUrl}/api/friends/requests`;
+    const url = `${this.client.baseUrl}/api/friendships/requests`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<FriendRequest[]>(response);
+  }
+
+  /**
+   * Get pending friend requests received by the current user
+   */
+  async getPendingFriendRequests(): Promise<FriendRequest[]> {
+    const url = `${this.client.baseUrl}/api/friendships/requests/pending`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<FriendRequest[]>(response);
+  }
+
+  /**
+   * Get outgoing friend requests sent by the current user
+   */
+  async getOutgoingFriendRequests(): Promise<FriendRequest[]> {
+    const url = `${this.client.baseUrl}/api/friendships/requests/outgoing`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<FriendRequest[]>(response);
   }
@@ -41,7 +59,7 @@ export class FriendsModule extends BaseApiModule {
   async sendFriendRequest(
     input: FriendRequestCreateInput,
   ): Promise<FriendRequest> {
-    const url = `${this.client.baseUrl}/api/friends/requests`;
+    const url = `${this.client.baseUrl}/api/friendships/requests`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify(input),
@@ -53,7 +71,7 @@ export class FriendsModule extends BaseApiModule {
    * Accept a friend request
    */
   async acceptFriendRequest(id: string): Promise<Friend> {
-    const url = `${this.client.baseUrl}/api/friends/requests/${id}/accept`;
+    const url = `${this.client.baseUrl}/api/friendships/requests/${id}/accept`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
     });
@@ -64,7 +82,7 @@ export class FriendsModule extends BaseApiModule {
    * Reject a friend request
    */
   async rejectFriendRequest(id: string): Promise<void> {
-    const url = `${this.client.baseUrl}/api/friends/requests/${id}/reject`;
+    const url = `${this.client.baseUrl}/api/friendships/requests/${id}/reject`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
     });
@@ -75,7 +93,7 @@ export class FriendsModule extends BaseApiModule {
    * Remove a friend
    */
   async removeFriend(id: string): Promise<void> {
-    const url = `${this.client.baseUrl}/api/friends/${id}`;
+    const url = `${this.client.baseUrl}/api/friendships/${id}`;
     const response = await this.fetchWithAuth(url, {
       method: "DELETE",
     });
@@ -86,7 +104,7 @@ export class FriendsModule extends BaseApiModule {
    * Search for friends based on a query
    */
   async searchFriends(query: string): Promise<Friend[]> {
-    const url = `${this.client.baseUrl}/api/friends/search?query=${encodeURIComponent(query)}`;
+    const url = `${this.client.baseUrl}/api/friendships/search?query=${encodeURIComponent(query)}`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<Friend[]>(response);
   }
