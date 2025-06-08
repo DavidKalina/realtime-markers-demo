@@ -211,8 +211,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               <Switch
                 value={mapSettings.isPitched}
                 onValueChange={handlePitchChange}
-                trackColor={{ false: COLORS.divider, true: "#93c5fd" }}
-                thumbColor={mapSettings.isPitched ? "#2563eb" : "#f4f3f4"}
+                trackColor={{ false: COLORS.divider, true: COLORS.accent }}
+                thumbColor={
+                  mapSettings.isPitched
+                    ? COLORS.accentDark
+                    : COLORS.cardBackground
+                }
               />
             </View>
           </Card>
@@ -286,10 +290,10 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    backgroundColor: COLORS.cardBackgroundAlt,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: COLORS.divider,
   },
   loadingText: {
     marginTop: 8,
@@ -337,14 +341,14 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 12,
     marginVertical: 0,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: COLORS.buttonBackground,
+    borderColor: COLORS.buttonBorder,
   },
   deleteActionButton: {
     padding: 12,
     marginVertical: 0,
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
-    borderColor: "rgba(239, 68, 68, 0.2)",
+    backgroundColor: COLORS.errorBackground,
+    borderColor: COLORS.errorBorder,
   },
   buttonText: {
     color: COLORS.textPrimary,
@@ -353,7 +357,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   deleteButtonText: {
-    color: "#ef4444",
+    color: COLORS.errorText,
     fontSize: 14,
     fontFamily: "SpaceMono",
     textAlign: "center",
@@ -367,7 +371,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   styleOptionActive: {
-    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    backgroundColor: COLORS.buttonBackground,
   },
   styleOptionContent: {
     flexDirection: "row",
@@ -387,13 +391,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   radioButtonActive: {
-    borderColor: "#2563eb",
+    borderColor: COLORS.accent,
   },
   radioButtonInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "#2563eb",
+    backgroundColor: COLORS.accent,
   },
   settingRow: {
     flexDirection: "row",
@@ -401,7 +405,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.05)",
+    borderTopColor: COLORS.divider,
   },
   lastSettingRow: {
     marginTop: 8,
