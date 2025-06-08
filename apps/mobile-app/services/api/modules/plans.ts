@@ -126,17 +126,10 @@ export class PlansModule extends BaseApiModule {
    */
   async getPlanDetails(): Promise<PlanDetails> {
     const url = `${this.client.baseUrl}/api/plans`;
-    console.log("Fetching plan details from URL:", url);
-    console.log(
-      "Current auth token:",
-      this.client.tokens?.accessToken ? "Present" : "Missing",
-    );
 
     const response = await this.fetchWithAuth(url);
-    console.log("Plan details response status:", response.status);
 
     const data = await this.handleResponse<PlanDetails>(response);
-    console.log("Parsed plan details:", data);
 
     return data;
   }
