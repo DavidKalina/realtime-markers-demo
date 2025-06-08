@@ -6,7 +6,7 @@ export const mapEventToEventType = (apiEvent: ApiEvent): EventType => {
     id: apiEvent.id,
     title: apiEvent.title,
     description: apiEvent.description || "",
-    eventDate: apiEvent.eventDate,
+    eventDate: new Date(apiEvent.eventDate),
     endDate: apiEvent.endDate,
     time: new Date(apiEvent.eventDate).toLocaleTimeString(),
     coordinates: apiEvent.location.coordinates,

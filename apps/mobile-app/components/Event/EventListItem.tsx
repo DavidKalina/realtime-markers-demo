@@ -113,7 +113,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
             width: 36,
             height: 36,
             borderRadius: 18,
-            backgroundColor: COLORS.cardBackgroundAlt,
+            backgroundColor: COLORS.textPrimary,
             alignItems: "center",
             justifyContent: "center",
             marginRight: 12,

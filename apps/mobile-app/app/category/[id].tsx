@@ -10,13 +10,13 @@ import { apiClient } from "@/services/ApiClient";
 import { Category } from "@/services/api/base/types";
 
 // Type for events from the API
-type EventType = Omit<EventListItemProps, "onPress">;
+type EventListItemType = Omit<EventListItemProps, "onPress">;
 
 const CategoryEventsScreen = () => {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [category, setCategory] = useState<Category | null>(null);
-  const [events, setEvents] = useState<EventType[]>([]);
+  const [events, setEvents] = useState<EventListItemType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -26,7 +26,7 @@ const CategoryEventsScreen = () => {
   useEffect(() => {
     const fetchCategory = async () => {
       try {
-        const categories = await apiClient.categories.getAllCategories();
+        const categories = await apiClient.categories.getCategories();
         const foundCategory = categories.find((cat) => cat.id === id);
         if (foundCategory) {
           setCategory(foundCategory);
@@ -57,9 +57,12 @@ const CategoryEventsScreen = () => {
         });
 
         if (refresh) {
-          setEvents(result.events);
+          setEvents(result.events as EventListItemType[]);
         } else {
-          setEvents((prev) => [...prev, ...result.events]);
+          setEvents((prev) => [
+            ...prev,
+            ...(result.events as EventListItemType[]),
+          ]);
         }
 
         setNextCursor(result.nextCursor);
@@ -85,7 +88,7 @@ const CategoryEventsScreen = () => {
   }, [router]);
 
   const handleEventPress = useCallback(
-    (event: EventType) => {
+    (event: EventListItemType) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       router.push({
         pathname: "/details" as const,
@@ -96,7 +99,7 @@ const CategoryEventsScreen = () => {
   );
 
   const renderEventItem = useCallback(
-    (event: EventType) => (
+    (event: EventListItemType) => (
       <EventListItem {...event} onPress={handleEventPress} />
     ),
     [handleEventPress],
@@ -116,7 +119,7 @@ const CategoryEventsScreen = () => {
       isScrollable={false}
       bannerTitle={category?.name || "Category Events"}
       bannerDescription={`Events in ${category?.name || "this category"}`}
-      bannerEmoji={category?.icon || "📅"}
+      bannerEmoji={category?.emoji || "📅"}
       showBackButton
       onBack={handleBack}
       noAnimation
