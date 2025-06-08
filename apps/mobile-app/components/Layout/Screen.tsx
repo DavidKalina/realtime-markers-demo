@@ -13,7 +13,7 @@ import SectionHeader from "./SectionHeader";
 import Tabs from "./Tabs";
 
 export interface Section {
-  title: string;
+  title?: string;
   content: React.ReactNode;
   onPress?: () => void;
   icon: LucideIcon;
@@ -129,7 +129,9 @@ const Screen = <T extends string>({
         {sections.map((section, index) => (
           <View key={index} style={styles.section}>
             <View style={styles.sectionHeader}>
-              <SectionHeader title={section.title} icon={section.icon} />
+              {section.title && (
+                <SectionHeader title={section.title} icon={section.icon} />
+              )}
               {section.actionButton && (
                 <Button
                   title={section.actionButton.label}

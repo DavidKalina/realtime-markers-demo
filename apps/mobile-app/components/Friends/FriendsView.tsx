@@ -396,7 +396,6 @@ const FriendsView: React.FC = () => {
       case "friends":
         return [
           {
-            title: "Friends",
             icon: Users,
             content: (
               <InfiniteScrollFlatList
@@ -422,7 +421,6 @@ const FriendsView: React.FC = () => {
       case "requests":
         return [
           {
-            title: "Friend Requests",
             icon: UserPlus,
             content: (
               <InfiniteScrollFlatList
@@ -448,7 +446,6 @@ const FriendsView: React.FC = () => {
       case "add":
         return [
           {
-            title: "Add Friends",
             icon: Search,
             content: (
               <View style={styles.addFriendsContainer}>
