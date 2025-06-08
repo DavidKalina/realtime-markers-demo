@@ -274,9 +274,8 @@ export interface NotificationCounts {
 
 export interface NotificationOptions {
   limit?: number;
-  offset?: number;
-  type?: string;
   read?: boolean;
+  type?: string;
 }
 
 // Filter types

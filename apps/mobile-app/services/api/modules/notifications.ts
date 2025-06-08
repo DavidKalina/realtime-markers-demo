@@ -14,20 +14,47 @@ export class NotificationsModule extends BaseApiModule {
     super(client);
   }
 
-  async getNotifications(
-    options?: NotificationOptions,
-  ): Promise<Notification[]> {
+  async getNotifications(params: NotificationOptions = {}): Promise<{
+    notifications: Notification[];
+    count: number;
+    total: number;
+    firstNotification?: Notification;
+    lastNotification?: Notification;
+  }> {
     const queryParams = new URLSearchParams();
-    if (options?.limit) queryParams.append("limit", options.limit.toString());
-    if (options?.offset)
-      queryParams.append("offset", options.offset.toString());
-    if (options?.type) queryParams.append("type", options.type);
-    if (options?.read !== undefined)
-      queryParams.append("read", options.read.toString());
+    if (params.limit) queryParams.append("limit", params.limit.toString());
+    if (params.read !== undefined)
+      queryParams.append("read", params.read.toString());
+    if (params.type) queryParams.append("type", params.type);
 
     const url = `${this.client.baseUrl}/api/notifications?${queryParams.toString()}`;
+    console.log("Fetching notifications from:", url);
+
     const response = await this.fetchWithAuth(url);
-    return this.handleResponse<Notification[]>(response);
+    const data = await this.handleResponse<{
+      notifications: Notification[];
+      total: number;
+    }>(response);
+
+    console.log("Raw notification response:", data);
+
+    // Ensure we have valid data
+    if (!data || !Array.isArray(data.notifications)) {
+      console.error("Invalid notification response:", data);
+      throw new Error("Invalid notification response format");
+    }
+
+    const notifications = data.notifications;
+    const result = {
+      notifications,
+      count: notifications.length,
+      total: data.total || notifications.length,
+      firstNotification: notifications[0],
+      lastNotification: notifications[notifications.length - 1],
+    };
+
+    console.log("Processed notification response:", result);
+    return result;
   }
 
   async getNotification(id: string): Promise<Notification> {
@@ -59,12 +86,12 @@ export class NotificationsModule extends BaseApiModule {
     return this.handleResponse<Notification>(response);
   }
 
-  async deleteNotification(id: string): Promise<void> {
+  async deleteNotification(id: string): Promise<{ success: boolean }> {
     const url = `${this.client.baseUrl}/api/notifications/${id}`;
     const response = await this.fetchWithAuth(url, {
       method: "DELETE",
     });
-    await this.handleResponse<void>(response);
+    return this.handleResponse<{ success: boolean }>(response);
   }
 
   async getNotificationCounts(): Promise<NotificationCounts> {
@@ -73,37 +100,42 @@ export class NotificationsModule extends BaseApiModule {
     return this.handleResponse<NotificationCounts>(response);
   }
 
-  async markAsRead(id: string): Promise<void> {
+  async markNotificationAsRead(id: string): Promise<{ success: boolean }> {
     const url = `${this.client.baseUrl}/api/notifications/${id}/read`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
     });
-    await this.handleResponse<void>(response);
+    return this.handleResponse<{ success: boolean }>(response);
   }
 
-  async markAllAsRead(): Promise<void> {
-    const url = `${this.client.baseUrl}/api/notifications/mark-all-read`;
+  async markAllAsRead(): Promise<{ success: boolean }> {
+    const url = `${this.client.baseUrl}/api/notifications/read/all`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
     });
-    await this.handleResponse<void>(response);
+    return this.handleResponse<{ success: boolean }>(response);
   }
 
-  async deleteNotifications(ids: string[]): Promise<void> {
+  // Backward compatibility method
+  async markAllNotificationsAsRead(): Promise<{ success: boolean }> {
+    return this.markAllAsRead();
+  }
+
+  async deleteNotifications(ids: string[]): Promise<{ success: boolean }> {
     const url = `${this.client.baseUrl}/api/notifications`;
     const response = await this.fetchWithAuth(url, {
       method: "DELETE",
       body: JSON.stringify({ ids }),
     });
-    await this.handleResponse<void>(response);
+    return this.handleResponse<{ success: boolean }>(response);
   }
 
-  async clearAllNotifications(): Promise<void> {
-    const url = `${this.client.baseUrl}/api/notifications`;
+  async clearAllNotifications(): Promise<{ success: boolean }> {
+    const url = `${this.client.baseUrl}/api/notifications/clear`;
     const response = await this.fetchWithAuth(url, {
-      method: "DELETE",
+      method: "POST",
     });
-    await this.handleResponse<void>(response);
+    return this.handleResponse<{ success: boolean }>(response);
   }
 
   subscribeToNotifications(
@@ -139,15 +171,17 @@ export class NotificationsModule extends BaseApiModule {
   }
 
   async getUnreadCount(): Promise<number> {
-    const url = `${this.client.baseUrl}/api/notifications/unread-count`;
+    const url = `${this.client.baseUrl}/api/notifications/unread/count`;
     const response = await this.fetchWithAuth(url);
-    return this.handleResponse<number>(response);
+    const data = await this.handleResponse<{ count: number }>(response);
+    return data.count;
   }
 
   // Backward compatibility method
   async getUnreadNotificationCount(): Promise<{ count: number }> {
-    const count = await this.getUnreadCount();
-    return { count };
+    const url = `${this.client.baseUrl}/api/notifications/unread/count`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{ count: number }>(response);
   }
 }
 

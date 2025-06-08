@@ -31,11 +31,9 @@ export function useNotifications() {
     async (refresh = false) => {
       try {
         setLoading(true);
-        const skip = refresh ? 0 : notifications.length;
 
         console.log("Fetching notifications with params:", {
-          skip,
-          take: PAGE_SIZE,
+          limit: PAGE_SIZE,
           read: activeFilter === "all" ? undefined : false,
           type: selectedType,
         });
@@ -54,27 +52,21 @@ export function useNotifications() {
 
         // Then fetch notifications
         try {
-          const notifs = await apiClient.notifications.getNotifications({
-            skip,
-            take: PAGE_SIZE,
+          const response = await apiClient.notifications.getNotifications({
+            limit: PAGE_SIZE,
             read: activeFilter === "all" ? undefined : false,
             type: selectedType,
           });
 
-          console.log("Fetched notifications:", {
-            count: notifs.length,
-            firstNotification: notifs[0],
-            lastNotification: notifs[notifs.length - 1],
-            total: notifs.length,
-          });
+          console.log("Fetched notifications response:", response);
 
           if (refresh) {
-            setNotifications(notifs);
+            setNotifications(response.notifications);
           } else {
-            setNotifications((prev) => [...prev, ...notifs]);
+            setNotifications((prev) => [...prev, ...response.notifications]);
           }
 
-          setHasMore(notifs.length === PAGE_SIZE);
+          setHasMore(response.notifications.length === PAGE_SIZE);
         } catch (error) {
           console.error("Error fetching notifications:", error);
           // If it's a refresh, clear the notifications
@@ -89,7 +81,7 @@ export function useNotifications() {
         setInitialLoading(false);
       }
     },
-    [notifications.length, activeFilter, selectedType],
+    [activeFilter, selectedType],
   );
 
   const onRefresh = useCallback(async () => {
