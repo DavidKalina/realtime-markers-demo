@@ -147,12 +147,18 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
           titleContainer: {
             flex: 1,
           },
-          eventTitle: {
+          titleRow: {
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            marginBottom: 4,
+          },
+          titleText: {
+            flex: 1,
             color: COLORS.textPrimary,
             fontSize: 16,
             fontFamily: "SpaceMono",
             fontWeight: "600",
-            marginBottom: 4,
           },
           eventDescription: {
             color: COLORS.textSecondary,
@@ -219,6 +225,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
             borderRadius: 12,
             borderWidth: 1,
             borderColor: COLORS.buttonBorder,
+            marginLeft: 8,
           },
           recurringBadgeText: {
             color: COLORS.cardBackground,
@@ -258,9 +265,16 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
               </View>
             )}
             <View style={styles.titleContainer}>
-              <Text style={styles.eventTitle} numberOfLines={1}>
-                {title}
-              </Text>
+              <View style={styles.titleRow}>
+                <Text style={styles.titleText} numberOfLines={1}>
+                  {title}
+                </Text>
+                {isRecurring && (
+                  <View style={styles.recurringBadge}>
+                    <Text style={styles.recurringBadgeText}>🔄 Recurring</Text>
+                  </View>
+                )}
+              </View>
               {description && (
                 <Text style={styles.eventDescription} numberOfLines={2}>
                   {description}
@@ -276,20 +290,13 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
                       <Text style={styles.categoryText}>{category.name}</Text>
                     </View>
                   ))}
-                </View>
-                <View style={styles.footerRight}>
                   {isPrivate && (
                     <View style={styles.privateBadge}>
                       <Text style={styles.privateBadgeText}>🔒 Private</Text>
                     </View>
                   )}
-                  {isRecurring && (
-                    <View style={styles.recurringBadge}>
-                      <Text style={styles.recurringBadgeText}>
-                        🔄 Recurring
-                      </Text>
-                    </View>
-                  )}
+                </View>
+                <View style={styles.footerRight}>
                   <View style={styles.timeBadge}>
                     <Text style={styles.timeBadgeText}>{timeBadgeText}</Text>
                   </View>
