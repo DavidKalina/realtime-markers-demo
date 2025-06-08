@@ -44,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       try {
         // Sync tokens from storage and handle refresh if needed
-        const syncedTokens = await apiClient.auth.syncTokensWithStorage();
+        const syncedTokens = await apiClient.auth.syncTokens();
 
         if (syncedTokens?.accessToken) {
           try {

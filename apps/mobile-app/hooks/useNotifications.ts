@@ -32,18 +32,11 @@ export function useNotifications() {
       try {
         setLoading(true);
 
-        console.log("Fetching notifications with params:", {
-          limit: PAGE_SIZE,
-          read: activeFilter === "all" ? undefined : false,
-          type: selectedType,
-        });
-
         // First try to get unread count
         let unreadCountResponse;
         try {
           unreadCountResponse =
             await apiClient.notifications.getUnreadNotificationCount();
-          console.log("Unread count response:", unreadCountResponse);
           setUnreadCount(unreadCountResponse.count);
         } catch (error) {
           console.error("Error fetching unread count:", error);
@@ -57,8 +50,6 @@ export function useNotifications() {
             read: activeFilter === "all" ? undefined : false,
             type: selectedType,
           });
-
-          console.log("Fetched notifications response:", response);
 
           if (refresh) {
             setNotifications(response.notifications);

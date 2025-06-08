@@ -311,6 +311,13 @@ export class AuthModule extends BaseApiModule {
     await this.handleResponse<{ message: string }>(response);
     return true;
   }
+
+  /**
+   * Sync auth tokens with storage
+   */
+  async syncTokens(): Promise<AuthTokens | null> {
+    return this.syncTokensWithStorage();
+  }
 }
 
 // Export as singleton using the main ApiClient instance
