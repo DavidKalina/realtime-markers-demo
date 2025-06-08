@@ -35,6 +35,14 @@ const markerToEventType = (marker: Marker): EventType => {
     detectedQrData: marker.data.detectedQrData,
     createdAt: marker.data.createdAt,
     updatedAt: marker.data.updatedAt,
+    isRecurring: marker.data.isRecurring ?? false,
+    recurrenceFrequency: marker.data.recurrenceFrequency,
+    recurrenceDays: marker.data.recurrenceDays,
+    recurrenceStartDate: marker.data.recurrenceStartDate,
+    recurrenceEndDate: marker.data.recurrenceEndDate,
+    recurrenceInterval: marker.data.recurrenceInterval,
+    recurrenceTime: marker.data.recurrenceTime,
+    recurrenceExceptions: marker.data.recurrenceExceptions,
   };
 };
 

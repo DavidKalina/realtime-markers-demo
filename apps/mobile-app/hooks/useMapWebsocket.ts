@@ -198,6 +198,15 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         updated_at: event.updatedAt,
         isPrivate: event.isPrivate,
         status: event.status,
+        // Add recurring event fields
+        isRecurring: event.isRecurring ?? false,
+        recurrenceFrequency: event.recurrenceFrequency,
+        recurrenceDays: event.recurrenceDays,
+        recurrenceStartDate: event.recurrenceStartDate,
+        recurrenceEndDate: event.recurrenceEndDate,
+        recurrenceInterval: event.recurrenceInterval,
+        recurrenceTime: event.recurrenceTime,
+        recurrenceExceptions: event.recurrenceExceptions,
         ...(event.metadata || {}), // Ensure metadata is spread safely
       },
     };

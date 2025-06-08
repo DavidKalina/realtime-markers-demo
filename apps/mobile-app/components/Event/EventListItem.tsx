@@ -41,6 +41,7 @@ export interface EventListItemProps {
   eventDate: Date;
   endDate?: string;
   categories: { id: string; name: string }[];
+  isRecurring?: boolean;
   onPress: (event: EventListItemProps) => void;
 }
 
@@ -55,6 +56,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
     eventDate,
     endDate,
     categories,
+    isRecurring,
     onPress,
   }) => {
     const handlePress = useCallback(() => {
@@ -68,6 +70,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
         eventDate,
         endDate,
         categories,
+        isRecurring,
         onPress,
       });
     }, [
@@ -80,6 +83,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
       eventDate,
       endDate,
       categories,
+      isRecurring,
       onPress,
     ]);
 
@@ -191,6 +195,20 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
             fontFamily: "SpaceMono",
             fontWeight: "500",
           },
+          recurringBadge: {
+            backgroundColor: COLORS.accent,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: COLORS.buttonBorder,
+          },
+          recurringBadgeText: {
+            color: COLORS.cardBackground,
+            fontSize: 12,
+            fontFamily: "SpaceMono",
+            fontWeight: "600",
+          },
         }),
       [],
     );
@@ -228,8 +246,17 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
                     </View>
                   ))}
                 </View>
-                <View style={styles.timeBadge}>
-                  <Text style={styles.timeBadgeText}>{timeBadgeText}</Text>
+                <View style={styles.footerRight}>
+                  {isRecurring && (
+                    <View style={styles.recurringBadge}>
+                      <Text style={styles.recurringBadgeText}>
+                        🔄 Recurring
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.timeBadge}>
+                    <Text style={styles.timeBadgeText}>{timeBadgeText}</Text>
+                  </View>
                 </View>
               </View>
             </View>
