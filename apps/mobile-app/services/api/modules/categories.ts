@@ -1,15 +1,81 @@
+import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
-import { Category } from "../base/types";
+import {
+  Category,
+  CategoryCreateInput,
+  CategoryUpdateInput,
+} from "../base/types";
+import { apiClient } from "../../ApiClient";
 
-export class CategoriesModule extends BaseApiClient {
+export class CategoriesModule extends BaseApiModule {
+  constructor(client: BaseApiClient) {
+    super(client);
+  }
+
   /**
    * Get all categories
    * @returns Promise<Category[]> Array of all categories
    */
-  async getAllCategories(): Promise<Category[]> {
-    const url = `${this.baseUrl}/api/categories`;
+  async getCategories(): Promise<Category[]> {
+    const url = `${this.client.baseUrl}/api/categories`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<Category[]>(response);
+  }
+
+  /**
+   * Get a category by ID
+   * @param id Category ID
+   * @returns Promise<Category> The requested category
+   */
+  async getCategory(id: string): Promise<Category> {
+    const url = `${this.client.baseUrl}/api/categories/${id}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<Category>(response);
+  }
+
+  /**
+   * Create a new category
+   * @param input Category creation input
+   * @returns Promise<Category> The created category
+   */
+  async createCategory(input: CategoryCreateInput): Promise<Category> {
+    const url = `${this.client.baseUrl}/api/categories`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return this.handleResponse<Category>(response);
+  }
+
+  /**
+   * Update an existing category
+   * @param id Category ID
+   * @param input Category update input
+   * @returns Promise<Category> The updated category
+   */
+  async updateCategory(
+    id: string,
+    input: CategoryUpdateInput,
+  ): Promise<Category> {
+    const url = `${this.client.baseUrl}/api/categories/${id}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+    return this.handleResponse<Category>(response);
+  }
+
+  /**
+   * Delete a category
+   * @param id Category ID
+   * @returns Promise<void>
+   */
+  async deleteCategory(id: string): Promise<void> {
+    const url = `${this.client.baseUrl}/api/categories/${id}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    await this.handleResponse<void>(response);
   }
 
   /**
@@ -18,7 +84,7 @@ export class CategoriesModule extends BaseApiClient {
    * @returns Promise<Category[]> Array of matching categories
    */
   async searchCategories(query: string): Promise<Category[]> {
-    const url = `${this.baseUrl}/api/categories/search?query=${encodeURIComponent(query)}`;
+    const url = `${this.client.baseUrl}/api/categories/search?query=${encodeURIComponent(query)}`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<Category[]>(response);
   }
@@ -29,7 +95,7 @@ export class CategoriesModule extends BaseApiClient {
    * @returns Promise<Category[]> Array of requested categories
    */
   async getCategoriesByIds(categoryIds: string[]): Promise<Category[]> {
-    const url = `${this.baseUrl}/api/categories/batch`;
+    const url = `${this.client.baseUrl}/api/categories/batch`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify({ categoryIds }),
@@ -43,7 +109,7 @@ export class CategoriesModule extends BaseApiClient {
    * @returns Promise<Category[]> Array of extracted categories
    */
   async extractCategories(text: string): Promise<Category[]> {
-    const url = `${this.baseUrl}/api/categories/extract`;
+    const url = `${this.client.baseUrl}/api/categories/extract`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify({ text }),
@@ -52,5 +118,6 @@ export class CategoriesModule extends BaseApiClient {
   }
 }
 
-// Export as singleton
-export const categoriesModule = new CategoriesModule();
+// Export as singleton using the main ApiClient instance
+export const categoriesModule = new CategoriesModule(apiClient);
+export default categoriesModule;

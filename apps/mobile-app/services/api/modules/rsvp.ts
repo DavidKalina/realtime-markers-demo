@@ -1,5 +1,12 @@
+import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
-import { EventType } from "../base/types";
+import {
+  EventType,
+  RSVP,
+  RSVPCreateInput,
+  RSVPUpdateInput,
+} from "../base/types";
+import { apiClient } from "../../ApiClient";
 
 export type RSVPStatus = "GOING" | "NOT_GOING" | "MAYBE" | "PENDING";
 
@@ -32,14 +39,18 @@ export interface RSVPDetails {
   };
 }
 
-export class RSVPModule extends BaseApiClient {
+export class RSVPModule extends BaseApiModule {
+  constructor(client: BaseApiClient) {
+    super(client);
+  }
+
   /**
    * Toggle RSVP status for an event
    * @param eventId - ID of the event to RSVP to
    * @returns RSVP response with updated counts
    */
   async toggleRSVP(eventId: string): Promise<RSVPResponse> {
-    const url = `${this.baseUrl}/api/events/${eventId}/rsvp`;
+    const url = `${this.client.baseUrl}/api/events/${eventId}/rsvp`;
 
     // First check current RSVP status
     const { isRsvped } = await this.isEventRsvped(eventId);
@@ -63,7 +74,7 @@ export class RSVPModule extends BaseApiClient {
     eventId: string,
     status: RSVPStatus = "GOING",
   ): Promise<RSVPResponse> {
-    const url = `${this.baseUrl}/api/events/${eventId}/rsvp`;
+    const url = `${this.client.baseUrl}/api/events/${eventId}/rsvp`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify({ status }),
@@ -77,7 +88,7 @@ export class RSVPModule extends BaseApiClient {
    * @returns RSVP response with updated counts
    */
   async cancelRSVP(eventId: string): Promise<RSVPResponse> {
-    const url = `${this.baseUrl}/api/events/${eventId}/rsvp`;
+    const url = `${this.client.baseUrl}/api/events/${eventId}/rsvp`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify({ status: "NOT_GOING" }),
@@ -93,7 +104,7 @@ export class RSVPModule extends BaseApiClient {
   async isEventRsvped(
     eventId: string,
   ): Promise<{ isRsvped: boolean; status?: RSVPStatus }> {
-    const url = `${this.baseUrl}/api/events/${eventId}/rsvped`;
+    const url = `${this.client.baseUrl}/api/events/${eventId}/rsvped`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<{ isRsvped: boolean; status?: RSVPStatus }>(
       response,
@@ -120,7 +131,7 @@ export class RSVPModule extends BaseApiClient {
     if (options?.cursor) queryParams.append("cursor", options.cursor);
     if (options?.status) queryParams.append("status", options.status);
 
-    const url = `${this.baseUrl}/api/events/rsvped?${queryParams.toString()}`;
+    const url = `${this.client.baseUrl}/api/events/rsvped?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
 
     return this.handleResponse<{
@@ -154,7 +165,7 @@ export class RSVPModule extends BaseApiClient {
     if (options?.cursor) queryParams.append("cursor", options.cursor);
     if (options?.status) queryParams.append("status", options.status);
 
-    const url = `${this.baseUrl}/api/events/${eventId}/rsvps?${queryParams.toString()}`;
+    const url = `${this.client.baseUrl}/api/events/${eventId}/rsvps?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
 
     return this.handleResponse<{
@@ -170,7 +181,7 @@ export class RSVPModule extends BaseApiClient {
    * @returns RSVP statistics
    */
   async getEventRSVPStats(eventId: string): Promise<RSVPStats> {
-    const url = `${this.baseUrl}/api/events/${eventId}/rsvps/stats`;
+    const url = `${this.client.baseUrl}/api/events/${eventId}/rsvps/stats`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<RSVPStats>(response);
   }
@@ -192,7 +203,7 @@ export class RSVPModule extends BaseApiClient {
     if (options?.limit) queryParams.append("limit", options.limit.toString());
     if (options?.cursor) queryParams.append("cursor", options.cursor);
 
-    const url = `${this.baseUrl}/api/events/rsvped/upcoming?${queryParams.toString()}`;
+    const url = `${this.client.baseUrl}/api/events/rsvped/upcoming?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
 
     return this.handleResponse<{
@@ -200,8 +211,44 @@ export class RSVPModule extends BaseApiClient {
       nextCursor?: string;
     }>(response);
   }
+
+  async getRSVPs(eventId: string): Promise<RSVP[]> {
+    const url = `${this.client.baseUrl}/api/events/${eventId}/rsvps`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<RSVP[]>(response);
+  }
+
+  async createRSVP(eventId: string, input: RSVPCreateInput): Promise<RSVP> {
+    const url = `${this.client.baseUrl}/api/events/${eventId}/rsvps`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return this.handleResponse<RSVP>(response);
+  }
+
+  async updateRSVP(
+    eventId: string,
+    rsvpId: string,
+    input: RSVPUpdateInput,
+  ): Promise<RSVP> {
+    const url = `${this.client.baseUrl}/api/events/${eventId}/rsvps/${rsvpId}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+    return this.handleResponse<RSVP>(response);
+  }
+
+  async deleteRSVP(eventId: string, rsvpId: string): Promise<void> {
+    const url = `${this.client.baseUrl}/api/events/${eventId}/rsvps/${rsvpId}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    await this.handleResponse<void>(response);
+  }
 }
 
-// Export as singleton
-export const rsvpModule = new RSVPModule();
+// Export as singleton using the main ApiClient instance
+export const rsvpModule = new RSVPModule(apiClient);
 export default rsvpModule;

@@ -1,3 +1,4 @@
+import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
 import {
   ApiEvent,
@@ -12,7 +13,11 @@ import { EventType } from "@/types/types";
 import * as FileSystem from "expo-file-system";
 import { mapEventToEventType } from "../utils/eventMapper";
 
-export class EventApiClient extends BaseApiClient {
+export class EventApiClient extends BaseApiModule {
+  constructor(client: BaseApiClient) {
+    super(client);
+  }
+
   // Event fetching methods
   async getUserCreatedEvents(params: GetEventsParams = {}): Promise<{
     events: EventType[];
@@ -24,7 +29,7 @@ export class EventApiClient extends BaseApiClient {
     if (params.limit) queryParams.append("limit", params.limit.toString());
     if (params.direction) queryParams.append("direction", params.direction);
 
-    const url = `${this.baseUrl}/api/users/me/events/created?${queryParams.toString()}`;
+    const url = `${this.client.baseUrl}/api/users/me/events/created?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
       events: ApiEvent[];
@@ -49,7 +54,7 @@ export class EventApiClient extends BaseApiClient {
     if (params.limit) queryParams.append("limit", params.limit.toString());
     if (params.direction) queryParams.append("direction", params.direction);
 
-    const url = `${this.baseUrl}/api/events/discovered?${queryParams.toString()}`;
+    const url = `${this.client.baseUrl}/api/events/discovered?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
       events: ApiEvent[];
@@ -78,7 +83,7 @@ export class EventApiClient extends BaseApiClient {
     if (params.startDate) queryParams.append("startDate", params.startDate);
     if (params.endDate) queryParams.append("endDate", params.endDate);
 
-    const url = `${this.baseUrl}/api/events?${queryParams.toString()}`;
+    const url = `${this.client.baseUrl}/api/events?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
       events: ApiEvent[];
@@ -94,7 +99,7 @@ export class EventApiClient extends BaseApiClient {
   }
 
   async getEventById(id: string): Promise<EventType> {
-    const url = `${this.baseUrl}/api/events/${id}`;
+    const url = `${this.client.baseUrl}/api/events/${id}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<ApiEvent>(response);
     return mapEventToEventType(data);
@@ -121,7 +126,7 @@ export class EventApiClient extends BaseApiClient {
     if (params.startDate) queryParams.append("startDate", params.startDate);
     if (params.endDate) queryParams.append("endDate", params.endDate);
 
-    const url = `${this.baseUrl}/api/events/nearby?${queryParams.toString()}`;
+    const url = `${this.client.baseUrl}/api/events/nearby?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
       events: ApiEvent[];
@@ -149,7 +154,7 @@ export class EventApiClient extends BaseApiClient {
     if (params.limit) queryParams.append("limit", params.limit.toString());
     if (params.direction) queryParams.append("direction", params.direction);
 
-    const url = `${this.baseUrl}/api/events/search?${queryParams.toString()}`;
+    const url = `${this.client.baseUrl}/api/events/search?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
 
     const data = await this.handleResponse<{
@@ -188,7 +193,7 @@ export class EventApiClient extends BaseApiClient {
     if (params.startDate) queryParams.append("startDate", params.startDate);
     if (params.endDate) queryParams.append("endDate", params.endDate);
 
-    const url = `${this.baseUrl}/api/events/by-categories?${queryParams.toString()}`;
+    const url = `${this.client.baseUrl}/api/events/by-categories?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
       events: ApiEvent[];
@@ -214,7 +219,7 @@ export class EventApiClient extends BaseApiClient {
     if (params.cursor) queryParams.append("cursor", params.cursor);
     if (params.limit) queryParams.append("limit", params.limit.toString());
 
-    const url = `${this.baseUrl}/api/events/category/${categoryId}?${queryParams.toString()}`;
+    const url = `${this.client.baseUrl}/api/events/category/${categoryId}?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
       events: ApiEvent[];
@@ -231,7 +236,7 @@ export class EventApiClient extends BaseApiClient {
   async toggleSaveEvent(
     eventId: string,
   ): Promise<{ saved: boolean; saveCount: number }> {
-    const url = `${this.baseUrl}/api/events/${eventId}/save`;
+    const url = `${this.client.baseUrl}/api/events/${eventId}/save`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
     });
@@ -239,7 +244,7 @@ export class EventApiClient extends BaseApiClient {
   }
 
   async isEventSaved(eventId: string): Promise<{ isSaved: boolean }> {
-    const url = `${this.baseUrl}/api/events/${eventId}/saved`;
+    const url = `${this.client.baseUrl}/api/events/${eventId}/saved`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<{ isSaved: boolean }>(response);
   }
@@ -254,7 +259,7 @@ export class EventApiClient extends BaseApiClient {
     if (params.limit) queryParams.append("limit", params.limit.toString());
     if (params.direction) queryParams.append("direction", params.direction);
 
-    const url = `${this.baseUrl}/api/events/saved?${queryParams.toString()}`;
+    const url = `${this.client.baseUrl}/api/events/saved?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
       events: ApiEvent[];
@@ -279,7 +284,7 @@ export class EventApiClient extends BaseApiClient {
     if (params.limit) queryParams.append("limit", params.limit.toString());
     if (params.direction) queryParams.append("direction", params.direction);
 
-    const url = `${this.baseUrl}/api/events/saved/friends?${queryParams.toString()}`;
+    const url = `${this.client.baseUrl}/api/events/saved/friends?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
       events: ApiEvent[];
@@ -296,7 +301,7 @@ export class EventApiClient extends BaseApiClient {
 
   // Event creation and management methods
   async createEvent(payload: CreateEventPayload): Promise<EventType> {
-    const url = `${this.baseUrl}/api/events`;
+    const url = `${this.client.baseUrl}/api/events`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify(payload),
@@ -315,7 +320,7 @@ export class EventApiClient extends BaseApiClient {
       stream: string;
     };
   }> {
-    const url = `${this.baseUrl}/api/events/private`;
+    const url = `${this.client.baseUrl}/api/events/private`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify(payload),
@@ -341,7 +346,7 @@ export class EventApiClient extends BaseApiClient {
     formData.append("userLng", payload.userLng.toString());
     formData.append("source", payload.source);
 
-    const url = `${this.baseUrl}/api/events/process`;
+    const url = `${this.client.baseUrl}/api/events/process`;
     const requestOptions = this.createRequestOptions({
       method: "POST",
       body: formData,
@@ -352,22 +357,23 @@ export class EventApiClient extends BaseApiClient {
   }
 
   async getJobStatus(jobId: string): Promise<JobStatus> {
-    const url = `${this.baseUrl}/api/events/process/${jobId}`;
+    const url = `${this.client.baseUrl}/api/events/process/${jobId}`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<JobStatus>(response);
   }
 
-  createJobStream(
+  async createJobStream(
     jobId: string,
     callbacks: {
       onMessage: (data: JobStreamMessage) => void;
       onError?: (error: Event) => void;
       onComplete?: () => void;
     },
-  ): EventSource {
-    let url = `${this.baseUrl}/api/jobs/${jobId}/stream`;
-    if (this.tokens?.accessToken) {
-      url += `?token=${encodeURIComponent(this.tokens.accessToken)}`;
+  ): Promise<EventSource> {
+    let url = `${this.client.baseUrl}/api/jobs/${jobId}/stream`;
+    const accessToken = await this.client.getAccessToken();
+    if (accessToken) {
+      url += `?token=${encodeURIComponent(accessToken)}`;
     }
 
     const eventSource = new EventSource(url);
@@ -393,7 +399,7 @@ export class EventApiClient extends BaseApiClient {
   }
 
   async deleteEvent(eventId: string): Promise<{ success: boolean }> {
-    const url = `${this.baseUrl}/api/events/${eventId}`;
+    const url = `${this.client.baseUrl}/api/events/${eventId}`;
     const response = await this.fetchWithAuth(url, {
       method: "DELETE",
     });
@@ -404,7 +410,7 @@ export class EventApiClient extends BaseApiClient {
     eventId: string,
     payload: UpdateEventPayload,
   ): Promise<EventType> {
-    const url = `${this.baseUrl}/api/events/${eventId}`;
+    const url = `${this.client.baseUrl}/api/events/${eventId}`;
     const response = await this.fetchWithAuth(url, {
       method: "PUT",
       body: JSON.stringify(payload),
@@ -417,7 +423,7 @@ export class EventApiClient extends BaseApiClient {
   async getEventShares(
     eventId: string,
   ): Promise<{ sharedWithId: string; sharedById: string }[]> {
-    const url = `${this.baseUrl}/api/events/${eventId}/shares`;
+    const url = `${this.client.baseUrl}/api/events/${eventId}/shares`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<{ sharedWithId: string; sharedById: string }[]>(
       response,
@@ -433,7 +439,7 @@ export class EventApiClient extends BaseApiClient {
       throw new Error("Authentication required to access event images");
     }
 
-    const url = `${this.baseUrl}/api/admin/images/${eventId}/image`;
+    const url = `${this.client.baseUrl}/api/admin/images/${eventId}/image`;
 
     try {
       const response = await fetch(url, {

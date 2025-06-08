@@ -1,9 +1,63 @@
+import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
 import { ApiEvent } from "../base/types";
 import { EventType } from "@/types/types";
 import { mapEventToEventType } from "../utils/eventMapper";
+import { Cluster, ClusterCreateInput, ClusterUpdateInput } from "../base/types";
 
-export class ClusterApiClient extends BaseApiClient {
+export class ClusterApiClient extends BaseApiModule {
+  constructor(client: BaseApiClient) {
+    super(client);
+  }
+
+  async getClusters(params: {
+    lat: number;
+    lng: number;
+    radius: number;
+  }): Promise<Cluster[]> {
+    const queryParams = new URLSearchParams({
+      lat: params.lat.toString(),
+      lng: params.lng.toString(),
+      radius: params.radius.toString(),
+    });
+
+    const url = `${this.client.baseUrl}/api/clusters?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<Cluster[]>(response);
+  }
+
+  async getCluster(id: string): Promise<Cluster> {
+    const url = `${this.client.baseUrl}/api/clusters/${id}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<Cluster>(response);
+  }
+
+  async createCluster(input: ClusterCreateInput): Promise<Cluster> {
+    const url = `${this.client.baseUrl}/api/clusters`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return this.handleResponse<Cluster>(response);
+  }
+
+  async updateCluster(id: string, input: ClusterUpdateInput): Promise<Cluster> {
+    const url = `${this.client.baseUrl}/api/clusters/${id}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+    return this.handleResponse<Cluster>(response);
+  }
+
+  async deleteCluster(id: string): Promise<void> {
+    const url = `${this.client.baseUrl}/api/clusters/${id}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    await this.handleResponse<void>(response);
+  }
+
   async getClusterHubData(markerIds: string[]): Promise<{
     featuredEvent: EventType | null;
     eventsByCategory: {
@@ -28,7 +82,7 @@ export class ClusterApiClient extends BaseApiClient {
       creatorDescription: string;
     };
   }> {
-    const url = `${this.baseUrl}/api/events/cluster-hub`;
+    const url = `${this.client.baseUrl}/api/events/cluster-hub`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify({ markerIds }),

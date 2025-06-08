@@ -1,13 +1,19 @@
+import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
-import { Filter, FilterOptions } from "../base/types";
+import { Filter, FilterCreateInput, FilterUpdateInput } from "../base/types";
+import { apiClient } from "../../ApiClient";
 
-export class FiltersModule extends BaseApiClient {
+export class FiltersModule extends BaseApiModule {
+  constructor(client: BaseApiClient) {
+    super(client);
+  }
+
   /**
    * Get all filters for the current user
    * @returns Array of filters
    */
   async getFilters(): Promise<Filter[]> {
-    const url = `${this.baseUrl}/api/filters`;
+    const url = `${this.client.baseUrl}/api/filters`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<Filter[]>(response);
   }
@@ -18,7 +24,7 @@ export class FiltersModule extends BaseApiClient {
    * @returns Filter object
    */
   async getFilterById(filterId: string): Promise<Filter> {
-    const url = `${this.baseUrl}/api/filters/${filterId}`;
+    const url = `${this.client.baseUrl}/api/filters/${filterId}`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<Filter>(response);
   }
@@ -28,8 +34,8 @@ export class FiltersModule extends BaseApiClient {
    * @param filterData - Filter data to create
    * @returns Created filter
    */
-  async createFilter(filterData: FilterOptions): Promise<Filter> {
-    const url = `${this.baseUrl}/api/filters`;
+  async createFilter(filterData: FilterCreateInput): Promise<Filter> {
+    const url = `${this.client.baseUrl}/api/filters`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify(filterData),
@@ -45,11 +51,11 @@ export class FiltersModule extends BaseApiClient {
    */
   async updateFilter(
     filterId: string,
-    filterData: Partial<FilterOptions>,
+    filterData: FilterUpdateInput,
   ): Promise<Filter> {
-    const url = `${this.baseUrl}/api/filters/${filterId}`;
+    const url = `${this.client.baseUrl}/api/filters/${filterId}`;
     const response = await this.fetchWithAuth(url, {
-      method: "PUT",
+      method: "PATCH",
       body: JSON.stringify(filterData),
     });
     return this.handleResponse<Filter>(response);
@@ -60,12 +66,12 @@ export class FiltersModule extends BaseApiClient {
    * @param filterId - ID of the filter to delete
    * @returns Success status
    */
-  async deleteFilter(filterId: string): Promise<{ success: boolean }> {
-    const url = `${this.baseUrl}/api/filters/${filterId}`;
+  async deleteFilter(filterId: string): Promise<void> {
+    const url = `${this.client.baseUrl}/api/filters/${filterId}`;
     const response = await this.fetchWithAuth(url, {
       method: "DELETE",
     });
-    return this.handleResponse<{ success: boolean }>(response);
+    await this.handleResponse<void>(response);
   }
 
   /**
@@ -76,7 +82,7 @@ export class FiltersModule extends BaseApiClient {
   async applyFilters(
     filterIds: string[],
   ): Promise<{ message: string; activeFilters: Filter[] }> {
-    const url = `${this.baseUrl}/api/filters/apply`;
+    const url = `${this.client.baseUrl}/api/filters/apply`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify({ filterIds }),
@@ -91,7 +97,7 @@ export class FiltersModule extends BaseApiClient {
    * @returns Success status and message
    */
   async clearFilters(): Promise<{ message: string; success: boolean }> {
-    const url = `${this.baseUrl}/api/filters/clear`;
+    const url = `${this.client.baseUrl}/api/filters/clear`;
     const response = await this.fetchWithAuth(url, {
       method: "DELETE",
     });
@@ -103,7 +109,7 @@ export class FiltersModule extends BaseApiClient {
    * @returns Array of active filters
    */
   async getActiveFilters(): Promise<Filter[]> {
-    const url = `${this.baseUrl}/api/filters/active`;
+    const url = `${this.client.baseUrl}/api/filters/active`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<Filter[]>(response);
   }
@@ -114,7 +120,7 @@ export class FiltersModule extends BaseApiClient {
    * @returns Updated filter
    */
   async toggleFilter(filterId: string): Promise<Filter> {
-    const url = `${this.baseUrl}/api/filters/${filterId}/toggle`;
+    const url = `${this.client.baseUrl}/api/filters/${filterId}/toggle`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
     });
@@ -127,9 +133,9 @@ export class FiltersModule extends BaseApiClient {
    * @returns Generated emoji
    */
   async generateFilterEmoji(
-    filterData: FilterOptions,
+    filterData: FilterCreateInput,
   ): Promise<{ emoji: string }> {
-    const url = `${this.baseUrl}/api/filters/generate-emoji`;
+    const url = `${this.client.baseUrl}/api/filters/generate-emoji`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify(filterData),
@@ -138,6 +144,6 @@ export class FiltersModule extends BaseApiClient {
   }
 }
 
-// Export as singleton
-export const filtersModule = new FiltersModule();
+// Export as singleton using the main ApiClient instance
+export const filtersModule = new FiltersModule(apiClient);
 export default filtersModule;

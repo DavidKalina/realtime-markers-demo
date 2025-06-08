@@ -1,4 +1,7 @@
+import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
+import { Plan, PlanCreateInput, PlanUpdateInput } from "../base/types";
+import { apiClient } from "../../ApiClient";
 
 export enum PlanType {
   FREE = "FREE",
@@ -62,17 +65,71 @@ export interface PlanChangeResponse {
   actionUrl?: string;
 }
 
-export class PlansModule extends BaseApiClient {
+export class PlansModule extends BaseApiModule {
+  constructor(client: BaseApiClient) {
+    super(client);
+  }
+
+  async getPlans(): Promise<Plan[]> {
+    const url = `${this.client.baseUrl}/api/plans`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<Plan[]>(response);
+  }
+
+  async getPlan(id: string): Promise<Plan> {
+    const url = `${this.client.baseUrl}/api/plans/${id}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<Plan>(response);
+  }
+
+  async createPlan(input: PlanCreateInput): Promise<Plan> {
+    const url = `${this.client.baseUrl}/api/plans`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return this.handleResponse<Plan>(response);
+  }
+
+  async updatePlan(id: string, input: PlanUpdateInput): Promise<Plan> {
+    const url = `${this.client.baseUrl}/api/plans/${id}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+    return this.handleResponse<Plan>(response);
+  }
+
+  async deletePlan(id: string): Promise<void> {
+    const url = `${this.client.baseUrl}/api/plans/${id}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    await this.handleResponse<void>(response);
+  }
+
+  async getPlansByEvent(eventId: string): Promise<Plan[]> {
+    const url = `${this.client.baseUrl}/api/events/${eventId}/plans`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<Plan[]>(response);
+  }
+
+  async getPlansByUser(userId: string): Promise<Plan[]> {
+    const url = `${this.client.baseUrl}/api/users/${userId}/plans`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<Plan[]>(response);
+  }
+
   /**
    * Get current plan details
    * @returns Current plan details
    */
   async getPlanDetails(): Promise<PlanDetails> {
-    const url = `${this.baseUrl}/api/plans`;
+    const url = `${this.client.baseUrl}/api/plans`;
     console.log("Fetching plan details from URL:", url);
     console.log(
       "Current auth token:",
-      this.tokens?.accessToken ? "Present" : "Missing",
+      this.client.tokens?.accessToken ? "Present" : "Missing",
     );
 
     const response = await this.fetchWithAuth(url);
@@ -89,7 +146,7 @@ export class PlansModule extends BaseApiClient {
    * @returns Current plan usage
    */
   async getPlanUsage(): Promise<PlanUsage> {
-    const url = `${this.baseUrl}/api/plans/usage`;
+    const url = `${this.client.baseUrl}/api/plans/usage`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<PlanUsage>(response);
   }
@@ -112,7 +169,7 @@ export class PlansModule extends BaseApiClient {
     }>;
     currentPlan?: PlanType;
   }> {
-    const url = `${this.baseUrl}/api/plans/available`;
+    const url = `${this.client.baseUrl}/api/plans/available`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<{
       plans: Array<{
@@ -136,7 +193,7 @@ export class PlansModule extends BaseApiClient {
    * @returns Plan change response
    */
   async changePlan(request: PlanChangeRequest): Promise<PlanChangeResponse> {
-    const url = `${this.baseUrl}/api/plans/change`;
+    const url = `${this.client.baseUrl}/api/plans/change`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify(request),
@@ -154,7 +211,7 @@ export class PlansModule extends BaseApiClient {
     message: string;
     cancelAt: string;
   }> {
-    const url = `${this.baseUrl}/api/plans/cancel`;
+    const url = `${this.client.baseUrl}/api/plans/cancel`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify({ cancelAtPeriodEnd }),
@@ -175,7 +232,7 @@ export class PlansModule extends BaseApiClient {
     message: string;
     plan: PlanDetails;
   }> {
-    const url = `${this.baseUrl}/api/plans/resume`;
+    const url = `${this.client.baseUrl}/api/plans/resume`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
     });
@@ -217,7 +274,7 @@ export class PlansModule extends BaseApiClient {
     if (options?.limit) queryParams.append("limit", options.limit.toString());
     if (options?.cursor) queryParams.append("cursor", options.cursor);
 
-    const url = `${this.baseUrl}/api/plans/billing/history?${queryParams.toString()}`;
+    const url = `${this.client.baseUrl}/api/plans/billing/history?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
 
     return this.handleResponse<{
@@ -255,7 +312,7 @@ export class PlansModule extends BaseApiClient {
       quantity: number;
     }>;
   }> {
-    const url = `${this.baseUrl}/api/plans/billing/upcoming`;
+    const url = `${this.client.baseUrl}/api/plans/billing/upcoming`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<{
       amount: number;
@@ -271,6 +328,6 @@ export class PlansModule extends BaseApiClient {
   }
 }
 
-// Export as singleton
-export const plansModule = new PlansModule();
+// Export as singleton using the main ApiClient instance
+export const plansModule = new PlansModule(apiClient);
 export default plansModule;

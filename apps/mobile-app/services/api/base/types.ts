@@ -200,23 +200,24 @@ export interface ClusterHubData {
 // Friend-related types
 export interface Friend {
   id: string;
-  displayName?: string;
-  email: string;
-  avatarUrl?: string;
-  friendCode?: string;
-  username?: string;
-  mutualFriendsCount?: number;
-  isOnline?: boolean;
-  lastSeen?: string;
+  userId: string;
+  friendId: string;
+  status: "ACCEPTED" | "PENDING" | "REJECTED";
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface FriendRequest {
   id: string;
-  requester: Friend;
-  addressee: Friend;
+  senderId: string;
+  receiverId: string;
   status: "PENDING" | "ACCEPTED" | "REJECTED";
   createdAt: string;
-  updatedAt?: string;
+  updatedAt: string;
+}
+
+export interface FriendRequestCreateInput {
+  receiverId: string;
 }
 
 export interface Contact {
@@ -231,105 +232,80 @@ export interface Contact {
 // Notification types
 export interface NotificationData {
   eventId?: string;
-  eventTitle?: string;
   friendId?: string;
-  friendName?: string;
-  level?: number;
-  achievementId?: string;
-  achievementName?: string;
-  role?: string;
-  timestamp?: string;
+  actionUrl?: string;
+  actionText?: string;
+  icon?: string;
+  category?: string;
+  priority?: "LOW" | "MEDIUM" | "HIGH";
   metadata?: Record<string, string | number | boolean>;
 }
 
 export interface Notification {
   id: string;
   userId: string;
-  type:
-    | "EVENT_CREATED"
-    | "EVENT_UPDATED"
-    | "EVENT_DELETED"
-    | "FRIEND_REQUEST"
-    | "FRIEND_ACCEPTED"
-    | "LEVEL_UP"
-    | "ACHIEVEMENT_UNLOCKED"
-    | "SYSTEM";
+  type: "FRIEND_REQUEST" | "EVENT_INVITE" | "EVENT_UPDATE" | "SYSTEM";
   title: string;
   message: string;
   data?: NotificationData;
-  createdAt: string;
   read: boolean;
-  readAt?: string;
-  priority?: "LOW" | "MEDIUM" | "HIGH";
-  actionUrl?: string;
-  actionText?: string;
-  icon?: string;
-  category?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface NotificationOptions {
-  skip?: number;
-  take?: number;
+export interface NotificationCreateInput {
+  userId: string;
+  type: "FRIEND_REQUEST" | "EVENT_INVITE" | "EVENT_UPDATE" | "SYSTEM";
+  title: string;
+  message: string;
+  data?: NotificationData;
+}
+
+export interface NotificationUpdateInput {
   read?: boolean;
-  type?: NotificationType;
+  data?: NotificationData;
 }
-
-export type NotificationType =
-  | "EVENT_CREATED"
-  | "EVENT_UPDATED"
-  | "EVENT_DELETED"
-  | "FRIEND_REQUEST"
-  | "FRIEND_ACCEPTED"
-  | "LEVEL_UP"
-  | "ACHIEVEMENT_UNLOCKED"
-  | "SYSTEM";
 
 export interface NotificationCounts {
   total: number;
   unread: number;
-  byType: Record<NotificationType, number>;
+  byType: Record<string, number>;
+}
+
+export interface NotificationOptions {
+  limit?: number;
+  offset?: number;
+  type?: string;
+  read?: boolean;
 }
 
 // Filter types
 export interface Filter {
   id: string;
-  userId: string;
   name: string;
-  isActive: boolean;
-  semanticQuery?: string; // Natural language query
-  emoji?: string; // AI-generated emoji for the filter
-  criteria: {
-    dateRange?: {
-      start?: string;
-      end?: string;
-    };
-    status?: string[];
-    location?: {
-      latitude?: number;
-      longitude?: number;
-      radius?: number; // in meters
-    };
-  };
+  description?: string;
+  emoji?: string;
+  categories?: string[];
+  radius?: number;
   createdAt: string;
   updatedAt: string;
+  createdById: string;
 }
 
-export interface FilterOptions {
-  isActive?: boolean;
-  semanticQuery?: string;
+export interface FilterCreateInput {
+  name: string;
+  description?: string;
   emoji?: string;
-  criteria?: {
-    dateRange?: {
-      start?: string;
-      end?: string;
-    };
-    status?: string[];
-    location?: {
-      latitude?: number;
-      longitude?: number;
-      radius?: number; // in meters
-    };
-  };
+  categories?: string[];
+  radius?: number;
+}
+
+export interface FilterUpdateInput {
+  name?: string;
+  description?: string;
+  emoji?: string;
+  categories?: string[];
+  radius?: number;
 }
 
 // Event types
@@ -384,5 +360,137 @@ export interface Category {
   id: string;
   name: string;
   description?: string;
-  icon?: string;
+  emoji?: string;
+  parentId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CategoryCreateInput {
+  name: string;
+  description?: string;
+  emoji?: string;
+  parentId?: string;
+}
+
+export interface CategoryUpdateInput {
+  name?: string;
+  description?: string;
+  emoji?: string;
+  parentId?: string;
+}
+
+export interface Cluster {
+  id: string;
+  name: string;
+  description?: string;
+  lat: number;
+  lng: number;
+  radius: number;
+  createdAt: string;
+  updatedAt: string;
+  createdById: string;
+}
+
+export interface ClusterCreateInput {
+  name: string;
+  description?: string;
+  lat: number;
+  lng: number;
+  radius: number;
+}
+
+export interface ClusterUpdateInput {
+  name?: string;
+  description?: string;
+  lat?: number;
+  lng?: number;
+  radius?: number;
+}
+
+export interface Place {
+  id: string;
+  name: string;
+  description?: string;
+  lat: number;
+  lng: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdById: string;
+}
+
+export interface PlaceCreateInput {
+  name: string;
+  description?: string;
+  lat: number;
+  lng: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+}
+
+export interface PlaceUpdateInput {
+  name?: string;
+  description?: string;
+  lat?: number;
+  lng?: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+}
+
+export interface RSVP {
+  id: string;
+  eventId: string;
+  userId: string;
+  status: "GOING" | "NOT_GOING" | "MAYBE" | "PENDING";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RSVPCreateInput {
+  status: "GOING" | "NOT_GOING" | "MAYBE" | "PENDING";
+}
+
+export interface RSVPUpdateInput {
+  status?: "GOING" | "NOT_GOING" | "MAYBE" | "PENDING";
+}
+
+export interface Plan {
+  id: string;
+  name: string;
+  description?: string;
+  type: "FREE" | "BASIC" | "PREMIUM" | "ENTERPRISE";
+  price: number;
+  currency: string;
+  features: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlanCreateInput {
+  name: string;
+  description?: string;
+  type: "FREE" | "BASIC" | "PREMIUM" | "ENTERPRISE";
+  price: number;
+  currency: string;
+  features: string[];
+}
+
+export interface PlanUpdateInput {
+  name?: string;
+  description?: string;
+  type?: "FREE" | "BASIC" | "PREMIUM" | "ENTERPRISE";
+  price?: number;
+  currency?: string;
+  features?: string[];
 }

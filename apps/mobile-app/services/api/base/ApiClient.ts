@@ -2,9 +2,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AuthTokens, User } from "./types";
 
 export class BaseApiClient {
-  protected baseUrl: string;
-  protected user: User | null = null;
-  protected tokens: AuthTokens | null = null;
+  public baseUrl: string;
+  public user: User | null = null;
+  public tokens: AuthTokens | null = null;
   private authListeners: ((isAuthenticated: boolean) => void)[] = [];
   private isInitialized: boolean = false;
   private initializationPromise: Promise<void> | null = null;
@@ -69,7 +69,7 @@ export class BaseApiClient {
     console.log("Initialization complete");
   }
 
-  protected async saveAuthState(user: User, tokens: AuthTokens): Promise<void> {
+  public async saveAuthState(user: User, tokens: AuthTokens): Promise<void> {
     try {
       console.log("Saving auth state:", {
         hasUser: !!user,
@@ -125,7 +125,7 @@ export class BaseApiClient {
     }
   }
 
-  async clearAuthState(): Promise<void> {
+  public async clearAuthState(): Promise<void> {
     try {
       await Promise.all([
         AsyncStorage.removeItem("user"),
@@ -150,7 +150,7 @@ export class BaseApiClient {
     return this.user;
   }
 
-  protected async getAccessToken(): Promise<string | null> {
+  public async getAccessToken(): Promise<string | null> {
     await this.ensureInitialized();
 
     // First check if we have a valid access token in memory
@@ -213,7 +213,7 @@ export class BaseApiClient {
   }
 
   // Core HTTP methods
-  protected async handleResponse<T>(response: Response): Promise<T> {
+  public async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || `API error: ${response.status}`);
@@ -221,7 +221,7 @@ export class BaseApiClient {
     return response.json() as Promise<T>;
   }
 
-  protected createRequestOptions(options: RequestInit = {}): RequestInit {
+  public createRequestOptions(options: RequestInit = {}): RequestInit {
     const defaultHeaders: Record<string, string> = {
       "Content-Type": "application/json",
     };
@@ -242,7 +242,7 @@ export class BaseApiClient {
     };
   }
 
-  protected async fetchWithAuth(
+  public async fetchWithAuth(
     url: string,
     options: RequestInit = {},
   ): Promise<Response> {

@@ -1,13 +1,19 @@
+import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
 import { User, AuthTokens, LoginResponse } from "../base/types";
+import { apiClient } from "../../ApiClient";
 
-export class AuthModule extends BaseApiClient {
+export class AuthModule extends BaseApiModule {
+  constructor(client: BaseApiClient) {
+    super(client);
+  }
+
   /**
    * Login with email and password
    * @returns The logged in user
    */
   async login(email: string, password: string): Promise<User> {
-    const url = `${this.baseUrl}/api/auth/login`;
+    const url = `${this.client.baseUrl}/api/auth/login`;
     try {
       const response = await fetch(url, {
         method: "POST",
@@ -56,7 +62,7 @@ export class AuthModule extends BaseApiClient {
     password: string,
     displayName?: string,
   ): Promise<User> {
-    const url = `${this.baseUrl}/api/auth/register`;
+    const url = `${this.client.baseUrl}/api/auth/register`;
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -72,19 +78,18 @@ export class AuthModule extends BaseApiClient {
    * Logout the current user
    */
   async logout(): Promise<void> {
-    if (this.tokens?.accessToken) {
+    const accessToken = await this.client.getAccessToken();
+    if (accessToken) {
       try {
-        const url = `${this.baseUrl}/api/auth/logout`;
+        const url = `${this.client.baseUrl}/api/auth/logout`;
         await this.fetchWithAuth(url, {
           method: "POST",
         });
       } catch (error) {
         console.error("Logout API error:", error);
-        // Continue with local logout even if API call fails
       }
     }
-
-    await this.clearAuthState();
+    await this.client.clearAuthState();
   }
 
   /**
@@ -92,14 +97,14 @@ export class AuthModule extends BaseApiClient {
    * @returns The current user's profile
    */
   async getUserProfile(): Promise<User> {
-    const url = `${this.baseUrl}/api/auth/me`;
+    const url = `${this.client.baseUrl}/api/auth/me`;
     const response = await this.fetchWithAuth(url, { method: "POST" });
     const user = await this.handleResponse<User>(response);
 
     // Update local user state with the new data
-    if (this.user) {
-      this.user = { ...this.user, ...user };
-      await this.saveAuthState(this.user, this.tokens!);
+    if (this.client.user) {
+      this.client.user = { ...this.client.user, ...user };
+      await this.saveAuthState(this.client.user, this.client.tokens!);
     }
 
     return user;
@@ -110,7 +115,7 @@ export class AuthModule extends BaseApiClient {
    * @returns The updated user profile
    */
   async updateUserProfile(updates: Partial<User>): Promise<User> {
-    const url = `${this.baseUrl}/api/users/me`;
+    const url = `${this.client.baseUrl}/api/users/me`;
     const response = await this.fetchWithAuth(url, {
       method: "PATCH",
       body: JSON.stringify(updates),
@@ -119,9 +124,9 @@ export class AuthModule extends BaseApiClient {
     const updatedUser = await this.handleResponse<User>(response);
 
     // Update local user state
-    if (this.user) {
-      this.user = { ...this.user, ...updatedUser };
-      await this.saveAuthState(this.user, this.tokens!);
+    if (this.client.user) {
+      this.client.user = { ...this.client.user, ...updatedUser };
+      await this.saveAuthState(this.client.user, this.client.tokens!);
     }
 
     return updatedUser;
@@ -135,7 +140,7 @@ export class AuthModule extends BaseApiClient {
     currentPassword: string,
     newPassword: string,
   ): Promise<boolean> {
-    const url = `${this.baseUrl}/api/users/me/change-password`;
+    const url = `${this.client.baseUrl}/api/users/me/change-password`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify({ currentPassword, newPassword }),
@@ -150,7 +155,7 @@ export class AuthModule extends BaseApiClient {
    * @returns true if successful
    */
   async deleteAccount(password: string): Promise<boolean> {
-    const url = `${this.baseUrl}/api/auth/account`;
+    const url = `${this.client.baseUrl}/api/auth/account`;
     const response = await this.fetchWithAuth(url, {
       method: "DELETE",
       body: JSON.stringify({ password }),
@@ -166,15 +171,15 @@ export class AuthModule extends BaseApiClient {
    * @returns true if the token is expired
    */
   async isTokenExpired(): Promise<boolean> {
-    if (!this.tokens?.accessToken) return true;
+    if (!this.client.tokens?.accessToken) return true;
 
     try {
-      const url = `${this.baseUrl}/api/auth/me`;
+      const url = `${this.client.baseUrl}/api/auth/me`;
       const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${this.tokens.accessToken}`,
+          Authorization: `Bearer ${this.client.tokens.accessToken}`,
         },
       });
 
@@ -190,21 +195,21 @@ export class AuthModule extends BaseApiClient {
    * @returns true if the refresh was successful
    */
   async refreshTokens(): Promise<boolean> {
-    if (!this.tokens?.refreshToken) {
+    if (!this.client.tokens?.refreshToken) {
       console.log("No refresh token available");
       return false;
     }
 
     try {
       console.log("Attempting to refresh token");
-      const url = `${this.baseUrl}/api/auth/refresh-token`;
+      const url = `${this.client.baseUrl}/api/auth/refresh-token`;
 
       const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ refreshToken: this.tokens.refreshToken }),
+        body: JSON.stringify({ refreshToken: this.client.tokens.refreshToken }),
       });
 
       if (!response.ok) {
@@ -221,13 +226,13 @@ export class AuthModule extends BaseApiClient {
 
       const newTokens: AuthTokens = {
         accessToken: data.accessToken,
-        refreshToken: data.refreshToken || this.tokens.refreshToken,
+        refreshToken: data.refreshToken || this.client.tokens.refreshToken,
       };
 
-      this.tokens = newTokens;
+      this.client.tokens = newTokens;
 
       await Promise.all([
-        this.saveAuthState(this.user!, newTokens),
+        this.saveAuthState(this.client.user!, newTokens),
         this.syncTokensWithStorage(),
       ]);
 
@@ -244,7 +249,7 @@ export class AuthModule extends BaseApiClient {
    * @returns true if the request was successful
    */
   async requestPasswordReset(email: string): Promise<boolean> {
-    const url = `${this.baseUrl}/api/auth/password-reset`;
+    const url = `${this.client.baseUrl}/api/auth/password-reset`;
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -262,7 +267,7 @@ export class AuthModule extends BaseApiClient {
    * @returns true if the password was reset successfully
    */
   async resetPassword(token: string, newPassword: string): Promise<boolean> {
-    const url = `${this.baseUrl}/api/auth/password-reset/confirm`;
+    const url = `${this.client.baseUrl}/api/auth/password-reset/confirm`;
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -280,7 +285,7 @@ export class AuthModule extends BaseApiClient {
    * @returns true if the email was verified successfully
    */
   async verifyEmail(token: string): Promise<boolean> {
-    const url = `${this.baseUrl}/api/auth/verify-email`;
+    const url = `${this.client.baseUrl}/api/auth/verify-email`;
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -298,7 +303,7 @@ export class AuthModule extends BaseApiClient {
    * @returns true if the request was successful
    */
   async requestEmailVerification(): Promise<boolean> {
-    const url = `${this.baseUrl}/api/auth/verify-email/request`;
+    const url = `${this.client.baseUrl}/api/auth/verify-email/request`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
     });
@@ -308,6 +313,6 @@ export class AuthModule extends BaseApiClient {
   }
 }
 
-// Export as singleton
-export const authModule = new AuthModule();
+// Export as singleton using the main ApiClient instance
+export const authModule = new AuthModule(apiClient);
 export default authModule;
