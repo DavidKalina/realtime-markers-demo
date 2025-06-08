@@ -3,9 +3,22 @@ import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
 import { COLORS } from "@/components/Layout/ScreenLayout";
 
 // Utility function to format time difference
-const getTimeBadgeText = (eventDate: Date, endDate?: string): string => {
+const getTimeBadgeText = (
+  eventDate: Date | string,
+  endDate?: string,
+): string => {
   const now = new Date();
-  const diffInMs = eventDate.getTime() - now.getTime();
+
+  // Convert eventDate to Date object if it's a string
+  const eventDateObj =
+    typeof eventDate === "string" ? new Date(eventDate) : eventDate;
+
+  // Check if the date is valid
+  if (isNaN(eventDateObj?.getTime())) {
+    return "Invalid date";
+  }
+
+  const diffInMs = eventDateObj?.getTime() - now.getTime();
   const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
   const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
   const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
@@ -38,7 +51,7 @@ export interface EventListItemProps {
   location: string;
   distance: string;
   emoji?: string;
-  eventDate: Date;
+  eventDate: Date | string;
   endDate?: string;
   categories: { id: string; name: string }[];
   isRecurring?: boolean;
@@ -98,7 +111,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
 
     // Get up to 2 categories
     const displayCategories = useMemo(() => {
-      return categories.slice(0, 2);
+      return categories?.slice(0, 2);
     }, [categories]);
 
     const styles = useMemo(
@@ -258,7 +271,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
                   {distance && (
                     <Text style={styles.distanceText}>{distance}</Text>
                   )}
-                  {displayCategories.map((category) => (
+                  {displayCategories?.map((category) => (
                     <View key={category.id} style={styles.categoryBadge}>
                       <Text style={styles.categoryText}>{category.name}</Text>
                     </View>
