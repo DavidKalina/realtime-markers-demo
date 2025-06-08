@@ -103,7 +103,11 @@ const SearchListScreen = () => {
 
   const renderEventItem = useCallback(
     (event: EventType) => (
-      <EventListItem {...event} onPress={handleEventPress} />
+      <EventListItem
+        {...event}
+        eventDate={new Date(event.eventDate)}
+        onPress={handleEventPress}
+      />
     ),
     [handleEventPress],
   );

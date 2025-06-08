@@ -16,11 +16,9 @@ import EventListItem, {
   EventListItemProps,
 } from "@/components/Event/EventListItem";
 import { useSavedEvents } from "@/hooks/useSavedEvents";
+import { EventType as ApiEventType } from "@/types/types";
 
 type SavedTab = "personal" | "friends" | "discovered";
-
-// Type for events from the API
-type EventType = Omit<EventListItemProps, "onPress">;
 
 const SavedListScreen = () => {
   const router = useRouter();
@@ -80,7 +78,7 @@ const SavedListScreen = () => {
   }, [router]);
 
   const handleEventPress = useCallback(
-    (event: EventType) => {
+    (event: EventListItemProps) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       router.push({
         pathname: "/details" as const,
@@ -98,9 +96,21 @@ const SavedListScreen = () => {
   }, []);
 
   const renderEventItem = useCallback(
-    (event: EventType) => (
-      <EventListItem {...event} onPress={handleEventPress} />
-    ),
+    (event: ApiEventType) => {
+      const eventProps: EventListItemProps = {
+        id: event.id,
+        title: event.title,
+        description: event.description,
+        location: event.location,
+        distance: event.distance,
+        emoji: event.emoji,
+        eventDate: new Date(event.eventDate),
+        endDate: event.endDate,
+        categories: event.categories,
+        onPress: handleEventPress,
+      };
+      return <EventListItem {...eventProps} />;
+    },
     [handleEventPress],
   );
 

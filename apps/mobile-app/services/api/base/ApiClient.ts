@@ -223,8 +223,9 @@ export class BaseApiClient {
         return this.fetchWithAuth(url, options);
       }
 
-      // If we still have no tokens, throw a more specific error
-      throw new Error("Authentication required - please log in again");
+      // If we still have no tokens, clear auth state
+      await this.clearAuthState();
+      throw new Error("Authentication required");
     }
 
     const requestOptions = this.createRequestOptions({
@@ -244,8 +245,8 @@ export class BaseApiClient {
         // Get the new access token after refresh
         const newAccessToken = await this.getAccessToken();
         if (!newAccessToken) {
-          console.error("Failed to get new access token after refresh");
-          throw new Error("Authentication failed - please log in again");
+          await this.clearAuthState();
+          throw new Error("Authentication required");
         }
 
         const newRequestOptions = this.createRequestOptions({
@@ -258,7 +259,7 @@ export class BaseApiClient {
         return fetch(url, newRequestOptions);
       } else {
         await this.clearAuthState();
-        throw new Error("Authentication failed - please log in again");
+        throw new Error("Authentication required");
       }
     }
 
@@ -291,7 +292,7 @@ export class BaseApiClient {
       try {
         return await this.tokenRefreshPromise;
       } catch (error) {
-        console.error("Error waiting for token refresh:", error);
+        await this.clearAuthState();
         return false;
       }
     }
@@ -301,6 +302,7 @@ export class BaseApiClient {
         // Get the current refresh token before starting the refresh
         const currentRefreshToken = this.tokens?.refreshToken;
         if (!currentRefreshToken) {
+          await this.clearAuthState();
           return false;
         }
 
@@ -315,7 +317,6 @@ export class BaseApiClient {
         });
 
         if (!response.ok) {
-          console.error("Token refresh failed with status:", response.status);
           await this.clearAuthState();
           return false;
         }
@@ -323,7 +324,6 @@ export class BaseApiClient {
         const data = await response.json();
 
         if (!data.accessToken) {
-          console.error("Invalid refresh token response:", data);
           await this.clearAuthState();
           return false;
         }
@@ -349,7 +349,6 @@ export class BaseApiClient {
 
         return true;
       } catch (error) {
-        console.error("Token refresh error:", error);
         await this.clearAuthState();
         return false;
       } finally {
@@ -366,7 +365,7 @@ export class BaseApiClient {
       try {
         return await this.tokenSyncPromise;
       } catch (error) {
-        console.error("Error waiting for token sync:", error);
+        await this.clearAuthState();
         return null;
       }
     }
@@ -393,7 +392,7 @@ export class BaseApiClient {
         ]);
 
         if (!accessToken) {
-          this.tokens = null;
+          await this.clearAuthState();
           return null;
         }
 
@@ -413,8 +412,7 @@ export class BaseApiClient {
 
         return this.tokens;
       } catch (error) {
-        console.error("Error during token sync:", error);
-        this.tokens = null;
+        await this.clearAuthState();
         return null;
       } finally {
         this.tokenSyncPromise = null;

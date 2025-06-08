@@ -75,27 +75,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 }
               }
             }
-          } catch (profileError) {
-            console.error("Failed to get user profile:", profileError);
-            await apiClient.clearAuthState();
+          } catch (error) {
+            // Profile fetch failed, auth state will be cleared by ApiClient
             setUser(null);
             setIsAuthenticated(false);
           }
         } else {
-          console.log("No valid tokens found, user is not authenticated");
           setUser(null);
           setIsAuthenticated(false);
         }
       } catch (error) {
-        console.error("Auth initialization error:", error);
-        await apiClient.clearAuthState();
+        // Auth initialization failed, auth state will be cleared by ApiClient
         setUser(null);
         setIsAuthenticated(false);
       } finally {
-        console.log("Auth initialization complete:", {
-          isAuthenticated: apiClient.isAuthenticated(),
-          hasUser: !!apiClient.getCurrentUser(),
-        });
         setIsLoading(false);
       }
     };
@@ -103,14 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     initializeAuth();
   }, []);
 
-  useEffect(() => {
-    console.log("Auth state:", {
-      user: user?.id ? `User ID: ${user.id}` : "No user",
-      isAuthenticated,
-      apiClientAuth: apiClient.isAuthenticated(),
-    });
-  }, [user, isAuthenticated]);
-
+  // Remove debug logging effect
   useEffect(() => {
     // Listen for auth state changes from the API client
     const authListener = (isAuth: boolean) => {
@@ -128,7 +114,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // Reset loading state when auth state changes
   useEffect(() => {
     if (user?.id && isAuthenticated) {
-      // Give the main screen time to load before clearing loading state
       const timer = setTimeout(() => {
         setIsLoading(false);
       }, 1000);
@@ -136,32 +121,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [user?.id, isAuthenticated]);
 
-  // New method to manually refresh authentication
   const refreshAuth = async (): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // Check if refresh token exists
-      const refreshToken = await AsyncStorage.getItem("refreshToken");
-      if (!refreshToken) {
-        return false;
-      }
-
-      // Try to refresh the token
       const success = await apiClient.refreshAuthTokens();
-
       if (success) {
-        // If successful, update the user and authentication state
         setUser(apiClient.getCurrentUser());
         setIsAuthenticated(true);
         return true;
-      } else {
-        // If refresh fails, clear authentication
-        setUser(null);
-        setIsAuthenticated(false);
-        return false;
       }
+      setUser(null);
+      setIsAuthenticated(false);
+      return false;
     } catch (error) {
-      console.error("Error refreshing authentication:", error);
+      setUser(null);
+      setIsAuthenticated(false);
       return false;
     } finally {
       setIsLoading(false);
@@ -171,26 +145,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      console.log("Starting login process...");
-
-      // Perform login and get the user directly from the response
       const loggedInUser = await apiClient.auth.login(email, password);
-      console.log("Login API call completed");
-
-      // Update context state with the user from login response
       setUser(loggedInUser);
       setIsAuthenticated(true);
-
-      // Final state check
-      console.log("Login process complete:", {
-        userId: loggedInUser.id,
-        isAuthenticated: true,
-        apiClientIsAuthenticated: apiClient.isAuthenticated(),
-      });
     } catch (error) {
-      console.error("Login error:", error);
-      // Ensure we clear any partial auth state on error
-      await apiClient.clearAuthState();
+      // Auth state will be cleared by ApiClient
       setUser(null);
       setIsAuthenticated(false);
       throw error;
@@ -206,17 +165,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   ) => {
     setIsLoading(true);
     try {
-      // First register the user
       await apiClient.auth.register(email, password, displayName);
-
-      // Then log them in
       await apiClient.auth.login(email, password);
-
-      // Update the auth state
       setUser(apiClient.getCurrentUser());
       setIsAuthenticated(true);
     } catch (error) {
-      console.error("Registration error:", error);
+      // Auth state will be cleared by ApiClient
+      setUser(null);
+      setIsAuthenticated(false);
       throw error;
     } finally {
       setIsLoading(false);
@@ -229,7 +185,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       await apiClient.auth.logout();
       setUser(null);
       setIsAuthenticated(false);
-      // Add a small delay to ensure the loading state is visible
       await new Promise((resolve) => setTimeout(resolve, 500));
     } finally {
       setIsLoading(false);
@@ -239,7 +194,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const forceLogout = async () => {
     setIsLoading(true);
     try {
-      // Clear auth state without making an API call
       await apiClient.clearAuthState();
       setUser(null);
       setIsAuthenticated(false);
@@ -253,6 +207,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const updatedUser = await apiClient.auth.updateUserProfile(updates);
       setUser(updatedUser);
+    } catch (error) {
+      // Auth state will be cleared by ApiClient if needed
+      setUser(null);
+      setIsAuthenticated(false);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -265,6 +224,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsLoading(true);
     try {
       return await apiClient.auth.changePassword(currentPassword, newPassword);
+    } catch (error) {
+      // Auth state will be cleared by ApiClient if needed
+      setUser(null);
+      setIsAuthenticated(false);
+      throw error;
     } finally {
       setIsLoading(false);
     }

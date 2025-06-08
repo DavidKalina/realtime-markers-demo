@@ -17,7 +17,7 @@ export interface EventType {
   id: string;
   title: string;
   description: string;
-  eventDate: string;
+  eventDate: Date | string; // Allow both Date and string for flexibility
   endDate?: string;
   time: string;
   coordinates: [number, number];
