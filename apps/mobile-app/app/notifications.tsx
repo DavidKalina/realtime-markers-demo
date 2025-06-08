@@ -1,12 +1,12 @@
-import React, { useEffect } from "react";
-import { StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect, useCallback } from "react";
+import { StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { Bell, Mail, MailOpen, Trash2 } from "lucide-react-native";
+import { Mail, MailOpen } from "lucide-react-native";
 
 import Screen from "@/components/Layout/Screen";
-import List from "@/components/Layout/List";
+import InfiniteScrollFlatList from "@/components/Layout/InfintieScrollFlatList";
+import NotificationListItem from "@/components/Notification/NotificationListItem";
 import { useNotifications } from "@/hooks/useNotifications";
-import { COLORS } from "@/components/Layout/ScreenLayout";
 import { apiClient } from "@/services/ApiClient";
 
 export default function NotificationsScreen() {
@@ -21,7 +21,13 @@ export default function NotificationsScreen() {
     handleDeleteNotification,
     setFilter,
     resetUnreadCount,
+    onEndReached,
+    hasMore,
   } = useNotifications();
+
+  const handleFetchMore = useCallback(async () => {
+    onEndReached();
+  }, [onEndReached]);
 
   // Reset unread count when screen mounts
   useEffect(() => {
@@ -53,22 +59,19 @@ export default function NotificationsScreen() {
     },
   ];
 
-  const listItems = notifications.map((notification) => ({
-    id: notification.id,
-    title: notification.title,
-    description: notification.message,
-    icon: Bell,
-    isActive: !notification.read,
-    rightElement: (
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => handleDeleteNotification(notification.id)}
-      >
-        <Trash2 size={18} color={COLORS.textSecondary} />
-      </TouchableOpacity>
+  const renderItem = useCallback(
+    (notification: (typeof notifications)[0]) => (
+      <NotificationListItem
+        id={notification.id}
+        title={notification.title}
+        message={notification.message}
+        read={notification.read}
+        onPress={handleMarkAsRead}
+        onDelete={handleDeleteNotification}
+      />
     ),
-    onPress: () => handleMarkAsRead(notification.id),
-  }));
+    [handleMarkAsRead, handleDeleteNotification],
+  );
 
   return (
     <Screen
@@ -82,22 +85,18 @@ export default function NotificationsScreen() {
       isScrollable={false}
       style={styles.screen}
     >
-      <List
-        items={listItems}
-        refreshing={refreshing}
+      <InfiniteScrollFlatList
+        data={notifications}
+        renderItem={renderItem}
+        fetchMoreData={handleFetchMore}
         onRefresh={onRefresh}
-        emptyState={
-          initialLoading
-            ? undefined
-            : {
-                icon: Bell,
-                title:
-                  activeFilter === "unread"
-                    ? "No unread notifications"
-                    : "No notifications yet",
-                description:
-                  "You'll see your notifications here when they arrive",
-              }
+        isLoading={initialLoading}
+        isRefreshing={refreshing}
+        hasMore={hasMore}
+        emptyListMessage={
+          activeFilter === "unread"
+            ? "No unread notifications"
+            : "No notifications yet"
         }
         style={styles.list}
       />
@@ -111,16 +110,5 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
-  },
-  deleteButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: COLORS.buttonBackground,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 8,
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
   },
 });
