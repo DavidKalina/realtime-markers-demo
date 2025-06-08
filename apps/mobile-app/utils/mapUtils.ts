@@ -37,47 +37,221 @@ export const eventToMarker = (event: any): any => {
 /**
  * Converts a Marker to an EventType format for use with UI components
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const markerToEvent = (marker: any): any => {
+export const markerToEvent = (marker: {
+  id: string;
+  coordinates: [number, number];
+  data: {
+    title?: string;
+    emoji?: string;
+    color?: string;
+    location?: string;
+    distance?: string;
+    time?: string;
+    eventDate?: string;
+    endDate?: string;
+    description?: string;
+    categories?: (string | { id: string; name: string })[];
+    isVerified?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    isPrivate?: boolean;
+    status?: string;
+    locationNotes?: string;
+    emojiDescription?: string;
+    creator?: {
+      id: string;
+      displayName: string;
+      email: string;
+      role: string;
+      avatarUrl?: string;
+      isVerified: boolean;
+    };
+    creatorId?: string;
+    scanCount?: number;
+    saveCount?: number;
+    timezone?: string;
+    qrUrl?: string | null;
+    qrCodeData?: string;
+    qrImagePath?: string | null;
+    hasQrCode?: boolean;
+    qrGeneratedAt?: string | null;
+    qrDetectedInImage?: boolean;
+    detectedQrData?: string | null;
+    createdAt?: string;
+    updatedAt?: string;
+    sharedWithIds?: string[];
+    isRecurring?: boolean;
+    recurrenceFrequency?: string;
+    recurrenceDays?: string[];
+    recurrenceStartDate?: string;
+    recurrenceEndDate?: string;
+    recurrenceInterval?: number;
+    recurrenceTime?: string;
+    recurrenceExceptions?: string[];
+    category?: { id: string; name: string };
+    [key: string]: unknown;
+  };
+}): EventType => {
   // Handle both marker types - from marker store or our defined Marker type
   if (marker.data && typeof marker.data === "object") {
-    // If marker.data is an EventType
+    // If marker.data is an EventType (already has the right structure)
     if (marker.data.title && marker.data.id) {
       return {
         id: marker.id,
         coordinates: marker.coordinates,
-        ...marker.data,
-      };
+        title: marker.data.title,
+        description: marker.data.description || "",
+        eventDate: marker.data.eventDate || new Date().toISOString(),
+        endDate: marker.data.endDate,
+        time: marker.data.time || new Date().toLocaleTimeString(),
+        location: marker.data.location || "",
+        locationNotes: marker.data.locationNotes || "",
+        distance: marker.data.distance || "",
+        emoji: marker.data.emoji || "📍",
+        emojiDescription: marker.data.emojiDescription,
+        categories: Array.isArray(marker.data.categories)
+          ? marker.data.categories.map(
+              (cat: string | { id: string; name: string }) =>
+                typeof cat === "string"
+                  ? { id: cat, name: cat }
+                  : { id: cat.id || cat, name: cat.name || cat },
+            )
+          : [],
+        creator: marker.data.creator,
+        creatorId: marker.data.creatorId,
+        scanCount: marker.data.scanCount || 0,
+        saveCount: marker.data.saveCount || 0,
+        timezone: marker.data.timezone || "UTC",
+        qrUrl: marker.data.qrUrl,
+        qrCodeData: marker.data.qrCodeData,
+        qrImagePath: marker.data.qrImagePath,
+        hasQrCode: marker.data.hasQrCode || false,
+        qrGeneratedAt: marker.data.qrGeneratedAt,
+        qrDetectedInImage: marker.data.qrDetectedInImage || false,
+        detectedQrData: marker.data.detectedQrData,
+        createdAt: marker.data.createdAt || new Date().toISOString(),
+        updatedAt: marker.data.updatedAt || new Date().toISOString(),
+        isPrivate: marker.data.isPrivate || false,
+        sharedWithIds: marker.data.sharedWithIds || [],
+        isRecurring: marker.data.isRecurring || false,
+        recurrenceFrequency: marker.data.recurrenceFrequency,
+        recurrenceDays: marker.data.recurrenceDays,
+        recurrenceStartDate: marker.data.recurrenceStartDate,
+        recurrenceEndDate: marker.data.recurrenceEndDate,
+        recurrenceInterval: marker.data.recurrenceInterval,
+        recurrenceTime: marker.data.recurrenceTime,
+        recurrenceExceptions: marker.data.recurrenceExceptions,
+      } as EventType;
     }
 
-    // If marker.data has properties but isn't an EventType
+    // If marker.data has properties but isn't an EventType - map properly
+    const eventDate: string =
+      (typeof marker.data.eventDate === "string"
+        ? marker.data.eventDate
+        : "") ||
+      (typeof marker.data.date === "string" ? marker.data.date : "") ||
+      new Date().toISOString();
+    const time: string =
+      (typeof marker.data.time === "string" ? marker.data.time : "") ||
+      new Date(eventDate).toLocaleTimeString();
+
     return {
       id: marker.id,
       title: marker.data.title || "Unknown Location",
-      emoji: marker.data.emoji || "📍",
-      color: marker.data.color || "#4dabf7",
-      coordinates: marker.coordinates,
       description: marker.data.description || "",
+      eventDate: eventDate as string,
+      endDate: marker.data.endDate,
+      time: time,
+      coordinates: marker.coordinates,
       location: marker.data.location || "Unknown location",
-      date: marker.data.date || "No date specified",
-      time: marker.data.time || "No time specified",
-      category: marker.data.category || "General",
-    };
+      locationNotes: marker.data.locationNotes || "",
+      distance: marker.data.distance || "",
+      emoji: marker.data.emoji || "📍",
+      emojiDescription: marker.data.emojiDescription,
+      categories: Array.isArray(marker.data.categories)
+        ? marker.data.categories.map(
+            (cat: string | { id: string; name: string }) =>
+              typeof cat === "string"
+                ? { id: cat, name: cat }
+                : { id: cat.id || cat, name: cat.name || cat },
+          )
+        : [],
+      creator: marker.data.creator,
+      creatorId: marker.data.creatorId,
+      scanCount: marker.data.scanCount || 0,
+      saveCount: marker.data.saveCount || 0,
+      timezone: marker.data.timezone || "UTC",
+      qrUrl: marker.data.qrUrl,
+      qrCodeData: marker.data.qrCodeData,
+      qrImagePath: marker.data.qrImagePath,
+      hasQrCode: marker.data.hasQrCode || false,
+      qrGeneratedAt: marker.data.qrGeneratedAt,
+      qrDetectedInImage: marker.data.qrDetectedInImage || false,
+      detectedQrData: marker.data.detectedQrData,
+      createdAt:
+        marker.data.createdAt ||
+        marker.data.created_at ||
+        new Date().toISOString(),
+      updatedAt:
+        marker.data.updatedAt ||
+        marker.data.updated_at ||
+        new Date().toISOString(),
+      isPrivate: marker.data.isPrivate || false,
+      sharedWithIds: marker.data.sharedWithIds || [],
+      // Recurring event fields
+      isRecurring: marker.data.isRecurring || false,
+      recurrenceFrequency: marker.data.recurrenceFrequency,
+      recurrenceDays: marker.data.recurrenceDays,
+      recurrenceStartDate: marker.data.recurrenceStartDate,
+      recurrenceEndDate: marker.data.recurrenceEndDate,
+      recurrenceInterval: marker.data.recurrenceInterval,
+      recurrenceTime: marker.data.recurrenceTime,
+      recurrenceExceptions: marker.data.recurrenceExceptions,
+      // Additional fields
+      color: marker.data.color || "#4dabf7",
+      isVerified: marker.data.isVerified || false,
+      status: marker.data.status,
+      // Legacy support
+      category: marker.data.category || { id: "general", name: "General" },
+    } as unknown as EventType;
   }
 
   // Fallback for minimal marker format
   return {
     id: marker.id,
     title: "Unknown Location",
-    emoji: "📍",
-    color: "#4dabf7",
-    coordinates: marker.coordinates,
     description: "",
+    eventDate: new Date().toISOString(),
+    endDate: undefined,
+    time: new Date().toLocaleTimeString(),
+    coordinates: marker.coordinates,
     location: "Unknown location",
-    date: "No date specified",
-    time: "No time specified",
+    locationNotes: "",
+    distance: "",
+    emoji: "📍",
+    emojiDescription: undefined,
+    categories: [{ id: "general", name: "General" }],
+    creator: undefined,
+    creatorId: undefined,
+    scanCount: 0,
+    saveCount: 0,
+    timezone: "UTC",
+    qrUrl: undefined,
+    qrCodeData: undefined,
+    qrImagePath: undefined,
+    hasQrCode: false,
+    qrGeneratedAt: undefined,
+    qrDetectedInImage: false,
+    detectedQrData: undefined,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    isPrivate: false,
+    sharedWithIds: [],
+    isRecurring: false,
+    color: "#4dabf7",
+    isVerified: false,
     category: { id: "general", name: "General" },
-  };
+  } as EventType;
 };
 
 /**
