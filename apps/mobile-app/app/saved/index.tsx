@@ -108,6 +108,8 @@ const SavedListScreen = () => {
         endDate: event.endDate,
         categories: event.categories,
         onPress: handleEventPress,
+        isPrivate: event.isPrivate,
+        isRecurring: event.isRecurring,
       };
       return <EventListItem {...eventProps} />;
     },

@@ -42,6 +42,7 @@ export interface EventListItemProps {
   endDate?: string;
   categories: { id: string; name: string }[];
   isRecurring?: boolean;
+  isPrivate?: boolean;
   onPress: (event: EventListItemProps) => void;
 }
 
@@ -57,6 +58,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
     endDate,
     categories,
     isRecurring,
+    isPrivate,
     onPress,
   }) => {
     const handlePress = useCallback(() => {
@@ -71,6 +73,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
         endDate,
         categories,
         isRecurring,
+        isPrivate,
         onPress,
       });
     }, [
@@ -84,6 +87,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
       endDate,
       categories,
       isRecurring,
+      isPrivate,
       onPress,
     ]);
 
@@ -209,6 +213,20 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
             fontFamily: "SpaceMono",
             fontWeight: "600",
           },
+          privateBadge: {
+            backgroundColor: COLORS.cardBackgroundAlt,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: COLORS.buttonBorder,
+          },
+          privateBadgeText: {
+            color: COLORS.textSecondary,
+            fontSize: 12,
+            fontFamily: "SpaceMono",
+            fontWeight: "600",
+          },
         }),
       [],
     );
@@ -247,6 +265,11 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
                   ))}
                 </View>
                 <View style={styles.footerRight}>
+                  {isPrivate && (
+                    <View style={styles.privateBadge}>
+                      <Text style={styles.privateBadgeText}>🔒 Private</Text>
+                    </View>
+                  )}
                   {isRecurring && (
                     <View style={styles.recurringBadge}>
                       <Text style={styles.recurringBadgeText}>
