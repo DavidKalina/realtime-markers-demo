@@ -194,6 +194,10 @@ export class FilterProcessor {
       // Subscribe to raw events feed
       await this.redisSub.psubscribe("event_changes");
 
+      // Subscribe to job notifications
+      await this.redisSub.subscribe("job_created");
+      await this.redisSub.subscribe("job_updates");
+
       // Handle incoming Redis messages
       this.redisSub.on("message", this.handleRedisMessage);
 
@@ -202,7 +206,7 @@ export class FilterProcessor {
 
       if (process.env.NODE_ENV !== "production") {
         console.log(
-          "Subscribed to Redis channels: filter-changes, viewport-updates, filter-processor:request-initial, event_changes",
+          "Subscribed to Redis channels: filter-changes, viewport-updates, filter-processor:request-initial, event_changes, job_created, job_updates",
         );
       }
     } catch (error) {
@@ -227,6 +231,12 @@ export class FilterProcessor {
           break;
         case "filter-processor:request-initial":
           await this.handleInitialRequest(data);
+          break;
+        case "job_created":
+          await this.handleJobCreated(data);
+          break;
+        case "job_updates":
+          await this.handleJobUpdate(data);
           break;
         default:
           console.warn(`Unknown channel: ${channel}`);
@@ -699,6 +709,61 @@ export class FilterProcessor {
       }
     } catch (error) {
       console.error("Error processing initial events batch:", error);
+    }
+  }
+
+  // Add new methods for handling jobs
+  private async handleJobCreated(data: {
+    type: string;
+    data: { jobId: string; jobType?: string };
+  }): Promise<void> {
+    if (
+      data.type === "JOB_CREATED" &&
+      data.data.jobType === "cleanup_outdated_events"
+    ) {
+      console.log("[FilterProcessor] Received cleanup job:", data.data.jobId);
+
+      // When a cleanup job is created, we should clear our spatial index and event cache
+      // since events will be deleted from the database
+      this.spatialIndex.clear();
+      this.eventCache.clear();
+
+      // Notify all connected users that they need to refresh their events
+      const userIds = Array.from(this.userFilters.keys());
+      for (const userId of userIds) {
+        await this.eventPublisher.publishFilteredEvents(
+          userId,
+          "replace-all",
+          [],
+        );
+      }
+    }
+  }
+
+  private async handleJobUpdate(data: {
+    jobId: string;
+    status: string;
+    result?: { deletedCount?: number };
+  }): Promise<void> {
+    if (data.status === "completed" && data.result?.deletedCount) {
+      console.log("[FilterProcessor] Cleanup job completed:", {
+        jobId: data.jobId,
+        deletedCount: data.result.deletedCount,
+      });
+
+      // Reinitialize the spatial index with remaining events
+      await this.initializeSpatialIndex();
+
+      // Notify all users to refresh their events
+      const userIds = Array.from(this.userFilters.keys());
+      for (const userId of userIds) {
+        const viewport = this.userViewports.get(userId);
+        if (viewport) {
+          await this.sendViewportEvents(userId, viewport);
+        } else {
+          await this.sendAllFilteredEvents(userId);
+        }
+      }
     }
   }
 }

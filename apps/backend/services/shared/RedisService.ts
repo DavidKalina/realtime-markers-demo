@@ -70,12 +70,21 @@ export type LevelUpdateMessage = {
   };
 };
 
+export type JobCreatedMessage = TimestampedMessage & {
+  type: "JOB_CREATED";
+  data: {
+    jobId: string;
+    jobType?: string;
+  };
+};
+
 export type RedisMessageType =
   | FilterChangeMessage
   | ViewportUpdateMessage
   | FilteredEventMessage
   | NotificationMessage
   | LevelUpdateMessage
+  | JobCreatedMessage
   | (Record<string, unknown> & Partial<TimestampedMessage>);
 
 export interface RedisMessage<T = RedisMessageType> {
@@ -176,6 +185,23 @@ export class RedisService {
               ...levelMessage.data,
               timestamp:
                 levelMessage.data.timestamp || new Date().toISOString(),
+            },
+          }),
+        );
+        return;
+      }
+
+      // For job created, ensure the format matches what WebSocket expects
+      if (channel === "job_created") {
+        const jobCreatedMessage = message as JobCreatedMessage;
+        await this.redis.publish(
+          channel,
+          JSON.stringify({
+            type: jobCreatedMessage.type,
+            data: {
+              ...jobCreatedMessage.data,
+              timestamp:
+                jobCreatedMessage.timestamp || new Date().toISOString(),
             },
           }),
         );
