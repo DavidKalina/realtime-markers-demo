@@ -1,15 +1,8 @@
 import React, { useMemo } from "react";
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  ViewStyle,
-} from "react-native";
-import { ArrowLeft } from "lucide-react-native";
+import { StyleSheet, Text, View, ViewStyle } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
+import BackButton from "./BackButton";
 import { COLORS } from "./ScreenLayout";
-import * as Haptics from "expo-haptics";
 
 interface HeaderProps {
   title: string;
@@ -32,16 +25,6 @@ const headerStyles = StyleSheet.create({
     borderBottomColor: COLORS.divider,
     backgroundColor: COLORS.background,
     zIndex: 10,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
   },
   headerTitle: {
     fontSize: 20,
@@ -80,20 +63,6 @@ const headerStyles = StyleSheet.create({
   },
 });
 
-// Memoize the back button component
-const BackButton = React.memo(({ onBack }: { onBack: () => void }) => (
-  <TouchableOpacity
-    style={headerStyles.backButton}
-    onPress={() => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      onBack();
-    }}
-    activeOpacity={0.7}
-  >
-    <ArrowLeft size={22} color={COLORS.textPrimary} />
-  </TouchableOpacity>
-));
-
 // Memoize the right icon component
 const RightIcon = React.memo(({ icon }: { icon?: React.ReactNode }) =>
   icon ? icon : <View style={headerStyles.placeholderIcon} />,
@@ -112,7 +81,7 @@ const Header: React.FC<HeaderProps> = React.memo(
         entering={animated ? FadeIn.duration(300) : undefined}
       >
         {onBack ? (
-          <BackButton onBack={onBack} />
+          <BackButton onPress={onBack} />
         ) : (
           <View style={headerStyles.placeholderIcon} />
         )}
