@@ -28,15 +28,12 @@ export class NotificationsModule extends BaseApiModule {
     if (params.type) queryParams.append("type", params.type);
 
     const url = `${this.client.baseUrl}/api/notifications?${queryParams.toString()}`;
-    console.log("Fetching notifications from:", url);
 
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
       notifications: Notification[];
       total: number;
     }>(response);
-
-    console.log("Raw notification response:", data);
 
     // Ensure we have valid data
     if (!data || !Array.isArray(data.notifications)) {
@@ -53,7 +50,6 @@ export class NotificationsModule extends BaseApiModule {
       lastNotification: notifications[notifications.length - 1],
     };
 
-    console.log("Processed notification response:", result);
     return result;
   }
 

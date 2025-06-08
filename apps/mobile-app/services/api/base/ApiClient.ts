@@ -19,7 +19,6 @@ export class BaseApiClient {
   // Core auth methods
   protected async loadAuthState(): Promise<void> {
     try {
-      console.log("Loading initial auth state...");
       const [userJson, accessToken, refreshToken] = await Promise.all([
         AsyncStorage.getItem("user"),
         AsyncStorage.getItem("accessToken"),
@@ -28,7 +27,6 @@ export class BaseApiClient {
 
       if (userJson) {
         this.user = JSON.parse(userJson);
-        console.log("User loaded from storage");
       }
 
       if (accessToken) {
@@ -36,19 +34,11 @@ export class BaseApiClient {
           accessToken,
           refreshToken: refreshToken || undefined,
         };
-        console.log("Initial tokens loaded from storage:", {
-          hasAccessToken: true,
-          hasRefreshToken: !!refreshToken,
-        });
-      } else {
-        console.log("No initial tokens found in storage");
       }
 
       this.notifyAuthListeners(this.isAuthenticated());
       this.isInitialized = true;
-      console.log("Auth state loaded successfully");
     } catch (error) {
-      console.error("Error loading auth state:", error);
       this.isInitialized = true; // Mark as initialized even on error to prevent infinite loops
       throw error; // Re-throw to let callers handle the error
     }
@@ -58,25 +48,16 @@ export class BaseApiClient {
     if (this.isInitialized) return;
 
     if (this.initializationPromise) {
-      console.log("Waiting for existing initialization to complete...");
       await this.initializationPromise;
       return;
     }
 
-    console.log("Starting initialization...");
     this.initializationPromise = this.loadAuthState();
     await this.initializationPromise;
-    console.log("Initialization complete");
   }
 
   public async saveAuthState(user: User, tokens: AuthTokens): Promise<void> {
     try {
-      console.log("Saving auth state:", {
-        hasUser: !!user,
-        hasAccessToken: !!tokens.accessToken,
-        hasRefreshToken: !!tokens.refreshToken,
-      });
-
       // Update in-memory state first
       this.user = user;
       this.tokens = tokens;
@@ -96,26 +77,13 @@ export class BaseApiClient {
       await Promise.all(storageOperations);
 
       // Verify storage after save
-      const [savedAccessToken, savedRefreshToken] = await Promise.all([
+      await Promise.all([
         AsyncStorage.getItem("accessToken"),
         AsyncStorage.getItem("refreshToken"),
       ]);
 
-      console.log("Auth state saved, verification:", {
-        hasSavedAccessToken: !!savedAccessToken,
-        hasSavedRefreshToken: !!savedRefreshToken,
-        accessTokenMatches: savedAccessToken === tokens.accessToken,
-        inMemoryHasToken: !!this.tokens?.accessToken,
-      });
-
       // Notify all listeners about the auth state change
       this.notifyAuthListeners(true);
-
-      console.log("Auth state update complete:", {
-        userId: user.id,
-        isAuthenticated: true,
-        inMemoryHasToken: !!this.tokens?.accessToken,
-      });
     } catch (error) {
       console.error("Error saving auth state:", error);
       // Clear in-memory state on error
@@ -155,46 +123,34 @@ export class BaseApiClient {
 
     // First check if we have a valid access token in memory
     if (this.tokens?.accessToken && !(await this.isTokenExpired())) {
-      console.log("Using valid token from memory");
       return this.tokens.accessToken;
     }
 
     // If we have a refresh token, try to refresh first
     if (this.tokens?.refreshToken) {
-      console.log("Access token expired or missing, attempting refresh...");
       const refreshSuccess = await this.refreshTokens();
       if (refreshSuccess && this.tokens?.accessToken) {
-        console.log("Token refresh successful");
         return this.tokens.accessToken;
       }
     }
 
     // If refresh failed or we don't have a refresh token, try to sync from storage
-    console.log("Attempting to sync tokens from storage...");
     const syncedTokens = await this.syncTokensWithStorage();
 
     if (syncedTokens?.accessToken) {
-      console.log("Using token from storage sync");
       return syncedTokens.accessToken;
     }
 
     // If we have a refresh token in storage but not in memory, try one last refresh
     const storedRefreshToken = await AsyncStorage.getItem("refreshToken");
     if (storedRefreshToken) {
-      console.log(
-        "Found refresh token in storage, attempting final refresh...",
-      );
       this.tokens = { accessToken: "", refreshToken: storedRefreshToken };
       const refreshSuccess = await this.refreshTokens();
       if (refreshSuccess && this.tokens?.accessToken) {
-        console.log("Final token refresh successful");
         return this.tokens.accessToken;
       }
     }
 
-    // If we get here, we truly have no valid tokens
-    console.log("No valid tokens available after all attempts");
-    // Don't clear auth state here - let the caller decide what to do
     return null;
   }
 
@@ -246,23 +202,17 @@ export class BaseApiClient {
     url: string,
     options: RequestInit = {},
   ): Promise<Response> {
-    console.log("Fetching with auth:", { url });
-
     // Ensure we're fully initialized before making any requests
     if (!this.isInitialized) {
-      console.log("Waiting for initialization to complete...");
       await this.ensureInitialized();
     }
-    console.log("Initialization complete for fetch");
 
     // Get a fresh access token, which will handle refresh if needed
     const accessToken = await this.getAccessToken();
-    console.log("Got access token for fetch:", { hasToken: !!accessToken });
 
     if (!accessToken) {
       // If we're still initializing, wait a bit and try again
       if (!this.isInitialized) {
-        console.log("Still initializing, waiting before retry...");
         await new Promise((resolve) => setTimeout(resolve, 1000));
         return this.fetchWithAuth(url, options);
       }
@@ -270,7 +220,6 @@ export class BaseApiClient {
       // If we have no tokens at all, try to refresh auth state
       const refreshSuccess = await this.refreshAuthTokens();
       if (refreshSuccess) {
-        console.log("Auth refresh successful, retrying request");
         return this.fetchWithAuth(url, options);
       }
 
@@ -286,15 +235,12 @@ export class BaseApiClient {
       },
     });
 
-    console.log("Making authenticated request");
     const response = await fetch(url, requestOptions);
 
     if (response.status === 401) {
-      console.log("Received 401, attempting to refresh token");
       const refreshSuccess = await this.refreshTokens();
 
       if (refreshSuccess) {
-        console.log("Token refresh succeeded, retrying original request");
         // Get the new access token after refresh
         const newAccessToken = await this.getAccessToken();
         if (!newAccessToken) {
@@ -311,7 +257,6 @@ export class BaseApiClient {
         });
         return fetch(url, newRequestOptions);
       } else {
-        console.log("Token refresh failed, clearing auth state");
         await this.clearAuthState();
         throw new Error("Authentication failed - please log in again");
       }
@@ -343,7 +288,6 @@ export class BaseApiClient {
   protected async refreshTokens(): Promise<boolean> {
     // If there's already a refresh in progress, wait for it
     if (this.tokenRefreshPromise) {
-      console.log("Token refresh already in progress, waiting...");
       try {
         return await this.tokenRefreshPromise;
       } catch (error) {
@@ -357,11 +301,9 @@ export class BaseApiClient {
         // Get the current refresh token before starting the refresh
         const currentRefreshToken = this.tokens?.refreshToken;
         if (!currentRefreshToken) {
-          console.log("No refresh token available");
           return false;
         }
 
-        console.log("Attempting to refresh token");
         const url = `${this.baseUrl}/api/auth/refresh-token`;
 
         const response = await fetch(url, {
@@ -405,7 +347,6 @@ export class BaseApiClient {
           ]);
         }
 
-        console.log("Token refresh successful");
         return true;
       } catch (error) {
         console.error("Token refresh error:", error);
@@ -422,7 +363,6 @@ export class BaseApiClient {
   public async syncTokensWithStorage(): Promise<AuthTokens | null> {
     // If there's already a sync in progress, wait for it
     if (this.tokenSyncPromise) {
-      console.log("Token sync already in progress, waiting...");
       try {
         return await this.tokenSyncPromise;
       } catch (error) {
@@ -433,20 +373,15 @@ export class BaseApiClient {
 
     this.tokenSyncPromise = (async () => {
       try {
-        console.log("Starting token sync with storage...");
-
         // First check if we have valid tokens in memory
         if (this.tokens?.accessToken && !(await this.isTokenExpired())) {
-          console.log("Using valid tokens from memory during sync");
           return this.tokens;
         }
 
         // If we have an expired access token but a refresh token, try to refresh
         if (this.tokens?.refreshToken) {
-          console.log("Attempting token refresh during sync...");
           const refreshSuccess = await this.refreshTokens();
           if (refreshSuccess && this.tokens?.accessToken) {
-            console.log("Token refresh successful during sync");
             return this.tokens;
           }
         }
@@ -458,17 +393,14 @@ export class BaseApiClient {
         ]);
 
         if (!accessToken) {
-          console.log("No tokens found in storage");
           this.tokens = null;
           return null;
         }
 
         // If we have a refresh token, try to refresh the access token
         if (refreshToken) {
-          console.log("Found refresh token in storage, attempting refresh...");
           const refreshSuccess = await this.refreshTokens();
           if (refreshSuccess && this.tokens?.accessToken) {
-            console.log("Token refresh successful from storage");
             return this.tokens;
           }
         }
@@ -478,11 +410,6 @@ export class BaseApiClient {
           accessToken,
           refreshToken: refreshToken || undefined,
         };
-
-        console.log("Using tokens from storage:", {
-          hasAccessToken: true,
-          hasRefreshToken: !!refreshToken,
-        });
 
         return this.tokens;
       } catch (error) {
