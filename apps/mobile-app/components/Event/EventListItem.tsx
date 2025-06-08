@@ -164,7 +164,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
             fontWeight: "600",
           },
           timeBadge: {
-            backgroundColor: COLORS.cardBackgroundAlt,
+            backgroundColor: COLORS.textPrimary,
             paddingHorizontal: 8,
             paddingVertical: 4,
             borderRadius: 12,
@@ -172,7 +172,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
             borderColor: COLORS.buttonBorder,
           },
           timeBadgeText: {
-            color: COLORS.textSecondary,
+            color: COLORS.cardBackground,
             fontSize: 12,
             fontFamily: "SpaceMono",
             fontWeight: "600",
