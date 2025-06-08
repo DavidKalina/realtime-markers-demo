@@ -153,41 +153,49 @@ export class BaseApiClient {
   protected async getAccessToken(): Promise<string | null> {
     await this.ensureInitialized();
 
-    // If we have tokens in memory and they're not expired, use them
+    // First check if we have a valid access token in memory
     if (this.tokens?.accessToken && !(await this.isTokenExpired())) {
       console.log("Using valid token from memory");
       return this.tokens.accessToken;
     }
 
-    // If token is expired but we have a refresh token, try to refresh
+    // If we have a refresh token, try to refresh first
     if (this.tokens?.refreshToken) {
-      console.log("Token expired, attempting refresh...");
+      console.log("Access token expired or missing, attempting refresh...");
       const refreshSuccess = await this.refreshTokens();
       if (refreshSuccess && this.tokens?.accessToken) {
         console.log("Token refresh successful");
         return this.tokens.accessToken;
       }
-      // If refresh failed, immediately clear auth state and notify listeners
-      console.log("Token refresh failed, clearing auth state");
-      await this.clearAuthState();
-      this.notifyAuthListeners(false);
-      return null;
     }
 
-    // If we get here, try to sync from storage as a last resort
+    // If refresh failed or we don't have a refresh token, try to sync from storage
     console.log("Attempting to sync tokens from storage...");
     const syncedTokens = await this.syncTokensWithStorage();
 
-    if (!syncedTokens?.accessToken) {
-      console.log("No valid token available after all attempts");
-      // Immediately clear auth state and notify listeners
-      await this.clearAuthState();
-      this.notifyAuthListeners(false);
-      return null;
+    if (syncedTokens?.accessToken) {
+      console.log("Using token from storage sync");
+      return syncedTokens.accessToken;
     }
 
-    console.log("Using token from storage sync");
-    return syncedTokens.accessToken;
+    // If we have a refresh token in storage but not in memory, try one last refresh
+    const storedRefreshToken = await AsyncStorage.getItem("refreshToken");
+    if (storedRefreshToken) {
+      console.log(
+        "Found refresh token in storage, attempting final refresh...",
+      );
+      this.tokens = { accessToken: "", refreshToken: storedRefreshToken };
+      const refreshSuccess = await this.refreshTokens();
+      if (refreshSuccess && this.tokens?.accessToken) {
+        console.log("Final token refresh successful");
+        return this.tokens.accessToken;
+      }
+    }
+
+    // If we get here, we truly have no valid tokens
+    console.log("No valid tokens available after all attempts");
+    // Don't clear auth state here - let the caller decide what to do
+    return null;
   }
 
   // Auth listeners
@@ -258,8 +266,16 @@ export class BaseApiClient {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         return this.fetchWithAuth(url, options);
       }
-      console.error("No access token available for fetch");
-      throw new Error("No access token available");
+
+      // If we have no tokens at all, try to refresh auth state
+      const refreshSuccess = await this.refreshAuthTokens();
+      if (refreshSuccess) {
+        console.log("Auth refresh successful, retrying request");
+        return this.fetchWithAuth(url, options);
+      }
+
+      // If we still have no tokens, throw a more specific error
+      throw new Error("Authentication required - please log in again");
     }
 
     const requestOptions = this.createRequestOptions({
@@ -283,7 +299,7 @@ export class BaseApiClient {
         const newAccessToken = await this.getAccessToken();
         if (!newAccessToken) {
           console.error("Failed to get new access token after refresh");
-          throw new Error("Failed to get new access token after refresh");
+          throw new Error("Authentication failed - please log in again");
         }
 
         const newRequestOptions = this.createRequestOptions({
@@ -297,7 +313,7 @@ export class BaseApiClient {
       } else {
         console.log("Token refresh failed, clearing auth state");
         await this.clearAuthState();
-        throw new Error("Authentication failed");
+        throw new Error("Authentication failed - please log in again");
       }
     }
 

@@ -1,13 +1,12 @@
 import { EventType } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { MapPin } from "lucide-react-native";
 import React, { useCallback } from "react";
 import { StyleSheet } from "react-native";
-import Screen, { Section } from "../Layout/Screen";
-import InfiniteScrollFlatList from "../Layout/InfintieScrollFlatList";
-import { COLORS } from "../Layout/ScreenLayout";
 import EventListItem from "../Event/EventListItem";
+import InfiniteScrollFlatList from "../Layout/InfintieScrollFlatList";
+import Screen from "../Layout/Screen";
+import { COLORS } from "../Layout/ScreenLayout";
 
 interface EventsViewProps {
   events: EventType[];
@@ -58,36 +57,30 @@ const EventsView: React.FC<EventsViewProps> = ({
     [handleEventPress],
   );
 
-  const sections: Section[] = [
-    {
-      title: "Cluster Events",
-      icon: MapPin,
-      content: (
-        <InfiniteScrollFlatList
-          data={events ?? []}
-          renderItem={renderEventItem}
-          fetchMoreData={onLoadMore || (() => Promise.resolve())}
-          onRefresh={onRefresh}
-          isLoading={isLoading}
-          isRefreshing={isRefreshing}
-          hasMore={hasMore}
-          error={error}
-          onRetry={onRetry}
-          emptyListMessage="No events found"
-          contentContainerStyle={styles.listContent}
-        />
-      ),
-    },
-  ];
-
   return (
     <Screen
       showBackButton={true}
       onBack={handleBack}
-      sections={sections}
       style={styles.screen}
       isScrollable={false}
-    />
+      bannerTitle="Cluster Events"
+      bannerDescription="Events in this cluster"
+      bannerEmoji="🔍"
+    >
+      <InfiniteScrollFlatList
+        data={events ?? []}
+        renderItem={renderEventItem}
+        fetchMoreData={onLoadMore || (() => Promise.resolve())}
+        onRefresh={onRefresh}
+        isLoading={isLoading}
+        isRefreshing={isRefreshing}
+        hasMore={hasMore}
+        error={error}
+        onRetry={onRetry}
+        emptyListMessage="No events found"
+        contentContainerStyle={styles.listContent}
+      />
+    </Screen>
   );
 };
 
