@@ -6,10 +6,10 @@ interface FilterConfig {
 
   currentTime: Date;
   weights: {
-    timeProximity: number; // 0.25 - how soon the event is
-    popularity: number; // 0.30 - scans, saves, rsvps
-    recency: number; // 0.15 - how recently discovered/created
-    confidence: number; // 0.10 - AI confidence in parsing
+    timeProximity: number; // 0.35 - how soon the event is (increased from 0.25)
+    popularity: number; // 0.40 - scans, saves, rsvps (increased from 0.30)
+    recency: number; // 0.15 - how recently discovered/created (unchanged)
+    confidence: number; // 0.10 - AI confidence in parsing (unchanged)
   };
   timeDecayHours: number; // 72 - events lose relevance after X hours
   maxDistanceKm: number; // 50 - maximum relevant distance
@@ -40,8 +40,8 @@ export class MapMojiFilterService {
       viewportBounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
       currentTime: new Date(),
       weights: {
-        timeProximity: 0.25,
-        popularity: 0.3,
+        timeProximity: 0.35,
+        popularity: 0.4,
         recency: 0.15,
         confidence: 0.1,
       },

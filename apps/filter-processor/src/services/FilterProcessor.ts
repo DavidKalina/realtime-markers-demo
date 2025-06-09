@@ -374,7 +374,7 @@ export class FilterProcessor {
         // Update MapMoji configuration for this request
         this.mapMojiFilter.updateConfig({
           viewportBounds: viewport,
-          maxEvents: 50, // Configurable
+          maxEvents: 1000, // Configurable
           currentTime: new Date(),
         });
 
