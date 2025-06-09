@@ -94,7 +94,10 @@ export class NotificationHandler {
           console.log(`Unhandled notification type: ${notification.type}`);
       }
     } catch (error) {
-      console.error(`Error handling notification ${notification.id}:`, error);
+      console.error(
+        `Error handling notification ${notification?.id || "unknown"}:`,
+        error,
+      );
     }
   }
 
