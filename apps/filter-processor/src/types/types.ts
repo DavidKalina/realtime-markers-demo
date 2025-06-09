@@ -31,6 +31,30 @@ export enum EventStatus {
 }
 
 /**
+ * Recurrence frequency enum based on your Event.ts
+ */
+export enum RecurrenceFrequency {
+  DAILY = "DAILY",
+  WEEKLY = "WEEKLY",
+  BIWEEKLY = "BIWEEKLY",
+  MONTHLY = "MONTHLY",
+  YEARLY = "YEARLY",
+}
+
+/**
+ * Day of week enum based on your Event.ts
+ */
+export enum DayOfWeek {
+  SUNDAY = "SUNDAY",
+  MONDAY = "MONDAY",
+  TUESDAY = "TUESDAY",
+  WEDNESDAY = "WEDNESDAY",
+  THURSDAY = "THURSDAY",
+  FRIDAY = "FRIDAY",
+  SATURDAY = "SATURDAY",
+}
+
+/**
  * GeoJSON Point type
  */
 export interface Point {
@@ -68,6 +92,26 @@ export interface Event {
     sharedWithId: string;
     sharedById: string;
   }>;
+  // Recurring event fields
+  isRecurring: boolean;
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceDays?: DayOfWeek[];
+  recurrenceStartDate?: Date | string;
+  recurrenceEndDate?: Date | string;
+  recurrenceInterval?: number;
+  recurrenceTime?: string;
+  recurrenceExceptions?: Date[] | string[];
+  // RSVP relationship for popularity scoring
+  rsvps?: Array<{
+    id: string;
+    userId: string;
+    eventId: string;
+    status: "GOING" | "NOT_GOING";
+    createdAt: Date | string;
+    updatedAt: Date | string;
+  }>;
+  // Relevance score from MapMoji algorithm
+  relevanceScore?: number;
 }
 
 // Update the FilterCriteria interface
