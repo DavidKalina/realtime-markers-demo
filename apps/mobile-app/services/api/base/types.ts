@@ -289,6 +289,18 @@ export interface Filter {
   createdAt: string;
   updatedAt: string;
   createdById: string;
+  criteria?: {
+    dateRange?: {
+      start?: string;
+      end?: string;
+    };
+    status?: string[];
+    location?: {
+      latitude?: number;
+      longitude?: number;
+      radius?: number;
+    };
+  };
 }
 
 export interface FilterCreateInput {
@@ -297,6 +309,18 @@ export interface FilterCreateInput {
   emoji?: string;
   categories?: string[];
   radius?: number;
+  criteria?: {
+    dateRange?: {
+      start?: string;
+      end?: string;
+    };
+    status?: string[];
+    location?: {
+      latitude?: number;
+      longitude?: number;
+      radius?: number;
+    };
+  };
 }
 
 export interface FilterUpdateInput {
@@ -305,6 +329,18 @@ export interface FilterUpdateInput {
   emoji?: string;
   categories?: string[];
   radius?: number;
+  criteria?: {
+    dateRange?: {
+      start?: string;
+      end?: string;
+    };
+    status?: string[];
+    location?: {
+      latitude?: number;
+      longitude?: number;
+      radius?: number;
+    };
+  };
 }
 
 // Event types

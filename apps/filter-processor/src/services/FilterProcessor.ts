@@ -363,7 +363,6 @@ export class FilterProcessor {
 
       // Get user's filters
       const filters = this.userFilters.get(userId) || [];
-
       let filteredEvents: Event[];
 
       if (filters.length === 0) {
@@ -389,21 +388,57 @@ export class FilterProcessor {
           `[FilterProcessor] MapMoji filtered ${eventsInViewport.length} events to ${filteredEvents.length} for user ${userId}`,
         );
       } else {
-        // Custom filters applied - bypass MapMoji and use traditional filtering
-        console.log(
-          `[FilterProcessor] Using custom filters for user ${userId} (${filters.length} filters)`,
+        // Check if we have date range filters only (hybrid mode)
+        const hasDateRangeOnly = filters.every(
+          (filter) =>
+            filter.criteria.dateRange &&
+            !filter.criteria.location &&
+            !filter.semanticQuery,
         );
 
-        // Apply traditional filters
-        filteredEvents = eventsInViewport.filter((event) =>
-          this.filterMatcher.eventMatchesFilters(event, filters, userId),
-        );
+        if (hasDateRangeOnly) {
+          // Hybrid mode: Apply MapMoji first, then date range filters
+          console.log(
+            `[FilterProcessor] Applying hybrid filtering for user ${userId} (MapMoji + date range)`,
+          );
 
-        // Add relevance scores for traditionally filtered events
-        filteredEvents = this.addRelevanceScoresToEvents(
-          filteredEvents,
-          viewport,
-        );
+          // Update MapMoji configuration for this request
+          this.mapMojiFilter.updateConfig({
+            viewportBounds: viewport,
+            maxEvents: 100, // Allow more events for date filtering
+            currentTime: new Date(),
+          });
+
+          // Apply MapMoji filtering first
+          const mapMojiEvents =
+            await this.mapMojiFilter.filterEvents(eventsInViewport);
+          this.stats.mapMojiFilterApplied++;
+
+          // Then apply date range filters on top of MapMoji results
+          filteredEvents = mapMojiEvents.filter((event) =>
+            this.filterMatcher.eventMatchesFilters(event, filters, userId),
+          );
+
+          console.log(
+            `[FilterProcessor] Hybrid filtered ${eventsInViewport.length} events to ${mapMojiEvents.length} (MapMoji) to ${filteredEvents.length} (with date range) for user ${userId}`,
+          );
+        } else {
+          // Traditional filtering mode - bypass MapMoji and use traditional filtering
+          console.log(
+            `[FilterProcessor] Using traditional filters for user ${userId} (${filters.length} filters)`,
+          );
+
+          // Apply traditional filters
+          filteredEvents = eventsInViewport.filter((event) =>
+            this.filterMatcher.eventMatchesFilters(event, filters, userId),
+          );
+
+          // Add relevance scores for traditionally filtered events
+          filteredEvents = this.addRelevanceScoresToEvents(
+            filteredEvents,
+            viewport,
+          );
+        }
       }
 
       // Send to user's channel
@@ -447,18 +482,53 @@ export class FilterProcessor {
           `[FilterProcessor] MapMoji filtered ${allEvents.length} events to ${filteredEvents.length} for user ${userId}`,
         );
       } else {
-        // Custom filters applied - bypass MapMoji and use traditional filtering
-        console.log(
-          `[FilterProcessor] Using custom filters for all events for user ${userId} (${userFilters.length} filters)`,
+        // Check if we have date range filters only (hybrid mode)
+        const hasDateRangeOnly = userFilters.every(
+          (filter) =>
+            filter.criteria.dateRange &&
+            !filter.criteria.location &&
+            !filter.semanticQuery,
         );
 
-        // Apply traditional filters
-        filteredEvents = allEvents.filter((event) =>
-          this.filterMatcher.eventMatchesFilters(event, userFilters, userId),
-        );
+        if (hasDateRangeOnly) {
+          // Hybrid mode: Apply MapMoji first, then date range filters
+          console.log(
+            `[FilterProcessor] Applying hybrid filtering for all events for user ${userId} (MapMoji + date range)`,
+          );
 
-        // Add relevance scores for traditionally filtered events
-        filteredEvents = this.addRelevanceScoresToEvents(filteredEvents);
+          // Update MapMoji configuration for this request
+          this.mapMojiFilter.updateConfig({
+            maxEvents: 100, // Allow more events for date filtering
+            currentTime: new Date(),
+          });
+
+          // Apply MapMoji filtering first
+          const mapMojiEvents =
+            await this.mapMojiFilter.filterEvents(allEvents);
+          this.stats.mapMojiFilterApplied++;
+
+          // Then apply date range filters on top of MapMoji results
+          filteredEvents = mapMojiEvents.filter((event) =>
+            this.filterMatcher.eventMatchesFilters(event, userFilters, userId),
+          );
+
+          console.log(
+            `[FilterProcessor] Hybrid filtered ${allEvents.length} events to ${mapMojiEvents.length} (MapMoji) to ${filteredEvents.length} (with date range) for user ${userId}`,
+          );
+        } else {
+          // Traditional filtering mode - bypass MapMoji and use traditional filtering
+          console.log(
+            `[FilterProcessor] Using traditional filters for all events for user ${userId} (${userFilters.length} filters)`,
+          );
+
+          // Apply traditional filters
+          filteredEvents = allEvents.filter((event) =>
+            this.filterMatcher.eventMatchesFilters(event, userFilters, userId),
+          );
+
+          // Add relevance scores for traditionally filtered events
+          filteredEvents = this.addRelevanceScoresToEvents(filteredEvents);
+        }
       }
 
       // Publish the filtered events
@@ -604,34 +674,99 @@ export class FilterProcessor {
           },
         );
       } else {
-        // Custom filters applied - use traditional filtering
-        console.log(
-          `[FilterProcessor] Using custom filters for user ${userId} (${filters.length} filters)`,
+        // Check if we have date range filters only (hybrid mode)
+        const hasDateRangeOnly = filters.every(
+          (filter) =>
+            filter.criteria.dateRange &&
+            !filter.criteria.location &&
+            !filter.semanticQuery,
         );
 
-        // Check if event matches user's filters
-        const matchesFilters = this.filterMatcher.eventMatchesFilters(
-          record,
-          filters,
-          userId,
-        );
+        if (hasDateRangeOnly) {
+          // Hybrid mode: Check MapMoji pre-filtering first, then date range filters
+          console.log(
+            `[FilterProcessor] Checking hybrid filtering for user ${userId} (MapMoji + date range)`,
+          );
 
-        // Check if event is in user's viewport
-        const inViewport = viewport
-          ? this.viewportProcessor.isEventInViewport(record, viewport)
-          : true;
+          // Update MapMoji configuration to check pre-filtering
+          this.mapMojiFilter.updateConfig({
+            viewportBounds: viewport || {
+              minX: -180,
+              minY: -90,
+              maxX: 180,
+              maxY: 90,
+            },
+            currentTime: new Date(),
+          });
 
-        shouldSendEvent = matchesFilters && inViewport;
+          // Check if event passes basic MapMoji criteria (status, viewport, time)
+          const now = new Date();
+          const eventDate = new Date(record.eventDate);
 
-        console.log("[FilterProcessor] Custom filter result:", {
-          eventId: record.id,
-          userId,
-          matchesFilters,
-          inViewport,
-          hasViewport: !!viewport,
-          filterCount: filters.length,
-          shouldSendEvent,
-        });
+          // Basic pre-filter checks
+          const validStatus =
+            record.status !== "REJECTED" && record.status !== "EXPIRED";
+          const inViewport = viewport
+            ? this.viewportProcessor.isEventInViewport(record, viewport)
+            : true;
+          const notTooFarPast =
+            eventDate >= new Date(now.getTime() - 24 * 60 * 60 * 1000); // Within 24h past
+          const notTooFarFuture =
+            eventDate <= new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // Within 30 days future
+
+          const passesMapMoji =
+            validStatus && inViewport && notTooFarPast && notTooFarFuture;
+
+          // If passes MapMoji, check date range filters
+          const matchesDateRange = passesMapMoji
+            ? this.filterMatcher.eventMatchesFilters(record, filters, userId)
+            : false;
+
+          shouldSendEvent = matchesDateRange;
+
+          console.log(
+            `[FilterProcessor] Hybrid filter result for user ${userId}:`,
+            {
+              eventId: record.id,
+              validStatus,
+              inViewport,
+              notTooFarPast,
+              notTooFarFuture,
+              passesMapMoji,
+              matchesDateRange,
+              shouldSendEvent,
+            },
+          );
+        } else {
+          // Traditional filtering mode - use traditional filtering
+          console.log(
+            `[FilterProcessor] Using traditional filters for user ${userId} (${filters.length} filters)`,
+          );
+
+          // Check if event matches user's filters
+          const matchesFilters = this.filterMatcher.eventMatchesFilters(
+            record,
+            filters,
+            userId,
+          );
+
+          // Check if event is in user's viewport
+          const inViewport = viewport
+            ? this.viewportProcessor.isEventInViewport(record, viewport)
+            : true;
+
+          shouldSendEvent = matchesFilters && inViewport;
+
+          console.log("[FilterProcessor] Traditional filter result:", {
+            eventId: record.id,
+            userId,
+            matchesFilters,
+            inViewport,
+            hasViewport: !!viewport,
+            filterCount: filters.length,
+            shouldSendEvent,
+          });
+        }
       }
 
       if (shouldSendEvent) {

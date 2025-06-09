@@ -2,7 +2,7 @@ import DateRangeCalendar from "@/components/DateRangeCalendar";
 import { useFilterStore } from "@/stores/useFilterStore";
 import { format, parseISO } from "date-fns";
 import * as Haptics from "expo-haptics";
-import { Calendar } from "lucide-react-native";
+import { Calendar, Sparkles } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -35,17 +35,29 @@ const ROTATION_CONFIG = {
 const DateRangeIndicator: React.FC = () => {
   const [showCalendar, setShowCalendar] = useState(false);
   const [isLocalLoading, setIsLocalLoading] = useState(false);
-  const { filters, activeFilterIds, updateFilter, applyFilters, createFilter } =
+  const { filters, activeFilterIds, applyFilters, createFilter, clearFilters } =
     useFilterStore();
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
   const textOpacity = useSharedValue(1);
   const prevDateRangeRef = useRef<string>("");
 
-  // Sync date range on mount
+  // Determine if we're in filtered mode (has date range filter) or relevant mode (no filters)
+  const isFilteredMode = useMemo(() => {
+    if (activeFilterIds.length === 0) return false;
+
+    const activeFilter = filters.find((f) => activeFilterIds.includes(f.id));
+    return !!(
+      activeFilter?.criteria?.dateRange?.start &&
+      activeFilter?.criteria?.dateRange?.end
+    );
+  }, [filters, activeFilterIds]);
+
+  // Sync date range on mount - start in relevant mode
   useEffect(() => {
-    if (activeFilterIds.length === 0 && filters.length > 0) {
-      applyFilters([filters[0].id]);
+    if (activeFilterIds.length === 0 && filters.length === 0) {
+      // Start in relevant mode (no filters applied)
+      console.log("Starting in relevant mode (MapMoji filtered)");
     }
   }, []);
 
@@ -58,22 +70,19 @@ const DateRangeIndicator: React.FC = () => {
 
   // Format date range for display
   const dateRangeText = useMemo(() => {
-    if (filters.length === 0 || activeFilterIds.length === 0) {
+    if (isFilteredMode) {
+      const activeFilter = filters.find((f) => activeFilterIds.includes(f.id));
+      if (activeFilter?.criteria?.dateRange) {
+        const { start, end } = activeFilter.criteria.dateRange;
+        if (start && end) {
+          return `${format(parseISO(start), "M/d")} – ${format(parseISO(end), "M/d")}`;
+        }
+      }
       return "Calendar";
+    } else {
+      return "Relevant";
     }
-
-    const activeFilter = filters.find((f) => activeFilterIds.includes(f.id));
-    if (!activeFilter?.criteria?.dateRange) {
-      return "Calendar";
-    }
-
-    const { start, end } = activeFilter.criteria.dateRange;
-    if (!start || !end) {
-      return "Calendar";
-    }
-
-    return `${format(parseISO(start), "M/d")} – ${format(parseISO(end), "M/d")}`;
-  }, [filters, activeFilterIds]);
+  }, [filters, activeFilterIds, isFilteredMode]);
 
   // Animate text opacity when date range changes
   useEffect(() => {
@@ -110,51 +119,41 @@ const DateRangeIndicator: React.FC = () => {
       if (!startDate || !endDate) return;
 
       setIsLocalLoading(true);
-      let targetFilter = filters.find((f) => activeFilterIds.includes(f.id));
-
-      // If no target filer, check for oldest filter that only has date/time criteria
-      if (!targetFilter) {
-        targetFilter = filters.find((f) => !f.semanticQuery);
-      }
 
       try {
-        if (!targetFilter) {
-          targetFilter = await createFilter({
-            name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
-            criteria: {
-              dateRange: { start: startDate, end: endDate },
-            },
-          });
-          // Apply the newly created filter
-          await applyFilters([targetFilter.id]);
-        } else {
-          const updatedFilter = {
-            ...targetFilter,
-            ...(targetFilter.semanticQuery
-              ? {}
-              : {
-                  name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
-                }),
-            criteria: {
-              ...targetFilter.criteria,
-              dateRange: { start: startDate, end: endDate },
-            },
-          };
-          await updateFilter(targetFilter.id, updatedFilter);
-          await applyFilters([targetFilter.id]);
-        }
+        // Create a new filter for the date range
+        const newFilter = await createFilter({
+          name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
+          criteria: {
+            dateRange: { start: startDate, end: endDate },
+          },
+        });
+
+        // Apply the newly created filter to switch to filtered mode
+        await applyFilters([newFilter.id]);
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (error) {
-        console.error("Error updating date range:", error);
+        console.error("Error creating date range filter:", error);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       } finally {
         setIsLocalLoading(false);
         setShowCalendar(false);
       }
     },
-    [filters, activeFilterIds, createFilter, updateFilter, applyFilters],
+    [createFilter, applyFilters],
   );
+
+  const handleClearFilters = useCallback(async () => {
+    try {
+      await clearFilters();
+      setShowCalendar(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Error clearing filters:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }, [clearFilters]);
 
   // Cleanup animations on unmount
   useEffect(() => {
@@ -178,7 +177,11 @@ const DateRangeIndicator: React.FC = () => {
       <Pressable onPress={handlePress}>
         <Animated.View style={[styles.container, animatedStyle]}>
           <View style={styles.iconContainer}>
-            <Calendar size={12} color={COLORS.accent} />
+            {isFilteredMode ? (
+              <Calendar size={12} color={COLORS.accent} />
+            ) : (
+              <Sparkles size={12} color={COLORS.accent} />
+            )}
           </View>
           <Animated.Text style={[styles.text, textAnimatedStyle]}>
             {dateRangeText}
@@ -196,15 +199,17 @@ const DateRangeIndicator: React.FC = () => {
           <DateRangeCalendar
             startDate={
               filters.find((f) => activeFilterIds.includes(f.id))?.criteria
-                .dateRange?.start
+                ?.dateRange?.start || undefined
             }
             endDate={
               filters.find((f) => activeFilterIds.includes(f.id))?.criteria
-                .dateRange?.end
+                ?.dateRange?.end || undefined
             }
             onDateRangeSelect={handleDateRangeSelect}
             onClose={() => setShowCalendar(false)}
             isLoading={isLocalLoading}
+            onClearFilters={handleClearFilters}
+            isFilteredMode={isFilteredMode}
           />
         </View>
       </Modal>

@@ -63,6 +63,8 @@ interface DateRangeCalendarProps {
   onDateRangeSelect: (startDate: string | null, endDate: string | null) => void;
   onClose: () => void;
   isLoading?: boolean;
+  onClearFilters?: () => void;
+  isFilteredMode?: boolean;
 }
 
 const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
@@ -71,6 +73,8 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
   onDateRangeSelect,
   onClose,
   isLoading = false,
+  onClearFilters,
+  isFilteredMode,
 }) => {
   const [selectedStartDate, setSelectedStartDate] = useState<
     string | undefined
@@ -363,18 +367,33 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
         </Animated.View>
 
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.button, styles.resetButton]}
-            onPress={handleReset}
-            activeOpacity={0.7}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color={COLORS.accent} />
-            ) : (
-              <Text style={styles.resetButtonText}>Reset</Text>
-            )}
-          </TouchableOpacity>
+          {isFilteredMode && onClearFilters ? (
+            <TouchableOpacity
+              style={[styles.button, styles.clearButton]}
+              onPress={onClearFilters}
+              activeOpacity={0.7}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color={COLORS.accent} />
+              ) : (
+                <Text style={styles.clearButtonText}>Show Relevant</Text>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.button, styles.resetButton]}
+              onPress={handleReset}
+              activeOpacity={0.7}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color={COLORS.accent} />
+              ) : (
+                <Text style={styles.resetButtonText}>Reset</Text>
+              )}
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={[
@@ -600,6 +619,16 @@ const styles = StyleSheet.create({
   },
   disabledDayText: {
     color: COLORS.textSecondary,
+  },
+  clearButton: {
+    backgroundColor: COLORS.buttonBackground,
+    borderColor: COLORS.buttonBorder,
+  },
+  clearButtonText: {
+    color: COLORS.textPrimary,
+    fontSize: 15,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
   },
 });
 
