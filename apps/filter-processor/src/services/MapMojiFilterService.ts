@@ -3,14 +3,10 @@ import { Event, BoundingBox, RecurrenceFrequency } from "../types/types";
 interface FilterConfig {
   maxEvents: number;
   viewportBounds: BoundingBox;
-  userLocation?: {
-    lat: number;
-    lng: number;
-  };
+
   currentTime: Date;
   weights: {
     timeProximity: number; // 0.25 - how soon the event is
-    distanceProximity: number; // 0.20 - how close to user/viewport center
     popularity: number; // 0.30 - scans, saves, rsvps
     recency: number; // 0.15 - how recently discovered/created
     confidence: number; // 0.10 - AI confidence in parsing
@@ -28,7 +24,6 @@ interface EventScore {
   percentileRank: number; // 0-1 ranking within the current set
   components: {
     timeScore: number;
-    distanceScore: number;
     popularityScore: number;
     recencyScore: number;
     confidenceScore: number;
@@ -46,7 +41,6 @@ export class MapMojiFilterService {
       currentTime: new Date(),
       weights: {
         timeProximity: 0.25,
-        distanceProximity: 0.2,
         popularity: 0.3,
         recency: 0.15,
         confidence: 0.1,
@@ -137,14 +131,12 @@ export class MapMojiFilterService {
 
   private scoreEvent(event: Event): EventScore {
     const timeScore = this.calculateTimeScore(event);
-    const distanceScore = this.calculateDistanceScore(event);
     const popularityScore = this.calculatePopularityScore(event);
     const recencyScore = this.calculateRecencyScore(event);
     const confidenceScore = this.calculateConfidenceScore(event);
 
     const rawScore =
       timeScore * this.config.weights.timeProximity +
-      distanceScore * this.config.weights.distanceProximity +
       popularityScore * this.config.weights.popularity +
       recencyScore * this.config.weights.recency +
       confidenceScore * this.config.weights.confidence;
@@ -156,7 +148,6 @@ export class MapMojiFilterService {
       percentileRank: 0, // Will be calculated in applyRelativeScoring
       components: {
         timeScore,
-        distanceScore,
         popularityScore,
         recencyScore,
         confidenceScore,
@@ -199,51 +190,6 @@ export class MapMojiFilterService {
       // Too far out
       return 0.1;
     }
-  }
-
-  private calculateDistanceScore(event: Event): number {
-    if (!this.config.userLocation) {
-      // No user location - score based on viewport center
-      const centerLat =
-        (this.config.viewportBounds.maxY + this.config.viewportBounds.minY) / 2;
-      const centerLng =
-        (this.config.viewportBounds.maxX + this.config.viewportBounds.minX) / 2;
-      return this.getDistanceScore(
-        event.location.coordinates[1], // lat
-        event.location.coordinates[0], // lng
-        centerLat,
-        centerLng,
-      );
-    }
-
-    return this.getDistanceScore(
-      event.location.coordinates[1],
-      event.location.coordinates[0],
-      this.config.userLocation.lat,
-      this.config.userLocation.lng,
-    );
-  }
-
-  private getDistanceScore(
-    lat1: number,
-    lng1: number,
-    lat2: number,
-    lng2: number,
-  ): number {
-    const distance = this.haversineDistance(lat1, lng1, lat2, lng2);
-
-    if (distance <= 1) return 1.0; // Within 1km - perfect
-    if (distance <= 5) return 0.8; // Within 5km - great
-    if (distance <= 15) return 0.6; // Within 15km - good
-    if (distance <= this.config.maxDistanceKm) {
-      // Linear decay beyond 15km
-      return (
-        0.2 +
-        (0.4 * (this.config.maxDistanceKm - distance)) /
-          (this.config.maxDistanceKm - 15)
-      );
-    }
-    return 0.1; // Too far
   }
 
   private calculatePopularityScore(event: Event): number {
