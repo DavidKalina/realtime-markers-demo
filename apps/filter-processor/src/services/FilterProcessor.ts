@@ -314,8 +314,43 @@ export class FilterProcessor {
           return;
         }
 
+        // Process the event (this updates both spatial index and cache)
+        console.log("[FilterProcessor] Processing event update:", {
+          eventId: eventData.record.id,
+          operation: eventData.operation,
+          isPopularityUpdate,
+          spatialIndexSize: this.spatialIndex.all().length,
+          cacheSize: this.eventCache.size,
+        });
+
         await this.eventProcessor.processEvent(eventData);
         this.stats.eventsProcessed++;
+
+        console.log(
+          "[FilterProcessor] Event processed, spatial index updated:",
+          {
+            eventId: eventData.record.id,
+            operation: eventData.operation,
+            isPopularityUpdate,
+            newSpatialIndexSize: this.spatialIndex.all().length,
+            newCacheSize: this.eventCache.size,
+          },
+        );
+
+        // For popularity updates, verify the spatial index was updated correctly
+        if (isPopularityUpdate) {
+          const spatialIndexUpdated = this.verifySpatialIndexUpdate(
+            eventData.record.id,
+            eventData.record,
+          );
+          console.log(
+            "[FilterProcessor] Spatial index verification for popularity update:",
+            {
+              eventId: eventData.record.id,
+              spatialIndexUpdated,
+            },
+          );
+        }
 
         // Get affected users and notify them
         const affectedUsers = await this.getAffectedUsers(eventData.record);
@@ -340,46 +375,62 @@ export class FilterProcessor {
           });
         }
 
-        await this.notifyAffectedUsers(affectedUsers, eventData);
-
-        // Log summary for popularity updates
+        // For popularity updates, trigger full recalculation for affected users
         if (isPopularityUpdate && affectedUsers.size > 0) {
-          console.log("[FilterProcessor] Popularity update processed:", {
-            eventId: eventData.record?.id,
-            eventTitle: eventData.record?.title,
-            affectedUsers: affectedUsers.size,
-            operation: eventData.operation,
-            changeType: eventData.changeType,
-            userId: eventData.userId,
-            popularityMetrics: {
-              current: {
-                scanCount: eventData.record?.scanCount,
-                saveCount: eventData.record?.saveCount,
-                rsvpCount: eventData.record?.rsvps?.length || 0,
+          console.log(
+            "[FilterProcessor] Triggering full score recalculation for popularity update:",
+            {
+              eventId: eventData.record?.id,
+              eventTitle: eventData.record?.title,
+              affectedUsers: affectedUsers.size,
+              popularityMetrics: {
+                current: {
+                  scanCount: eventData.record?.scanCount,
+                  saveCount: eventData.record?.saveCount,
+                  rsvpCount: eventData.record?.rsvps?.length || 0,
+                },
+                previous: eventData.previousMetrics
+                  ? {
+                      scanCount: eventData.previousMetrics.scanCount,
+                      saveCount: eventData.previousMetrics.saveCount,
+                      rsvpCount: eventData.previousMetrics.rsvpCount,
+                    }
+                  : undefined,
               },
-              previous: eventData.previousMetrics
-                ? {
-                    scanCount: eventData.previousMetrics.scanCount,
-                    saveCount: eventData.previousMetrics.saveCount,
-                    rsvpCount: eventData.previousMetrics.rsvpCount,
-                  }
-                : undefined,
-              change: eventData.previousMetrics
-                ? {
-                    scanCount:
-                      (eventData.record?.scanCount || 0) -
-                      eventData.previousMetrics.scanCount,
-                    saveCount:
-                      (eventData.record?.saveCount || 0) -
-                      eventData.previousMetrics.saveCount,
-                    rsvpCount:
-                      (eventData.record?.rsvps?.length || 0) -
-                      eventData.previousMetrics.rsvpCount,
-                  }
-                : undefined,
             },
-            message: `Popularity update will trigger score recalculation for ${affectedUsers.size} users`,
-          });
+          );
+
+          // Trigger full recalculation for each affected user
+          for (const userId of affectedUsers) {
+            const viewport = this.userViewports.get(userId);
+            if (viewport) {
+              // Recalculate viewport events with updated scores
+              console.log(
+                `[FilterProcessor] Recalculating viewport events for user ${userId} after popularity update:`,
+                {
+                  eventId: eventData.record?.id,
+                  viewport,
+                  willUseMapMoji:
+                    (this.userFilters.get(userId) || []).length === 0,
+                },
+              );
+              await this.sendViewportEvents(userId, viewport);
+            } else {
+              // Recalculate all events with updated scores
+              console.log(
+                `[FilterProcessor] Recalculating all events for user ${userId} after popularity update:`,
+                {
+                  eventId: eventData.record?.id,
+                  willUseMapMoji:
+                    (this.userFilters.get(userId) || []).length === 0,
+                },
+              );
+              await this.sendAllFilteredEvents(userId);
+            }
+          }
+        } else {
+          // For non-popularity updates, use the normal notification flow
+          await this.notifyAffectedUsers(affectedUsers, eventData);
         }
       }
     } catch (error) {
@@ -545,6 +596,25 @@ export class FilterProcessor {
       }
 
       // Send to user's channel
+      console.log(
+        `[FilterProcessor] Publishing ${filteredEvents.length} events to user ${userId} with updated relevance scores:`,
+        {
+          userId,
+          eventCount: filteredEvents.length,
+          topEventScores: filteredEvents.slice(0, 3).map((event) => ({
+            eventId: event.id,
+            title: event.title,
+            relevanceScore: event.relevanceScore,
+            popularityMetrics: {
+              scanCount: event.scanCount,
+              saveCount: event.saveCount || 0,
+              rsvpCount: event.rsvps?.length || 0,
+            },
+          })),
+          messageType: "viewport",
+        },
+      );
+
       await this.eventPublisher.publishFilteredEvents(
         userId,
         "viewport",
@@ -635,6 +705,25 @@ export class FilterProcessor {
       }
 
       // Publish the filtered events
+      console.log(
+        `[FilterProcessor] Publishing ${filteredEvents.length} events to user ${userId} with updated relevance scores:`,
+        {
+          userId,
+          eventCount: filteredEvents.length,
+          topEventScores: filteredEvents.slice(0, 3).map((event) => ({
+            eventId: event.id,
+            title: event.title,
+            relevanceScore: event.relevanceScore,
+            popularityMetrics: {
+              scanCount: event.scanCount,
+              saveCount: event.saveCount || 0,
+              rsvpCount: event.rsvps?.length || 0,
+            },
+          })),
+          messageType: "all",
+        },
+      );
+
       await this.eventPublisher.publishFilteredEvents(
         userId,
         "all",
@@ -1256,5 +1345,75 @@ export class FilterProcessor {
         relevanceScore: Math.max(0, Math.min(1, relevanceScore)), // Clamp to 0-1
       };
     });
+  }
+
+  /**
+   * Verify that the spatial index contains the updated event data
+   */
+  private verifySpatialIndexUpdate(
+    eventId: string,
+    expectedEvent: Event,
+  ): boolean {
+    try {
+      const spatialItems = this.spatialIndex.all();
+      const spatialItem = spatialItems.find((item) => item.id === eventId);
+
+      if (!spatialItem) {
+        console.warn(
+          "[FilterProcessor] Event not found in spatial index:",
+          eventId,
+        );
+        return false;
+      }
+
+      const cachedEvent = this.eventCache.get(eventId);
+      if (!cachedEvent) {
+        console.warn("[FilterProcessor] Event not found in cache:", eventId);
+        return false;
+      }
+
+      // Verify that popularity metrics match
+      const spatialEvent = spatialItem.event;
+      if (!spatialEvent) {
+        console.warn(
+          "[FilterProcessor] Spatial item has no event data:",
+          eventId,
+        );
+        return false;
+      }
+
+      const metricsMatch =
+        spatialEvent.scanCount === expectedEvent.scanCount &&
+        spatialEvent.saveCount === expectedEvent.saveCount &&
+        spatialEvent.rsvps?.length === expectedEvent.rsvps?.length;
+
+      if (!metricsMatch) {
+        console.warn(
+          "[FilterProcessor] Popularity metrics mismatch in spatial index:",
+          {
+            eventId,
+            expected: {
+              scanCount: expectedEvent.scanCount,
+              saveCount: expectedEvent.saveCount,
+              rsvpCount: expectedEvent.rsvps?.length || 0,
+            },
+            actual: {
+              scanCount: spatialEvent.scanCount,
+              saveCount: spatialEvent.saveCount,
+              rsvpCount: spatialEvent.rsvps?.length || 0,
+            },
+          },
+        );
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error(
+        "[FilterProcessor] Error verifying spatial index update:",
+        error,
+      );
+      return false;
+    }
   }
 }

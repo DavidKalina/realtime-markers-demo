@@ -259,6 +259,11 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           return;
         }
 
+        for (const event of data.events || []) {
+          console.log(`TITLE: ${event?.title}`);
+          console.log(`RELEVANCE SCORE: ${event?.relevanceScore}`);
+        }
+
         switch (data.type) {
           case MessageTypes.CONNECTION_ESTABLISHED:
             if (data.clientId) {

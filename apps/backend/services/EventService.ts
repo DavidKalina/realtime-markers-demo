@@ -426,7 +426,13 @@ export class EventService {
     // Get the updated event with its shares
     const event = await this.eventRepository.findOne({
       where: { id: eventId },
-      relations: ["categories", "creator", "shares", "shares.sharedWith"],
+      relations: [
+        "categories",
+        "creator",
+        "shares",
+        "shares.sharedWith",
+        "rsvps",
+      ],
     });
 
     if (event) {
@@ -939,7 +945,13 @@ export class EventService {
       // Check if the event exists
       const event = await transactionalEntityManager.findOne(Event, {
         where: { id: eventId },
-        relations: ["categories", "creator", "shares", "shares.sharedWith"],
+        relations: [
+          "categories",
+          "creator",
+          "shares",
+          "shares.sharedWith",
+          "rsvps",
+        ],
       });
 
       if (!event) {

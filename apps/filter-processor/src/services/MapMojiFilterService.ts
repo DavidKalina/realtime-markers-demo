@@ -80,7 +80,9 @@ export class MapMojiFilterService {
     }
 
     // Step 2: Calculate raw scores for each event
-    const scoredEvents = preFiltered.map((event) => this.scoreEvent(event));
+    const scoredEvents = preFiltered.map((event) =>
+      this.scoreEvent(event, preFiltered.length),
+    );
 
     // Step 3: Apply relative scoring normalization
     const normalizedEvents = this.applyRelativeScoring(scoredEvents);
@@ -173,9 +175,12 @@ export class MapMojiFilterService {
     });
   }
 
-  private scoreEvent(event: Event): EventScore {
+  private scoreEvent(event: Event, totalEventCount?: number): EventScore {
     const timeScore = this.calculateTimeScore(event);
-    const popularityScore = this.calculatePopularityScore(event);
+    const popularityScore = this.calculatePopularityScore(
+      event,
+      totalEventCount,
+    );
     const recencyScore = this.calculateRecencyScore(event);
     const confidenceScore = this.calculateConfidenceScore(event);
 
@@ -236,7 +241,10 @@ export class MapMojiFilterService {
     }
   }
 
-  private calculatePopularityScore(event: Event): number {
+  private calculatePopularityScore(
+    event: Event,
+    totalEventCount?: number,
+  ): number {
     // Weighted combination of engagement metrics
     const scanWeight = 1.0;
     const saveWeight = 3.0; // Saves are more valuable than scans
@@ -251,17 +259,66 @@ export class MapMojiFilterService {
 
     const totalWeight = scanWeight + saveWeight + rsvpWeight;
 
-    const popularityScore =
+    let popularityScore =
       (scanScore * scanWeight +
         saveScore * saveWeight +
         rsvpScore * rsvpWeight) /
       totalWeight;
+
+    // Apply significant boost when there are few events
+    if (totalEventCount !== undefined && totalEventCount <= 5) {
+      // Calculate engagement intensity (how much engagement relative to event count)
+      const totalEngagement =
+        event.scanCount + (event.saveCount || 0) + rsvpCount;
+
+      if (totalEngagement > 0) {
+        // Apply boost based on event scarcity and engagement presence
+        let scarcityBoost = 1.0;
+
+        if (totalEventCount === 1) {
+          // Single event with any engagement gets massive boost
+          scarcityBoost = 3.0;
+        } else if (totalEventCount === 2) {
+          // Two events - significant boost for engagement
+          scarcityBoost = 2.5;
+        } else if (totalEventCount === 3) {
+          // Three events - moderate boost
+          scarcityBoost = 2.0;
+        } else if (totalEventCount <= 5) {
+          // 4-5 events - smaller but still significant boost
+          scarcityBoost = 1.5;
+        }
+
+        // Apply the boost, but cap at 1.0 to avoid overscoring
+        popularityScore = Math.min(1.0, popularityScore * scarcityBoost);
+
+        // Additional bonus for having multiple types of engagement
+        const engagementTypes = [
+          event.scanCount > 0,
+          (event.saveCount || 0) > 0,
+          rsvpCount > 0,
+        ].filter(Boolean).length;
+
+        if (engagementTypes >= 2) {
+          // Multiple engagement types get extra boost in sparse scenarios
+          const multiEngagementBonus = Math.min(
+            0.3,
+            (engagementTypes - 1) * 0.15,
+          );
+          popularityScore = Math.min(
+            1.0,
+            popularityScore + multiEngagementBonus,
+          );
+        }
+      }
+    }
 
     // Log popularity score calculation for debugging
     if (process.env.NODE_ENV !== "production") {
       console.log("[MapMoji] Popularity score calculation:", {
         eventId: event.id,
         eventTitle: event.title,
+        totalEventCount,
         metrics: {
           scanCount: event.scanCount,
           saveCount: event.saveCount || 0,
@@ -278,6 +335,10 @@ export class MapMojiFilterService {
           saveWeight,
           rsvpWeight,
         },
+        scarcityBoost:
+          totalEventCount !== undefined && totalEventCount <= 5
+            ? "applied"
+            : "none",
       });
     }
 
