@@ -7,6 +7,8 @@ import { FilterMatcher } from "../handlers/FilterMatcher";
 import { ViewportProcessor } from "../handlers/ViewportProcessor";
 import { EventPublisher } from "../handlers/EventPublisher";
 import { MapMojiFilterService } from "./MapMojiFilterService";
+import { BatchScoreUpdateService } from "./BatchScoreUpdateService";
+import { getBatchConfig } from "../config/batchConfig";
 
 /**
  * FilterProcessor is responsible for maintaining active filter sets for connected users,
@@ -32,6 +34,7 @@ export class FilterProcessor {
   private viewportProcessor: ViewportProcessor;
   private eventPublisher: EventPublisher;
   private mapMojiFilter: MapMojiFilterService;
+  private batchScoreUpdateService: BatchScoreUpdateService;
 
   // Stats for monitoring
   private stats = {
@@ -59,6 +62,17 @@ export class FilterProcessor {
     );
     this.eventPublisher = new EventPublisher(redisPub);
     this.mapMojiFilter = new MapMojiFilterService();
+
+    // Initialize batch score update service
+    this.batchScoreUpdateService = new BatchScoreUpdateService(
+      this.eventPublisher,
+      this.mapMojiFilter,
+      this.filterMatcher,
+      this.viewportProcessor,
+      this.spatialIndex,
+      this.eventCache,
+      getBatchConfig(),
+    );
   }
 
   /**
@@ -97,8 +111,12 @@ export class FilterProcessor {
       console.log("Final stats:", {
         ...this.stats,
         ...this.eventPublisher.getStats(),
+        ...this.batchScoreUpdateService.getStats(),
       });
     }
+
+    // Shutdown batch score update service
+    this.batchScoreUpdateService.shutdown();
 
     // Clean up Redis subscribers
     await this.redisSub.unsubscribe();
@@ -110,10 +128,12 @@ export class FilterProcessor {
    * Get current statistics for the filter processor.
    */
   public getStats(): typeof this.stats &
-    ReturnType<typeof this.eventPublisher.getStats> {
+    ReturnType<typeof this.eventPublisher.getStats> &
+    ReturnType<typeof this.batchScoreUpdateService.getStats> {
     return {
       ...this.stats,
       ...this.eventPublisher.getStats(),
+      ...this.batchScoreUpdateService.getStats(),
     };
   }
 
@@ -352,86 +372,25 @@ export class FilterProcessor {
           );
         }
 
-        // Get affected users and notify them
-        const affectedUsers = await this.getAffectedUsers(eventData.record);
-        console.log("[FilterProcessor] Affected users for event:", {
-          eventId: eventData.record?.id,
-          affectedUsers: Array.from(affectedUsers),
-          totalUsers: this.userFilters.size,
-          operation: eventData.operation,
-          isPrivate: eventData.record?.isPrivate,
-          creatorId: eventData.record?.creatorId,
+        // Add event to batch update service instead of immediate processing
+        this.batchScoreUpdateService.addEventUpdate(
+          eventData.record,
+          eventData.operation as "CREATE" | "UPDATE" | "DELETE",
           isPopularityUpdate,
-          willRecalculateScores: isPopularityUpdate && affectedUsers.size > 0,
-        });
+        );
 
-        if (affectedUsers.size === 0) {
-          console.log("[FilterProcessor] No affected users found for event:", {
-            eventId: eventData.record.id,
-            operation: eventData.operation,
-            isPrivate: eventData.record.isPrivate,
-            creatorId: eventData.record.creatorId,
-            isPopularityUpdate,
-          });
-        }
-
-        // For popularity updates, trigger full recalculation for affected users
-        if (isPopularityUpdate && affectedUsers.size > 0) {
-          console.log(
-            "[FilterProcessor] Triggering full score recalculation for popularity update:",
-            {
-              eventId: eventData.record?.id,
-              eventTitle: eventData.record?.title,
-              affectedUsers: affectedUsers.size,
-              popularityMetrics: {
-                current: {
-                  scanCount: eventData.record?.scanCount,
-                  saveCount: eventData.record?.saveCount,
-                  rsvpCount: eventData.record?.rsvps?.length || 0,
-                },
-                previous: eventData.previousMetrics
-                  ? {
-                      scanCount: eventData.previousMetrics.scanCount,
-                      saveCount: eventData.previousMetrics.saveCount,
-                      rsvpCount: eventData.previousMetrics.rsvpCount,
-                    }
-                  : undefined,
-              },
-            },
-          );
-
-          // Trigger full recalculation for each affected user
-          for (const userId of affectedUsers) {
-            const viewport = this.userViewports.get(userId);
-            if (viewport) {
-              // Recalculate viewport events with updated scores
-              console.log(
-                `[FilterProcessor] Recalculating viewport events for user ${userId} after popularity update:`,
-                {
-                  eventId: eventData.record?.id,
-                  viewport,
-                  willUseMapMoji:
-                    (this.userFilters.get(userId) || []).length === 0,
-                },
-              );
-              await this.sendViewportEvents(userId, viewport);
-            } else {
-              // Recalculate all events with updated scores
-              console.log(
-                `[FilterProcessor] Recalculating all events for user ${userId} after popularity update:`,
-                {
-                  eventId: eventData.record?.id,
-                  willUseMapMoji:
-                    (this.userFilters.get(userId) || []).length === 0,
-                },
-              );
-              await this.sendAllFilteredEvents(userId);
-            }
-          }
-        } else {
-          // For non-popularity updates, use the normal notification flow
+        // For non-popularity updates, still use immediate notification for critical updates
+        if (!isPopularityUpdate) {
+          const affectedUsers = await this.getAffectedUsers(eventData.record);
           await this.notifyAffectedUsers(affectedUsers, eventData);
         }
+
+        console.log("[FilterProcessor] Event added to batch update service:", {
+          eventId: eventData.record.id,
+          operation: eventData.operation,
+          isPopularityUpdate,
+          willUseBatching: isPopularityUpdate,
+        });
       }
     } catch (error) {
       console.error(`Error handling pattern message: ${error}`, {
@@ -469,8 +428,11 @@ export class FilterProcessor {
     this.userFilters.set(userId, filters);
     this.stats.filterChangesProcessed++;
 
-    // Re-filter existing events for this user based on current viewport
+    // Register user with batch update service
     const viewport = this.userViewports.get(userId);
+    this.batchScoreUpdateService.updateUserConfig(userId, viewport, filters);
+
+    // Re-filter existing events for this user based on current viewport
     if (viewport) {
       await this.sendViewportEvents(userId, viewport);
     } else {
@@ -486,6 +448,10 @@ export class FilterProcessor {
     await this.viewportProcessor.updateUserViewport(userId, viewport);
     this.userViewports.set(userId, viewport);
     this.stats.viewportUpdatesProcessed++;
+
+    // Update user config in batch service
+    const filters = this.userFilters.get(userId) || [];
+    this.batchScoreUpdateService.updateUserConfig(userId, viewport, filters);
 
     // Send events in this viewport that match the user's filters
     await this.sendViewportEvents(userId, viewport);
@@ -503,6 +469,15 @@ export class FilterProcessor {
       } else {
         this.userFilters.set(userId, []);
       }
+
+      // Register user with batch update service
+      const viewport = this.userViewports.get(userId);
+      const filters = this.userFilters.get(userId) || [];
+      this.batchScoreUpdateService.registerUserForUpdates(
+        userId,
+        viewport,
+        filters,
+      );
     }
   }
 
@@ -1415,5 +1390,48 @@ export class FilterProcessor {
       );
       return false;
     }
+  }
+
+  /**
+   * Handle user disconnection - unregister from batch updates
+   */
+  public handleUserDisconnection(userId: string): void {
+    console.log("[FilterProcessor] User disconnected:", {
+      userId,
+      hadFilters: this.userFilters.has(userId),
+      hadViewport: this.userViewports.has(userId),
+    });
+
+    // Unregister from batch update service
+    this.batchScoreUpdateService.unregisterUser(userId);
+
+    // Clean up user data
+    this.userFilters.delete(userId);
+    this.userViewports.delete(userId);
+
+    console.log("[FilterProcessor] User cleanup complete:", {
+      userId,
+      remainingUsers: this.userFilters.size,
+    });
+  }
+
+  /**
+   * Force process the current batch immediately (for testing or manual triggers)
+   */
+  public async forceProcessBatch(): Promise<void> {
+    console.log("[FilterProcessor] Force processing batch update");
+    await this.batchScoreUpdateService.forceProcessBatch();
+  }
+
+  /**
+   * Update batch configuration
+   */
+  public updateBatchConfig(config: {
+    batchIntervalMs?: number;
+    maxBatchSize?: number;
+    enableBatching?: boolean;
+  }): void {
+    console.log("[FilterProcessor] Updating batch configuration:", config);
+    this.batchScoreUpdateService.updateConfig(config);
   }
 }

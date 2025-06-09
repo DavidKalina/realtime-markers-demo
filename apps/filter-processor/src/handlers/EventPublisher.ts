@@ -127,6 +127,75 @@ export class EventPublisher {
     }
   }
 
+  public async publishBatchUpdate(
+    userId: string,
+    batchData: {
+      type: string;
+      timestamp: number;
+      updates: {
+        creates: Event[];
+        updates: Event[];
+        deletes: string[];
+      };
+      summary: {
+        totalEvents: number;
+        newEvents: number;
+        updatedEvents: number;
+        deletedEvents: number;
+      };
+    },
+  ): Promise<void> {
+    try {
+      const channel = `user:${userId}:filtered-events`;
+
+      // Strip sensitive data from events
+      const sanitizedCreates = batchData.updates.creates.map((event) =>
+        this.stripSensitiveData(event),
+      );
+      const sanitizedUpdates = batchData.updates.updates.map((event) =>
+        this.stripSensitiveData(event),
+      );
+
+      const message = {
+        type: "batch-update",
+        timestamp: new Date().toISOString(),
+        updates: {
+          creates: sanitizedCreates,
+          updates: sanitizedUpdates,
+          deletes: batchData.updates.deletes,
+        },
+        summary: batchData.summary,
+      };
+
+      await this.redisPub.publish(channel, JSON.stringify(message));
+
+      // Update stats
+      this.stats.totalFilteredEventsPublished +=
+        batchData.summary.newEvents +
+        batchData.summary.updatedEvents +
+        batchData.summary.deletedEvents;
+
+      console.log(
+        `[EventPublisher] Published batch update to user ${userId}:`,
+        {
+          userId,
+          channel,
+          summary: batchData.summary,
+          topEventScores: sanitizedCreates.slice(0, 3).map((event) => ({
+            eventId: event.id,
+            title: event.title,
+            relevanceScore: event.relevanceScore,
+          })),
+        },
+      );
+    } catch (error) {
+      console.error(
+        `[Publish] Error publishing batch update to user ${userId}:`,
+        error,
+      );
+    }
+  }
+
   private stripSensitiveData(event: Event): Omit<Event, "embedding"> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { embedding, ...eventWithoutEmbedding } = event;
