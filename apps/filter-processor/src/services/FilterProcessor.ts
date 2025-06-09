@@ -258,46 +258,129 @@ export class FilterProcessor {
     try {
       if (channel.startsWith("event_changes")) {
         const data = JSON.parse(message);
+
+        // Handle the nested structure from EventService
+        const eventData = data.data || data;
+
+        // Check if this is a popularity-related update
+        const isPopularityUpdate = this.isPopularityRelatedUpdate(eventData);
+
         console.log("[FilterProcessor] Received event change:", {
-          operation: data.operation,
-          eventId: data.record?.id,
-          isPrivate: data.record?.isPrivate,
-          creatorId: data.record?.creatorId,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          sharedWith: data.record?.sharedWith?.map((s: any) => s.sharedWithId),
+          operation: eventData.operation,
+          eventId: eventData.record?.id,
+          isPrivate: eventData.record?.isPrivate,
+          creatorId: eventData.record?.creatorId,
+          sharedWith: eventData.record?.sharedWith?.map(
+            (s: { sharedWithId: string }) => s.sharedWithId,
+          ),
+          isPopularityUpdate,
+          popularityMetrics: isPopularityUpdate
+            ? {
+                current: {
+                  scanCount: eventData.record?.scanCount,
+                  saveCount: eventData.record?.saveCount,
+                  rsvpCount: eventData.record?.rsvps?.length || 0,
+                },
+                previous: eventData.previousMetrics
+                  ? {
+                      scanCount: eventData.previousMetrics.scanCount,
+                      saveCount: eventData.previousMetrics.saveCount,
+                      rsvpCount: eventData.previousMetrics.rsvpCount,
+                    }
+                  : undefined,
+                change: eventData.previousMetrics
+                  ? {
+                      scanCount:
+                        (eventData.record?.scanCount || 0) -
+                        eventData.previousMetrics.scanCount,
+                      saveCount:
+                        (eventData.record?.saveCount || 0) -
+                        eventData.previousMetrics.saveCount,
+                      rsvpCount:
+                        (eventData.record?.rsvps?.length || 0) -
+                        eventData.previousMetrics.rsvpCount,
+                    }
+                  : undefined,
+                changeType: eventData.changeType,
+                userId: eventData.userId,
+              }
+            : undefined,
           rawData: data, // Log the full data for debugging
         });
 
         // Validate the event data
-        if (!data.record || !data.record.id) {
+        if (!eventData.record || !eventData.record.id) {
           console.error("[FilterProcessor] Invalid event data received:", data);
           return;
         }
 
-        await this.eventProcessor.processEvent(data);
+        await this.eventProcessor.processEvent(eventData);
         this.stats.eventsProcessed++;
 
         // Get affected users and notify them
-        const affectedUsers = await this.getAffectedUsers(data.record);
+        const affectedUsers = await this.getAffectedUsers(eventData.record);
         console.log("[FilterProcessor] Affected users for event:", {
-          eventId: data.record?.id,
+          eventId: eventData.record?.id,
           affectedUsers: Array.from(affectedUsers),
           totalUsers: this.userFilters.size,
-          operation: data.operation,
-          isPrivate: data.record?.isPrivate,
-          creatorId: data.record?.creatorId,
+          operation: eventData.operation,
+          isPrivate: eventData.record?.isPrivate,
+          creatorId: eventData.record?.creatorId,
+          isPopularityUpdate,
+          willRecalculateScores: isPopularityUpdate && affectedUsers.size > 0,
         });
 
         if (affectedUsers.size === 0) {
           console.log("[FilterProcessor] No affected users found for event:", {
-            eventId: data.record.id,
-            operation: data.operation,
-            isPrivate: data.record.isPrivate,
-            creatorId: data.record.creatorId,
+            eventId: eventData.record.id,
+            operation: eventData.operation,
+            isPrivate: eventData.record.isPrivate,
+            creatorId: eventData.record.creatorId,
+            isPopularityUpdate,
           });
         }
 
-        await this.notifyAffectedUsers(affectedUsers, data);
+        await this.notifyAffectedUsers(affectedUsers, eventData);
+
+        // Log summary for popularity updates
+        if (isPopularityUpdate && affectedUsers.size > 0) {
+          console.log("[FilterProcessor] Popularity update processed:", {
+            eventId: eventData.record?.id,
+            eventTitle: eventData.record?.title,
+            affectedUsers: affectedUsers.size,
+            operation: eventData.operation,
+            changeType: eventData.changeType,
+            userId: eventData.userId,
+            popularityMetrics: {
+              current: {
+                scanCount: eventData.record?.scanCount,
+                saveCount: eventData.record?.saveCount,
+                rsvpCount: eventData.record?.rsvps?.length || 0,
+              },
+              previous: eventData.previousMetrics
+                ? {
+                    scanCount: eventData.previousMetrics.scanCount,
+                    saveCount: eventData.previousMetrics.saveCount,
+                    rsvpCount: eventData.previousMetrics.rsvpCount,
+                  }
+                : undefined,
+              change: eventData.previousMetrics
+                ? {
+                    scanCount:
+                      (eventData.record?.scanCount || 0) -
+                      eventData.previousMetrics.scanCount,
+                    saveCount:
+                      (eventData.record?.saveCount || 0) -
+                      eventData.previousMetrics.saveCount,
+                    rsvpCount:
+                      (eventData.record?.rsvps?.length || 0) -
+                      eventData.previousMetrics.rsvpCount,
+                  }
+                : undefined,
+            },
+            message: `Popularity update will trigger score recalculation for ${affectedUsers.size} users`,
+          });
+        }
       }
     } catch (error) {
       console.error(`Error handling pattern message: ${error}`, {
@@ -306,6 +389,26 @@ export class FilterProcessor {
       });
     }
   };
+
+  /**
+   * Check if an event update is related to popularity metrics
+   */
+  private isPopularityRelatedUpdate(data: {
+    operation: string;
+    record?: Event;
+  }): boolean {
+    if (data.operation !== "UPDATE") return false;
+
+    const record = data.record;
+    if (!record) return false;
+
+    // Check if any popularity-related fields are present
+    return (
+      typeof record.scanCount === "number" ||
+      typeof record.saveCount === "number" ||
+      (Array.isArray(record.rsvps) && record.rsvps.length > 0)
+    );
+  }
 
   private async handleFilterChanges(data: {
     userId: string;

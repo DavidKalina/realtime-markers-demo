@@ -59,8 +59,25 @@ export class MapMojiFilterService {
   async filterEvents(
     events: Event[],
   ): Promise<Array<Event & { relevanceScore?: number }>> {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[MapMoji] Starting filter algorithm:", {
+        totalEvents: events.length,
+        viewportBounds: this.config.viewportBounds,
+        maxEvents: this.config.maxEvents,
+        currentTime: this.config.currentTime,
+      });
+    }
+
     // Step 1: Pre-filter by basic criteria
     const preFiltered = this.preFilter(events);
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[MapMoji] Pre-filtering complete:", {
+        originalCount: events.length,
+        preFilteredCount: preFiltered.length,
+        removedCount: events.length - preFiltered.length,
+      });
+    }
 
     // Step 2: Calculate raw scores for each event
     const scoredEvents = preFiltered.map((event) => this.scoreEvent(event));
@@ -71,13 +88,40 @@ export class MapMojiFilterService {
     // Step 4: Sort by normalized score (highest first)
     normalizedEvents.sort((a, b) => b.relativeScore - a.relativeScore);
 
+    console.log("[MapMoji] Scoring and sorting complete:", {
+      scoredCount: scoredEvents.length,
+      topScores: normalizedEvents.slice(0, 3).map((se) => ({
+        eventId: se.event.id,
+        title: se.event.title,
+        rawScore: Math.round(se.rawScore * 100) / 100,
+        relativeScore: Math.round(se.relativeScore * 100) / 100,
+      })),
+    });
+
     // Step 5: Apply geographic clustering to prevent overcrowding
     const clusteredEvents = this.config.clusteringEnabled
       ? this.applyClustering(normalizedEvents)
       : normalizedEvents;
 
+    console.log("[MapMoji] Clustering complete:", {
+      beforeClustering: normalizedEvents.length,
+      afterClustering: clusteredEvents.length,
+      removedByClustering: normalizedEvents.length - clusteredEvents.length,
+      clusteringEnabled: this.config.clusteringEnabled,
+    });
+
     // Step 6: Take top N events and attach relevance scores
     const topEvents = clusteredEvents.slice(0, this.config.maxEvents);
+
+    console.log("[MapMoji] Filter algorithm complete:", {
+      finalEventCount: topEvents.length,
+      maxEvents: this.config.maxEvents,
+      topEventScores: topEvents.slice(0, 3).map((se) => ({
+        eventId: se.event.id,
+        title: se.event.title,
+        relevanceScore: Math.round(se.relativeScore * 100) / 100,
+      })),
+    });
 
     return topEvents.map((se) => ({
       ...se.event,
@@ -207,12 +251,37 @@ export class MapMojiFilterService {
 
     const totalWeight = scanWeight + saveWeight + rsvpWeight;
 
-    return (
+    const popularityScore =
       (scanScore * scanWeight +
         saveScore * saveWeight +
         rsvpScore * rsvpWeight) /
-      totalWeight
-    );
+      totalWeight;
+
+    // Log popularity score calculation for debugging
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[MapMoji] Popularity score calculation:", {
+        eventId: event.id,
+        eventTitle: event.title,
+        metrics: {
+          scanCount: event.scanCount,
+          saveCount: event.saveCount || 0,
+          rsvpCount,
+        },
+        scores: {
+          scanScore: Math.round(scanScore * 100) / 100,
+          saveScore: Math.round(saveScore * 100) / 100,
+          rsvpScore: Math.round(rsvpScore * 100) / 100,
+        },
+        finalPopularityScore: Math.round(popularityScore * 100) / 100,
+        weights: {
+          scanWeight,
+          saveWeight,
+          rsvpWeight,
+        },
+      });
+    }
+
+    return popularityScore;
   }
 
   private calculateRecencyScore(event: Event): number {
