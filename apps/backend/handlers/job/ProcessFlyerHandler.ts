@@ -47,6 +47,21 @@ export class ProcessFlyerHandler extends BaseJobHandler {
     context: JobHandlerContext,
   ): Promise<void> {
     try {
+      // Start the job and update status to processing
+      await this.startJob(jobId, context, "Starting flyer processing");
+
+      // Step 1: Validation and Setup (15% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 15,
+        progressStep: "Validating request and checking limits",
+        progressDetails: {
+          currentStep: "1",
+          totalSteps: 6,
+          stepProgress: 100,
+          stepDescription: "Validating request and checking limits",
+        },
+      });
+
       // Check if user has reached their scan limit
       if (job.data.creatorId) {
         const hasReachedLimit = await this.planService.hasReachedScanLimit(
@@ -63,6 +78,18 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         }
       }
 
+      // Step 2: Image Retrieval (25% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 25,
+        progressStep: "Retrieving image data",
+        progressDetails: {
+          currentStep: "2",
+          totalSteps: 6,
+          stepProgress: 100,
+          stepDescription: "Retrieving image data",
+        },
+      });
+
       // Get the image buffer from Redis
       const bufferData = await context.redisService.get<{ data: number[] }>(
         `job:${jobId}:buffer`,
@@ -73,6 +100,18 @@ export class ProcessFlyerHandler extends BaseJobHandler {
 
       // Convert the array back to a Buffer
       const imageBuffer = Buffer.from(bufferData.data);
+
+      // Step 3: Image Upload (35% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 35,
+        progressStep: "Uploading image to storage",
+        progressDetails: {
+          currentStep: "3",
+          totalSteps: 6,
+          stepProgress: 100,
+          stepDescription: "Uploading image to storage",
+        },
+      });
 
       // Upload image
       const originalImageUrl = await this.storageService.uploadImage(
@@ -87,6 +126,18 @@ export class ProcessFlyerHandler extends BaseJobHandler {
 
       console.log("originalImageUrl", originalImageUrl);
 
+      // Step 4: Image Processing (50% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 50,
+        progressStep: "Analyzing image content",
+        progressDetails: {
+          currentStep: "4",
+          totalSteps: 6,
+          stepProgress: 100,
+          stepDescription: "Analyzing image content",
+        },
+      });
+
       // Process the image using smart processing
       const scanResult = await this.eventProcessingService.processEventFlyer(
         imageBuffer,
@@ -96,6 +147,18 @@ export class ProcessFlyerHandler extends BaseJobHandler {
             | undefined,
         },
       );
+
+      // Step 5: Event Processing (75% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 75,
+        progressStep: "Processing event details",
+        progressDetails: {
+          currentStep: "5",
+          totalSteps: 6,
+          stepProgress: 100,
+          stepDescription: "Processing event details",
+        },
+      });
 
       // Handle multi-event result
       if ("events" in scanResult) {
@@ -190,6 +253,18 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         });
         return;
       }
+
+      // Step 6: Event Creation (90% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 90,
+        progressStep: "Creating event in database",
+        progressDetails: {
+          currentStep: "6",
+          totalSteps: 6,
+          stepProgress: 100,
+          stepDescription: "Creating event in database",
+        },
+      });
 
       // Create the event
       console.log(

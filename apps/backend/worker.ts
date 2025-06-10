@@ -146,13 +146,10 @@ async function processJobs() {
     const job = typeof jobData === "string" ? JSON.parse(jobData) : jobData;
     console.log(`[Worker] Processing job ${jobId} of type ${job.type}`);
 
-    // Update job status to processing
-    await jobQueue.updateJobProgress(jobId, 10, "Starting job processing", {
-      currentStep: "Initialization",
-      totalSteps: getTotalStepsForJobType(job.type),
-      stepProgress: 0,
-      stepDescription: "Initializing job processing",
-    });
+    // Note: We don't update job progress here because:
+    // 1. Jobs start with "pending" status when created
+    // 2. Job handlers will update status and progress when they start
+    // 3. This avoids duplicate SSE messages
 
     // Get handler for job type
     const handler = jobHandlerRegistry.getHandler(job.type);
@@ -193,25 +190,16 @@ async function processJobWithProgress(
     ) => Promise<void>;
   },
 ): Promise<void> {
-  // Update to processing status
-  await jobQueue.updateJobStatus(jobId, { status: "processing" });
+  // Note: We don't need to update status to "processing" here because:
+  // 1. Jobs start with "pending" status when created
+  // 2. Job handlers will update status to "processing" when they start
+  // 3. This avoids duplicate SSE messages
 
   // Process the job
   await handler.handle(jobId, job, jobHandlerRegistry.getContext());
 
   // Note: Job handlers are responsible for calling completeJob or failJob
   // No need to call completeJob here as it would override the handler's result
-}
-
-function getTotalStepsForJobType(jobType: string): number {
-  const stepCounts: Record<string, number> = {
-    process_flyer: 6,
-    process_private_event: 4,
-    process_multi_event_flyer: 8,
-    cleanup_outdated_events: 3,
-  };
-
-  return stepCounts[jobType] || 5;
 }
 
 // Start the worker

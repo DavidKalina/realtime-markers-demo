@@ -200,6 +200,15 @@ export class JobProgressStreamingService {
   }
 
   private async publishToWebSocket(jobUpdate: Partial<JobData>): Promise<void> {
+    // Ensure we have a job ID
+    if (!jobUpdate.id) {
+      console.warn(
+        "[JobProgressStreamingService] Cannot publish to WebSocket without job ID:",
+        jobUpdate,
+      );
+      return;
+    }
+
     // Publish to job-specific WebSocket channel
     await this.redisService.publish("websocket:job_updates", {
       type: "JOB_PROGRESS_UPDATE",

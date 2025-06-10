@@ -25,6 +25,9 @@ export class CleanupEventsHandler extends BaseJobHandler {
     context: JobHandlerContext,
   ): Promise<void> {
     try {
+      // Start the job and update status to processing
+      await this.startJob(jobId, context, "Starting cleanup process");
+
       const batchSize = (job.data.batchSize as number) || 100;
 
       await this.updateJobProgress(jobId, context, {
