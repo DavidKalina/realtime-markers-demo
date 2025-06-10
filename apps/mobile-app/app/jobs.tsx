@@ -92,46 +92,29 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
   };
 
   const getEventDetails = () => {
-    // Try to get event details from different sources
     const eventDetails = job.data?.eventDetails as
       | { title?: string; emoji?: string }
       | undefined;
     const result = job.result;
 
-    console.log("=== Job Debug Info ===");
-    console.log("Job ID:", job.id);
-    console.log("Job type:", job.type);
-    console.log("Job status:", job.status);
-    console.log("Job data:", job.data);
-    console.log("Job result:", job.result);
-    console.log("Event details:", eventDetails);
-    console.log("Event details emoji:", eventDetails?.emoji);
-    console.log("Result emoji:", result?.emoji);
-    console.log("=====================");
+    // Prefer result emoji if present (for completed jobs)
+    if (result?.title || result?.emoji) {
+      return {
+        title: result.title || eventDetails?.title || "Event Created",
+        emoji: result.emoji || eventDetails?.emoji || "📍",
+        isPrivate: false,
+      };
+    }
 
-    // For private events, check eventDetails first
+    // For private events in progress, use eventDetails
     if (eventDetails) {
-      const details = {
+      return {
         title: eventDetails.title || "Creating Private Event",
         emoji: eventDetails.emoji || "📍",
         isPrivate: true,
       };
-      console.log("Returning event details:", details);
-      return details;
     }
 
-    // For completed jobs, check result
-    if (result?.title || result?.emoji) {
-      const details = {
-        title: result.title || "Event Created",
-        emoji: result.emoji || "📍",
-        isPrivate: false,
-      };
-      console.log("Returning result details:", details);
-      return details;
-    }
-
-    console.log("No event details found, returning null");
     return null;
   };
 
@@ -385,11 +368,30 @@ const JobsScreen: React.FC = () => {
         // Debug logging to check job structure
         console.log("Fetched jobs:", newJobs);
         if (newJobs && newJobs.length > 0) {
-          console.log("First job structure:", newJobs[0]);
+          console.log(
+            "First job structure:",
+            JSON.stringify(newJobs[0], null, 2),
+          );
           console.log(
             "Job IDs:",
             newJobs.map((job) => job?.id),
           );
+
+          // Log emoji information for completed jobs
+          newJobs.forEach((job, index) => {
+            if (job.status === "completed" && job.result) {
+              const eventDetails = job.data?.eventDetails as
+                | { emoji?: string }
+                | undefined;
+              console.log(`Job ${index + 1} (${job.id}):`, {
+                type: job.type,
+                status: job.status,
+                resultEmoji: job.result.emoji,
+                resultTitle: job.result.title,
+                eventDetailsEmoji: eventDetails?.emoji,
+              });
+            }
+          });
 
           // Check for duplicates in fetched jobs
           const jobIds = newJobs.map((job) => job.id);
