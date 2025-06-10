@@ -207,6 +207,7 @@ const JobsScreen: React.FC = () => {
   const isLoadingRef = useRef<boolean>(false);
   const hasMoreRef = useRef<boolean>(false);
   const currentPageRef = useRef<number>(1);
+  const initializedRef = useRef<boolean>(false);
 
   // Update refs whenever state changes
   useEffect(() => {
@@ -319,35 +320,41 @@ const JobsScreen: React.FC = () => {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     await fetchJobs(1, true);
-  }, []);
+  }, [fetchJobs]);
 
   const handleFetchMore = useCallback(async () => {
     // Use refs to avoid dependency changes
     if (!hasMoreRef.current || isLoadingRef.current) return;
     await fetchJobs(currentPageRef.current + 1);
-  }, []); // Only depend on fetchJobs, use refs for other values
+  }, [fetchJobs]); // Only depend on fetchJobs, use refs for other values
 
-  const handleRetry = useCallback(async (jobId: string) => {
-    try {
-      await jobsModule.retryJob(jobId);
-      Alert.alert("Success", "Job has been queued for retry");
-      handleRefresh();
-    } catch (err) {
-      console.error("Failed to retry job:", err);
-      Alert.alert("Error", "Failed to retry job");
-    }
-  }, []);
+  const handleRetry = useCallback(
+    async (jobId: string) => {
+      try {
+        await jobsModule.retryJob(jobId);
+        Alert.alert("Success", "Job has been queued for retry");
+        handleRefresh();
+      } catch (err) {
+        console.error("Failed to retry job:", err);
+        Alert.alert("Error", "Failed to retry job");
+      }
+    },
+    [jobsModule, handleRefresh],
+  );
 
-  const handleCancel = useCallback(async (jobId: string) => {
-    try {
-      await jobsModule.cancelJob(jobId);
-      Alert.alert("Success", "Job has been cancelled");
-      handleRefresh();
-    } catch (err) {
-      console.error("Failed to cancel job:", err);
-      Alert.alert("Error", "Failed to cancel job");
-    }
-  }, []);
+  const handleCancel = useCallback(
+    async (jobId: string) => {
+      try {
+        await jobsModule.cancelJob(jobId);
+        Alert.alert("Success", "Job has been cancelled");
+        handleRefresh();
+      } catch (err) {
+        console.error("Failed to cancel job:", err);
+        Alert.alert("Error", "Failed to cancel job");
+      }
+    },
+    [jobsModule, handleRefresh],
+  );
 
   const setupWebSocket = useCallback(async () => {
     try {
@@ -381,14 +388,15 @@ const JobsScreen: React.FC = () => {
     } catch (err) {
       console.error("Failed to setup WebSocket:", err);
     }
-  }, []);
+  }, [jobsModule]);
 
   useEffect(() => {
-    if (user) {
+    if (user && !initializedRef.current) {
+      initializedRef.current = true;
       fetchJobs();
       setupWebSocket();
     }
-  }, []);
+  }, [user]); // Only depend on user, use ref to prevent re-initialization
 
   useEffect(() => {
     return () => {
