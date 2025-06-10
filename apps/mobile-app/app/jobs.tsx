@@ -165,8 +165,79 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
     ? eventDetails.title
     : getJobTypeDisplayName(job.type);
   const jobEmoji = eventDetails?.emoji || "⚙️";
-  const jobDescription =
-    job.progressStep || job.error || job.result?.message || undefined;
+
+  // Enhanced job description with step details
+  const getJobDescription = () => {
+    if (job.error) return job.error;
+    if (job.result?.message) return job.result.message;
+
+    // Show detailed step progress if available
+    if (job.progressDetails) {
+      console.log(
+        `[JobItem] Job ${job.id} has progressDetails:`,
+        job.progressDetails,
+      );
+      const { currentStep, totalSteps, stepProgress, stepDescription } =
+        job.progressDetails;
+      return `${stepDescription} (Step ${currentStep}/${totalSteps} - ${stepProgress}%)`;
+    }
+
+    // Fallback to simple progress step
+    if (job.progressStep) return job.progressStep;
+
+    return undefined;
+  };
+
+  const jobDescription = getJobDescription();
+
+  // Render step progress indicator
+  const renderStepProgress = () => {
+    if (
+      !job.progressDetails ||
+      job.status === "completed" ||
+      job.status === "failed"
+    ) {
+      console.log(`[JobItem] Not rendering step progress for job ${job.id}:`, {
+        hasProgressDetails: !!job.progressDetails,
+        status: job.status,
+      });
+      return null;
+    }
+
+    const { currentStep, totalSteps, stepProgress } = job.progressDetails;
+    const currentStepNum = parseInt(currentStep, 10);
+    const totalStepsNum = totalSteps;
+
+    console.log(`[JobItem] Rendering step progress for job ${job.id}:`, {
+      currentStep: currentStepNum,
+      totalSteps: totalStepsNum,
+      stepProgress,
+      calculatedWidth: `${((currentStepNum - 1 + stepProgress / 100) / totalStepsNum) * 100}%`,
+    });
+
+    return (
+      <View style={styles.stepProgressContainer}>
+        <View style={styles.stepProgressHeader}>
+          <Text style={styles.stepProgressText}>
+            Step {currentStepNum} of {totalStepsNum}
+          </Text>
+          <Text style={styles.stepProgressPercent}>{stepProgress}%</Text>
+        </View>
+        <View style={styles.stepProgressBar}>
+          <View style={styles.stepProgressTrack}>
+            <View
+              style={[
+                styles.stepProgressFill,
+                {
+                  width: `${((currentStepNum - 1 + stepProgress / 100) / totalStepsNum) * 100}%`,
+                },
+              ]}
+            />
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.jobItem}>
@@ -196,6 +267,7 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
                 {jobDescription}
               </Text>
             )}
+            {renderStepProgress()}
             <View style={styles.jobFooter}>
               <View style={styles.footerLeft}>
                 <Text style={styles.jobDate}>
@@ -312,6 +384,16 @@ const JobsScreen: React.FC = () => {
                 }
 
                 const data = JSON.parse(event.data);
+                console.log(
+                  `[JobsScreen] Received SSE update for job ${job.id}:`,
+                  {
+                    fullData: data,
+                    progressDetails: data.progressDetails,
+                    progressStep: data.progressStep,
+                    progress: data.progress,
+                    status: data.status,
+                  },
+                );
 
                 setJobs((prev) => {
                   // Check if job already exists
@@ -328,6 +410,9 @@ const JobsScreen: React.FC = () => {
                     const statusChanged = currentJob.status !== data.status;
                     const stepChanged =
                       currentJob.progressStep !== data.progressStep;
+                    const progressDetailsChanged =
+                      JSON.stringify(currentJob.progressDetails) !==
+                      JSON.stringify(data.progressDetails);
                     const errorChanged = currentJob.error !== data.error;
                     const resultChanged =
                       JSON.stringify(currentJob.result) !==
@@ -337,9 +422,23 @@ const JobsScreen: React.FC = () => {
                       progressChanged ||
                       statusChanged ||
                       stepChanged ||
+                      progressDetailsChanged ||
                       errorChanged ||
                       resultChanged
                     ) {
+                      console.log(
+                        `[JobsScreen] Updating job ${job.id} with changes:`,
+                        {
+                          progressChanged,
+                          statusChanged,
+                          stepChanged,
+                          progressDetailsChanged,
+                          errorChanged,
+                          resultChanged,
+                          newProgressDetails: data.progressDetails,
+                        },
+                      );
+
                       // Update existing job
                       const updatedJobs = [...prev];
                       updatedJobs[existingJobIndex] = {
@@ -770,6 +869,43 @@ const styles = StyleSheet.create({
     color: "#e74c3c",
     textAlign: "center",
     marginTop: 20,
+  },
+  stepProgressContainer: {
+    marginBottom: 16,
+  },
+  stepProgressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  stepProgressText: {
+    color: "#000",
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+    fontWeight: "600",
+  },
+  stepProgressPercent: {
+    color: "#6c757d",
+    fontSize: 12,
+    fontFamily: "SpaceMono",
+    fontWeight: "500",
+  },
+  stepProgressBar: {
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#e9ecef",
+    overflow: "hidden",
+  },
+  stepProgressTrack: {
+    height: "100%",
+    borderRadius: 6,
+    backgroundColor: "transparent",
+  },
+  stepProgressFill: {
+    height: "100%",
+    borderRadius: 6,
+    backgroundColor: "#007AFF",
   },
 });
 
