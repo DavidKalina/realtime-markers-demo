@@ -261,8 +261,20 @@ export const getUserJobsHandler: EventHandler = async (c) => {
   const userId = user.id;
   const jobQueue = c.get("jobQueue");
 
+  // Get limit from query parameter, default to 50
+  const limitParam = c.req.query("limit");
+  const limit = limitParam ? parseInt(limitParam, 10) : 50;
+
+  // Validate limit parameter
+  if (limitParam && (isNaN(limit) || limit < 1 || limit > 1000)) {
+    return c.json(
+      { error: "Invalid limit parameter. Must be between 1 and 1000." },
+      400,
+    );
+  }
+
   try {
-    const jobs = await jobQueue.getUserJobs(userId);
+    const jobs = await jobQueue.getUserJobs(userId, limit);
     return c.json({ jobs });
   } catch (error) {
     console.error("Error fetching user jobs:", error);

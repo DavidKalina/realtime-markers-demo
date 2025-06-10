@@ -384,8 +384,9 @@ export class JobProgressStreamingService {
    */
   async getUserJobsWithProgress(
     userId: string,
+    limit?: number,
   ): Promise<(JobData & { progressContext?: JobProgressContext })[]> {
-    const jobs = await this.jobQueue.getUserJobs(userId);
+    const jobs = await this.jobQueue.getUserJobs(userId, limit);
     const jobsWithProgress = await Promise.all(
       jobs.map(async (job) => {
         const progressContext = await this.getJobProgressContext(job.id);

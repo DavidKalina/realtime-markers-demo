@@ -11,7 +11,9 @@ const jobsRouter = new Hono<AppContext>();
 // Apply auth middleware to all job routes
 jobsRouter.use("*", authMiddleware);
 
-// Get all jobs for the current user
+// Get all jobs for the current user (limited to 50 most recent jobs by default)
+// Query parameters:
+// - limit: number (optional, 1-1000, defaults to 50)
 jobsRouter.get("/", getUserJobsHandler);
 
 // Get job progress context

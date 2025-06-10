@@ -96,7 +96,7 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
     const eventDetails = job.data?.eventDetails as
       | { title?: string; emoji?: string }
       | undefined;
-    const result = job.result as { title?: string; emoji?: string } | undefined;
+    const result = job.result;
 
     console.log("=== Job Debug Info ===");
     console.log("Job ID:", job.id);
@@ -189,11 +189,7 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
     : getJobTypeDisplayName(job.type);
   const jobEmoji = eventDetails?.emoji || "⚙️";
   const jobDescription =
-    job.progressStep ||
-    job.error ||
-    (job.result && typeof job.result === "object" && "message" in job.result
-      ? ((job.result as Record<string, unknown>).message as string)
-      : undefined);
+    job.progressStep || job.error || job.result?.message || undefined;
 
   return (
     <View style={styles.jobItem}>
@@ -345,7 +341,7 @@ const JobsScreen: React.FC = () => {
                       progressStep: data.progressStep,
                       progressDetails: data.progressDetails,
                       error: data.error,
-                      result: data.result as Record<string, unknown>,
+                      result: data.result,
                       updated: new Date().toISOString(),
                     };
                     console.log(
@@ -383,7 +379,7 @@ const JobsScreen: React.FC = () => {
           setIsLoading(true);
         }
 
-        const response = await jobsModule.getUserJobs();
+        const response = await jobsModule.getUserJobs(50);
         const newJobs = response.jobs;
 
         // Debug logging to check job structure
@@ -434,7 +430,8 @@ const JobsScreen: React.FC = () => {
           });
         }
 
-        setHasMore(newJobs.length > 0);
+        // Since we're limiting to 50 jobs, there's no pagination
+        setHasMore(false);
       } catch (err) {
         console.error("Failed to fetch jobs:", err);
         setError("Failed to load jobs");
@@ -452,10 +449,10 @@ const JobsScreen: React.FC = () => {
   }, [fetchJobs]);
 
   const handleFetchMore = useCallback(async () => {
-    // Use refs to avoid dependency changes
-    if (!hasMoreRef.current || isLoadingRef.current) return;
-    await fetchJobs(currentPageRef.current + 1);
-  }, [fetchJobs]); // Only depend on fetchJobs, use refs for other values
+    // Disable pagination since we're limiting to 50 most recent jobs
+    // No more jobs to fetch beyond the initial 50
+    return;
+  }, []); // No dependencies needed since this is disabled
 
   const handleRetry = useCallback(
     async (jobId: string) => {
@@ -504,7 +501,7 @@ const JobsScreen: React.FC = () => {
                 progressStep: data.progressStep,
                 progressDetails: data.progressDetails,
                 error: data.error,
-                result: data.result as Record<string, unknown>,
+                result: data.result,
                 updated: new Date().toISOString(),
               };
               console.log(
@@ -567,7 +564,7 @@ const JobsScreen: React.FC = () => {
 
   const handleRetryAll = useCallback(() => {
     fetchJobs();
-  }, []);
+  }, [fetchJobs]);
 
   if (!user) {
     return (

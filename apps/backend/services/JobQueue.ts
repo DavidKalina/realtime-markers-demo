@@ -332,7 +332,7 @@ export class JobQueue {
   /**
    * Get all active jobs for a user
    */
-  async getUserJobs(userId: string): Promise<JobData[]> {
+  async getUserJobs(userId: string, limit?: number): Promise<JobData[]> {
     const pattern = "job:*";
     const keys = await this.redisService.getClient().keys(pattern);
     const jobs: JobData[] = [];
@@ -366,11 +366,15 @@ export class JobQueue {
 
     // Sort jobs in chronological order (newest first)
     const sortedJobs = JobQueue.sortJobsChronologically(jobs);
+
+    // Apply limit if specified
+    const limitedJobs = limit ? sortedJobs.slice(0, limit) : sortedJobs;
+
     console.log(
-      `[JobQueue] Returning ${sortedJobs.length} sorted jobs for user ${userId}`,
+      `[JobQueue] Returning ${limitedJobs.length} sorted jobs for user ${userId}${limit ? ` (limited to ${limit})` : ""}`,
     );
 
-    return sortedJobs;
+    return limitedJobs;
   }
 
   /**

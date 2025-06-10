@@ -45,7 +45,20 @@ export interface JobData {
     stepDescription: string;
     estimatedTimeRemaining?: number;
   };
-  result?: Record<string, unknown>;
+  result?: {
+    message?: string;
+    confidence?: number;
+    threshold?: number;
+    daysFromNow?: number;
+    date?: string;
+    deletedCount?: number;
+    hasMore?: boolean;
+    eventId?: string;
+    title?: string;
+    emoji?: string;
+    coordinates?: [number, number];
+    [key: string]: unknown;
+  };
   data: Record<string, unknown>;
 }
 
@@ -53,15 +66,18 @@ export interface JobData {
  * JobsModule provides comprehensive job management and real-time progress streaming
  *
  * Features:
- * - Get user jobs with detailed progress information
+ * - Get user jobs with detailed progress information (limited to 50 most recent jobs by default)
  * - Real-time progress streaming via Server-Sent Events (SSE)
  * - WebSocket integration for live job updates
  * - Job cancellation and retry functionality
  *
  * Usage Examples:
  *
- * // 1. Get all user jobs
+ * // 1. Get all user jobs (limited to 50 most recent)
  * const { jobs } = await jobsModule.getUserJobs();
+ *
+ * // 1b. Get specific number of jobs
+ * const { jobs } = await jobsModule.getUserJobs(100); // Get 100 most recent jobs
  *
  * // 2. Stream job progress with SSE
  * const eventSource = await jobsModule.createJobStream(jobId, {
@@ -91,9 +107,15 @@ export interface JobData {
 export class JobsModule extends BaseApiModule {
   /**
    * Get all jobs for the current user
+   *
+   * @param limit - Optional limit for the number of jobs to return (defaults to 50)
+   * @returns Promise with jobs array (limited to most recent jobs)
    */
-  async getUserJobs(): Promise<{ jobs: JobData[] }> {
-    const url = `${this.client.baseUrl}/api/jobs`;
+  async getUserJobs(limit?: number): Promise<{ jobs: JobData[] }> {
+    let url = `${this.client.baseUrl}/api/jobs`;
+    if (limit) {
+      url += `?limit=${limit}`;
+    }
     const response = await this.fetchWithAuth(url);
     return await this.handleResponse<{ jobs: JobData[] }>(response);
   }
