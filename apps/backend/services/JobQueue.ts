@@ -212,10 +212,17 @@ export class JobQueue {
     );
 
     // Publish to job-specific channel
-    await this.redisService.publish(`job:${jobId}:updates`, {
-      type: "JOB_UPDATE",
-      data: updateMessage,
-    });
+    const publishResult = await this.redisService.publish(
+      `job:${jobId}:updates`,
+      {
+        type: "JOB_UPDATE",
+        data: updateMessage,
+      },
+    );
+
+    console.log(
+      `[JobQueue] Published to job:${jobId}:updates, subscribers: ${publishResult}`,
+    );
 
     // Also publish to general job updates channel for WebSocket
     await this.redisService.publish("job_updates", {
