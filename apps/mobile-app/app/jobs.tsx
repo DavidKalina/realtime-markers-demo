@@ -59,8 +59,18 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) {
+      return "Unknown date";
+    }
+
     const date = new Date(dateString);
+
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      return "Invalid date";
+    }
+
     const now = new Date();
     const diffInHours = Math.floor(
       (now.getTime() - date.getTime()) / (1000 * 60 * 60),
@@ -106,7 +116,7 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
               {getJobTypeDisplayName(job.type)}
             </Text>
           </View>
-          <Text style={styles.jobDate}>{formatDate(job.created)}</Text>
+          <Text style={styles.jobDate}>{formatDate(job.updated)}</Text>
         </View>
         <View style={styles.jobStatus}>
           <Text
