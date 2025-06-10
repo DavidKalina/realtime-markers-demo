@@ -15,6 +15,14 @@ export interface JobData {
   message?: string;
   completed?: string;
   eventId?: string;
+  progressStep?: string;
+  progressDetails?: {
+    currentStep: string;
+    totalSteps: number;
+    stepProgress: number;
+    stepDescription: string;
+    estimatedTimeRemaining?: number;
+  };
   result?: {
     message?: string;
     confidence?: number;
@@ -76,6 +84,8 @@ export class JobQueue {
       type: jobType,
       status: "pending",
       created: new Date().toISOString(),
+      progress: 0,
+      progressStep: "Job queued",
       data: { ...data, hasBuffer: !!options.bufferData },
     };
 
@@ -95,7 +105,7 @@ export class JobQueue {
     // Publish notification
     await this.redisService.publish("job_created", {
       type: "JOB_CREATED",
-      data: { jobId },
+      data: { jobId, jobType, timestamp: new Date().toISOString() },
     });
 
     return jobId;
@@ -114,7 +124,7 @@ export class JobQueue {
   }
 
   /**
-   * Update job status
+   * Update job status with detailed progress information
    */
   async updateJobStatus(
     jobId: string,
@@ -133,6 +143,7 @@ export class JobQueue {
       previousStatus: jobData.status,
       newStatus: updates.status,
       progress: updates.progress,
+      progressStep: updates.progressStep,
       timestamp: updatedJob.updated,
     });
 
@@ -148,9 +159,66 @@ export class JobQueue {
       `[JobQueue] Publishing job update to Redis channel job:${jobId}:updates:`,
       updateMessage,
     );
+
+    // Publish to job-specific channel
     await this.redisService.publish(`job:${jobId}:updates`, {
       type: "JOB_UPDATE",
       data: updateMessage,
+    });
+
+    // Also publish to general job updates channel for WebSocket
+    await this.redisService.publish("job_updates", {
+      type: "JOB_UPDATE",
+      data: updateMessage,
+    });
+  }
+
+  /**
+   * Update job progress with step-by-step details
+   */
+  async updateJobProgress(
+    jobId: string,
+    progress: number,
+    step: string,
+    details?: {
+      currentStep: string;
+      totalSteps: number;
+      stepProgress: number;
+      stepDescription: string;
+      estimatedTimeRemaining?: number;
+    },
+  ): Promise<void> {
+    await this.updateJobStatus(jobId, {
+      progress,
+      progressStep: step,
+      progressDetails: details,
+    });
+  }
+
+  /**
+   * Mark job as completed with result
+   */
+  async completeJob(jobId: string, result: JobData["result"]): Promise<void> {
+    await this.updateJobStatus(jobId, {
+      status: "completed",
+      progress: 100,
+      progressStep: "Job completed",
+      completed: new Date().toISOString(),
+      result,
+    });
+  }
+
+  /**
+   * Mark job as failed with error
+   */
+  async failJob(jobId: string, error: string, message?: string): Promise<void> {
+    await this.updateJobStatus(jobId, {
+      status: "failed",
+      progress: 100,
+      progressStep: "Job failed",
+      completed: new Date().toISOString(),
+      error,
+      message: message || "An error occurred while processing the job",
     });
   }
 
@@ -186,6 +254,7 @@ export class JobQueue {
     await this.updateJobStatus(jobId, {
       status: "pending",
       progress: 0,
+      progressStep: "Private event job queued",
     });
 
     return jobId;
@@ -197,5 +266,60 @@ export class JobQueue {
    */
   getRedisClient(): Redis {
     return this.redisService.getClient();
+  }
+
+  /**
+   * Get all active jobs for a user
+   */
+  async getUserJobs(userId: string): Promise<JobData[]> {
+    const pattern = "job:*";
+    const keys = await this.redisService.getClient().keys(pattern);
+    const jobs: JobData[] = [];
+
+    for (const key of keys) {
+      const jobData = await this.redisService.get<JobData>(key);
+      if (jobData && jobData.data.creatorId === userId) {
+        // Extract job ID from Redis key (format: "job:jobId")
+        const jobId = key.replace("job:", "");
+        jobs.push({
+          ...jobData,
+          id: jobId,
+        });
+      }
+    }
+
+    return jobs.sort(
+      (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime(),
+    );
+  }
+
+  /**
+   * Clean up completed/failed jobs older than specified days
+   */
+  async cleanupOldJobs(daysOld: number = 7): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+    const pattern = "job:*";
+    const keys = await this.redisService.getClient().keys(pattern);
+    let deletedCount = 0;
+
+    for (const key of keys) {
+      const jobData = await this.redisService.get<JobData>(key);
+      if (
+        jobData &&
+        (jobData.status === "completed" || jobData.status === "failed") &&
+        new Date(jobData.created) < cutoffDate
+      ) {
+        // Delete job data and buffer
+        await Promise.all([
+          this.redisService.getClient().del(key),
+          this.redisService.getClient().del(`${key}:buffer`),
+        ]);
+        deletedCount++;
+      }
+    }
+
+    return deletedCount;
   }
 }

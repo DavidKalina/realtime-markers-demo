@@ -35,6 +35,7 @@ const MessageTypes = {
   ADD_JOB: "add_job",
   JOB_ADDED: "job_added",
   CANCEL_JOB: "cancel_job",
+  JOB_PROGRESS_UPDATE: "job_progress_update",
 
   // Session management
   CREATE_SESSION: "create_session",

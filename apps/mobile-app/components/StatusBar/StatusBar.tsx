@@ -1,8 +1,16 @@
 import { useAuth } from "@/contexts/AuthContext";
 import React, { useMemo } from "react";
-import { StatusBar as RNStatusBar, StyleSheet, Text, View } from "react-native";
+import {
+  StatusBar as RNStatusBar,
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+} from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
 import XPBar from "./XPBar";
 
@@ -16,6 +24,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const router = useRouter();
 
   const containerStyle = useMemo(
     () => [
@@ -45,6 +54,12 @@ const StatusBar: React.FC<StatusBarProps> = ({
           </Text>
           <XPBar backgroundColor={backgroundColor} />
         </Animated.View>
+        <TouchableOpacity
+          onPress={() => router.push("/jobs")}
+          style={styles.jobsIconContainer}
+        >
+          <Ionicons name="briefcase" size={24} color="#0f172a" />
+        </TouchableOpacity>
       </View>
       <View style={styles.discoveryContainer}>
         <DiscoveryIndicator position="bottom-left" />
@@ -78,6 +93,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     fontFamily: "SpaceMono",
+  },
+  jobsIconContainer: {
+    padding: 8,
   },
   discoveryContainer: {
     position: "absolute",

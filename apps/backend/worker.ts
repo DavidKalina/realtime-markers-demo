@@ -1,6 +1,6 @@
 // worker.ts
 import AppDataSource from "./data-source";
-import { JobQueue } from "./services/JobQueue";
+import { JobQueue, type JobData } from "./services/JobQueue";
 import { RedisService } from "./services/shared/RedisService";
 import { EventService } from "./services/EventService";
 import { EventProcessingService } from "./services/EventProcessingService";
@@ -128,13 +128,11 @@ async function processJobs() {
   // Set up timeout
   const timeoutId = setTimeout(async () => {
     console.error(`Job ${jobId} timed out after ${JOB_TIMEOUT}ms`);
-    await jobQueue.updateJobStatus(jobId, {
-      status: "failed",
-      progress: 1,
-      error: "Job timed out",
-      message: "The job took too long to process and was terminated.",
-      completed: new Date().toISOString(),
-    });
+    await jobQueue.failJob(
+      jobId,
+      "Job timed out",
+      "The job took too long to process and was terminated.",
+    );
     activeJobs--;
   }, JOB_TIMEOUT);
 
@@ -148,14 +146,22 @@ async function processJobs() {
     const job = typeof jobData === "string" ? JSON.parse(jobData) : jobData;
     console.log(`[Worker] Processing job ${jobId} of type ${job.type}`);
 
+    // Update job status to processing
+    await jobQueue.updateJobProgress(jobId, 10, "Starting job processing", {
+      currentStep: "Initialization",
+      totalSteps: getTotalStepsForJobType(job.type),
+      stepProgress: 0,
+      stepDescription: "Initializing job processing",
+    });
+
     // Get handler for job type
     const handler = jobHandlerRegistry.getHandler(job.type);
     if (!handler) {
       throw new Error(`No handler found for job type: ${job.type}`);
     }
 
-    // Process the job
-    await handler.handle(jobId, job, jobHandlerRegistry.getContext());
+    // Process the job with progress updates
+    await processJobWithProgress(jobId, job, handler);
 
     // Clear timeout
     clearTimeout(timeoutId);
@@ -166,17 +172,46 @@ async function processJobs() {
     console.error(`Error processing job ${jobId}:`, error);
 
     // Update job with error
-    await jobQueue.updateJobStatus(jobId, {
-      status: "failed",
-      progress: 1,
-      error: error instanceof Error ? error.message : "Unknown error",
-      message:
-        "We encountered an error while processing your event. Please try again with a different image or contact support if the issue persists.",
-      completed: new Date().toISOString(),
-    });
+    await jobQueue.failJob(
+      jobId,
+      error instanceof Error ? error.message : "Unknown error",
+      "We encountered an error while processing your event. Please try again with a different image or contact support if the issue persists.",
+    );
   } finally {
     activeJobs--;
   }
+}
+
+async function processJobWithProgress(
+  jobId: string,
+  job: JobData,
+  handler: {
+    handle: (
+      jobId: string,
+      job: JobData,
+      context: { jobQueue: JobQueue; redisService: RedisService },
+    ) => Promise<void>;
+  },
+): Promise<void> {
+  // Update to processing status
+  await jobQueue.updateJobStatus(jobId, { status: "processing" });
+
+  // Process the job
+  await handler.handle(jobId, job, jobHandlerRegistry.getContext());
+
+  // Mark as completed
+  await jobQueue.completeJob(jobId, { message: "Job completed successfully" });
+}
+
+function getTotalStepsForJobType(jobType: string): number {
+  const stepCounts: Record<string, number> = {
+    process_flyer: 6,
+    process_private_event: 4,
+    process_multi_event_flyer: 8,
+    cleanup_outdated_events: 3,
+  };
+
+  return stepCounts[jobType] || 5;
 }
 
 // Start the worker

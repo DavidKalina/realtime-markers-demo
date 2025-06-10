@@ -163,7 +163,16 @@ export interface JobStatus {
   error?: string;
 }
 
-export interface JobStreamMessage extends JobStatus {}
+export interface JobStreamMessage extends JobStatus {
+  progressStep?: string;
+  progressDetails?: {
+    currentStep: string;
+    totalSteps: number;
+    stepProgress: number;
+    stepDescription: string;
+    estimatedTimeRemaining?: number;
+  };
+}
 
 export interface ProcessEventImagePayload {
   imageFile: File;

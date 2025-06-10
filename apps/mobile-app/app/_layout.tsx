@@ -102,6 +102,7 @@ function RootLayout() {
               },
             }}
           >
+            <Stack.Screen name="jobs" />
             <Stack.Screen name="onboarding" />
             <Stack.Screen name="register" />
             <Stack.Screen name="login" />

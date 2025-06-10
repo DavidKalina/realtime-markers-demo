@@ -17,6 +17,7 @@ import { eventsRouter } from "./routes/events";
 import { filterRouter } from "./routes/filters";
 import { friendshipsRouter } from "./routes/friendships";
 import { internalRouter } from "./routes/internalRoutes";
+import { jobsRouter } from "./routes/jobs";
 import plansRouter from "./routes/plans";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
@@ -335,6 +336,7 @@ app.route("/api/friendships", friendshipsRouter);
 app.route("/api/notifications", notificationsRouter);
 app.route("/api/places", placesRouter);
 app.route("/api/categories", categoriesRouter);
+app.route("/api/jobs", jobsRouter);
 // =============================================================================
 // Jobs API - Server-Sent Events
 // =============================================================================

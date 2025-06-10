@@ -252,6 +252,44 @@ export const getProcessingStatusHandler: EventHandler = async (c) => {
   return c.json(job);
 };
 
+export const getUserJobsHandler: EventHandler = async (c) => {
+  const user = c.get("user");
+  if (!user) {
+    return c.json({ error: "User not authenticated" }, 401);
+  }
+
+  const userId = user.id;
+  const jobQueue = c.get("jobQueue");
+
+  try {
+    const jobs = await jobQueue.getUserJobs(userId);
+    return c.json({ jobs });
+  } catch (error) {
+    console.error("Error fetching user jobs:", error);
+    return c.json({ error: "Failed to fetch jobs" }, 500);
+  }
+};
+
+export const getJobProgressContextHandler: EventHandler = async (c) => {
+  const jobId = c.req.param("jobId");
+  const redisService = c.get("redisService");
+
+  try {
+    // Get the job progress context
+    const contextKey = `job:${jobId}:progress`;
+    const progressContext = await redisService.get(contextKey);
+
+    if (!progressContext) {
+      return c.json({ error: "Job progress context not found" }, 404);
+    }
+
+    return c.json(progressContext);
+  } catch (error) {
+    console.error("Error fetching job progress context:", error);
+    return c.json({ error: "Failed to fetch job progress" }, 500);
+  }
+};
+
 export const createEventHandler: EventHandler = async (c) => {
   try {
     const data = await c.req.json();

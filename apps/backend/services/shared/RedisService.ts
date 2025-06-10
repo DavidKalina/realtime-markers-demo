@@ -11,6 +11,7 @@ export type RedisChannel =
   | "discovered_events"
   | "filter-changes"
   | "viewport-updates"
+  | "websocket:job_updates"
   | `user:${string}:filtered-events`
   | `job:${string}:updates`;
 
