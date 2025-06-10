@@ -217,7 +217,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         recurrenceTime: eventDetails.recurrenceTime,
         recurrenceStartDate: parseDateOrNull(eventDetails.recurrenceStartDate),
         recurrenceEndDate: parseDateOrNull(eventDetails.recurrenceEndDate),
-        recurrenceInterval: eventDetails.recurrenceInterval,
+        recurrenceInterval: eventDetails.recurrenceInterval || 1,
       });
 
       // Create discovery record if creator exists

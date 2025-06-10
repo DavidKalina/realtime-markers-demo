@@ -38,6 +38,51 @@ export const getFiltersHandler: FilterHandler = async (c) => {
   }
 };
 
+/**
+ * Get a specific filter by ID for the current user
+ */
+export const getFilterByIdHandler: FilterHandler = async (c) => {
+  try {
+    // Get the user from context
+    const user = c.get("user");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    // Get the filter ID from the URL
+    const filterId = c.req.param("id");
+
+    if (!filterId) {
+      return c.json({ error: "Filter ID is required" }, 400);
+    }
+
+    // Get the user preferences service
+    const userPreferencesService = c.get("userPreferencesService");
+
+    // Get the specific filter
+    const filter = await userPreferencesService.getFilterById(
+      filterId,
+      user.userId,
+    );
+
+    if (!filter) {
+      return c.json({ error: "Filter not found" }, 404);
+    }
+
+    return c.json(filter);
+  } catch (error) {
+    console.error("Error fetching filter by ID:", error);
+    return c.json(
+      {
+        error: "Failed to fetch filter",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+};
+
 export const getInternalFiltersHandler: FilterHandler = async (c) => {
   try {
     // Get the userId from query parameters instead of auth context
@@ -353,6 +398,130 @@ export const searchWithFilterHandler: FilterHandler = async (c) => {
     return c.json(
       {
         error: "Failed to search with filter",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+};
+
+/**
+ * Get currently active filters for the current user
+ */
+export const getActiveFiltersHandler: FilterHandler = async (c) => {
+  try {
+    // Get the user from context
+    const user = c.get("user");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    // Get the user preferences service
+    const userPreferencesService = c.get("userPreferencesService");
+
+    // Get active filters for the user
+    const activeFilters = await userPreferencesService.getActiveFilters(
+      user.userId,
+    );
+
+    return c.json(activeFilters);
+  } catch (error) {
+    console.error("Error fetching active filters:", error);
+    return c.json(
+      {
+        error: "Failed to fetch active filters",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+};
+
+/**
+ * Toggle a filter's active state
+ */
+export const toggleFilterHandler: FilterHandler = async (c) => {
+  try {
+    // Get the user from context
+    const user = c.get("user");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    // Get the filter ID from the URL
+    const filterId = c.req.param("id");
+
+    if (!filterId) {
+      return c.json({ error: "Filter ID is required" }, 400);
+    }
+
+    // Get the user preferences service
+    const userPreferencesService = c.get("userPreferencesService");
+
+    // Get the current filter
+    const filter = await userPreferencesService.getFilterById(
+      filterId,
+      user.userId,
+    );
+
+    if (!filter) {
+      return c.json({ error: "Filter not found" }, 404);
+    }
+
+    // Toggle the active state
+    const updatedFilter = await userPreferencesService.updateFilter(
+      filterId,
+      user.userId,
+      { isActive: !filter.isActive },
+    );
+
+    return c.json(updatedFilter);
+  } catch (error) {
+    console.error("Error toggling filter:", error);
+    return c.json(
+      {
+        error: "Failed to toggle filter",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+};
+
+/**
+ * Generate an emoji for a filter based on its criteria
+ */
+export const generateFilterEmojiHandler: FilterHandler = async (c) => {
+  try {
+    // Get the user from context
+    const user = c.get("user");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    // Get the request body
+    const filterData = await c.req.json();
+
+    if (!filterData.name) {
+      return c.json({ error: "Filter name is required" }, 400);
+    }
+
+    // Get the user preferences service
+    const userPreferencesService = c.get("userPreferencesService");
+
+    // Generate emoji using the public method
+    const emoji =
+      await userPreferencesService.generateFilterEmojiForData(filterData);
+
+    return c.json({ emoji });
+  } catch (error) {
+    console.error("Error generating filter emoji:", error);
+    return c.json(
+      {
+        error: "Failed to generate emoji",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       500,

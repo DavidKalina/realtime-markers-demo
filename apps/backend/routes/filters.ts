@@ -25,12 +25,16 @@ filterRouter.use(
 filterRouter.use("*", authMiddleware);
 
 // Filter CRUD endpoints
-
-// Filter application endpoints
+filterRouter.get("/", handlers.getFiltersHandler);
+filterRouter.get("/active", handlers.getActiveFiltersHandler);
+filterRouter.post("/generate-emoji", handlers.generateFilterEmojiHandler);
+filterRouter.post("/", handlers.createFilterHandler);
 filterRouter.post("/apply", handlers.applyFiltersHandler);
 filterRouter.delete("/clear", handlers.clearFiltersHandler);
 
+// Parameterized routes (must come after specific routes)
+filterRouter.get("/:id", handlers.getFilterByIdHandler);
 filterRouter.put("/:id", handlers.updateFilterHandler);
+filterRouter.patch("/:id", handlers.updateFilterHandler);
+filterRouter.post("/:id/toggle", handlers.toggleFilterHandler);
 filterRouter.delete("/:id", handlers.deleteFilterHandler);
-filterRouter.post("/", handlers.createFilterHandler);
-filterRouter.get("/", handlers.getFiltersHandler);

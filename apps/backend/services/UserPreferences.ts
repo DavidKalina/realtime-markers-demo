@@ -47,7 +47,7 @@ export class UserPreferencesService {
   /**
    * Generate an emoji for a filter based on its name and semantic query
    */
-  private async generateFilterEmoji(
+  public async generateFilterEmoji(
     name: string,
     semanticQuery?: string,
   ): Promise<string> {
@@ -86,6 +86,19 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
   }
 
   /**
+   * Generate an emoji for filter data (public method for handlers)
+   */
+  public async generateFilterEmojiForData(
+    filterData: Partial<FilterEntity>,
+  ): Promise<string> {
+    if (!filterData.name) {
+      throw new Error("Filter name is required for emoji generation");
+    }
+
+    return this.generateFilterEmoji(filterData.name, filterData.semanticQuery);
+  }
+
+  /**
    * Get all filters for a user
    */
   async getUserFilters(userId: string): Promise<Filter[]> {
@@ -112,43 +125,7 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
     userId: string,
     filterData: Partial<FilterEntity>,
   ): Promise<FilterEntity> {
-    // Generate embedding if semanticQuery is provided
-    if (filterData.semanticQuery) {
-      try {
-        const embeddingSql =
-          await this.embeddingService.getStructuredEmbeddingSql({
-            text: filterData.semanticQuery,
-            weights: {
-              text: 5,
-            },
-          });
-
-        filterData.embedding = embeddingSql;
-      } catch (error) {
-        console.error(
-          `Error generating embedding for filter "${filterData.name}":`,
-          error,
-        );
-      }
-    }
-
-    // Generate emoji for the filter
-    try {
-      if (!filterData.name) {
-        throw new Error("Filter name is required");
-      }
-      filterData.emoji = await this.generateFilterEmoji(
-        filterData.name,
-        filterData.semanticQuery,
-      );
-    } catch (error) {
-      console.error(
-        `Error generating emoji for filter "${filterData.name}":`,
-        error,
-      );
-    }
-
-    // Create the filter with embedding and emoji
+    // Create the filter first without embedding and emoji
     const filter = this.filterRepository.create({
       ...filterData,
       userId,
@@ -157,10 +134,81 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
 
     const savedFilter = await this.filterRepository.save(filter);
 
+    // Generate embedding and emoji asynchronously (non-blocking)
+    this.generateFilterEnhancements(savedFilter.id, filterData).catch(
+      (error) => {
+        console.error(
+          `Error generating enhancements for filter "${savedFilter.id}":`,
+          error,
+        );
+      },
+    );
+
     // Publish filter change event to Redis
     await this.publishFilterChange(userId);
 
     return savedFilter;
+  }
+
+  /**
+   * Generate embedding and emoji for a filter asynchronously
+   */
+  private async generateFilterEnhancements(
+    filterId: string,
+    filterData: Partial<FilterEntity>,
+  ): Promise<void> {
+    try {
+      const updates: Partial<FilterEntity> = {};
+
+      // Generate embedding if semanticQuery is provided
+      if (filterData.semanticQuery) {
+        try {
+          const embeddingSql =
+            await this.embeddingService.getStructuredEmbeddingSql({
+              text: filterData.semanticQuery,
+              weights: {
+                text: 5,
+              },
+            });
+
+          updates.embedding = embeddingSql;
+        } catch (error) {
+          console.error(
+            `Error generating embedding for filter "${filterId}":`,
+            error,
+          );
+        }
+      }
+
+      // Generate emoji for the filter
+      try {
+        if (filterData.name) {
+          updates.emoji = await this.generateFilterEmoji(
+            filterData.name,
+            filterData.semanticQuery,
+          );
+        }
+      } catch (error) {
+        console.error(
+          `Error generating emoji for filter "${filterId}":`,
+          error,
+        );
+      }
+
+      // Update the filter with enhancements if any were generated
+      if (Object.keys(updates).length > 0) {
+        await this.filterRepository.update(filterId, updates);
+        console.log(
+          `Updated filter ${filterId} with enhancements:`,
+          Object.keys(updates),
+        );
+      }
+    } catch (error) {
+      console.error(
+        `Error in generateFilterEnhancements for filter ${filterId}:`,
+        error,
+      );
+    }
   }
 
   async updateFilter(
@@ -180,51 +228,25 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
       throw new Error("Filter not found or does not belong to user");
     }
 
-    // Generate new embedding if semanticQuery is updated
-    if (
-      filterData.semanticQuery &&
-      filterData.semanticQuery !== filter.semanticQuery
-    ) {
-      try {
-        const embeddingSql =
-          await this.embeddingService.getStructuredEmbeddingSql({
-            text: filterData.semanticQuery,
-            weights: {
-              text: 5,
-            },
-          });
-
-        filterData.embedding = embeddingSql;
-      } catch (error) {
-        console.error(
-          `Error generating embedding for filter update "${filter.name}":`,
-          error,
-        );
-      }
-    }
-
-    // Generate new emoji if name or semanticQuery is updated
-    if (
-      (filterData.name && filterData.name !== filter.name) ||
+    // Check if we need to generate new embedding or emoji
+    const needsEnhancements =
       (filterData.semanticQuery &&
-        filterData.semanticQuery !== filter.semanticQuery)
-    ) {
-      try {
-        filterData.emoji = await this.generateFilterEmoji(
-          filterData.name || filter.name,
-          filterData.semanticQuery || filter.semanticQuery,
-        );
-      } catch (error) {
-        console.error(
-          `Error generating emoji for filter update "${filter.name}":`,
-          error,
-        );
-      }
-    }
+        filterData.semanticQuery !== filter.semanticQuery) ||
+      (filterData.name && filterData.name !== filter.name);
 
-    // Update the filter
+    // Update the filter immediately with basic data
     const updatedFilter = this.filterRepository.merge(filter, filterData);
     const savedFilter = await this.filterRepository.save(updatedFilter);
+
+    // Generate new embedding and emoji asynchronously if needed
+    if (needsEnhancements) {
+      this.generateFilterEnhancements(filterId, filterData).catch((error) => {
+        console.error(
+          `Error generating enhancements for filter update "${filterId}":`,
+          error,
+        );
+      });
+    }
 
     // Publish filter change event to Redis
     await this.publishFilterChange(userId);

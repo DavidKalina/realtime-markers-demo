@@ -23,6 +23,27 @@ export class EventPublisher {
       );
       const channel = `user:${userId}:filtered-events`;
 
+      // Log the publishing details
+      console.log(
+        `[EventPublisher] Publishing ${sanitizedEvents.length} events to user ${userId}:`,
+        {
+          userId,
+          type,
+          channel,
+          eventCount: sanitizedEvents.length,
+          topEventScores: sanitizedEvents.slice(0, 3).map((event) => ({
+            eventId: event.id,
+            title: event.title,
+            relevanceScore: event.relevanceScore,
+            popularityMetrics: {
+              scanCount: event.scanCount,
+              saveCount: event.saveCount || 0,
+              rsvpCount: event.rsvps?.length || 0,
+            },
+          })),
+        },
+      );
+
       // For viewport updates, send all events in one message to replace existing ones
       if (type === "viewport") {
         const message = {
@@ -34,6 +55,9 @@ export class EventPublisher {
 
         // Publish the filtered events to the user's channel
         await this.redisPub.publish(channel, JSON.stringify(message));
+        console.log(
+          `[EventPublisher] Published replace-all message to ${channel} with ${sanitizedEvents.length} events`,
+        );
       } else {
         // For other types (like new events), send each event individually
         for (const event of sanitizedEvents) {
@@ -46,6 +70,9 @@ export class EventPublisher {
           // Publish the event to the user's channel
           await this.redisPub.publish(channel, JSON.stringify(message));
         }
+        console.log(
+          `[EventPublisher] Published ${sanitizedEvents.length} individual add-event messages to ${channel}`,
+        );
       }
 
       // Update stats
@@ -95,6 +122,75 @@ export class EventPublisher {
     } catch (error) {
       console.error(
         `[Publish] Error publishing update event to user ${userId}:`,
+        error,
+      );
+    }
+  }
+
+  public async publishBatchUpdate(
+    userId: string,
+    batchData: {
+      type: string;
+      timestamp: number;
+      updates: {
+        creates: Event[];
+        updates: Event[];
+        deletes: string[];
+      };
+      summary: {
+        totalEvents: number;
+        newEvents: number;
+        updatedEvents: number;
+        deletedEvents: number;
+      };
+    },
+  ): Promise<void> {
+    try {
+      const channel = `user:${userId}:filtered-events`;
+
+      // Strip sensitive data from events
+      const sanitizedCreates = batchData.updates.creates.map((event) =>
+        this.stripSensitiveData(event),
+      );
+      const sanitizedUpdates = batchData.updates.updates.map((event) =>
+        this.stripSensitiveData(event),
+      );
+
+      const message = {
+        type: "batch-update",
+        timestamp: new Date().toISOString(),
+        updates: {
+          creates: sanitizedCreates,
+          updates: sanitizedUpdates,
+          deletes: batchData.updates.deletes,
+        },
+        summary: batchData.summary,
+      };
+
+      await this.redisPub.publish(channel, JSON.stringify(message));
+
+      // Update stats
+      this.stats.totalFilteredEventsPublished +=
+        batchData.summary.newEvents +
+        batchData.summary.updatedEvents +
+        batchData.summary.deletedEvents;
+
+      console.log(
+        `[EventPublisher] Published batch update to user ${userId}:`,
+        {
+          userId,
+          channel,
+          summary: batchData.summary,
+          topEventScores: sanitizedCreates.slice(0, 3).map((event) => ({
+            eventId: event.id,
+            title: event.title,
+            relevanceScore: event.relevanceScore,
+          })),
+        },
+      );
+    } catch (error) {
+      console.error(
+        `[Publish] Error publishing batch update to user ${userId}:`,
         error,
       );
     }

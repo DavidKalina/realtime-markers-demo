@@ -16,7 +16,7 @@ interface FilterState {
 
   // Actions
   fetchFilters: () => Promise<void>;
-  createFilter: (filter: Partial<Filter>) => Promise<Filter>;
+  createFilter: (filter: Partial<Filter> & { name: string }) => Promise<Filter>;
   updateFilter: (id: string, filter: Partial<Filter>) => Promise<Filter>;
   deleteFilter: (id: string) => Promise<void>;
   applyFilters: (filterIds: string[]) => Promise<void>;
@@ -46,30 +46,33 @@ export const useFilterStore = create<FilterState>((set) => ({
         activeIds = JSON.parse(storedFilters);
       }
 
-      // If no active filters and we have filters available, apply the oldest one
-      if (activeIds.length === 0 && userFilters.length > 0) {
-        // Sort filters by creation date and get the oldest one
-        const oldestFilter = userFilters.sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-        )[0];
-
-        // Apply the oldest filter
-        await apiClient.filters.applyFilters([oldestFilter.id]);
-        activeIds = [oldestFilter.id];
-        await AsyncStorage.setItem(
-          ACTIVE_FILTERS_KEY,
-          JSON.stringify(activeIds),
+      // Start in relevant mode by default (no filters applied)
+      // Only apply stored filters if they exist and are valid
+      if (activeIds.length > 0) {
+        // Validate that the stored filter IDs still exist
+        const validActiveIds = activeIds.filter((id) =>
+          userFilters.some((filter) => filter.id === id),
         );
+
+        if (validActiveIds.length > 0) {
+          // Apply the valid stored filters
+          await apiClient.filters.applyFilters(validActiveIds);
+          activeIds = validActiveIds;
+          await AsyncStorage.setItem(
+            ACTIVE_FILTERS_KEY,
+            JSON.stringify(activeIds),
+          );
+        } else {
+          // Clear invalid stored filters
+          activeIds = [];
+          await AsyncStorage.removeItem(ACTIVE_FILTERS_KEY);
+        }
       }
 
       // Update state with both filters and active IDs
       set({
         filters: userFilters,
-        // Only keep active filter IDs that still exist in the fetched filters
-        activeFilterIds: activeIds.filter((id) =>
-          userFilters.some((filter) => filter.id === id),
-        ),
+        activeFilterIds: activeIds,
       });
     } catch (err) {
       set({
@@ -81,7 +84,7 @@ export const useFilterStore = create<FilterState>((set) => ({
     }
   },
 
-  createFilter: async (filter: Partial<Filter>) => {
+  createFilter: async (filter: Partial<Filter> & { name: string }) => {
     set({ isLoading: true, error: null });
     try {
       const newFilter = await apiClient.filters.createFilter(filter);

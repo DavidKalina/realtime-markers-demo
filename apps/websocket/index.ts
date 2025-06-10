@@ -422,10 +422,45 @@ function forwardMessageToUserClients(userId: string, message: string): void {
   let parsedMessage;
   try {
     parsedMessage = JSON.parse(message);
-    console.log(
-      `[WebSocket] Forwarding message type ${parsedMessage.type} to ${clientIds.size} clients of user ${userId}`,
-      parsedMessage,
-    );
+
+    // Enhanced logging for relevance score updates
+    if (parsedMessage.type === "replace-all" && parsedMessage.events) {
+      console.log(
+        `[WebSocket] Forwarding replace-all message with ${parsedMessage.events.length} events to ${clientIds.size} clients of user ${userId}:`,
+        {
+          userId,
+          clientCount: clientIds.size,
+          eventCount: parsedMessage.events.length,
+          topEventScores: parsedMessage.events
+            .slice(0, 3)
+            .map(
+              (event: {
+                id: string;
+                title: string;
+                relevanceScore?: number;
+                scanCount?: number;
+                saveCount?: number;
+                rsvps?: Array<{ id: string }>;
+              }) => ({
+                eventId: event.id,
+                title: event.title,
+                relevanceScore: event.relevanceScore,
+                popularityMetrics: {
+                  scanCount: event.scanCount,
+                  saveCount: event.saveCount || 0,
+                  rsvpCount: event.rsvps?.length || 0,
+                },
+              }),
+            ),
+          messageType: parsedMessage.type,
+        },
+      );
+    } else {
+      console.log(
+        `[WebSocket] Forwarding message type ${parsedMessage.type} to ${clientIds.size} clients of user ${userId}`,
+        parsedMessage,
+      );
+    }
   } catch (error) {
     console.error(
       `[WebSocket] Error parsing message for user ${userId}:`,

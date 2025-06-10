@@ -426,14 +426,20 @@ export class EventService {
     // Get the updated event with its shares
     const event = await this.eventRepository.findOne({
       where: { id: eventId },
-      relations: ["categories", "creator", "shares", "shares.sharedWith"],
+      relations: [
+        "categories",
+        "creator",
+        "shares",
+        "shares.sharedWith",
+        "rsvps",
+      ],
     });
 
     if (event) {
       // Publish the updated event to Redis
       await this.redisService.publish("event_changes", {
         type: "UPDATE",
-        data: event,
+        data: this.stripEventForRedis(event),
       });
     }
   }
@@ -908,6 +914,17 @@ export class EventService {
   }
 
   /**
+   * Strip sensitive and large fields from an event for Redis publishing
+   * This keeps the payload lightweight while preserving necessary data for filtering
+   */
+  private stripEventForRedis(event: Event): Partial<Event> {
+    // Create a copy of the event without the embedding field
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { embedding, ...strippedEvent } = event;
+    return strippedEvent;
+  }
+
+  /**
    * Toggle save/unsave of an event for a user
    * If the event is already saved, it will be unsaved
    * If the event is not saved, it will be saved
@@ -928,11 +945,23 @@ export class EventService {
       // Check if the event exists
       const event = await transactionalEntityManager.findOne(Event, {
         where: { id: eventId },
+        relations: [
+          "categories",
+          "creator",
+          "shares",
+          "shares.sharedWith",
+          "rsvps",
+        ],
       });
 
       if (!event) {
         throw new Error("Event not found");
       }
+
+      // Store previous values for logging
+      const previousSaveCount = event.saveCount || 0;
+      const previousScanCount = event.scanCount || 0;
+      const previousRsvpCount = event.rsvps?.length || 0;
 
       // Get the user to update their save count
       const user = await transactionalEntityManager.findOne(User, {
@@ -984,6 +1013,22 @@ export class EventService {
       // Save both the updated event and user
       await transactionalEntityManager.save(event);
       await transactionalEntityManager.save(user);
+
+      // Publish the updated event to Redis for filter processor to recalculate popularity scores
+      await this.redisService.publish("event_changes", {
+        type: "UPDATE",
+        data: {
+          operation: "UPDATE",
+          record: this.stripEventForRedis(event),
+          previousMetrics: {
+            saveCount: previousSaveCount,
+            scanCount: previousScanCount,
+            rsvpCount: previousRsvpCount,
+          },
+          changeType: saved ? "SAVE_ADDED" : "SAVE_REMOVED",
+          userId: userId,
+        },
+      });
 
       return {
         saved,
@@ -1319,6 +1364,29 @@ export class EventService {
         })
         .where("id = :userId", { userId })
         .execute();
+
+      // Get the updated event with scan count and publish to Redis for filter processor
+      const updatedEvent = await this.eventRepository.findOne({
+        where: { id: eventId },
+        relations: [
+          "categories",
+          "creator",
+          "shares",
+          "shares.sharedWith",
+          "rsvps",
+        ],
+      });
+
+      if (updatedEvent) {
+        // Publish the updated event to Redis for filter processor to recalculate popularity scores
+        await this.redisService.publish("event_changes", {
+          type: "UPDATE",
+          data: {
+            operation: "UPDATE",
+            record: this.stripEventForRedis(updatedEvent),
+          },
+        });
+      }
     } catch (error) {
       console.error(
         `Error creating discovery record for user ${userId}:`,
@@ -1731,11 +1799,23 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
       // Check if the event exists
       const event = await transactionalEntityManager.findOne(Event, {
         where: { id: eventId },
+        relations: [
+          "categories",
+          "creator",
+          "shares",
+          "shares.sharedWith",
+          "rsvps",
+        ],
       });
 
       if (!event) {
         throw new Error("Event not found");
       }
+
+      // Store previous values for logging
+      const previousSaveCount = event.saveCount || 0;
+      const previousScanCount = event.scanCount || 0;
+      const previousRsvpCount = event.rsvps?.length || 0;
 
       // Check if an RSVP already exists
       const existingRsvp = await transactionalEntityManager.findOne(
@@ -1744,6 +1824,8 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
           where: { userId, eventId },
         },
       );
+
+      let changeType = "RSVP_UPDATED";
 
       if (existingRsvp) {
         // Update existing RSVP
@@ -1757,6 +1839,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
           status,
         });
         await transactionalEntityManager.save(newRsvp);
+        changeType = "RSVP_ADDED";
 
         // Award XP for RSVPing to an event
         await this.levelingService.awardXp(userId, 5);
@@ -1771,6 +1854,37 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
           where: { eventId, status: RsvpStatus.NOT_GOING },
         }),
       ]);
+
+      // Reload the event with updated RSVP data for Redis publishing
+      const updatedEvent = await transactionalEntityManager.findOne(Event, {
+        where: { id: eventId },
+        relations: [
+          "categories",
+          "creator",
+          "shares",
+          "shares.sharedWith",
+          "rsvps",
+        ],
+      });
+
+      // Publish the updated event to Redis for filter processor to recalculate popularity scores
+      if (updatedEvent) {
+        await this.redisService.publish("event_changes", {
+          type: "UPDATE",
+          data: {
+            operation: "UPDATE",
+            record: this.stripEventForRedis(updatedEvent),
+            previousMetrics: {
+              saveCount: previousSaveCount,
+              scanCount: previousScanCount,
+              rsvpCount: previousRsvpCount,
+            },
+            changeType: changeType,
+            userId: userId,
+            rsvpStatus: status,
+          },
+        });
+      }
 
       return {
         status,
