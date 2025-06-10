@@ -760,7 +760,7 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
     // Create job for private event processing
     const jobId = await jobQueue.enqueuePrivateEventJob(
       {
-        emoji: data.emoji || "📍",
+        emoji: data.emoji,
         emojiDescription: data.emojiDescription,
         title: data.title,
         date: data.date,

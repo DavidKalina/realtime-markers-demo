@@ -192,6 +192,10 @@ export class ProcessFlyerHandler extends BaseJobHandler {
       }
 
       // Create the event
+      console.log(
+        "[ProcessFlyerHandler] Creating event with emoji:",
+        eventDetails.emoji,
+      );
       const newEvent = await this.eventService.createEvent({
         emoji: eventDetails.emoji,
         emojiDescription: eventDetails.emojiDescription,
@@ -337,8 +341,12 @@ export class ProcessFlyerHandler extends BaseJobHandler {
       }
 
       // Create the event
+      console.log(
+        "[ProcessFlyerHandler] Creating multi-event with emoji:",
+        eventResult.eventDetails.emoji,
+      );
       const newEvent = await this.eventService.createEvent({
-        emoji: eventResult.eventDetails.emoji || "📍",
+        emoji: eventResult.eventDetails.emoji,
         emojiDescription: eventResult.eventDetails.emojiDescription,
         title: eventResult.eventDetails.title || "Untitled Event",
         eventDate: new Date(eventResult.eventDetails.date),

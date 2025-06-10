@@ -199,8 +199,8 @@ async function processJobWithProgress(
   // Process the job
   await handler.handle(jobId, job, jobHandlerRegistry.getContext());
 
-  // Mark as completed
-  await jobQueue.completeJob(jobId, { message: "Job completed successfully" });
+  // Note: Job handlers are responsible for calling completeJob or failJob
+  // No need to call completeJob here as it would override the handler's result
 }
 
 function getTotalStepsForJobType(jobType: string): number {

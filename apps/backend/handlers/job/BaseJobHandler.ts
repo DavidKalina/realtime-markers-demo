@@ -62,7 +62,7 @@ export abstract class BaseJobHandler implements JobHandler {
   ): Promise<void> {
     await this.updateJobProgress(jobId, context, {
       status: "failed",
-      progress: 1,
+      progress: 100,
       error: error instanceof Error ? error.message : error,
       message: message || "An error occurred while processing the job",
       completed: new Date().toISOString(),
@@ -77,7 +77,7 @@ export abstract class BaseJobHandler implements JobHandler {
   ): Promise<void> {
     await this.updateJobProgress(jobId, context, {
       status: "completed",
-      progress: 1,
+      progress: 100,
       result,
       eventId,
       completed: new Date().toISOString(),
