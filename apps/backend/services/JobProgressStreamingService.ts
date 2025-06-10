@@ -396,7 +396,9 @@ export class JobProgressStreamingService {
       }),
     );
 
-    return jobsWithProgress;
+    // The jobs are already sorted by the JobQueue service, but we ensure consistency
+    // by applying the same sorting logic here as well
+    return JobQueue.sortJobsChronologically(jobsWithProgress);
   }
 
   /**

@@ -13,6 +13,53 @@ interface JobItemProps {
   onCancel?: (jobId: string) => void;
 }
 
+/**
+ * Utility function to sort jobs chronologically (newest first)
+ *
+ * Sorting priority:
+ * 1. Most recent activity (updated timestamp, fallback to created)
+ * 2. Creation date (newest first)
+ * 3. Job ID (for consistency when timestamps are identical)
+ */
+const sortJobsChronologically = (jobs: JobData[]): JobData[] => {
+  // Remove duplicates first
+  const uniqueJobs = jobs.filter(
+    (job, index, self) => index === self.findIndex((j) => j.id === job.id),
+  );
+
+  // Log if duplicates were found
+  if (uniqueJobs.length !== jobs.length) {
+    console.warn(
+      `Found ${jobs.length - uniqueJobs.length} duplicate jobs, removing them`,
+    );
+  }
+
+  return uniqueJobs.sort((a, b) => {
+    // Get the most recent timestamp for each job
+    const aTimestamp = a.updated || a.created;
+    const bTimestamp = b.updated || b.created;
+
+    // Compare timestamps (newest first)
+    const timeComparison =
+      new Date(bTimestamp).getTime() - new Date(aTimestamp).getTime();
+
+    if (timeComparison !== 0) {
+      return timeComparison;
+    }
+
+    // If timestamps are equal, sort by created date
+    const createdComparison =
+      new Date(b.created).getTime() - new Date(a.created).getTime();
+
+    if (createdComparison !== 0) {
+      return createdComparison;
+    }
+
+    // If created dates are equal, sort by job ID for consistency
+    return b.id.localeCompare(a.id);
+  });
+};
+
 const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -26,21 +73,6 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
         return "#3498db";
       default:
         return "#95a5a6";
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "completed":
-        return "checkmark-circle";
-      case "failed":
-        return "close-circle";
-      case "processing":
-        return "sync";
-      case "pending":
-        return "time";
-      default:
-        return "help-circle";
     }
   };
 
@@ -59,6 +91,50 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
     }
   };
 
+  const getEventDetails = () => {
+    // Try to get event details from different sources
+    const eventDetails = job.data?.eventDetails as
+      | { title?: string; emoji?: string }
+      | undefined;
+    const result = job.result as { title?: string; emoji?: string } | undefined;
+
+    console.log("=== Job Debug Info ===");
+    console.log("Job ID:", job.id);
+    console.log("Job type:", job.type);
+    console.log("Job status:", job.status);
+    console.log("Job data:", job.data);
+    console.log("Job result:", job.result);
+    console.log("Event details:", eventDetails);
+    console.log("Event details emoji:", eventDetails?.emoji);
+    console.log("Result emoji:", result?.emoji);
+    console.log("=====================");
+
+    // For private events, check eventDetails first
+    if (eventDetails) {
+      const details = {
+        title: eventDetails.title || "Creating Private Event",
+        emoji: eventDetails.emoji || "📍",
+        isPrivate: true,
+      };
+      console.log("Returning event details:", details);
+      return details;
+    }
+
+    // For completed jobs, check result
+    if (result?.title || result?.emoji) {
+      const details = {
+        title: result.title || "Event Created",
+        emoji: result.emoji || "📍",
+        isPrivate: false,
+      };
+      console.log("Returning result details:", details);
+      return details;
+    }
+
+    console.log("No event details found, returning null");
+    return null;
+  };
+
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) {
       return "Unknown date";
@@ -72,14 +148,19 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
     }
 
     const now = new Date();
-    const diffInHours = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60),
-    );
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 
-    if (diffInHours < 1) {
+    if (diffInMinutes < 1) {
       return "Just now";
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}m ago`;
     } else if (diffInHours < 24) {
       return `${diffInHours}h ago`;
+    } else if (diffInDays < 7) {
+      return `${diffInDays}d ago`;
     } else {
       return date.toLocaleDateString();
     }
@@ -102,97 +183,87 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
     ]);
   };
 
+  const eventDetails = getEventDetails();
+  const jobTitle = eventDetails
+    ? eventDetails.title
+    : getJobTypeDisplayName(job.type);
+  const jobEmoji = eventDetails?.emoji || "⚙️";
+  const jobDescription =
+    job.progressStep ||
+    job.error ||
+    (job.result && typeof job.result === "object" && "message" in job.result
+      ? ((job.result as Record<string, unknown>).message as string)
+      : undefined);
+
   return (
     <View style={styles.jobItem}>
-      <View style={styles.jobHeader}>
-        <View style={styles.jobInfo}>
-          <View style={styles.jobTypeRow}>
-            <Ionicons
-              name={getStatusIcon(job.status)}
-              size={20}
-              color={getStatusColor(job.status)}
-            />
-            <Text style={styles.jobType}>
-              {getJobTypeDisplayName(job.type)}
-            </Text>
+      <View style={styles.jobContent}>
+        <View style={styles.jobHeader}>
+          <View style={styles.emojiContainer}>
+            <Text style={styles.emoji}>{jobEmoji}</Text>
           </View>
-          <Text style={styles.jobDate}>{formatDate(job.updated)}</Text>
-        </View>
-        <View style={styles.jobStatus}>
-          <Text
-            style={[styles.statusText, { color: getStatusColor(job.status) }]}
-          >
-            {job.status.toUpperCase()}
-          </Text>
-        </View>
-      </View>
-
-      {job.progressStep && (
-        <View style={styles.progressSection}>
-          <Text style={styles.progressStep}>{job.progressStep}</Text>
-          {job.progress !== undefined && (
-            <View style={styles.progressBarContainer}>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${job.progress}%`,
-                      backgroundColor: getStatusColor(job.status),
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.progressText}>
-                {Math.round(job.progress)}%
+          <View style={styles.titleContainer}>
+            <View style={styles.titleRow}>
+              <Text style={styles.titleText} numberOfLines={1}>
+                {jobTitle}
               </Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: getStatusColor(job.status) },
+                ]}
+              >
+                <Text style={styles.statusBadgeText}>
+                  {job.status.toUpperCase()}
+                </Text>
+              </View>
             </View>
-          )}
-        </View>
-      )}
-
-      {job.progressDetails && (
-        <View style={styles.detailsSection}>
-          <Text style={styles.detailsText}>
-            Step {job.progressDetails.currentStep} of{" "}
-            {job.progressDetails.totalSteps}
-          </Text>
-          <Text style={styles.detailsDescription}>
-            {job.progressDetails.stepDescription}
-          </Text>
-        </View>
-      )}
-
-      {job.error && (
-        <View style={styles.errorSection}>
-          <Text style={styles.errorText}>Error: {job.error}</Text>
-        </View>
-      )}
-
-      {job.result &&
-        typeof job.result === "object" &&
-        "message" in job.result &&
-        typeof (job.result as Record<string, unknown>).message === "string" && (
-          <View style={styles.resultSection}>
-            <Text style={styles.resultText}>
-              {(job.result as Record<string, unknown>).message as string}
-            </Text>
+            {jobDescription && (
+              <Text style={styles.jobDescription} numberOfLines={2}>
+                {jobDescription}
+              </Text>
+            )}
+            <View style={styles.jobFooter}>
+              <View style={styles.footerLeft}>
+                <Text style={styles.jobDate}>
+                  {formatDate(job.updated || job.created)}
+                </Text>
+                {eventDetails && (
+                  <View style={styles.privacyBadge}>
+                    <Text style={styles.privacyBadgeText}>
+                      {eventDetails.isPrivate ? "🔒 Private" : "🌍 Public"}
+                    </Text>
+                  </View>
+                )}
+                {job.progress !== undefined && (
+                  <View style={styles.progressBadge}>
+                    <Text style={styles.progressBadgeText}>
+                      {Math.round(job.progress)}%
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.footerRight}>
+                {job.status === "failed" && (
+                  <TouchableOpacity
+                    style={styles.retryButton}
+                    onPress={handleRetry}
+                  >
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                  </TouchableOpacity>
+                )}
+                {(job.status === "pending" || job.status === "processing") && (
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={handleCancel}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
           </View>
-        )}
-
-      <View style={styles.jobActions}>
-        {job.status === "failed" && (
-          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
-            <Ionicons name="refresh" size={16} color="#3498db" />
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        )}
-        {(job.status === "pending" || job.status === "processing") && (
-          <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-            <Ionicons name="close" size={16} color="#e74c3c" />
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        )}
+        </View>
       </View>
     </View>
   );
@@ -256,22 +327,39 @@ const JobsScreen: React.FC = () => {
           jobsModule
             .createJobStream(job.id, {
               onMessage: (data) => {
-                setJobs((prev) =>
-                  prev.map((j) =>
-                    j.id === job.id
-                      ? {
-                          ...j,
-                          status: data.status || j.status,
-                          progress: data.progress,
-                          progressStep: data.progressStep,
-                          progressDetails: data.progressDetails,
-                          error: data.error,
-                          result: data.result as Record<string, unknown>,
-                          updated: new Date().toISOString(),
-                        }
-                      : j,
-                  ),
-                );
+                console.log(`[EventSource] Updating job ${job.id}:`, data);
+                setJobs((prev) => {
+                  // Check if job already exists
+                  const existingJobIndex = prev.findIndex(
+                    (j) => j.id === job.id,
+                  );
+
+                  if (existingJobIndex >= 0) {
+                    // Update existing job
+                    const updatedJobs = [...prev];
+                    updatedJobs[existingJobIndex] = {
+                      ...updatedJobs[existingJobIndex],
+                      status:
+                        data.status || updatedJobs[existingJobIndex].status,
+                      progress: data.progress,
+                      progressStep: data.progressStep,
+                      progressDetails: data.progressDetails,
+                      error: data.error,
+                      result: data.result as Record<string, unknown>,
+                      updated: new Date().toISOString(),
+                    };
+                    console.log(
+                      `[EventSource] Updated job ${job.id}, total jobs: ${updatedJobs.length}`,
+                    );
+                    return sortJobsChronologically(updatedJobs);
+                  } else {
+                    // Job doesn't exist, this shouldn't happen but handle gracefully
+                    console.warn(
+                      `[EventSource] Job ${job.id} not found in current jobs list`,
+                    );
+                    return prev;
+                  }
+                });
               },
               onError: (error) => {
                 console.error(`Stream error for job ${job.id}:`, error);
@@ -306,13 +394,44 @@ const JobsScreen: React.FC = () => {
             "Job IDs:",
             newJobs.map((job) => job?.id),
           );
+
+          // Check for duplicates in fetched jobs
+          const jobIds = newJobs.map((job) => job.id);
+          const uniqueJobIds = [...new Set(jobIds)];
+          if (jobIds.length !== uniqueJobIds.length) {
+            console.warn(
+              `[fetchJobs] Found ${jobIds.length - uniqueJobIds.length} duplicate job IDs in fetched data`,
+            );
+          }
         }
 
         if (refresh || page === 1) {
-          setJobs(newJobs);
+          const sortedJobs = sortJobsChronologically(newJobs);
+          console.log(
+            `[fetchJobs] Setting ${sortedJobs.length} jobs (refresh/page 1)`,
+          );
+          setJobs(sortedJobs);
           setCurrentPage(1);
         } else {
-          setJobs((prev) => [...prev, ...newJobs]);
+          setJobs((prev) => {
+            // Create a Map to ensure unique jobs by ID
+            const jobsMap = new Map<string, JobData>();
+
+            // Add existing jobs
+            prev.forEach((job) => jobsMap.set(job.id, job));
+
+            // Add new jobs (this will overwrite existing ones if they have the same ID)
+            newJobs.forEach((job) => jobsMap.set(job.id, job));
+
+            // Convert back to array and sort
+            const sortedJobs = sortJobsChronologically(
+              Array.from(jobsMap.values()),
+            );
+            console.log(
+              `[fetchJobs] Updated jobs: ${prev.length} -> ${sortedJobs.length} (page ${page})`,
+            );
+            return sortedJobs;
+          });
         }
 
         setHasMore(newJobs.length > 0);
@@ -370,22 +489,36 @@ const JobsScreen: React.FC = () => {
     try {
       const ws = await jobsModule.createJobWebSocket({
         onJobUpdate: (jobId, data) => {
-          setJobs((prev) =>
-            prev.map((job) =>
-              job.id === jobId
-                ? {
-                    ...job,
-                    status: data.status || job.status,
-                    progress: data.progress,
-                    progressStep: data.progressStep,
-                    progressDetails: data.progressDetails,
-                    error: data.error,
-                    result: data.result as Record<string, unknown>,
-                    updated: new Date().toISOString(),
-                  }
-                : job,
-            ),
-          );
+          console.log(`[WebSocket] Updating job ${jobId}:`, data);
+          setJobs((prev) => {
+            // Check if job already exists
+            const existingJobIndex = prev.findIndex((j) => j.id === jobId);
+
+            if (existingJobIndex >= 0) {
+              // Update existing job
+              const updatedJobs = [...prev];
+              updatedJobs[existingJobIndex] = {
+                ...updatedJobs[existingJobIndex],
+                status: data.status || updatedJobs[existingJobIndex].status,
+                progress: data.progress,
+                progressStep: data.progressStep,
+                progressDetails: data.progressDetails,
+                error: data.error,
+                result: data.result as Record<string, unknown>,
+                updated: new Date().toISOString(),
+              };
+              console.log(
+                `[WebSocket] Updated job ${jobId}, total jobs: ${updatedJobs.length}`,
+              );
+              return sortJobsChronologically(updatedJobs);
+            } else {
+              // Job doesn't exist, this shouldn't happen but handle gracefully
+              console.warn(
+                `[WebSocket] Job ${jobId} not found in current jobs list`,
+              );
+              return prev;
+            }
+          });
         },
         onError: (error) => {
           console.error("WebSocket error:", error);
@@ -513,160 +646,156 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   listContainer: {
-    padding: 16,
+    padding: 12,
   },
   jobItem: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e9ecef",
+  },
+  jobContent: {
+    flex: 1,
   },
   jobHeader: {
     flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  emojiContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#000",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+  },
+  emoji: {
+    fontSize: 18,
+  },
+  titleContainer: {
+    flex: 1,
+  },
+  titleRow: {
+    flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  jobInfo: {
-    flex: 1,
-  },
-  jobTypeRow: {
-    flexDirection: "row",
-    alignItems: "center",
     marginBottom: 4,
   },
-  jobType: {
+  titleText: {
+    flex: 1,
+    color: "#000",
     fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 8,
     fontFamily: "SpaceMono",
+    fontWeight: "600",
+  },
+  jobDescription: {
+    color: "#6c757d",
+    fontSize: 14,
+    fontFamily: "SpaceMono",
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  jobFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  footerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  footerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   jobDate: {
+    color: "#007AFF",
     fontSize: 12,
-    color: "#6c757d",
     fontFamily: "SpaceMono",
-  },
-  jobStatus: {
-    alignItems: "flex-end",
-  },
-  statusText: {
-    fontSize: 12,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
   },
-  progressSection: {
-    marginBottom: 12,
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
   },
-  progressStep: {
-    fontSize: 14,
-    color: "#495057",
-    marginBottom: 8,
-    fontFamily: "SpaceMono",
-  },
-  progressBarContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  progressBar: {
-    flex: 1,
-    height: 6,
-    backgroundColor: "#e9ecef",
-    borderRadius: 3,
-    marginRight: 8,
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
-  progressText: {
+  statusBadgeText: {
+    color: "#fff",
     fontSize: 12,
-    fontWeight: "600",
-    minWidth: 30,
-    textAlign: "right",
     fontFamily: "SpaceMono",
+    fontWeight: "600",
   },
-  detailsSection: {
-    marginBottom: 12,
-    padding: 12,
+  privacyBadge: {
     backgroundColor: "#f8f9fa",
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
   },
-  detailsText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#495057",
-    marginBottom: 4,
-    fontFamily: "SpaceMono",
-  },
-  detailsDescription: {
-    fontSize: 12,
+  privacyBadgeText: {
     color: "#6c757d",
+    fontSize: 11,
     fontFamily: "SpaceMono",
+    fontWeight: "500",
   },
-  errorSection: {
-    marginBottom: 12,
-    padding: 12,
-    backgroundColor: "#f8d7da",
-    borderRadius: 8,
+  progressBadge: {
+    backgroundColor: "#f8f9fa",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
   },
-  errorText: {
-    fontSize: 12,
-    color: "#721c24",
+  progressBadgeText: {
+    color: "#6c757d",
+    fontSize: 11,
     fontFamily: "SpaceMono",
-  },
-  resultSection: {
-    marginBottom: 12,
-    padding: 12,
-    backgroundColor: "#d4edda",
-    borderRadius: 8,
-  },
-  resultText: {
-    fontSize: 12,
-    color: "#155724",
-    fontFamily: "SpaceMono",
-  },
-  jobActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
+    fontWeight: "500",
   },
   retryButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: "#e3f2fd",
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
   },
   retryButtonText: {
+    color: "#fff",
     fontSize: 12,
-    color: "#3498db",
-    marginLeft: 4,
-    fontWeight: "600",
     fontFamily: "SpaceMono",
+    fontWeight: "600",
   },
   cancelButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: "#ffebee",
+    backgroundColor: "#FF3B30",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
   },
   cancelButtonText: {
+    color: "#fff",
     fontSize: 12,
-    color: "#e74c3c",
-    marginLeft: 4,
-    fontWeight: "600",
     fontFamily: "SpaceMono",
+    fontWeight: "600",
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#e74c3c",
+    textAlign: "center",
+    marginTop: 20,
   },
 });
 

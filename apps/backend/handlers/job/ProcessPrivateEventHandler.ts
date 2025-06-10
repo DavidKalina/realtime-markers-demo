@@ -99,6 +99,11 @@ export class ProcessPrivateEventHandler extends BaseJobHandler {
       // Process the private event
       const eventDetails = job.data.eventDetails as PrivateEventDetails;
 
+      console.log(`[ProcessPrivateEventHandler] Processing job ${jobId}`);
+      console.log(
+        `[ProcessPrivateEventHandler] Original emoji: ${eventDetails.emoji}`,
+      );
+
       // Fetch full category objects if category IDs are provided
       let categories: Category[] | undefined;
       if (eventDetails.categories?.length) {
@@ -113,6 +118,10 @@ export class ProcessPrivateEventHandler extends BaseJobHandler {
         isPrivate: true,
         sharedWithIds: (job.data.sharedWithIds as string[]) || [],
       });
+
+      console.log(
+        `[ProcessPrivateEventHandler] Processed emoji: ${scanResult.eventDetails.emoji}`,
+      );
 
       // Create the event
       const newEvent = await this.eventService.createEvent({
@@ -173,17 +182,19 @@ export class ProcessPrivateEventHandler extends BaseJobHandler {
       });
 
       // Mark as completed with success
-      await this.completeJob(
-        jobId,
-        context,
-        {
-          eventId: newEvent.id,
-          title: scanResult.eventDetails.title,
-          coordinates: pointToCoordinates(newEvent.location),
-          message: "Private event successfully created!",
-        },
-        newEvent.id,
+      const result = {
+        eventId: newEvent.id,
+        title: scanResult.eventDetails.title,
+        emoji: scanResult.eventDetails.emoji,
+        coordinates: pointToCoordinates(newEvent.location),
+        message: "Private event successfully created!",
+      };
+
+      console.log(
+        `[ProcessPrivateEventHandler] Job result emoji: ${result.emoji}`,
       );
+
+      await this.completeJob(jobId, context, result, newEvent.id);
     } catch (error) {
       await this.failJob(
         jobId,

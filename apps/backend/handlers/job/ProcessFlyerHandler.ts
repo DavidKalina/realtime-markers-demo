@@ -90,13 +90,11 @@ export class ProcessFlyerHandler extends BaseJobHandler {
       // Process the image using smart processing
       const scanResult = await this.eventProcessingService.processEventFlyer(
         imageBuffer,
-        undefined, // No need for progress callback
         {
           userCoordinates: job.data.userCoordinates as
             | { lat: number; lng: number }
             | undefined,
         },
-        jobId,
       );
 
       // Handle multi-event result
@@ -118,6 +116,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
             events: processedEvents.map((event) => ({
               eventId: event.id,
               title: event.title,
+              emoji: event.emoji,
               coordinates: pointToCoordinates(event.location),
               confidence: event.confidenceScore,
               isDuplicate: event.isDuplicate,
@@ -155,6 +154,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
             {
               eventId: existingEvent.id,
               title: existingEvent.title,
+              emoji: existingEvent.emoji,
               coordinates: pointToCoordinates(existingEvent.location),
               isDuplicate: true,
               similarityScore: scanResult.similarity.score,
@@ -264,6 +264,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         {
           eventId: newEvent.id,
           title: eventDetails.title,
+          emoji: eventDetails.emoji,
           coordinates: pointToCoordinates(newEvent.location),
           message: "Event successfully processed and added to the database!",
         },

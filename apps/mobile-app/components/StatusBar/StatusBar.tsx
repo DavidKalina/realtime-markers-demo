@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
-import React, { useMemo } from "react";
+import { useJobSessionStore } from "@/stores/useJobSessionStore";
+import React, { useMemo, useEffect } from "react";
 import {
   StatusBar as RNStatusBar,
   StyleSheet,
@@ -7,7 +8,15 @@ import {
   View,
   TouchableOpacity,
 } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, {
+  FadeIn,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+  cancelAnimation,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,6 +34,61 @@ const StatusBar: React.FC<StatusBarProps> = ({
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const router = useRouter();
+  const jobs = useJobSessionStore((state) => state.jobs);
+
+  // Animation values for the cog
+  const rotation = useSharedValue(0);
+  const cogOpacity = useSharedValue(0);
+  const cogScale = useSharedValue(0.8);
+
+  // Check if there are any processing jobs
+  const hasProcessingJobs = useMemo(() => {
+    return jobs.some(
+      (job) => job.status === "pending" || job.status === "processing",
+    );
+  }, [jobs]);
+
+  // Animate cog when processing jobs
+  useEffect(() => {
+    if (hasProcessingJobs) {
+      // Show and scale up the cog
+      cogOpacity.value = withTiming(1, { duration: 300 });
+      cogScale.value = withTiming(1, { duration: 300 });
+
+      // Start rotation animation
+      rotation.value = withRepeat(
+        withTiming(360, {
+          duration: 2000,
+          easing: Easing.linear,
+        }),
+        -1,
+        false,
+      );
+    } else {
+      // Hide the cog
+      cogOpacity.value = withTiming(0, { duration: 300 });
+      cogScale.value = withTiming(0.8, { duration: 300 });
+
+      // Stop rotation
+      cancelAnimation(rotation);
+      rotation.value = 0;
+    }
+
+    return () => {
+      cancelAnimation(rotation);
+    };
+  }, [hasProcessingJobs, rotation, cogOpacity, cogScale]);
+
+  // Animated styles for the cog
+  const cogAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: cogOpacity.value,
+      transform: [
+        { scale: cogScale.value },
+        { rotate: `${rotation.value}deg` },
+      ],
+    };
+  });
 
   const containerStyle = useMemo(
     () => [
@@ -54,6 +118,12 @@ const StatusBar: React.FC<StatusBarProps> = ({
           </Text>
           <XPBar backgroundColor={backgroundColor} />
         </Animated.View>
+
+        {/* Animated Cog for Processing Jobs */}
+        <Animated.View style={[styles.cogContainer, cogAnimatedStyle]}>
+          <Ionicons name="settings" size={20} color="#f39c12" />
+        </Animated.View>
+
         <TouchableOpacity
           onPress={() => router.push("/jobs")}
           style={styles.jobsIconContainer}
@@ -93,6 +163,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     fontFamily: "SpaceMono",
+  },
+  cogContainer: {
+    marginRight: 8,
+    padding: 4,
   },
   jobsIconContainer: {
     padding: 8,

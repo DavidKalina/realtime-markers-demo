@@ -33,6 +33,7 @@ export interface JobData {
     hasMore?: boolean;
     eventId?: string;
     title?: string;
+    emoji?: string;
     coordinates?: [number, number];
     [key: string]: unknown;
   };
@@ -66,6 +67,56 @@ export class JobQueue {
 
   constructor(redis: Redis) {
     this.redisService = RedisService.getInstance(redis);
+  }
+
+  /**
+   * Static utility method to sort jobs chronologically (newest first)
+   *
+   * Sorting priority:
+   * 1. Most recent activity (updated timestamp, fallback to created)
+   * 2. Creation date (newest first)
+   * 3. Job ID (for consistency when timestamps are identical)
+   */
+  static sortJobsChronologically(jobs: JobData[]): JobData[] {
+    // Remove duplicates first
+    const uniqueJobs = jobs.filter(
+      (job, index, self) => index === self.findIndex((j) => j.id === job.id),
+    );
+
+    // Log if duplicates were found
+    if (uniqueJobs.length !== jobs.length) {
+      console.warn(
+        `[JobQueue] Found ${jobs.length - uniqueJobs.length} duplicate jobs in sortJobsChronologically, removing them`,
+      );
+    }
+
+    const sortedJobs = uniqueJobs.sort((a, b) => {
+      // Get the most recent timestamp for each job
+      const aTimestamp = a.updated || a.created;
+      const bTimestamp = b.updated || b.created;
+
+      // Compare timestamps (newest first)
+      const timeComparison =
+        new Date(bTimestamp).getTime() - new Date(aTimestamp).getTime();
+
+      if (timeComparison !== 0) {
+        return timeComparison;
+      }
+
+      // If timestamps are equal, sort by created date
+      const createdComparison =
+        new Date(b.created).getTime() - new Date(a.created).getTime();
+
+      if (createdComparison !== 0) {
+        return createdComparison;
+      }
+
+      // If created dates are equal, sort by job ID for consistency
+      return b.id.localeCompare(a.id);
+    });
+
+    console.log(`[JobQueue] Sorted ${uniqueJobs.length} jobs chronologically`);
+    return sortedJobs;
   }
 
   /**
@@ -171,6 +222,8 @@ export class JobQueue {
       type: "JOB_UPDATE",
       data: updateMessage,
     });
+
+    await this.publishToWebSocket(updates);
   }
 
   /**
@@ -233,9 +286,14 @@ export class JobQueue {
   ): Promise<string> {
     const jobId = crypto.randomUUID();
 
-    // Create the job data
-    const jobData: PrivateEventJobData = {
+    // Create the job data in the correct JobData format
+    const jobData: JobData = {
+      id: jobId,
       type: "process_private_event",
+      status: "pending",
+      created: new Date().toISOString(),
+      progress: 0,
+      progressStep: "Private event job queued",
       data: {
         eventDetails,
         creatorId,
@@ -250,11 +308,14 @@ export class JobQueue {
     // Add to pending jobs queue
     await this.redisService.getClient().lpush("jobs:pending", jobId);
 
-    // Initialize job status
-    await this.updateJobStatus(jobId, {
-      status: "pending",
-      progress: 0,
-      progressStep: "Private event job queued",
+    // Publish notification
+    await this.redisService.publish("job_created", {
+      type: "JOB_CREATED",
+      data: {
+        jobId,
+        jobType: "process_private_event",
+        timestamp: new Date().toISOString(),
+      },
     });
 
     return jobId;
@@ -276,6 +337,10 @@ export class JobQueue {
     const keys = await this.redisService.getClient().keys(pattern);
     const jobs: JobData[] = [];
 
+    console.log(
+      `[JobQueue] Found ${keys.length} total job keys for pattern ${pattern}`,
+    );
+
     for (const key of keys) {
       const jobData = await this.redisService.get<JobData>(key);
       if (jobData && jobData.data.creatorId === userId) {
@@ -288,9 +353,24 @@ export class JobQueue {
       }
     }
 
-    return jobs.sort(
-      (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime(),
+    console.log(`[JobQueue] Found ${jobs.length} jobs for user ${userId}`);
+
+    // Check for duplicates before sorting
+    const jobIds = jobs.map((job) => job.id);
+    const uniqueJobIds = [...new Set(jobIds)];
+    if (jobIds.length !== uniqueJobIds.length) {
+      console.warn(
+        `[JobQueue] Found ${jobIds.length - uniqueJobIds.length} duplicate job IDs for user ${userId}`,
+      );
+    }
+
+    // Sort jobs in chronological order (newest first)
+    const sortedJobs = JobQueue.sortJobsChronologically(jobs);
+    console.log(
+      `[JobQueue] Returning ${sortedJobs.length} sorted jobs for user ${userId}`,
     );
+
+    return sortedJobs;
   }
 
   /**
@@ -321,5 +401,22 @@ export class JobQueue {
     }
 
     return deletedCount;
+  }
+
+  private async publishToWebSocket(jobUpdate: Partial<JobData>): Promise<void> {
+    // Publish to job-specific WebSocket channel
+    await this.redisService.publish("websocket:job_updates", {
+      type: "JOB_PROGRESS_UPDATE",
+      data: {
+        jobId: jobUpdate.id,
+        status: jobUpdate.status,
+        progress: jobUpdate.progress,
+        progressStep: jobUpdate.progressStep,
+        progressDetails: jobUpdate.progressDetails,
+        error: jobUpdate.error,
+        result: jobUpdate.result,
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 }

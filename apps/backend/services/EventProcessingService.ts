@@ -198,9 +198,9 @@ export class EventProcessingService {
   async processPrivateEvent(
     eventInput: PrivateEventInput,
   ): Promise<ScanResult> {
-    // Generate emoji if not provided
+    // Generate emoji only if not provided (not if it's the default "📍")
     let eventDetails = { ...eventInput };
-    if (!eventInput.emoji || eventInput.emoji === "📍") {
+    if (!eventInput.emoji) {
       const emojiResult = await this.eventExtractionService.generateEventEmoji(
         eventInput.title,
         eventInput.description,
