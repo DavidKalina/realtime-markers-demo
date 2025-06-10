@@ -8,12 +8,7 @@ import type { IEmbeddingService } from "./event-processing/interfaces/IEmbedding
 import type { IEventExtractionService } from "./event-processing/interfaces/IEventExtractionService";
 import type { IEventProcessingServiceDependencies } from "./event-processing/interfaces/IEventProcessingServiceDependencies";
 import type { IImageProcessingService } from "./event-processing/interfaces/IImageProcesssingService";
-import type { ILocationResolutionService } from "./event-processing/interfaces/ILocationResolutionService";
-import type {
-  IProgressReportingService,
-  ProgressCallback,
-} from "./event-processing/interfaces/IProgressReportingService";
-import { ProgressReportingService } from "./event-processing/ProgressReportingService";
+
 import type { JobQueue } from "./JobQueue";
 import { EmbeddingService } from "./shared/EmbeddingService";
 import type { EventStructuredData } from "./event-processing/dto/ImageProcessingResult";
@@ -91,10 +86,8 @@ export interface MultiEventScanResult {
 
 export class EventProcessingService {
   private imageProcessingService: IImageProcessingService;
-  private locationResolutionService: ILocationResolutionService;
   private eventExtractionService: IEventExtractionService;
   private embeddingService: IEmbeddingService;
-  private progressReportingService: IProgressReportingService;
   private jobQueue?: JobQueue; // Store JobQueue instance
 
   constructor(private dependencies: IEventProcessingServiceDependencies) {
@@ -103,7 +96,6 @@ export class EventProcessingService {
       dependencies.imageProcessingService || new ImageProcessingService();
 
     // Use provided location service
-    this.locationResolutionService = dependencies.locationResolutionService;
 
     // Initialize or use the provided event extraction service
     if (dependencies.eventExtractionService) {
@@ -121,55 +113,23 @@ export class EventProcessingService {
       dependencies.embeddingService ||
       EmbeddingService.getInstance(dependencies.configService);
 
-    // Use provided progress reporting service or create a basic one
-    this.progressReportingService =
-      dependencies.progressReportingService || new ProgressReportingService();
-
     this.jobQueue = dependencies.jobQueue;
-  }
-
-  public createWorkflow(
-    jobId?: string,
-    externalCallback?: ProgressCallback,
-  ): IProgressReportingService {
-    // Create a NEW progress reporting service to avoid cross-workflow interference
-    const progressService = new ProgressReportingService(
-      externalCallback,
-      this.jobQueue, // Pass JobQueue to the new instance
-      this.dependencies.configService,
-    );
-
-    // Connect to job queue if a job ID is provided
-    if (jobId) {
-      progressService.connectToJobQueue(jobId);
-    }
-
-    return progressService;
   }
 
   async processFlyerFromImage(
     imageData: Buffer | string,
-    progressCallback?: ProgressCallback,
     locationContext?: LocationContext,
-    jobId?: string,
   ): Promise<ScanResult> {
-    const workflow = this.createWorkflow(jobId, progressCallback);
-
     // Define total steps for this workflow
-    const TOTAL_STEPS = 6;
-    workflow.startSession(TOTAL_STEPS, "Event Processing");
 
     // Step 1: Process image
-    await workflow.updateProgress(1, "Processing image...");
     const visionResult =
       await this.imageProcessingService.processImage(imageData);
 
     // Step 2: Extract text and analyze
-    await workflow.updateProgress(2, "Analyzing image content...");
     const extractedText = visionResult.rawText;
 
     // Step 3: Extract event details
-    await workflow.updateProgress(3, "Extracting event details...");
 
     const extractionResult =
       await this.eventExtractionService.extractEventDetails(
@@ -190,13 +150,11 @@ export class EventProcessingService {
     };
 
     // Step 4: Generate embedding
-    await workflow.updateProgress(4, "Generating event embedding...");
     const finalEmbedding = await this.generateEmbedding(
       eventDetailsWithCategories,
     );
 
     // Step 5: Check for duplicates
-    await workflow.updateProgress(5, "Checking for duplicate events...");
     const similarity =
       await this.dependencies.eventSimilarityService.findSimilarEvents(
         finalEmbedding,
@@ -224,26 +182,7 @@ export class EventProcessingService {
       await this.dependencies.eventSimilarityService.handleDuplicateScan(
         similarity.matchingEventId,
       );
-
-      await workflow.updateProgress(5, "Duplicate event detected", {
-        isDuplicate: true,
-        matchingEventId: similarity.matchingEventId,
-        similarityScore: similarity.score.toFixed(2),
-        matchReason: similarity.matchReason || "High similarity score",
-        matchDetails: similarity.matchDetails || {},
-      });
     }
-
-    // Step 6: Complete processing
-    await workflow.completeSession("Processing complete", {
-      confidence: visionResult.confidence,
-      similarityScore: similarity.score,
-      isDuplicate: isDuplicate || false,
-      reasonForMatch: isDuplicate
-        ? similarity.matchReason || "High similarity"
-        : undefined,
-      timezone: eventDetailsWithCategories.timezone,
-    });
 
     return {
       confidence: visionResult.confidence || 0,
@@ -368,22 +307,11 @@ export class EventProcessingService {
    */
   async processMultiEventFlyer(
     imageData: Buffer | string,
-    progressCallback?: ProgressCallback,
     locationContext?: LocationContext,
-    jobId?: string,
   ): Promise<MultiEventScanResult> {
-    const workflow = this.createWorkflow(jobId, progressCallback);
-
-    // Define total steps for this workflow
-    const TOTAL_STEPS = 7; // One more step for multi-event detection
-    workflow.startSession(TOTAL_STEPS, "Multi-Event Processing");
-
     try {
       // Step 1: Process image and detect multiple events
-      await workflow.updateProgress(
-        1,
-        "Processing image and detecting events...",
-      );
+
       const multiEventResult =
         await this.imageProcessingService.processMultiEventImage(imageData);
 
@@ -399,10 +327,6 @@ export class EventProcessingService {
 
       for (let i = 0; i < totalEvents; i++) {
         const event = multiEventResult.events[i];
-        await workflow.updateProgress(
-          2 + i,
-          `Processing event ${i + 1} of ${totalEvents}...`,
-        );
 
         // Skip events with low confidence
         if (event.confidence < 0.5) {
@@ -456,18 +380,6 @@ export class EventProcessingService {
           await this.dependencies.eventSimilarityService.handleDuplicateScan(
             similarity.matchingEventId,
           );
-
-          await workflow.updateProgress(
-            2 + i,
-            `Event ${i + 1} is a duplicate`,
-            {
-              isDuplicate: true,
-              matchingEventId: similarity.matchingEventId,
-              similarityScore: similarity.score.toFixed(2),
-              matchReason: similarity.matchReason || "High similarity score",
-              matchDetails: similarity.matchDetails || {},
-            },
-          );
         }
 
         eventResults.push({
@@ -481,13 +393,6 @@ export class EventProcessingService {
         });
       }
 
-      // Step 7: Complete processing
-      await workflow.completeSession("Multi-event processing complete", {
-        totalEvents: totalEvents,
-        processedEvents: eventResults.length,
-        isMultiEvent: multiEventResult.isMultiEvent,
-      });
-
       return {
         events: eventResults,
         isMultiEvent: multiEventResult.isMultiEvent,
@@ -498,9 +403,6 @@ export class EventProcessingService {
         error instanceof Error
           ? error.message
           : "Unknown error processing multi-event flyer";
-      await workflow.completeSession("Multi-event processing failed", {
-        error: errorMessage,
-      });
 
       return {
         events: [],
@@ -563,49 +465,27 @@ export class EventProcessingService {
    */
   async processEventFlyer(
     imageData: Buffer | string,
-    progressCallback?: ProgressCallback,
     locationContext?: LocationContext,
-    jobId?: string,
   ): Promise<ScanResult | MultiEventScanResult> {
-    const workflow = this.createWorkflow(jobId, progressCallback);
-
     // Define total steps for this workflow
-    const TOTAL_STEPS = 2; // Detection + Processing
-    workflow.startSession(TOTAL_STEPS, "Event Flyer Processing");
 
     try {
       // Step 1: Check if image contains multiple events
-      await workflow.updateProgress(1, "Detecting event type...");
       const multiEventResult =
         await this.imageProcessingService.processMultiEventImage(imageData);
 
       // Step 2: Process based on event type
       if (multiEventResult.isMultiEvent && multiEventResult.events.length > 1) {
-        await workflow.updateProgress(2, "Processing multiple events...");
-        return await this.processMultiEventFlyer(
-          imageData,
-          progressCallback,
-          locationContext,
-          jobId,
-        );
+        return await this.processMultiEventFlyer(imageData, locationContext);
       } else {
         // If it's a single event or detection failed, process as single event
-        await workflow.updateProgress(2, "Processing single event...");
-        return await this.processFlyerFromImage(
-          imageData,
-          progressCallback,
-          locationContext,
-          jobId,
-        );
+        return await this.processFlyerFromImage(imageData);
       }
     } catch (error) {
       const errorMessage =
         error instanceof Error
           ? error.message
           : "Unknown error processing event flyer";
-      await workflow.completeSession("Event flyer processing failed", {
-        error: errorMessage,
-      });
 
       // Return a failed single event result
       return {
