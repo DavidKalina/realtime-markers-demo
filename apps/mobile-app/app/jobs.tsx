@@ -7,11 +7,17 @@ import { apiClient } from "@/services/ApiClient";
 import { JobsModule, type JobData } from "@/services/api/modules/jobs";
 import InfiniteScrollFlatList from "@/components/Layout/InfintieScrollFlatList";
 import EventSource from "react-native-sse";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  withSpring,
+} from "react-native-reanimated";
 
 interface JobItemProps {
   job: JobData;
   onRetry?: (jobId: string) => void;
-  onCancel?: (jobId: string) => void;
 }
 
 /**
@@ -54,7 +60,47 @@ const sortJobsChronologically = (jobs: JobData[]): JobData[] => {
   });
 };
 
-const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
+const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
+  // Animation values for spinning cog
+  const rotation = useSharedValue(0);
+  const progressBarWidth = useSharedValue(0);
+
+  // Start spinning animation for processing jobs
+  useEffect(() => {
+    if (job.status === "processing") {
+      rotation.value = withRepeat(
+        withTiming(360, { duration: 2000 }),
+        -1,
+        false,
+      );
+    } else {
+      rotation.value = withTiming(0, { duration: 300 });
+    }
+  }, [job.status]);
+
+  // Animate progress bar when progress changes
+  useEffect(() => {
+    const targetProgress = job.progress !== undefined ? job.progress : 0;
+    progressBarWidth.value = withSpring(targetProgress, {
+      damping: 15,
+      stiffness: 100,
+    });
+  }, [job.progress]);
+
+  // Animated style for spinning cog
+  const cogAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ rotate: `${rotation.value}deg` }],
+    };
+  });
+
+  // Animated style for progress bar
+  const progressBarAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      width: `${progressBarWidth.value}%`,
+    };
+  });
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
@@ -149,22 +195,14 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
     }
   };
 
-  const handleCancel = () => {
-    Alert.alert("Cancel Job", "Are you sure you want to cancel this job?", [
-      { text: "No", style: "cancel" },
-      {
-        text: "Yes",
-        style: "destructive",
-        onPress: () => onCancel?.(job.id),
-      },
-    ]);
-  };
-
   const eventDetails = getEventDetails();
   const jobTitle = eventDetails
     ? eventDetails.title
     : getJobTypeDisplayName(job.type);
-  const jobEmoji = eventDetails?.emoji || "⚙️";
+
+  // Use spinning cog for processing jobs, otherwise use the event emoji or default
+  const shouldShowSpinningCog = job.status === "processing";
+  const jobEmoji = shouldShowSpinningCog ? "⚙️" : eventDetails?.emoji || "⚙️";
 
   // Enhanced job description with step details
   const getJobDescription = () => {
@@ -190,50 +228,22 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
 
   const jobDescription = getJobDescription();
 
-  // Render step progress indicator
-  const renderStepProgress = () => {
+  // Render animated progress bar for overall job progress
+  const renderAnimatedProgressBar = () => {
     if (
-      !job.progressDetails ||
+      job.progress === undefined ||
       job.status === "completed" ||
       job.status === "failed"
     ) {
-      console.log(`[JobItem] Not rendering step progress for job ${job.id}:`, {
-        hasProgressDetails: !!job.progressDetails,
-        status: job.status,
-      });
       return null;
     }
 
-    const { currentStep, totalSteps, stepProgress } = job.progressDetails;
-    const currentStepNum = parseInt(currentStep, 10);
-    const totalStepsNum = totalSteps;
-
-    console.log(`[JobItem] Rendering step progress for job ${job.id}:`, {
-      currentStep: currentStepNum,
-      totalSteps: totalStepsNum,
-      stepProgress,
-      calculatedWidth: `${((currentStepNum - 1 + stepProgress / 100) / totalStepsNum) * 100}%`,
-    });
-
     return (
-      <View style={styles.stepProgressContainer}>
-        <View style={styles.stepProgressHeader}>
-          <Text style={styles.stepProgressText}>
-            Step {currentStepNum} of {totalStepsNum}
-          </Text>
-          <Text style={styles.stepProgressPercent}>{stepProgress}%</Text>
-        </View>
-        <View style={styles.stepProgressBar}>
-          <View style={styles.stepProgressTrack}>
-            <View
-              style={[
-                styles.stepProgressFill,
-                {
-                  width: `${((currentStepNum - 1 + stepProgress / 100) / totalStepsNum) * 100}%`,
-                },
-              ]}
-            />
-          </View>
+      <View style={styles.animatedProgressContainer}>
+        <View style={styles.animatedProgressTrack}>
+          <Animated.View
+            style={[styles.animatedProgressFill, progressBarAnimatedStyle]}
+          />
         </View>
       </View>
     );
@@ -244,7 +254,13 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
       <View style={styles.jobContent}>
         <View style={styles.jobHeader}>
           <View style={styles.emojiContainer}>
-            <Text style={styles.emoji}>{jobEmoji}</Text>
+            {shouldShowSpinningCog ? (
+              <Animated.Text style={[styles.emoji, cogAnimatedStyle]}>
+                {jobEmoji}
+              </Animated.Text>
+            ) : (
+              <Text style={styles.emoji}>{jobEmoji}</Text>
+            )}
           </View>
           <View style={styles.titleContainer}>
             <View style={styles.titleRow}>
@@ -267,7 +283,7 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
                 {jobDescription}
               </Text>
             )}
-            {renderStepProgress()}
+            {renderAnimatedProgressBar()}
             <View style={styles.jobFooter}>
               <View style={styles.footerLeft}>
                 <Text style={styles.jobDate}>
@@ -295,14 +311,6 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry, onCancel }) => {
                     onPress={handleRetry}
                   >
                     <Text style={styles.retryButtonText}>Retry</Text>
-                  </TouchableOpacity>
-                )}
-                {(job.status === "pending" || job.status === "processing") && (
-                  <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={handleCancel}
-                  >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -597,20 +605,6 @@ const JobsScreen: React.FC = () => {
     [jobsModule, handleRefresh],
   );
 
-  const handleCancel = useCallback(
-    async (jobId: string) => {
-      try {
-        await jobsModule.cancelJob(jobId);
-        Alert.alert("Success", "Job has been cancelled");
-        handleRefresh();
-      } catch (err) {
-        console.error("Failed to cancel job:", err);
-        Alert.alert("Error", "Failed to cancel job");
-      }
-    },
-    [jobsModule, handleRefresh],
-  );
-
   useEffect(() => {
     if (user && !initializedRef.current) {
       initializedRef.current = true;
@@ -627,15 +621,8 @@ const JobsScreen: React.FC = () => {
   }, []);
 
   const renderJobItem = useCallback(
-    (job: JobData) => (
-      <JobItem
-        key={job.id}
-        job={job}
-        onRetry={handleRetry}
-        onCancel={handleCancel}
-      />
-    ),
-    [handleRetry, handleCancel],
+    (job: JobData) => <JobItem key={job.id} job={job} onRetry={handleRetry} />,
+    [handleRetry],
   );
 
   const handleRetryAll = useCallback(() => {
@@ -849,20 +836,6 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontWeight: "600",
   },
-  cancelButton: {
-    backgroundColor: "#FF3B30",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e9ecef",
-  },
-  cancelButtonText: {
-    color: "#fff",
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-  },
   errorText: {
     fontSize: 16,
     fontWeight: "600",
@@ -870,42 +843,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 20,
   },
-  stepProgressContainer: {
-    marginBottom: 16,
+  animatedProgressContainer: {
+    marginBottom: 8,
   },
-  stepProgressHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  stepProgressText: {
-    color: "#000",
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-  },
-  stepProgressPercent: {
-    color: "#6c757d",
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
-  },
-  stepProgressBar: {
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#e9ecef",
+  animatedProgressTrack: {
+    height: 4,
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
+    borderRadius: 2,
     overflow: "hidden",
   },
-  stepProgressTrack: {
+  animatedProgressFill: {
     height: "100%",
-    borderRadius: 6,
-    backgroundColor: "transparent",
-  },
-  stepProgressFill: {
-    height: "100%",
-    borderRadius: 6,
     backgroundColor: "#007AFF",
+    borderRadius: 2,
   },
 });
 
