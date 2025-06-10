@@ -119,17 +119,21 @@ export class EventProcessingService {
   async processFlyerFromImage(
     imageData: Buffer | string,
     locationContext?: LocationContext,
+    progressCallback?: (progress: number, step: string) => void,
   ): Promise<ScanResult> {
     // Define total steps for this workflow
 
-    // Step 1: Process image
+    // Step 1: Process image (20% of AI processing)
+    progressCallback?.(20, "Processing image with AI");
     const visionResult =
       await this.imageProcessingService.processImage(imageData);
 
-    // Step 2: Extract text and analyze
+    // Step 2: Extract text and analyze (40% of AI processing)
+    progressCallback?.(40, "Extracting text from image");
     const extractedText = visionResult.rawText;
 
-    // Step 3: Extract event details
+    // Step 3: Extract event details (60% of AI processing)
+    progressCallback?.(60, "Extracting event details");
 
     const extractionResult =
       await this.eventExtractionService.extractEventDetails(
@@ -149,12 +153,14 @@ export class EventProcessingService {
       recurrenceInterval: visionResult.structuredData?.recurrenceInterval,
     };
 
-    // Step 4: Generate embedding
+    // Step 4: Generate embedding (80% of AI processing)
+    progressCallback?.(80, "Generating event embedding");
     const finalEmbedding = await this.generateEmbedding(
       eventDetailsWithCategories,
     );
 
-    // Step 5: Check for duplicates
+    // Step 5: Check for duplicates (100% of AI processing)
+    progressCallback?.(100, "Checking for duplicate events");
     const similarity =
       await this.dependencies.eventSimilarityService.findSimilarEvents(
         finalEmbedding,
@@ -466,20 +472,27 @@ export class EventProcessingService {
   async processEventFlyer(
     imageData: Buffer | string,
     locationContext?: LocationContext,
+    progressCallback?: (progress: number, step: string) => void,
   ): Promise<ScanResult | MultiEventScanResult> {
     // Define total steps for this workflow
 
     try {
-      // Step 1: Check if image contains multiple events
+      // Step 1: Check if image contains multiple events (10% of AI processing)
+      progressCallback?.(10, "Detecting event type");
       const multiEventResult =
         await this.imageProcessingService.processMultiEventImage(imageData);
 
-      // Step 2: Process based on event type
+      // Step 2: Process based on event type (90% of AI processing)
+      progressCallback?.(90, "Processing events");
       if (multiEventResult.isMultiEvent && multiEventResult.events.length > 1) {
         return await this.processMultiEventFlyer(imageData, locationContext);
       } else {
         // If it's a single event or detection failed, process as single event
-        return await this.processFlyerFromImage(imageData);
+        return await this.processFlyerFromImage(
+          imageData,
+          locationContext,
+          progressCallback,
+        );
       }
     } catch (error) {
       const errorMessage =

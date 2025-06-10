@@ -28,13 +28,6 @@ const sortJobsChronologically = (jobs: JobData[]): JobData[] => {
     (job, index, self) => index === self.findIndex((j) => j.id === job.id),
   );
 
-  // Log if duplicates were found
-  if (uniqueJobs.length !== jobs.length) {
-    console.warn(
-      `Found ${jobs.length - uniqueJobs.length} duplicate jobs, removing them`,
-    );
-  }
-
   return uniqueJobs.sort((a, b) => {
     // Get the most recent timestamp for each job
     const aTimestamp = a.updated || a.created;
@@ -275,30 +268,6 @@ const JobsScreen: React.FC = () => {
     const setupStreams = async () => {
       const currentJobs = jobsRef.current;
 
-      console.log(`[EventSource] Total jobs loaded: ${currentJobs.length}`);
-      console.log(
-        "[EventSource] All jobs:",
-        currentJobs.map((job) => ({
-          id: job.id,
-          type: job.type,
-          status: job.status,
-          progress: job.progress,
-        })),
-      );
-
-      // Debug: Log current state
-      const activeJobs = currentJobs.filter(
-        (job) => job.status === "pending" || job.status === "processing",
-      );
-      console.log(
-        `[EventSource] Setup check - Active jobs: ${activeJobs.length}, Current streams: ${streamsSetupRef.current.size}`,
-      );
-      activeJobs.forEach((job) => {
-        console.log(
-          `[EventSource] Active job: ${job.id} (${job.status}) - Has stream: ${streamsSetupRef.current.has(job.id)}`,
-        );
-      });
-
       // Get current active job IDs that need streaming
       const activeJobIds = new Set(
         currentJobs
@@ -308,14 +277,9 @@ const JobsScreen: React.FC = () => {
           .map((job) => job.id),
       );
 
-      console.log("[EventSource] Active job IDs:", Array.from(activeJobIds));
-
       // Close streams for jobs that are no longer active
       for (const [jobId, stream] of eventSourceRefs.current.entries()) {
         if (!activeJobIds.has(jobId)) {
-          console.log(
-            `[EventSource] Closing stream for completed/failed job: ${jobId}`,
-          );
           stream.close();
           eventSourceRefs.current.delete(jobId);
           streamsSetupRef.current.delete(jobId);
@@ -328,9 +292,6 @@ const JobsScreen: React.FC = () => {
           (job.status === "pending" || job.status === "processing") &&
           !streamsSetupRef.current.has(job.id)
         ) {
-          console.log(
-            `[EventSource] Setting up stream for job: ${job.id} (${job.status})`,
-          );
           streamsSetupRef.current.add(job.id);
 
           try {
@@ -341,37 +302,16 @@ const JobsScreen: React.FC = () => {
                 ? `${apiClient.baseUrl}/api/jobs/${job.id}/stream?token=${encodeURIComponent(accessToken as string)}`
                 : `${apiClient.baseUrl}/api/jobs/${job.id}/stream`;
 
-            console.log(
-              `[EventSource] Creating stream for job ${job.id} with URL:`,
-              url,
-            );
-
             const stream = new EventSource(url);
 
             // Use addEventListener for react-native-sse
             stream.addEventListener("message", (event) => {
               try {
-                console.log(
-                  `[EventSource] Raw message received for job ${job.id}:`,
-                  event,
-                );
-
                 if (!event.data) {
-                  console.warn(
-                    `[EventSource] Received null/empty data for job ${job.id}`,
-                  );
                   return;
                 }
 
-                console.log(
-                  `[EventSource] Parsing data for job ${job.id}:`,
-                  event.data,
-                );
                 const data = JSON.parse(event.data);
-                console.log(
-                  `[EventSource] Parsed update for job ${job.id}:`,
-                  data,
-                );
 
                 setJobs((prev) => {
                   // Check if job already exists
@@ -382,14 +322,23 @@ const JobsScreen: React.FC = () => {
                   if (existingJobIndex >= 0) {
                     const currentJob = prev[existingJobIndex];
 
-                    // Only update if there are actual changes
-                    if (
-                      currentJob.status !== data.status ||
-                      currentJob.progress !== data.progress ||
-                      currentJob.progressStep !== data.progressStep ||
-                      currentJob.error !== data.error ||
+                    // Always update if progress has changed (even by small amounts)
+                    const progressChanged =
+                      currentJob.progress !== data.progress;
+                    const statusChanged = currentJob.status !== data.status;
+                    const stepChanged =
+                      currentJob.progressStep !== data.progressStep;
+                    const errorChanged = currentJob.error !== data.error;
+                    const resultChanged =
                       JSON.stringify(currentJob.result) !==
-                        JSON.stringify(data.result)
+                      JSON.stringify(data.result);
+
+                    if (
+                      progressChanged ||
+                      statusChanged ||
+                      stepChanged ||
+                      errorChanged ||
+                      resultChanged
                     ) {
                       // Update existing job
                       const updatedJobs = [...prev];
@@ -404,64 +353,34 @@ const JobsScreen: React.FC = () => {
                         result: data.result,
                         updated: new Date().toISOString(),
                       };
-                      console.log(
-                        `[EventSource] Updated job ${job.id}, total jobs: ${updatedJobs.length}`,
-                      );
                       return sortJobsChronologically(updatedJobs);
-                    } else {
-                      console.log(
-                        `[EventSource] No changes detected for job ${job.id}`,
-                      );
                     }
-                  } else {
-                    // Job doesn't exist, this shouldn't happen but handle gracefully
-                    console.warn(
-                      `[EventSource] Job ${job.id} not found in current jobs list`,
-                    );
                   }
                   return prev;
                 });
 
                 // Close connection if job is completed or failed
                 if (data.status === "completed" || data.status === "failed") {
-                  console.log(
-                    `[EventSource] Job ${job.id} completed/failed, closing stream`,
-                  );
                   stream.close();
                   streamsSetupRef.current.delete(job.id);
                   eventSourceRefs.current.delete(job.id);
                 }
               } catch (error) {
                 console.error(
-                  `[EventSource] Error parsing SSE data for job ${job.id}:`,
+                  `Error parsing SSE data for job ${job.id}:`,
                   error,
                 );
-                console.error("[EventSource] Raw event data:", event);
               }
             });
 
             stream.addEventListener("error", (event) => {
-              console.error(
-                `[EventSource] Stream error for job ${job.id}:`,
-                event,
-              );
-              console.error("[EventSource] Error event details:", {
-                type: event.type,
-                event: event,
-              });
+              console.error(`Stream error for job ${job.id}:`, event);
               // Remove from tracking on error
               streamsSetupRef.current.delete(job.id);
               eventSourceRefs.current.delete(job.id);
             });
 
-            stream.addEventListener("open", () => {
-              console.log(`[EventSource] Stream opened for job: ${job.id}`);
-            });
-
             eventSourceRefs.current.set(job.id, stream);
-            console.log(
-              `[EventSource] Successfully created stream for job: ${job.id}`,
-            );
           } catch (error) {
             console.error(`Failed to create stream for job ${job.id}:`, error);
             // Remove from tracking on error
@@ -469,11 +388,6 @@ const JobsScreen: React.FC = () => {
           }
         }
       }
-
-      // Debug: Log final state
-      console.log(
-        `[EventSource] Setup complete - Active streams: ${streamsSetupRef.current.size}`,
-      );
     };
 
     setupStreams();
@@ -485,7 +399,6 @@ const JobsScreen: React.FC = () => {
 
     const refreshInterval = setInterval(async () => {
       try {
-        console.log("[AutoRefresh] Checking for new jobs...");
         const response = await jobsModule.getUserJobs(50);
         const newJobs = response.jobs;
 
@@ -504,51 +417,10 @@ const JobsScreen: React.FC = () => {
             Array.from(jobsMap.values()),
           );
 
-          const prevCount = prev.length;
-          const newCount = sortedJobs.length;
-
-          if (newCount > prevCount) {
-            const newJobIds = sortedJobs
-              .filter((job) => !prev.some((p) => p.id === job.id))
-              .map((job) => job.id);
-
-            console.log(
-              `[AutoRefresh] Found ${newCount - prevCount} new jobs!`,
-            );
-            console.log("[AutoRefresh] New job IDs:", newJobIds);
-            console.log(
-              "[AutoRefresh] New jobs details:",
-              sortedJobs
-                .filter((job) => newJobIds.includes(job.id))
-                .map((job) => ({
-                  id: job.id,
-                  type: job.type,
-                  status: job.status,
-                  creatorId: job.data?.creatorId,
-                  userMatch: job.data?.creatorId === user?.id,
-                })),
-            );
-
-            // Check if any new jobs are active and need SSE streams
-            const newActiveJobs = sortedJobs
-              .filter((job) => newJobIds.includes(job.id))
-              .filter(
-                (job) =>
-                  job.status === "pending" || job.status === "processing",
-              );
-
-            if (newActiveJobs.length > 0) {
-              console.log(
-                `[AutoRefresh] ${newActiveJobs.length} new active jobs need SSE streams:`,
-                newActiveJobs.map((job) => job.id),
-              );
-            }
-          }
-
           return sortedJobs;
         });
       } catch (error) {
-        console.error("[AutoRefresh] Failed to check for new jobs:", error);
+        console.error("Failed to check for new jobs:", error);
       }
     }, 5000); // Check every 5 seconds
 
@@ -566,59 +438,8 @@ const JobsScreen: React.FC = () => {
         const response = await jobsModule.getUserJobs(50);
         const newJobs = response.jobs;
 
-        // Debug logging to check job structure
-        console.log("Fetched jobs:", newJobs);
-        console.log(
-          "[fetchJobs] Job statuses:",
-          newJobs.map((job) => ({
-            id: job.id,
-            type: job.type,
-            status: job.status,
-            progress: job.progress,
-          })),
-        );
-
-        if (newJobs && newJobs.length > 0) {
-          console.log(
-            "First job structure:",
-            JSON.stringify(newJobs[0], null, 2),
-          );
-          console.log(
-            "Job IDs:",
-            newJobs.map((job) => job?.id),
-          );
-
-          // Log emoji information for completed jobs
-          newJobs.forEach((job, index) => {
-            if (job.status === "completed" && job.result) {
-              const eventDetails = job.data?.eventDetails as
-                | { emoji?: string }
-                | undefined;
-              console.log(`Job ${index + 1} (${job.id}):`, {
-                type: job.type,
-                status: job.status,
-                resultEmoji: job.result.emoji,
-                resultTitle: job.result.title,
-                eventDetailsEmoji: eventDetails?.emoji,
-              });
-            }
-          });
-
-          // Check for duplicates in fetched jobs
-          const jobIds = newJobs.map((job) => job.id);
-          const uniqueJobIds = [...new Set(jobIds)];
-          if (jobIds.length !== uniqueJobIds.length) {
-            console.warn(
-              `[fetchJobs] Found ${jobIds.length - uniqueJobIds.length} duplicate job IDs in fetched data`,
-            );
-          }
-        }
-
         if (refresh || page === 1) {
           const sortedJobs = sortJobsChronologically(newJobs);
-          console.log(
-            `[fetchJobs] Setting ${sortedJobs.length} jobs (refresh/page 1)`,
-          );
           setJobs(sortedJobs);
         } else {
           setJobs((prev) => {
@@ -634,9 +455,6 @@ const JobsScreen: React.FC = () => {
             // Convert back to array and sort
             const sortedJobs = sortJobsChronologically(
               Array.from(jobsMap.values()),
-            );
-            console.log(
-              `[fetchJobs] Updated jobs: ${prev.length} -> ${sortedJobs.length} (page ${page})`,
             );
             return sortedJobs;
           });
@@ -725,154 +543,6 @@ const JobsScreen: React.FC = () => {
     fetchJobs();
   }, [fetchJobs]);
 
-  // Manual trigger to test stream setup
-  const handleManualStreamSetup = useCallback(() => {
-    console.log("[Manual] Triggering manual stream setup");
-    const currentJobs = jobsRef.current;
-    const activeJobs = currentJobs.filter(
-      (job) => job.status === "pending" || job.status === "processing",
-    );
-
-    console.log(
-      `[Manual] Found ${activeJobs.length} active jobs:`,
-      activeJobs.map((job) => `${job.id} (${job.status})`),
-    );
-
-    // Debug: Log detailed job information
-    console.log("[Manual] Detailed job information:");
-    currentJobs.forEach((job, index) => {
-      console.log(`[Manual] Job ${index + 1}:`, {
-        id: job.id,
-        type: job.type,
-        status: job.status,
-        creatorId: job.data?.creatorId,
-        userMatch: job.data?.creatorId === user?.id,
-        hasData: !!job.data,
-        dataKeys: job.data ? Object.keys(job.data) : [],
-      });
-    });
-
-    // If no active jobs, create a test connection to a dummy job
-    if (activeJobs.length === 0) {
-      console.log("[Manual] No active jobs found, testing with dummy job");
-      const testJobId = "test-job-123";
-
-      apiClient.getAccessToken().then((accessToken) => {
-        const url =
-          accessToken !== null
-            ? `${apiClient.baseUrl}/api/jobs/${testJobId}/stream?token=${encodeURIComponent(accessToken as string)}`
-            : `${apiClient.baseUrl}/api/jobs/${testJobId}/stream`;
-
-        console.log("[Manual] Testing SSE connection with URL:", url);
-
-        const stream = new EventSource(url);
-
-        stream.addEventListener("message", (event) => {
-          console.log("[Manual] Test stream received message:", event);
-        });
-
-        stream.addEventListener("error", (event) => {
-          console.log("[Manual] Test stream error:", event);
-        });
-
-        stream.addEventListener("open", () => {
-          console.log("[Manual] Test stream opened successfully");
-        });
-      });
-      return;
-    }
-
-    activeJobs.forEach((job) => {
-      if (!streamsSetupRef.current.has(job.id)) {
-        console.log(`[Manual] Setting up stream for job: ${job.id}`);
-        streamsSetupRef.current.add(job.id);
-
-        // Create EventSource stream using react-native-sse
-        apiClient.getAccessToken().then((accessToken) => {
-          const url =
-            accessToken !== null
-              ? `${apiClient.baseUrl}/api/jobs/${job.id}/stream?token=${encodeURIComponent(accessToken as string)}`
-              : `${apiClient.baseUrl}/api/jobs/${job.id}/stream`;
-
-          const stream = new EventSource(url);
-
-          stream.addEventListener("message", (event) => {
-            try {
-              if (!event.data) {
-                console.warn(
-                  `[Manual] Received null/empty data for job ${job.id}`,
-                );
-                return;
-              }
-              const data = JSON.parse(event.data);
-              console.log(`[Manual] Received update for job ${job.id}:`, data);
-
-              setJobs((prev) => {
-                const existingJobIndex = prev.findIndex((j) => j.id === job.id);
-                if (existingJobIndex >= 0) {
-                  const currentJob = prev[existingJobIndex];
-
-                  // Only update if there are actual changes
-                  if (
-                    currentJob.status !== data.status ||
-                    currentJob.progress !== data.progress ||
-                    currentJob.progressStep !== data.progressStep ||
-                    currentJob.error !== data.error ||
-                    JSON.stringify(currentJob.result) !==
-                      JSON.stringify(data.result)
-                  ) {
-                    const updatedJobs = [...prev];
-                    updatedJobs[existingJobIndex] = {
-                      ...updatedJobs[existingJobIndex],
-                      status:
-                        data.status || updatedJobs[existingJobIndex].status,
-                      progress: data.progress,
-                      progressStep: data.progressStep,
-                      progressDetails: data.progressDetails,
-                      error: data.error,
-                      result: data.result,
-                      updated: new Date().toISOString(),
-                    };
-                    return sortJobsChronologically(updatedJobs);
-                  }
-                }
-                return prev;
-              });
-
-              // Close connection if job is completed or failed
-              if (data.status === "completed" || data.status === "failed") {
-                console.log(
-                  `[Manual] Job ${job.id} completed/failed, closing stream`,
-                );
-                stream.close();
-                streamsSetupRef.current.delete(job.id);
-                eventSourceRefs.current.delete(job.id);
-              }
-            } catch (error) {
-              console.error(
-                `[Manual] Error parsing SSE data for job ${job.id}:`,
-                error,
-              );
-            }
-          });
-
-          stream.addEventListener("error", (event) => {
-            console.error(`[Manual] Stream error for job ${job.id}:`, event);
-            streamsSetupRef.current.delete(job.id);
-            eventSourceRefs.current.delete(job.id);
-          });
-
-          eventSourceRefs.current.set(job.id, stream);
-          console.log(
-            `[Manual] Successfully created stream for job: ${job.id}`,
-          );
-        });
-      } else {
-        console.log(`[Manual] Stream already exists for job: ${job.id}`);
-      }
-    });
-  }, []);
-
   if (!user) {
     return (
       <View style={styles.container}>
@@ -903,268 +573,6 @@ const JobsScreen: React.FC = () => {
           />
         </TouchableOpacity>
       </View>
-
-      {/* Debug section - remove in production */}
-      {__DEV__ && (
-        <View style={styles.debugSection}>
-          <Text style={styles.debugTitle}>Debug Info:</Text>
-          <Text style={styles.debugText}>Total Jobs: {jobs.length}</Text>
-          <Text style={styles.debugText}>
-            Active SSE Streams: {streamsSetupRef.current.size}
-          </Text>
-          <Text style={styles.debugText}>
-            Active Jobs:{" "}
-            {
-              jobs.filter(
-                (job) =>
-                  job.status === "pending" || job.status === "processing",
-              ).length
-            }
-          </Text>
-          <Text style={styles.debugText}>
-            Current User ID: {user?.id || "Not logged in"}
-          </Text>
-          <Text style={styles.debugText}>
-            Jobs with Creator ID:{" "}
-            {jobs.filter((job) => job.data?.creatorId).length}
-          </Text>
-          <Text style={styles.debugText}>
-            Jobs matching user:{" "}
-            {jobs.filter((job) => job.data?.creatorId === user?.id).length}
-          </Text>
-          <TouchableOpacity
-            style={styles.debugButton}
-            onPress={handleManualStreamSetup}
-          >
-            <Text style={styles.debugButtonText}>
-              Setup SSE for Active Jobs
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.debugButton}
-            onPress={async () => {
-              console.log("[ManualRefresh] Manually checking for new jobs...");
-              try {
-                const response = await jobsModule.getUserJobs(50);
-                const newJobs = response.jobs;
-
-                setJobs((prev) => {
-                  const jobsMap = new Map<string, JobData>();
-                  prev.forEach((job) => jobsMap.set(job.id, job));
-                  newJobs.forEach((job) => jobsMap.set(job.id, job));
-
-                  const sortedJobs = sortJobsChronologically(
-                    Array.from(jobsMap.values()),
-                  );
-
-                  const prevCount = prev.length;
-                  const newCount = sortedJobs.length;
-
-                  if (newCount > prevCount) {
-                    console.log(
-                      `[ManualRefresh] Found ${newCount - prevCount} new jobs!`,
-                    );
-                    console.log(
-                      "[ManualRefresh] New job IDs:",
-                      sortedJobs
-                        .filter((job) => !prev.some((p) => p.id === job.id))
-                        .map((job) => job.id),
-                    );
-                  } else {
-                    console.log("[ManualRefresh] No new jobs found");
-                  }
-
-                  return sortedJobs;
-                });
-              } catch (error) {
-                console.error(
-                  "[ManualRefresh] Failed to check for new jobs:",
-                  error,
-                );
-              }
-            }}
-          >
-            <Text style={styles.debugButtonText}>Check for New Jobs</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.debugButton}
-            onPress={() => {
-              console.log("[Test] Testing SSE connection...");
-              const testJobId = "test-job-123";
-              apiClient.getAccessToken().then((accessToken) => {
-                const url =
-                  accessToken !== null
-                    ? `${apiClient.baseUrl}/api/jobs/${testJobId}/stream?token=${encodeURIComponent(accessToken as string)}`
-                    : `${apiClient.baseUrl}/api/jobs/${testJobId}/stream`;
-
-                console.log("[Test] SSE URL:", url);
-                console.log(
-                  "[Test] Access token:",
-                  accessToken ? "present" : "missing",
-                );
-
-                const stream = new EventSource(url);
-
-                stream.addEventListener("message", (event) => {
-                  console.log("[Test] SSE message received:", event);
-                });
-
-                stream.addEventListener("error", (event) => {
-                  console.log("[Test] SSE error:", event);
-                });
-
-                stream.addEventListener("open", () => {
-                  console.log("[Test] SSE connection opened");
-                });
-              });
-            }}
-          >
-            <Text style={styles.debugButtonText}>Test SSE Connection</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.debugButton}
-            onPress={() => {
-              apiClient.getAccessToken().then((accessToken) => {
-                console.log(
-                  "[Postman] Use this structure for Postman requests:",
-                );
-                console.log(
-                  "[Postman] URL:",
-                  `${apiClient.baseUrl}/api/events/private`,
-                );
-                console.log("[Postman] Method: POST");
-                console.log("[Postman] Headers:", {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${accessToken}`,
-                });
-                console.log(
-                  "[Postman] Body:",
-                  JSON.stringify(
-                    {
-                      title: "Test Event from Postman",
-                      date: new Date(
-                        Date.now() + 24 * 60 * 60 * 1000,
-                      ).toISOString(),
-                      location: {
-                        type: "Point",
-                        coordinates: [-122.4194, 37.7749],
-                      },
-                      address: "123 Test St, San Francisco, CA",
-                      description: "Test event created from Postman",
-                      emoji: "📱",
-                      sharedWithIds: [],
-                    },
-                    null,
-                    2,
-                  ),
-                );
-                console.log("[Postman] Current User ID:", user?.id);
-                console.log(
-                  "[Postman] Access Token:",
-                  accessToken ? "Present" : "Missing",
-                );
-              });
-            }}
-          >
-            <Text style={styles.debugButtonText}>Show Postman Structure</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.debugButton}
-            onPress={async () => {
-              console.log("[Test] Creating test job...");
-              try {
-                const response = await fetch(
-                  `${apiClient.baseUrl}/api/events/private`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${await apiClient.getAccessToken()}`,
-                    },
-                    body: JSON.stringify({
-                      title: "Test Job for SSE",
-                      date: new Date(
-                        Date.now() + 24 * 60 * 60 * 1000,
-                      ).toISOString(),
-                      location: {
-                        type: "Point",
-                        coordinates: [-122.4194, 37.7749],
-                      },
-                      address: "123 Test St, San Francisco, CA",
-                      description: "Test job to verify SSE streaming",
-                      emoji: "🧪",
-                      sharedWithIds: [],
-                    }),
-                  },
-                );
-
-                const result = await response.json();
-                console.log("[Test] Job creation result:", result);
-
-                if (result.jobId) {
-                  console.log("[Test] Job created successfully:", result.jobId);
-                  // Refresh jobs to see the new job
-                  handleRefresh();
-                }
-              } catch (error) {
-                console.error("[Test] Failed to create job:", error);
-              }
-            }}
-          >
-            <Text style={styles.debugButtonText}>Create Test Job</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.debugButton}
-            onPress={() => {
-              console.log("[Debug] Current job state:");
-              console.log("[Debug] Total jobs:", jobs.length);
-              console.log(
-                "[Debug] Active SSE streams:",
-                streamsSetupRef.current.size,
-              );
-              console.log("[Debug] Current user ID:", user?.id);
-
-              jobs.forEach((job, index) => {
-                console.log(`[Debug] Job ${index + 1}:`, {
-                  id: job.id,
-                  type: job.type,
-                  status: job.status,
-                  creatorId: job.data?.creatorId,
-                  userMatch: job.data?.creatorId === user?.id,
-                  hasSSEStream: streamsSetupRef.current.has(job.id),
-                  isActive:
-                    job.status === "pending" || job.status === "processing",
-                });
-              });
-
-              const activeJobs = jobs.filter(
-                (job) =>
-                  job.status === "pending" || job.status === "processing",
-              );
-
-              console.log("[Debug] Active jobs:", activeJobs.length);
-              console.log(
-                "[Debug] Active jobs with SSE streams:",
-                activeJobs.filter((job) => streamsSetupRef.current.has(job.id))
-                  .length,
-              );
-
-              const jobsNeedingStreams = activeJobs.filter(
-                (job) => !streamsSetupRef.current.has(job.id),
-              );
-
-              if (jobsNeedingStreams.length > 0) {
-                console.log(
-                  "[Debug] Jobs needing SSE streams:",
-                  jobsNeedingStreams.map((job) => job.id),
-                );
-              }
-            }}
-          >
-            <Text style={styles.debugButtonText}>Debug Job State</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       <InfiniteScrollFlatList
         data={jobs}
@@ -1362,37 +770,6 @@ const styles = StyleSheet.create({
     color: "#e74c3c",
     textAlign: "center",
     marginTop: 20,
-  },
-  debugSection: {
-    padding: 16,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#e9ecef",
-  },
-  debugTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000",
-    marginBottom: 8,
-  },
-  debugText: {
-    fontSize: 14,
-    color: "#6c757d",
-    marginBottom: 4,
-  },
-  debugButton: {
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 8,
-    alignItems: "center",
-  },
-  debugButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
   },
 });
 
