@@ -16,12 +16,15 @@ import Animated, {
   withTiming,
   Easing,
   cancelAnimation,
+  withSequence,
+  withSpring,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
 import XPBar from "./XPBar";
+import { COLORS } from "../Layout/ScreenLayout";
 
 interface StatusBarProps {
   backgroundColor?: string;
@@ -41,12 +44,36 @@ const StatusBar: React.FC<StatusBarProps> = ({
   const cogOpacity = useSharedValue(0);
   const cogScale = useSharedValue(0.8);
 
+  // Animation value for jobs icon
+  const jobsIconScale = useSharedValue(1);
+
   // Check if there are any processing jobs
   const hasProcessingJobs = useMemo(() => {
     return jobs.some(
       (job) => job.status === "pending" || job.status === "processing",
     );
   }, [jobs]);
+
+  // Check if there are any jobs
+  const hasJobs = useMemo(() => {
+    return jobs.length > 0;
+  }, [jobs]);
+
+  // Handle jobs icon press animation
+  const handleJobsPress = () => {
+    jobsIconScale.value = withSequence(
+      withTiming(0.95, { duration: 100 }),
+      withSpring(1, { damping: 15, stiffness: 200 }),
+    );
+    router.push("/jobs");
+  };
+
+  // Animated styles for the jobs icon
+  const jobsIconAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: jobsIconScale.value }],
+    };
+  });
 
   // Animate cog when processing jobs
   useEffect(() => {
@@ -125,10 +152,18 @@ const StatusBar: React.FC<StatusBarProps> = ({
         </Animated.View>
 
         <TouchableOpacity
-          onPress={() => router.push("/jobs")}
+          onPress={handleJobsPress}
           style={styles.jobsIconContainer}
         >
-          <Ionicons name="briefcase" size={24} color="#0f172a" />
+          <Animated.View
+            style={[
+              styles.jobsIconWrapper,
+              jobsIconAnimatedStyle,
+              hasJobs && styles.jobsIconWrapperActive,
+            ]}
+          >
+            <Ionicons name="briefcase" size={16} color={COLORS.textPrimary} />
+          </Animated.View>
         </TouchableOpacity>
       </View>
       <View style={styles.discoveryContainer}>
@@ -152,11 +187,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   usernameContainer: {
     flex: 1,
+    marginRight: 8,
   },
   username: {
     color: "#0f172a", // Updated to dark text for light theme
@@ -165,11 +201,30 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
   },
   cogContainer: {
-    marginRight: 8,
-    padding: 4,
+    marginRight: 12,
+    padding: 2,
   },
   jobsIconContainer: {
-    padding: 8,
+    padding: 4,
+  },
+  jobsIconWrapper: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: COLORS.buttonBackground,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  jobsIconWrapperActive: {
+    backgroundColor: "rgba(0, 0, 0, 0.08)",
+    borderColor: "rgba(0, 0, 0, 0.15)",
   },
   discoveryContainer: {
     position: "absolute",
