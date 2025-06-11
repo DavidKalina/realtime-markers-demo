@@ -1,4 +1,5 @@
 import { useOnboarding } from "@/contexts/OnboardingContext";
+import { COLORS } from "@/components/Layout/ScreenLayout";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -141,7 +142,7 @@ export const OnboardingScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: COLORS.background,
     padding: 20,
   },
   content: {
@@ -153,11 +154,11 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 24,
-    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    backgroundColor: COLORS.cardBackgroundAlt,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.2)",
+    borderColor: COLORS.buttonBorder,
     marginBottom: 32,
   },
   emoji: {
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#f8f9fa",
+    color: COLORS.textPrimary,
     textAlign: "center",
     marginBottom: 20,
     fontFamily: "SpaceMono",
@@ -174,7 +175,7 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 16,
-    color: "#a0a0a0",
+    color: COLORS.textSecondary,
     textAlign: "center",
     paddingHorizontal: 20,
     fontFamily: "SpaceMono",
@@ -190,7 +191,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   skipText: {
-    color: "#a0a0a0",
+    color: COLORS.textSecondary,
     fontSize: 16,
     fontFamily: "SpaceMono",
   },
@@ -203,21 +204,21 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#2a2a2a",
+    backgroundColor: COLORS.buttonBackground,
     marginHorizontal: 5,
   },
   activeStepDot: {
-    backgroundColor: "#93c5fd",
+    backgroundColor: COLORS.accent,
   },
   nextButton: {
-    backgroundColor: "#93c5fd",
+    backgroundColor: COLORS.accent,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 20,
     minWidth: 100,
   },
   nextText: {
-    color: "#1a1a1a",
+    color: COLORS.cardBackground,
     fontSize: 16,
     fontWeight: "600",
     fontFamily: "SpaceMono",
