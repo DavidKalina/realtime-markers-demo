@@ -518,7 +518,7 @@ const Login: React.FC = () => {
       <SafeAreaView style={styles.container}>
         <AnimatedMapBackground settings={{ styleURL: mapStyle }} />
         <StatusBar
-          barStyle="dark-content"
+          barStyle="light-content"
           backgroundColor={COLORS.background}
         />
 

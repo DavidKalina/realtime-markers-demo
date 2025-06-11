@@ -357,7 +357,10 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
 
     return (
       <ScreenLayout>
-        <StatusBar barStyle="dark-content" />
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor={COLORS.textPrimary}
+        />
 
         {/* Header with back button and action buttons */}
         <Header

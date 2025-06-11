@@ -1,9 +1,9 @@
-// scan.tsx - Updated version with shared layout components
+// scan.tsx - Refactored to use Screen.tsx pattern
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import { ImagePoofIntoEmojiTransformation } from "@/components/ImagePoofIntoEmojiTransformation/ImagePoofIntoEmojiTransformation";
-import Header from "@/components/Layout/Header";
-import ScreenLayout, { COLORS } from "@/components/Layout/ScreenLayout";
+import Screen from "@/components/Layout/Screen";
+import { COLORS } from "@/components/Layout/ScreenLayout";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
 import { useEventBroker } from "@/hooks/useEventBroker";
@@ -470,36 +470,46 @@ export default function ScanScreen() {
   // Loading state while checking permissions
   if (hasPermission === null) {
     return (
-      <ScreenLayout>
+      <Screen
+        bannerTitle="Scan Document"
+        showBackButton={false}
+        isScrollable={false}
+        noSafeArea={false}
+      >
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.loaderText}>Checking camera permissions...</Text>
         </View>
-      </ScreenLayout>
+      </Screen>
     );
   }
 
   // Loading state while checking plan details
   if (isCheckingPlan) {
     return (
-      <ScreenLayout>
+      <Screen
+        bannerTitle="Scan Document"
+        showBackButton={false}
+        isScrollable={false}
+        noSafeArea={false}
+      >
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.loaderText}>Checking scan limits...</Text>
         </View>
-      </ScreenLayout>
+      </Screen>
     );
   }
 
   // Image preview mode (for both camera captured and gallery selected images)
   if (capturedImage) {
     return (
-      <ScreenLayout>
-        <Header
-          title={`Processing ${imageSource === "gallery" ? "Gallery Image" : "Document"}`}
-          onBack={handleCancel}
-        />
-
+      <Screen
+        bannerTitle={`Processing ${imageSource === "gallery" ? "Gallery Image" : "Document"}`}
+        onBack={handleCancel}
+        isScrollable={false}
+        noSafeArea={false}
+      >
         {/* Content area with transformation animation */}
         <View style={styles.contentArea}>
           <ImagePoofIntoEmojiTransformation
@@ -510,15 +520,19 @@ export default function ScanScreen() {
 
         {/* Empty view to maintain same layout structure */}
         <View style={styles.controlsContainer} />
-      </ScreenLayout>
+      </Screen>
     );
   }
 
   // Main camera view
   return (
-    <ScreenLayout>
-      <Header title="Scan Document" onBack={handleBack} />
-
+    <Screen
+      bannerEmoji="📸"
+      bannerTitle="Scan"
+      onBack={handleBack}
+      isScrollable={false}
+      noSafeArea={false}
+    >
       {/* Camera container with fixed dimensions */}
       <View style={styles.contentArea}>
         <Animated.View
@@ -617,7 +631,7 @@ export default function ScanScreen() {
           </Animated.View>
         )}
       </View>
-    </ScreenLayout>
+    </Screen>
   );
 }
 

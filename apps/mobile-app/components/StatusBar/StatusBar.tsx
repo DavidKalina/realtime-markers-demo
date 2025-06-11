@@ -67,7 +67,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
   return (
     <View style={containerStyle}>
       <RNStatusBar
-        barStyle="dark-content" // Changed to dark-content for light theme
+        barStyle="light-content" // Changed to light-content for light theme
         backgroundColor={backgroundColor}
         translucent
       />
