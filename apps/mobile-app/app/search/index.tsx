@@ -84,7 +84,7 @@ const SearchListScreen = () => {
       case "popular":
         return "Popular Events";
       default:
-        return "Search Events";
+        return "Search";
     }
   };
 

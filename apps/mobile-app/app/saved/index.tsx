@@ -132,7 +132,7 @@ const SavedListScreen = () => {
   return (
     <Screen
       isScrollable={false}
-      bannerTitle="Saved Events"
+      bannerTitle="Saved"
       bannerEmoji="🔖"
       showBackButton
       onBack={handleBack}
