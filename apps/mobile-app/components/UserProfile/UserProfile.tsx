@@ -81,7 +81,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   return (
     <>
       <Screen
-        bannerTitle={user?.displayName || user?.email || ""}
+        bannerTitle={profileData?.displayName || user?.email || ""}
         bannerDescription={profileData?.bio || "View your profile details"}
         bannerEmoji="👤"
         showBackButton={true}
