@@ -1,7 +1,6 @@
 // scan.tsx - Refactored to use Screen.tsx pattern
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
-import { ImagePoofIntoEmojiTransformation } from "@/components/ImagePoofIntoEmojiTransformation/ImagePoofIntoEmojiTransformation";
 import Screen from "@/components/Layout/Screen";
 import { COLORS } from "@/components/Layout/ScreenLayout";
 import { useUserLocation } from "@/contexts/LocationContext";
@@ -53,7 +52,6 @@ export default function ScanScreen() {
 
   const router = useRouter();
   const [isUploading, setIsUploading] = useState(false);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [imageSource, setImageSource] = useState<ImageSource>(null);
   const isMounted = useRef(true);
 
@@ -102,7 +100,6 @@ export default function ScanScreen() {
 
     // Reset all state
     setIsUploading(false);
-    setCapturedImage(null);
     setImageSource(null);
     uploadRetryCount.current = 0;
 
@@ -133,12 +130,6 @@ export default function ScanScreen() {
     };
   }, [performFullCleanup]);
 
-  // Handle cancellation with cleanup
-  const handleCancel = useCallback(() => {
-    if (!isMounted.current) return;
-    performFullCleanup();
-  }, [performFullCleanup]);
-
   // Back button handler with enhanced cleanup
   const handleBack = useCallback(() => {
     if (!isMounted.current) return;
@@ -146,23 +137,12 @@ export default function ScanScreen() {
     router.replace("/");
   }, [performFullCleanup, router]);
 
-  // Queue job and navigate after animation completes
-  const queueJobAndNavigateDelayed = useCallback(
-    (jobId: string) => {
-      if (!jobId || !isMounted.current) return;
-
-      // Publish job queued event
-      publish(EventTypes.JOB_QUEUED, {
-        timestamp: Date.now(),
-        source: "ScanScreen",
-        jobId: jobId,
-        message: "Document scan queued for processing",
-      });
-
-      // We'll let the animation's onAnimationComplete handle the navigation
-    },
-    [publish],
-  );
+  // Navigate to jobs screen after successful upload
+  const navigateToJobs = useCallback(() => {
+    if (!isMounted.current) return;
+    performFullCleanup();
+    router.replace("/jobs");
+  }, [performFullCleanup, router]);
 
   // Check if network is suitable for upload
   const isNetworkSuitable = useCallback(() => {
@@ -212,7 +192,16 @@ export default function ScanScreen() {
       });
 
       if (result.jobId && isMounted.current) {
-        queueJobAndNavigateDelayed(result.jobId);
+        // Publish job queued event
+        publish(EventTypes.JOB_QUEUED, {
+          timestamp: Date.now(),
+          source: "ScanScreen",
+          jobId: result.jobId,
+          message: "Document scan queued for processing",
+        });
+
+        // Navigate to jobs screen after successful upload
+        navigateToJobs();
         return result.jobId;
       } else {
         throw new Error("No job ID returned");
@@ -255,13 +244,6 @@ export default function ScanScreen() {
       }
     }
   };
-
-  // Handle animation completion
-  const handleAnimationComplete = useCallback(() => {
-    if (!isMounted.current) return;
-    performFullCleanup();
-    router.replace("/jobs");
-  }, [performFullCleanup, router]);
 
   // Handle camera permission granted
   const handlePermissionGranted = useCallback(() => {
@@ -365,8 +347,7 @@ export default function ScanScreen() {
         throw new Error("Failed to capture image");
       }
 
-      // Show the captured image
-      setCapturedImage(photoUri);
+      // Set image source
       setImageSource("camera");
 
       // Start upload process
@@ -391,7 +372,6 @@ export default function ScanScreen() {
           [{ text: "OK" }],
         );
 
-        setCapturedImage(null);
         setImageSource(null);
         setIsUploading(false);
       }
@@ -419,8 +399,7 @@ export default function ScanScreen() {
     }
 
     try {
-      // Show the selected image
-      setCapturedImage(uri);
+      // Set image source
       setImageSource("gallery");
 
       // Start upload process
@@ -445,7 +424,6 @@ export default function ScanScreen() {
           [{ text: "OK" }],
         );
 
-        setCapturedImage(null);
         setImageSource(null);
         setIsUploading(false);
       }
@@ -497,29 +475,6 @@ export default function ScanScreen() {
           <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.loaderText}>Checking scan limits...</Text>
         </View>
-      </Screen>
-    );
-  }
-
-  // Image preview mode (for both camera captured and gallery selected images)
-  if (capturedImage) {
-    return (
-      <Screen
-        bannerTitle={`Processing ${imageSource === "gallery" ? "Gallery Image" : "Document"}`}
-        onBack={handleCancel}
-        isScrollable={false}
-        noSafeArea={false}
-      >
-        {/* Content area with transformation animation */}
-        <View style={styles.contentArea}>
-          <ImagePoofIntoEmojiTransformation
-            imageUri={capturedImage}
-            onAnimationComplete={handleAnimationComplete}
-          />
-        </View>
-
-        {/* Empty view to maintain same layout structure */}
-        <View style={styles.controlsContainer} />
       </Screen>
     );
   }
