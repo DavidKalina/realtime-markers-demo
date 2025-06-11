@@ -2,7 +2,7 @@ import { useOnboarding } from "@/contexts/OnboardingContext";
 import { COLORS } from "@/components/Layout/ScreenLayout";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   SlideInRight,
@@ -32,6 +32,24 @@ const ONBOARDING_STEPS = [
     emoji: "🔍",
   },
   {
+    title: "Save Events",
+    description:
+      "Tap the bookmark icon to save events you're interested in for later viewing.",
+    emoji: "🔖",
+  },
+  {
+    title: "RSVP to Events",
+    description:
+      "Let organizers know you're coming by RSVPing to events you plan to attend.",
+    emoji: "✅",
+  },
+  {
+    title: "Smart Relevance",
+    description:
+      "Our algorithm shows the most relevant events to you, keeping the map clean and focused on what matters most.",
+    emoji: "🧠",
+  },
+  {
     title: "Earn XP",
     description:
       "Get XP for each unique event you scan. The more you scan, the more you earn!",
@@ -46,8 +64,7 @@ const ONBOARDING_STEPS = [
 ];
 
 export const OnboardingScreen: React.FC = () => {
-  const [currentStep, setCurrentStep] = useState(0);
-  const { completeOnboarding } = useOnboarding();
+  const { currentStep, setCurrentStep, completeOnboarding } = useOnboarding();
   const router = useRouter();
   const buttonScale = useSharedValue(1);
 

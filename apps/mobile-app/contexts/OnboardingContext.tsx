@@ -9,8 +9,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface OnboardingContextType {
   hasCompletedOnboarding: boolean;
+  currentStep: number;
+  totalSteps: number;
   completeOnboarding: () => Promise<void>;
   resetOnboarding: () => Promise<void>;
+  setCurrentStep: (step: number) => void;
+  getProgressPercentage: () => number;
 }
 
 const OnboardingContext = createContext<OnboardingContextType>(
@@ -23,6 +27,8 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const totalSteps = 8; // Updated to match the new total number of steps
 
   useEffect(() => {
     const checkOnboardingStatus = async () => {
@@ -50,18 +56,27 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       await AsyncStorage.removeItem("@onboarding_completed");
       setHasCompletedOnboarding(false);
+      setCurrentStep(0);
     } catch (error) {
       console.error("Error resetting onboarding:", error);
     }
   };
 
+  const getProgressPercentage = () => {
+    return Math.round((currentStep / (totalSteps - 1)) * 100);
+  };
+
   const contextValue = useMemo(
     () => ({
       hasCompletedOnboarding,
+      currentStep,
+      totalSteps,
       completeOnboarding,
       resetOnboarding,
+      setCurrentStep,
+      getProgressPercentage,
     }),
-    [hasCompletedOnboarding],
+    [hasCompletedOnboarding, currentStep],
   );
 
   return (
