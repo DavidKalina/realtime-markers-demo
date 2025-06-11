@@ -3,14 +3,22 @@ import { COLORS } from "@/components/Layout/ScreenLayout";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  Dimensions,
+} from "react-native";
 import Animated, {
   SlideInRight,
   SlideOutLeft,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  runOnJS,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 const ONBOARDING_STEPS = [
   {
@@ -20,9 +28,9 @@ const ONBOARDING_STEPS = [
     emoji: "🎉",
   },
   {
-    title: "Scan Events",
+    title: "AI-Powered Scanning",
     description:
-      "Use your camera to scan event posters and flyers to add them to the map.",
+      "Our AI automatically extracts event details from posters and flyers - date, time, location, and description. Events are instantly added to the map for everyone to see in real-time.",
     emoji: "📸",
   },
   {
@@ -67,6 +75,7 @@ export const OnboardingScreen: React.FC = () => {
   const { currentStep, setCurrentStep, completeOnboarding } = useOnboarding();
   const router = useRouter();
   const buttonScale = useSharedValue(1);
+  const { width: screenWidth } = Dimensions.get("window");
 
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
@@ -89,6 +98,13 @@ export const OnboardingScreen: React.FC = () => {
     }
   };
 
+  const handlePrevious = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
   const handleSkip = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await completeOnboarding();
@@ -97,25 +113,42 @@ export const OnboardingScreen: React.FC = () => {
     }, 100);
   };
 
+  const swipeGesture = Gesture.Pan().onEnd((event) => {
+    const { translationX } = event;
+    const swipeThreshold = screenWidth * 0.2; // 20% of screen width
+
+    if (translationX > swipeThreshold) {
+      // Swipe right - go to previous step
+      runOnJS(handlePrevious)();
+    } else if (translationX < -swipeThreshold) {
+      // Swipe left - go to next step
+      runOnJS(handleNext)();
+    }
+  });
+
   return (
     <View style={styles.container}>
-      <Animated.View
-        key={currentStep}
-        entering={SlideInRight.springify().damping(15).mass(0.8)}
-        exiting={SlideOutLeft.springify().damping(15).mass(0.8)}
-        style={styles.content}
-      >
-        <View style={styles.emojiContainer}>
-          <Text style={styles.emoji}>
-            {ONBOARDING_STEPS[currentStep].emoji}
-          </Text>
-        </View>
+      <GestureDetector gesture={swipeGesture}>
+        <Animated.View
+          key={currentStep}
+          entering={SlideInRight.springify().damping(15).mass(0.8)}
+          exiting={SlideOutLeft.springify().damping(15).mass(0.8)}
+          style={styles.content}
+        >
+          <View style={styles.emojiContainer}>
+            <Text style={styles.emoji}>
+              {ONBOARDING_STEPS[currentStep].emoji}
+            </Text>
+          </View>
 
-        <Text style={styles.title}>{ONBOARDING_STEPS[currentStep].title}</Text>
-        <Text style={styles.description}>
-          {ONBOARDING_STEPS[currentStep].description}
-        </Text>
-      </Animated.View>
+          <Text style={styles.title}>
+            {ONBOARDING_STEPS[currentStep].title}
+          </Text>
+          <Text style={styles.description}>
+            {ONBOARDING_STEPS[currentStep].description}
+          </Text>
+        </Animated.View>
+      </GestureDetector>
 
       <View style={styles.footer}>
         <TouchableOpacity
