@@ -69,6 +69,12 @@ const ONBOARDING_STEPS = [
       "Long press the map to create private events to share with your friends.",
     emoji: "🔒",
   },
+  {
+    title: "Beta Version",
+    description:
+      "MapMoji is currently in beta! We're constantly improving and adding new features. Your feedback helps us make the app better for everyone.",
+    emoji: "🚀",
+  },
 ];
 
 export const OnboardingScreen: React.FC = () => {

@@ -28,7 +28,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  const totalSteps = 8; // Updated to match the new total number of steps
+  const totalSteps = 9; // Updated to match the new total number of steps
 
   useEffect(() => {
     const checkOnboardingStatus = async () => {
