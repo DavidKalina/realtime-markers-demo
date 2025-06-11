@@ -159,11 +159,33 @@ export interface UpdateEventPayload extends Partial<CreateEventPayload> {}
 export interface JobStatus {
   status: "pending" | "processing" | "completed" | "failed";
   progress?: number;
-  result?: unknown;
+  result?: {
+    message?: string;
+    confidence?: number;
+    threshold?: number;
+    daysFromNow?: number;
+    date?: string;
+    deletedCount?: number;
+    hasMore?: boolean;
+    eventId?: string;
+    title?: string;
+    emoji?: string;
+    coordinates?: [number, number];
+    [key: string]: unknown;
+  };
   error?: string;
 }
 
-export interface JobStreamMessage extends JobStatus {}
+export interface JobStreamMessage extends JobStatus {
+  progressStep?: string;
+  progressDetails?: {
+    currentStep: string;
+    totalSteps: number;
+    stepProgress: number;
+    stepDescription: string;
+    estimatedTimeRemaining?: number;
+  };
+}
 
 export interface ProcessEventImagePayload {
   imageFile: File;

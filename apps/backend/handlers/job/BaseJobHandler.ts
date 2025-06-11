@@ -46,6 +46,24 @@ export abstract class BaseJobHandler implements JobHandler {
     return job.type === this.jobType;
   }
 
+  protected async startJob(
+    jobId: string,
+    context: JobHandlerContext,
+    stepDescription: string = "Starting job processing",
+  ): Promise<void> {
+    await this.updateJobProgress(jobId, context, {
+      status: "processing",
+      progress: 5,
+      progressStep: stepDescription,
+      progressDetails: {
+        currentStep: "1",
+        totalSteps: this.getTotalStepsForJobType(),
+        stepProgress: 0,
+        stepDescription: stepDescription,
+      },
+    });
+  }
+
   protected async updateJobProgress(
     jobId: string,
     context: JobHandlerContext,
@@ -62,7 +80,7 @@ export abstract class BaseJobHandler implements JobHandler {
   ): Promise<void> {
     await this.updateJobProgress(jobId, context, {
       status: "failed",
-      progress: 1,
+      progress: 100,
       error: error instanceof Error ? error.message : error,
       message: message || "An error occurred while processing the job",
       completed: new Date().toISOString(),
@@ -77,10 +95,21 @@ export abstract class BaseJobHandler implements JobHandler {
   ): Promise<void> {
     await this.updateJobProgress(jobId, context, {
       status: "completed",
-      progress: 1,
+      progress: 100,
       result,
       eventId,
       completed: new Date().toISOString(),
     });
+  }
+
+  private getTotalStepsForJobType(): number {
+    const stepCounts: Record<string, number> = {
+      process_flyer: 6,
+      process_private_event: 4,
+      process_multi_event_flyer: 8,
+      cleanup_outdated_events: 3,
+    };
+
+    return stepCounts[this.jobType] || 5;
   }
 }

@@ -47,6 +47,21 @@ export class ProcessFlyerHandler extends BaseJobHandler {
     context: JobHandlerContext,
   ): Promise<void> {
     try {
+      // Start the job and update status to processing
+      await this.startJob(jobId, context, "Starting flyer processing");
+
+      // Step 1: Validation and Setup (15% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 15,
+        progressStep: "Validating request and checking limits",
+        progressDetails: {
+          currentStep: "1",
+          totalSteps: 6,
+          stepProgress: 100,
+          stepDescription: "Validating request and checking limits",
+        },
+      });
+
       // Check if user has reached their scan limit
       if (job.data.creatorId) {
         const hasReachedLimit = await this.planService.hasReachedScanLimit(
@@ -63,6 +78,18 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         }
       }
 
+      // Step 2: Image Retrieval (25% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 25,
+        progressStep: "Retrieving image data",
+        progressDetails: {
+          currentStep: "2",
+          totalSteps: 6,
+          stepProgress: 100,
+          stepDescription: "Retrieving image data",
+        },
+      });
+
       // Get the image buffer from Redis
       const bufferData = await context.redisService.get<{ data: number[] }>(
         `job:${jobId}:buffer`,
@@ -73,6 +100,18 @@ export class ProcessFlyerHandler extends BaseJobHandler {
 
       // Convert the array back to a Buffer
       const imageBuffer = Buffer.from(bufferData.data);
+
+      // Step 3: Image Upload (35% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 35,
+        progressStep: "Uploading image to storage",
+        progressDetails: {
+          currentStep: "3",
+          totalSteps: 6,
+          stepProgress: 100,
+          stepDescription: "Uploading image to storage",
+        },
+      });
 
       // Upload image
       const originalImageUrl = await this.storageService.uploadImage(
@@ -87,20 +126,91 @@ export class ProcessFlyerHandler extends BaseJobHandler {
 
       console.log("originalImageUrl", originalImageUrl);
 
-      // Process the image using smart processing
+      // Step 4: Image Processing (50% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 50,
+        progressStep: "Analyzing image content",
+        progressDetails: {
+          currentStep: "4",
+          totalSteps: 6,
+          stepProgress: 0,
+          stepDescription: "Analyzing image content",
+        },
+      });
+
+      // Process the image using smart processing with progress callback
       const scanResult = await this.eventProcessingService.processEventFlyer(
         imageBuffer,
-        undefined, // No need for progress callback
         {
           userCoordinates: job.data.userCoordinates as
             | { lat: number; lng: number }
             | undefined,
         },
-        jobId,
+        // Progress callback for AI processing
+        (aiProgress: number, aiStep: string) => {
+          // Map AI progress (0-100) to our step progress (50-60)
+          const mappedProgress = 50 + (aiProgress / 100) * 10;
+          const roundedProgress = Math.round(mappedProgress);
+          console.log(
+            `[ProcessFlyerHandler] AI Progress: ${aiProgress}% - ${aiStep} -> ${mappedProgress}% (rounded: ${roundedProgress}%)`,
+          );
+
+          this.updateJobProgress(jobId, context, {
+            progress: roundedProgress,
+            progressStep: `AI Processing: ${aiStep}`,
+            progressDetails: {
+              currentStep: "4",
+              totalSteps: 6,
+              stepProgress: aiProgress,
+              stepDescription: `AI Processing: ${aiStep}`,
+            },
+          }).catch((error) => {
+            console.error("Error updating AI progress:", error);
+          });
+        },
+      );
+
+      console.log("[ProcessFlyerHandler] AI processing complete, scanResult:", {
+        hasEvents: "events" in scanResult,
+        confidence: "confidence" in scanResult ? scanResult.confidence : "N/A",
+        isMultiEvent: "events" in scanResult ? scanResult.isMultiEvent : "N/A",
+      });
+
+      // Step 4b: Image Processing Complete (60% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 60,
+        progressStep: "Image analysis complete",
+        progressDetails: {
+          currentStep: "4",
+          totalSteps: 6,
+          stepProgress: 100,
+          stepDescription: "Image analysis complete",
+        },
+      });
+
+      console.log("[ProcessFlyerHandler] Moving to Step 5: Event Processing");
+
+      // Step 5: Event Processing (75% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 75,
+        progressStep: "Processing event details",
+        progressDetails: {
+          currentStep: "5",
+          totalSteps: 6,
+          stepProgress: 100,
+          stepDescription: "Processing event details",
+        },
+      });
+
+      console.log(
+        "[ProcessFlyerHandler] Step 5 complete, checking for multi-event result",
       );
 
       // Handle multi-event result
       if ("events" in scanResult) {
+        console.log(
+          `[ProcessFlyerHandler] Processing multi-event result with ${scanResult.events.length} events`,
+        );
         // Process each event from the multi-event result
         const processedEvents = await this.processMultiEventResult(
           scanResult,
@@ -118,6 +228,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
             events: processedEvents.map((event) => ({
               eventId: event.id,
               title: event.title,
+              emoji: event.emoji,
               coordinates: pointToCoordinates(event.location),
               confidence: event.confidenceScore,
               isDuplicate: event.isDuplicate,
@@ -130,9 +241,14 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         return;
       }
 
+      console.log("[ProcessFlyerHandler] Processing single event result");
+
       // Handle single event result (existing logic)
       // Check confidence score
       if (scanResult.confidence < 0.75) {
+        console.log(
+          `[ProcessFlyerHandler] Low confidence (${scanResult.confidence}), completing with warning`,
+        );
         await this.completeJob(jobId, context, {
           message:
             "The image quality or content was not clear enough to reliably extract event information. Please try again with a clearer image.",
@@ -142,8 +258,15 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         return;
       }
 
+      console.log(
+        "[ProcessFlyerHandler] Step 5 complete, checking for duplicates",
+      );
+
       // Check for duplicates
       if (scanResult.isDuplicate && scanResult.similarity.matchingEventId) {
+        console.log(
+          "[ProcessFlyerHandler] Duplicate event found, linking to existing event",
+        );
         const existingEvent = await this.eventService.getEventById(
           scanResult.similarity.matchingEventId,
         );
@@ -155,6 +278,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
             {
               eventId: existingEvent.id,
               title: existingEvent.title,
+              emoji: existingEvent.emoji,
               coordinates: pointToCoordinates(existingEvent.location),
               isDuplicate: true,
               similarityScore: scanResult.similarity.score,
@@ -178,6 +302,9 @@ export class ProcessFlyerHandler extends BaseJobHandler {
       // Validate the event date
       const dateValidation = isEventTemporalyRelevant(eventDate);
       if (!dateValidation.valid) {
+        console.log(
+          "[ProcessFlyerHandler] Invalid event date, completing with error",
+        );
         await this.completeJob(jobId, context, {
           message:
             dateValidation.daysFromNow !== undefined &&
@@ -191,7 +318,25 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         return;
       }
 
+      console.log("[ProcessFlyerHandler] Moving to Step 6: Event Creation");
+
+      // Step 6: Event Creation (90% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 90,
+        progressStep: "Creating event in database",
+        progressDetails: {
+          currentStep: "6",
+          totalSteps: 6,
+          stepProgress: 100,
+          stepDescription: "Creating event in database",
+        },
+      });
+
       // Create the event
+      console.log(
+        "[ProcessFlyerHandler] Creating event with emoji:",
+        eventDetails.emoji,
+      );
       const newEvent = await this.eventService.createEvent({
         emoji: eventDetails.emoji,
         emojiDescription: eventDetails.emojiDescription,
@@ -264,6 +409,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         {
           eventId: newEvent.id,
           title: eventDetails.title,
+          emoji: eventDetails.emoji,
           coordinates: pointToCoordinates(newEvent.location),
           message: "Event successfully processed and added to the database!",
         },
@@ -336,8 +482,12 @@ export class ProcessFlyerHandler extends BaseJobHandler {
       }
 
       // Create the event
+      console.log(
+        "[ProcessFlyerHandler] Creating multi-event with emoji:",
+        eventResult.eventDetails.emoji,
+      );
       const newEvent = await this.eventService.createEvent({
-        emoji: eventResult.eventDetails.emoji || "📍",
+        emoji: eventResult.eventDetails.emoji,
         emojiDescription: eventResult.eventDetails.emojiDescription,
         title: eventResult.eventDetails.title || "Untitled Event",
         eventDate: new Date(eventResult.eventDetails.date),

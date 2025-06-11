@@ -81,6 +81,8 @@ export class EventExtractionService implements IEventExtractionService {
             For dates, always return them in ISO-8601 format (YYYY-MM-DDTHH:mm:ss.sssZ).
             If timezone information is available on the flyer, include it in the date format.
             
+            IMPORTANT: Always generate a relevant emoji for every event. The emoji should be a single, well-known emoji that clearly represents the event's theme, mood, or type of activity.
+            
             ${userLocationPrompt}
             
             When extracting locations:
@@ -99,7 +101,7 @@ export class EventExtractionService implements IEventExtractionService {
         {
           role: "user",
           content: `Extract the following details from this text in a JSON format:
-           - emoji: The most relevant emoji
+           - emoji: A single, relevant emoji that represents the event theme or mood (REQUIRED - always provide an emoji)
            - emojiDescription: A brief text description of what the emoji represents (e.g. "party popper" for 🎉)
            - title: The event title
            - date: The event start date and time in ISO-8601 format
@@ -123,6 +125,13 @@ export class EventExtractionService implements IEventExtractionService {
     const parsedDetails = JSON.parse(
       response.choices[0]?.message.content?.trim() ?? "{}",
     );
+
+    console.log("[EventExtractionService] Parsed details:", parsedDetails);
+    console.log(
+      "[EventExtractionService] Extracted emoji:",
+      parsedDetails.emoji,
+    );
+    console.log("[EventExtractionService] Default emoji:", this.defaultEmoji);
 
     // Collect all location clues
     const locationClues = [
@@ -174,7 +183,10 @@ export class EventExtractionService implements IEventExtractionService {
     }
 
     const eventDetails = {
-      emoji: parsedDetails.emoji || this.defaultEmoji,
+      emoji:
+        parsedDetails.emoji && parsedDetails.emoji.trim() !== ""
+          ? parsedDetails.emoji
+          : this.defaultEmoji,
       emojiDescription: parsedDetails.emojiDescription || "",
       title: parsedDetails.title || "",
       date: eventDate,
@@ -314,8 +326,16 @@ export class EventExtractionService implements IEventExtractionService {
       const result = JSON.parse(
         response.choices[0]?.message.content?.trim() ?? "{}",
       );
+
+      console.log("[EventExtractionService] Generated emoji result:", result);
+      console.log("[EventExtractionService] Generated emoji:", result.emoji);
+      console.log("[EventExtractionService] Default emoji:", this.defaultEmoji);
+
       return {
-        emoji: result.emoji || this.defaultEmoji,
+        emoji:
+          result.emoji && result.emoji.trim() !== ""
+            ? result.emoji
+            : this.defaultEmoji,
         emojiDescription: result.emojiDescription || "",
       };
     } catch (error) {

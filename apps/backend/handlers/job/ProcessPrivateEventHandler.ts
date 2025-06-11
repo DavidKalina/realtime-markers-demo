@@ -49,6 +49,21 @@ export class ProcessPrivateEventHandler extends BaseJobHandler {
     context: JobHandlerContext,
   ): Promise<void> {
     try {
+      // Start the job and update status to processing
+      await this.startJob(jobId, context, "Starting private event processing");
+
+      // Step 1: Validation (25% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 25,
+        progressStep: "Validating event details",
+        progressDetails: {
+          currentStep: "1",
+          totalSteps: 4,
+          stepProgress: 100,
+          stepDescription: "Validating event details",
+        },
+      });
+
       // Validate UUID format
       const uuidRegex =
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -96,8 +111,25 @@ export class ProcessPrivateEventHandler extends BaseJobHandler {
         }
       }
 
+      // Step 2: Category Processing (50% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 50,
+        progressStep: "Processing event categories",
+        progressDetails: {
+          currentStep: "2",
+          totalSteps: 4,
+          stepProgress: 100,
+          stepDescription: "Processing event categories",
+        },
+      });
+
       // Process the private event
       const eventDetails = job.data.eventDetails as PrivateEventDetails;
+
+      console.log(`[ProcessPrivateEventHandler] Processing job ${jobId}`);
+      console.log(
+        `[ProcessPrivateEventHandler] Original emoji: ${eventDetails.emoji}`,
+      );
 
       // Fetch full category objects if category IDs are provided
       let categories: Category[] | undefined;
@@ -107,11 +139,39 @@ export class ProcessPrivateEventHandler extends BaseJobHandler {
         });
       }
 
+      // Step 3: Duplicate Check (75% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 75,
+        progressStep: "Checking for duplicate events",
+        progressDetails: {
+          currentStep: "3",
+          totalSteps: 4,
+          stepProgress: 100,
+          stepDescription: "Checking for duplicate events",
+        },
+      });
+
       const scanResult = await this.eventProcessingService.processPrivateEvent({
         ...eventDetails,
         categories,
         isPrivate: true,
         sharedWithIds: (job.data.sharedWithIds as string[]) || [],
+      });
+
+      console.log(
+        `[ProcessPrivateEventHandler] Processed emoji: ${scanResult.eventDetails.emoji}`,
+      );
+
+      // Step 4: Event Creation (90% progress)
+      await this.updateJobProgress(jobId, context, {
+        progress: 90,
+        progressStep: "Creating private event",
+        progressDetails: {
+          currentStep: "4",
+          totalSteps: 4,
+          stepProgress: 100,
+          stepDescription: "Creating private event",
+        },
       });
 
       // Create the event
@@ -173,17 +233,19 @@ export class ProcessPrivateEventHandler extends BaseJobHandler {
       });
 
       // Mark as completed with success
-      await this.completeJob(
-        jobId,
-        context,
-        {
-          eventId: newEvent.id,
-          title: scanResult.eventDetails.title,
-          coordinates: pointToCoordinates(newEvent.location),
-          message: "Private event successfully created!",
-        },
-        newEvent.id,
+      const result = {
+        eventId: newEvent.id,
+        title: scanResult.eventDetails.title,
+        emoji: scanResult.eventDetails.emoji,
+        coordinates: pointToCoordinates(newEvent.location),
+        message: "Private event successfully created!",
+      };
+
+      console.log(
+        `[ProcessPrivateEventHandler] Job result emoji: ${result.emoji}`,
       );
+
+      await this.completeJob(jobId, context, result, newEvent.id);
     } catch (error) {
       await this.failJob(
         jobId,

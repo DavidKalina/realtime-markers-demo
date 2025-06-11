@@ -252,6 +252,56 @@ export const getProcessingStatusHandler: EventHandler = async (c) => {
   return c.json(job);
 };
 
+export const getUserJobsHandler: EventHandler = async (c) => {
+  const user = c.get("user");
+  if (!user) {
+    return c.json({ error: "User not authenticated" }, 401);
+  }
+
+  const userId = user.id;
+  const jobQueue = c.get("jobQueue");
+
+  // Get limit from query parameter, default to 50
+  const limitParam = c.req.query("limit");
+  const limit = limitParam ? parseInt(limitParam, 10) : 50;
+
+  // Validate limit parameter
+  if (limitParam && (isNaN(limit) || limit < 1 || limit > 1000)) {
+    return c.json(
+      { error: "Invalid limit parameter. Must be between 1 and 1000." },
+      400,
+    );
+  }
+
+  try {
+    const jobs = await jobQueue.getUserJobs(userId, limit);
+    return c.json({ jobs });
+  } catch (error) {
+    console.error("Error fetching user jobs:", error);
+    return c.json({ error: "Failed to fetch jobs" }, 500);
+  }
+};
+
+export const getJobProgressContextHandler: EventHandler = async (c) => {
+  const jobId = c.req.param("jobId");
+  const redisService = c.get("redisService");
+
+  try {
+    // Get the job progress context
+    const contextKey = `job:${jobId}:progress`;
+    const progressContext = await redisService.get(contextKey);
+
+    if (!progressContext) {
+      return c.json({ error: "Job progress context not found" }, 404);
+    }
+
+    return c.json(progressContext);
+  } catch (error) {
+    console.error("Error fetching job progress context:", error);
+    return c.json({ error: "Failed to fetch job progress" }, 500);
+  }
+};
+
 export const createEventHandler: EventHandler = async (c) => {
   try {
     const data = await c.req.json();
@@ -710,7 +760,7 @@ export const createPrivateEventHandler: EventHandler = async (c) => {
     // Create job for private event processing
     const jobId = await jobQueue.enqueuePrivateEventJob(
       {
-        emoji: data.emoji || "📍",
+        emoji: data.emoji,
         emojiDescription: data.emojiDescription,
         title: data.title,
         date: data.date,

@@ -54,7 +54,13 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
     }
   }, [isLoading]);
 
-  const keyExtractor = useCallback((item: T) => item.id.toString(), []);
+  const keyExtractor = useCallback((item: T, index: number) => {
+    if (!item || !item.id) {
+      console.warn("Item or item.id is undefined:", item);
+      return `fallback-${index}`; // Use index as fallback instead of random
+    }
+    return item.id.toString();
+  }, []);
 
   const handleFetchMore = useCallback(async () => {
     // Prevent multiple simultaneous requests

@@ -287,6 +287,7 @@ export class EventService {
     }
 
     console.log("INPUT", input);
+    console.log("[EventService] Creating event with emoji:", input.emoji);
 
     // Create base event data without relations
     const eventData: DeepPartial<Event> = {
