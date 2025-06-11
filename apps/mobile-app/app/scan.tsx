@@ -260,7 +260,7 @@ export default function ScanScreen() {
   const handleAnimationComplete = useCallback(() => {
     if (!isMounted.current) return;
     performFullCleanup();
-    router.replace("/");
+    router.replace("/jobs");
   }, [performFullCleanup, router]);
 
   // Handle camera permission granted
