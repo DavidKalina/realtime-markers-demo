@@ -629,7 +629,7 @@ const JobsScreen: React.FC = () => {
 
   if (!user) {
     return (
-      <Screen bannerTitle="My Jobs">
+      <Screen bannerTitle="Jobs">
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Please log in to view your jobs</Text>
         </View>
@@ -639,7 +639,7 @@ const JobsScreen: React.FC = () => {
 
   return (
     <Screen
-      bannerTitle="My Jobs"
+      bannerTitle="Jobs"
       bannerEmoji="⚙️"
       showBackButton={true}
       footerButtons={[
