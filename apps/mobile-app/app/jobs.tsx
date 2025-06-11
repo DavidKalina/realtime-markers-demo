@@ -506,7 +506,7 @@ const JobsScreen: React.FC = () => {
 
     const refreshInterval = setInterval(async () => {
       try {
-        const response = await jobsModule.getUserJobs(50);
+        const response = await jobsModule.getUserJobs(10);
         const newJobs = response.jobs;
 
         setJobs((prev) => {
@@ -542,7 +542,7 @@ const JobsScreen: React.FC = () => {
           setIsLoading(true);
         }
 
-        const response = await jobsModule.getUserJobs(50);
+        const response = await jobsModule.getUserJobs(10);
         const newJobs = response.jobs;
 
         if (refresh || page === 1) {
@@ -567,7 +567,7 @@ const JobsScreen: React.FC = () => {
           });
         }
 
-        // Since we're limiting to 50 jobs, there's no pagination
+        // Since we're limiting to 10 jobs, there's no pagination
         setHasMore(false);
       } catch (err) {
         console.error("Failed to fetch jobs:", err);
@@ -586,8 +586,8 @@ const JobsScreen: React.FC = () => {
   }, [fetchJobs]);
 
   const handleFetchMore = useCallback(async () => {
-    // Disable pagination since we're limiting to 50 most recent jobs
-    // No more jobs to fetch beyond the initial 50
+    // Disable pagination since we're limiting to 10 most recent jobs
+    // No more jobs to fetch beyond the initial 10
     return;
   }, []); // No dependencies needed since this is disabled
 
