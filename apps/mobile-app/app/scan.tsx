@@ -10,7 +10,6 @@ import { useEventBroker } from "@/hooks/useEventBroker";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
 import { apiClient, PlanType } from "@/services/ApiClient";
 import { EventTypes } from "@/services/EventBroker";
-import { useJobSessionStore } from "@/stores/useJobSessionStore";
 import { Feather } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { CameraView } from "expo-camera";
@@ -65,9 +64,6 @@ export default function ScanScreen() {
 
   // Navigation timer ref
   const navigationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Access job queue store directly
-  const addJob = useJobSessionStore((state) => state.addJob);
 
   // Get the event broker
   const { publish } = useEventBroker();
@@ -155,9 +151,6 @@ export default function ScanScreen() {
     (jobId: string) => {
       if (!jobId || !isMounted.current) return;
 
-      // Add to job queue
-      addJob(jobId);
-
       // Publish job queued event
       publish(EventTypes.JOB_QUEUED, {
         timestamp: Date.now(),
@@ -168,7 +161,7 @@ export default function ScanScreen() {
 
       // We'll let the animation's onAnimationComplete handle the navigation
     },
-    [addJob, publish],
+    [publish],
   );
 
   // Check if network is suitable for upload

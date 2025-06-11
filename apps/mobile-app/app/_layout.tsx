@@ -14,7 +14,6 @@ import { useEffect } from "react";
 import "react-native-reanimated";
 import { View } from "react-native";
 
-import { JobSessionInitializer } from "@/components/JobSessionInitializer";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
@@ -72,7 +71,6 @@ function RootLayout() {
             <ThemeProvider
               value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
             >
-              <JobSessionInitializer />
               {children}
             </ThemeProvider>
           </OnboardingProvider>
