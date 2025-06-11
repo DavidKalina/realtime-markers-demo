@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
-import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/services/ApiClient";
 import { JobsModule, type JobData } from "@/services/api/modules/jobs";
 import InfiniteScrollFlatList from "@/components/Layout/InfintieScrollFlatList";
+import Screen from "@/components/Layout/Screen";
 import EventSource from "react-native-sse";
 import Animated, {
   useAnimatedStyle,
@@ -323,7 +322,6 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
 };
 
 const JobsScreen: React.FC = () => {
-  const router = useRouter();
   const { user } = useAuth();
   const jobsModule = new JobsModule(apiClient);
 
@@ -631,35 +629,28 @@ const JobsScreen: React.FC = () => {
 
   if (!user) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Please log in to view your jobs</Text>
-      </View>
+      <Screen bannerTitle="My Jobs">
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Please log in to view your jobs</Text>
+        </View>
+      </Screen>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.title}>My Jobs</Text>
-        <TouchableOpacity
-          style={styles.refreshButton}
-          onPress={handleRefresh}
-          disabled={isRefreshing}
-        >
-          <Ionicons
-            name="refresh"
-            size={24}
-            color={isRefreshing ? "#ccc" : "#000"}
-          />
-        </TouchableOpacity>
-      </View>
-
+    <Screen
+      bannerTitle="My Jobs"
+      bannerEmoji="⚙️"
+      showBackButton={true}
+      footerButtons={[
+        {
+          label: "Refresh",
+          onPress: handleRefresh,
+          variant: "ghost",
+        },
+      ]}
+      isScrollable={false}
+    >
       <InfiniteScrollFlatList
         data={jobs}
         renderItem={renderJobItem}
@@ -674,37 +665,11 @@ const JobsScreen: React.FC = () => {
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
       />
-    </View>
+    </Screen>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8f9fa",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e9ecef",
-  },
-  backButton: {
-    padding: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "600",
-    fontFamily: "SpaceMono",
-  },
-  refreshButton: {
-    padding: 8,
-  },
   listContainer: {
     padding: 12,
   },
@@ -856,6 +821,11 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: "#007AFF",
     borderRadius: 2,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 

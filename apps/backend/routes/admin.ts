@@ -89,3 +89,57 @@ adminRouter.get("/cache/health", async (c) => {
     return c.json({ error: "Failed to check cache health" }, 500);
   }
 });
+
+// Get system health and stats
+adminRouter.get("/health", async (c) => {
+  try {
+    const redisClient = c.get("redisClient");
+
+    // Check Redis connection
+    const redisStatus = redisClient
+      ? (await redisClient.ping()) === "PONG"
+      : false;
+
+    return c.json({
+      status: "healthy",
+      redis: {
+        connected: redisStatus,
+        memory: redisClient ? await redisClient.info("memory") : null,
+      },
+      memory: {
+        heapUsed: process.memoryUsage().heapUsed,
+        heapTotal: process.memoryUsage().heapTotal,
+        external: process.memoryUsage().external,
+        rss: process.memoryUsage().rss,
+      },
+      uptime: process.uptime(),
+    });
+  } catch (error) {
+    console.error("Error checking system health:", error);
+    return c.json({ error: "Failed to check system health" }, 500);
+  }
+});
+
+// Recalculate scan and save counts
+adminRouter.post("/recalculate-counts", async (c) => {
+  try {
+    const eventService = c.get("eventService");
+    const result = await eventService.recalculateCounts();
+
+    return c.json({
+      success: true,
+      message: "Counts recalculated successfully",
+      result,
+    });
+  } catch (error) {
+    console.error("Error recalculating counts:", error);
+    return c.json(
+      {
+        success: false,
+        error: "Failed to recalculate counts",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+});

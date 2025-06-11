@@ -29,7 +29,7 @@ interface LevelInfo {
 }
 
 const XPBar: React.FC<XPBarProps> = React.memo(
-  ({ backgroundColor = "#f8fafc" }) => {
+  ({ backgroundColor = COLORS.textPrimary }) => {
     const { user } = useAuth();
     const [levelInfo, setLevelInfo] = React.useState<LevelInfo>({
       currentLevel: 1,
@@ -216,14 +216,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   levelText: {
-    color: "#0f172a",
+    color: "#fff",
     fontSize: 11,
     fontFamily: "SpaceMono",
     marginRight: 6,
     fontWeight: "600",
   },
   titleText: {
-    color: "#64748b",
+    color: "#fff",
     fontSize: 11,
     fontFamily: "SpaceMono",
   },

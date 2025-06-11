@@ -1,14 +1,13 @@
-import { COLORS } from "./ScreenLayout";
 import { ArrowLeft } from "lucide-react-native";
 import React from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
   withSpring,
   withTiming,
-  Easing,
 } from "react-native-reanimated";
 
 interface BackButtonProps {
@@ -46,7 +45,7 @@ export default function BackButton({ onPress }: BackButtonProps) {
         style={styles.backButtonTouchable}
         activeOpacity={0.7}
       >
-        <ArrowLeft size={20} color={COLORS.textPrimary} />
+        <ArrowLeft size={20} color="#fff" />
       </TouchableOpacity>
     </Animated.View>
   );

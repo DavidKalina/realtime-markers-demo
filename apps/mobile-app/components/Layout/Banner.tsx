@@ -89,7 +89,7 @@ export default function Banner({
 const styles = StyleSheet.create({
   zoneBanner: {
     height: 90,
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: COLORS.textPrimary,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
     justifyContent: "center",
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "center",
   },
   zoneBannerName: {
-    color: COLORS.textPrimary,
+    color: "#fff",
     fontSize: 22,
     fontFamily: "SpaceMono",
     fontWeight: "700",

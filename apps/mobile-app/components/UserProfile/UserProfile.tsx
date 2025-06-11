@@ -18,6 +18,7 @@ import DeleteAccountModalComponent from "./DeleteAccountModal";
 import * as Haptics from "expo-haptics";
 import Card from "../Layout/Card";
 import { UserPlus, ChevronRight } from "lucide-react-native";
+import UserStats from "../Layout/UserStats";
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -99,6 +100,34 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               <Text style={styles.label}>Member Since</Text>
               <Text style={styles.value}>{memberSince}</Text>
             </View>
+          </Card>
+
+          {/* User Stats Card */}
+          <Card style={styles.card}>
+            <Text style={styles.sectionTitle}>Your Stats</Text>
+            <UserStats
+              items={[
+                {
+                  value: profileData?.scanCount || 0,
+                  label: "Scans",
+                },
+                {
+                  value: profileData?.saveCount || 0,
+                  label: "Saves",
+                },
+                {
+                  value: profileData?.totalXp || 0,
+                  label: "XP",
+                },
+                {
+                  value: profileData?.level || 1,
+                  label: "Level",
+                  badge: profileData?.currentTitle || "Explorer",
+                },
+              ]}
+              animated={true}
+              delay={200}
+            />
           </Card>
 
           {/* Bio Card - Only show if bio exists */}

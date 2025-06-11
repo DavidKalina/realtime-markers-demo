@@ -1344,27 +1344,52 @@ export class EventService {
    */
   async createDiscoveryRecord(userId: string, eventId: string): Promise<void> {
     try {
-      // Create the discovery record
-      await this.dataSource
-        .createQueryBuilder()
-        .insert()
-        .into("user_event_discoveries")
-        .values({
-          userId,
-          eventId,
-        })
-        .orIgnore() // Ignore if record already exists
-        .execute();
+      // Start a transaction to ensure data consistency
+      await this.dataSource.transaction(async (transactionalEntityManager) => {
+        // Create the discovery record
+        await transactionalEntityManager
+          .createQueryBuilder()
+          .insert()
+          .into("user_event_discoveries")
+          .values({
+            userId,
+            eventId,
+          })
+          .orIgnore() // Ignore if record already exists
+          .execute();
 
-      // Increment the user's discovery count
-      await this.dataSource
-        .createQueryBuilder()
-        .update(User)
-        .set({
-          discoveryCount: () => "discovery_count + 1",
-        })
-        .where("id = :userId", { userId })
-        .execute();
+        // Get the user to update their scan count
+        const user = await transactionalEntityManager.findOne(User, {
+          where: { id: userId },
+        });
+
+        if (user) {
+          // Increment the user's scan count
+          user.scanCount = (user.scanCount || 0) + 1;
+          await transactionalEntityManager.save(user);
+        }
+
+        // Get the event to update its scan count
+        const event = await transactionalEntityManager.findOne(Event, {
+          where: { id: eventId },
+        });
+
+        if (event) {
+          // Increment the event's scan count
+          event.scanCount = (event.scanCount || 0) + 1;
+          await transactionalEntityManager.save(event);
+        }
+
+        // Also increment the user's discovery count
+        await transactionalEntityManager
+          .createQueryBuilder()
+          .update(User)
+          .set({
+            discoveryCount: () => "discovery_count + 1",
+          })
+          .where("id = :userId", { userId })
+          .execute();
+      });
 
       // Get the updated event with scan count and publish to Redis for filter processor
       const updatedEvent = await this.eventRepository.findOne({
@@ -1385,6 +1410,8 @@ export class EventService {
           data: {
             operation: "UPDATE",
             record: this.stripEventForRedis(updatedEvent),
+            changeType: "SCAN_ADDED",
+            userId: userId,
           },
         });
       }
@@ -1987,5 +2014,96 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
       events: results,
       nextCursor,
     };
+  }
+
+  /**
+   * Recalculate and sync scan and save counts from actual relationships
+   * This ensures data consistency between counter fields and actual relationships
+   */
+  async recalculateCounts(): Promise<{
+    eventsUpdated: number;
+    usersUpdated: number;
+  }> {
+    let eventsUpdated = 0;
+    let usersUpdated = 0;
+
+    try {
+      // Recalculate event scan counts from UserEventDiscovery
+      const eventScanCounts = await this.dataSource
+        .getRepository(UserEventDiscovery)
+        .createQueryBuilder("discovery")
+        .select("discovery.eventId", "eventId")
+        .addSelect("COUNT(*)", "scanCount")
+        .groupBy("discovery.eventId")
+        .getRawMany();
+
+      // Update event scan counts
+      for (const { eventId, scanCount } of eventScanCounts) {
+        await this.eventRepository.update(eventId, {
+          scanCount: parseInt(scanCount),
+        });
+        eventsUpdated++;
+      }
+
+      // Recalculate event save counts from UserEventSave
+      const eventSaveCounts = await this.dataSource
+        .getRepository(UserEventSave)
+        .createQueryBuilder("save")
+        .select("save.eventId", "eventId")
+        .addSelect("COUNT(*)", "saveCount")
+        .groupBy("save.eventId")
+        .getRawMany();
+
+      // Update event save counts
+      for (const { eventId, saveCount } of eventSaveCounts) {
+        await this.eventRepository.update(eventId, {
+          saveCount: parseInt(saveCount),
+        });
+        eventsUpdated++;
+      }
+
+      // Recalculate user scan counts from UserEventDiscovery
+      const userScanCounts = await this.dataSource
+        .getRepository(UserEventDiscovery)
+        .createQueryBuilder("discovery")
+        .select("discovery.userId", "userId")
+        .addSelect("COUNT(*)", "scanCount")
+        .groupBy("discovery.userId")
+        .getRawMany();
+
+      // Update user scan counts
+      for (const { userId, scanCount } of userScanCounts) {
+        await this.dataSource.getRepository(User).update(userId, {
+          scanCount: parseInt(scanCount),
+        });
+        usersUpdated++;
+      }
+
+      // Recalculate user save counts from UserEventSave
+      const userSaveCounts = await this.dataSource
+        .getRepository(UserEventSave)
+        .createQueryBuilder("save")
+        .select("save.userId", "userId")
+        .addSelect("COUNT(*)", "saveCount")
+        .groupBy("save.userId")
+        .getRawMany();
+
+      // Update user save counts
+      for (const { userId, saveCount } of userSaveCounts) {
+        await this.dataSource.getRepository(User).update(userId, {
+          saveCount: parseInt(saveCount),
+        });
+        usersUpdated++;
+      }
+
+      console.log(
+        `Recalculated counts: ${eventsUpdated} events, ${usersUpdated} users updated`,
+      );
+    } catch (error) {
+      console.error("Error recalculating counts:", error);
+      throw error;
+    }
+
+    return { eventsUpdated, usersUpdated };
   }
 }

@@ -23,7 +23,7 @@ const headerStyles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.textPrimary,
     zIndex: 10,
   },
   headerTitle: {

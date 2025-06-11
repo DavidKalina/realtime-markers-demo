@@ -5,7 +5,7 @@ import { COLORS } from "../Layout/ScreenLayout";
 export const styles = StyleSheet.create({
   bottomBar: {
     height: 60, // Reduced height since we removed labels
-    backgroundColor: COLORS.cardBackground, // Match Cluster Events view background
+    backgroundColor: COLORS.textPrimary, // Match Cluster Events view background
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

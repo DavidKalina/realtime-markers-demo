@@ -28,7 +28,7 @@ interface StatusBarProps {
 }
 
 const StatusBar: React.FC<StatusBarProps> = ({
-  backgroundColor = "#f8fafc", // Updated to match new light background
+  backgroundColor = COLORS.textPrimary, // Updated to match new light background
 }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   username: {
-    color: "#0f172a", // Updated to dark text for light theme
+    color: "#fff", // Updated to dark text for light theme
     fontSize: 14,
     fontWeight: "500",
     fontFamily: "SpaceMono",
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: COLORS.buttonBackground,
+    backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
