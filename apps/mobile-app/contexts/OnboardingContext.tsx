@@ -47,6 +47,9 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       await AsyncStorage.setItem("@onboarding_completed", "true");
       setHasCompletedOnboarding(true);
+
+      // Add a small delay to ensure the context value is properly updated
+      await new Promise((resolve) => setTimeout(resolve, 100));
     } catch (error) {
       console.error("Error completing onboarding:", error);
     }

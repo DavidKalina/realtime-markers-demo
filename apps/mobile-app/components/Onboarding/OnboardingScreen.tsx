@@ -97,10 +97,14 @@ export const OnboardingScreen: React.FC = () => {
     if (currentStep < ONBOARDING_STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      await completeOnboarding();
-      setTimeout(() => {
-        router.replace("/");
-      }, 100);
+      try {
+        await completeOnboarding();
+        setTimeout(() => {
+          router.replace("/");
+        }, 200);
+      } catch (error) {
+        console.error("Error completing onboarding:", error);
+      }
     }
   };
 
@@ -113,10 +117,14 @@ export const OnboardingScreen: React.FC = () => {
 
   const handleSkip = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await completeOnboarding();
-    setTimeout(() => {
-      router.replace("/");
-    }, 100);
+    try {
+      await completeOnboarding();
+      setTimeout(() => {
+        router.replace("/");
+      }, 200);
+    } catch (error) {
+      console.error("Error completing onboarding:", error);
+    }
   };
 
   const swipeGesture = Gesture.Pan().onEnd((event) => {
