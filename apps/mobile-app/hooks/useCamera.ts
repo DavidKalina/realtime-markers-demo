@@ -75,6 +75,7 @@ export const useCamera = () => {
   useEffect(() => {
     const updatePermission = async () => {
       try {
+        console.log("[Camera] Updating permission:", permission);
         if (permission === null) return;
 
         // Update permission state
@@ -114,6 +115,8 @@ export const useCamera = () => {
       async (nextAppState) => {
         const isActive = nextAppState === "active";
         setAppActive(isActive);
+
+        console.log("[Camera] App state changed:", nextAppState);
 
         if (isActive && appState.current !== "active" && isFocused) {
           // When app comes back to foreground, refresh permission state

@@ -1,3 +1,4 @@
+import { AuthWrapper } from "@/components/AuthWrapper";
 import { CheckboxGroup } from "@/components/CheckboxGroup/CheckboxGroup";
 import EmbeddedDateRangeCalendar from "@/components/EmbeddedDateRangeCalendar";
 import Input from "@/components/Input/Input";
@@ -317,95 +318,97 @@ const CreatePrivateEvent = () => {
   localDate.setMinutes(date.getMinutes());
 
   return (
-    <ScreenLayout>
-      <Header
-        title={params.title ? "Update Event" : "Create Event"}
-        onBack={() => router.back()}
-      />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardAvoidingView}
-      >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
+    <AuthWrapper>
+      <ScreenLayout>
+        <Header
+          title={params.title ? "Update Event" : "Create Event"}
+          onBack={() => router.back()}
+        />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardAvoidingView}
         >
-          <View style={styles.container}>
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Event Details</Text>
-              <Input
-                ref={titleInputRef}
-                placeholder="Event Name"
-                icon={Book}
-                value={eventName}
-                onChangeText={setEventName}
-                onSubmitEditing={handleTitleSubmit}
-                returnKeyType="next"
-                autoFocus={true}
-                blurOnSubmit={false}
-              />
-              <TextArea
-                ref={descriptionInputRef}
-                placeholder="Event Description"
-                icon={List}
-                value={eventDescription}
-                onChangeText={setEventDescription}
-                blurOnSubmit={false}
-              />
-            </View>
-
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <MapPinIcon size={18} color={COLORS.accent} />
-                <Text style={styles.sectionTitle}>Location</Text>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.container}>
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Event Details</Text>
+                <Input
+                  ref={titleInputRef}
+                  placeholder="Event Name"
+                  icon={Book}
+                  value={eventName}
+                  onChangeText={setEventName}
+                  onSubmitEditing={handleTitleSubmit}
+                  returnKeyType="next"
+                  autoFocus={true}
+                  blurOnSubmit={false}
+                />
+                <TextArea
+                  ref={descriptionInputRef}
+                  placeholder="Event Description"
+                  icon={List}
+                  value={eventDescription}
+                  onChangeText={setEventDescription}
+                  blurOnSubmit={false}
+                />
               </View>
-              <LocationSelector
-                selectedLocation={locationData}
-                onLocationSelect={handleLocationSelect}
-                onLocationClear={handleLocationClear}
-                onSearch={handleSearchPlaces}
-                isLoading={isSearchingPlaces}
-                searchResults={searchResults}
-                error={locationError}
-                buttonText="Search for a place..."
-              />
-            </View>
 
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Invite Friends</Text>
-              <CheckboxGroup
-                selectedFriends={selectedFriends}
-                onSelectionChange={setSelectedFriends}
-                buttonText="Select Friends to Invite"
-              />
-            </View>
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <MapPinIcon size={18} color={COLORS.accent} />
+                  <Text style={styles.sectionTitle}>Location</Text>
+                </View>
+                <LocationSelector
+                  selectedLocation={locationData}
+                  onLocationSelect={handleLocationSelect}
+                  onLocationClear={handleLocationClear}
+                  onSearch={handleSearchPlaces}
+                  isLoading={isSearchingPlaces}
+                  searchResults={searchResults}
+                  error={locationError}
+                  buttonText="Search for a place..."
+                />
+              </View>
 
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Date & Time</Text>
-              <EmbeddedDateRangeCalendar date={date} onDateChange={setDate} />
-            </View>
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Invite Friends</Text>
+                <CheckboxGroup
+                  selectedFriends={selectedFriends}
+                  onSelectionChange={setSelectedFriends}
+                  buttonText="Select Friends to Invite"
+                />
+              </View>
 
-            <View style={styles.submitButtonContainer}>
-              <TouchableOpacity
-                onPress={handleSubmit}
-                disabled={isSubmitting}
-                activeOpacity={0.7}
-                style={[styles.submitButton, buttonAnimatedStyle]}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator size="small" color="#000" />
-                ) : (
-                  <Text style={styles.submitButtonText}>
-                    {params.title ? "Update Event" : "Create Event"}
-                  </Text>
-                )}
-              </TouchableOpacity>
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Date & Time</Text>
+                <EmbeddedDateRangeCalendar date={date} onDateChange={setDate} />
+              </View>
+
+              <View style={styles.submitButtonContainer}>
+                <TouchableOpacity
+                  onPress={handleSubmit}
+                  disabled={isSubmitting}
+                  activeOpacity={0.7}
+                  style={[styles.submitButton, buttonAnimatedStyle]}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color="#000" />
+                  ) : (
+                    <Text style={styles.submitButtonText}>
+                      {params.title ? "Update Event" : "Create Event"}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </ScreenLayout>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </ScreenLayout>
+    </AuthWrapper>
   );
 };
 

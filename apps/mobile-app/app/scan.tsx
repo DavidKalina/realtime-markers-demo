@@ -1,249 +1,165 @@
-// scan.tsx - Refactored to use Screen.tsx pattern
+// scan.tsx - Refactored to use modular components
+import { AuthWrapper } from "@/components/AuthWrapper";
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import Screen from "@/components/Layout/Screen";
 import { COLORS } from "@/components/Layout/ScreenLayout";
-import { useUserLocation } from "@/contexts/LocationContext";
 import { useCamera } from "@/hooks/useCamera";
-import { useEventBroker } from "@/hooks/useEventBroker";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
-import { apiClient, PlanType } from "@/services/ApiClient";
-import { EventTypes } from "@/services/EventBroker";
-import { Feather } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { CameraView } from "expo-camera";
 import { useRouter } from "expo-router";
-import { debounce } from "lodash";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
-  Alert,
   AppState,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 
-type ImageSource = "camera" | "gallery" | null;
+// Import new modular components
+import {
+  ProcessingOverlay,
+  NoScansOverlay,
+  SimulationButton,
+  useScanState,
+} from "@/components/Scan";
 
 export default function ScanScreen() {
+  console.log("[ScanScreen] Component mounting...");
+
   const {
     hasPermission,
     cameraRef,
     takePicture,
     processImage,
-    isCapturing,
     isCameraActive,
     isCameraReady,
     onCameraReady,
-    releaseCamera,
     flashMode,
     toggleFlash,
     checkPermission,
   } = useCamera();
 
+  console.log(
+    "[ScanScreen] Camera hook initialized, hasPermission:",
+    hasPermission,
+  );
+
   const router = useRouter();
-  const [isUploading, setIsUploading] = useState(false);
-  const [imageSource, setImageSource] = useState<ImageSource>(null);
   const isMounted = useRef(true);
-
-  const { userLocation } = useUserLocation();
   const networkState = useNetworkQuality();
-  const uploadRetryCount = useRef(0);
-  const MAX_RETRIES = 3;
 
-  // Navigation timer ref
-  const navigationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  console.log(
+    "[ScanScreen] Router and network state initialized, networkState:",
+    {
+      isConnected: networkState.isConnected,
+      strength: networkState.strength,
+    },
+  );
 
-  // Get the event broker
-  const { publish } = useEventBroker();
+  // Navigation callback - memoized to prevent re-renders
+  const navigateToJobs = useCallback(() => {
+    console.log("[ScanScreen] navigateToJobs called from main component");
+    if (!isMounted.current) {
+      console.log("[ScanScreen] Component not mounted, skipping navigation");
+      return;
+    }
+    console.log("[ScanScreen] Navigating to jobs screen...");
 
-  const [planDetails, setPlanDetails] = useState<{
-    planType: PlanType;
-    weeklyScanCount: number;
-    scanLimit: number;
-    remainingScans: number;
-    lastReset: Date | null;
-  } | null>(null);
-  const [isCheckingPlan, setIsCheckingPlan] = useState(true);
+    try {
+      console.log("[ScanScreen] Calling router.push('/jobs')");
+      router.push("/jobs");
+      console.log("[ScanScreen] Navigation call completed successfully");
+    } catch (error) {
+      console.error("[ScanScreen] Navigation error:", error);
+    }
+  }, [router]);
 
-  // New state to control when to show no-scans overlay
-  const [showNoScansOverlay, setShowNoScansOverlay] = useState(false);
+  // Check if network is suitable for upload - memoized to prevent re-renders
+  const isNetworkSuitable = useCallback(() => {
+    const suitable = networkState.isConnected && networkState.strength >= 40;
+    console.log("[ScanScreen] isNetworkSuitable check:", {
+      isConnected: networkState.isConnected,
+      strength: networkState.strength,
+      suitable,
+    });
+    return suitable;
+  }, [networkState.isConnected, networkState.strength]);
+
+  console.log("[ScanScreen] isNetworkSuitable function created");
+
+  // Use the new unified scan state hook
+  const {
+    // Capture state
+    isCapturing: isScanCapturing,
+    capturedImageUri,
+
+    // Processing state
+    isProcessing,
+    processingStage,
+    showProcessingOverlay,
+
+    // Scan limits
+    showNoScansOverlay,
+    setShowNoScansOverlay,
+
+    // Actions
+    handleCapture,
+    handleImageSelected,
+    reset,
+    simulateCapture,
+  } = useScanState({
+    processImage,
+    isNetworkSuitable,
+    isMounted,
+    onNavigateToJobs: navigateToJobs,
+  });
+
+  console.log("[ScanScreen] useScanState initialized");
 
   // Set mounted flag to false when component unmounts
   useEffect(() => {
+    console.log("[ScanScreen] Component mounted, setting up cleanup");
     return () => {
+      console.log("[ScanScreen] Component unmounting, cleaning up");
       isMounted.current = false;
-      if (navigationTimerRef.current) {
-        clearTimeout(navigationTimerRef.current);
-      }
     };
   }, []);
-
-  // Enhanced cleanup function
-  const performFullCleanup = useCallback(() => {
-    if (!isMounted.current) return;
-
-    // Clear navigation timer
-    if (navigationTimerRef.current) {
-      clearTimeout(navigationTimerRef.current);
-      navigationTimerRef.current = null;
-    }
-
-    // Reset all state
-    setIsUploading(false);
-    setImageSource(null);
-    uploadRetryCount.current = 0;
-
-    // Release camera resources
-    releaseCamera();
-  }, [releaseCamera]);
 
   // Handle screen focus changes
   useFocusEffect(
     useCallback(() => {
+      console.log("[ScanScreen] Screen focused");
       return () => {
-        performFullCleanup();
+        console.log("[ScanScreen] Screen unfocused");
       };
-    }, [performFullCleanup]),
+    }, []),
   );
 
   // Handle app state changes
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
       if (nextAppState === "background" || nextAppState === "inactive") {
-        performFullCleanup();
+        if (!isMounted.current) {
+          isMounted.current = true;
+        }
       }
     });
 
     return () => {
       subscription.remove();
-      performFullCleanup();
     };
-  }, [performFullCleanup]);
+  }, []);
 
-  // Back button handler with enhanced cleanup
+  // Back button handler
   const handleBack = useCallback(() => {
     if (!isMounted.current) return;
-    performFullCleanup();
+    reset();
     router.replace("/");
-  }, [performFullCleanup, router]);
-
-  // Navigate to jobs screen after successful upload
-  const navigateToJobs = useCallback(() => {
-    if (!isMounted.current) return;
-    performFullCleanup();
-    router.replace("/jobs");
-  }, [performFullCleanup, router]);
-
-  // Check if network is suitable for upload
-  const isNetworkSuitable = useCallback(() => {
-    if (!networkState.isConnected) return false;
-    if (networkState.strength < 40) return false; // Reject if network strength is poor
-    return true;
-  }, [networkState.isConnected, networkState.strength]);
-
-  // Updated uploadImageAndQueue function with retry logic
-  const uploadImageAndQueue = async (uri: string) => {
-    if (!isMounted.current) return null;
-
-    try {
-      // Check network before starting upload
-      if (!isNetworkSuitable()) {
-        throw new Error("Network connection is too weak for upload");
-      }
-
-      // Process/compress the image before uploading
-      const processedUri = await processImage(uri);
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const payload: Record<string, any> = {};
-
-      payload.imageFile = {
-        uri: processedUri || uri,
-        name: "image.jpg",
-        type: "image/jpeg",
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any;
-
-      // Add location data if available
-      if (userLocation) {
-        payload.userLat = userLocation[1].toString();
-        payload.userLng = userLocation[0].toString();
-      }
-
-      // Add source information to track analytics
-      payload.source = imageSource || "unknown";
-
-      // Upload using API client
-      const result = await apiClient.events.processEventImage({
-        imageFile: payload.imageFile,
-        userLat: payload.userLat,
-        userLng: payload.userLng,
-        source: payload.source,
-      });
-
-      if (result.jobId && isMounted.current) {
-        // Publish job queued event
-        publish(EventTypes.JOB_QUEUED, {
-          timestamp: Date.now(),
-          source: "ScanScreen",
-          jobId: result.jobId,
-          message: "Document scan queued for processing",
-        });
-
-        // Navigate to jobs screen after successful upload
-        navigateToJobs();
-        return result.jobId;
-      } else {
-        throw new Error("No job ID returned");
-      }
-    } catch (error) {
-      console.error("Upload failed:", error);
-
-      // Retry logic for network-related errors
-      if (uploadRetryCount.current < MAX_RETRIES && isNetworkSuitable()) {
-        uploadRetryCount.current++;
-        publish(EventTypes.NOTIFICATION, {
-          timestamp: Date.now(),
-          source: "ScanScreen",
-          message: `Retrying upload (${uploadRetryCount.current}/${MAX_RETRIES})...`,
-        });
-
-        // Wait for network to stabilize before retrying
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        return uploadImageAndQueue(uri);
-      }
-
-      if (isMounted.current) {
-        publish(EventTypes.ERROR_OCCURRED, {
-          timestamp: Date.now(),
-          source: "ScanScreen",
-          error: `Failed to upload image: ${error}`,
-        });
-
-        Alert.alert(
-          "Upload Failed",
-          "There was a problem uploading your document. Please check your network connection and try again.",
-          [{ text: "OK" }],
-        );
-      }
-
-      throw error;
-    } finally {
-      if (isMounted.current) {
-        uploadRetryCount.current = 0;
-      }
-    }
-  };
+  }, [reset, router]);
 
   // Handle camera permission granted
   const handlePermissionGranted = useCallback(() => {
@@ -255,188 +171,47 @@ export default function ScanScreen() {
     }, 500);
   }, []);
 
-  // Optimize image processing with debouncing
-  const debouncedUpload = useCallback(
-    debounce(async (uri: string) => {
-      if (!isMounted.current) return;
-      try {
-        await uploadImageAndQueue(uri);
-      } catch (error) {
-        console.error("Debounced upload failed:", error);
-      }
-    }, 300),
-    [uploadImageAndQueue],
+  useFocusEffect(
+    useCallback(() => {
+      checkPermission();
+      return () => {
+        console.log("[ScanScreen] Screen unfocused");
+      };
+    }, []),
   );
-
-  // Fetch plan details
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchPlanDetails = async () => {
-      try {
-        const details = await apiClient.plans.getPlanDetails();
-        if (isMounted) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setPlanDetails(details as any);
-
-          // Show no scans overlay if user has no more scans
-          if (details && details.remainingScans <= 0) {
-            setShowNoScansOverlay(true);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching plan details:", error);
-      } finally {
-        if (isMounted) {
-          setIsCheckingPlan(false);
-        }
-      }
-    };
-
-    fetchPlanDetails();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Check if user has remaining scans
-  const hasRemainingScans = useMemo(() => {
-    if (!planDetails) return true;
-    return planDetails.remainingScans > 0;
-  }, [planDetails]);
-
-  // Update handleCapture to check remaining scans
-  const handleCapture = async () => {
-    if (!isMounted.current) return;
-
-    if (!cameraRef.current) {
-      return;
-    }
-
-    if (!isCameraReady) {
-      publish(EventTypes.NOTIFICATION, {
-        timestamp: Date.now(),
-        source: "ScanScreen",
-        message: "Camera is initializing, please try again in a moment.",
-      });
-      return;
-    }
-
-    // Check remaining scans
-    if (!hasRemainingScans) {
-      setShowNoScansOverlay(true);
-      return;
-    }
-
-    // Check network before starting capture process
-    if (!isNetworkSuitable()) {
-      Alert.alert(
-        "Poor Network Connection",
-        "Please ensure you have a stable network connection before capturing.",
-        [{ text: "OK" }],
-      );
-      return;
-    }
-
-    try {
-      // Take picture
-      const photoUri = await takePicture();
-
-      if (!photoUri || !isMounted.current) {
-        throw new Error("Failed to capture image");
-      }
-
-      // Set image source
-      setImageSource("camera");
-
-      // Start upload process
-      setIsUploading(true);
-
-      // Show a notification
-      publish(EventTypes.NOTIFICATION, {
-        timestamp: Date.now(),
-        source: "ScanScreen",
-        message: "Processing document...",
-      });
-
-      // Use debounced upload
-      await debouncedUpload(photoUri);
-    } catch (error) {
-      console.error("Capture failed:", error);
-
-      if (isMounted.current) {
-        Alert.alert(
-          "Operation Failed",
-          "Failed to process the document. Please try again.",
-          [{ text: "OK" }],
-        );
-
-        setImageSource(null);
-        setIsUploading(false);
-      }
-    }
-  };
-
-  // Update handleImageSelected to check remaining scans
-  const handleImageSelected = async (uri: string) => {
-    if (!isMounted.current) return;
-
-    // Check remaining scans
-    if (!hasRemainingScans) {
-      setShowNoScansOverlay(true);
-      return;
-    }
-
-    // Check network before starting gallery image process
-    if (!isNetworkSuitable()) {
-      Alert.alert(
-        "Poor Network Connection",
-        "Please ensure you have a stable network connection before selecting an image.",
-        [{ text: "OK" }],
-      );
-      return;
-    }
-
-    try {
-      // Set image source
-      setImageSource("gallery");
-
-      // Start upload process
-      setIsUploading(true);
-
-      // Show a notification
-      publish(EventTypes.NOTIFICATION, {
-        timestamp: Date.now(),
-        source: "ScanScreen",
-        message: "Processing document from gallery...",
-      });
-
-      // Upload the image and process
-      await uploadImageAndQueue(uri);
-    } catch (error) {
-      console.error("Gallery image processing failed:", error);
-
-      if (isMounted.current) {
-        Alert.alert(
-          "Operation Failed",
-          "Failed to process the selected image. Please try again.",
-          [{ text: "OK" }],
-        );
-
-        setImageSource(null);
-        setIsUploading(false);
-      }
-    }
-  };
-
-  // In your ScanScreen component
+  // Handle retry permission
   const handleRetryPermission = useCallback(async (): Promise<boolean> => {
     return await checkPermission();
   }, [checkPermission]);
 
+  // Handle capture with proper error handling
+  const onCapture = useCallback(async () => {
+    console.log("[ScanScreen] onCapture called - button pressed!");
+    const result = await handleCapture(takePicture);
+    console.log("[ScanScreen] handleCapture result:", result);
+    if (result?.error === "no_scans") {
+      setShowNoScansOverlay(true);
+    }
+  }, [handleCapture, takePicture, setShowNoScansOverlay]);
+
+  // Handle image selection with proper error handling
+  const onImageSelected = useCallback(
+    async (uri: string) => {
+      console.log("[ScanScreen] onImageSelected called with URI:", uri);
+      const result = await handleImageSelected(uri);
+      console.log("[ScanScreen] handleImageSelected result:", result);
+      if (result?.error === "no_scans") {
+        setShowNoScansOverlay(true);
+      }
+    },
+    [handleImageSelected, setShowNoScansOverlay],
+  );
+
   // Handle camera permission request if needed
   if (hasPermission === false) {
+    console.log(
+      "[ScanScreen] Camera permission denied, showing permission screen",
+    );
     return (
       <CameraPermission
         onPermissionGranted={handlePermissionGranted}
@@ -447,6 +222,9 @@ export default function ScanScreen() {
 
   // Loading state while checking permissions
   if (hasPermission === null) {
+    console.log(
+      "[ScanScreen] Camera permission checking, showing loading screen",
+    );
     return (
       <Screen
         bannerTitle="Scan Document"
@@ -462,131 +240,90 @@ export default function ScanScreen() {
     );
   }
 
-  // Loading state while checking plan details
-  if (isCheckingPlan) {
-    return (
-      <Screen
-        bannerTitle="Scan Document"
-        showBackButton={false}
-        isScrollable={false}
-        noSafeArea={false}
-      >
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
-          <Text style={styles.loaderText}>Checking scan limits...</Text>
-        </View>
-      </Screen>
-    );
-  }
+  console.log("[ScanScreen] All checks passed, rendering main camera view");
 
   // Main camera view
   return (
-    <Screen
-      bannerEmoji="📸"
-      bannerTitle="Scan"
-      onBack={handleBack}
-      isScrollable={false}
-      noSafeArea={false}
-    >
-      {/* Camera container with fixed dimensions */}
-      <View style={styles.contentArea}>
-        <Animated.View
-          style={styles.cameraCard}
-          entering={FadeIn.duration(300)}
-        >
-          {isCameraActive ? (
-            <CameraView
-              ref={cameraRef}
-              style={styles.camera}
-              onCameraReady={onCameraReady}
-              flash={flashMode}
-            >
-              {/* Camera not ready indicator */}
-              {!isCameraReady && (
-                <View style={styles.cameraNotReadyOverlay}>
-                  <ActivityIndicator size="large" color="#ffffff" />
-                  <Text style={styles.cameraNotReadyText}>
-                    Initializing camera...
-                  </Text>
-                </View>
-              )}
-
-              {/* No Scans Available Overlay */}
-              {showNoScansOverlay && (
-                <Animated.View
-                  style={styles.noScansOverlay}
-                  entering={FadeIn.duration(300)}
-                >
-                  <View style={styles.noScansContent}>
-                    <View style={styles.noScansIconContainer}>
-                      <Feather
-                        name="alert-triangle"
-                        size={32}
-                        color={COLORS.warningText}
-                      />
-                    </View>
-                    <Text style={styles.noScansTitle}>Scan Limit Reached</Text>
-                    <Text style={styles.noScansMessage}>
-                      You've used all your weekly scans. Upgrade to Pro for
-                      unlimited scans.
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.upgradeButton}
-                      onPress={() => {}}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.upgradeButtonText}>
-                        Upgrade to Pro
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.dismissButton}
-                      onPress={() => setShowNoScansOverlay(false)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.dismissButtonText}>Dismiss</Text>
-                    </TouchableOpacity>
-                  </View>
-                </Animated.View>
-              )}
-            </CameraView>
-          ) : (
-            <View style={styles.cameraPlaceholder}>
-              <ActivityIndicator size="large" color={COLORS.accent} />
-              <Text style={styles.cameraPlaceholderText}>
-                Initializing camera...
-              </Text>
-            </View>
-          )}
-        </Animated.View>
-      </View>
-
-      {/* Fixed height container for controls */}
-      <View style={styles.controlsContainer}>
-        <CameraControls
-          onCapture={handleCapture}
-          onImageSelected={handleImageSelected}
-          isCapturing={isCapturing || isUploading}
-          isReady={isCameraReady}
-          flashMode={flashMode}
-          onFlashToggle={toggleFlash}
-          disabled={!isCameraReady || isUploading || !hasRemainingScans}
-        />
-
-        {/* Subtle scan counter badge */}
-        {planDetails && hasRemainingScans && (
+    <AuthWrapper>
+      <Screen
+        bannerEmoji="📸"
+        bannerTitle="Scan"
+        onBack={handleBack}
+        isScrollable={false}
+        noSafeArea={false}
+      >
+        {/* Camera container with fixed dimensions */}
+        <View style={styles.contentArea}>
           <Animated.View
-            style={styles.scanCountBadge}
+            style={styles.cameraCard}
             entering={FadeIn.duration(300)}
           >
-            <Text style={styles.scanCountText}>
-              {planDetails.remainingScans} scan
-              {planDetails.remainingScans !== 1 ? "s" : ""} left
-            </Text>
+            {isCameraActive ? (
+              <CameraView
+                ref={cameraRef}
+                style={styles.camera}
+                onCameraReady={onCameraReady}
+                flash={flashMode}
+              >
+                {/* Processing Overlay */}
+                <ProcessingOverlay
+                  isVisible={showProcessingOverlay}
+                  stage={processingStage}
+                  capturedImageUri={capturedImageUri}
+                />
+
+                {/* Camera not ready indicator */}
+                {!isCameraReady && !showProcessingOverlay && (
+                  <View style={styles.cameraNotReadyOverlay}>
+                    <ActivityIndicator size="large" color="#ffffff" />
+                    <Text style={styles.cameraNotReadyText}>
+                      Initializing camera...
+                    </Text>
+                  </View>
+                )}
+
+                {/* No Scans Available Overlay */}
+                <NoScansOverlay
+                  isVisible={showNoScansOverlay && !showProcessingOverlay}
+                  onDismiss={() => setShowNoScansOverlay(false)}
+                  onUpgrade={() => {
+                    // TODO: Implement upgrade flow
+                    console.log("Upgrade to Pro");
+                  }}
+                />
+              </CameraView>
+            ) : (
+              <View style={styles.cameraPlaceholder}>
+                <ActivityIndicator size="large" color={COLORS.accent} />
+                <Text style={styles.cameraPlaceholderText}>
+                  Initializing camera...
+                </Text>
+              </View>
+            )}
           </Animated.View>
-        )}
-      </View>
-    </Screen>
+        </View>
+
+        {/* Fixed height container for controls */}
+        <View style={styles.controlsContainer}>
+          <CameraControls
+            onCapture={onCapture}
+            onImageSelected={onImageSelected}
+            isCapturing={isScanCapturing || isProcessing}
+            isReady={isCameraReady}
+            flashMode={flashMode}
+            onFlashToggle={toggleFlash}
+            disabled={!isCameraReady || isProcessing || showProcessingOverlay}
+          />
+
+          {/* Simulation button for testing in development */}
+          <SimulationButton
+            isVisible={__DEV__ && !showProcessingOverlay}
+            isMounted={isMounted}
+            onSimulateCapture={simulateCapture}
+          />
+        </View>
+      </Screen>
+    </AuthWrapper>
   );
 }
 
@@ -667,84 +404,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "SpaceMono",
     fontWeight: "600",
-  },
-  noScansOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-    zIndex: 100,
-  },
-  noScansContent: {
-    width: "100%",
-    maxWidth: 340,
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 16,
-    padding: 24,
-    alignItems: "center",
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-    borderWidth: 1,
-    borderColor: COLORS.warningBorder,
-  },
-  noScansIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: COLORS.warningBackground,
-    borderWidth: 1,
-    borderColor: COLORS.warningBorder,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  noScansTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 20,
-    fontWeight: "700",
-    fontFamily: "SpaceMono",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  noScansMessage: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 24,
-    lineHeight: 20,
-  },
-  upgradeButton: {
-    backgroundColor: COLORS.accent,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  upgradeButtonText: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "SpaceMono",
-  },
-  dismissButton: {
-    backgroundColor: COLORS.buttonBackground,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    width: "100%",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
-  dismissButtonText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
   },
 });

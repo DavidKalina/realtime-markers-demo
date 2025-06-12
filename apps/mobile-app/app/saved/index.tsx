@@ -17,6 +17,7 @@ import EventListItem, {
 } from "@/components/Event/EventListItem";
 import { useSavedEvents } from "@/hooks/useSavedEvents";
 import { EventType as ApiEventType } from "@/types/types";
+import { AuthWrapper } from "@/components/AuthWrapper";
 
 type SavedTab = "personal" | "friends" | "discovered";
 
@@ -130,50 +131,52 @@ const SavedListScreen = () => {
   }, [events, searchQuery]);
 
   return (
-    <Screen
-      isScrollable={false}
-      bannerTitle="Saved"
-      bannerEmoji="🔖"
-      showBackButton
-      onBack={handleBack}
-      noAnimation
-      tabs={tabItems}
-      activeTab={activeTab}
-      onTabChange={handleTabPress}
-    >
-      <Input
-        ref={searchInputRef}
-        icon={SearchIcon}
-        rightIcon={searchQuery !== "" ? X : undefined}
-        onRightIconPress={handleClearSearch}
-        placeholder={`Search ${activeTab === "personal" ? "your" : activeTab === "friends" ? "friends'" : "discovered"} saved events...`}
-        value={searchQuery}
-        onChangeText={handleSearchInput}
-        returnKeyType="search"
-        onSubmitEditing={handleSearch}
-        autoCapitalize="none"
-        autoCorrect={false}
-        autoFocus={true}
-        loading={isLoading}
-        style={{ marginHorizontal: 16, marginBottom: 16 }}
-      />
-      <InfiniteScrollFlatList
-        data={filteredEvents}
-        renderItem={renderEventItem}
-        fetchMoreData={loadMore}
-        onRefresh={refresh}
-        isLoading={isLoading}
-        isRefreshing={isLoading && events.length === 0}
-        hasMore={hasMore && !error}
-        error={error}
-        emptyListMessage={
-          searchQuery.trim()
-            ? "No saved events found matching your search"
-            : "No saved events found"
-        }
-        onRetry={refresh}
-      />
-    </Screen>
+    <AuthWrapper>
+      <Screen
+        isScrollable={false}
+        bannerTitle="Saved"
+        bannerEmoji="🔖"
+        showBackButton
+        onBack={handleBack}
+        noAnimation
+        tabs={tabItems}
+        activeTab={activeTab}
+        onTabChange={handleTabPress}
+      >
+        <Input
+          ref={searchInputRef}
+          icon={SearchIcon}
+          rightIcon={searchQuery !== "" ? X : undefined}
+          onRightIconPress={handleClearSearch}
+          placeholder={`Search ${activeTab === "personal" ? "your" : activeTab === "friends" ? "friends'" : "discovered"} saved events...`}
+          value={searchQuery}
+          onChangeText={handleSearchInput}
+          returnKeyType="search"
+          onSubmitEditing={handleSearch}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoFocus={true}
+          loading={isLoading}
+          style={{ marginHorizontal: 16, marginBottom: 16 }}
+        />
+        <InfiniteScrollFlatList
+          data={filteredEvents}
+          renderItem={renderEventItem}
+          fetchMoreData={loadMore}
+          onRefresh={refresh}
+          isLoading={isLoading}
+          isRefreshing={isLoading && events.length === 0}
+          hasMore={hasMore && !error}
+          error={error}
+          emptyListMessage={
+            searchQuery.trim()
+              ? "No saved events found matching your search"
+              : "No saved events found"
+          }
+          onRetry={refresh}
+        />
+      </Screen>
+    </AuthWrapper>
   );
 };
 

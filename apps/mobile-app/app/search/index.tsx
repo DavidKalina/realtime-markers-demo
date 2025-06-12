@@ -11,6 +11,7 @@ import EventListItem, {
 } from "@/components/Event/EventListItem";
 import useEventSearch from "@/hooks/useEventSearch";
 import { useLocationStore } from "@/stores/useLocationStore";
+import { AuthWrapper } from "@/components/AuthWrapper";
 
 // Type for events from the API
 type EventType = Omit<EventListItemProps, "onPress">;
@@ -122,48 +123,50 @@ const SearchListScreen = () => {
   }, [loadMoreEvents]);
 
   return (
-    <Screen
-      isScrollable={false}
-      bannerTitle={getBannerTitle()}
-      bannerDescription={getBannerDescription()}
-      bannerEmoji="🔍"
-      showBackButton
-      onBack={handleBack}
-      noAnimation
-    >
-      <Input
-        ref={searchInputRef}
-        icon={SearchIcon}
-        rightIcon={searchQuery !== "" ? X : undefined}
-        onRightIconPress={handleClearSearch}
-        placeholder="Search events, venues, categories..."
-        value={searchQuery}
-        onChangeText={handleSearchInput}
-        returnKeyType="search"
-        onSubmitEditing={handleSearch}
-        autoCapitalize="none"
-        autoCorrect={false}
-        autoFocus={true}
-        loading={isLoading}
-        style={{ marginHorizontal: 16, marginBottom: 16 }}
-      />
-      <InfiniteScrollFlatList
-        data={eventResults as unknown as EventType[]}
-        renderItem={renderEventItem}
-        fetchMoreData={handleLoadMore}
-        onRefresh={async () => await searchEvents(true)}
-        isLoading={isLoading}
-        isRefreshing={isLoading && eventResults.length === 0}
-        hasMore={!error && eventResults.length > 0}
-        error={error}
-        emptyListMessage={
-          searchQuery.trim()
-            ? "No events found matching your search"
-            : "No events found"
-        }
-        onRetry={async () => await searchEvents(true)}
-      />
-    </Screen>
+    <AuthWrapper>
+      <Screen
+        isScrollable={false}
+        bannerTitle={getBannerTitle()}
+        bannerDescription={getBannerDescription()}
+        bannerEmoji="🔍"
+        showBackButton
+        onBack={handleBack}
+        noAnimation
+      >
+        <Input
+          ref={searchInputRef}
+          icon={SearchIcon}
+          rightIcon={searchQuery !== "" ? X : undefined}
+          onRightIconPress={handleClearSearch}
+          placeholder="Search events, venues, categories..."
+          value={searchQuery}
+          onChangeText={handleSearchInput}
+          returnKeyType="search"
+          onSubmitEditing={handleSearch}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoFocus={true}
+          loading={isLoading}
+          style={{ marginHorizontal: 16, marginBottom: 16 }}
+        />
+        <InfiniteScrollFlatList
+          data={eventResults as unknown as EventType[]}
+          renderItem={renderEventItem}
+          fetchMoreData={handleLoadMore}
+          onRefresh={async () => await searchEvents(true)}
+          isLoading={isLoading}
+          isRefreshing={isLoading && eventResults.length === 0}
+          hasMore={!error && eventResults.length > 0}
+          error={error}
+          emptyListMessage={
+            searchQuery.trim()
+              ? "No events found matching your search"
+              : "No events found"
+          }
+          onRetry={async () => await searchEvents(true)}
+        />
+      </Screen>
+    </AuthWrapper>
   );
 };
 

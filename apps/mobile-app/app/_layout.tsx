@@ -21,7 +21,6 @@ import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { isRunningInExpoGo } from "expo";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const navigationIntegration = Sentry.reactNavigationIntegration({
   enableTimeToInitialDisplay: !isRunningInExpoGo(),
@@ -39,8 +38,6 @@ Sentry.init({
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
-
-AsyncStorage.clear();
 
 function RootLayout() {
   const ref = useNavigationContainerRef();

@@ -8,6 +8,7 @@ import InfiniteScrollFlatList from "@/components/Layout/InfintieScrollFlatList";
 import NotificationListItem from "@/components/Notification/NotificationListItem";
 import { useNotifications } from "@/hooks/useNotifications";
 import { apiClient } from "@/services/ApiClient";
+import { AuthWrapper } from "@/components/AuthWrapper";
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -74,33 +75,35 @@ export default function NotificationsScreen() {
   );
 
   return (
-    <Screen
-      bannerEmoji="🔔"
-      bannerTitle="Notifications"
-      showBackButton
-      onBack={() => router.back()}
-      tabs={tabs}
-      activeTab={activeFilter}
-      onTabChange={setFilter}
-      isScrollable={false}
-      style={styles.screen}
-    >
-      <InfiniteScrollFlatList
-        data={notifications}
-        renderItem={renderItem}
-        fetchMoreData={handleFetchMore}
-        onRefresh={onRefresh}
-        isLoading={initialLoading}
-        isRefreshing={refreshing}
-        hasMore={hasMore}
-        emptyListMessage={
-          activeFilter === "unread"
-            ? "No unread notifications"
-            : "No notifications yet"
-        }
-        style={styles.list}
-      />
-    </Screen>
+    <AuthWrapper>
+      <Screen
+        bannerEmoji="🔔"
+        bannerTitle="Notifications"
+        showBackButton
+        onBack={() => router.back()}
+        tabs={tabs}
+        activeTab={activeFilter}
+        onTabChange={setFilter}
+        isScrollable={false}
+        style={styles.screen}
+      >
+        <InfiniteScrollFlatList
+          data={notifications}
+          renderItem={renderItem}
+          fetchMoreData={handleFetchMore}
+          onRefresh={onRefresh}
+          isLoading={initialLoading}
+          isRefreshing={refreshing}
+          hasMore={hasMore}
+          emptyListMessage={
+            activeFilter === "unread"
+              ? "No unread notifications"
+              : "No notifications yet"
+          }
+          style={styles.list}
+        />
+      </Screen>
+    </AuthWrapper>
   );
 }
 

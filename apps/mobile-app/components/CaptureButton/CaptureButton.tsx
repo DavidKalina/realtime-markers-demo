@@ -21,6 +21,7 @@ interface CaptureButtonProps {
   flashMode?: FlashMode;
   onFlashToggle?: () => void;
   flashButtonPosition?: "left" | "right";
+  disabled?: boolean;
 }
 
 // Add unified color theme at the top
@@ -43,6 +44,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
   flashMode = "off",
   onFlashToggle,
   flashButtonPosition = "left",
+  disabled = false,
 }) => {
   // Animation values
   const buttonScale = useSharedValue(1);
@@ -90,7 +92,13 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
     // Cancel any running animations first
     cleanupAnimations();
 
-    if (isCapturing) {
+    if (disabled) {
+      // Disabled state - no animations, dimmed appearance
+      buttonScale.value = withTiming(0.8, { duration: 200 });
+      colorProgress.value = withTiming(0.3, { duration: 200 });
+      iconOpacity.value = withTiming(0.5, { duration: 200 });
+      borderProgress.value = withTiming(0, { duration: 200 });
+    } else if (isCapturing) {
       // Capturing animation - button scale down
       buttonScale.value = withTiming(0.92, { duration: 200 });
       colorProgress.value = withTiming(0.5, { duration: 200 });
@@ -133,7 +141,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
 
     // Clean up on unmount or when props change
     return cleanupAnimations;
-  }, [isCapturing, isReady]);
+  }, [isCapturing, isReady, disabled]);
 
   // Animated styles
   const buttonAnimatedStyle = useAnimatedStyle(() => {
@@ -144,11 +152,13 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
 
   const innerCircleStyle = useAnimatedStyle(() => {
     // Use interpolateColor for smooth color transitions
-    const backgroundColor = interpolateColor(
-      colorProgress.value,
-      [0, 0.5, 1],
-      ["#f8f9fa", "#adb5bd", "#37D05C"],
-    );
+    const backgroundColor = disabled
+      ? "#6c757d" // Dimmed gray when disabled
+      : interpolateColor(
+          colorProgress.value,
+          [0, 0.5, 1],
+          ["#f8f9fa", "#adb5bd", "#37D05C"],
+        );
 
     return {
       backgroundColor,
@@ -160,22 +170,24 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
 
   const buttonOuterStyle = useAnimatedStyle(() => {
     // Transition border color for ready state instead of using a separate glow
-    const borderColor = interpolateColor(
-      borderProgress.value,
-      [0, 1],
-      ["rgba(255, 255, 255, 0.3)", "rgba(55, 208, 92, 0.8)"],
-    );
+    const borderColor = disabled
+      ? "rgba(255, 255, 255, 0.2)" // Dimmed border when disabled
+      : interpolateColor(
+          borderProgress.value,
+          [0, 1],
+          ["rgba(255, 255, 255, 0.3)", "rgba(55, 208, 92, 0.8)"],
+        );
 
-    const shadowOpacity = 0.2 + borderProgress.value * 0.3;
-    const shadowRadius = 2 + borderProgress.value * 3;
+    const shadowOpacity = disabled ? 0.1 : 0.2 + borderProgress.value * 0.3;
+    const shadowRadius = disabled ? 1 : 2 + borderProgress.value * 3;
 
     return {
       borderColor,
-      shadowColor: isReady ? "#37D05C" : "#000",
+      shadowColor: disabled ? "#000" : isReady ? "#37D05C" : "#000",
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity,
       shadowRadius,
-      elevation: 2 + borderProgress.value * 3,
+      elevation: disabled ? 1 : 2 + borderProgress.value * 3,
     };
   });
 
@@ -229,7 +241,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
           style={[styles.flashButton, { borderColor: getFlashColor() }]}
           onPress={onFlashToggle}
           activeOpacity={0.7}
-          disabled={isCapturing}
+          disabled={isCapturing || disabled}
         >
           <Feather name={getFlashIcon()} size={20} color={getFlashColor()} />
         </TouchableOpacity>
@@ -259,7 +271,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
               ]}
               onPress={onPress}
               activeOpacity={0.7}
-              disabled={isCapturing}
+              disabled={isCapturing || disabled}
             >
               <Animated.View
                 style={[

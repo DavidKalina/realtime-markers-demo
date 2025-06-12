@@ -75,6 +75,7 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
             isReady={isReady}
             size="normal"
             flashMode={flashMode}
+            disabled={disabled}
           />
         </View>
 
