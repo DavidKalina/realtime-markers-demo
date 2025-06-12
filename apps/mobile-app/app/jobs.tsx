@@ -14,6 +14,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { AuthWrapper } from "@/components/AuthWrapper";
+import { useRouter } from "expo-router";
 
 interface JobItemProps {
   job: JobData;
@@ -324,6 +325,7 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
 
 const JobsScreen: React.FC = () => {
   const { user } = useAuth();
+  const router = useRouter();
   const jobsModule = new JobsModule(apiClient);
 
   const [jobs, setJobs] = useState<JobData[]>([]);
@@ -645,6 +647,7 @@ const JobsScreen: React.FC = () => {
   return (
     <AuthWrapper>
       <Screen
+        onBack={() => router.back()}
         bannerTitle="Jobs"
         bannerEmoji="⚙️"
         showBackButton={true}
