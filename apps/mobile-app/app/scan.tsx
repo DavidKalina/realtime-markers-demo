@@ -1,4 +1,5 @@
 // scan.tsx - Refactored to use Screen.tsx pattern
+import { AuthWrapper } from "@/components/AuthWrapper";
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import Screen from "@/components/Layout/Screen";
@@ -481,112 +482,116 @@ export default function ScanScreen() {
 
   // Main camera view
   return (
-    <Screen
-      bannerEmoji="📸"
-      bannerTitle="Scan"
-      onBack={handleBack}
-      isScrollable={false}
-      noSafeArea={false}
-    >
-      {/* Camera container with fixed dimensions */}
-      <View style={styles.contentArea}>
-        <Animated.View
-          style={styles.cameraCard}
-          entering={FadeIn.duration(300)}
-        >
-          {isCameraActive ? (
-            <CameraView
-              ref={cameraRef}
-              style={styles.camera}
-              onCameraReady={onCameraReady}
-              flash={flashMode}
-            >
-              {/* Camera not ready indicator */}
-              {!isCameraReady && (
-                <View style={styles.cameraNotReadyOverlay}>
-                  <ActivityIndicator size="large" color="#ffffff" />
-                  <Text style={styles.cameraNotReadyText}>
-                    Initializing camera...
-                  </Text>
-                </View>
-              )}
-
-              {/* No Scans Available Overlay */}
-              {showNoScansOverlay && (
-                <Animated.View
-                  style={styles.noScansOverlay}
-                  entering={FadeIn.duration(300)}
-                >
-                  <View style={styles.noScansContent}>
-                    <View style={styles.noScansIconContainer}>
-                      <Feather
-                        name="alert-triangle"
-                        size={32}
-                        color={COLORS.warningText}
-                      />
-                    </View>
-                    <Text style={styles.noScansTitle}>Scan Limit Reached</Text>
-                    <Text style={styles.noScansMessage}>
-                      You've used all your weekly scans. Upgrade to Pro for
-                      unlimited scans.
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.upgradeButton}
-                      onPress={() => {}}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.upgradeButtonText}>
-                        Upgrade to Pro
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.dismissButton}
-                      onPress={() => setShowNoScansOverlay(false)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.dismissButtonText}>Dismiss</Text>
-                    </TouchableOpacity>
-                  </View>
-                </Animated.View>
-              )}
-            </CameraView>
-          ) : (
-            <View style={styles.cameraPlaceholder}>
-              <ActivityIndicator size="large" color={COLORS.accent} />
-              <Text style={styles.cameraPlaceholderText}>
-                Initializing camera...
-              </Text>
-            </View>
-          )}
-        </Animated.View>
-      </View>
-
-      {/* Fixed height container for controls */}
-      <View style={styles.controlsContainer}>
-        <CameraControls
-          onCapture={handleCapture}
-          onImageSelected={handleImageSelected}
-          isCapturing={isCapturing || isUploading}
-          isReady={isCameraReady}
-          flashMode={flashMode}
-          onFlashToggle={toggleFlash}
-          disabled={!isCameraReady || isUploading || !hasRemainingScans}
-        />
-
-        {/* Subtle scan counter badge */}
-        {planDetails && hasRemainingScans && (
+    <AuthWrapper>
+      <Screen
+        bannerEmoji="📸"
+        bannerTitle="Scan"
+        onBack={handleBack}
+        isScrollable={false}
+        noSafeArea={false}
+      >
+        {/* Camera container with fixed dimensions */}
+        <View style={styles.contentArea}>
           <Animated.View
-            style={styles.scanCountBadge}
+            style={styles.cameraCard}
             entering={FadeIn.duration(300)}
           >
-            <Text style={styles.scanCountText}>
-              {planDetails.remainingScans} scan
-              {planDetails.remainingScans !== 1 ? "s" : ""} left
-            </Text>
+            {isCameraActive ? (
+              <CameraView
+                ref={cameraRef}
+                style={styles.camera}
+                onCameraReady={onCameraReady}
+                flash={flashMode}
+              >
+                {/* Camera not ready indicator */}
+                {!isCameraReady && (
+                  <View style={styles.cameraNotReadyOverlay}>
+                    <ActivityIndicator size="large" color="#ffffff" />
+                    <Text style={styles.cameraNotReadyText}>
+                      Initializing camera...
+                    </Text>
+                  </View>
+                )}
+
+                {/* No Scans Available Overlay */}
+                {showNoScansOverlay && (
+                  <Animated.View
+                    style={styles.noScansOverlay}
+                    entering={FadeIn.duration(300)}
+                  >
+                    <View style={styles.noScansContent}>
+                      <View style={styles.noScansIconContainer}>
+                        <Feather
+                          name="alert-triangle"
+                          size={32}
+                          color={COLORS.warningText}
+                        />
+                      </View>
+                      <Text style={styles.noScansTitle}>
+                        Scan Limit Reached
+                      </Text>
+                      <Text style={styles.noScansMessage}>
+                        You've used all your weekly scans. Upgrade to Pro for
+                        unlimited scans.
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.upgradeButton}
+                        onPress={() => {}}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.upgradeButtonText}>
+                          Upgrade to Pro
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.dismissButton}
+                        onPress={() => setShowNoScansOverlay(false)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.dismissButtonText}>Dismiss</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </Animated.View>
+                )}
+              </CameraView>
+            ) : (
+              <View style={styles.cameraPlaceholder}>
+                <ActivityIndicator size="large" color={COLORS.accent} />
+                <Text style={styles.cameraPlaceholderText}>
+                  Initializing camera...
+                </Text>
+              </View>
+            )}
           </Animated.View>
-        )}
-      </View>
-    </Screen>
+        </View>
+
+        {/* Fixed height container for controls */}
+        <View style={styles.controlsContainer}>
+          <CameraControls
+            onCapture={handleCapture}
+            onImageSelected={handleImageSelected}
+            isCapturing={isCapturing || isUploading}
+            isReady={isCameraReady}
+            flashMode={flashMode}
+            onFlashToggle={toggleFlash}
+            disabled={!isCameraReady || isUploading || !hasRemainingScans}
+          />
+
+          {/* Subtle scan counter badge */}
+          {planDetails && hasRemainingScans && (
+            <Animated.View
+              style={styles.scanCountBadge}
+              entering={FadeIn.duration(300)}
+            >
+              <Text style={styles.scanCountText}>
+                {planDetails.remainingScans} scan
+                {planDetails.remainingScans !== 1 ? "s" : ""} left
+              </Text>
+            </Animated.View>
+          )}
+        </View>
+      </Screen>
+    </AuthWrapper>
   );
 }
 

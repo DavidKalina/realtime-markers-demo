@@ -221,6 +221,16 @@ export class InitialSchemaAndSeed1710000000000 implements MigrationInterface {
 
     const users = [
       {
+        email: "testflight@mapmoji.com",
+        passwordHash: passwordHash,
+        displayName: "Test Flight",
+        username: "testflight",
+        friendCode: "TEST1",
+        bio: "Test flight user",
+        role: UserRole.ADMIN,
+        isVerified: true,
+      },
+      {
         email: "david@example.com",
         passwordHash: passwordHash,
         displayName: "David K",

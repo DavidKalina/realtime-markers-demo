@@ -13,6 +13,7 @@ import Animated, {
   withTiming,
   withSpring,
 } from "react-native-reanimated";
+import { AuthWrapper } from "@/components/AuthWrapper";
 
 interface JobItemProps {
   job: JobData;
@@ -629,43 +630,49 @@ const JobsScreen: React.FC = () => {
 
   if (!user) {
     return (
-      <Screen bannerTitle="Jobs">
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Please log in to view your jobs</Text>
-        </View>
-      </Screen>
+      <AuthWrapper>
+        <Screen bannerTitle="Jobs">
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>
+              Please log in to view your jobs
+            </Text>
+          </View>
+        </Screen>
+      </AuthWrapper>
     );
   }
 
   return (
-    <Screen
-      bannerTitle="Jobs"
-      bannerEmoji="⚙️"
-      showBackButton={true}
-      footerButtons={[
-        {
-          label: "Refresh",
-          onPress: handleRefresh,
-          variant: "ghost",
-        },
-      ]}
-      isScrollable={false}
-    >
-      <InfiniteScrollFlatList
-        data={jobs}
-        renderItem={renderJobItem}
-        fetchMoreData={handleFetchMore}
-        onRefresh={handleRefresh}
-        isLoading={isLoading}
-        isRefreshing={isRefreshing}
-        hasMore={hasMore}
-        error={error}
-        emptyListMessage="No jobs found"
-        onRetry={handleRetryAll}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
-    </Screen>
+    <AuthWrapper>
+      <Screen
+        bannerTitle="Jobs"
+        bannerEmoji="⚙️"
+        showBackButton={true}
+        footerButtons={[
+          {
+            label: "Refresh",
+            onPress: handleRefresh,
+            variant: "ghost",
+          },
+        ]}
+        isScrollable={false}
+      >
+        <InfiniteScrollFlatList
+          data={jobs}
+          renderItem={renderJobItem}
+          fetchMoreData={handleFetchMore}
+          onRefresh={handleRefresh}
+          isLoading={isLoading}
+          isRefreshing={isRefreshing}
+          hasMore={hasMore}
+          error={error}
+          emptyListMessage="No jobs found"
+          onRetry={handleRetryAll}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+        />
+      </Screen>
+    </AuthWrapper>
   );
 };
 

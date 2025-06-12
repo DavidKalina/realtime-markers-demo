@@ -3,22 +3,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import {
-  ChevronDown,
-  ChevronUp,
-  Eye,
-  EyeOff,
-  Lock,
-  Mail,
-  User,
-} from "lucide-react-native";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Keyboard,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -42,52 +32,6 @@ import { AuthWrapper } from "../AuthWrapper";
 import Input from "../Input/Input";
 import { COLORS } from "../Layout/ScreenLayout";
 
-// Define types for our data
-interface Profile {
-  id: string;
-  name: string;
-  email: string;
-  password: string;
-  role: string;
-  emoji: string;
-}
-
-// Test profiles data (unchanged)
-const TEST_PROFILES: Profile[] = [
-  {
-    id: "073f24d8-14a2-4ed7-a6c2-a28e980a4b02",
-    email: "david@example.com",
-    password: "password123!",
-    name: "David K",
-    role: "ADMIN",
-    emoji: "☕",
-  },
-  {
-    id: "074f24d8-14a2-4ed7-a6c2-a28e980a4b01",
-    email: "josh@example.com",
-    password: "password123!",
-    name: "Josh K",
-    role: "ADMIN",
-    emoji: "🏎️",
-  },
-  {
-    id: "35c1bd3d-70b9-4ec3-8a3c-f16e045a6813",
-    email: "james@example.com",
-    password: "password123!",
-    name: "James H.",
-    role: "ADMIN",
-    emoji: "🛹",
-  },
-  {
-    id: "4fe1d170-2895-4355-8f6d-0218889170dc",
-    email: "jared@example.com",
-    password: "password123!",
-    name: "Jared B.",
-    role: "ADMIN",
-    emoji: "👨‍💻",
-  },
-];
-
 const Login: React.FC = () => {
   const router = useRouter();
   const { mapStyle } = useMapStyle();
@@ -97,8 +41,6 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
-  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
   const isMounted = useRef(true);
 
   const emailInputRef = useRef<TextInput>(null);
@@ -115,24 +57,8 @@ const Login: React.FC = () => {
   useEffect(() => {
     return () => {
       isMounted.current = false;
-      // Ensure modal is closed on unmount
-      setIsDropdownOpen(false);
     };
   }, []);
-
-  const handleSelectProfile = (profile: Profile) => {
-    Haptics.selectionAsync();
-    setSelectedProfile(profile);
-    setEmail(profile.email);
-    setPassword(profile.password);
-    setError(null);
-    setIsDropdownOpen(false);
-  };
-
-  const toggleDropdown = () => {
-    Haptics.selectionAsync();
-    setIsDropdownOpen(!isDropdownOpen);
-  };
 
   const togglePasswordVisibility = () => {
     Haptics.selectionAsync();
@@ -177,40 +103,6 @@ const Login: React.FC = () => {
   const handleCreateAccount = () => {
     Haptics.selectionAsync();
     router.push("/register");
-  };
-
-  const getRoleColor = (role: string) => {
-    switch (role.toUpperCase()) {
-      case "ADMIN":
-        return "#f59e0b";
-      case "MODERATOR":
-        return "#3b82f6";
-      default:
-        return "#64748b";
-    }
-  };
-
-  const renderProfileItem = ({ item }: { item: Profile }) => {
-    return (
-      <TouchableOpacity
-        onPress={() => handleSelectProfile(item)}
-        style={styles.profileDropdownItem}
-        activeOpacity={0.7}
-      >
-        <View style={styles.profileEmojiContainer}>
-          <Text style={styles.profileEmojiSmall}>{item.emoji}</Text>
-        </View>
-        <Text style={styles.profileDropdownName}>{item.name}</Text>
-        <Text
-          style={[
-            styles.profileDropdownRole,
-            { color: getRoleColor(item.role) },
-          ]}
-        >
-          {item.role}
-        </Text>
-      </TouchableOpacity>
-    );
   };
 
   const handleLoginPress = async () => {
@@ -545,42 +437,6 @@ const Login: React.FC = () => {
                   layout={LinearTransition.springify()}
                   style={styles.formCard}
                 >
-                  <TouchableOpacity
-                    style={styles.profileSelectorContainer}
-                    onPress={toggleDropdown}
-                    activeOpacity={0.7}
-                  >
-                    {selectedProfile ? (
-                      <View style={styles.selectedProfileContainer}>
-                        <View style={styles.selectedProfileEmojiContainer}>
-                          <Text style={styles.profileEmojiLarge}>
-                            {selectedProfile.emoji}
-                          </Text>
-                        </View>
-                        <Text style={styles.selectedProfileName}>
-                          {selectedProfile.name}
-                        </Text>
-                      </View>
-                    ) : (
-                      <View style={styles.noProfileContainer}>
-                        <View style={styles.placeholderAvatar}>
-                          <User size={14} color="#93c5fd" />
-                        </View>
-                        <Text style={styles.selectProfileText}>
-                          Select a profile
-                        </Text>
-                      </View>
-                    )}
-
-                    <View style={styles.dropdownTrigger}>
-                      {isDropdownOpen ? (
-                        <ChevronUp size={14} color="#93c5fd" />
-                      ) : (
-                        <ChevronDown size={14} color="#93c5fd" />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-
                   {error && (
                     <View style={styles.errorContainer}>
                       <Text style={styles.errorText}>{error}</Text>
@@ -646,29 +502,6 @@ const Login: React.FC = () => {
             </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
-
-        <Modal
-          visible={isDropdownOpen}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setIsDropdownOpen(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setIsDropdownOpen(false)}
-          >
-            <View style={styles.dropdownContainer}>
-              <FlatList
-                data={TEST_PROFILES}
-                renderItem={renderProfileItem}
-                keyExtractor={(item) => item.id}
-                showsVerticalScrollIndicator={false}
-                style={styles.profileList}
-              />
-            </View>
-          </TouchableOpacity>
-        </Modal>
       </SafeAreaView>
     </AuthWrapper>
   );
