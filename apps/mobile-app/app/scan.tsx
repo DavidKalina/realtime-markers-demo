@@ -14,7 +14,6 @@ import { Feather } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { CameraView } from "expo-camera";
 import { useRouter } from "expo-router";
-import { debounce } from "lodash";
 import React, {
   useCallback,
   useEffect,
@@ -86,6 +85,11 @@ export default function ScanScreen() {
   // New state to store the captured image URI for processing overlay
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
 
+  // New state to control the processing flow stages
+  const [processingStage, setProcessingStage] = useState<
+    "captured" | "uploading" | "success" | null
+  >(null);
+
   // Temporary simulation function for testing in simulator
   const simulateCapture = useCallback(() => {
     if (!isMounted.current) return;
@@ -99,33 +103,57 @@ export default function ScanScreen() {
     // const sampleImageUri = null; // This will show just the processing overlay without image
 
     setCapturedImageUri(sampleImageUri);
+    setProcessingStage("captured");
     setShowProcessingOverlay(true);
     setImageSource("camera");
-    setIsUploading(true);
 
     // Show a notification
     publish(EventTypes.NOTIFICATION, {
       timestamp: Date.now(),
       source: "ScanScreen",
-      message: "Simulating document processing...",
+      message: "Simulating document capture...",
     });
 
-    // Simulate processing for 3 seconds
+    // Simulate the full flow with proper timing
     setTimeout(() => {
       if (isMounted.current) {
-        setShowProcessingOverlay(false);
-        setCapturedImageUri(null);
-        setImageSource(null);
-        setIsUploading(false);
+        setProcessingStage("uploading");
+        setIsUploading(true);
 
-        // Show completion notification
         publish(EventTypes.NOTIFICATION, {
           timestamp: Date.now(),
           source: "ScanScreen",
-          message: "Simulation completed!",
+          message: "Simulating document processing...",
         });
       }
-    }, 3000);
+    }, 2000);
+
+    setTimeout(() => {
+      if (isMounted.current) {
+        setProcessingStage("success");
+        setIsUploading(false);
+
+        publish(EventTypes.NOTIFICATION, {
+          timestamp: Date.now(),
+          source: "ScanScreen",
+          message: "Simulation completed successfully!",
+        });
+      }
+    }, 4000);
+
+    setTimeout(() => {
+      if (isMounted.current) {
+        // Don't manually hide overlay - let navigateToJobs handle the fade-out
+        setCapturedImageUri(null);
+        setProcessingStage(null);
+        setImageSource(null);
+        setIsUploading(false);
+
+        // Navigate to jobs screen
+        console.log("[ScanScreen] Simulation: About to navigate to jobs");
+        navigateToJobs();
+      }
+    }, 5500);
   }, [publish]);
 
   // Set mounted flag to false when component unmounts
@@ -148,15 +176,20 @@ export default function ScanScreen() {
       navigationTimerRef.current = null;
     }
 
-    // Reset all state
+    // Reset all state first
     setIsUploading(false);
     setImageSource(null);
     setShowProcessingOverlay(false);
     setCapturedImageUri(null);
+    setProcessingStage(null);
     uploadRetryCount.current = 0;
 
-    // Release camera resources
-    releaseCamera();
+    // Release camera resources last to avoid conflicts
+    setTimeout(() => {
+      if (isMounted.current) {
+        releaseCamera();
+      }
+    }, 100);
   }, [releaseCamera]);
 
   // Handle screen focus changes
@@ -191,11 +224,17 @@ export default function ScanScreen() {
 
   // Navigate to jobs screen after successful upload
   const navigateToJobs = useCallback(() => {
-    if (!isMounted.current) return;
-    setShowProcessingOverlay(false);
-    performFullCleanup();
-    router.replace("/jobs");
-  }, [performFullCleanup, router]);
+    console.log("[ScanScreen] navigateToJobs called");
+    if (!isMounted.current) {
+      console.log("[ScanScreen] Component not mounted, skipping navigation");
+      return;
+    }
+    console.log("[ScanScreen] Navigating to jobs screen...");
+
+    // Navigate directly without animation to avoid Reanimated conflicts
+    router.push("/jobs");
+    console.log("[ScanScreen] Navigation call completed");
+  }, [router]);
 
   // Check if network is suitable for upload
   const isNetworkSuitable = useCallback(() => {
@@ -245,6 +284,7 @@ export default function ScanScreen() {
       });
 
       if (result.jobId && isMounted.current) {
+        console.log("[ScanScreen] Upload successful, job ID:", result.jobId);
         // Publish job queued event
         publish(EventTypes.JOB_QUEUED, {
           timestamp: Date.now(),
@@ -253,10 +293,10 @@ export default function ScanScreen() {
           message: "Document scan queued for processing",
         });
 
-        // Navigate to jobs screen after successful upload
-        navigateToJobs();
+        // Return the job ID - navigation will be handled by the calling function
         return result.jobId;
       } else {
+        console.log("[ScanScreen] No job ID returned from upload");
         throw new Error("No job ID returned");
       }
     } catch (error) {
@@ -311,23 +351,6 @@ export default function ScanScreen() {
       }
     }, 500);
   }, []);
-
-  // Optimize image processing with debouncing
-  const debouncedUpload = useCallback(
-    debounce(async (uri: string) => {
-      if (!isMounted.current) return;
-      try {
-        await uploadImageAndQueue(uri);
-      } catch (error) {
-        console.error("Debounced upload failed:", error);
-        if (isMounted.current) {
-          setShowProcessingOverlay(false);
-          setCapturedImageUri(null);
-        }
-      }
-    }, 300),
-    [uploadImageAndQueue],
-  );
 
   // Fetch plan details
   useEffect(() => {
@@ -411,24 +434,59 @@ export default function ScanScreen() {
       // Store the captured image URI for the processing overlay
       setCapturedImageUri(photoUri);
 
-      // Immediately show processing overlay
+      // Show captured image first (stage 1)
+      setProcessingStage("captured");
       setShowProcessingOverlay(true);
-
-      // Set image source
       setImageSource("camera");
 
-      // Start upload process
+      // Show a notification
+      publish(EventTypes.NOTIFICATION, {
+        timestamp: Date.now(),
+        source: "ScanScreen",
+        message: "Image captured successfully!",
+      });
+
+      // Wait 2 seconds to let user see their captured image
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      if (!isMounted.current) return;
+
+      // Start upload process (stage 2)
+      setProcessingStage("uploading");
       setIsUploading(true);
 
-      // Show a notification
       publish(EventTypes.NOTIFICATION, {
         timestamp: Date.now(),
         source: "ScanScreen",
         message: "Processing document...",
       });
 
-      // Use debounced upload
-      await debouncedUpload(photoUri);
+      // Upload the image
+      console.log("[ScanScreen] handleCapture: Starting upload...");
+      await uploadImageAndQueue(photoUri);
+      console.log("[ScanScreen] handleCapture: Upload completed");
+
+      if (!isMounted.current) return;
+
+      // Show success state (stage 3)
+      console.log("[ScanScreen] handleCapture: Showing success state");
+      setProcessingStage("success");
+
+      publish(EventTypes.NOTIFICATION, {
+        timestamp: Date.now(),
+        source: "ScanScreen",
+        message: "Document processed successfully!",
+      });
+
+      // Wait 1.5 seconds to show success state
+      console.log("[ScanScreen] handleCapture: Waiting 1.5 seconds...");
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      if (!isMounted.current) return;
+
+      // Navigate to jobs screen
+      console.log("[ScanScreen] handleCapture: About to navigate to jobs");
+      navigateToJobs();
     } catch (error) {
       console.error("Capture failed:", error);
 
@@ -443,6 +501,7 @@ export default function ScanScreen() {
         setIsUploading(false);
         setShowProcessingOverlay(false);
         setCapturedImageUri(null);
+        setProcessingStage(null);
       }
     }
   };
@@ -471,16 +530,27 @@ export default function ScanScreen() {
       // Store the selected image URI for the processing overlay
       setCapturedImageUri(uri);
 
-      // Immediately show processing overlay
+      // Show selected image first (stage 1)
+      setProcessingStage("captured");
       setShowProcessingOverlay(true);
-
-      // Set image source
       setImageSource("gallery");
 
-      // Start upload process
+      // Show a notification
+      publish(EventTypes.NOTIFICATION, {
+        timestamp: Date.now(),
+        source: "ScanScreen",
+        message: "Image selected successfully!",
+      });
+
+      // Wait 2 seconds to let user see their selected image
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      if (!isMounted.current) return;
+
+      // Start upload process (stage 2)
+      setProcessingStage("uploading");
       setIsUploading(true);
 
-      // Show a notification
       publish(EventTypes.NOTIFICATION, {
         timestamp: Date.now(),
         source: "ScanScreen",
@@ -489,6 +559,28 @@ export default function ScanScreen() {
 
       // Upload the image and process
       await uploadImageAndQueue(uri);
+
+      if (!isMounted.current) return;
+
+      // Show success state (stage 3)
+      setProcessingStage("success");
+
+      publish(EventTypes.NOTIFICATION, {
+        timestamp: Date.now(),
+        source: "ScanScreen",
+        message: "Document processed successfully!",
+      });
+
+      // Wait 1.5 seconds to show success state
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      if (!isMounted.current) return;
+
+      // Navigate to jobs screen
+      console.log(
+        "[ScanScreen] handleImageSelected: About to navigate to jobs",
+      );
+      navigateToJobs();
     } catch (error) {
       console.error("Gallery image processing failed:", error);
 
@@ -503,6 +595,7 @@ export default function ScanScreen() {
         setIsUploading(false);
         setShowProcessingOverlay(false);
         setCapturedImageUri(null);
+        setProcessingStage(null);
       }
     }
   };
@@ -595,19 +688,49 @@ export default function ScanScreen() {
                     )}
                     {/* Fullscreen dark overlay for contrast */}
                     <View style={styles.processingDarkLayer} />
-                    {/* Centered spinner and text */}
+                    {/* Centered content based on processing stage */}
                     <View style={styles.processingCenterContent}>
-                      <ActivityIndicator
-                        size="large"
-                        color={COLORS.accent}
-                        style={{ marginBottom: 24 }}
-                      />
-                      <Text style={styles.processingTitleStrong}>
-                        Processing Document
-                      </Text>
-                      <Text style={styles.processingMessageStrong}>
-                        Please wait while we analyze your document...
-                      </Text>
+                      {processingStage === "captured" && (
+                        <>
+                          <Text style={styles.processingTitleStrong}>
+                            Image Captured!
+                          </Text>
+                          <Text style={styles.processingMessageStrong}>
+                            Your document has been captured successfully.
+                          </Text>
+                          <ActivityIndicator
+                            size="large"
+                            color={COLORS.accent}
+                            style={{ marginTop: 24 }}
+                          />
+                        </>
+                      )}
+                      {processingStage === "uploading" && (
+                        <>
+                          <ActivityIndicator
+                            size="large"
+                            color={COLORS.accent}
+                            style={{ marginBottom: 24 }}
+                          />
+                          <Text style={styles.processingTitleStrong}>
+                            Processing Document
+                          </Text>
+                          <Text style={styles.processingMessageStrong}>
+                            Please wait while we analyze your document...
+                          </Text>
+                        </>
+                      )}
+                      {processingStage === "success" && (
+                        <>
+                          <Text style={styles.successEmoji}>✅</Text>
+                          <Text style={styles.processingTitleStrong}>
+                            Success!
+                          </Text>
+                          <Text style={styles.processingMessageStrong}>
+                            Your document has been processed successfully.
+                          </Text>
+                        </>
+                      )}
                     </View>
                   </Animated.View>
                 )}
@@ -891,7 +1014,7 @@ const styles = StyleSheet.create({
   },
   processingDarkLayer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
   },
   processingCenterContent: {
     width: "100%",
@@ -900,7 +1023,7 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(28, 28, 30, 0.9)",
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
     borderRadius: 16,
     padding: 24,
     shadowColor: COLORS.shadow,
@@ -909,10 +1032,10 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
     borderWidth: 1,
-    borderColor: COLORS.warningBorder,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   processingTitleStrong: {
-    color: COLORS.textPrimary,
+    color: "#000000",
     fontSize: 20,
     fontWeight: "700",
     fontFamily: "SpaceMono",
@@ -920,7 +1043,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   processingMessageStrong: {
-    color: COLORS.textSecondary,
+    color: "#333333",
     fontSize: 14,
     textAlign: "center",
     fontFamily: "SpaceMono",
@@ -941,5 +1064,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     fontFamily: "SpaceMono",
+  },
+  successEmoji: {
+    fontSize: 48,
+    marginBottom: 16,
   },
 });
