@@ -79,6 +79,9 @@ export default function ScanScreen() {
   // New state to control when to show no-scans overlay
   const [showNoScansOverlay, setShowNoScansOverlay] = useState(false);
 
+  // New state to control processing overlay
+  const [showProcessingOverlay, setShowProcessingOverlay] = useState(false);
+
   // Set mounted flag to false when component unmounts
   useEffect(() => {
     return () => {
@@ -102,6 +105,7 @@ export default function ScanScreen() {
     // Reset all state
     setIsUploading(false);
     setImageSource(null);
+    setShowProcessingOverlay(false);
     uploadRetryCount.current = 0;
 
     // Release camera resources
@@ -141,6 +145,7 @@ export default function ScanScreen() {
   // Navigate to jobs screen after successful upload
   const navigateToJobs = useCallback(() => {
     if (!isMounted.current) return;
+    setShowProcessingOverlay(false);
     performFullCleanup();
     router.replace("/jobs");
   }, [performFullCleanup, router]);
@@ -236,6 +241,9 @@ export default function ScanScreen() {
           "There was a problem uploading your document. Please check your network connection and try again.",
           [{ text: "OK" }],
         );
+
+        // Reset processing state on error
+        setShowProcessingOverlay(false);
       }
 
       throw error;
@@ -264,6 +272,9 @@ export default function ScanScreen() {
         await uploadImageAndQueue(uri);
       } catch (error) {
         console.error("Debounced upload failed:", error);
+        if (isMounted.current) {
+          setShowProcessingOverlay(false);
+        }
       }
     }, 300),
     [uploadImageAndQueue],
@@ -348,6 +359,9 @@ export default function ScanScreen() {
         throw new Error("Failed to capture image");
       }
 
+      // Immediately show processing overlay
+      setShowProcessingOverlay(true);
+
       // Set image source
       setImageSource("camera");
 
@@ -375,6 +389,7 @@ export default function ScanScreen() {
 
         setImageSource(null);
         setIsUploading(false);
+        setShowProcessingOverlay(false);
       }
     }
   };
@@ -400,6 +415,9 @@ export default function ScanScreen() {
     }
 
     try {
+      // Immediately show processing overlay
+      setShowProcessingOverlay(true);
+
       // Set image source
       setImageSource("gallery");
 
@@ -427,6 +445,7 @@ export default function ScanScreen() {
 
         setImageSource(null);
         setIsUploading(false);
+        setShowProcessingOverlay(false);
       }
     }
   };
@@ -503,8 +522,28 @@ export default function ScanScreen() {
                 onCameraReady={onCameraReady}
                 flash={flashMode}
               >
+                {/* Processing Overlay */}
+                {showProcessingOverlay && (
+                  <Animated.View
+                    style={styles.processingOverlay}
+                    entering={FadeIn.duration(300)}
+                  >
+                    <View style={styles.processingContent}>
+                      <View style={styles.processingIconContainer}>
+                        <ActivityIndicator size="large" color={COLORS.accent} />
+                      </View>
+                      <Text style={styles.processingTitle}>
+                        Processing Document
+                      </Text>
+                      <Text style={styles.processingMessage}>
+                        Please wait while we analyze your document...
+                      </Text>
+                    </View>
+                  </Animated.View>
+                )}
+
                 {/* Camera not ready indicator */}
-                {!isCameraReady && (
+                {!isCameraReady && !showProcessingOverlay && (
                   <View style={styles.cameraNotReadyOverlay}>
                     <ActivityIndicator size="large" color="#ffffff" />
                     <Text style={styles.cameraNotReadyText}>
@@ -514,7 +553,7 @@ export default function ScanScreen() {
                 )}
 
                 {/* No Scans Available Overlay */}
-                {showNoScansOverlay && (
+                {showNoScansOverlay && !showProcessingOverlay && (
                   <Animated.View
                     style={styles.noScansOverlay}
                     entering={FadeIn.duration(300)}
@@ -574,11 +613,16 @@ export default function ScanScreen() {
             isReady={isCameraReady}
             flashMode={flashMode}
             onFlashToggle={toggleFlash}
-            disabled={!isCameraReady || isUploading || !hasRemainingScans}
+            disabled={
+              !isCameraReady ||
+              isUploading ||
+              !hasRemainingScans ||
+              showProcessingOverlay
+            }
           />
 
           {/* Subtle scan counter badge */}
-          {planDetails && hasRemainingScans && (
+          {planDetails && hasRemainingScans && !showProcessingOverlay && (
             <Animated.View
               style={styles.scanCountBadge}
               entering={FadeIn.duration(300)}
@@ -751,5 +795,54 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 14,
     fontFamily: "SpaceMono",
+  },
+  processingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    zIndex: 100,
+  },
+  processingContent: {
+    width: "100%",
+    maxWidth: 340,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: COLORS.warningBorder,
+  },
+  processingIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.warningBackground,
+    borderWidth: 1,
+    borderColor: COLORS.warningBorder,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  processingTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 20,
+    fontWeight: "700",
+    fontFamily: "SpaceMono",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  processingMessage: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 20,
   },
 });
