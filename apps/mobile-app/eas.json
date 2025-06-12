@@ -15,6 +15,7 @@
       "channel": "development"
     },
     "development": {
+      "developmentClient": true,
       "distribution": "internal",
       "channel": "development",
       "ios": {

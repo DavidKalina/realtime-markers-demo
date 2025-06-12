@@ -80,7 +80,7 @@ export const ProcessingOverlay: React.FC<ProcessingOverlayProps> = ({
 const styles = StyleSheet.create({
   processingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 100,
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   },
   processingDarkLayer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
   },
   processingCenterContent: {
     width: "100%",
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    backgroundColor: "rgba(255, 255, 255, 0.6)",
     borderRadius: 16,
     padding: 24,
     shadowColor: COLORS.shadow,
