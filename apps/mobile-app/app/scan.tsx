@@ -26,6 +26,7 @@ import {
   ActivityIndicator,
   Alert,
   AppState,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -82,6 +83,51 @@ export default function ScanScreen() {
   // New state to control processing overlay
   const [showProcessingOverlay, setShowProcessingOverlay] = useState(false);
 
+  // New state to store the captured image URI for processing overlay
+  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
+
+  // Temporary simulation function for testing in simulator
+  const simulateCapture = useCallback(() => {
+    if (!isMounted.current) return;
+
+    // Use a reliable sample image URL for simulation
+    // This is a simple placeholder image that should work in simulators
+    const sampleImageUri =
+      "https://via.placeholder.com/800x600/4A90E2/FFFFFF?text=Sample+Document";
+
+    // Alternative: Create a simple colored background as fallback
+    // const sampleImageUri = null; // This will show just the processing overlay without image
+
+    setCapturedImageUri(sampleImageUri);
+    setShowProcessingOverlay(true);
+    setImageSource("camera");
+    setIsUploading(true);
+
+    // Show a notification
+    publish(EventTypes.NOTIFICATION, {
+      timestamp: Date.now(),
+      source: "ScanScreen",
+      message: "Simulating document processing...",
+    });
+
+    // Simulate processing for 3 seconds
+    setTimeout(() => {
+      if (isMounted.current) {
+        setShowProcessingOverlay(false);
+        setCapturedImageUri(null);
+        setImageSource(null);
+        setIsUploading(false);
+
+        // Show completion notification
+        publish(EventTypes.NOTIFICATION, {
+          timestamp: Date.now(),
+          source: "ScanScreen",
+          message: "Simulation completed!",
+        });
+      }
+    }, 3000);
+  }, [publish]);
+
   // Set mounted flag to false when component unmounts
   useEffect(() => {
     return () => {
@@ -106,6 +152,7 @@ export default function ScanScreen() {
     setIsUploading(false);
     setImageSource(null);
     setShowProcessingOverlay(false);
+    setCapturedImageUri(null);
     uploadRetryCount.current = 0;
 
     // Release camera resources
@@ -244,6 +291,7 @@ export default function ScanScreen() {
 
         // Reset processing state on error
         setShowProcessingOverlay(false);
+        setCapturedImageUri(null);
       }
 
       throw error;
@@ -274,6 +322,7 @@ export default function ScanScreen() {
         console.error("Debounced upload failed:", error);
         if (isMounted.current) {
           setShowProcessingOverlay(false);
+          setCapturedImageUri(null);
         }
       }
     }, 300),
@@ -359,6 +408,9 @@ export default function ScanScreen() {
         throw new Error("Failed to capture image");
       }
 
+      // Store the captured image URI for the processing overlay
+      setCapturedImageUri(photoUri);
+
       // Immediately show processing overlay
       setShowProcessingOverlay(true);
 
@@ -390,6 +442,7 @@ export default function ScanScreen() {
         setImageSource(null);
         setIsUploading(false);
         setShowProcessingOverlay(false);
+        setCapturedImageUri(null);
       }
     }
   };
@@ -415,6 +468,9 @@ export default function ScanScreen() {
     }
 
     try {
+      // Store the selected image URI for the processing overlay
+      setCapturedImageUri(uri);
+
       // Immediately show processing overlay
       setShowProcessingOverlay(true);
 
@@ -446,6 +502,7 @@ export default function ScanScreen() {
         setImageSource(null);
         setIsUploading(false);
         setShowProcessingOverlay(false);
+        setCapturedImageUri(null);
       }
     }
   };
@@ -528,14 +585,27 @@ export default function ScanScreen() {
                     style={styles.processingOverlay}
                     entering={FadeIn.duration(300)}
                   >
-                    <View style={styles.processingContent}>
-                      <View style={styles.processingIconContainer}>
-                        <ActivityIndicator size="large" color={COLORS.accent} />
-                      </View>
-                      <Text style={styles.processingTitle}>
+                    {/* Background Image */}
+                    {capturedImageUri && (
+                      <Image
+                        source={{ uri: capturedImageUri }}
+                        style={styles.processingBackgroundImage}
+                        resizeMode="cover"
+                      />
+                    )}
+                    {/* Fullscreen dark overlay for contrast */}
+                    <View style={styles.processingDarkLayer} />
+                    {/* Centered spinner and text */}
+                    <View style={styles.processingCenterContent}>
+                      <ActivityIndicator
+                        size="large"
+                        color={COLORS.accent}
+                        style={{ marginBottom: 24 }}
+                      />
+                      <Text style={styles.processingTitleStrong}>
                         Processing Document
                       </Text>
-                      <Text style={styles.processingMessage}>
+                      <Text style={styles.processingMessageStrong}>
                         Please wait while we analyze your document...
                       </Text>
                     </View>
@@ -620,6 +690,19 @@ export default function ScanScreen() {
               showProcessingOverlay
             }
           />
+
+          {/* Simulation button for testing in development */}
+          {__DEV__ && !showProcessingOverlay && (
+            <TouchableOpacity
+              style={styles.simulationButton}
+              onPress={simulateCapture}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.simulationButtonText}>
+                🧪 Simulate Capture (Dev Only)
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* Subtle scan counter badge */}
           {planDetails && hasRemainingScans && !showProcessingOverlay && (
@@ -798,19 +881,28 @@ const styles = StyleSheet.create({
   },
   processingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
     zIndex: 100,
   },
-  processingContent: {
+  processingBackgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  processingDarkLayer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  processingCenterContent: {
     width: "100%",
-    maxWidth: 340,
-    backgroundColor: COLORS.cardBackground,
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(28, 28, 30, 0.9)",
     borderRadius: 16,
     padding: 24,
-    alignItems: "center",
     shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
@@ -819,18 +911,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.warningBorder,
   },
-  processingIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: COLORS.warningBackground,
-    borderWidth: 1,
-    borderColor: COLORS.warningBorder,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  processingTitle: {
+  processingTitleStrong: {
     color: COLORS.textPrimary,
     fontSize: 20,
     fontWeight: "700",
@@ -838,11 +919,27 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: "center",
   },
-  processingMessage: {
+  processingMessageStrong: {
     color: COLORS.textSecondary,
     fontSize: 14,
     textAlign: "center",
+    fontFamily: "SpaceMono",
     marginBottom: 24,
     lineHeight: 20,
+  },
+  simulationButton: {
+    backgroundColor: COLORS.accent,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  simulationButtonText: {
+    color: COLORS.textPrimary,
+    fontSize: 16,
+    fontWeight: "600",
+    fontFamily: "SpaceMono",
   },
 });
