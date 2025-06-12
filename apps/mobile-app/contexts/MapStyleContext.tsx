@@ -43,7 +43,7 @@ const getMapStyleURL = (style: MapStyleType): string => {
 export const MapStyleProvider: React.FC<{ children: React.ReactNode }> =
   React.memo(({ children }) => {
     const [currentStyle, setCurrentStyle] = useState<MapStyleType>("street");
-    const [isPitched, setIsPitched] = useState(true);
+    const [isPitched, setIsPitched] = useState(false);
 
     // Memoize the style URL to prevent recalculation
     const mapStyle = useMemo(
