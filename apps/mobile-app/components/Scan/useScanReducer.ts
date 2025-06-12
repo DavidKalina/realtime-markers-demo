@@ -1,19 +1,10 @@
-import { useReducer, useCallback, useRef, useEffect } from "react";
-import { Alert } from "react-native";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes } from "@/services/EventBroker";
+import { useCallback, useEffect, useReducer, useRef } from "react";
+import { Alert } from "react-native";
 import { ProcessingStage } from "./ProcessingOverlay";
-import { apiClient, PlanType } from "@/services/ApiClient";
 
 export type ImageSource = "camera" | "gallery" | null;
-
-interface PlanDetails {
-  planType: PlanType;
-  weeklyScanCount: number;
-  scanLimit: number;
-  remainingScans: number;
-  lastReset: Date | null;
-}
 
 // Define the scan state
 export interface ScanState {
@@ -40,8 +31,6 @@ export interface ScanState {
   shouldNavigateToJobs: boolean;
 
   // Scan limits state
-  planDetails: PlanDetails | null;
-  isCheckingPlan: boolean;
   showNoScansOverlay: boolean;
 
   // Error state
@@ -64,9 +53,6 @@ export type ScanAction =
   | { type: "UPLOAD_ERROR"; payload: string }
   | { type: "PROCESSING_SUCCESS" }
   | { type: "NAVIGATE_TO_JOBS" }
-  | { type: "FETCH_PLAN_START" }
-  | { type: "FETCH_PLAN_SUCCESS"; payload: PlanDetails }
-  | { type: "FETCH_PLAN_ERROR"; payload: string }
   | { type: "SET_SHOW_NO_SCANS_OVERLAY"; payload: boolean }
   | { type: "RESET" }
   | { type: "CLEAR_ERROR" };
@@ -85,8 +71,6 @@ const initialState: ScanState = {
   uploadProgress: 0,
   uploadError: null,
   shouldNavigateToJobs: false,
-  planDetails: null,
-  isCheckingPlan: true,
   showNoScansOverlay: false,
   error: null,
 };
@@ -200,29 +184,6 @@ function scanReducer(state: ScanState, action: ScanAction): ScanState {
         shouldNavigateToJobs: true,
       };
 
-    case "FETCH_PLAN_START":
-      return {
-        ...state,
-        isCheckingPlan: true,
-        error: null,
-      };
-
-    case "FETCH_PLAN_SUCCESS":
-      return {
-        ...state,
-        isCheckingPlan: false,
-        planDetails: action.payload,
-        showNoScansOverlay: action.payload.remainingScans <= 0,
-        error: null,
-      };
-
-    case "FETCH_PLAN_ERROR":
-      return {
-        ...state,
-        isCheckingPlan: false,
-        error: action.payload,
-      };
-
     case "SET_SHOW_NO_SCANS_OVERLAY":
       return {
         ...state,
@@ -291,37 +252,6 @@ export const useScanReducer = ({
     }
   }, [state.shouldNavigateToJobs, isMounted]);
 
-  // Fetch plan details on mount
-  useEffect(() => {
-    let isMountedRef = true;
-
-    const fetchPlanDetails = async () => {
-      dispatch({ type: "FETCH_PLAN_START" });
-
-      try {
-        const details = await apiClient.plans.getPlanDetails();
-        if (isMountedRef && isMounted.current) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          dispatch({ type: "FETCH_PLAN_SUCCESS", payload: details as any });
-        }
-      } catch (error) {
-        console.error("Error fetching plan details:", error);
-        if (isMountedRef && isMounted.current) {
-          dispatch({
-            type: "FETCH_PLAN_ERROR",
-            payload: "Failed to fetch plan details",
-          });
-        }
-      }
-    };
-
-    fetchPlanDetails();
-
-    return () => {
-      isMountedRef = false;
-    };
-  }, [isMounted]);
-
   // Initialize camera
   const initializeCamera = useCallback(() => {
     if (!isMounted.current) return;
@@ -342,13 +272,6 @@ export const useScanReducer = ({
       if (!isMounted.current) return { success: false, error: "unmounted" };
 
       // Check remaining scans
-      const hasRemainingScans = state.planDetails
-        ? state.planDetails.remainingScans > 0
-        : true;
-      if (!hasRemainingScans) {
-        dispatch({ type: "SET_SHOW_NO_SCANS_OVERLAY", payload: true });
-        return { success: false, error: "no_scans" };
-      }
 
       // Check network
       if (!isNetworkSuitableRef.current()) {
@@ -435,7 +358,7 @@ export const useScanReducer = ({
         return { success: false, error: "capture_failed" };
       }
     },
-    [isMounted, publish, state.planDetails],
+    [isMounted, publish],
   );
 
   // Handle image selection from gallery
@@ -444,13 +367,6 @@ export const useScanReducer = ({
       if (!isMounted.current) return { success: false, error: "unmounted" };
 
       // Check remaining scans
-      const hasRemainingScans = state.planDetails
-        ? state.planDetails.remainingScans > 0
-        : true;
-      if (!hasRemainingScans) {
-        dispatch({ type: "SET_SHOW_NO_SCANS_OVERLAY", payload: true });
-        return { success: false, error: "no_scans" };
-      }
 
       // Check network
       if (!isNetworkSuitableRef.current()) {
@@ -528,7 +444,7 @@ export const useScanReducer = ({
         return { success: false, error: "gallery_failed" };
       }
     },
-    [isMounted, publish, state.planDetails],
+    [isMounted, publish],
   );
 
   // Set show no scans overlay
@@ -611,9 +527,6 @@ export const useScanReducer = ({
   }, [isMounted, publish]);
 
   // Computed values
-  const hasRemainingScans = state.planDetails
-    ? state.planDetails.remainingScans > 0
-    : true;
 
   return {
     // State
@@ -632,6 +545,5 @@ export const useScanReducer = ({
     isReady: state.isCameraInitialized && !state.error,
     canCapture:
       state.isCameraInitialized && !state.isCapturing && !state.isProcessing,
-    hasRemainingScans,
   };
 };

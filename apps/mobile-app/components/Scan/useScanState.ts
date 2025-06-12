@@ -122,13 +122,7 @@ export const useScanState = ({
     ...scanState,
 
     // Computed values
-    isLoading:
-      scanState.isCheckingPlan ||
-      scanState.isCapturing ||
-      scanState.isProcessing,
-    canInteract:
-      scanState.isReady &&
-      scanState.hasRemainingScans &&
-      !scanState.showNoScansOverlay,
+    isLoading: scanState.isCapturing || scanState.isProcessing,
+    canInteract: scanState.isReady,
   };
 };

@@ -103,10 +103,7 @@ export default function ScanScreen() {
     showProcessingOverlay,
 
     // Scan limits
-    planDetails,
-    isCheckingPlan,
     showNoScansOverlay,
-    hasRemainingScans,
     setShowNoScansOverlay,
 
     // Actions
@@ -174,6 +171,14 @@ export default function ScanScreen() {
     }, 500);
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      checkPermission();
+      return () => {
+        console.log("[ScanScreen] Screen unfocused");
+      };
+    }, []),
+  );
   // Handle retry permission
   const handleRetryPermission = useCallback(async (): Promise<boolean> => {
     return await checkPermission();
@@ -230,24 +235,6 @@ export default function ScanScreen() {
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.loaderText}>Checking camera permissions...</Text>
-        </View>
-      </Screen>
-    );
-  }
-
-  // Loading state while checking plan details
-  if (isCheckingPlan) {
-    console.log("[ScanScreen] Checking plan details, showing loading screen");
-    return (
-      <Screen
-        bannerTitle="Scan Document"
-        showBackButton={false}
-        isScrollable={false}
-        noSafeArea={false}
-      >
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
-          <Text style={styles.loaderText}>Checking scan limits...</Text>
         </View>
       </Screen>
     );
@@ -325,12 +312,7 @@ export default function ScanScreen() {
             isReady={isCameraReady}
             flashMode={flashMode}
             onFlashToggle={toggleFlash}
-            disabled={
-              !isCameraReady ||
-              isProcessing ||
-              !hasRemainingScans ||
-              showProcessingOverlay
-            }
+            disabled={!isCameraReady || isProcessing || showProcessingOverlay}
           />
 
           {/* Simulation button for testing in development */}
@@ -339,19 +321,6 @@ export default function ScanScreen() {
             isMounted={isMounted}
             onSimulateCapture={simulateCapture}
           />
-
-          {/* Subtle scan counter badge */}
-          {planDetails && hasRemainingScans && !showProcessingOverlay && (
-            <Animated.View
-              style={styles.scanCountBadge}
-              entering={FadeIn.duration(300)}
-            >
-              <Text style={styles.scanCountText}>
-                {planDetails.remainingScans} scan
-                {planDetails.remainingScans !== 1 ? "s" : ""} left
-              </Text>
-            </Animated.View>
-          )}
         </View>
       </Screen>
     </AuthWrapper>
