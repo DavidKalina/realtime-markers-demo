@@ -93,6 +93,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           <Card style={styles.card}>
             <Text style={styles.sectionTitle}>Account Information</Text>
             <View style={styles.detailRow}>
+              <Text style={styles.label}>Username</Text>
+              <Text style={styles.value}>{profileData?.username}</Text>
+            </View>
+            <View style={styles.detailRow}>
               <Text style={styles.label}>Email</Text>
               <Text style={styles.value}>{user?.email}</Text>
             </View>
