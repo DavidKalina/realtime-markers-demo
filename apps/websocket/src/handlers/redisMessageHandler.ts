@@ -1,5 +1,6 @@
 import { REDIS_CHANNELS, MessageTypes } from "../config/constants";
-import type { ConnectionHandler } from "./connectionHandler";
+import type { ServerWebSocket } from "bun";
+import type { WebSocketData } from "../types/websocket";
 
 export interface DiscoveredEvent {
   event: {
@@ -27,10 +28,15 @@ export interface LevelUpdate {
   timestamp?: string;
 }
 
+export interface RedisMessageHandlerDependencies {
+  getUserClients: (userId: string) => Set<string> | undefined;
+  getClient: (clientId: string) => ServerWebSocket<WebSocketData> | undefined;
+}
+
 export function handleRedisMessage(
   channel: string,
   message: string,
-  connectionHandler: ConnectionHandler,
+  dependencies: RedisMessageHandlerDependencies,
 ): void {
   console.log(`Received message from ${channel}: ${message}`);
 
@@ -51,12 +57,12 @@ export function handleRedisMessage(
           timestamp: new Date().toISOString(),
         });
 
-        const userClients = connectionHandler.getUserClients(
+        const userClients = dependencies.getUserClients(
           eventData.event.creatorId,
         );
         if (userClients) {
           for (const clientId of userClients) {
-            const client = connectionHandler.getClient(clientId);
+            const client = dependencies.getClient(clientId);
             if (client) {
               try {
                 client.send(formattedMessage);
@@ -91,12 +97,12 @@ export function handleRedisMessage(
           source: "websocket_server",
         });
 
-        const userClients = connectionHandler.getUserClients(
+        const userClients = dependencies.getUserClients(
           notificationData.notification.userId,
         );
         if (userClients) {
           for (const clientId of userClients) {
-            const client = connectionHandler.getClient(clientId);
+            const client = dependencies.getClient(clientId);
             if (client) {
               try {
                 client.send(formattedMessage);
@@ -140,10 +146,10 @@ export function handleRedisMessage(
           },
         });
 
-        const userClients = connectionHandler.getUserClients(levelData.userId);
+        const userClients = dependencies.getUserClients(levelData.userId);
         if (userClients) {
           for (const clientId of userClients) {
-            const client = connectionHandler.getClient(clientId);
+            const client = dependencies.getClient(clientId);
             if (client) {
               try {
                 client.send(formattedMessage);
