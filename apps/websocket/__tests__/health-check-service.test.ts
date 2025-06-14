@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from "bun:test";
 import { createHealthCheckService } from "../src/services/healthCheckService";
-import type { HealthCheckDependencies } from "../src/services/healthCheckService";
+import type { HealthCheckServiceDependencies } from "../src/services/healthCheckService";
 
 // Mock console methods to capture logs
 const originalConsoleLog = console.log;
@@ -14,7 +14,7 @@ Object.defineProperty(global, "fetch", {
 });
 
 describe("HealthCheckService", () => {
-  let mockDependencies: HealthCheckDependencies;
+  let mockDependencies: HealthCheckServiceDependencies;
   let consoleErrors: string[] = [];
   let healthCheckService: ReturnType<typeof createHealthCheckService>;
 
@@ -87,7 +87,7 @@ describe("HealthCheckService", () => {
       const beforeCheck = Date.now();
 
       await healthCheckService.checkRedisConnection();
-      const healthState = healthCheckService.getHealthState();
+      const healthState = healthCheckService.getHealthStatus();
 
       expect(healthState.lastRedisCheck).toBeGreaterThanOrEqual(beforeCheck);
     });
@@ -99,7 +99,7 @@ describe("HealthCheckService", () => {
       const beforeCheck = Date.now();
 
       await healthCheckService.checkRedisConnection();
-      const healthState = healthCheckService.getHealthState();
+      const healthState = healthCheckService.getHealthStatus();
 
       expect(healthState.lastRedisCheck).toBeGreaterThanOrEqual(beforeCheck);
     });
@@ -162,7 +162,7 @@ describe("HealthCheckService", () => {
       const beforeCheck = Date.now();
 
       await healthCheckService.checkBackendConnection();
-      const healthState = healthCheckService.getHealthState();
+      const healthState = healthCheckService.getHealthStatus();
 
       expect(healthState.lastBackendCheck).toBeGreaterThanOrEqual(beforeCheck);
     });
@@ -172,7 +172,7 @@ describe("HealthCheckService", () => {
       const beforeCheck = Date.now();
 
       await healthCheckService.checkBackendConnection();
-      const healthState = healthCheckService.getHealthState();
+      const healthState = healthCheckService.getHealthStatus();
 
       expect(healthState.lastBackendCheck).toBeGreaterThanOrEqual(beforeCheck);
     });
@@ -235,7 +235,7 @@ describe("HealthCheckService", () => {
       const beforeCheck = Date.now();
 
       await healthCheckService.checkFilterProcessorConnection();
-      const healthState = healthCheckService.getHealthState();
+      const healthState = healthCheckService.getHealthStatus();
 
       expect(healthState.lastFilterProcessorCheck).toBeGreaterThanOrEqual(
         beforeCheck,
@@ -247,7 +247,7 @@ describe("HealthCheckService", () => {
       const beforeCheck = Date.now();
 
       await healthCheckService.checkFilterProcessorConnection();
-      const healthState = healthCheckService.getHealthState();
+      const healthState = healthCheckService.getHealthStatus();
 
       expect(healthState.lastFilterProcessorCheck).toBeGreaterThanOrEqual(
         beforeCheck,
@@ -257,13 +257,13 @@ describe("HealthCheckService", () => {
 
   describe("updateHealthStats", () => {
     it("should update connected clients and users count", () => {
-      const initialState = healthCheckService.getHealthState();
+      const initialState = healthCheckService.getHealthStatus();
       expect(initialState.connectedClients).toBe(0);
       expect(initialState.connectedUsers).toBe(0);
 
       healthCheckService.updateHealthStats(42, 15);
 
-      const updatedState = healthCheckService.getHealthState();
+      const updatedState = healthCheckService.getHealthStatus();
       expect(updatedState.connectedClients).toBe(42);
       expect(updatedState.connectedUsers).toBe(15);
     });
@@ -271,7 +271,7 @@ describe("HealthCheckService", () => {
     it("should handle zero values", () => {
       healthCheckService.updateHealthStats(0, 0);
 
-      const state = healthCheckService.getHealthState();
+      const state = healthCheckService.getHealthStatus();
       expect(state.connectedClients).toBe(0);
       expect(state.connectedUsers).toBe(0);
     });
@@ -279,7 +279,7 @@ describe("HealthCheckService", () => {
     it("should handle negative values", () => {
       healthCheckService.updateHealthStats(-1, -5);
 
-      const state = healthCheckService.getHealthState();
+      const state = healthCheckService.getHealthStatus();
       expect(state.connectedClients).toBe(-1);
       expect(state.connectedUsers).toBe(-5);
     });
@@ -380,17 +380,17 @@ describe("HealthCheckService", () => {
     });
   });
 
-  describe("getHealthState", () => {
+  describe("getHealthStatus", () => {
     it("should return a copy of the health state", () => {
-      const state1 = healthCheckService.getHealthState();
-      const state2 = healthCheckService.getHealthState();
+      const state1 = healthCheckService.getHealthStatus();
+      const state2 = healthCheckService.getHealthStatus();
 
       expect(state1).toEqual(state2);
       expect(state1).not.toBe(state2); // Should be a copy, not the same reference
     });
 
     it("should include all health state properties", () => {
-      const state = healthCheckService.getHealthState();
+      const state = healthCheckService.getHealthStatus();
 
       expect(state).toHaveProperty("backendConnected");
       expect(state).toHaveProperty("redisConnected");
@@ -404,7 +404,7 @@ describe("HealthCheckService", () => {
 
     it("should reflect updated connection states", async () => {
       // Initially all should be false
-      let state = healthCheckService.getHealthState();
+      let state = healthCheckService.getHealthStatus();
       expect(state.redisConnected).toBe(false);
       expect(state.backendConnected).toBe(false);
       expect(state.filterProcessorConnected).toBe(false);
@@ -419,7 +419,7 @@ describe("HealthCheckService", () => {
       await healthCheckService.checkFilterProcessorConnection();
 
       // Check updated state
-      state = healthCheckService.getHealthState();
+      state = healthCheckService.getHealthStatus();
       expect(state.redisConnected).toBe(true);
       expect(state.backendConnected).toBe(true);
       expect(state.filterProcessorConnected).toBe(true);
@@ -438,7 +438,7 @@ describe("HealthCheckService", () => {
       await healthCheckService.checkBackendConnection();
       await healthCheckService.checkFilterProcessorConnection();
 
-      const state = healthCheckService.getHealthState();
+      const state = healthCheckService.getHealthStatus();
       expect(state.redisConnected).toBe(true);
       expect(state.backendConnected).toBe(true);
       expect(state.filterProcessorConnected).toBe(false);
@@ -457,7 +457,7 @@ describe("HealthCheckService", () => {
       await healthCheckService.checkBackendConnection();
       await healthCheckService.checkFilterProcessorConnection();
 
-      let state = healthCheckService.getHealthState();
+      let state = healthCheckService.getHealthStatus();
       expect(state.redisConnected).toBe(true);
       expect(state.backendConnected).toBe(true);
       expect(state.filterProcessorConnected).toBe(true);
@@ -468,7 +468,7 @@ describe("HealthCheckService", () => {
       );
       await healthCheckService.checkRedisConnection();
 
-      state = healthCheckService.getHealthState();
+      state = healthCheckService.getHealthStatus();
       expect(state.redisConnected).toBe(false);
       expect(state.backendConnected).toBe(true); // Should still be true from previous check
       expect(state.filterProcessorConnected).toBe(true); // Should still be true from previous check
