@@ -5,6 +5,8 @@ export class EventPublisher {
   private redisPub: Redis;
   private stats = {
     totalFilteredEventsPublished: 0,
+    batchUpdatesPublished: 0,
+    individualUpdatesPublished: 0,
   };
 
   constructor(redisPub: Redis) {
@@ -44,39 +46,34 @@ export class EventPublisher {
         },
       );
 
-      // For viewport updates, send all events in one message to replace existing ones
-      if (type === "viewport") {
-        const message = {
-          type: "replace-all",
-          events: sanitizedEvents,
-          count: sanitizedEvents.length,
-          timestamp: new Date().toISOString(),
-        };
+      // Always use batch updates for multi-event publications
+      const message = {
+        type: "batch-update",
+        timestamp: new Date().toISOString(),
+        updates: {
+          creates: type === "viewport" || type === "all" ? sanitizedEvents : [],
+          updates: type === "update" ? sanitizedEvents : [],
+          deletes: [],
+        },
+        summary: {
+          totalEvents: sanitizedEvents.length,
+          newEvents:
+            type === "viewport" || type === "all" ? sanitizedEvents.length : 0,
+          updatedEvents: type === "update" ? sanitizedEvents.length : 0,
+          deletedEvents: 0,
+        },
+      };
 
-        // Publish the filtered events to the user's channel
-        await this.redisPub.publish(channel, JSON.stringify(message));
-        console.log(
-          `[EventPublisher] Published replace-all message to ${channel} with ${sanitizedEvents.length} events`,
-        );
-      } else {
-        // For other types (like new events), send each event individually
-        for (const event of sanitizedEvents) {
-          const message = {
-            type: "add-event",
-            event,
-            timestamp: new Date().toISOString(),
-          };
-
-          // Publish the event to the user's channel
-          await this.redisPub.publish(channel, JSON.stringify(message));
-        }
-        console.log(
-          `[EventPublisher] Published ${sanitizedEvents.length} individual add-event messages to ${channel}`,
-        );
-      }
+      // Publish the batch update to the user's channel
+      await this.redisPub.publish(channel, JSON.stringify(message));
 
       // Update stats
       this.stats.totalFilteredEventsPublished += sanitizedEvents.length;
+      this.stats.batchUpdatesPublished++;
+
+      console.log(
+        `[EventPublisher] Published batch update to ${channel} with ${sanitizedEvents.length} events`,
+      );
     } catch (error) {
       console.error(
         `[Publish] Error publishing events to user ${userId}:`,
@@ -99,6 +96,7 @@ export class EventPublisher {
 
       await this.redisPub.publish(channel, JSON.stringify(message));
       this.stats.totalFilteredEventsPublished++;
+      this.stats.individualUpdatesPublished++;
     } catch (error) {
       console.error(
         `[Publish] Error publishing delete event to user ${userId}:`,
@@ -119,6 +117,7 @@ export class EventPublisher {
 
       await this.redisPub.publish(channel, JSON.stringify(message));
       this.stats.totalFilteredEventsPublished++;
+      this.stats.individualUpdatesPublished++;
     } catch (error) {
       console.error(
         `[Publish] Error publishing update event to user ${userId}:`,
@@ -174,6 +173,7 @@ export class EventPublisher {
         batchData.summary.newEvents +
         batchData.summary.updatedEvents +
         batchData.summary.deletedEvents;
+      this.stats.batchUpdatesPublished++;
 
       console.log(
         `[EventPublisher] Published batch update to user ${userId}:`,

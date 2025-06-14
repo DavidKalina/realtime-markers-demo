@@ -1,16 +1,11 @@
-import { Event, SpatialItem } from "../types/types";
-import RBush from "rbush";
+import { Event } from "../types/types";
+import { EventCacheService } from "../services/EventCacheService";
 
 export class EventProcessor {
-  private spatialIndex: RBush<SpatialItem>;
-  private eventCache: Map<string, Event>;
+  private eventCacheService: EventCacheService;
 
-  constructor(
-    spatialIndex: RBush<SpatialItem>,
-    eventCache: Map<string, Event>,
-  ) {
-    this.spatialIndex = spatialIndex;
-    this.eventCache = eventCache;
+  constructor(eventCacheService: EventCacheService) {
+    this.eventCacheService = eventCacheService;
   }
 
   public async processEvent(event: {
@@ -36,66 +31,24 @@ export class EventProcessor {
   }
 
   private async handleDelete(event: Event): Promise<void> {
-    // Remove from spatial index and cache
-    this.removeEventFromIndex(event.id);
-    this.eventCache.delete(event.id);
+    // Remove from cache and spatial index
+    this.eventCacheService.removeEvent(event.id);
   }
 
   private async handleUpdate(event: Event): Promise<void> {
-    // Get the existing spatial item
-    const currentItems = this.spatialIndex.all();
-    const existingItem = currentItems.find((item) => item.id === event.id);
-
-    // Create new spatial item
-    const newSpatialItem = this.eventToSpatialItem(event);
-
-    if (existingItem) {
-      // Update existing item in spatial index
-      this.spatialIndex.remove(existingItem);
-      this.spatialIndex.insert(newSpatialItem);
-    } else {
-      // If item doesn't exist, insert it
-      this.spatialIndex.insert(newSpatialItem);
-    }
-
-    // Update cache
-    this.eventCache.set(event.id, event);
+    // Update in cache and spatial index
+    this.eventCacheService.updateEvent(event);
   }
 
   private async handleCreate(event: Event): Promise<void> {
-    // Add to spatial index and cache
-    const spatialItem = this.eventToSpatialItem(event);
-    this.spatialIndex.insert(spatialItem);
-    this.eventCache.set(event.id, event);
+    // Add to cache and spatial index
+    this.eventCacheService.addEvent(event);
   }
 
-  private removeEventFromIndex(eventId: string): void {
-    const currentItems = this.spatialIndex.all();
-    const itemToRemove = currentItems.find((item) => item.id === eventId);
-
-    if (itemToRemove) {
-      this.spatialIndex.remove(itemToRemove, (a, b) => a.id === b.id);
-    }
-  }
-
-  private eventToSpatialItem(event: Event): SpatialItem {
-    const [lng, lat] = event.location.coordinates;
-
-    return {
-      minX: lng,
-      minY: lat,
-      maxX: lng,
-      maxY: lat,
-      id: event.id,
-      event,
-    };
-  }
-
-  public getEventCache(): Map<string, Event> {
-    return this.eventCache;
-  }
-
-  public getSpatialIndex(): RBush<SpatialItem> {
-    return this.spatialIndex;
+  /**
+   * Get the underlying event cache service for direct access if needed
+   */
+  public getEventCacheService(): EventCacheService {
+    return this.eventCacheService;
   }
 }

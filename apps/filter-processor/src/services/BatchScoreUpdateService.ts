@@ -1,9 +1,11 @@
-import { Event, BoundingBox, Filter, SpatialItem } from "../types/types";
+import { Event, BoundingBox, Filter } from "../types/types";
 import { EventPublisher } from "../handlers/EventPublisher";
 import { MapMojiFilterService } from "./MapMojiFilterService";
 import { FilterMatcher } from "../handlers/FilterMatcher";
 import { ViewportProcessor } from "../handlers/ViewportProcessor";
-import RBush from "rbush";
+import { EventCacheService } from "./EventCacheService";
+import { UserStateService } from "./UserStateService";
+import { RelevanceScoringService } from "./RelevanceScoringService";
 
 interface BatchUpdateConfig {
   batchIntervalMs: number; // Default: 15 minutes
@@ -34,9 +36,10 @@ export class BatchScoreUpdateService {
   private filterMatcher: FilterMatcher;
   private viewportProcessor: ViewportProcessor;
 
-  // Event storage references
-  private spatialIndex: RBush<SpatialItem>;
-  private eventCache: Map<string, Event>;
+  // Service dependencies
+  private eventCacheService: EventCacheService;
+  private userStateService: UserStateService;
+  private relevanceScoringService: RelevanceScoringService;
 
   // Batching state
   private pendingUpdates = new Map<string, PendingUpdate>();
@@ -58,16 +61,18 @@ export class BatchScoreUpdateService {
     mapMojiFilter: MapMojiFilterService,
     filterMatcher: FilterMatcher,
     viewportProcessor: ViewportProcessor,
-    spatialIndex: RBush<SpatialItem>,
-    eventCache: Map<string, Event>,
+    eventCacheService: EventCacheService,
+    userStateService: UserStateService,
+    relevanceScoringService: RelevanceScoringService,
     config?: Partial<BatchUpdateConfig>,
   ) {
     this.eventPublisher = eventPublisher;
     this.mapMojiFilter = mapMojiFilter;
     this.filterMatcher = filterMatcher;
     this.viewportProcessor = viewportProcessor;
-    this.spatialIndex = spatialIndex;
-    this.eventCache = eventCache;
+    this.eventCacheService = eventCacheService;
+    this.userStateService = userStateService;
+    this.relevanceScoringService = relevanceScoringService;
 
     this.config = {
       batchIntervalMs: 15 * 60 * 1000, // 15 minutes
@@ -378,7 +383,7 @@ export class BatchScoreUpdateService {
         events = this.viewportProcessor.getEventsInViewport(viewport);
       } else {
         // Get all events from cache
-        events = Array.from(this.eventCache.values());
+        events = Array.from(this.eventCacheService.getAllEvents());
       }
 
       // Apply filters if any

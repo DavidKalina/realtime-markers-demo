@@ -1,6 +1,6 @@
 // apps/filter-processor/src/index.ts
 import Redis from "ioredis";
-import { FilterProcessor } from "./services/FilterProcessor";
+import { createFilterProcessor } from "./services/FilterProcessor";
 import { initializeHealthCheck } from "./utils/healthCheck";
 
 const HEALTH_PORT = parseInt(process.env.HEALTH_PORT || "8082");
@@ -84,8 +84,31 @@ async function startFilterProcessor() {
   try {
     // console.log("👾 Initializing Filter Processor...");
 
-    // Create the FilterProcessor instance with Redis clients
-    const filterProcessor = new FilterProcessor(redisPub, redisSub);
+    // Create the FilterProcessor instance with Redis clients using the factory function
+    const filterProcessor = createFilterProcessor(redisPub, redisSub, {
+      // Optional configuration
+      eventCacheConfig: {
+        maxCacheSize: 10000,
+        enableSpatialIndex: true,
+      },
+      userStateConfig: {
+        maxUsers: 10000,
+        enableViewportTracking: true,
+        enableFilterTracking: true,
+      },
+      relevanceScoringConfig: {
+        popularityWeight: 0.4,
+        timeWeight: 0.4,
+        distanceWeight: 0.2,
+        maxPastHours: 24,
+        maxFutureDays: 30,
+      },
+      batchConfig: {
+        batchIntervalMs: 15 * 60 * 1000, // 15 minutes
+        maxBatchSize: 1000,
+        enableBatching: true,
+      },
+    });
 
     // Initialize the processor
     await filterProcessor.initialize();
