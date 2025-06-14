@@ -6,14 +6,14 @@ import {
   handleWebSocketMessage,
 } from "./handlers/websocketMessageHandler";
 import { createHealthCheckService } from "./services/healthCheckService";
-import { createRedisConnectionService } from "./services/redisConnectionService";
+import { createRedisService } from "./services/redisService";
 import { createUserFilterService } from "./services/userFilterService";
 import { createClientConnectionService } from "./services/clientConnectionService";
 import { SessionManager } from "../SessionManager";
 import type { WebSocketData } from "./types/websocket";
 
-// Initialize services
-const redisService = createRedisConnectionService();
+// Initialize services with dependency injection
+const redisService = createRedisService();
 const sessionManager = new SessionManager(redisService.getPubClient());
 const clientConnectionService = createClientConnectionService({
   sessionManager,
@@ -33,31 +33,15 @@ const healthCheckService = createHealthCheckService({
 const webSocketMessageHandler = createWebSocketMessageHandler({
   sessionManager,
   updateViewport: async (userId: string, viewport) => {
-    // Store viewport in Redis with expiration
-    await redisService.setKeyWithExpiry(
-      `viewport:${userId}`,
-      JSON.stringify(viewport),
-      SERVER_CONFIG.viewportExpiration,
-    );
-
-    // Publish viewport update to Filter Processor
-    await redisService.publishToChannel(
-      REDIS_CHANNELS.VIEWPORT_UPDATES,
-      JSON.stringify({
-        userId,
-        viewport,
-        timestamp: new Date().toISOString(),
-      }),
-    );
-
+    await redisService.updateViewport(userId, viewport);
     console.log(`Published viewport update for user ${userId}`);
   },
   getUserClients: (userId: string) =>
     clientConnectionService.getUserClients(userId),
   addUserClient: (userId: string, clientId: string) =>
     clientConnectionService.addUserClient(userId, clientId),
-  getRedisSubscriberForUser: (userId: string) =>
-    clientConnectionService.getRedisSubscriberForUser(userId),
+  setupUserMessageHandling: (userId: string) =>
+    clientConnectionService.setupUserMessageHandling(userId),
   fetchUserFiltersAndPublish: (userId: string) =>
     userFilterService.fetchUserFiltersAndPublish(userId),
   updateHealthStats: () => {
@@ -69,16 +53,14 @@ const webSocketMessageHandler = createWebSocketMessageHandler({
 });
 
 // Set up Redis message handling
-redisService
-  .getSubClient()
-  .on("message", (channel: string, message: string) => {
-    handleRedisMessage(channel, message, {
-      getUserClients: (userId: string) =>
-        clientConnectionService.getUserClients(userId),
-      getClient: (clientId: string) =>
-        clientConnectionService.getClient(clientId),
-    });
+redisService.onGlobalMessage((channel: string, message: string) => {
+  handleRedisMessage(channel, message, {
+    getUserClients: (userId: string) =>
+      clientConnectionService.getUserClients(userId),
+    getClient: (clientId: string) =>
+      clientConnectionService.getClient(clientId),
   });
+});
 
 // Subscribe to Redis channels
 async function setupRedisSubscriptions() {
