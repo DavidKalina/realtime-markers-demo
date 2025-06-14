@@ -4,8 +4,8 @@ import { VectorService } from "../services/VectorService";
 export class FilterMatcher {
   private vectorService: VectorService;
 
-  constructor() {
-    this.vectorService = VectorService.getInstance();
+  constructor(vectorService: VectorService) {
+    this.vectorService = vectorService;
   }
 
   public eventMatchesFilters(

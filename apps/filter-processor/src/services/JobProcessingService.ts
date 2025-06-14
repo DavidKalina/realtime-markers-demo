@@ -1,4 +1,3 @@
-import { BoundingBox } from "../types/types";
 import { EventPublisher } from "../handlers/EventPublisher";
 
 export interface JobProcessingService {
@@ -25,9 +24,11 @@ export function createJobProcessingService(
   eventPublisher: EventPublisher,
   clearEventCache: () => void,
   getAllUserIds: () => string[],
-  sendViewportEvents: (userId: string, viewport: BoundingBox) => Promise<void>,
-  sendAllFilteredEvents: (userId: string) => Promise<void>,
-  getUserViewport: (userId: string) => BoundingBox | undefined,
+  markUserDirty: (userId: string) => void,
+  markUserDirtyWithContext: (
+    userId: string,
+    context: { reason: "job_completion"; timestamp: number },
+  ) => void,
   config: JobProcessingServiceConfig = {},
 ): JobProcessingService {
   const { enableEventCacheClearing = true, enableUserNotifications = true } =
@@ -38,7 +39,7 @@ export function createJobProcessingService(
     jobsCreated: 0,
     jobsCompleted: 0,
     eventsDeleted: 0,
-    usersNotified: 0,
+    usersMarkedDirty: 0,
     cacheClears: 0,
   };
 
@@ -63,15 +64,14 @@ export function createJobProcessingService(
         stats.cacheClears++;
 
         if (enableUserNotifications) {
-          // Notify all connected users that they need to refresh their events
+          // Mark all connected users as dirty for batch processing
           const userIds = getAllUserIds();
           for (const userId of userIds) {
-            await eventPublisher.publishFilteredEvents(
-              userId,
-              "replace-all",
-              [],
-            );
-            stats.usersNotified++;
+            markUserDirtyWithContext(userId, {
+              reason: "job_completion",
+              timestamp: Date.now(),
+            });
+            stats.usersMarkedDirty++;
           }
         }
       }
@@ -96,16 +96,14 @@ export function createJobProcessingService(
       stats.eventsDeleted += data.result.deletedCount;
 
       if (enableUserNotifications) {
-        // Notify all users to refresh their events
+        // Mark all users as dirty for batch processing
         const userIds = getAllUserIds();
         for (const userId of userIds) {
-          const viewport = getUserViewport(userId);
-          if (viewport) {
-            await sendViewportEvents(userId, viewport);
-          } else {
-            await sendAllFilteredEvents(userId);
-          }
-          stats.usersNotified++;
+          markUserDirtyWithContext(userId, {
+            reason: "job_completion",
+            timestamp: Date.now(),
+          });
+          stats.usersMarkedDirty++;
         }
       }
     }

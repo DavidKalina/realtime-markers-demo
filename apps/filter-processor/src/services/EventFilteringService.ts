@@ -18,6 +18,13 @@ export interface EventFilteringService {
     allEvents: Event[],
   ): Promise<void>;
 
+  calculateAndSendDiff(
+    userId: string,
+    events: Event[],
+    viewport: BoundingBox | null,
+    filters: Filter[],
+  ): Promise<void>;
+
   getStats(): Record<string, unknown>;
 }
 
@@ -312,6 +319,32 @@ export function createEventFilteringService(
   }
 
   /**
+   * Calculate and send diff for a user - unified interface for the hybrid batcher
+   */
+  async function calculateAndSendDiff(
+    userId: string,
+    events: Event[],
+    viewport: BoundingBox | null,
+    filters: Filter[],
+  ): Promise<void> {
+    try {
+      if (viewport) {
+        // User has a viewport - filter and send viewport events
+        await filterAndSendViewportEvents(userId, viewport, filters, events);
+      } else {
+        // User has no viewport - filter and send all events
+        await filterAndSendAllEvents(userId, filters, events);
+      }
+    } catch (error) {
+      console.error(
+        `[EventFiltering] Error in calculateAndSendDiff for user ${userId}:`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Get current statistics
    */
   function getStats(): Record<string, unknown> {
@@ -323,6 +356,7 @@ export function createEventFilteringService(
   return {
     filterAndSendViewportEvents,
     filterAndSendAllEvents,
+    calculateAndSendDiff,
     getStats,
   };
 }

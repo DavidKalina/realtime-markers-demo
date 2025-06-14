@@ -6,7 +6,6 @@ import { FilterMatcher } from "../handlers/FilterMatcher";
 import { ViewportProcessor } from "../handlers/ViewportProcessor";
 import { EventPublisher } from "../handlers/EventPublisher";
 import { MapMojiFilterService } from "./MapMojiFilterService";
-import { BatchScoreUpdateService } from "./BatchScoreUpdateService";
 import { createEventCacheService } from "./EventCacheService";
 import { createUserStateService } from "./UserStateService";
 import { createRelevanceScoringService } from "./RelevanceScoringService";
@@ -18,7 +17,8 @@ import {
 import { createEventInitializationService } from "./EventInitializationService";
 import { createUserNotificationService } from "./UserNotificationService";
 import { createJobProcessingService } from "./JobProcessingService";
-import { getBatchConfig } from "../config/batchConfig";
+import { createHybridUserUpdateBatcherService } from "./HybridUserUpdateBatcherService";
+import { createVectorService } from "./VectorService";
 
 export interface FilterProcessor {
   // Core lifecycle
@@ -40,7 +40,8 @@ export interface FilterProcessor {
   // Batch processing
   forceProcessBatch(): Promise<void>;
   updateBatchConfig(config: {
-    batchIntervalMs?: number;
+    debounceTimeoutMs?: number;
+    sweepIntervalMs?: number;
     maxBatchSize?: number;
     enableBatching?: boolean;
   }): void;
@@ -66,11 +67,6 @@ export interface FilterProcessorConfig {
     distanceWeight?: number;
     maxPastHours?: number;
     maxFutureDays?: number;
-  };
-  batchConfig?: {
-    batchIntervalMs?: number;
-    maxBatchSize?: number;
-    enableBatching?: boolean;
   };
   eventFilteringConfig?: {
     mapMojiConfig?: {
@@ -102,6 +98,12 @@ export interface FilterProcessorConfig {
     enableEventCacheClearing?: boolean;
     enableUserNotifications?: boolean;
   };
+  userUpdateBatcherConfig?: {
+    debounceTimeoutMs?: number;
+    sweepIntervalMs?: number;
+    maxBatchSize?: number;
+    enableBatching?: boolean;
+  };
 }
 
 export function createFilterProcessor(
@@ -113,12 +115,12 @@ export function createFilterProcessor(
     eventCacheConfig = {},
     userStateConfig = {},
     relevanceScoringConfig = {},
-    batchConfig = {},
     eventFilteringConfig = {},
     redisConfig = {},
     eventInitializationConfig = {},
     userNotificationConfig = {},
     jobProcessingConfig = {},
+    userUpdateBatcherConfig = {},
   } = config;
 
   // Create core services
@@ -129,8 +131,9 @@ export function createFilterProcessor(
   );
 
   // Create handlers with service dependencies
+  const vectorService = createVectorService();
   const eventProcessor = new EventProcessor(eventCacheService);
-  const filterMatcher = new FilterMatcher();
+  const filterMatcher = new FilterMatcher(vectorService);
   const viewportProcessor = new ViewportProcessor(redisPub, eventCacheService);
   const eventPublisher = new EventPublisher(redisPub);
   const mapMojiFilter = new MapMojiFilterService();
@@ -164,39 +167,22 @@ export function createFilterProcessor(
     eventPublisher,
     () => eventCacheService.clearAll(),
     () => userStateService.getAllUserIds(),
-    async (userId: string, viewport: BoundingBox) => {
-      const eventsInViewport = viewportProcessor.getEventsInViewport(viewport);
-      const filters = userStateService.getUserFilters(userId);
-      await eventFilteringService.filterAndSendViewportEvents(
-        userId,
-        viewport,
-        filters,
-        eventsInViewport,
-      );
-    },
-    async (userId: string) => {
-      const allEvents = eventCacheService.getAllEvents();
-      const filters = userStateService.getUserFilters(userId);
-      await eventFilteringService.filterAndSendAllEvents(
-        userId,
-        filters,
-        allEvents,
-      );
-    },
-    (userId: string) => userStateService.getUserViewport(userId),
+    (userId: string) => userUpdateBatcherService.markUserAsDirty(userId),
+    (
+      userId: string,
+      context: { reason: "job_completion"; timestamp: number },
+    ) => userUpdateBatcherService.markUserAsDirty(userId, context),
     jobProcessingConfig,
   );
 
-  // Create batch score update service
-  const batchScoreUpdateService = new BatchScoreUpdateService(
-    eventPublisher,
-    mapMojiFilter,
-    filterMatcher,
+  // Create user update batcher service (replaces BatchScoreUpdateService)
+  const userUpdateBatcherService = createHybridUserUpdateBatcherService(
+    eventFilteringService,
     viewportProcessor,
     eventCacheService,
-    userStateService,
-    relevanceScoringService,
-    { ...getBatchConfig(), ...batchConfig },
+    (userId: string) => userStateService.getUserFilters(userId),
+    (userId: string) => userStateService.getUserViewport(userId) || null,
+    userUpdateBatcherConfig,
   );
 
   // Create Redis message handler
@@ -259,7 +245,6 @@ export function createFilterProcessor(
       console.log("Final stats:", {
         ...stats,
         ...eventPublisher.getStats(),
-        ...batchScoreUpdateService.getStats(),
         ...eventCacheService.getStats(),
         ...userStateService.getStats(),
         ...relevanceScoringService.getStats(),
@@ -268,11 +253,12 @@ export function createFilterProcessor(
         ...eventInitializationService.getStats(),
         ...userNotificationService.getStats(),
         ...jobProcessingService.getStats(),
+        ...userUpdateBatcherService.getStats(),
       });
     }
 
-    // Shutdown batch score update service
-    batchScoreUpdateService.shutdown();
+    // Shutdown user update batcher service
+    userUpdateBatcherService.shutdown();
 
     // Clean up Redis connection
     await redisMessageHandler.unsubscribe();
@@ -290,13 +276,9 @@ export function createFilterProcessor(
     try {
       const { operation, record } = eventData;
 
-      // Check if this is a popularity-related update
-      const isPopularityUpdate = isPopularityRelatedUpdate(eventData);
-
       console.log("[FilterProcessor] Processing event update:", {
         eventId: record.id,
         operation,
-        isPopularityUpdate,
         spatialIndexSize: eventCacheService.getStats().spatialIndexSize,
         cacheSize: eventCacheService.getStats().cacheSize,
       });
@@ -308,12 +290,12 @@ export function createFilterProcessor(
       console.log("[FilterProcessor] Event processed, spatial index updated:", {
         eventId: record.id,
         operation,
-        isPopularityUpdate,
         newSpatialIndexSize: eventCacheService.getStats().spatialIndexSize,
         newCacheSize: eventCacheService.getStats().cacheSize,
       });
 
       // For popularity updates, verify the spatial index was updated correctly
+      const isPopularityUpdate = isPopularityRelatedUpdate(eventData);
       if (isPopularityUpdate) {
         const spatialIndexUpdated = eventCacheService.verifyEventInSpatialIndex(
           record.id,
@@ -328,28 +310,23 @@ export function createFilterProcessor(
         );
       }
 
-      // Add event to batch update service instead of immediate processing
-      batchScoreUpdateService.addEventUpdate(
-        record,
-        operation as "CREATE" | "UPDATE" | "DELETE",
-        isPopularityUpdate,
-      );
-
-      // For non-popularity updates, still use immediate notification for critical updates
-      if (!isPopularityUpdate) {
-        const affectedUsers =
-          await userNotificationService.getAffectedUsers(record);
-        await userNotificationService.notifyAffectedUsers(
-          affectedUsers,
-          eventData,
-        );
+      // Mark affected users as dirty for batch processing
+      const affectedUsers =
+        await userNotificationService.getAffectedUsers(record);
+      for (const userId of affectedUsers) {
+        userUpdateBatcherService.markUserAsDirty(userId, {
+          reason: "event_update",
+          eventId: record.id,
+          operation,
+          timestamp: Date.now(),
+        });
       }
 
-      console.log("[FilterProcessor] Event added to batch update service:", {
+      console.log("[FilterProcessor] Event processed and users marked dirty:", {
         eventId: record.id,
         operation,
+        affectedUsers: affectedUsers.size,
         isPopularityUpdate,
-        willUseBatching: isPopularityUpdate,
       });
     } catch (error) {
       console.error("[FilterProcessor] Error processing event update:", error);
@@ -366,27 +343,16 @@ export function createFilterProcessor(
     userStateService.setUserFilters(userId, filters);
     stats.filterChangesProcessed++;
 
-    // Register user with batch update service
-    const viewport = userStateService.getUserViewport(userId);
-    batchScoreUpdateService.updateUserConfig(userId, viewport, filters);
+    // Mark user as dirty for batch processing
+    userUpdateBatcherService.markUserAsDirty(userId, {
+      reason: "filter_change",
+      timestamp: Date.now(),
+    });
 
-    // Re-filter existing events for this user based on current viewport
-    if (viewport) {
-      const eventsInViewport = viewportProcessor.getEventsInViewport(viewport);
-      await eventFilteringService.filterAndSendViewportEvents(
-        userId,
-        viewport,
-        filters,
-        eventsInViewport,
-      );
-    } else {
-      const allEvents = eventCacheService.getAllEvents();
-      await eventFilteringService.filterAndSendAllEvents(
-        userId,
-        filters,
-        allEvents,
-      );
-    }
+    console.log("[FilterProcessor] Filter changes processed:", {
+      userId,
+      filterCount: filters.length,
+    });
   }
 
   /**
@@ -400,18 +366,16 @@ export function createFilterProcessor(
     userStateService.setUserViewport(userId, viewport);
     stats.viewportUpdatesProcessed++;
 
-    // Update user config in batch service
-    const filters = userStateService.getUserFilters(userId);
-    batchScoreUpdateService.updateUserConfig(userId, viewport, filters);
+    // Mark user as dirty for batch processing
+    userUpdateBatcherService.markUserAsDirty(userId, {
+      reason: "viewport_change",
+      timestamp: Date.now(),
+    });
 
-    // Send events in this viewport that match the user's filters
-    const eventsInViewport = viewportProcessor.getEventsInViewport(viewport);
-    await eventFilteringService.filterAndSendViewportEvents(
+    console.log("[FilterProcessor] Viewport update processed:", {
       userId,
       viewport,
-      filters,
-      eventsInViewport,
-    );
+    });
   }
 
   /**
@@ -423,22 +387,19 @@ export function createFilterProcessor(
     }
 
     if (userId) {
-      if (userStateService.hasUserFilters(userId)) {
-        const allEvents = eventCacheService.getAllEvents();
-        const filters = userStateService.getUserFilters(userId);
-        await eventFilteringService.filterAndSendAllEvents(
-          userId,
-          filters,
-          allEvents,
-        );
-      } else {
+      if (!userStateService.hasUserFilters(userId)) {
         userStateService.setUserFilters(userId, []);
       }
 
-      // Register user with batch update service
-      const viewport = userStateService.getUserViewport(userId);
-      const filters = userStateService.getUserFilters(userId);
-      batchScoreUpdateService.registerUserForUpdates(userId, viewport, filters);
+      // Mark user as dirty for batch processing
+      userUpdateBatcherService.markUserAsDirty(userId, {
+        reason: "initial_request",
+        timestamp: Date.now(),
+      });
+
+      console.log("[FilterProcessor] Initial request processed:", {
+        userId,
+      });
     }
   }
 
@@ -451,9 +412,6 @@ export function createFilterProcessor(
       hadFilters: userStateService.hasUserFilters(userId),
       hadViewport: userStateService.hasUserViewport(userId),
     });
-
-    // Unregister from batch update service
-    batchScoreUpdateService.unregisterUser(userId);
 
     // Clean up user data
     userStateService.unregisterUser(userId);
@@ -469,19 +427,24 @@ export function createFilterProcessor(
    */
   async function forceProcessBatch(): Promise<void> {
     console.log("[FilterProcessor] Force processing batch update");
-    await batchScoreUpdateService.forceProcessBatch();
+    await userUpdateBatcherService.forceProcessBatch();
   }
 
   /**
    * Update batch configuration
    */
   function updateBatchConfig(config: {
-    batchIntervalMs?: number;
+    debounceTimeoutMs?: number;
+    sweepIntervalMs?: number;
     maxBatchSize?: number;
     enableBatching?: boolean;
   }): void {
     console.log("[FilterProcessor] Updating batch configuration:", config);
-    batchScoreUpdateService.updateConfig(config);
+    // Note: The HybridUserUpdateBatcherService doesn't support runtime config updates
+    // This would need to be implemented if needed
+    console.warn(
+      "[FilterProcessor] Runtime batch config updates not yet implemented",
+    );
   }
 
   /**
@@ -491,7 +454,6 @@ export function createFilterProcessor(
     return {
       ...stats,
       ...eventPublisher.getStats(),
-      ...batchScoreUpdateService.getStats(),
       ...eventCacheService.getStats(),
       ...userStateService.getStats(),
       ...relevanceScoringService.getStats(),
@@ -500,6 +462,7 @@ export function createFilterProcessor(
       ...eventInitializationService.getStats(),
       ...userNotificationService.getStats(),
       ...jobProcessingService.getStats(),
+      ...userUpdateBatcherService.getStats(),
     };
   }
 
