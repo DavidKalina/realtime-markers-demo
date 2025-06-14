@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from "bun:test";
 import { REDIS_CHANNELS, MessageTypes } from "../src/config/constants";
 import { handleRedisMessage } from "../src/handlers/redisMessageHandler";
-import type { ConnectionHandler } from "../src/handlers/connectionHandler";
 import type { ServerWebSocket } from "bun";
 import type { WebSocketData } from "../src/types/websocket";
 
@@ -120,7 +119,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.DISCOVERED_EVENTS,
         JSON.stringify(eventData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(mockConnectionHandler.getUserClients).toHaveBeenCalledWith(userId);
@@ -144,7 +143,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.DISCOVERED_EVENTS,
         JSON.stringify(eventData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(
@@ -171,7 +170,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.DISCOVERED_EVENTS,
         JSON.stringify(eventData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(
@@ -204,7 +203,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.DISCOVERED_EVENTS,
         JSON.stringify(eventData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(
@@ -236,7 +235,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         JSON.stringify(notificationData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(mockConnectionHandler.getUserClients).toHaveBeenCalledWith(userId);
@@ -261,7 +260,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         JSON.stringify(notificationData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(
@@ -291,7 +290,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         JSON.stringify(notificationData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(mockWs.send).toHaveBeenCalledWith(
@@ -316,7 +315,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         JSON.stringify(notificationData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(
@@ -347,7 +346,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.LEVEL_UPDATE,
         JSON.stringify(levelData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(mockConnectionHandler.getUserClients).toHaveBeenCalledWith(userId);
@@ -381,7 +380,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.LEVEL_UPDATE,
         JSON.stringify(levelData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(mockWs.send).toHaveBeenCalledWith(
@@ -401,7 +400,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.LEVEL_UPDATE,
         JSON.stringify(levelData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(
@@ -432,7 +431,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.LEVEL_UPDATE,
         JSON.stringify(levelData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(mockWs.send).toHaveBeenCalledWith(
@@ -457,7 +456,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.LEVEL_UPDATE,
         JSON.stringify(levelData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(
@@ -473,7 +472,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         invalidJson,
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(
@@ -489,7 +488,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         "unknown_channel",
         JSON.stringify(data),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(
@@ -525,7 +524,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         JSON.stringify(notificationData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       expect(mockWs1.send).toHaveBeenCalled();
@@ -551,7 +550,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         JSON.stringify(notificationData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       // Should not throw error, just skip sending
@@ -579,7 +578,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.DISCOVERED_EVENTS,
         JSON.stringify(eventData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       const sentMessage = JSON.parse(
@@ -610,7 +609,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         JSON.stringify(notificationData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       const sentMessage = JSON.parse(
@@ -645,7 +644,7 @@ describe("Redis Message Handling", () => {
       handleRedisMessage(
         REDIS_CHANNELS.LEVEL_UPDATE,
         JSON.stringify(levelData),
-        mockConnectionHandler as unknown as ConnectionHandler,
+        mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
       const sentMessage = JSON.parse(
