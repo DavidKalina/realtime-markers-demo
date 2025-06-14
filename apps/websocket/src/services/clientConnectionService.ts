@@ -2,8 +2,7 @@ import type { ServerWebSocket } from "bun";
 import { MessageTypes } from "../config/constants";
 import type { WebSocketData } from "../types/websocket";
 import type { SessionManager } from "../../SessionManager";
-import type { RedisConnectionService } from "./redisConnectionService";
-import type Redis from "ioredis";
+import type { RedisService } from "./redisService";
 
 export interface ClientConnectionService {
   registerClient: (ws: ServerWebSocket<WebSocketData>) => void;
@@ -14,22 +13,27 @@ export interface ClientConnectionService {
   getClient: (clientId: string) => ServerWebSocket<WebSocketData> | undefined;
   getConnectedClientsCount: () => number;
   getConnectedUsersCount: () => number;
-  getRedisSubscriberForUser: (userId: string) => unknown;
-  releaseRedisSubscriber: (userId: string) => void;
+  getUserSubscriber: (userId: string) => unknown;
+  releaseUserSubscriber: (userId: string) => void;
   forwardMessageToUserClients: (userId: string, message: string) => void;
+  setupUserMessageHandling: (userId: string) => void;
 }
 
 export interface ClientConnectionServiceDependencies {
   sessionManager: SessionManager;
-  redisService: RedisConnectionService;
+  redisService: RedisService;
 }
 
 export function createClientConnectionService(
   dependencies: ClientConnectionServiceDependencies,
 ): ClientConnectionService {
+  // Centralized state management
   const clients = new Map<string, ServerWebSocket<WebSocketData>>();
   const userToClients = new Map<string, Set<string>>();
-  const userSubscribers = new Map<string, unknown>();
+  const userMessageHandlers = new Map<
+    string,
+    (channel: string, message: string) => void
+  >();
 
   return {
     registerClient(ws: ServerWebSocket<WebSocketData>): void {
@@ -78,7 +82,7 @@ export function createClientConnectionService(
           const userClients = userToClients.get(userId);
           if (userClients && userClients.size === 0) {
             userToClients.delete(userId);
-            this.releaseRedisSubscriber(userId);
+            this.releaseUserSubscriber(userId);
 
             // Remove viewport data from both Redis keys
             const viewportKey = `viewport:${userId}`;
@@ -86,7 +90,7 @@ export function createClientConnectionService(
               dependencies.redisService
                 .getPubClient()
                 .zrem("viewport:geo", viewportKey),
-              dependencies.redisService.deleteKey(viewportKey),
+              dependencies.redisService.delete(viewportKey),
             ]);
 
             if (process.env.NODE_ENV !== "production") {
@@ -129,54 +133,50 @@ export function createClientConnectionService(
       return userToClients.size;
     },
 
-    getRedisSubscriberForUser(userId: string): unknown {
-      if (!userSubscribers.has(userId)) {
-        console.log(`Creating new Redis subscriber for user ${userId}`);
-
-        const subscriber = dependencies.redisService.getPubClient();
-        userSubscribers.set(userId, subscriber);
-
-        // Subscribe to user's filtered events channel
-        subscriber.subscribe(`user:${userId}:filtered-events`);
-        console.log(`Subscribed to user:${userId}:filtered-events`);
-
-        // Handle messages for this user
-        subscriber.on("message", (channel: string, message: string) => {
-          console.log(
-            `[WebSocket] Received message on channel ${channel} for user ${userId}:`,
-            message,
-          );
-          if (channel === `user:${userId}:filtered-events`) {
-            // Forward the filtered events to all clients for this user
-            this.forwardMessageToUserClients(userId, message);
-          }
-        });
-
-        subscriber.on("error", (error: Error) => {
-          console.error(
-            `[WebSocket] Redis subscriber error for user ${userId}:`,
-            error,
-          );
-        });
-
-        subscriber.on("connect", () => {
-          console.log(
-            `[WebSocket] Redis subscriber connected for user ${userId}`,
-          );
-        });
-      }
-
-      return userSubscribers.get(userId)!;
+    getUserSubscriber(userId: string): unknown {
+      return dependencies.redisService.getUserSubscriber(userId);
     },
 
-    releaseRedisSubscriber(userId: string): void {
-      const subscriber = userSubscribers.get(userId);
-      if (subscriber) {
-        (subscriber as Redis).unsubscribe();
-        (subscriber as Redis).quit();
-        userSubscribers.delete(userId);
-        console.log(`Released Redis subscriber for user ${userId}`);
+    releaseUserSubscriber(userId: string): void {
+      dependencies.redisService.releaseUserSubscriber(userId);
+      userMessageHandlers.delete(userId);
+    },
+
+    setupUserMessageHandling(userId: string): void {
+      if (userMessageHandlers.has(userId)) {
+        return; // Already set up
       }
+
+      const userSubscriber =
+        dependencies.redisService.getUserSubscriber(userId);
+
+      const messageHandler = (channel: string, message: string) => {
+        console.log(
+          `[WebSocket] Received message on channel ${channel} for user ${userId}:`,
+          message,
+        );
+
+        if (channel === `user:${userId}:filtered-events`) {
+          // Forward the filtered events to all clients for this user
+          this.forwardMessageToUserClients(userId, message);
+        }
+      };
+
+      userSubscriber.on("message", messageHandler);
+      userMessageHandlers.set(userId, messageHandler);
+
+      userSubscriber.on("error", (error: Error) => {
+        console.error(
+          `[WebSocket] Redis subscriber error for user ${userId}:`,
+          error,
+        );
+      });
+
+      userSubscriber.on("connect", () => {
+        console.log(
+          `[WebSocket] Redis subscriber connected for user ${userId}`,
+        );
+      });
     },
 
     forwardMessageToUserClients(userId: string, message: string): void {

@@ -1,4 +1,9 @@
-import { REDIS_CHANNELS, MessageTypes } from "../config/constants";
+import { REDIS_CHANNELS } from "../config/constants";
+import {
+  formatDiscoveryMessage,
+  formatNotificationMessage,
+  formatLevelUpdateMessage,
+} from "../utils/messageFormatter";
 import type { ServerWebSocket } from "bun";
 import type { WebSocketData } from "../types/websocket";
 
@@ -51,11 +56,7 @@ export function handleRedisMessage(
           return;
         }
 
-        const formattedMessage = JSON.stringify({
-          type: MessageTypes.EVENT_DISCOVERED,
-          event: eventData.event,
-          timestamp: new Date().toISOString(),
-        });
+        const formattedMessage = formatDiscoveryMessage(eventData.event);
 
         const userClients = dependencies.getUserClients(
           eventData.event.creatorId,
@@ -88,14 +89,11 @@ export function handleRedisMessage(
           return;
         }
 
-        const formattedMessage = JSON.stringify({
-          type: MessageTypes.NOTIFICATION,
-          title: notificationData.notification.title,
-          message: notificationData.notification.message,
-          notificationType: notificationData.notification.type || "info",
-          timestamp: new Date().getTime(),
-          source: "websocket_server",
-        });
+        const formattedMessage = formatNotificationMessage(
+          notificationData.notification.title,
+          notificationData.notification.message,
+          notificationData.notification.type || "info",
+        );
 
         const userClients = dependencies.getUserClients(
           notificationData.notification.userId,
@@ -130,21 +128,15 @@ export function handleRedisMessage(
           return;
         }
 
-        const formattedMessage = JSON.stringify({
-          type:
-            levelData.action === "xp_awarded"
-              ? MessageTypes.XP_AWARDED
-              : MessageTypes.LEVEL_UPDATE,
-          data: {
-            userId: levelData.userId,
-            level: levelData.level,
-            title: levelData.title,
-            action: levelData.action,
-            amount: levelData.amount,
-            totalXp: levelData.totalXp,
-            timestamp: levelData.timestamp || new Date().toISOString(),
-          },
-        });
+        const formattedMessage = formatLevelUpdateMessage(
+          levelData.userId,
+          levelData.level,
+          levelData.title,
+          levelData.action,
+          levelData.amount,
+          levelData.totalXp,
+          levelData.timestamp,
+        );
 
         const userClients = dependencies.getUserClients(levelData.userId);
         if (userClients) {

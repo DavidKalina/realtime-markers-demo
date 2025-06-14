@@ -1,6 +1,7 @@
 import type { ServerWebSocket } from "bun";
 import { MessageTypes } from "../config/constants";
 import { isValidUserId } from "../utils/validation";
+import { formatErrorMessage } from "../utils/messageFormatter";
 import { handleViewportUpdate } from "./viewportHandler";
 import type { WebSocketData } from "../types/websocket";
 import type { SessionManager } from "../../SessionManager";
@@ -42,7 +43,7 @@ export interface WebSocketMessageHandlerDependencies {
   ) => Promise<void>;
   getUserClients: (userId: string) => Set<string> | undefined;
   addUserClient: (userId: string, clientId: string) => void;
-  getRedisSubscriberForUser: (userId: string) => unknown;
+  setupUserMessageHandling: (userId: string) => void;
   fetchUserFiltersAndPublish: (userId: string) => Promise<void>;
   updateHealthStats: () => void;
 }
@@ -59,13 +60,7 @@ export function createWebSocketMessageHandler(
         console.error(
           `Invalid userId in client identification from ${ws.data.clientId}`,
         );
-        ws.send(
-          JSON.stringify({
-            type: MessageTypes.ERROR,
-            message: "Invalid userId format",
-            timestamp: new Date().toISOString(),
-          }),
-        );
+        ws.send(formatErrorMessage("Invalid userId format"));
         return;
       }
 
@@ -77,8 +72,8 @@ export function createWebSocketMessageHandler(
       // Add to user-client mapping
       dependencies.addUserClient(userId, ws.data.clientId);
 
-      // Ensure we have a Redis subscriber for this user
-      dependencies.getRedisSubscriberForUser(userId);
+      // Setup message handling for this user
+      dependencies.setupUserMessageHandling(userId);
 
       console.log(`Client ${ws.data.clientId} identified as user ${userId}`);
 

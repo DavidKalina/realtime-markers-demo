@@ -1,4 +1,4 @@
-import type { RedisConnectionService } from "./redisConnectionService";
+import type { RedisService } from "./redisService";
 
 export interface Filter {
   isActive: boolean;
@@ -17,7 +17,7 @@ export interface UserFilterService {
 }
 
 export interface UserFilterServiceDependencies {
-  redisService: RedisConnectionService;
+  redisService: RedisService;
   backendUrl: string;
 }
 
@@ -59,7 +59,7 @@ export function createUserFilterService(
         );
 
         // Publish to filter-changes
-        await dependencies.redisService.publishToChannel(
+        await dependencies.redisService.publish(
           "filter-changes",
           JSON.stringify({
             userId,
@@ -82,7 +82,7 @@ export function createUserFilterService(
         `📤 Publishing default empty filter for user ${userId} (will match all events)`,
       );
 
-      await dependencies.redisService.publishToChannel(
+      await dependencies.redisService.publish(
         "filter-changes",
         JSON.stringify({
           userId,

@@ -1,13 +1,4 @@
-export interface SystemHealth {
-  backendConnected: boolean;
-  redisConnected: boolean;
-  filterProcessorConnected: boolean;
-  lastBackendCheck: number;
-  lastRedisCheck: number;
-  lastFilterProcessorCheck: number;
-  connectedClients: number;
-  connectedUsers: number;
-}
+import type { SystemHealth } from "../types/websocket";
 
 export interface HealthCheckService {
   checkRedisConnection: () => Promise<boolean>;
@@ -15,19 +6,21 @@ export interface HealthCheckService {
   checkFilterProcessorConnection: () => Promise<boolean>;
   updateHealthStats: (connectedClients: number, connectedUsers: number) => void;
   getHealthResponse: () => Response;
-  getHealthState: () => SystemHealth;
+  isHealthy: () => boolean;
+  getHealthStatus: () => SystemHealth;
 }
 
-export interface HealthCheckDependencies {
+export interface HealthCheckServiceDependencies {
   redisPing: () => Promise<string>;
   backendUrl: string;
   filterProcessorUrl: string;
 }
 
 export function createHealthCheckService(
-  dependencies: HealthCheckDependencies,
+  dependencies: HealthCheckServiceDependencies,
 ): HealthCheckService {
-  const systemHealth: SystemHealth = {
+  // Centralized health state
+  const health: SystemHealth = {
     backendConnected: false,
     redisConnected: false,
     filterProcessorConnected: false,
@@ -42,12 +35,13 @@ export function createHealthCheckService(
     async checkRedisConnection(): Promise<boolean> {
       try {
         const pong = await dependencies.redisPing();
-        systemHealth.redisConnected = pong === "PONG";
-        systemHealth.lastRedisCheck = Date.now();
-        return systemHealth.redisConnected;
+        const isConnected = pong === "PONG";
+        health.redisConnected = isConnected;
+        health.lastRedisCheck = Date.now();
+        return isConnected;
       } catch (error) {
-        systemHealth.redisConnected = false;
-        systemHealth.lastRedisCheck = Date.now();
+        health.redisConnected = false;
+        health.lastRedisCheck = Date.now();
         console.error("Redis connection check failed:", error);
         return false;
       }
@@ -59,12 +53,12 @@ export function createHealthCheckService(
           signal: AbortSignal.timeout(3000),
         });
 
-        systemHealth.backendConnected = response.status === 200;
-        systemHealth.lastBackendCheck = Date.now();
-        return systemHealth.backendConnected;
+        health.backendConnected = response.status === 200;
+        health.lastBackendCheck = Date.now();
+        return health.backendConnected;
       } catch (error) {
-        systemHealth.backendConnected = false;
-        systemHealth.lastBackendCheck = Date.now();
+        health.backendConnected = false;
+        health.lastBackendCheck = Date.now();
         console.error("Backend connection check failed:", error);
         return false;
       }
@@ -79,52 +73,48 @@ export function createHealthCheckService(
           },
         );
 
-        systemHealth.filterProcessorConnected = response.status === 200;
-        systemHealth.lastFilterProcessorCheck = Date.now();
-        return systemHealth.filterProcessorConnected;
+        health.filterProcessorConnected = response.status === 200;
+        health.lastFilterProcessorCheck = Date.now();
+        return health.filterProcessorConnected;
       } catch (error) {
-        systemHealth.filterProcessorConnected = false;
-        systemHealth.lastFilterProcessorCheck = Date.now();
+        health.filterProcessorConnected = false;
+        health.lastFilterProcessorCheck = Date.now();
         console.error("Filter Processor connection check failed:", error);
         return false;
       }
     },
 
     updateHealthStats(connectedClients: number, connectedUsers: number): void {
-      systemHealth.connectedClients = connectedClients;
-      systemHealth.connectedUsers = connectedUsers;
+      health.connectedClients = connectedClients;
+      health.connectedUsers = connectedUsers;
     },
 
     getHealthResponse(): Response {
-      const isHealthy =
-        systemHealth.redisConnected && systemHealth.backendConnected;
-      const status = isHealthy ? 200 : 503;
+      const status = this.isHealthy() ? 200 : 503;
 
       return new Response(
         JSON.stringify({
-          status: isHealthy ? "healthy" : "unhealthy",
+          status: this.isHealthy() ? "healthy" : "unhealthy",
           timestamp: new Date().toISOString(),
           services: {
             redis: {
-              connected: systemHealth.redisConnected,
-              lastChecked: new Date(systemHealth.lastRedisCheck).toISOString(),
+              connected: health.redisConnected,
+              lastChecked: new Date(health.lastRedisCheck).toISOString(),
             },
             backend: {
-              connected: systemHealth.backendConnected,
-              lastChecked: new Date(
-                systemHealth.lastBackendCheck,
-              ).toISOString(),
+              connected: health.backendConnected,
+              lastChecked: new Date(health.lastBackendCheck).toISOString(),
             },
             filterProcessor: {
-              connected: systemHealth.filterProcessorConnected,
+              connected: health.filterProcessorConnected,
               lastChecked: new Date(
-                systemHealth.lastFilterProcessorCheck,
+                health.lastFilterProcessorCheck,
               ).toISOString(),
             },
           },
           stats: {
-            connectedClients: systemHealth.connectedClients,
-            connectedUsers: systemHealth.connectedUsers,
+            connectedClients: health.connectedClients,
+            connectedUsers: health.connectedUsers,
           },
         }),
         {
@@ -134,8 +124,12 @@ export function createHealthCheckService(
       );
     },
 
-    getHealthState(): SystemHealth {
-      return { ...systemHealth };
+    isHealthy(): boolean {
+      return health.redisConnected && health.backendConnected;
+    },
+
+    getHealthStatus(): SystemHealth {
+      return { ...health };
     },
   };
 }
