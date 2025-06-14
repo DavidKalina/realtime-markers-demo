@@ -7,148 +7,220 @@ import {
 } from "../config/constants";
 import type { ViewportData } from "../types/websocket";
 
-export class RedisService extends EventEmitter {
-  private static instance: RedisService;
-  private pubClient: Redis;
-  private subClient: Redis;
-  private userSubscribers: Map<string, Redis>;
+export interface RedisService {
+  // Core Redis operations
+  publish: (channel: string, message: string) => Promise<void>;
+  set: (key: string, value: string, expiry?: number) => Promise<void>;
+  get: (key: string) => Promise<string | null>;
+  delete: (key: string) => Promise<void>;
+  ping: () => Promise<string>;
 
-  private constructor() {
-    super();
-    this.pubClient = new Redis(REDIS_CONFIG);
-    this.subClient = new Redis(REDIS_CONFIG);
-    this.userSubscribers = new Map();
+  // Global subscriptions
+  subscribeToChannel: (
+    channel: string,
+    callback: (channel: string, message: string) => void,
+  ) => Promise<void>;
+  onGlobalMessage: (
+    callback: (channel: string, message: string) => void,
+  ) => void;
 
-    this.setupErrorHandling();
-    this.setupSubscriptions();
-  }
+  // User-specific subscribers
+  getUserSubscriber: (userId: string) => Redis;
+  releaseUserSubscriber: (userId: string) => void;
 
-  public static getInstance(): RedisService {
-    if (!RedisService.instance) {
-      RedisService.instance = new RedisService();
-    }
-    return RedisService.instance;
-  }
+  // Viewport management
+  updateViewport: (userId: string, viewport: ViewportData) => Promise<void>;
 
-  private setupErrorHandling(): void {
-    this.pubClient.on("error", (error) => {
-      console.error("Redis publisher error:", error);
-    });
+  // Connection health
+  checkConnection: () => Promise<boolean>;
 
-    this.subClient.on("error", (error) => {
-      console.error("Redis subscriber error:", error);
-    });
+  // Client access (for backward compatibility)
+  getPubClient: () => Redis;
+  getSubClient: () => Redis;
+}
 
-    this.pubClient.on("connect", () => {
-      console.log("Redis publisher connected successfully");
-    });
+export interface RedisServiceDependencies {
+  config?: typeof REDIS_CONFIG;
+}
 
-    this.subClient.on("connect", () => {
-      console.log("Redis subscriber connected successfully");
-    });
-  }
+export function createRedisService(
+  dependencies: RedisServiceDependencies = {},
+): RedisService {
+  const config = dependencies.config || REDIS_CONFIG;
 
-  private setupSubscriptions(): void {
-    // Subscribe to global channels
-    Object.values(REDIS_CHANNELS).forEach((channel) => {
-      this.subClient.subscribe(channel, (err, count) => {
-        if (err) {
-          console.error(`Error subscribing to ${channel}:`, err);
-        } else {
-          console.log(
-            `Subscribed to ${channel}, total subscriptions: ${count}`,
-          );
-        }
+  // Main publisher client
+  const pubClient = new Redis(config);
+
+  // Global subscriber client for system-wide channels
+  const globalSubClient = new Redis(config);
+
+  // Map to store user-specific subscribers
+  const userSubscribers = new Map<string, Redis>();
+
+  // Event emitter for global messages
+  const eventEmitter = new EventEmitter();
+
+  // Setup error handling for main clients
+  setupErrorHandling(pubClient, "publisher");
+  setupErrorHandling(globalSubClient, "global subscriber");
+
+  // Setup global message handling
+  globalSubClient.on("message", (channel: string, message: string) => {
+    eventEmitter.emit("message", channel, message);
+  });
+
+  return {
+    async publish(channel: string, message: string): Promise<void> {
+      await pubClient.publish(channel, message);
+    },
+
+    async set(key: string, value: string, expiry?: number): Promise<void> {
+      if (expiry) {
+        await pubClient.set(key, value, "EX", expiry);
+      } else {
+        await pubClient.set(key, value);
+      }
+    },
+
+    async get(key: string): Promise<string | null> {
+      return await pubClient.get(key);
+    },
+
+    async delete(key: string): Promise<void> {
+      await pubClient.del(key);
+    },
+
+    async ping(): Promise<string> {
+      return await pubClient.ping();
+    },
+
+    async subscribeToChannel(
+      channel: string,
+      callback: (channel: string, message: string) => void,
+    ): Promise<void> {
+      return new Promise((resolve, reject) => {
+        globalSubClient.subscribe(channel, (err, count) => {
+          if (err) {
+            console.error(`Error subscribing to ${channel}:`, err);
+            reject(err);
+          } else {
+            console.log(
+              `Subscribed to ${channel}, total subscriptions: ${count}`,
+            );
+            resolve();
+          }
+        });
+
+        // Listen for messages on this specific channel
+        const messageHandler = (msgChannel: string, message: string) => {
+          if (msgChannel === channel) {
+            callback(msgChannel, message);
+          }
+        };
+
+        eventEmitter.on("message", messageHandler);
       });
-    });
-  }
+    },
 
-  public async publish(channel: string, message: string): Promise<void> {
-    await this.pubClient.publish(channel, message);
-  }
+    onGlobalMessage(
+      callback: (channel: string, message: string) => void,
+    ): void {
+      eventEmitter.on("message", callback);
+    },
 
-  public async set(key: string, value: string, expiry?: number): Promise<void> {
-    if (expiry) {
-      await this.pubClient.set(key, value, "EX", expiry);
-    } else {
-      await this.pubClient.set(key, value);
-    }
-  }
+    getUserSubscriber(userId: string): Redis {
+      if (!userSubscribers.has(userId)) {
+        console.log(`Creating new Redis subscriber for user ${userId}`);
 
-  public async get(key: string): Promise<string | null> {
-    return await this.pubClient.get(key);
-  }
+        // Create a dedicated subscriber for this user
+        const userSubscriber = new Redis(config);
+        userSubscribers.set(userId, userSubscriber);
 
-  public async del(key: string): Promise<void> {
-    await this.pubClient.del(key);
-  }
+        // Setup error handling for user subscriber
+        setupErrorHandling(userSubscriber, `user ${userId} subscriber`);
 
-  public getSubscriberForUser(userId: string): Redis {
-    if (!this.userSubscribers.has(userId)) {
-      const subscriber = new Redis(REDIS_CONFIG);
-      this.userSubscribers.set(userId, subscriber);
+        // Subscribe to user's filtered events channel
+        const userChannel = `user:${userId}:filtered-events`;
+        userSubscriber.subscribe(userChannel, (err, count) => {
+          if (err) {
+            console.error(`Error subscribing to ${userChannel}:`, err);
+          } else {
+            console.log(
+              `Subscribed to ${userChannel}, total subscriptions: ${count}`,
+            );
+          }
+        });
 
-      subscriber.subscribe(`user:${userId}:filtered-events`);
-      subscriber.on("message", (channel, message) => {
-        if (channel === `user:${userId}:filtered-events`) {
-          // This will be handled by the message handler
-          this.emit("userMessage", { userId, message });
-        }
-      });
-    }
-    return this.userSubscribers.get(userId)!;
-  }
+        userSubscriber.on("connect", () => {
+          console.log(`Redis subscriber connected for user ${userId}`);
+        });
+      }
 
-  public releaseSubscriber(userId: string): void {
-    const subscriber = this.userSubscribers.get(userId);
-    if (subscriber) {
-      subscriber.unsubscribe();
-      subscriber.quit();
-      this.userSubscribers.delete(userId);
-    }
-  }
+      return userSubscribers.get(userId)!;
+    },
 
-  public async updateViewport(
-    userId: string,
-    viewport: ViewportData,
-  ): Promise<void> {
-    const viewportKey = `viewport:${userId}`;
-    await Promise.all([
-      this.set(
-        viewportKey,
-        JSON.stringify(viewport),
-        SERVER_CONFIG.viewportExpiration,
-      ),
-      this.publish(
-        REDIS_CHANNELS.VIEWPORT_UPDATES,
-        JSON.stringify({
-          userId,
-          viewport,
-          timestamp: new Date().toISOString(),
-        }),
-      ),
-    ]);
-  }
+    releaseUserSubscriber(userId: string): void {
+      const subscriber = userSubscribers.get(userId);
+      if (subscriber) {
+        subscriber.unsubscribe();
+        subscriber.quit();
+        userSubscribers.delete(userId);
+        console.log(`Released Redis subscriber for user ${userId}`);
+      }
+    },
 
-  public async checkConnection(): Promise<boolean> {
-    try {
-      const pong = await this.pubClient.ping();
-      return pong === "PONG";
-    } catch (error) {
-      console.error("Redis connection check failed:", error);
-      return false;
-    }
-  }
+    async updateViewport(
+      userId: string,
+      viewport: ViewportData,
+    ): Promise<void> {
+      const viewportKey = `viewport:${userId}`;
+      await Promise.all([
+        this.set(
+          viewportKey,
+          JSON.stringify(viewport),
+          SERVER_CONFIG.viewportExpiration,
+        ),
+        this.publish(
+          REDIS_CHANNELS.VIEWPORT_UPDATES,
+          JSON.stringify({
+            userId,
+            viewport,
+            timestamp: new Date().toISOString(),
+          }),
+        ),
+      ]);
+    },
 
-  public onMessage(callback: (channel: string, message: string) => void): void {
-    this.subClient.on("message", callback);
-  }
+    async checkConnection(): Promise<boolean> {
+      try {
+        const pong = await pubClient.ping();
+        return pong === "PONG";
+      } catch (error) {
+        console.error("Redis connection check failed:", error);
+        return false;
+      }
+    },
 
-  public getPubClient(): Redis {
-    return this.pubClient;
-  }
+    getPubClient(): Redis {
+      return pubClient;
+    },
 
-  public getSubClient(): Redis {
-    return this.subClient;
-  }
+    getSubClient(): Redis {
+      return globalSubClient;
+    },
+  };
+}
+
+function setupErrorHandling(client: Redis, clientName: string): void {
+  client.on("error", (error) => {
+    console.error(`Redis ${clientName} error:`, error);
+  });
+
+  client.on("connect", () => {
+    console.log(`Redis ${clientName} connected successfully`);
+  });
+
+  client.on("ready", () => {
+    console.log(`Redis ${clientName} is ready to accept commands`);
+  });
 }

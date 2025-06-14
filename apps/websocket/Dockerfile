@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y curl && apt-get clean
 RUN cd apps/websocket && bun install
 
 # Copy only the necessary files, excluding node_modules
-COPY apps/websocket/*.ts ./apps/websocket/
+COPY apps/websocket/src/ ./apps/websocket/src/
+COPY apps/websocket/SessionManager.ts ./apps/websocket/
 COPY apps/websocket/tsconfig.json ./apps/websocket/
 
 # Set working directory to the websocket app
@@ -21,4 +22,4 @@ WORKDIR /app/apps/websocket
 EXPOSE 8081
 
 # Run the app
-CMD ["bun", "index.ts"]
+CMD ["bun", "src/index.ts"]
