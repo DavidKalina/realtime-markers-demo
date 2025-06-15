@@ -266,6 +266,7 @@ export class EventServiceRefactored implements EventService {
     this.adminService = createEventAdminService({
       dataSource: dependencies.dataSource,
       eventCacheService: dependencies.eventCacheService,
+      redisService: dependencies.redisService,
     });
   }
 
