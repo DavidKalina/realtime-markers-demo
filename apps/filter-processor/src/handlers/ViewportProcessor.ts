@@ -1,21 +1,14 @@
 import Redis from "ioredis";
 import { BoundingBox, Event } from "../types/types";
-import RBush from "rbush";
-import { SpatialItem } from "../types/types";
+import { EventCacheService } from "../services/EventCacheService";
 
 export class ViewportProcessor {
   private redisPub: Redis;
-  private spatialIndex: RBush<SpatialItem>;
-  private eventCache: Map<string, Event>;
+  private eventCacheService: EventCacheService;
 
-  constructor(
-    redisPub: Redis,
-    spatialIndex: RBush<SpatialItem>,
-    eventCache: Map<string, Event>,
-  ) {
+  constructor(redisPub: Redis, eventCacheService: EventCacheService) {
     this.redisPub = redisPub;
-    this.spatialIndex = spatialIndex;
-    this.eventCache = eventCache;
+    this.eventCacheService = eventCacheService;
   }
 
   public async updateUserViewport(
@@ -114,18 +107,8 @@ export class ViewportProcessor {
 
   public getEventsInViewport(viewport: BoundingBox): Event[] {
     try {
-      // Query spatial index for events in viewport
-      const spatialItems = this.spatialIndex.search(viewport);
-
-      // Deduplicate spatial items by ID
-      const uniqueSpatialItems = Array.from(
-        new Map(spatialItems.map((item) => [item.id, item])).values(),
-      );
-
-      // Get the full events from cache
-      return uniqueSpatialItems
-        .map((item) => this.eventCache.get(item.id))
-        .filter(Boolean) as Event[];
+      // Use the event cache service to get events in viewport
+      return this.eventCacheService.getEventsInViewport(viewport);
     } catch (error) {
       console.error("Error getting events in viewport:", error);
       return [];

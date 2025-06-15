@@ -192,6 +192,133 @@ export function createClientConnectionService(
       try {
         parsedMessage = JSON.parse(message);
 
+        // Transform batch-update messages to the format expected by mobile app
+        if (parsedMessage.type === "batch-update") {
+          console.log(
+            `[WebSocket] Transforming batch-update message for user ${userId}:`,
+            {
+              userId,
+              clientCount: clientIds.size,
+              summary: parsedMessage.summary,
+            },
+          );
+
+          // For viewport/all updates, send as replace-all
+          if (parsedMessage.updates.creates.length > 0) {
+            const replaceAllMessage = {
+              type: "replace-all",
+              events: parsedMessage.updates.creates,
+              timestamp: parsedMessage.timestamp,
+            };
+
+            console.log(
+              `[WebSocket] Sending replace-all message with ${parsedMessage.updates.creates.length} events to ${clientIds.size} clients of user ${userId}:`,
+              {
+                userId,
+                clientCount: clientIds.size,
+                eventCount: parsedMessage.updates.creates.length,
+                topEventScores: parsedMessage.updates.creates
+                  .slice(0, 3)
+                  .map(
+                    (event: {
+                      id: string;
+                      title: string;
+                      relevanceScore?: number;
+                      scanCount?: number;
+                      saveCount?: number;
+                      rsvps?: Array<{ id: string }>;
+                    }) => ({
+                      eventId: event.id,
+                      title: event.title,
+                      relevanceScore: event.relevanceScore,
+                      popularityMetrics: {
+                        scanCount: event.scanCount,
+                        saveCount: event.saveCount || 0,
+                        rsvpCount: event.rsvps?.length || 0,
+                      },
+                    }),
+                  ),
+                messageType: "replace-all",
+              },
+            );
+
+            // Send the transformed message to all clients
+            for (const clientId of clientIds) {
+              const client = clients.get(clientId);
+              if (client) {
+                try {
+                  client.send(JSON.stringify(replaceAllMessage));
+                  console.log(
+                    `[WebSocket] Successfully sent replace-all message to client ${clientId}`,
+                  );
+                } catch (error) {
+                  console.error(
+                    `[WebSocket] Error sending replace-all message to client ${clientId}:`,
+                    error,
+                  );
+                }
+              } else {
+                console.log(
+                  `[WebSocket] Client ${clientId} not found in clients map`,
+                );
+              }
+            }
+            return; // Don't continue with the original message
+          }
+
+          // For individual updates, send as update-event
+          if (parsedMessage.updates.updates.length > 0) {
+            for (const event of parsedMessage.updates.updates) {
+              const updateEventMessage = {
+                type: "update-event",
+                event: event,
+                timestamp: parsedMessage.timestamp,
+              };
+
+              for (const clientId of clientIds) {
+                const client = clients.get(clientId);
+                if (client) {
+                  try {
+                    client.send(JSON.stringify(updateEventMessage));
+                  } catch (error) {
+                    console.error(
+                      `[WebSocket] Error sending update-event message to client ${clientId}:`,
+                      error,
+                    );
+                  }
+                }
+              }
+            }
+            return; // Don't continue with the original message
+          }
+
+          // For deletes, send as delete-event
+          if (parsedMessage.updates.deletes.length > 0) {
+            for (const eventId of parsedMessage.updates.deletes) {
+              const deleteEventMessage = {
+                type: "delete-event",
+                id: eventId,
+                timestamp: parsedMessage.timestamp,
+              };
+
+              for (const clientId of clientIds) {
+                const client = clients.get(clientId);
+                if (client) {
+                  try {
+                    client.send(JSON.stringify(deleteEventMessage));
+                  } catch (error) {
+                    console.error(
+                      `[WebSocket] Error sending delete-event message to client ${clientId}:`,
+                      error,
+                    );
+                  }
+                }
+              }
+            }
+            return; // Don't continue with the original message
+          }
+        }
+
         // Enhanced logging for relevance score updates
         if (parsedMessage.type === "replace-all" && parsedMessage.events) {
           console.log(
@@ -238,6 +365,7 @@ export function createClientConnectionService(
         return;
       }
 
+      // Forward the original message if no transformation was applied
       for (const clientId of clientIds) {
         const client = clients.get(clientId);
         if (client) {
