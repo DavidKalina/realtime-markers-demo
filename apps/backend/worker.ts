@@ -24,7 +24,7 @@ import { Redis } from "ioredis";
 import { createCategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
 import { createImageProcessingService } from "./services/event-processing/ImageProcessingService";
-import { EventExtractionService } from "./services/event-processing/EventExtractionService";
+import { createEventExtractionService } from "./services/event-processing/EventExtractionService";
 import { createGoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
 import { createConfigService } from "./services/shared/ConfigService";
 import { Category } from "./entities/Category";
@@ -125,10 +125,12 @@ async function initializeWorker() {
   );
 
   // Create the event extraction service
-  const eventExtractionService = new EventExtractionService(
+  const eventExtractionService = createEventExtractionService({
     categoryProcessingService,
-    createGoogleGeocodingService(openAIService),
-  );
+    locationResolutionService: createGoogleGeocodingService(openAIService),
+    openAIService,
+    configService,
+  });
 
   // Create embedding service with dependencies
   const embeddingService = createEmbeddingService({

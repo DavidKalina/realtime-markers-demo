@@ -2,7 +2,7 @@
 import type { Point } from "geojson";
 import type { Category } from "../entities/Category";
 import type { SimilarityResult } from "./event-processing/dto/SimilarityResult";
-import { EventExtractionService } from "./event-processing/EventExtractionService";
+import { createEventExtractionService } from "./event-processing/EventExtractionService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
 import type { IEventExtractionService } from "./event-processing/interfaces/IEventExtractionService";
 import type { IEventProcessingServiceDependencies } from "./event-processing/interfaces/IEventProcessingServiceDependencies";
@@ -104,10 +104,18 @@ export class EventProcessingService {
       this.eventExtractionService = dependencies.eventExtractionService;
     } else {
       // If not provided, create a new instance using the provided dependencies
-      this.eventExtractionService = new EventExtractionService(
-        dependencies.categoryProcessingService,
-        dependencies.locationResolutionService,
-      );
+      if (!dependencies.openAIService) {
+        throw new Error(
+          "OpenAIService is required when eventExtractionService is not provided",
+        );
+      }
+
+      this.eventExtractionService = createEventExtractionService({
+        categoryProcessingService: dependencies.categoryProcessingService,
+        locationResolutionService: dependencies.locationResolutionService,
+        openAIService: dependencies.openAIService,
+        configService: dependencies.configService,
+      });
     }
 
     // Use provided embedding service or throw error if not provided

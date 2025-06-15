@@ -1,5 +1,12 @@
 import type { MigrationInterface, QueryRunner } from "typeorm";
-import { OpenAIModel, OpenAIService } from "../services/shared/OpenAIService";
+import {
+  OpenAIModel,
+  createOpenAIService,
+  type OpenAIService,
+} from "../services/shared/OpenAIService";
+import { createOpenAICacheService } from "../services/shared/OpenAICacheService";
+import { createRedisService } from "../services/shared/RedisService";
+import Redis from "ioredis";
 
 export class AddEmojiDescription1710000000000 implements MigrationInterface {
   name = "AddEmojiDescription1710000000000";
@@ -7,9 +14,10 @@ export class AddEmojiDescription1710000000000 implements MigrationInterface {
   private async updateEventDescription(
     queryRunner: QueryRunner,
     event: { id: string; emoji: string },
+    openAIService: OpenAIService,
   ): Promise<void> {
     try {
-      const response = await OpenAIService.executeChatCompletion({
+      const response = await openAIService.executeChatCompletion({
         model: OpenAIModel.GPT4OMini,
         messages: [
           {
@@ -57,6 +65,20 @@ export class AddEmojiDescription1710000000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     console.log("Starting AddEmojiDescription migration...");
 
+    // Create Redis client and services for migration
+    const redisClient = new Redis({
+      host: process.env.REDIS_HOST || "redis",
+      port: parseInt(process.env.REDIS_PORT || "6379"),
+      password: process.env.REDIS_PASSWORD,
+    });
+
+    const redisService = createRedisService(redisClient);
+    const openAICacheService = createOpenAICacheService();
+    const openAIService = createOpenAIService({
+      redisService,
+      openAICacheService,
+    });
+
     // Add column if it doesn't exist
     await queryRunner.query(`
             ALTER TABLE events 
@@ -90,7 +112,7 @@ export class AddEmojiDescription1710000000000 implements MigrationInterface {
 
       // Process events sequentially to avoid memory issues
       for (const event of events) {
-        await this.updateEventDescription(queryRunner, event);
+        await this.updateEventDescription(queryRunner, event, openAIService);
         // Small delay between requests to avoid rate limiting
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
@@ -98,6 +120,9 @@ export class AddEmojiDescription1710000000000 implements MigrationInterface {
       offset += events.length;
       console.log(`Processed ${offset} events so far`);
     }
+
+    // Clean up Redis connection
+    await redisClient.quit();
 
     const finalCount = await queryRunner.query(`
             SELECT COUNT(*) as count 

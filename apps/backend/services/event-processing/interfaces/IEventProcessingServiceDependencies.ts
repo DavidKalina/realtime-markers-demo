@@ -8,6 +8,7 @@ import type { ConfigService } from "../../shared/ConfigService";
 import type { IEventExtractionService } from "./IEventExtractionService";
 import type { IImageProcessingService } from "./IImageProcesssingService";
 import type { JobQueue } from "../../JobQueue";
+import type { OpenAIService } from "../../shared/OpenAIService";
 
 /**
  * Interface for EventProcessingService dependencies
@@ -48,6 +49,11 @@ export interface IEventProcessingServiceDependencies {
    * Configuration service
    */
   configService?: ConfigService;
+
+  /**
+   * OpenAI service for AI operations
+   */
+  openAIService?: OpenAIService;
 
   jobQueue?: JobQueue;
 }

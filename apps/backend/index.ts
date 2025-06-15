@@ -20,7 +20,7 @@ import { internalRouter } from "./routes/internalRoutes";
 import { jobsRouter } from "./routes/jobs";
 import plansRouter from "./routes/plans";
 import { createCategoryProcessingService } from "./services/CategoryProcessingService";
-import { EventExtractionService } from "./services/event-processing/EventExtractionService";
+import { createEventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
 import { createEventService } from "./services/EventService";
 import { createJobQueue } from "./services/JobQueue";
@@ -242,10 +242,12 @@ async function initializeServices() {
   createStorageService();
 
   // Create the event extraction service
-  const eventExtractionService = new EventExtractionService(
+  const eventExtractionService = createEventExtractionService({
     categoryProcessingService,
-    createGoogleGeocodingService(openAIService),
-  );
+    locationResolutionService: createGoogleGeocodingService(openAIService),
+    openAIService,
+    configService,
+  });
 
   // Create embedding service with dependencies
   const embeddingService = createEmbeddingService({
