@@ -2,7 +2,7 @@
 
 import pgvector from "pgvector";
 import type { OpenAIService, OpenAIModel } from "./OpenAIService";
-import { EmbeddingCacheService } from "./EmbeddingCacheService";
+import type { EmbeddingCacheService } from "./EmbeddingCacheService";
 import type { ConfigService } from "./ConfigService";
 import type { IEmbeddingService } from "../event-processing/interfaces/IEmbeddingService";
 
@@ -56,6 +56,7 @@ export interface EmbeddingInput {
 export interface EmbeddingServiceDependencies {
   openAIService: OpenAIService;
   configService?: ConfigService;
+  embeddingCacheService: EmbeddingCacheService;
 }
 
 /**
@@ -104,7 +105,9 @@ export class EmbeddingServiceImpl implements IEmbeddingService {
 
     // Check cache
     const cachedEmbedding =
-      EmbeddingCacheService.getCachedEmbedding(normalizedText);
+      this.dependencies.embeddingCacheService.getCachedEmbedding(
+        normalizedText,
+      );
     if (cachedEmbedding) {
       return cachedEmbedding;
     }
@@ -116,7 +119,10 @@ export class EmbeddingServiceImpl implements IEmbeddingService {
     );
 
     // Cache the result
-    EmbeddingCacheService.setCachedEmbedding(normalizedText, embedding);
+    this.dependencies.embeddingCacheService.setCachedEmbedding(
+      normalizedText,
+      embedding,
+    );
 
     return embedding;
   }
@@ -150,7 +156,9 @@ export class EmbeddingServiceImpl implements IEmbeddingService {
 
     // Check cache for structured embedding
     const cachedEmbedding =
-      EmbeddingCacheService.getCachedStructuredEmbedding(input);
+      this.dependencies.embeddingCacheService.getCachedStructuredEmbedding(
+        input,
+      );
     if (cachedEmbedding) {
       return cachedEmbedding;
     }
@@ -159,7 +167,10 @@ export class EmbeddingServiceImpl implements IEmbeddingService {
     const embedding = await this.getEmbedding(structuredText, model);
 
     // Cache the structured embedding
-    EmbeddingCacheService.setCachedStructuredEmbedding(input, embedding);
+    this.dependencies.embeddingCacheService.setCachedStructuredEmbedding(
+      input,
+      embedding,
+    );
 
     return embedding;
   }
@@ -307,7 +318,7 @@ export class EmbeddingServiceImpl implements IEmbeddingService {
    * Useful for testing or when embedding model changes
    */
   public clearCache(): void {
-    EmbeddingCacheService.clearAllEmbeddings();
+    this.dependencies.embeddingCacheService.clearAllEmbeddings();
     console.log("Cleared embedding cache");
   }
 }

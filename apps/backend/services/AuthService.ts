@@ -23,6 +23,14 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
+export interface AuthServiceDependencies {
+  userRepository: Repository<User>;
+  userPreferencesService: UserPreferencesServiceImpl;
+  levelingService: LevelingService;
+  dataSource: DataSource;
+  openAIService: OpenAIService;
+}
+
 export class AuthService {
   private userRepository: Repository<User>;
   private jwtSecret: string;
@@ -34,18 +42,12 @@ export class AuthService {
   private dataSource: DataSource;
   private openAIService: OpenAIService;
 
-  constructor(
-    userRepository: Repository<User>,
-    userPreferencesService: UserPreferencesServiceImpl,
-    levelingService: LevelingService,
-    dataSource: DataSource,
-    openAIService: OpenAIService,
-  ) {
-    this.userRepository = userRepository;
-    this.userPreferencesService = userPreferencesService;
-    this.levelingService = levelingService;
-    this.dataSource = dataSource;
-    this.openAIService = openAIService;
+  constructor(private dependencies: AuthServiceDependencies) {
+    this.userRepository = dependencies.userRepository;
+    this.userPreferencesService = dependencies.userPreferencesService;
+    this.levelingService = dependencies.levelingService;
+    this.dataSource = dependencies.dataSource;
+    this.openAIService = dependencies.openAIService;
     this.jwtSecret = process.env.JWT_SECRET!;
     if (!this.jwtSecret) {
       throw new Error("JWT_SECRET environment variable must be set");
@@ -512,4 +514,10 @@ Respond with a JSON object containing:
     await this.userRepository.delete(userId);
     return true;
   }
+}
+
+export function createAuthService(
+  dependencies: AuthServiceDependencies,
+): AuthService {
+  return new AuthService(dependencies);
 }
