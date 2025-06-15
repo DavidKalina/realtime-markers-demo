@@ -56,6 +56,17 @@ export function createEventCacheService(
    * Convert an event to a spatial item for the RBush index
    */
   function eventToSpatialItem(event: Event): SpatialItem {
+    // Validate location and coordinates
+    if (
+      !event.location?.coordinates ||
+      !Array.isArray(event.location.coordinates) ||
+      event.location.coordinates.length !== 2
+    ) {
+      throw new Error(
+        `Event ${event.id} has invalid coordinates: ${JSON.stringify(event.location)}`,
+      );
+    }
+
     const [lng, lat] = event.location.coordinates;
     return {
       minX: lng,
@@ -132,18 +143,32 @@ export function createEventCacheService(
    * Add event to spatial index
    */
   function addToSpatialIndex(event: Event): void {
-    const spatialItem = eventToSpatialItem(event);
-    spatialIndex.insert(spatialItem);
+    try {
+      const spatialItem = eventToSpatialItem(event);
+      spatialIndex.insert(spatialItem);
+    } catch (error) {
+      console.warn(
+        `[EventCacheService] Failed to add event ${event.id} to spatial index:`,
+        error,
+      );
+    }
   }
 
   /**
    * Update event in spatial index
    */
   function updateSpatialIndex(event: Event): void {
-    // Remove old entry
-    removeFromSpatialIndex(event.id);
-    // Add new entry
-    addToSpatialIndex(event);
+    try {
+      // Remove old entry
+      removeFromSpatialIndex(event.id);
+      // Add new entry
+      addToSpatialIndex(event);
+    } catch (error) {
+      console.warn(
+        `[EventCacheService] Failed to update event ${event.id} in spatial index:`,
+        error,
+      );
+    }
   }
 
   /**
