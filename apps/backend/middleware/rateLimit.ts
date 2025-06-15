@@ -1,5 +1,5 @@
 import type { Context, Next } from "hono";
-import { RateLimitService } from "../services/shared/RateLimitService";
+import { createRateLimitService } from "../services/shared/RateLimitService";
 
 interface RateLimitOptions {
   maxRequests: number;
@@ -8,7 +8,7 @@ interface RateLimitOptions {
 }
 
 export const rateLimit = (options: RateLimitOptions) => {
-  const rateLimitService = RateLimitService.getInstance();
+  const rateLimitService = createRateLimitService();
   const defaultKeyGenerator = (c: Context) => {
     // Use IP address as default key, or user ID if authenticated
     return (
