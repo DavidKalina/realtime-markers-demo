@@ -5,8 +5,11 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { EventEmitter } from "events";
 import { v4 as uuidv4 } from "uuid";
 
+export interface StorageServiceDependencies {
+  // No external dependencies needed for now
+}
+
 export class StorageService extends EventEmitter {
-  private static instance: StorageService;
   private s3Client: S3 | null = null;
   private bucketName: string = "event-images";
   public isEnabled: boolean = true;
@@ -18,7 +21,7 @@ export class StorageService extends EventEmitter {
   }> = [];
   private isProcessing: boolean = false;
 
-  private constructor() {
+  constructor(private dependencies: StorageServiceDependencies) {
     super(); // Initialize EventEmitter
     console.log("StorageService constructor called");
 
@@ -57,13 +60,6 @@ export class StorageService extends EventEmitter {
         console.error("Error initializing S3 client:", error);
       }
     }
-  }
-
-  public static getInstance(): StorageService {
-    if (!StorageService.instance) {
-      StorageService.instance = new StorageService();
-    }
-    return StorageService.instance;
   }
 
   /**
@@ -340,4 +336,10 @@ export class StorageService extends EventEmitter {
       throw new Error("Failed to generate signed URL");
     }
   }
+}
+
+export function createStorageService(
+  dependencies: StorageServiceDependencies = {},
+): StorageService {
+  return new StorageService(dependencies);
 }

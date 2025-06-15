@@ -2,11 +2,15 @@ import { DataSource, Repository } from "typeorm";
 import { User, PlanType } from "../entities/User";
 import { subWeeks, isAfter } from "date-fns";
 
+export interface PlanServiceDependencies {
+  dataSource: DataSource;
+}
+
 export class PlanService {
   private userRepository: Repository<User>;
 
-  constructor(private dataSource: DataSource) {
-    this.userRepository = dataSource.getRepository(User);
+  constructor(private dependencies: PlanServiceDependencies) {
+    this.userRepository = dependencies.dataSource.getRepository(User);
   }
 
   /**
@@ -115,4 +119,10 @@ export class PlanService {
       planType,
     });
   }
+}
+
+export function createPlanService(
+  dependencies: PlanServiceDependencies,
+): PlanService {
+  return new PlanService(dependencies);
 }

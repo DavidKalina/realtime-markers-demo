@@ -5,6 +5,12 @@ import { UserLevel } from "../entities/UserLevel";
 import type { LevelingCacheService } from "./shared/LevelingCacheService";
 import type { RedisService } from "./shared/RedisService";
 
+export interface LevelingServiceDependencies {
+  dataSource: DataSource;
+  redisService: RedisService;
+  levelingCacheService: LevelingCacheService;
+}
+
 export class LevelingService {
   private userRepository: Repository<User>;
   private levelRepository: Repository<Level>;
@@ -12,16 +18,12 @@ export class LevelingService {
   private redisService: RedisService;
   private levelingCacheService: LevelingCacheService;
 
-  constructor(
-    dataSource: DataSource,
-    redisService: RedisService,
-    levelingCacheService: LevelingCacheService,
-  ) {
-    this.userRepository = dataSource.getRepository(User);
-    this.levelRepository = dataSource.getRepository(Level);
-    this.userLevelRepository = dataSource.getRepository(UserLevel);
-    this.redisService = redisService;
-    this.levelingCacheService = levelingCacheService;
+  constructor(private dependencies: LevelingServiceDependencies) {
+    this.userRepository = dependencies.dataSource.getRepository(User);
+    this.levelRepository = dependencies.dataSource.getRepository(Level);
+    this.userLevelRepository = dependencies.dataSource.getRepository(UserLevel);
+    this.redisService = dependencies.redisService;
+    this.levelingCacheService = dependencies.levelingCacheService;
   }
 
   /**
@@ -348,4 +350,10 @@ export class LevelingService {
       },
     });
   }
+}
+
+export function createLevelingService(
+  dependencies: LevelingServiceDependencies,
+): LevelingService {
+  return new LevelingService(dependencies);
 }

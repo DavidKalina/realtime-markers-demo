@@ -4,20 +4,19 @@ import * as dotenv from "dotenv";
 import * as path from "path";
 import * as fs from "fs";
 
+export interface ConfigServiceDependencies {
+  // No external dependencies needed for now
+}
+
 /**
  * Service for managing application configuration
  * Loads from environment variables and config files
  */
 export class ConfigService {
-  private static instance: ConfigService;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private config: Record<string, any> = {};
 
-  /**
-   * Private constructor for singleton pattern
-   * Loads configuration from all sources
-   */
-  private constructor() {
+  constructor(private dependencies: ConfigServiceDependencies) {
     // Load environment variables
     dotenv.config();
 
@@ -26,16 +25,6 @@ export class ConfigService {
 
     // Set default values
     this.setDefaults();
-  }
-
-  /**
-   * Get singleton instance
-   */
-  public static getInstance(): ConfigService {
-    if (!ConfigService.instance) {
-      ConfigService.instance = new ConfigService();
-    }
-    return ConfigService.instance;
   }
 
   /**
@@ -199,4 +188,10 @@ export class ConfigService {
     }
     return target;
   }
+}
+
+export function createConfigService(
+  dependencies: ConfigServiceDependencies = {},
+): ConfigService {
+  return new ConfigService(dependencies);
 }
