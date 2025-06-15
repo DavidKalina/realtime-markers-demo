@@ -529,3 +529,12 @@ export class EventProcessingService {
     }
   }
 }
+
+/**
+ * Factory function to create an EventProcessingService instance
+ */
+export function createEventProcessingService(
+  dependencies: IEventProcessingServiceDependencies,
+): EventProcessingService {
+  return new EventProcessingService(dependencies);
+}

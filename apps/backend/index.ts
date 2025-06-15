@@ -22,7 +22,6 @@ import plansRouter from "./routes/plans";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
-import { EventProcessingService } from "./services/EventProcessingService";
 import { createEventService } from "./services/EventService";
 import { FriendshipService } from "./services/FriendshipService";
 import { JobQueue } from "./services/JobQueue";
@@ -51,6 +50,7 @@ import { createImageProcessingService } from "./services/event-processing/ImageP
 import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
 import { createNotificationCacheService } from "./services/shared/NotificationCacheService";
 import { createEmbeddingService } from "./services/shared/EmbeddingService";
+import { createEventProcessingService } from "./services/EventProcessingService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -240,7 +240,7 @@ async function initializeServices() {
   });
 
   // Create event processing service with all dependencies
-  const eventProcessingService = new EventProcessingService({
+  const eventProcessingService = createEventProcessingService({
     categoryProcessingService,
     eventSimilarityService,
     locationResolutionService: createGoogleGeocodingService(openAIService),
