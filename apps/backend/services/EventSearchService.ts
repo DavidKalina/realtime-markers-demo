@@ -251,10 +251,22 @@ export class EventSearchServiceImpl implements EventSearchService {
     // Process results
     const searchResults: SearchResult[] = events
       .slice(0, limit)
-      .map((event) => ({
-        event,
-        score: parseFloat((event as unknown as { __score: string }).__score),
-      }));
+      .map((event) => {
+        // Extract score and remove it from the event object
+        const score = parseFloat(
+          (event as unknown as { __score: string }).__score,
+        );
+        const eventWithoutScore = Object.fromEntries(
+          Object.entries(
+            event as unknown as Event & { __score: string },
+          ).filter(([key]) => key !== "__score"),
+        ) as Event;
+
+        return {
+          event: eventWithoutScore,
+          score,
+        };
+      });
 
     // Generate next cursor if we have more results
     let nextCursor: string | undefined;
