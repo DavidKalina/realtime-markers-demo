@@ -11,6 +11,7 @@ import type { FriendshipServiceImpl } from "../services/FriendshipService";
 import type { NotificationService } from "../services/NotificationService";
 import type { RedisService } from "../services/shared/RedisService";
 import { AuthService } from "../services/AuthService";
+import type { GoogleGeocodingService } from "../services/shared/GoogleGeocodingService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -25,6 +26,7 @@ export interface AppVariables {
   friendshipService: FriendshipServiceImpl;
   notificationService: NotificationService;
   authService: AuthService;
+  geocodingService: GoogleGeocodingService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

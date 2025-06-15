@@ -345,11 +345,15 @@ async function initializeServices() {
     notificationService,
     notificationHandler,
     authService,
+    openAIService,
   };
 }
 
 // Initialize all services async
 const services = await initializeServices();
+
+// Create geocoding service for context
+const geocodingService = createGoogleGeocodingService(services.openAIService);
 
 app.use("*", async (c, next) => {
   c.set("eventService", services.eventService);
@@ -364,6 +368,7 @@ app.use("*", async (c, next) => {
   c.set("friendshipService", services.friendshipService);
   c.set("notificationService", services.notificationService);
   c.set("authService", services.authService);
+  c.set("geocodingService", geocodingService);
   await next();
 });
 

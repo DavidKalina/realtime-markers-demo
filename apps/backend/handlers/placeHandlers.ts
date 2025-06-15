@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import { GoogleGeocodingService } from "../services/shared/GoogleGeocodingService";
+import type { GoogleGeocodingService } from "../services/shared/GoogleGeocodingService";
 import { z } from "zod";
 import type { AppContext } from "../types/context";
 
@@ -48,8 +48,10 @@ export const searchPlace = async (c: Context<AppContext>) => {
     const { query, coordinates } = validationResult.data;
     console.log("🔍 Places Search Validated Input:", { query, coordinates });
 
-    // Get the geocoding service instance
-    const geocodingService = GoogleGeocodingService.getInstance();
+    // Get the geocoding service from context
+    const geocodingService = c.get(
+      "geocodingService",
+    ) as GoogleGeocodingService;
 
     // Search for the place
     const result = await geocodingService.searchPlaceForFrontend(
@@ -96,7 +98,9 @@ export async function searchCityState(c: Context<AppContext>) {
       );
     }
 
-    const geocodingService = GoogleGeocodingService.getInstance();
+    const geocodingService = c.get(
+      "geocodingService",
+    ) as GoogleGeocodingService;
     const result = await geocodingService.searchCityState(query, coordinates);
 
     return c.json(result);
