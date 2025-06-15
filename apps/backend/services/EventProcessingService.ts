@@ -3,14 +3,12 @@ import type { Point } from "geojson";
 import type { Category } from "../entities/Category";
 import type { SimilarityResult } from "./event-processing/dto/SimilarityResult";
 import { EventExtractionService } from "./event-processing/EventExtractionService";
-import { ImageProcessingService } from "./event-processing/ImageProcessingService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
 import type { IEventExtractionService } from "./event-processing/interfaces/IEventExtractionService";
 import type { IEventProcessingServiceDependencies } from "./event-processing/interfaces/IEventProcessingServiceDependencies";
 import type { IImageProcessingService } from "./event-processing/interfaces/IImageProcesssingService";
 
 import type { JobQueue } from "./JobQueue";
-import { EmbeddingService } from "./shared/EmbeddingService";
 import type { EventStructuredData } from "./event-processing/dto/ImageProcessingResult";
 import { RecurrenceFrequency, DayOfWeek } from "../entities/Event";
 
@@ -91,9 +89,13 @@ export class EventProcessingService {
   private jobQueue?: JobQueue; // Store JobQueue instance
 
   constructor(private dependencies: IEventProcessingServiceDependencies) {
-    // Initialize the image processing service (use provided or create new one)
-    this.imageProcessingService =
-      dependencies.imageProcessingService || new ImageProcessingService();
+    // Initialize the image processing service (use provided or throw error if not provided)
+    if (!dependencies.imageProcessingService) {
+      throw new Error(
+        "ImageProcessingService is required for EventProcessingService",
+      );
+    }
+    this.imageProcessingService = dependencies.imageProcessingService;
 
     // Use provided location service
 
@@ -101,17 +103,20 @@ export class EventProcessingService {
     if (dependencies.eventExtractionService) {
       this.eventExtractionService = dependencies.eventExtractionService;
     } else {
-      // If not provided, create a new instance using OpenAIService singleton
+      // If not provided, create a new instance using the provided dependencies
       this.eventExtractionService = new EventExtractionService(
         dependencies.categoryProcessingService,
         dependencies.locationResolutionService,
       );
     }
 
-    // Use provided embedding service or get singleton instance
-    this.embeddingService =
-      dependencies.embeddingService ||
-      EmbeddingService.getInstance(dependencies.configService);
+    // Use provided embedding service or throw error if not provided
+    if (!dependencies.embeddingService) {
+      throw new Error(
+        "EmbeddingService is required for EventProcessingService",
+      );
+    }
+    this.embeddingService = dependencies.embeddingService;
 
     this.jobQueue = dependencies.jobQueue;
   }

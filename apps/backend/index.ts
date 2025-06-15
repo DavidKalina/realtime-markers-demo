@@ -50,6 +50,7 @@ import { createImageProcessingCacheService } from "./services/shared/ImageProces
 import { createImageProcessingService } from "./services/event-processing/ImageProcessingService";
 import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
 import { createNotificationCacheService } from "./services/shared/NotificationCacheService";
+import { createEmbeddingService } from "./services/shared/EmbeddingService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -232,12 +233,19 @@ async function initializeServices() {
     createGoogleGeocodingService(openAIService),
   );
 
+  // Create embedding service with dependencies
+  const embeddingService = createEmbeddingService({
+    openAIService,
+    configService,
+  });
+
   // Create event processing service with all dependencies
   const eventProcessingService = new EventProcessingService({
     categoryProcessingService,
     eventSimilarityService,
     locationResolutionService: createGoogleGeocodingService(openAIService),
     imageProcessingService,
+    embeddingService,
     configService,
     eventExtractionService,
   });

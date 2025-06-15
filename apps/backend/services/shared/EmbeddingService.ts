@@ -1,7 +1,7 @@
 // services/shared/EmbeddingService.ts
 
 import pgvector from "pgvector";
-import { OpenAIModel, OpenAIService } from "./OpenAIService";
+import type { OpenAIService, OpenAIModel } from "./OpenAIService";
 import { EmbeddingCacheService } from "./EmbeddingCacheService";
 import type { ConfigService } from "./ConfigService";
 import type { IEmbeddingService } from "../event-processing/interfaces/IEmbeddingService";
@@ -52,16 +52,20 @@ export interface EmbeddingInput {
   };
 }
 
+// Define dependencies interface for cleaner constructor
+export interface EmbeddingServiceDependencies {
+  openAIService: OpenAIService;
+  configService?: ConfigService;
+}
+
 /**
  * Service for generating and managing text embeddings
  * Provides a standardized interface for embedding generation across the application
  * Uses caching for performance optimization
  */
-export class EmbeddingService implements IEmbeddingService {
-  private static instance: EmbeddingService;
-
+export class EmbeddingServiceImpl implements IEmbeddingService {
   // Default embedding model
-  private readonly DEFAULT_MODEL: string;
+  private readonly DEFAULT_MODEL: OpenAIModel;
 
   // Default TTL for cache entries in seconds
   private readonly CACHE_TTL: number;
@@ -77,30 +81,13 @@ export class EmbeddingService implements IEmbeddingService {
     locationNotes: 3,
   };
 
-  private readonly embeddingCacheService: EmbeddingCacheService;
-
-  /**
-   * Private constructor for singleton pattern
-   * @param configService Optional configuration service
-   */
-  private constructor(private configService?: ConfigService) {
+  constructor(private dependencies: EmbeddingServiceDependencies) {
     // Initialize with config or defaults
     this.DEFAULT_MODEL =
-      configService?.get("openai.embeddingModel") || "text-embedding-3-small";
-    this.CACHE_TTL = configService?.get("cache.ttl") || 86400; // 24 hours
-    this.embeddingCacheService =
-      EmbeddingCacheService.getInstance(configService);
-  }
-
-  /**
-   * Get the singleton instance
-   * @param configService Optional configuration service
-   */
-  public static getInstance(configService?: ConfigService): EmbeddingService {
-    if (!this.instance) {
-      this.instance = new EmbeddingService(configService);
-    }
-    return this.instance;
+      (dependencies.configService?.get(
+        "openai.embeddingModel",
+      ) as OpenAIModel) || "text-embedding-3-small";
+    this.CACHE_TTL = dependencies.configService?.get("cache.ttl") || 86400; // 24 hours
   }
 
   /**
@@ -109,7 +96,10 @@ export class EmbeddingService implements IEmbeddingService {
    * @param model Optional model to use (defaults to configured default)
    * @returns Vector embedding
    */
-  public async getEmbedding(text: string, model?: string): Promise<number[]> {
+  public async getEmbedding(
+    text: string,
+    model?: OpenAIModel,
+  ): Promise<number[]> {
     const normalizedText = this.normalizeTextForEmbedding(text);
 
     // Check cache
@@ -120,9 +110,9 @@ export class EmbeddingService implements IEmbeddingService {
     }
 
     // Generate embedding with the specified or default model
-    const embedding = await OpenAIService.generateEmbedding(
+    const embedding = await this.dependencies.openAIService.generateEmbedding(
       normalizedText,
-      (model as OpenAIModel) || this.DEFAULT_MODEL,
+      model || this.DEFAULT_MODEL,
     );
 
     // Cache the result
@@ -137,7 +127,10 @@ export class EmbeddingService implements IEmbeddingService {
    * @param model Optional model to use
    * @returns SQL representation of vector embedding
    */
-  public async getEmbeddingSql(text: string, model?: string): Promise<string> {
+  public async getEmbeddingSql(
+    text: string,
+    model?: OpenAIModel,
+  ): Promise<string> {
     const embedding = await this.getEmbedding(text, model);
     return pgvector.toSql(embedding);
   }
@@ -151,7 +144,7 @@ export class EmbeddingService implements IEmbeddingService {
    */
   public async getStructuredEmbedding(
     input: EmbeddingInput,
-    model?: string,
+    model?: OpenAIModel,
   ): Promise<number[]> {
     const structuredText = this.createWeightedText(input);
 
@@ -179,7 +172,7 @@ export class EmbeddingService implements IEmbeddingService {
    */
   public async getStructuredEmbeddingSql(
     input: EmbeddingInput,
-    model?: string,
+    model?: OpenAIModel,
   ): Promise<string> {
     const embedding = await this.getStructuredEmbedding(input, model);
     return pgvector.toSql(embedding);
@@ -317,4 +310,13 @@ export class EmbeddingService implements IEmbeddingService {
     EmbeddingCacheService.clearAllEmbeddings();
     console.log("Cleared embedding cache");
   }
+}
+
+/**
+ * Factory function to create an EmbeddingService instance
+ */
+export function createEmbeddingService(
+  dependencies: EmbeddingServiceDependencies,
+): IEmbeddingService {
+  return new EmbeddingServiceImpl(dependencies);
 }
