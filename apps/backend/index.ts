@@ -22,7 +22,7 @@ import plansRouter from "./routes/plans";
 import { createCategoryProcessingService } from "./services/CategoryProcessingService";
 import { createEventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
-import { createEventService } from "./services/EventService";
+import { createEventService } from "./services/EventServiceRefactored";
 import { createJobQueue } from "./services/JobQueue";
 import { createLevelingService } from "./services/LevelingService";
 import { createPlanService } from "./services/PlanService";

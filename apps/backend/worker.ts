@@ -9,7 +9,10 @@ import {
   createRedisService,
   type RedisService,
 } from "./services/shared/RedisService";
-import { createEventService, type EventService } from "./services/EventService";
+import {
+  createEventService,
+  type EventService,
+} from "./services/EventServiceRefactored";
 import {
   createEventProcessingService,
   type EventProcessingService,
