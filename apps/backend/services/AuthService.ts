@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { Repository } from "typeorm";
 import { User } from "../entities/User";
-import { UserPreferencesService } from "./UserPreferences";
+import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import { addDays, format } from "date-fns";
 import { LevelingService } from "./LevelingService";
 import { FriendshipService } from "./FriendshipService";
@@ -29,14 +29,14 @@ export class AuthService {
   private refreshSecret: string;
   private accessTokenExpiry: SignOptions["expiresIn"];
   private refreshTokenExpiry: SignOptions["expiresIn"];
-  private userPreferencesService: UserPreferencesService;
+  private userPreferencesService: UserPreferencesServiceImpl;
   private levelingService: LevelingService;
   private dataSource: DataSource;
   private openAIService: OpenAIService;
 
   constructor(
     userRepository: Repository<User>,
-    userPreferencesService: UserPreferencesService,
+    userPreferencesService: UserPreferencesServiceImpl,
     levelingService: LevelingService,
     dataSource: DataSource,
     openAIService: OpenAIService,

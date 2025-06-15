@@ -1,15 +1,15 @@
 // src/types/context.ts
-import { EventService } from "../services/EventService";
-import { EventProcessingService } from "../services/EventProcessingService";
+import type { EventService } from "../services/EventService";
+import type { EventProcessingService } from "../services/EventProcessingService";
 import { JobQueue } from "../services/JobQueue";
 import Redis from "ioredis";
-import type { UserPreferencesService } from "../services/UserPreferences";
+import type { UserPreferencesServiceImpl } from "../services/UserPreferences";
 import type { StorageService } from "../services/shared/StorageService";
 import { PlanService } from "../services/PlanService";
 import { LevelingService } from "../services/LevelingService";
 import { FriendshipService } from "../services/FriendshipService";
-import { NotificationService } from "../services/NotificationService";
-import { RedisService } from "../services/shared/RedisService";
+import type { NotificationService } from "../services/NotificationService";
+import type { RedisService } from "../services/shared/RedisService";
 import { AuthService } from "../services/AuthService";
 
 export interface AppVariables {
@@ -19,7 +19,7 @@ export interface AppVariables {
   jobQueue: JobQueue;
   redisClient: Redis;
   redisService: RedisService;
-  userPreferencesService: UserPreferencesService;
+  userPreferencesService: UserPreferencesServiceImpl;
   planService: PlanService;
   levelingService: LevelingService;
   friendshipService: FriendshipService;

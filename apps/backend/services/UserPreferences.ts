@@ -1,9 +1,10 @@
 // This would be added to the backend service as src/services/UserPreferencesService.ts
 import { DataSource, Repository } from "typeorm";
 import { Filter as FilterEntity } from "../entities/Filter";
-import { EmbeddingService } from "./shared/EmbeddingService";
-import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
-import { RedisService } from "./shared/RedisService";
+import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
+import { OpenAIModel } from "./shared/OpenAIService";
+import type { OpenAIService } from "./shared/OpenAIService";
+import type { RedisService } from "./shared/RedisService";
 
 interface Filter {
   id: string;
@@ -29,19 +30,29 @@ interface Filter {
   updatedAt: Date;
 }
 
+// Define dependencies interface for cleaner constructor
+export interface UserPreferencesServiceDependencies {
+  dataSource: DataSource;
+  redisService: RedisService;
+  embeddingService: IEmbeddingService;
+  openAIService: OpenAIService;
+}
+
 /**
  * User Preferences Service handles storing and retrieving user filter preferences,
  * and publishing filter change events to Redis when preferences are updated.
  */
-export class UserPreferencesService {
+export class UserPreferencesServiceImpl {
   private filterRepository: Repository<Filter>;
   private redisService: RedisService;
-  private embeddingService: EmbeddingService;
+  private embeddingService: IEmbeddingService;
+  private openAIService: OpenAIService;
 
-  constructor(dataSource: DataSource, redisService: RedisService) {
-    this.filterRepository = dataSource.getRepository(FilterEntity);
-    this.redisService = redisService;
-    this.embeddingService = EmbeddingService.getInstance();
+  constructor(private dependencies: UserPreferencesServiceDependencies) {
+    this.filterRepository = dependencies.dataSource.getRepository(FilterEntity);
+    this.redisService = dependencies.redisService;
+    this.embeddingService = dependencies.embeddingService;
+    this.openAIService = dependencies.openAIService;
   }
 
   /**
@@ -60,7 +71,7 @@ IMPORTANT: Respond with ONLY a single emoji character. No text, no explanation, 
 Example valid responses: 🎉 🎨 🎭
 Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
 
-      const completion = await OpenAIService.executeChatCompletion({
+      const completion = await this.openAIService.executeChatCompletion({
         model: OpenAIModel.GPT4OMini,
         messages: [
           {
@@ -412,4 +423,13 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
     });
     return filter;
   }
+}
+
+/**
+ * Factory function to create a UserPreferencesService instance
+ */
+export function createUserPreferencesService(
+  dependencies: UserPreferencesServiceDependencies,
+): UserPreferencesServiceImpl {
+  return new UserPreferencesServiceImpl(dependencies);
 }

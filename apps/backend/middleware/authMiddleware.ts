@@ -5,22 +5,46 @@ import { AuthService } from "../services/AuthService";
 import { User } from "../entities/User";
 import dataSource from "../data-source";
 import type { AppContext } from "../types/context";
-import { UserPreferencesService } from "../services/UserPreferences";
+import { createUserPreferencesService } from "../services/UserPreferences";
 import { LevelingService } from "../services/LevelingService";
 import { redisService } from "../services/shared/redis";
+import { createOpenAIService } from "../services/shared/OpenAIService";
+import { createOpenAICacheService } from "../services/shared/OpenAICacheService";
+import { createEmbeddingService } from "../services/shared/EmbeddingService";
+import { createLevelingCacheService } from "../services/shared/LevelingCacheService";
 
 // Create an instance of AuthService (or import it if already instantiated)
 const userRepository = dataSource.getRepository(User);
-const userPreferencesService = new UserPreferencesService(
+
+// Create dependencies for UserPreferencesService
+const openAICacheService = createOpenAICacheService();
+const openAIService = createOpenAIService({
+  redisService,
+  openAICacheService,
+});
+const embeddingService = createEmbeddingService({
+  openAIService,
+});
+
+const userPreferencesService = createUserPreferencesService({
   dataSource,
   redisService,
+  embeddingService,
+  openAIService,
+});
+
+const levelingCacheService = createLevelingCacheService(redisService);
+const levelingService = new LevelingService(
+  dataSource,
+  redisService,
+  levelingCacheService,
 );
-const levelingService = new LevelingService(dataSource, redisService);
 const authService = new AuthService(
   userRepository,
   userPreferencesService,
   levelingService,
   dataSource,
+  openAIService,
 );
 
 export const authMiddleware = async (c: Context<AppContext>, next: Next) => {

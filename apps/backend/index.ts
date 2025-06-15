@@ -31,7 +31,7 @@ import { ConfigService } from "./services/shared/ConfigService";
 import { createGoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
 import { RateLimitService } from "./services/shared/RateLimitService";
 import { StorageService } from "./services/shared/StorageService";
-import { UserPreferencesService } from "./services/UserPreferences";
+import { createUserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
 import { createNotificationService } from "./services/NotificationService";
 import { createNotificationHandler } from "./services/NotificationHandler";
@@ -263,10 +263,12 @@ async function initializeServices() {
   });
 
   // Initialize the UserPreferencesService
-  const userPreferencesService = new UserPreferencesService(
+  const userPreferencesService = createUserPreferencesService({
     dataSource,
     redisService,
-  );
+    embeddingService,
+    openAIService,
+  });
 
   const storageService = StorageService.getInstance();
 
