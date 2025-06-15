@@ -103,11 +103,6 @@ async function startFilterProcessor() {
         maxPastHours: 24,
         maxFutureDays: 30,
       },
-      batchConfig: {
-        batchIntervalMs: 15 * 60 * 1000, // 15 minutes
-        maxBatchSize: 1000,
-        enableBatching: true,
-      },
     });
 
     // Initialize the processor
