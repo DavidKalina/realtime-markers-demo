@@ -7,7 +7,7 @@ import type { UserPreferencesServiceImpl } from "../services/UserPreferences";
 import type { StorageService } from "../services/shared/StorageService";
 import { PlanService } from "../services/PlanService";
 import { LevelingService } from "../services/LevelingService";
-import { FriendshipService } from "../services/FriendshipService";
+import type { FriendshipServiceImpl } from "../services/FriendshipService";
 import type { NotificationService } from "../services/NotificationService";
 import type { RedisService } from "../services/shared/RedisService";
 import { AuthService } from "../services/AuthService";
@@ -22,7 +22,7 @@ export interface AppVariables {
   userPreferencesService: UserPreferencesServiceImpl;
   planService: PlanService;
   levelingService: LevelingService;
-  friendshipService: FriendshipService;
+  friendshipService: FriendshipServiceImpl;
   notificationService: NotificationService;
   authService: AuthService;
   user?: { id: string; email: string; role: string; userId?: string };

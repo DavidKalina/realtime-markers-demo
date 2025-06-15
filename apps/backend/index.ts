@@ -23,7 +23,6 @@ import { createCategoryProcessingService } from "./services/CategoryProcessingSe
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
 import { createEventService } from "./services/EventService";
-import { FriendshipService } from "./services/FriendshipService";
 import { createJobQueue } from "./services/JobQueue";
 import { LevelingService } from "./services/LevelingService";
 import { PlanService } from "./services/PlanService";
@@ -54,6 +53,7 @@ import { createEventProcessingService } from "./services/EventProcessingService"
 import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
 import { createLevelingCacheService } from "./services/shared/LevelingCacheService";
 import { createFriendshipCacheService } from "./services/shared/FriendshipCacheService";
+import { createFriendshipService } from "./services/FriendshipService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -276,10 +276,10 @@ async function initializeServices() {
   const planService = new PlanService(dataSource);
 
   // Create FriendshipService instance
-  const friendshipService = new FriendshipService(
+  const friendshipService = createFriendshipService({
     dataSource,
-    createFriendshipCacheService(redisClient),
-  );
+    friendshipCacheService: createFriendshipCacheService(redisClient),
+  });
 
   // Initialize the NotificationService with dependencies
   const notificationService = createNotificationService({

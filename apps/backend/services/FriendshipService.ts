@@ -4,18 +4,22 @@ import { Friendship, FriendshipStatus } from "../entities/Friendship";
 import { In, Not } from "typeorm";
 import type { FriendshipCacheService } from "./shared/FriendshipCacheService";
 
-export class FriendshipService {
+// Define dependencies interface for cleaner constructor
+export interface FriendshipServiceDependencies {
+  dataSource: DataSource;
+  friendshipCacheService: FriendshipCacheService;
+}
+
+export class FriendshipServiceImpl {
   private userRepository: Repository<User>;
   private friendshipRepository: Repository<Friendship>;
   private friendshipCacheService: FriendshipCacheService;
 
-  constructor(
-    private dataSource: DataSource,
-    friendshipCacheService: FriendshipCacheService,
-  ) {
-    this.userRepository = dataSource.getRepository(User);
-    this.friendshipRepository = dataSource.getRepository(Friendship);
-    this.friendshipCacheService = friendshipCacheService;
+  constructor(private dependencies: FriendshipServiceDependencies) {
+    this.userRepository = dependencies.dataSource.getRepository(User);
+    this.friendshipRepository =
+      dependencies.dataSource.getRepository(Friendship);
+    this.friendshipCacheService = dependencies.friendshipCacheService;
   }
 
   /**
@@ -445,4 +449,13 @@ export class FriendshipService {
     }
     return this.sendFriendRequest(requesterId, addressee.id);
   }
+}
+
+/**
+ * Factory function to create a FriendshipService instance
+ */
+export function createFriendshipService(
+  dependencies: FriendshipServiceDependencies,
+): FriendshipServiceImpl {
+  return new FriendshipServiceImpl(dependencies);
 }

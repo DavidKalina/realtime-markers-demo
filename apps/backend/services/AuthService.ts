@@ -7,7 +7,7 @@ import { User } from "../entities/User";
 import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import { addDays, format } from "date-fns";
 import { LevelingService } from "./LevelingService";
-import { FriendshipService } from "./FriendshipService";
+import { createFriendshipService } from "./FriendshipService";
 import { DataSource } from "typeorm";
 import { OpenAIModel, type OpenAIService } from "./shared/OpenAIService";
 import { createFriendshipCacheService } from "./shared/FriendshipCacheService";
@@ -392,10 +392,10 @@ Respond with a JSON object containing:
 
     // Generate a friend code if the user doesn't have one
     if (!user.friendCode) {
-      const friendshipService = new FriendshipService(
-        this.dataSource,
-        createFriendshipCacheService(),
-      );
+      const friendshipService = createFriendshipService({
+        dataSource: this.dataSource,
+        friendshipCacheService: createFriendshipCacheService(),
+      });
       user.friendCode = await friendshipService.generateFriendCode(userId);
       await this.userRepository.save(user);
     }
