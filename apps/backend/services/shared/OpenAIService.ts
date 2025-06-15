@@ -1,11 +1,7 @@
 // src/services/OpenAIService.ts
 import { OpenAI } from "openai";
-import { Redis } from "ioredis";
 import type { RedisService } from "./RedisService";
-import {
-  createOpenAICacheService,
-  type OpenAICacheService,
-} from "./OpenAICacheService";
+import type { OpenAICacheService } from "./OpenAICacheService";
 import type {
   ChatCompletion,
   ChatCompletionMessageParam,
@@ -18,13 +14,12 @@ export enum OpenAIModel {
   TextEmbedding3Small = "text-embedding-3-small",
 }
 
-type OperationType = "embeddings" | "chat" | "api";
-type RateLimitKey = `${OpenAIModel}:${OperationType}`;
-
 interface RateLimitConfig {
   tokensPerMinute: number;
   requestsPerMinute: number;
 }
+
+type RateLimitKey = `${OpenAIModel}:${"embeddings" | "chat" | "api"}`;
 
 const MODEL_RATE_LIMITS: Record<OpenAIModel, RateLimitConfig> = {
   [OpenAIModel.GPT4O]: { tokensPerMinute: 5000, requestsPerMinute: 500 },
@@ -59,23 +54,25 @@ export interface OpenAIService {
   resetRateLimits(): Promise<void>;
 }
 
+// Define dependencies interface for cleaner constructor
+export interface OpenAIServiceDependencies {
+  redisService: RedisService;
+  openAICacheService: OpenAICacheService;
+}
+
 export class OpenAIServiceImpl implements OpenAIService {
   private openai: OpenAI;
   private redisService: RedisService;
   private openAICacheService: OpenAICacheService;
   private activeRequests: Map<string, number> = new Map();
 
-  constructor(
-    redis: Redis,
-    redisService: RedisService,
-    openAICacheService: OpenAICacheService,
-  ) {
+  constructor(private dependencies: OpenAIServiceDependencies) {
     if (!process.env.OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY environment variable is not set");
     }
 
-    this.redisService = redisService;
-    this.openAICacheService = openAICacheService;
+    this.redisService = dependencies.redisService;
+    this.openAICacheService = dependencies.openAICacheService;
 
     // Create the OpenAI instance with a custom fetch function
     this.openai = new OpenAI({
@@ -124,67 +121,39 @@ export class OpenAIServiceImpl implements OpenAIService {
       // Check rate limits before proceeding
       await this.checkRateLimit(requestKey, rateLimits, model, operation);
 
+      // Track active requests
+      this.activeRequests.set(
+        requestKey,
+        (this.activeRequests.get(requestKey) || 0) + 1,
+      );
+
       try {
-        // Increment active requests counter
-        this.incrementActiveRequests(requestKey);
+        // Make the actual request
+        const response = await originalFetch(url, init);
 
-        // Use simple retry logic instead of exponential backoff
-        let retries = 5;
-        let delay = 1000;
-        let lastError: Error | null = null;
-
-        while (retries > 0) {
-          try {
-            const response = await originalFetch(url, init);
-
-            // Handle rate limit errors
-            if (response.status === 429) {
-              console.warn(`Rate limit hit for ${model}, backing off...`);
-              await new Promise((resolve) => setTimeout(resolve, delay));
-              delay *= 2; // Double the delay for next retry
-              retries--;
-              continue;
-            }
-
-            // Handle server errors
-            if (response.status >= 500) {
-              console.warn(
-                `Server error (${response.status}) for ${model}, retrying...`,
-              );
-              await new Promise((resolve) => setTimeout(resolve, delay));
-              delay *= 2;
-              retries--;
-              continue;
-            }
-
-            return response;
-          } catch (error) {
-            console.error(
-              `Error in OpenAI request (${retries} retries left):`,
-              error instanceof Error ? error.message : "Unknown error",
-            );
-            lastError =
-              error instanceof Error ? error : new Error("Unknown error");
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            delay *= 2;
-            retries--;
-          }
+        // If the request was successful, return the response
+        if (response.ok) {
+          return response;
         }
 
-        // If we've exhausted all retries, throw the last error
-        if (lastError) {
-          throw lastError;
+        // If we got a rate limit error, wait and retry
+        if (response.status === 429) {
+          console.warn(`Rate limit hit for ${requestKey}, retrying...`);
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          return originalFetch(url, init);
         }
 
-        // This should never happen, but just in case
-        throw new Error("Failed to make request after all retries");
+        return response;
       } finally {
-        // Decrement active requests counter
-        this.decrementActiveRequests(requestKey);
+        // Decrement active requests count
+        const currentCount = this.activeRequests.get(requestKey) || 0;
+        if (currentCount > 0) {
+          this.activeRequests.set(requestKey, currentCount - 1);
+        }
       }
     };
 
-    return customFetch as typeof fetch;
+    return customFetch;
   }
 
   private async checkRateLimit(
@@ -208,16 +177,6 @@ export class OpenAIServiceImpl implements OpenAIService {
       console.warn(`Rate limit approached for ${key}, waiting ${waitTime}ms`);
       await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
-  }
-
-  private incrementActiveRequests(key: string): void {
-    const current = this.activeRequests.get(key) || 0;
-    this.activeRequests.set(key, current + 1);
-  }
-
-  private decrementActiveRequests(key: string): void {
-    const current = this.activeRequests.get(key) || 1;
-    this.activeRequests.set(key, Math.max(0, current - 1));
   }
 
   // Get statistics about API usage
@@ -297,9 +256,7 @@ export class OpenAIServiceImpl implements OpenAIService {
  * Factory function to create an OpenAIService instance
  */
 export function createOpenAIService(
-  redis: Redis,
-  redisService: RedisService,
+  dependencies: OpenAIServiceDependencies,
 ): OpenAIService {
-  const openAICacheService = createOpenAICacheService();
-  return new OpenAIServiceImpl(redis, redisService, openAICacheService);
+  return new OpenAIServiceImpl(dependencies);
 }

@@ -48,6 +48,8 @@ import { createOpenAIService } from "./services/shared/OpenAIService";
 import { createEventCacheService } from "./services/shared/EventCacheService";
 import { createImageProcessingCacheService } from "./services/shared/ImageProcessingCacheService";
 import { createImageProcessingService } from "./services/event-processing/ImageProcessingService";
+import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
+import { createNotificationCacheService } from "./services/shared/NotificationCacheService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -185,8 +187,11 @@ async function initializeServices() {
   // Create RedisService instance
   const redisService = createRedisService(redisClient);
 
-  // Create OpenAIService instance
-  const openAIService = createOpenAIService(redisClient, redisService);
+  // Create OpenAIService instance with dependencies
+  const openAIService = createOpenAIService({
+    redisService,
+    openAICacheService: createOpenAICacheService(),
+  });
 
   // Create EventCacheService instance
   const eventCacheService = createEventCacheService(redisClient);
@@ -198,14 +203,14 @@ async function initializeServices() {
   const levelingService = new LevelingService(dataSource, redisService);
 
   // Initialize EventService with all dependencies
-  const eventService = createEventService(
+  const eventService = createEventService({
     dataSource,
     redisService,
-    createGoogleGeocodingService(openAIService),
+    locationService: createGoogleGeocodingService(openAIService),
     eventCacheService,
-    openAIService,
+    openaiService: openAIService,
     levelingService,
-  );
+  });
 
   // Create the event similarity service
   const eventSimilarityService = new EventSimilarityService(
@@ -251,11 +256,12 @@ async function initializeServices() {
   // Initialize the FriendshipService
   const friendshipService = new FriendshipService(dataSource);
 
-  // Initialize the NotificationService
-  const notificationService = createNotificationService(
-    redisClient,
+  // Initialize the NotificationService with dependencies
+  const notificationService = createNotificationService({
     dataSource,
-  );
+    redisService,
+    notificationCacheService: createNotificationCacheService(redisClient),
+  });
 
   const authService = new AuthService(
     dataSource.getRepository(User),
@@ -264,11 +270,11 @@ async function initializeServices() {
     dataSource,
   );
 
-  // Initialize and start the NotificationHandler
-  const notificationHandler = createNotificationHandler(
-    redisClient,
-    dataSource,
-  );
+  // Initialize and start the NotificationHandler with dependencies
+  const notificationHandler = createNotificationHandler({
+    redisService,
+    notificationService,
+  });
   await notificationHandler.start();
 
   function setupCleanupSchedule() {

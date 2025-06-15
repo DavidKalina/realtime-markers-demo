@@ -1,9 +1,8 @@
-import { Redis } from "ioredis";
 import { DataSource, Repository } from "typeorm";
 import { Notification } from "../entities/Notification";
 import type { NotificationType } from "../entities/Notification";
 import { createNotificationCacheService } from "./shared/NotificationCacheService";
-import { createRedisService } from "./shared/RedisService";
+import type { RedisService } from "./shared/RedisService";
 
 export interface NotificationData {
   id: string;
@@ -28,7 +27,7 @@ export interface NotificationService {
 
   getUserNotifications(
     userId: string,
-    options: {
+    options?: {
       skip?: number;
       take?: number;
       read?: boolean;
@@ -42,27 +41,28 @@ export interface NotificationService {
 
   clearAllNotifications(userId: string): Promise<void>;
 
-  getUnreadCount(userId: string): Promise<number>;
-
   markAllAsRead(userId: string): Promise<void>;
+}
+
+// Define dependencies interface for cleaner constructor
+export interface NotificationServiceDependencies {
+  dataSource: DataSource;
+  redisService: RedisService;
+  notificationCacheService: ReturnType<typeof createNotificationCacheService>;
 }
 
 export class NotificationServiceImpl implements NotificationService {
   private notificationRepository: Repository<Notification>;
-  private redisService: ReturnType<typeof createRedisService>;
+  private redisService: RedisService;
   private notificationCacheService: ReturnType<
     typeof createNotificationCacheService
   >;
 
-  constructor(
-    redis: Redis,
-    dataSource: DataSource,
-    redisService: ReturnType<typeof createRedisService>,
-    notificationCacheService: ReturnType<typeof createNotificationCacheService>,
-  ) {
-    this.notificationRepository = dataSource.getRepository(Notification);
-    this.redisService = redisService;
-    this.notificationCacheService = notificationCacheService;
+  constructor(private dependencies: NotificationServiceDependencies) {
+    this.notificationRepository =
+      dependencies.dataSource.getRepository(Notification);
+    this.redisService = dependencies.redisService;
+    this.notificationCacheService = dependencies.notificationCacheService;
   }
 
   /**
@@ -263,15 +263,6 @@ export class NotificationServiceImpl implements NotificationService {
   }
 
   /**
-   * Get unread notification count for a user
-   */
-  async getUnreadCount(userId: string): Promise<number> {
-    return this.notificationRepository.count({
-      where: { userId, read: false },
-    });
-  }
-
-  /**
    * Mark all notifications as read for a user
    */
   async markAllAsRead(userId: string): Promise<void> {
@@ -316,16 +307,7 @@ export class NotificationServiceImpl implements NotificationService {
  * Factory function to create a NotificationService instance
  */
 export function createNotificationService(
-  redis: Redis,
-  dataSource: DataSource,
+  dependencies: NotificationServiceDependencies,
 ): NotificationService {
-  const redisService = createRedisService(redis);
-  const notificationCacheService = createNotificationCacheService(redis);
-
-  return new NotificationServiceImpl(
-    redis,
-    dataSource,
-    redisService,
-    notificationCacheService,
-  );
+  return new NotificationServiceImpl(dependencies);
 }
