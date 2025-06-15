@@ -194,11 +194,8 @@ export function createHybridUserUpdateBatcherService(
         const viewport = getUserViewport(userId);
         const filters = getUserFilters(userId);
 
-        // Skip if user has no filters (not properly initialized)
-        if (!filters || filters.length === 0) {
-          console.log(`[HybridBatcher] Skipping user ${userId} - no filters`);
-          continue;
-        }
+        // Note: Users with no filters will get MapMoji-curated events
+        // The EventFilteringService handles this case properly
 
         // 4. Get the relevant events (from EventCacheService)
         const events = viewport
