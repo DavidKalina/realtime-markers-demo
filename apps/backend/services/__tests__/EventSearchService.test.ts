@@ -1,4 +1,26 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  jest,
+  mock,
+} from "bun:test";
+
+// Mock pgvector before importing the service
+const mockToSql = mock((embedding: number[]) => {
+  // Return a simple string representation of the embedding for testing
+  return `[${embedding.join(",")}]`;
+});
+
+// Mock the pgvector module
+mock.module("pgvector", () => ({
+  default: {
+    toSql: mockToSql,
+  },
+}));
+
 import {
   createEventSearchService,
   type EventSearchService,
