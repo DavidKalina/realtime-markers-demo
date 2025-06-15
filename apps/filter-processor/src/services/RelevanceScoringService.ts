@@ -143,7 +143,7 @@ export function createRelevanceScoringService(
    * Calculate popularity score (0-1)
    */
   function calculatePopularityScore(event: Event): number {
-    const scanScore = Math.min(event.scanCount / maxScanCount, 1.0);
+    const scanScore = Math.min((event.scanCount || 0) / maxScanCount, 1.0);
     const saveScore = Math.min((event.saveCount || 0) / maxSaveCount, 1.0);
     const rsvpScore = Math.min((event.rsvps?.length || 0) / maxRsvpCount, 1.0);
 
