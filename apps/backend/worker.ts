@@ -14,7 +14,7 @@ import {
   createEventProcessingService,
   type EventProcessingService,
 } from "./services/EventProcessingService";
-import { PlanService } from "./services/PlanService";
+import { createPlanService, type PlanService } from "./services/PlanService";
 import {
   createStorageService,
   type StorageService,
@@ -35,9 +35,9 @@ import { createOpenAIService } from "./services/shared/OpenAIService";
 import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
 import { createEventCacheService } from "./services/shared/EventCacheService";
 import { createImageProcessingCacheService } from "./services/shared/ImageProcessingCacheService";
-import { LevelingService } from "./services/LevelingService";
-import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
+import { createLevelingService } from "./services/LevelingService";
 import { createLevelingCacheService } from "./services/shared/LevelingCacheService";
+import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
 
 // Constants
 const POLLING_INTERVAL = 1000; // 1 second
@@ -106,7 +106,7 @@ async function initializeWorker() {
   const imageProcessingCacheService = createImageProcessingCacheService();
 
   // Create LevelingService instance
-  const levelingService = new LevelingService({
+  const levelingService = createLevelingService({
     dataSource: AppDataSource,
     redisService,
     levelingCacheService: createLevelingCacheService(redisClient),
@@ -162,7 +162,7 @@ async function initializeWorker() {
   });
 
   // Initialize plan service
-  planService = new PlanService({ dataSource: AppDataSource });
+  planService = createPlanService({ dataSource: AppDataSource });
 
   // Initialize storage service
   storageService = createStorageService();

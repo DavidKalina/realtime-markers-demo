@@ -24,8 +24,8 @@ import { createEventExtractionService } from "./services/event-processing/EventE
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
 import { createEventService } from "./services/EventService";
 import { createJobQueue } from "./services/JobQueue";
-import { LevelingService } from "./services/LevelingService";
-import { PlanService } from "./services/PlanService";
+import { createLevelingService } from "./services/LevelingService";
+import { createPlanService } from "./services/PlanService";
 import { createConfigService } from "./services/shared/ConfigService";
 import { createGoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
 import { createRateLimitService } from "./services/shared/RateLimitService";
@@ -40,7 +40,7 @@ import { categoriesRouter } from "./routes/categories";
 import { redisService, redisClient } from "./services/shared/redis";
 import { Redis } from "ioredis";
 import { createRedisService } from "./services/shared/RedisService";
-import { AuthService } from "./services/AuthService";
+import { createAuthService } from "./services/AuthService";
 import { createOpenAIService } from "./services/shared/OpenAIService";
 import { createEventCacheService } from "./services/shared/EventCacheService";
 import { createImageProcessingCacheService } from "./services/shared/ImageProcessingCacheService";
@@ -204,7 +204,7 @@ async function initializeServices() {
   const imageProcessingCacheService = createImageProcessingCacheService();
 
   // Create LevelingService instance
-  const levelingService = new LevelingService({
+  const levelingService = createLevelingService({
     dataSource,
     redisService,
     levelingCacheService: createLevelingCacheService(redisClient),
@@ -278,7 +278,7 @@ async function initializeServices() {
   const storageService = createStorageService();
 
   // Initialize the PlanService
-  const planService = new PlanService({ dataSource });
+  const planService = createPlanService({ dataSource });
 
   // Create FriendshipService instance
   const friendshipService = createFriendshipService({
@@ -293,7 +293,7 @@ async function initializeServices() {
     notificationCacheService: createNotificationCacheService(redisClient),
   });
 
-  const authService = new AuthService({
+  const authService = createAuthService({
     userRepository: dataSource.getRepository(User),
     dataSource,
     userPreferencesService,

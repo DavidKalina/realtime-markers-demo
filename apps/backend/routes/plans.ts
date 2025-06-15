@@ -1,7 +1,7 @@
 // routes/plans.ts
 import { Hono } from "hono";
 import { z } from "zod";
-import { PlanService } from "../services/PlanService";
+import { createPlanService } from "../services/PlanService";
 import { PlanType } from "../entities/User";
 import type { AppContext } from "../types/context";
 import dataSource from "../data-source";
@@ -22,7 +22,7 @@ plansRouter.get("/", async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  const planService = new PlanService(dataSource);
+  const planService = createPlanService({ dataSource });
   try {
     const planDetails = await planService.getPlanDetails(user.userId);
     return c.json(planDetails);
@@ -58,7 +58,7 @@ plansRouter.post("/update", async (c) => {
     const body = await c.req.json();
     const { userId: targetUserId, planType } = schema.parse(body);
 
-    const planService = new PlanService(dataSource);
+    const planService = createPlanService({ dataSource });
     await planService.updatePlan(targetUserId, planType);
 
     return c.json({ message: "Plan updated successfully" });
