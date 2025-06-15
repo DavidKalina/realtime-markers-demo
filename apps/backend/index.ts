@@ -26,10 +26,10 @@ import { createEventService } from "./services/EventService";
 import { createJobQueue } from "./services/JobQueue";
 import { LevelingService } from "./services/LevelingService";
 import { PlanService } from "./services/PlanService";
-import { ConfigService } from "./services/shared/ConfigService";
+import { createConfigService } from "./services/shared/ConfigService";
 import { createGoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
-import { RateLimitService } from "./services/shared/RateLimitService";
-import { StorageService } from "./services/shared/StorageService";
+import { createRateLimitService } from "./services/shared/RateLimitService";
+import { createStorageService } from "./services/shared/StorageService";
 import { createUserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
 import { createNotificationService } from "./services/NotificationService";
@@ -41,7 +41,6 @@ import { redisService, redisClient } from "./services/shared/redis";
 import { Redis } from "ioredis";
 import { createRedisService } from "./services/shared/RedisService";
 import { AuthService } from "./services/AuthService";
-import { User } from "./entities/User";
 import { createOpenAIService } from "./services/shared/OpenAIService";
 import { createEventCacheService } from "./services/shared/EventCacheService";
 import { createImageProcessingCacheService } from "./services/shared/ImageProcessingCacheService";
@@ -49,11 +48,13 @@ import { createImageProcessingService } from "./services/event-processing/ImageP
 import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
 import { createNotificationCacheService } from "./services/shared/NotificationCacheService";
 import { createEmbeddingService } from "./services/shared/EmbeddingService";
+import { createEmbeddingCacheService } from "./services/shared/EmbeddingCacheService";
 import { createEventProcessingService } from "./services/EventProcessingService";
 import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
 import { createLevelingCacheService } from "./services/shared/LevelingCacheService";
 import { createFriendshipCacheService } from "./services/shared/FriendshipCacheService";
 import { createFriendshipService } from "./services/FriendshipService";
+import { User } from "./entities/User";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -99,7 +100,8 @@ app.use(
 );
 
 // Initialize rate limit service
-RateLimitService.getInstance().initRedis({
+const rateLimitService = createRateLimitService();
+rateLimitService.initRedis({
   host: process.env.REDIS_HOST || "localhost",
   port: parseInt(process.env.REDIS_PORT || "6379"),
   password: process.env.REDIS_PASSWORD || undefined,
@@ -181,7 +183,7 @@ async function initializeServices() {
   console.log("Database connection established, now initializing services");
 
   // Initialize config service
-  const configService = ConfigService.getInstance();
+  const configService = createConfigService();
 
   const categoryRepository = dataSource.getRepository(Category);
   const eventRepository = dataSource.getRepository(Event);
@@ -202,11 +204,11 @@ async function initializeServices() {
   const imageProcessingCacheService = createImageProcessingCacheService();
 
   // Create LevelingService instance
-  const levelingService = new LevelingService(
+  const levelingService = new LevelingService({
     dataSource,
     redisService,
-    createLevelingCacheService(redisClient),
-  );
+    levelingCacheService: createLevelingCacheService(redisClient),
+  });
 
   // Initialize category processing service
   const categoryProcessingService = createCategoryProcessingService({
@@ -237,7 +239,7 @@ async function initializeServices() {
     imageProcessingCacheService,
   );
 
-  StorageService.getInstance();
+  createStorageService();
 
   // Create the event extraction service
   const eventExtractionService = new EventExtractionService(
@@ -249,6 +251,7 @@ async function initializeServices() {
   const embeddingService = createEmbeddingService({
     openAIService,
     configService,
+    embeddingCacheService: createEmbeddingCacheService({ configService }),
   });
 
   // Create event processing service with all dependencies
@@ -270,10 +273,10 @@ async function initializeServices() {
     openAIService,
   });
 
-  const storageService = StorageService.getInstance();
+  const storageService = createStorageService();
 
   // Initialize the PlanService
-  const planService = new PlanService(dataSource);
+  const planService = new PlanService({ dataSource });
 
   // Create FriendshipService instance
   const friendshipService = createFriendshipService({
@@ -288,13 +291,13 @@ async function initializeServices() {
     notificationCacheService: createNotificationCacheService(redisClient),
   });
 
-  const authService = new AuthService(
-    dataSource.getRepository(User),
+  const authService = new AuthService({
+    userRepository: dataSource.getRepository(User),
+    dataSource,
     userPreferencesService,
     levelingService,
-    dataSource,
     openAIService,
-  );
+  });
 
   // Initialize and start the NotificationHandler with dependencies
   const notificationHandler = createNotificationHandler({

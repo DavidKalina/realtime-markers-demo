@@ -15,7 +15,10 @@ import {
   type EventProcessingService,
 } from "./services/EventProcessingService";
 import { PlanService } from "./services/PlanService";
-import { StorageService } from "./services/shared/StorageService";
+import {
+  createStorageService,
+  type StorageService,
+} from "./services/shared/StorageService";
 import { JobHandlerRegistry } from "./handlers/job/JobHandlerRegistry";
 import { Redis } from "ioredis";
 import { createCategoryProcessingService } from "./services/CategoryProcessingService";
@@ -23,10 +26,11 @@ import { EventSimilarityService } from "./services/event-processing/EventSimilar
 import { createImageProcessingService } from "./services/event-processing/ImageProcessingService";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { createGoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
-import { ConfigService } from "./services/shared/ConfigService";
+import { createConfigService } from "./services/shared/ConfigService";
 import { Category } from "./entities/Category";
 import { Event } from "./entities/Event";
 import { createEmbeddingService } from "./services/shared/EmbeddingService";
+import { createEmbeddingCacheService } from "./services/shared/EmbeddingCacheService";
 import { createOpenAIService } from "./services/shared/OpenAIService";
 import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
 import { createEventCacheService } from "./services/shared/EventCacheService";
@@ -73,7 +77,7 @@ async function initializeWorker() {
   });
 
   // Initialize config service
-  const configService = ConfigService.getInstance();
+  const configService = createConfigService();
 
   // Initialize repositories
   const categoryRepository = AppDataSource.getRepository(Category);
@@ -102,11 +106,11 @@ async function initializeWorker() {
   const imageProcessingCacheService = createImageProcessingCacheService();
 
   // Create LevelingService instance
-  const levelingService = new LevelingService(
-    AppDataSource,
+  const levelingService = new LevelingService({
+    dataSource: AppDataSource,
     redisService,
-    createLevelingCacheService(redisClient),
-  );
+    levelingCacheService: createLevelingCacheService(redisClient),
+  });
 
   // Initialize event similarity service
   const eventSimilarityService = new EventSimilarityService(
@@ -130,6 +134,7 @@ async function initializeWorker() {
   const embeddingService = createEmbeddingService({
     openAIService,
     configService,
+    embeddingCacheService: createEmbeddingCacheService({ configService }),
   });
 
   // Create event processing service with all dependencies
@@ -155,10 +160,10 @@ async function initializeWorker() {
   });
 
   // Initialize plan service
-  planService = new PlanService(AppDataSource);
+  planService = new PlanService({ dataSource: AppDataSource });
 
   // Initialize storage service
-  storageService = StorageService.getInstance();
+  storageService = createStorageService();
 
   // Initialize job handler registry
   jobHandlerRegistry = new JobHandlerRegistry(
