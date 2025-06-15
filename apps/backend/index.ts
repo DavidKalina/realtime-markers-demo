@@ -19,7 +19,7 @@ import { friendshipsRouter } from "./routes/friendships";
 import { internalRouter } from "./routes/internalRoutes";
 import { jobsRouter } from "./routes/jobs";
 import plansRouter from "./routes/plans";
-import { CategoryProcessingService } from "./services/CategoryProcessingService";
+import { createCategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
 import { createEventService } from "./services/EventService";
@@ -181,10 +181,6 @@ async function initializeServices() {
   const categoryRepository = dataSource.getRepository(Category);
   const eventRepository = dataSource.getRepository(Event);
 
-  const categoryProcessingService = new CategoryProcessingService(
-    categoryRepository,
-  );
-
   // Create RedisService instance
   const redisService = createRedisService(redisClient);
 
@@ -202,6 +198,12 @@ async function initializeServices() {
 
   // Create LevelingService instance
   const levelingService = new LevelingService(dataSource, redisService);
+
+  // Initialize category processing service
+  const categoryProcessingService = createCategoryProcessingService({
+    categoryRepository,
+    openAIService,
+  });
 
   // Initialize EventService with all dependencies
   const eventService = createEventService({

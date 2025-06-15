@@ -1,8 +1,8 @@
 import type { JobData } from "../../services/JobQueue";
 import type { JobHandlerContext } from "./BaseJobHandler";
 import { BaseJobHandler } from "./BaseJobHandler";
-import { EventProcessingService } from "../../services/EventProcessingService";
-import { EventService } from "../../services/EventService";
+import type { EventProcessingService } from "../../services/EventProcessingService";
+import type { EventService } from "../../services/EventService";
 import type { Point } from "geojson";
 import AppDataSource from "../../data-source";
 import { User } from "../../entities/User";

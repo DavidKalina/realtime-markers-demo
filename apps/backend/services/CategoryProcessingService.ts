@@ -1,10 +1,16 @@
 import { In, Repository } from "typeorm";
 import { Category } from "../entities/Category";
 import { CategoryCacheService } from "./shared/CategoryCacheService";
-import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
+import { OpenAIModel, type OpenAIService } from "./shared/OpenAIService";
+
+// Define dependencies interface for cleaner constructor
+export interface CategoryProcessingServiceDependencies {
+  categoryRepository: Repository<Category>;
+  openAIService: OpenAIService;
+}
 
 export class CategoryProcessingService {
-  constructor(private categoryRepository: Repository<Category>) {}
+  constructor(private dependencies: CategoryProcessingServiceDependencies) {}
 
   private async normalizeCategoryName(name: string): Promise<string> {
     return name.toLowerCase().trim().replace(/\s+/g, " "); // Replace multiple spaces with single space
@@ -39,7 +45,7 @@ export class CategoryProcessingService {
     }
 
     // Find all existing categories in one query
-    const existingCategories = await this.categoryRepository.find({
+    const existingCategories = await this.dependencies.categoryRepository.find({
       where: { name: In(uncachedNames) },
     });
 
@@ -60,9 +66,10 @@ export class CategoryProcessingService {
     let newCategories: Category[] = [];
     if (newCategoryNames.length > 0) {
       newCategories = newCategoryNames.map((name) =>
-        this.categoryRepository.create({ name }),
+        this.dependencies.categoryRepository.create({ name }),
       );
-      newCategories = await this.categoryRepository.save(newCategories);
+      newCategories =
+        await this.dependencies.categoryRepository.save(newCategories);
 
       // Cache the new categories
       await Promise.all(
@@ -84,7 +91,7 @@ export class CategoryProcessingService {
     normalizedName: string,
   ): Promise<Category | null> {
     // First try exact match
-    const exactMatch = await this.categoryRepository.findOne({
+    const exactMatch = await this.dependencies.categoryRepository.findOne({
       where: { name: normalizedName },
     });
 
@@ -96,7 +103,7 @@ export class CategoryProcessingService {
     const embedding = await this.generateCategoryEmbedding(normalizedName);
 
     // Get all categories to compare
-    const allCategories = await this.categoryRepository.find();
+    const allCategories = await this.dependencies.categoryRepository.find();
 
     // Generate embeddings for all existing categories
     const categoryEmbeddings = await Promise.all(
@@ -130,7 +137,7 @@ export class CategoryProcessingService {
   }
 
   private async generateCategoryEmbedding(text: string): Promise<number[]> {
-    return OpenAIService.generateEmbedding(text);
+    return this.dependencies.openAIService.generateEmbedding(text);
   }
 
   private calculateCosineSimilarity(a: number[], b: number[]): number {
@@ -148,22 +155,23 @@ export class CategoryProcessingService {
       return cachedCategories;
     }
 
-    const response = await OpenAIService.executeChatCompletion({
-      model: OpenAIModel.GPT4O,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Extract event categories from the given text. Categories should be specific but not too narrow. Return only the category names in a JSON array.",
-        },
-        {
-          role: "user",
-          content: `Extract relevant event categories from this text. Consider the type of event, target audience, and general theme:
+    const response =
+      await this.dependencies.openAIService.executeChatCompletion({
+        model: OpenAIModel.GPT4O,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Extract event categories from the given text. Categories should be specific but not too narrow. Return only the category names in a JSON array.",
+          },
+          {
+            role: "user",
+            content: `Extract relevant event categories from this text. Consider the type of event, target audience, and general theme:
                    ${imageText}`,
-        },
-      ],
-      response_format: { type: "json_object" },
-    });
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
 
     const parsedResponse = JSON.parse(
       response.choices[0]?.message.content || "{}",
@@ -190,7 +198,7 @@ export class CategoryProcessingService {
       return cachedCategories;
     }
 
-    const categories = await this.categoryRepository.find({
+    const categories = await this.dependencies.categoryRepository.find({
       order: { name: "ASC" },
     });
 
@@ -208,4 +216,13 @@ export class CategoryProcessingService {
       await CategoryCacheService.invalidateAllCategories();
     }
   }
+}
+
+/**
+ * Factory function to create a CategoryProcessingService instance
+ */
+export function createCategoryProcessingService(
+  dependencies: CategoryProcessingServiceDependencies,
+): CategoryProcessingService {
+  return new CategoryProcessingService(dependencies);
 }
