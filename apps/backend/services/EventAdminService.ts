@@ -112,6 +112,9 @@ export class EventAdminServiceImpl implements EventAdminService {
           userId: deletedEvent.creatorId,
         },
       });
+
+      // Invalidate the cache for this specific event
+      await this.eventCacheService.invalidateEvent(deletedEvent.id);
     }
 
     // Invalidate search cache since we deleted events
