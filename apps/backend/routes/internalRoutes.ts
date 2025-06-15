@@ -4,7 +4,7 @@ import * as eventHandler from "../handlers/eventHandlers";
 import * as filterHandler from "../handlers/filterHandlers";
 import type { AppContext } from "../types/context";
 import { ip } from "../middleware/ip";
-import { rateLimit } from "../middleware/rateLimit";
+import { rateLimit } from "../index";
 import { z } from "zod";
 
 // Create a router with the correct typing for internal service communication

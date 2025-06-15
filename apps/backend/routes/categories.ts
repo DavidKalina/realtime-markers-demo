@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import * as eventHandlers from "../handlers/eventHandlers";
 import type { AppContext } from "../types/context";
 import { ip } from "../middleware/ip";
-import { rateLimit } from "../middleware/rateLimit";
+import { rateLimit } from "../index";
 
 // Create a router with the correct typing
 export const categoriesRouter = new Hono<AppContext>();

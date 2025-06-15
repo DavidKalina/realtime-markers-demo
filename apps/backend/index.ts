@@ -29,6 +29,7 @@ import { createPlanService } from "./services/PlanService";
 import { createConfigService } from "./services/shared/ConfigService";
 import { createGoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
 import { createRateLimitService } from "./services/shared/RateLimitService";
+import { createRateLimitMiddleware } from "./middleware/rateLimit";
 import { createStorageService } from "./services/shared/StorageService";
 import { createUserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
@@ -106,6 +107,9 @@ rateLimitService.initRedis({
   port: parseInt(process.env.REDIS_PORT || "6379"),
   password: process.env.REDIS_PASSWORD || undefined,
 });
+
+// Create rate limit middleware factory
+export const rateLimit = createRateLimitMiddleware(rateLimitService);
 
 // Add performance monitoring after Redis initialization
 app.use("*", performanceMonitor(redisClient));

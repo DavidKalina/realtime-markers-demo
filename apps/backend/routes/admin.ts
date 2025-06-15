@@ -4,7 +4,7 @@ import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { adminAuthMiddleware } from "../middleware/adminMiddleware";
 import { ip } from "../middleware/ip";
-import { rateLimit } from "../middleware/rateLimit";
+import { rateLimit } from "../index";
 
 export const adminRouter = new Hono<AppContext>();
 
