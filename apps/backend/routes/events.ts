@@ -4,7 +4,7 @@ import * as handlers from "../handlers/eventHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
-import { rateLimit } from "../index";
+import { rateLimit } from "../middleware/rateLimit";
 
 // Create a router with the correct typing
 export const eventsRouter = new Hono<AppContext>();

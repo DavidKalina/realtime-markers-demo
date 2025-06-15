@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
-import { rateLimit } from "../index";
+import { rateLimit } from "../middleware/rateLimit";
 import type { NotificationType } from "../entities/Notification";
 
 export const notificationsRouter = new Hono<AppContext>();

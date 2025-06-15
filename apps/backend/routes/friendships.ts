@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
-import { rateLimit } from "../index";
+import { rateLimit } from "../middleware/rateLimit";
 import * as handlers from "../handlers/friendshipHandlers";
 
 export const friendshipsRouter = new Hono<AppContext>();

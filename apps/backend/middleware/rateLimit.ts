@@ -1,11 +1,29 @@
 import type { Context, Next } from "hono";
-import { RateLimitService } from "../services/shared/RateLimitService";
+import {
+  RateLimitService,
+  createRateLimitService,
+} from "../services/shared/RateLimitService";
 
 interface RateLimitOptions {
   maxRequests: number;
   windowMs: number;
   keyGenerator?: (c: Context) => string;
 }
+
+// Create a singleton rate limit service instance
+let rateLimitServiceInstance: RateLimitService | null = null;
+
+export const getRateLimitService = (): RateLimitService => {
+  if (!rateLimitServiceInstance) {
+    rateLimitServiceInstance = createRateLimitService();
+    rateLimitServiceInstance.initRedis({
+      host: process.env.REDIS_HOST || "localhost",
+      port: parseInt(process.env.REDIS_PORT || "6379"),
+      password: process.env.REDIS_PASSWORD || undefined,
+    });
+  }
+  return rateLimitServiceInstance;
+};
 
 export const createRateLimitMiddleware = (
   rateLimitService: RateLimitService,
@@ -57,9 +75,8 @@ export const createRateLimitMiddleware = (
   };
 };
 
-// Keep the original function for backward compatibility
-export const rateLimit = () => {
-  throw new Error(
-    "rateLimit middleware must be created with createRateLimitMiddleware. Please update your route files to use the factory function.",
-  );
+// Export the rate limit middleware that uses the singleton service
+export const rateLimit = (options: RateLimitOptions) => {
+  const rateLimitService = getRateLimitService();
+  return createRateLimitMiddleware(rateLimitService)(options);
 };
