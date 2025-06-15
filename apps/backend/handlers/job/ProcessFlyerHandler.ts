@@ -2,7 +2,7 @@ import type { JobData } from "../../services/JobQueue";
 import type { JobHandlerContext } from "./BaseJobHandler";
 import { BaseJobHandler } from "./BaseJobHandler";
 import type { EventProcessingService } from "../../services/EventProcessingService";
-import type { EventService } from "../../services/EventService";
+import type { EventService } from "../../services/EventServiceRefactored";
 import { PlanService } from "../../services/PlanService";
 import { StorageService } from "../../services/shared/StorageService";
 import { isEventTemporalyRelevant } from "../../utils/isEventTemporalyRelevant";

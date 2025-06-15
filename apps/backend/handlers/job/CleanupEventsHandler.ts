@@ -1,7 +1,7 @@
 import type { JobData } from "../../services/JobQueue";
 import type { JobHandlerContext } from "./BaseJobHandler";
 import { BaseJobHandler } from "./BaseJobHandler";
-import type { EventService } from "../../services/EventService";
+import type { EventService } from "../../services/EventServiceRefactored";
 import type { Point } from "geojson";
 
 // Helper function to convert Point to [number, number]

@@ -1,5 +1,5 @@
 // src/types/context.ts
-import type { EventService } from "../services/EventService";
+import type { EventService } from "../services/EventServiceRefactored";
 import type { EventProcessingService } from "../services/EventProcessingService";
 import { JobQueue } from "../services/JobQueue";
 import Redis from "ioredis";
