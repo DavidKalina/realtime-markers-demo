@@ -4,7 +4,7 @@ import { ProcessPrivateEventHandler } from "./ProcessPrivateEventHandler";
 import { CleanupEventsHandler } from "./CleanupEventsHandler";
 import type { EventProcessingService } from "../../services/EventProcessingService";
 import type { EventService } from "../../services/EventService";
-import { JobQueue } from "../../services/JobQueue";
+import type { JobQueue } from "../../services/JobQueue";
 import type { RedisService } from "../../services/shared/RedisService";
 import { PlanService } from "../../services/PlanService";
 import { StorageService } from "../../services/shared/StorageService";

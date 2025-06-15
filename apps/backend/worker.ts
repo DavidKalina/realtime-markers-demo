@@ -1,6 +1,10 @@
 // worker.ts
 import AppDataSource from "./data-source";
-import { JobQueue, type JobData } from "./services/JobQueue";
+import {
+  createJobQueue,
+  type JobQueue,
+  type JobData,
+} from "./services/JobQueue";
 import {
   createRedisService,
   type RedisService,
@@ -58,8 +62,13 @@ async function initializeWorker() {
     password: process.env.REDIS_PASSWORD,
   });
 
+  // Create RedisService instance
+  redisService = createRedisService(redisClient);
+
   // Initialize job queue first
-  jobQueue = new JobQueue(redisClient);
+  jobQueue = createJobQueue({
+    redisService,
+  });
 
   // Initialize config service
   const configService = ConfigService.getInstance();
@@ -68,8 +77,14 @@ async function initializeWorker() {
   const categoryRepository = AppDataSource.getRepository(Category);
   const eventRepository = AppDataSource.getRepository(Event);
 
-  // Create RedisService instance
-  redisService = createRedisService(redisClient);
+  // Initialize category processing service
+  const categoryProcessingService = createCategoryProcessingService({
+    categoryRepository,
+    openAIService: createOpenAIService({
+      redisService,
+      openAICacheService: createOpenAICacheService(),
+    }),
+  });
 
   // Create OpenAIService instance with dependencies
   const openAIService = createOpenAIService({
@@ -85,12 +100,6 @@ async function initializeWorker() {
 
   // Create LevelingService instance
   const levelingService = new LevelingService(AppDataSource, redisService);
-
-  // Initialize category processing service
-  const categoryProcessingService = createCategoryProcessingService({
-    categoryRepository,
-    openAIService,
-  });
 
   // Initialize event similarity service
   const eventSimilarityService = new EventSimilarityService(

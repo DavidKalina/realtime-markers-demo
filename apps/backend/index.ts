@@ -24,7 +24,7 @@ import { EventExtractionService } from "./services/event-processing/EventExtract
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
 import { createEventService } from "./services/EventService";
 import { FriendshipService } from "./services/FriendshipService";
-import { JobQueue } from "./services/JobQueue";
+import { createJobQueue } from "./services/JobQueue";
 import { LevelingService } from "./services/LevelingService";
 import { PlanService } from "./services/PlanService";
 import { ConfigService } from "./services/shared/ConfigService";
@@ -167,7 +167,9 @@ const initializeDatabase = async (
   throw new Error("Failed to initialize database after all retries");
 };
 
-const jobQueue = new JobQueue(redisClient);
+const jobQueue = createJobQueue({
+  redisService: createRedisService(redisClient),
+});
 
 // Initialize services
 async function initializeServices() {
