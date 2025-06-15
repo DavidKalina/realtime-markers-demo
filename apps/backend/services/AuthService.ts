@@ -9,7 +9,8 @@ import { addDays, format } from "date-fns";
 import { LevelingService } from "./LevelingService";
 import { FriendshipService } from "./FriendshipService";
 import { DataSource } from "typeorm";
-import { OpenAIService, OpenAIModel } from "./shared/OpenAIService";
+import { OpenAIModel, type OpenAIService } from "./shared/OpenAIService";
+import { createFriendshipCacheService } from "./shared/FriendshipCacheService";
 
 export interface UserRegistrationData {
   email: string;
@@ -31,17 +32,20 @@ export class AuthService {
   private userPreferencesService: UserPreferencesService;
   private levelingService: LevelingService;
   private dataSource: DataSource;
+  private openAIService: OpenAIService;
 
   constructor(
     userRepository: Repository<User>,
     userPreferencesService: UserPreferencesService,
     levelingService: LevelingService,
     dataSource: DataSource,
+    openAIService: OpenAIService,
   ) {
     this.userRepository = userRepository;
     this.userPreferencesService = userPreferencesService;
     this.levelingService = levelingService;
     this.dataSource = dataSource;
+    this.openAIService = openAIService;
     this.jwtSecret = process.env.JWT_SECRET!;
     if (!this.jwtSecret) {
       throw new Error("JWT_SECRET environment variable must be set");
@@ -74,7 +78,7 @@ Respond with a JSON object containing:
   "reason": string
 }`;
 
-      const response = await OpenAIService.executeChatCompletion({
+      const response = await this.openAIService.executeChatCompletion({
         model: OpenAIModel.GPT4OMini,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.1,
@@ -388,7 +392,10 @@ Respond with a JSON object containing:
 
     // Generate a friend code if the user doesn't have one
     if (!user.friendCode) {
-      const friendshipService = new FriendshipService(this.dataSource);
+      const friendshipService = new FriendshipService(
+        this.dataSource,
+        createFriendshipCacheService(),
+      );
       user.friendCode = await friendshipService.generateFriendCode(userId);
       await this.userRepository.save(user);
     }

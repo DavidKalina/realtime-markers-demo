@@ -1,17 +1,21 @@
-import { CacheService } from "./CacheService";
 import type { ConfigService } from "./ConfigService";
 
-export class EmbeddingCacheService extends CacheService {
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
+export class EmbeddingCacheService {
   private static readonly EMBEDDING_PREFIX = "embedding:";
   private static readonly DEFAULT_TTL = 86400; // 24 hours
   private static readonly DEFAULT_MAX_CACHE_SIZE = 3000; // Default from ConfigService
 
   private static instance: EmbeddingCacheService;
+  private static memoryCache = new Map<string, CacheEntry<unknown>>();
   private ttl: number;
   private maxCacheSize: number;
 
   private constructor(configService?: ConfigService) {
-    super();
     this.ttl =
       configService?.get("cache.ttl") || EmbeddingCacheService.DEFAULT_TTL;
     this.maxCacheSize =

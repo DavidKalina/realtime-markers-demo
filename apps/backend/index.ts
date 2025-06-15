@@ -51,6 +51,9 @@ import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
 import { createNotificationCacheService } from "./services/shared/NotificationCacheService";
 import { createEmbeddingService } from "./services/shared/EmbeddingService";
 import { createEventProcessingService } from "./services/EventProcessingService";
+import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
+import { createLevelingCacheService } from "./services/shared/LevelingCacheService";
+import { createFriendshipCacheService } from "./services/shared/FriendshipCacheService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -199,12 +202,17 @@ async function initializeServices() {
   const imageProcessingCacheService = createImageProcessingCacheService();
 
   // Create LevelingService instance
-  const levelingService = new LevelingService(dataSource, redisService);
+  const levelingService = new LevelingService(
+    dataSource,
+    redisService,
+    createLevelingCacheService(redisClient),
+  );
 
   // Initialize category processing service
   const categoryProcessingService = createCategoryProcessingService({
     categoryRepository,
     openAIService,
+    categoryCacheService: createCategoryCacheService(redisClient),
   });
 
   // Initialize EventService with all dependencies
@@ -265,8 +273,11 @@ async function initializeServices() {
   // Initialize the PlanService
   const planService = new PlanService(dataSource);
 
-  // Initialize the FriendshipService
-  const friendshipService = new FriendshipService(dataSource);
+  // Create FriendshipService instance
+  const friendshipService = new FriendshipService(
+    dataSource,
+    createFriendshipCacheService(redisClient),
+  );
 
   // Initialize the NotificationService with dependencies
   const notificationService = createNotificationService({
@@ -280,6 +291,7 @@ async function initializeServices() {
     userPreferencesService,
     levelingService,
     dataSource,
+    openAIService,
   );
 
   // Initialize and start the NotificationHandler with dependencies

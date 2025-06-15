@@ -32,6 +32,8 @@ import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
 import { createEventCacheService } from "./services/shared/EventCacheService";
 import { createImageProcessingCacheService } from "./services/shared/ImageProcessingCacheService";
 import { LevelingService } from "./services/LevelingService";
+import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
+import { createLevelingCacheService } from "./services/shared/LevelingCacheService";
 
 // Constants
 const POLLING_INTERVAL = 1000; // 1 second
@@ -84,6 +86,7 @@ async function initializeWorker() {
       redisService,
       openAICacheService: createOpenAICacheService(),
     }),
+    categoryCacheService: createCategoryCacheService(redisClient),
   });
 
   // Create OpenAIService instance with dependencies
@@ -99,7 +102,11 @@ async function initializeWorker() {
   const imageProcessingCacheService = createImageProcessingCacheService();
 
   // Create LevelingService instance
-  const levelingService = new LevelingService(AppDataSource, redisService);
+  const levelingService = new LevelingService(
+    AppDataSource,
+    redisService,
+    createLevelingCacheService(redisClient),
+  );
 
   // Initialize event similarity service
   const eventSimilarityService = new EventSimilarityService(

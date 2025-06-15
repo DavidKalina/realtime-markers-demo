@@ -1,12 +1,13 @@
 import { In, Repository } from "typeorm";
 import { Category } from "../entities/Category";
-import { CategoryCacheService } from "./shared/CategoryCacheService";
+import type { CategoryCacheService } from "./shared/CategoryCacheService";
 import { OpenAIModel, type OpenAIService } from "./shared/OpenAIService";
 
 // Define dependencies interface for cleaner constructor
 export interface CategoryProcessingServiceDependencies {
   categoryRepository: Repository<Category>;
   openAIService: OpenAIService;
+  categoryCacheService: CategoryCacheService;
 }
 
 export class CategoryProcessingService {
@@ -25,7 +26,8 @@ export class CategoryProcessingService {
     // Try to get categories from cache first
     const cachedCategories = await Promise.all(
       normalizedNames.map(async (name) => {
-        const cached = await CategoryCacheService.getCategory(name);
+        const cached =
+          await this.dependencies.categoryCacheService.getCategory(name);
         return cached;
       }),
     );
@@ -52,7 +54,7 @@ export class CategoryProcessingService {
     // Cache the existing categories
     await Promise.all(
       existingCategories.map((category) =>
-        CategoryCacheService.setCategory(category),
+        this.dependencies.categoryCacheService.setCategory(category),
       ),
     );
 
@@ -74,7 +76,7 @@ export class CategoryProcessingService {
       // Cache the new categories
       await Promise.all(
         newCategories.map((category) =>
-          CategoryCacheService.setCategory(category),
+          this.dependencies.categoryCacheService.setCategory(category),
         ),
       );
     }
@@ -150,7 +152,8 @@ export class CategoryProcessingService {
 
   async extractAndProcessCategories(imageText: string): Promise<Category[]> {
     // Check cache first
-    const cachedCategories = await CategoryCacheService.getCategoryList();
+    const cachedCategories =
+      await this.dependencies.categoryCacheService.getCategoryList();
     if (cachedCategories) {
       return cachedCategories;
     }
@@ -186,14 +189,15 @@ export class CategoryProcessingService {
     const categories = await this.getOrCreateCategories(suggestedCategories);
 
     // Cache the results
-    await CategoryCacheService.setCategoryList(categories);
+    await this.dependencies.categoryCacheService.setCategoryList(categories);
 
     return categories;
   }
 
   // Add a method to get all categories with caching
   async getAllCategories(): Promise<Category[]> {
-    const cachedCategories = await CategoryCacheService.getCategoryList();
+    const cachedCategories =
+      await this.dependencies.categoryCacheService.getCategoryList();
     if (cachedCategories) {
       return cachedCategories;
     }
@@ -202,7 +206,7 @@ export class CategoryProcessingService {
       order: { name: "ASC" },
     });
 
-    await CategoryCacheService.setCategoryList(categories);
+    await this.dependencies.categoryCacheService.setCategoryList(categories);
     return categories;
   }
 
@@ -210,10 +214,12 @@ export class CategoryProcessingService {
   async invalidateCategoryCaches(categoryIds?: string[]): Promise<void> {
     if (categoryIds) {
       await Promise.all(
-        categoryIds.map((id) => CategoryCacheService.invalidateCategory(id)),
+        categoryIds.map((id) =>
+          this.dependencies.categoryCacheService.invalidateCategory(id),
+        ),
       );
     } else {
-      await CategoryCacheService.invalidateAllCategories();
+      await this.dependencies.categoryCacheService.invalidateAllCategories();
     }
   }
 }
