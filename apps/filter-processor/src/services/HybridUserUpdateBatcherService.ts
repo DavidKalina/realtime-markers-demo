@@ -123,6 +123,10 @@ export function createHybridUserUpdateBatcherService(
       // The timer fired, so process this one user now
       stats.totalDebounceTimersFired++;
       stats.currentActiveTimers = userDebounceTimers.size - 1;
+
+      // Remove from dirty set to prevent sweeper from processing again
+      dirtyUserIds.delete(userId);
+
       processUpdatesForUsers([userId]);
     }, debounceTimeoutMs);
 
@@ -177,7 +181,7 @@ export function createHybridUserUpdateBatcherService(
 
     for (const userId of batch) {
       try {
-        // 1. Remove user from the main dirty set
+        // 1. Remove user from the main dirty set (safe to call multiple times)
         dirtyUserIds.delete(userId);
 
         // 2. Clear their individual debounce timer so it doesn't fire again
@@ -236,7 +240,12 @@ export function createHybridUserUpdateBatcherService(
     });
 
     // If there are more users to process, continue with the next batch
-    const remainingUsers = Array.from(dirtyUserIds).slice(batchSize);
+    // Calculate remaining users from the original input, not from dirtyUserIds
+    const processedUserIds = new Set(batch);
+    const remainingUsers = Array.from(usersToProcess).filter(
+      (userId) => !processedUserIds.has(userId),
+    );
+
     if (remainingUsers.length > 0) {
       console.log(
         `[HybridBatcher] Scheduling next batch of ${remainingUsers.length} users`,
