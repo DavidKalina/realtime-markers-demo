@@ -60,7 +60,7 @@ export function createEventInitializationService(
       }
 
       // Process events in batches
-      processEventsBatch(events);
+      await processEventsBatch(events);
 
       stats.lastInitializationTime = Date.now();
 
@@ -177,7 +177,7 @@ export function createEventInitializationService(
   /**
    * Process a batch of events
    */
-  function processEventsBatch(events: Event[]): void {
+  async function processEventsBatch(events: Event[]): Promise<void> {
     try {
       // Remove duplicates based on event ID
       const uniqueEvents = Array.from(
@@ -186,7 +186,7 @@ export function createEventInitializationService(
 
       // Process each event
       for (const event of uniqueEvents) {
-        eventProcessor.processEvent({
+        await eventProcessor.processEvent({
           operation: "CREATE",
           record: event,
         });
