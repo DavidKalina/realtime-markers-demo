@@ -2,8 +2,8 @@ import { Redis } from "ioredis";
 import { DataSource, Repository } from "typeorm";
 import { Notification } from "../entities/Notification";
 import type { NotificationType } from "../entities/Notification";
-import { NotificationCacheService } from "./shared/NotificationCacheService";
-import { RedisService } from "./shared/RedisService";
+import { createNotificationCacheService } from "./shared/NotificationCacheService";
+import { createRedisService } from "./shared/RedisService";
 
 export interface NotificationData {
   id: string;
@@ -17,24 +17,52 @@ export interface NotificationData {
   readAt?: string;
 }
 
-export class NotificationService {
+export interface NotificationService {
+  createNotification(
+    userId: string,
+    type: NotificationType,
+    title: string,
+    message: string,
+    data?: Record<string, unknown>,
+  ): Promise<Notification>;
+
+  getUserNotifications(
+    userId: string,
+    options: {
+      skip?: number;
+      take?: number;
+      read?: boolean;
+      type?: NotificationType;
+    },
+  ): Promise<{ notifications: Notification[]; total: number }>;
+
+  markAsRead(userId: string, notificationId: string): Promise<void>;
+
+  deleteNotification(userId: string, notificationId: string): Promise<void>;
+
+  clearAllNotifications(userId: string): Promise<void>;
+
+  getUnreadCount(userId: string): Promise<number>;
+
+  markAllAsRead(userId: string): Promise<void>;
+}
+
+export class NotificationServiceImpl implements NotificationService {
   private notificationRepository: Repository<Notification>;
-  private redisService: RedisService;
-  private static instance: NotificationService;
+  private redisService: ReturnType<typeof createRedisService>;
+  private notificationCacheService: ReturnType<
+    typeof createNotificationCacheService
+  >;
 
-  private constructor(redis: Redis, dataSource: DataSource) {
-    this.notificationRepository = dataSource.getRepository(Notification);
-    this.redisService = RedisService.getInstance(redis);
-  }
-
-  public static getInstance(
+  constructor(
     redis: Redis,
     dataSource: DataSource,
-  ): NotificationService {
-    if (!NotificationService.instance) {
-      NotificationService.instance = new NotificationService(redis, dataSource);
-    }
-    return NotificationService.instance;
+    redisService: ReturnType<typeof createRedisService>,
+    notificationCacheService: ReturnType<typeof createNotificationCacheService>,
+  ) {
+    this.notificationRepository = dataSource.getRepository(Notification);
+    this.redisService = redisService;
+    this.notificationCacheService = notificationCacheService;
   }
 
   /**
@@ -78,7 +106,7 @@ export class NotificationService {
     );
 
     // Invalidate cache
-    await NotificationCacheService.invalidateNotificationCache(userId);
+    await this.notificationCacheService.invalidateNotificationCache(userId);
 
     // Publish the notification to Redis
     await this.redisService.publish("notifications", {
@@ -109,7 +137,7 @@ export class NotificationService {
       options.type === undefined
     ) {
       const cached =
-        await NotificationCacheService.getCachedNotifications(userId);
+        await this.notificationCacheService.getCachedNotifications(userId);
       if (cached) {
         return {
           notifications: cached.notifications,
@@ -155,7 +183,7 @@ export class NotificationService {
       options.read === undefined &&
       options.type === undefined
     ) {
-      await NotificationCacheService.setCachedNotifications(userId, {
+      await this.notificationCacheService.setCachedNotifications(userId, {
         notifications,
         total,
       });
@@ -199,7 +227,7 @@ export class NotificationService {
       );
 
       // Invalidate cache
-      await NotificationCacheService.invalidateNotificationCache(userId);
+      await this.notificationCacheService.invalidateNotificationCache(userId);
     }
   }
 
@@ -217,7 +245,7 @@ export class NotificationService {
     await this.redisService.hdel(`notifications:${userId}`, notificationId);
 
     // Invalidate cache
-    await NotificationCacheService.invalidateNotificationCache(userId);
+    await this.notificationCacheService.invalidateNotificationCache(userId);
   }
 
   /**
@@ -231,7 +259,7 @@ export class NotificationService {
     await this.redisService.del(`notifications:${userId}`);
 
     // Invalidate cache
-    await NotificationCacheService.invalidateNotificationCache(userId);
+    await this.notificationCacheService.invalidateNotificationCache(userId);
   }
 
   /**
@@ -280,6 +308,24 @@ export class NotificationService {
     }
 
     // Invalidate cache
-    await NotificationCacheService.invalidateNotificationCache(userId);
+    await this.notificationCacheService.invalidateNotificationCache(userId);
   }
+}
+
+/**
+ * Factory function to create a NotificationService instance
+ */
+export function createNotificationService(
+  redis: Redis,
+  dataSource: DataSource,
+): NotificationService {
+  const redisService = createRedisService(redis);
+  const notificationCacheService = createNotificationCacheService(redis);
+
+  return new NotificationServiceImpl(
+    redis,
+    dataSource,
+    redisService,
+    notificationCacheService,
+  );
 }

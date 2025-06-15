@@ -1,35 +1,31 @@
 import { Redis } from "ioredis";
-import { NotificationService } from "./NotificationService";
+import type { NotificationService } from "./NotificationService";
+import { createNotificationService } from "./NotificationService";
 import { Notification } from "../entities/Notification";
 import { DataSource } from "typeorm";
 
-export class NotificationHandler {
+export interface NotificationHandler {
+  start(): Promise<void>;
+  stop(): Promise<void>;
+}
+
+export class NotificationHandlerImpl implements NotificationHandler {
   private redis: Redis;
   private notificationService: NotificationService;
   private subscriber: Redis;
-  private static instance: NotificationHandler;
 
-  private constructor(redis: Redis, dataSource: DataSource) {
+  constructor(
+    redis: Redis,
+    dataSource: DataSource,
+    notificationService: NotificationService,
+  ) {
     this.redis = redis;
-    this.notificationService = NotificationService.getInstance(
-      redis,
-      dataSource,
-    );
+    this.notificationService = notificationService;
     this.subscriber = new Redis({
       host: process.env.REDIS_HOST,
       port: parseInt(process.env.REDIS_PORT || "6379"),
       password: process.env.REDIS_PASSWORD,
     });
-  }
-
-  public static getInstance(
-    redis: Redis,
-    dataSource: DataSource,
-  ): NotificationHandler {
-    if (!NotificationHandler.instance) {
-      NotificationHandler.instance = new NotificationHandler(redis, dataSource);
-    }
-    return NotificationHandler.instance;
   }
 
   /**
@@ -158,4 +154,15 @@ export class NotificationHandler {
     await this.subscriber.quit();
     console.log("Notification handler stopped successfully");
   }
+}
+
+/**
+ * Factory function to create a NotificationHandler instance
+ */
+export function createNotificationHandler(
+  redis: Redis,
+  dataSource: DataSource,
+): NotificationHandler {
+  const notificationService = createNotificationService(redis, dataSource);
+  return new NotificationHandlerImpl(redis, dataSource, notificationService);
 }

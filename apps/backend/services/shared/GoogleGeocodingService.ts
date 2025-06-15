@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { find } from "geo-tz";
-import { OpenAIModel, OpenAIService } from "./OpenAIService";
+import { OpenAIModel, type OpenAIService } from "./OpenAIService";
 import type { Point } from "geojson";
 import type { LocationResolutionResult } from "../event-processing/dto/LocationResolutionResult";
 import type { ILocationResolutionService } from "../event-processing/interfaces/ILocationResolutionService";
@@ -15,12 +15,60 @@ interface CachedLocation {
   locationNotes?: string;
 }
 
-export class GoogleGeocodingService implements ILocationResolutionService {
-  private static instance: GoogleGeocodingService;
+export interface GoogleGeocodingService extends ILocationResolutionService {
+  getTimezoneFromCoordinates(lat: number, lng: number): Promise<string>;
+  resolveLocation(
+    locationClues: string[],
+    userContext?: {
+      cityState?: string;
+      coordinates?: { lat: number; lng: number };
+    },
+  ): Promise<LocationResolutionResult>;
+  geocodeAddress(address: string): Promise<[number, number]>;
+  reverseGeocodeCityState(lat: number, lng: number): Promise<string>;
+  getTimezone(lat: number, lng: number): Promise<string>;
+  searchPlaceForFrontend(
+    query: string,
+    userCoordinates?: { lat: number; lng: number },
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    place?: {
+      name: string;
+      address: string;
+      coordinates: [number, number];
+      placeId: string;
+      types: string[];
+      rating?: number;
+      userRatingsTotal?: number;
+      distance?: number;
+      locationNotes?: string;
+    };
+  }>;
+  searchCityState(
+    query: string,
+    userCoordinates?: { lat: number; lng: number },
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    cityState?: {
+      city: string;
+      state: string;
+      coordinates: [number, number];
+      formattedAddress: string;
+      placeId: string;
+      distance?: number;
+    };
+  }>;
+}
+
+export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
   private locationCache: Map<string, CachedLocation> = new Map();
   private readonly CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days
+  private openAIService: OpenAIService;
 
-  private constructor() {
+  constructor(openAIService: OpenAIService) {
+    this.openAIService = openAIService;
     // We use the Geocoding API key for both Geocoding and Places APIs
     if (!process.env.GOOGLE_GEOCODING_API_KEY) {
       throw new Error(
@@ -34,13 +82,6 @@ export class GoogleGeocodingService implements ILocationResolutionService {
     );
     console.log("NODE_ENV:", process.env.NODE_ENV);
     console.log("=============================================");
-  }
-
-  public static getInstance(): GoogleGeocodingService {
-    if (!this.instance) {
-      this.instance = new GoogleGeocodingService();
-    }
-    return this.instance;
   }
 
   public async getTimezoneFromCoordinates(
@@ -459,7 +500,7 @@ export class GoogleGeocodingService implements ILocationResolutionService {
 
     try {
       console.warn("\n🤖 Querying LLM for location analysis...");
-      const response = await OpenAIService.executeChatCompletion({
+      const response = await this.openAIService.executeChatCompletion({
         model: "gpt-4o" as OpenAIModel,
         temperature: 0.1,
         response_format: { type: "json_object" },
@@ -1215,4 +1256,13 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
       };
     }
   }
+}
+
+/**
+ * Factory function to create a GoogleGeocodingService instance
+ */
+export function createGoogleGeocodingService(
+  openAIService: OpenAIService,
+): GoogleGeocodingService {
+  return new GoogleGeocodingServiceImpl(openAIService);
 }

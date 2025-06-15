@@ -1,8 +1,11 @@
 // src/services/OpenAIService.ts
 import { OpenAI } from "openai";
 import { Redis } from "ioredis";
-import { RedisService } from "./RedisService";
-import { OpenAICacheService } from "./OpenAICacheService";
+import type { RedisService } from "./RedisService";
+import {
+  createOpenAICacheService,
+  type OpenAICacheService,
+} from "./OpenAICacheService";
 import type {
   ChatCompletion,
   ChatCompletionMessageParam,
@@ -37,44 +40,53 @@ const DEFAULT_RATE_LIMITS: RateLimitConfig = {
   requestsPerMinute: 300,
 };
 
-export class OpenAIService {
-  private static instance: OpenAI;
-  private static redisService: RedisService | null = null;
+export interface OpenAIService {
+  executeChatCompletion(params: {
+    model: OpenAIModel;
+    messages: ChatCompletionMessageParam[];
+    temperature?: number;
+    max_tokens?: number;
+    response_format?: { type: "json_object" | "text" };
+  }): Promise<ChatCompletion>;
 
-  // Track active requests for each model
-  private static activeRequests: Map<string, number> = new Map();
+  generateEmbedding(text: string, model?: OpenAIModel): Promise<number[]>;
 
-  public static initRedis(options: {
-    host: string;
-    port: number;
-    password?: string;
-  }) {
-    const redis = new Redis({
-      host: options.host,
-      port: options.port,
-      password: options.password || undefined,
-    });
-    this.redisService = RedisService.getInstance(redis);
-  }
+  getStats(): Promise<{
+    activeRequests: Record<string, number>;
+    rateLimits: Record<RateLimitKey, number>;
+  }>;
 
-  public static getInstance(): OpenAI {
-    if (!this.instance) {
-      if (!process.env.OPENAI_API_KEY) {
-        throw new Error("OPENAI_API_KEY environment variable is not set");
-      }
+  resetRateLimits(): Promise<void>;
+}
 
-      // Create the OpenAI instance with a custom fetch function
-      this.instance = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-        // Use a fetch wrapper to implement rate limiting and retries
-        fetch: this.createFetchWithRateLimit(),
-      });
+export class OpenAIServiceImpl implements OpenAIService {
+  private openai: OpenAI;
+  private redisService: RedisService;
+  private openAICacheService: OpenAICacheService;
+  private activeRequests: Map<string, number> = new Map();
+
+  constructor(
+    redis: Redis,
+    redisService: RedisService,
+    openAICacheService: OpenAICacheService,
+  ) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY environment variable is not set");
     }
-    return this.instance;
+
+    this.redisService = redisService;
+    this.openAICacheService = openAICacheService;
+
+    // Create the OpenAI instance with a custom fetch function
+    this.openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      // Use a fetch wrapper to implement rate limiting and retries
+      fetch: this.createFetchWithRateLimit(),
+    });
   }
 
   // Create a custom fetch function with rate limiting and retries
-  private static createFetchWithRateLimit(): typeof fetch {
+  private createFetchWithRateLimit(): typeof fetch {
     const originalFetch = fetch;
 
     const customFetch = async (
@@ -175,7 +187,7 @@ export class OpenAIService {
     return customFetch as typeof fetch;
   }
 
-  private static async checkRateLimit(
+  private async checkRateLimit(
     key: string,
     limits: RateLimitConfig,
     model?: OpenAIModel,
@@ -183,7 +195,7 @@ export class OpenAIService {
   ): Promise<void> {
     if (!model || !operation) return;
 
-    const requestCount = await OpenAICacheService.incrementRateLimitCount(
+    const requestCount = await this.openAICacheService.incrementRateLimitCount(
       model,
       operation,
     );
@@ -198,18 +210,18 @@ export class OpenAIService {
     }
   }
 
-  private static incrementActiveRequests(key: string): void {
+  private incrementActiveRequests(key: string): void {
     const current = this.activeRequests.get(key) || 0;
     this.activeRequests.set(key, current + 1);
   }
 
-  private static decrementActiveRequests(key: string): void {
+  private decrementActiveRequests(key: string): void {
     const current = this.activeRequests.get(key) || 1;
     this.activeRequests.set(key, Math.max(0, current - 1));
   }
 
   // Get statistics about API usage
-  public static async getStats(): Promise<{
+  async getStats(): Promise<{
     activeRequests: Record<string, number>;
     rateLimits: Record<RateLimitKey, number>;
   }> {
@@ -221,7 +233,7 @@ export class OpenAIService {
     // Get rate limit stats for each model and operation
     for (const model of Object.values(OpenAIModel)) {
       for (const operation of ["embeddings", "chat", "api"] as const) {
-        const count = await OpenAICacheService.getRateLimitCount(
+        const count = await this.openAICacheService.getRateLimitCount(
           model,
           operation,
         );
@@ -236,34 +248,32 @@ export class OpenAIService {
   }
 
   // Helper method for extracting model from a request payload
-  public static async executeChatCompletion(params: {
+  async executeChatCompletion(params: {
     model: OpenAIModel;
     messages: ChatCompletionMessageParam[];
     temperature?: number;
     max_tokens?: number;
     response_format?: { type: "json_object" | "text" };
   }): Promise<ChatCompletion> {
-    const openai = this.getInstance();
     const nonStreamingParams: ChatCompletionCreateParamsNonStreaming = {
       ...params,
       stream: false,
     };
-    return openai.chat.completions.create(nonStreamingParams);
+    return this.openai.chat.completions.create(nonStreamingParams);
   }
 
   // Helper method for generating embeddings with caching
-  public static async generateEmbedding(
+  async generateEmbedding(
     text: string,
     model: OpenAIModel = OpenAIModel.TextEmbedding3Small,
   ): Promise<number[]> {
     // Try to get from cache first
-    const cachedEmbedding = await OpenAICacheService.getEmbedding(text);
+    const cachedEmbedding = await this.openAICacheService.getEmbedding(text);
     if (cachedEmbedding) {
       return cachedEmbedding;
     }
 
-    const openai = this.getInstance();
-    const response = await openai.embeddings.create({
+    const response = await this.openai.embeddings.create({
       model: model,
       input: text,
       encoding_format: "float",
@@ -272,13 +282,24 @@ export class OpenAIService {
     const embedding = response.data[0].embedding;
 
     // Cache the embedding
-    await OpenAICacheService.setEmbedding(text, embedding);
+    await this.openAICacheService.setEmbedding(text, embedding);
 
     return embedding;
   }
 
   // Reset all rate limit counters
-  public static async resetRateLimits(): Promise<void> {
-    await OpenAICacheService.resetRateLimitCounters();
+  async resetRateLimits(): Promise<void> {
+    await this.openAICacheService.resetRateLimitCounters();
   }
+}
+
+/**
+ * Factory function to create an OpenAIService instance
+ */
+export function createOpenAIService(
+  redis: Redis,
+  redisService: RedisService,
+): OpenAIService {
+  const openAICacheService = createOpenAICacheService();
+  return new OpenAIServiceImpl(redis, redisService, openAICacheService);
 }

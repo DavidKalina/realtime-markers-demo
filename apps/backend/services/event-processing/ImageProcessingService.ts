@@ -1,10 +1,11 @@
 // services/event-processing/ImageProcessingService.ts
 
 import { createHash } from "crypto";
-import { ImageProcessingCacheService } from "../shared/ImageProcessingCacheService";
+import type { ImageProcessingCacheService } from "../shared/ImageProcessingCacheService";
 import type { IImageProcessingService } from "./interfaces/IImageProcesssingService";
 import type { ImageProcessingResult } from "./dto/ImageProcessingResult";
-import { OpenAIModel, OpenAIService } from "../shared/OpenAIService";
+import type { OpenAIService } from "../shared/OpenAIService";
+import { OpenAIModel } from "../shared/OpenAIService";
 import jsQR from "jsqr";
 import { Jimp } from "jimp";
 import { RecurrenceFrequency, DayOfWeek } from "../../entities/Event";
@@ -41,9 +42,26 @@ export interface EventStructuredData {
   recurrenceInterval?: number | null;
 }
 
-export class ImageProcessingService implements IImageProcessingService {
+export interface ImageProcessingService extends IImageProcessingService {
+  processImage(imageData: Buffer | string): Promise<ImageProcessingResult>;
+  processMultiEventImage(
+    imageData: Buffer | string,
+  ): Promise<MultiEventProcessingResult>;
+}
+
+export class ImageProcessingServiceImpl implements ImageProcessingService {
   private readonly VISION_MODEL = "gpt-4o";
   private readonly CACHE_TTL = 24 * 60 * 60; // 24 hours in seconds
+  private openAIService: OpenAIService;
+  private imageProcessingCacheService: ImageProcessingCacheService;
+
+  constructor(
+    openAIService: OpenAIService,
+    imageProcessingCacheService: ImageProcessingCacheService,
+  ) {
+    this.openAIService = openAIService;
+    this.imageProcessingCacheService = imageProcessingCacheService;
+  }
 
   /**
    * Process an image and extract text content using Vision API
@@ -157,7 +175,7 @@ export class ImageProcessingService implements IImageProcessingService {
    */
   private async checkForMultipleEvents(base64Image: string): Promise<boolean> {
     try {
-      const response = await OpenAIService.executeChatCompletion({
+      const response = await this.openAIService.executeChatCompletion({
         model: this.VISION_MODEL as OpenAIModel,
         messages: [
           {
@@ -210,7 +228,7 @@ Respond with only: "MULTIPLE" if there are multiple distinct events, or "SINGLE"
     base64Image: string,
   ): Promise<MultiEventProcessingResult> {
     try {
-      const response = await OpenAIService.executeChatCompletion({
+      const response = await this.openAIService.executeChatCompletion({
         model: this.VISION_MODEL as OpenAIModel,
         messages: [
           {
@@ -488,7 +506,7 @@ Make sure to clearly separate each event and provide confidence scores for each.
   private async getCachedResult(
     cacheKey: string,
   ): Promise<ImageProcessingResult | null> {
-    return ImageProcessingCacheService.getProcessingResult(cacheKey);
+    return this.imageProcessingCacheService.getProcessingResult(cacheKey);
   }
 
   /**
@@ -499,7 +517,7 @@ Make sure to clearly separate each event and provide confidence scores for each.
   private async getCachedMultiEventResult(
     cacheKey: string,
   ): Promise<MultiEventProcessingResult | null> {
-    return ImageProcessingCacheService.getMultiEventResult(cacheKey);
+    return this.imageProcessingCacheService.getMultiEventResult(cacheKey);
   }
 
   /**
@@ -511,7 +529,10 @@ Make sure to clearly separate each event and provide confidence scores for each.
     cacheKey: string,
     result: ImageProcessingResult,
   ): Promise<void> {
-    await ImageProcessingCacheService.setProcessingResult(cacheKey, result);
+    await this.imageProcessingCacheService.setProcessingResult(
+      cacheKey,
+      result,
+    );
   }
 
   /**
@@ -523,7 +544,10 @@ Make sure to clearly separate each event and provide confidence scores for each.
     cacheKey: string,
     result: MultiEventProcessingResult,
   ): Promise<void> {
-    await ImageProcessingCacheService.setMultiEventResult(cacheKey, result);
+    await this.imageProcessingCacheService.setMultiEventResult(
+      cacheKey,
+      result,
+    );
   }
 
   /**
@@ -535,7 +559,7 @@ Make sure to clearly separate each event and provide confidence scores for each.
     base64Image: string,
   ): Promise<ImageProcessingResult> {
     try {
-      const response = await OpenAIService.executeChatCompletion({
+      const response = await this.openAIService.executeChatCompletion({
         model: this.VISION_MODEL as OpenAIModel,
         messages: [
           {
@@ -742,4 +766,17 @@ Make sure to clearly separate each event and provide confidence scores for each.
     const match = text.match(/Confidence Score[^\d]*(\d*\.?\d+)/i);
     return match ? parseFloat(match[1]) : 0.5; // Default to 0.5 if not found
   }
+}
+
+/**
+ * Factory function to create an ImageProcessingService instance
+ */
+export function createImageProcessingService(
+  openAIService: OpenAIService,
+  imageProcessingCacheService: ImageProcessingCacheService,
+): ImageProcessingService {
+  return new ImageProcessingServiceImpl(
+    openAIService,
+    imageProcessingCacheService,
+  );
 }

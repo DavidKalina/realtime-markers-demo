@@ -1,7 +1,26 @@
-import { CacheService } from "./CacheService";
+import { CacheServiceImpl } from "./CacheService";
 import { OpenAIModel } from "./OpenAIService";
 
-export class OpenAICacheService extends CacheService {
+export interface OpenAICacheService {
+  getEmbedding(text: string): Promise<number[] | null>;
+  setEmbedding(text: string, embedding: number[]): Promise<void>;
+  getRateLimitCount(
+    model: OpenAIModel,
+    operation: string,
+  ): Promise<number | null>;
+  incrementRateLimitCount(
+    model: OpenAIModel,
+    operation: string,
+  ): Promise<number>;
+  resetRateLimitCounters(): Promise<void>;
+  invalidateEmbedding(text: string): Promise<void>;
+  invalidateAllEmbeddings(): Promise<void>;
+}
+
+export class OpenAICacheServiceImpl
+  extends CacheServiceImpl
+  implements OpenAICacheService
+{
   private static readonly EMBEDDING_PREFIX = "openai:embedding:";
   private static readonly RATE_LIMIT_PREFIX = "openai:ratelimit:";
   private static readonly EMBEDDING_TTL = 24 * 60 * 60; // 24 hours
@@ -10,54 +29,61 @@ export class OpenAICacheService extends CacheService {
   /**
    * Get cached embedding for text
    */
-  static async getEmbedding(text: string): Promise<number[] | null> {
-    return this.get<number[]>(`${this.EMBEDDING_PREFIX}${text}`, {
-      useMemoryCache: true,
-      ttlSeconds: this.EMBEDDING_TTL,
-    });
+  async getEmbedding(text: string): Promise<number[] | null> {
+    return this.get<number[]>(
+      `${OpenAICacheServiceImpl.EMBEDDING_PREFIX}${text}`,
+      {
+        useMemoryCache: true,
+        ttlSeconds: OpenAICacheServiceImpl.EMBEDDING_TTL,
+      },
+    );
   }
 
   /**
    * Cache embedding for text
    */
-  static async setEmbedding(text: string, embedding: number[]): Promise<void> {
-    await this.set(`${this.EMBEDDING_PREFIX}${text}`, embedding, {
-      useMemoryCache: true,
-      ttlSeconds: this.EMBEDDING_TTL,
-    });
+  async setEmbedding(text: string, embedding: number[]): Promise<void> {
+    await this.set(
+      `${OpenAICacheServiceImpl.EMBEDDING_PREFIX}${text}`,
+      embedding,
+      {
+        useMemoryCache: true,
+        ttlSeconds: OpenAICacheServiceImpl.EMBEDDING_TTL,
+      },
+    );
   }
 
   /**
    * Get rate limit count for a model and operation
    */
-  static async getRateLimitCount(
+  async getRateLimitCount(
     model: OpenAIModel,
     operation: string,
   ): Promise<number | null> {
-    const key = `${this.RATE_LIMIT_PREFIX}${model}:${operation}:${Math.floor(
+    const key = `${OpenAICacheServiceImpl.RATE_LIMIT_PREFIX}${model}:${operation}:${Math.floor(
       Date.now() / 60000,
     )}`;
     return this.get<number>(key, {
       useMemoryCache: false,
-      ttlSeconds: this.RATE_LIMIT_TTL,
+      ttlSeconds: OpenAICacheServiceImpl.RATE_LIMIT_TTL,
     });
   }
 
   /**
    * Increment rate limit count for a model and operation
    */
-  static async incrementRateLimitCount(
+  async incrementRateLimitCount(
     model: OpenAIModel,
     operation: string,
   ): Promise<number> {
-    const key = `${this.RATE_LIMIT_PREFIX}${model}:${operation}:${Math.floor(
+    const key = `${OpenAICacheServiceImpl.RATE_LIMIT_PREFIX}${model}:${operation}:${Math.floor(
       Date.now() / 60000,
     )}`;
     const currentCount = (await this.getRateLimitCount(model, operation)) || 0;
     const newCount = currentCount + 1;
     await this.set(key, newCount, {
       useMemoryCache: false,
-      ttlSeconds: this.RATE_LIMIT_TTL,
+      ttlSeconds: OpenAICacheServiceImpl.RATE_LIMIT_TTL,
     });
     return newCount;
   }
@@ -65,21 +91,32 @@ export class OpenAICacheService extends CacheService {
   /**
    * Reset rate limit counters
    */
-  static async resetRateLimitCounters(): Promise<void> {
-    await this.invalidateByPattern(`${this.RATE_LIMIT_PREFIX}*`);
+  async resetRateLimitCounters(): Promise<void> {
+    await this.invalidateByPattern(
+      `${OpenAICacheServiceImpl.RATE_LIMIT_PREFIX}*`,
+    );
   }
 
   /**
    * Invalidate embedding cache for specific text
    */
-  static async invalidateEmbedding(text: string): Promise<void> {
-    await this.invalidate(`${this.EMBEDDING_PREFIX}${text}`);
+  async invalidateEmbedding(text: string): Promise<void> {
+    await this.invalidate(`${OpenAICacheServiceImpl.EMBEDDING_PREFIX}${text}`);
   }
 
   /**
    * Invalidate all embedding caches
    */
-  static async invalidateAllEmbeddings(): Promise<void> {
-    await this.invalidateByPattern(`${this.EMBEDDING_PREFIX}*`);
+  async invalidateAllEmbeddings(): Promise<void> {
+    await this.invalidateByPattern(
+      `${OpenAICacheServiceImpl.EMBEDDING_PREFIX}*`,
+    );
   }
+}
+
+/**
+ * Factory function to create an OpenAICacheService instance
+ */
+export function createOpenAICacheService(): OpenAICacheService {
+  return new OpenAICacheServiceImpl();
 }

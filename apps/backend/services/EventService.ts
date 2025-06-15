@@ -1,5 +1,4 @@
 import { type Point } from "geojson";
-import { Redis } from "ioredis";
 import pgvector from "pgvector";
 import {
   Brackets,
@@ -22,12 +21,13 @@ import { UserEventSave } from "../entities/UserEventSave";
 import { UserEventRsvp, RsvpStatus } from "../entities/UserEventRsvp";
 import { EventSimilarityService } from "./event-processing/EventSimilarityService";
 import { LevelingService } from "./LevelingService";
-import { EventCacheService } from "./shared/EventCacheService";
-import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
-import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
+import type { EventCacheService } from "./shared/EventCacheService";
+import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
+import type { OpenAIService } from "./shared/OpenAIService";
+import { OpenAIModel } from "./shared/OpenAIService";
 import { Friendship } from "../entities/Friendship";
 import { EventShare } from "../entities/EventShare";
-import { RedisService } from "./shared/RedisService";
+import type { RedisService } from "./shared/RedisService";
 
 interface SearchResult {
   event: Event;
@@ -63,7 +63,151 @@ interface CreateEventInput {
   recurrenceInterval?: number;
 }
 
-export class EventService {
+export interface EventService {
+  cleanupOutdatedEvents(batchSize?: number): Promise<{
+    deletedEvents: Event[];
+    deletedCount: number;
+    hasMore: boolean;
+  }>;
+
+  getEvents(options?: {
+    limit?: number;
+    offset?: number;
+    userId?: string;
+  }): Promise<Event[]>;
+
+  getEventById(id: string): Promise<Event | null>;
+
+  getNearbyEvents(
+    lat: number,
+    lng: number,
+    radius?: number,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<Event[]>;
+
+  storeDetectedQRCode(
+    eventId: string,
+    qrCodeData: string,
+  ): Promise<Event | null>;
+
+  createEvent(input: CreateEventInput): Promise<Event>;
+
+  shareEventWithUsers(
+    eventId: string,
+    sharedById: string,
+    sharedWithIds: string[],
+  ): Promise<void>;
+
+  removeEventShares(eventId: string, sharedWithIds: string[]): Promise<void>;
+
+  getEventSharedWithUsers(eventId: string): Promise<string[]>;
+
+  hasEventAccess(eventId: string, userId: string): Promise<boolean>;
+
+  updateEvent(
+    id: string,
+    eventData: Partial<CreateEventInput>,
+  ): Promise<Event | null>;
+
+  searchEvents(
+    query: string,
+    limit?: number,
+    cursor?: string,
+  ): Promise<{ results: SearchResult[]; nextCursor?: string }>;
+
+  deleteEvent(id: string): Promise<boolean>;
+
+  updateEventStatus(id: string, status: EventStatus): Promise<Event | null>;
+
+  getEventsByCategories(
+    categoryIds: string[],
+    options?: {
+      startDate?: Date;
+      endDate?: Date;
+      limit?: number;
+      offset?: number;
+    },
+  ): Promise<{ events: Event[]; total: number; hasMore: boolean }>;
+
+  getAllCategories(): Promise<Category[]>;
+
+  toggleSaveEvent(
+    userId: string,
+    eventId: string,
+  ): Promise<{ saved: boolean; saveCount: number }>;
+
+  isEventSavedByUser(userId: string, eventId: string): Promise<boolean>;
+
+  getSavedEventsByUser(
+    userId: string,
+    options?: { limit?: number; cursor?: string },
+  ): Promise<{ events: Event[]; nextCursor?: string }>;
+
+  searchEventsByFilter(
+    filter: Filter,
+    options?: { limit?: number; offset?: number },
+  ): Promise<{ events: Event[]; total: number; hasMore: boolean }>;
+
+  getDiscoveredEventsByUser(
+    userId: string,
+    options?: { limit?: number; cursor?: string },
+  ): Promise<{ events: Event[]; nextCursor?: string }>;
+
+  createDiscoveryRecord(userId: string, eventId: string): Promise<void>;
+
+  getClusterHubData(markerIds: string[]): Promise<{
+    featuredEvent: Event | null;
+    eventsByCategory: { category: Category; events: Event[] }[];
+    eventsByLocation: { location: string; events: Event[] }[];
+    eventsToday: Event[];
+    clusterName: string;
+    clusterDescription: string;
+    clusterEmoji: string;
+    featuredCreator?: {
+      id: string;
+      displayName: string;
+      email: string;
+      eventCount: number;
+      creatorDescription: string;
+      title: string;
+      friendCode: string;
+    };
+  }>;
+
+  getFriendsSavedEvents(
+    userId: string,
+    options?: { limit?: number; cursor?: string },
+  ): Promise<{ events: Event[]; nextCursor?: string }>;
+
+  getEventShares(
+    eventId: string,
+  ): Promise<{ sharedWithId: string; sharedById: string }[]>;
+
+  toggleRsvpEvent(
+    userId: string,
+    eventId: string,
+    status: RsvpStatus,
+  ): Promise<{
+    status: RsvpStatus;
+    goingCount: number;
+    notGoingCount: number;
+  }>;
+
+  getUserRsvpStatus(
+    userId: string,
+    eventId: string,
+  ): Promise<UserEventRsvp | null>;
+
+  getEventsByCategory(
+    categoryId: string,
+    options?: { limit?: number; cursor?: string },
+  ): Promise<{ events: Event[]; nextCursor?: string }>;
+
+  recalculateCounts(): Promise<{ eventsUpdated: number; usersUpdated: number }>;
+}
+
+export class EventServiceImpl implements EventService {
   private eventRepository: Repository<Event>;
   private categoryRepository: Repository<Category>;
   private userEventSaveRepository: Repository<UserEventSave>;
@@ -73,23 +217,30 @@ export class EventService {
   private eventSimilarityService: EventSimilarityService;
   private levelingService: LevelingService;
   private redisService: RedisService;
+  private eventCacheService: EventCacheService;
+  private openaiService: OpenAIService;
 
   constructor(
     private dataSource: DataSource,
-    redis: Redis | RedisService,
+    redisService: RedisService,
+    locationService: GoogleGeocodingService,
+    eventCacheService: EventCacheService,
+    openaiService: OpenAIService,
+    levelingService: LevelingService,
   ) {
     this.eventRepository = dataSource.getRepository(Event);
     this.categoryRepository = dataSource.getRepository(Category);
     this.userEventSaveRepository = dataSource.getRepository(UserEventSave);
     this.userEventRsvpRepository = dataSource.getRepository(UserEventRsvp);
     this.eventShareRepository = dataSource.getRepository(EventShare);
-    this.locationService = GoogleGeocodingService.getInstance();
+    this.locationService = locationService;
     this.eventSimilarityService = new EventSimilarityService(
       this.eventRepository,
     );
-    this.redisService =
-      redis instanceof RedisService ? redis : RedisService.getInstance(redis);
-    this.levelingService = new LevelingService(dataSource, this.redisService);
+    this.redisService = redisService;
+    this.levelingService = levelingService;
+    this.eventCacheService = eventCacheService;
+    this.openaiService = openaiService;
   }
 
   async cleanupOutdatedEvents(batchSize = 100): Promise<{
@@ -184,7 +335,7 @@ export class EventService {
   async getEventById(id: string): Promise<Event | null> {
     try {
       // Try to get from cache first
-      const cachedEvent = await EventCacheService.getEvent(id);
+      const cachedEvent = await this.eventCacheService.getEvent(id);
       if (cachedEvent) {
         return cachedEvent;
       }
@@ -197,7 +348,7 @@ export class EventService {
 
       // If found, cache it with a shorter TTL for frequently accessed events
       if (evt) {
-        await EventCacheService.setEvent(evt, 300); // 5 minutes TTL
+        await this.eventCacheService.setEvent(evt, 300); // 5 minutes TTL
       }
 
       return evt;
@@ -254,7 +405,7 @@ export class EventService {
       const updatedEvent = await this.eventRepository.save(event);
 
       // Invalidate the cache for this event
-      await EventCacheService.invalidateEvent(eventId);
+      await this.eventCacheService.invalidateEvent(eventId);
 
       return updatedEvent;
     } catch (error) {
@@ -340,7 +491,7 @@ export class EventService {
     // Award XP for creating an event
     await this.levelingService.awardXp(input.creatorId, 30);
 
-    await EventCacheService.invalidateSearchCache();
+    await this.eventCacheService.invalidateSearchCache();
 
     return savedEvent;
   }
@@ -404,7 +555,7 @@ export class EventService {
     });
 
     // Invalidate cache for this event
-    await EventCacheService.invalidateEvent(eventId);
+    await this.eventCacheService.invalidateEvent(eventId);
   }
 
   /**
@@ -422,7 +573,7 @@ export class EventService {
     });
 
     // Invalidate cache for this event
-    await EventCacheService.invalidateEvent(eventId);
+    await this.eventCacheService.invalidateEvent(eventId);
 
     // Get the updated event with its shares
     const event = await this.eventRepository.findOne({
@@ -607,13 +758,13 @@ export class EventService {
       }
 
       // Invalidate the cache for this event
-      await EventCacheService.invalidateEvent(savedEvent.id);
+      await this.eventCacheService.invalidateEvent(savedEvent.id);
 
       // Invalidate search cache since we updated an event
-      await EventCacheService.invalidateSearchCache();
+      await this.eventCacheService.invalidateSearchCache();
 
       // Invalidate any cluster hub caches that might contain this event
-      await EventCacheService.invalidateAllClusterHubs();
+      await this.eventCacheService.invalidateAllClusterHubs();
 
       return savedEvent;
     } catch (error) {
@@ -635,7 +786,8 @@ export class EventService {
     const cacheKey = `search:${query.toLowerCase()}:${limit}:${cursor || "null"}`;
 
     // Check if we have cached results for this exact search
-    const cachedResults = await EventCacheService.getSearchResults(cacheKey);
+    const cachedResults =
+      await this.eventCacheService.getSearchResults(cacheKey);
     if (cachedResults) {
       console.log(`Cache hit for search: "${query}"`);
       return cachedResults;
@@ -653,20 +805,21 @@ export class EventService {
     ADDRESS: ${query}
     LOCATION_NOTES: ${query}
     `.trim();
-    let searchEmbedding = EventCacheService.getCachedEmbedding(normalizedQuery);
+    let searchEmbedding =
+      this.eventCacheService.getCachedEmbedding(normalizedQuery);
 
     if (!searchEmbedding) {
       // Generate new embedding if not in cache
-      const openai = OpenAIService.getInstance();
-      const embeddingResponse = await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: normalizedQuery,
-        encoding_format: "float",
-      });
-      searchEmbedding = embeddingResponse.data[0].embedding;
+      searchEmbedding =
+        await this.openaiService.generateEmbedding(normalizedQuery);
 
       // Cache the embedding
-      EventCacheService.setCachedEmbedding(normalizedQuery, searchEmbedding);
+      if (searchEmbedding) {
+        this.eventCacheService.setCachedEmbedding(
+          normalizedQuery,
+          searchEmbedding,
+        );
+      }
     }
 
     // Parse cursor if provided
@@ -823,7 +976,7 @@ export class EventService {
 
     // Store in cache
     const resultObject = { results: searchResults, nextCursor };
-    await EventCacheService.setSearchResults(cacheKey, resultObject);
+    await this.eventCacheService.setSearchResults(cacheKey, resultObject);
 
     return resultObject;
   }
@@ -833,13 +986,13 @@ export class EventService {
       const result = await this.eventRepository.delete(id);
 
       // Invalidate the cache for this event
-      await EventCacheService.invalidateEvent(id);
+      await this.eventCacheService.invalidateEvent(id);
 
       // Invalidate search cache since we deleted an event
-      await EventCacheService.invalidateSearchCache();
+      await this.eventCacheService.invalidateSearchCache();
 
       // Invalidate any cluster hub caches that might contain this event
-      await EventCacheService.invalidateAllClusterHubs();
+      await this.eventCacheService.invalidateAllClusterHubs();
 
       return result.affected ? result.affected > 0 : false;
     } catch (error) {
@@ -860,7 +1013,7 @@ export class EventService {
       const updatedEvent = await this.eventRepository.save(event);
 
       // Invalidate the cache for this event
-      await EventCacheService.invalidateEvent(id);
+      await this.eventCacheService.invalidateEvent(id);
 
       return updatedEvent;
     } catch (error) {
@@ -1443,7 +1596,7 @@ export class EventService {
     };
   }> {
     // Try to get from cache first
-    const cachedData = await EventCacheService.getClusterHub(markerIds);
+    const cachedData = await this.eventCacheService.getClusterHub(markerIds);
     if (cachedData) {
       return cachedData;
     }
@@ -1519,7 +1672,7 @@ export class EventService {
         ? `\n\nFeatured Creator: ${featuredCreator.displayName} has created ${featuredCreator.eventCount} events in this cluster.`
         : "";
 
-      const response = await OpenAIService.executeChatCompletion({
+      const response = await this.openaiService.executeChatCompletion({
         model: OpenAIModel.GPT4OMini,
         messages: [
           {
@@ -1676,7 +1829,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
     };
 
     // Cache the result
-    await EventCacheService.setClusterHub(markerIds, result);
+    await this.eventCacheService.setClusterHub(markerIds, result);
 
     return result;
   }
@@ -2106,4 +2259,25 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
 
     return { eventsUpdated, usersUpdated };
   }
+}
+
+/**
+ * Factory function to create an EventService instance
+ */
+export function createEventService(
+  dataSource: DataSource,
+  redisService: RedisService,
+  locationService: GoogleGeocodingService,
+  eventCacheService: EventCacheService,
+  openaiService: OpenAIService,
+  levelingService: LevelingService,
+): EventService {
+  return new EventServiceImpl(
+    dataSource,
+    redisService,
+    locationService,
+    eventCacheService,
+    openaiService,
+    levelingService,
+  );
 }

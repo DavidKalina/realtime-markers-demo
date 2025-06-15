@@ -22,31 +22,32 @@ import plansRouter from "./routes/plans";
 import { CategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
-import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
 import { EventProcessingService } from "./services/EventProcessingService";
-import { EventService } from "./services/EventService";
+import { createEventService } from "./services/EventService";
 import { FriendshipService } from "./services/FriendshipService";
 import { JobQueue } from "./services/JobQueue";
 import { LevelingService } from "./services/LevelingService";
 import { PlanService } from "./services/PlanService";
-import { CacheService } from "./services/shared/CacheService";
 import { ConfigService } from "./services/shared/ConfigService";
-import { GoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
-import { OpenAIService } from "./services/shared/OpenAIService";
+import { createGoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
 import { RateLimitService } from "./services/shared/RateLimitService";
 import { StorageService } from "./services/shared/StorageService";
 import { UserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
-import { NotificationService } from "./services/NotificationService";
-import { NotificationHandler } from "./services/NotificationHandler";
+import { createNotificationService } from "./services/NotificationService";
+import { createNotificationHandler } from "./services/NotificationHandler";
 import { notificationsRouter } from "./routes/notifications";
 import { placesRouter } from "./routes/places";
 import { categoriesRouter } from "./routes/categories";
 import { redisService, redisClient } from "./services/shared/redis";
 import { Redis } from "ioredis";
-import { RedisService } from "./services/shared/RedisService";
+import { createRedisService } from "./services/shared/RedisService";
 import { AuthService } from "./services/AuthService";
 import { User } from "./entities/User";
+import { createOpenAIService } from "./services/shared/OpenAIService";
+import { createEventCacheService } from "./services/shared/EventCacheService";
+import { createImageProcessingCacheService } from "./services/shared/ImageProcessingCacheService";
+import { createImageProcessingService } from "./services/event-processing/ImageProcessingService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -163,20 +164,7 @@ const initializeDatabase = async (
   throw new Error("Failed to initialize database after all retries");
 };
 
-// Initialize OpenAI service with Redis for rate limiting
-OpenAIService.initRedis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD || undefined,
-});
-
 const jobQueue = new JobQueue(redisClient);
-
-CacheService.initRedis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD ?? "",
-});
 
 // Initialize services
 async function initializeServices() {
@@ -195,10 +183,29 @@ async function initializeServices() {
   );
 
   // Create RedisService instance
-  const redisService = RedisService.getInstance(redisClient);
+  const redisService = createRedisService(redisClient);
 
-  // Initialize EventService with RedisService
-  const eventService = new EventService(dataSource, redisService);
+  // Create OpenAIService instance
+  const openAIService = createOpenAIService(redisClient, redisService);
+
+  // Create EventCacheService instance
+  const eventCacheService = createEventCacheService(redisClient);
+
+  // Create ImageProcessingCacheService instance
+  const imageProcessingCacheService = createImageProcessingCacheService();
+
+  // Create LevelingService instance
+  const levelingService = new LevelingService(dataSource, redisService);
+
+  // Initialize EventService with all dependencies
+  const eventService = createEventService(
+    dataSource,
+    redisService,
+    createGoogleGeocodingService(openAIService),
+    eventCacheService,
+    openAIService,
+    levelingService,
+  );
 
   // Create the event similarity service
   const eventSimilarityService = new EventSimilarityService(
@@ -207,21 +214,24 @@ async function initializeServices() {
   );
 
   // Create the image processing service
-  const imageProcessingService = new ImageProcessingService();
+  const imageProcessingService = createImageProcessingService(
+    openAIService,
+    imageProcessingCacheService,
+  );
 
   StorageService.getInstance();
 
   // Create the event extraction service
   const eventExtractionService = new EventExtractionService(
     categoryProcessingService,
-    GoogleGeocodingService.getInstance(),
+    createGoogleGeocodingService(openAIService),
   );
 
   // Create event processing service with all dependencies
   const eventProcessingService = new EventProcessingService({
     categoryProcessingService,
     eventSimilarityService,
-    locationResolutionService: GoogleGeocodingService.getInstance(),
+    locationResolutionService: createGoogleGeocodingService(openAIService),
     imageProcessingService,
     configService,
     eventExtractionService,
@@ -238,14 +248,11 @@ async function initializeServices() {
   // Initialize the PlanService
   const planService = new PlanService(dataSource);
 
-  // Initialize the LevelingService
-  const levelingService = new LevelingService(dataSource, redisService);
-
   // Initialize the FriendshipService
   const friendshipService = new FriendshipService(dataSource);
 
   // Initialize the NotificationService
-  const notificationService = NotificationService.getInstance(
+  const notificationService = createNotificationService(
     redisClient,
     dataSource,
   );
@@ -258,7 +265,7 @@ async function initializeServices() {
   );
 
   // Initialize and start the NotificationHandler
-  const notificationHandler = NotificationHandler.getInstance(
+  const notificationHandler = createNotificationHandler(
     redisClient,
     dataSource,
   );
