@@ -20,7 +20,8 @@
     "migration:create": "bunx tsx ./node_modules/typeorm/cli.js migration:create",
     "migration:generate": "bunx tsx ./node_modules/typeorm/cli.js migration:generate -d ./data-source.ts",
     "migration:run": "bunx tsx ./node_modules/typeorm/cli.js migration:run -d ./data-source.ts",
-    "migration:revert": "bunx tsx ./node_modules/typeorm/cli.js migration:revert -d ./data-source.ts"
+    "migration:revert": "bunx tsx ./node_modules/typeorm/cli.js migration:revert -d ./data-source.ts",
+    "test": "bun test"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.758.0",
