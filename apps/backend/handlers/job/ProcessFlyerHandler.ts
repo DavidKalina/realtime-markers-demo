@@ -250,8 +250,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
           `[ProcessFlyerHandler] Low confidence (${scanResult.confidence}), completing with warning`,
         );
         await this.completeJob(jobId, context, {
-          message:
-            "The image quality or content was not clear enough to reliably extract event information. Please try again with a clearer image.",
+          message: "No event detected in the image",
           confidence: scanResult.confidence,
           threshold: 0.75,
         });
@@ -282,8 +281,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
               coordinates: pointToCoordinates(existingEvent.location),
               isDuplicate: true,
               similarityScore: scanResult.similarity.score,
-              message:
-                "This event appears to be very similar to an existing event in our database. We've linked you to the existing event instead.",
+              message: "Duplicate event found",
             },
             existingEvent.id,
           );
