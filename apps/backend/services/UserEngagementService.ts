@@ -8,6 +8,17 @@ import { Friendship } from "../entities/Friendship";
 import { LevelingService } from "./LevelingService";
 import type { RedisService } from "./shared/RedisService";
 
+export interface EventEngagementMetrics {
+  eventId: string;
+  saveCount: number;
+  scanCount: number;
+  rsvpCount: number;
+  goingCount: number;
+  notGoingCount: number;
+  totalEngagement: number;
+  lastUpdated: Date;
+}
+
 export interface UserEngagementService {
   toggleSaveEvent(
     userId: string,
@@ -47,6 +58,8 @@ export interface UserEngagementService {
     userId: string,
     options?: { limit?: number; cursor?: string },
   ): Promise<{ events: Event[]; nextCursor?: string }>;
+
+  getEventEngagement(eventId: string): Promise<EventEngagementMetrics>;
 }
 
 export interface UserEngagementServiceDependencies {
@@ -732,6 +745,50 @@ export class UserEngagementServiceImpl implements UserEngagementService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { embedding, ...strippedEvent } = event;
     return strippedEvent;
+  }
+
+  async getEventEngagement(eventId: string): Promise<EventEngagementMetrics> {
+    // Check if the event exists first
+    const event = await this.eventRepository.findOne({
+      where: { id: eventId },
+    });
+
+    if (!event) {
+      throw new Error("Event not found");
+    }
+
+    // Get RSVP counts by status
+    const [goingCount, notGoingCount] = await Promise.all([
+      this.userEventRsvpRepository.count({
+        where: { eventId, status: RsvpStatus.GOING },
+      }),
+      this.userEventRsvpRepository.count({
+        where: { eventId, status: RsvpStatus.NOT_GOING },
+      }),
+    ]);
+
+    // Calculate total RSVP count
+    const rsvpCount = goingCount + notGoingCount;
+
+    // Get save count from event (already maintained)
+    const saveCount = event.saveCount || 0;
+
+    // Get scan count from event (already maintained)
+    const scanCount = event.scanCount || 0;
+
+    // Calculate total engagement (sum of all engagement types)
+    const totalEngagement = saveCount + scanCount + rsvpCount;
+
+    return {
+      eventId,
+      saveCount,
+      scanCount,
+      rsvpCount,
+      goingCount,
+      notGoingCount,
+      totalEngagement,
+      lastUpdated: event.updatedAt,
+    };
   }
 }
 

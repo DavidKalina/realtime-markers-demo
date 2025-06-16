@@ -46,6 +46,7 @@ eventsRouter.post("/:id/save", handlers.toggleSaveEventHandler);
 eventsRouter.post("/:id/rsvp", handlers.toggleRsvpEventHandler);
 eventsRouter.get("/:id/rsvped", handlers.isEventRsvpedHandler);
 eventsRouter.get("/:id/saved", handlers.isEventSavedHandler);
+eventsRouter.get("/:id/engagement", handlers.getEventEngagementHandler);
 eventsRouter.get("/:id/shares", handlers.getEventSharesHandler);
 eventsRouter.get("/:id", handlers.getEventByIdHandler);
 

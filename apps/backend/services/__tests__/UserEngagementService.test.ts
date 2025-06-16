@@ -991,6 +991,191 @@ describe("UserEngagementService", () => {
       expect(typeof service.createDiscoveryRecord).toBe("function");
       expect(typeof service.getDiscoveredEventsByUser).toBe("function");
       expect(typeof service.getFriendsSavedEvents).toBe("function");
+      expect(typeof service.getEventEngagement).toBe("function");
+    });
+  });
+
+  describe("getEventEngagement", () => {
+    it("should return comprehensive engagement metrics for an event", async () => {
+      const eventWithMetrics = {
+        ...mockEvent,
+        saveCount: 15,
+        scanCount: 42,
+        updatedAt: new Date("2024-01-15T10:30:00Z"),
+      };
+
+      (mockEventRepository.findOne as jest.Mock).mockResolvedValue(
+        eventWithMetrics,
+      );
+
+      (mockUserEventRsvpRepository.count as jest.Mock)
+        .mockResolvedValueOnce(8) // Going count
+        .mockResolvedValueOnce(3); // Not going count
+
+      const result =
+        await userEngagementService.getEventEngagement("event-123");
+
+      expect(result).toEqual({
+        eventId: "event-123",
+        saveCount: 15,
+        scanCount: 42,
+        rsvpCount: 11, // 8 + 3
+        goingCount: 8,
+        notGoingCount: 3,
+        totalEngagement: 68, // 15 + 42 + 11
+        lastUpdated: new Date("2024-01-15T10:30:00Z"),
+      });
+
+      expect(mockEventRepository.findOne).toHaveBeenCalledWith({
+        where: { id: "event-123" },
+      });
+
+      expect(mockUserEventRsvpRepository.count).toHaveBeenCalledWith({
+        where: { eventId: "event-123", status: RsvpStatus.GOING },
+      });
+
+      expect(mockUserEventRsvpRepository.count).toHaveBeenCalledWith({
+        where: { eventId: "event-123", status: RsvpStatus.NOT_GOING },
+      });
+    });
+
+    it("should handle event with zero engagement metrics", async () => {
+      const eventWithZeroMetrics = {
+        ...mockEvent,
+        saveCount: 0,
+        scanCount: 0,
+        updatedAt: new Date("2024-01-15T10:30:00Z"),
+      };
+
+      (mockEventRepository.findOne as jest.Mock).mockResolvedValue(
+        eventWithZeroMetrics,
+      );
+
+      (mockUserEventRsvpRepository.count as jest.Mock)
+        .mockResolvedValueOnce(0) // Going count
+        .mockResolvedValueOnce(0); // Not going count
+
+      const result =
+        await userEngagementService.getEventEngagement("event-123");
+
+      expect(result).toEqual({
+        eventId: "event-123",
+        saveCount: 0,
+        scanCount: 0,
+        rsvpCount: 0,
+        goingCount: 0,
+        notGoingCount: 0,
+        totalEngagement: 0,
+        lastUpdated: new Date("2024-01-15T10:30:00Z"),
+      });
+    });
+
+    it("should handle event with null/undefined metrics", async () => {
+      const eventWithNullMetrics = {
+        ...mockEvent,
+        saveCount: null,
+        scanCount: null,
+        updatedAt: new Date("2024-01-15T10:30:00Z"),
+      };
+
+      (mockEventRepository.findOne as jest.Mock).mockResolvedValue(
+        eventWithNullMetrics,
+      );
+
+      (mockUserEventRsvpRepository.count as jest.Mock)
+        .mockResolvedValueOnce(0) // Going count
+        .mockResolvedValueOnce(0); // Not going count
+
+      const result =
+        await userEngagementService.getEventEngagement("event-123");
+
+      expect(result).toEqual({
+        eventId: "event-123",
+        saveCount: 0,
+        scanCount: 0,
+        rsvpCount: 0,
+        goingCount: 0,
+        notGoingCount: 0,
+        totalEngagement: 0,
+        lastUpdated: new Date("2024-01-15T10:30:00Z"),
+      });
+    });
+
+    it("should throw error when event not found", async () => {
+      (mockEventRepository.findOne as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        userEngagementService.getEventEngagement("nonexistent-event"),
+      ).rejects.toThrow("Event not found");
+
+      expect(mockEventRepository.findOne).toHaveBeenCalledWith({
+        where: { id: "nonexistent-event" },
+      });
+
+      // Should not call RSVP count methods if event doesn't exist
+      expect(mockUserEventRsvpRepository.count).not.toHaveBeenCalled();
+    });
+
+    it("should handle high engagement numbers correctly", async () => {
+      const eventWithHighMetrics = {
+        ...mockEvent,
+        saveCount: 1000,
+        scanCount: 5000,
+        updatedAt: new Date("2024-01-15T10:30:00Z"),
+      };
+
+      (mockEventRepository.findOne as jest.Mock).mockResolvedValue(
+        eventWithHighMetrics,
+      );
+
+      (mockUserEventRsvpRepository.count as jest.Mock)
+        .mockResolvedValueOnce(250) // Going count
+        .mockResolvedValueOnce(50); // Not going count
+
+      const result =
+        await userEngagementService.getEventEngagement("event-123");
+
+      expect(result).toEqual({
+        eventId: "event-123",
+        saveCount: 1000,
+        scanCount: 5000,
+        rsvpCount: 300, // 250 + 50
+        goingCount: 250,
+        notGoingCount: 50,
+        totalEngagement: 6300, // 1000 + 5000 + 300
+        lastUpdated: new Date("2024-01-15T10:30:00Z"),
+      });
+    });
+
+    it("should handle database errors gracefully", async () => {
+      (mockEventRepository.findOne as jest.Mock).mockRejectedValue(
+        new Error("Database connection error"),
+      );
+
+      await expect(
+        userEngagementService.getEventEngagement("event-123"),
+      ).rejects.toThrow("Database connection error");
+    });
+
+    it("should handle RSVP count errors gracefully", async () => {
+      const eventWithMetrics = {
+        ...mockEvent,
+        saveCount: 10,
+        scanCount: 20,
+        updatedAt: new Date("2024-01-15T10:30:00Z"),
+      };
+
+      (mockEventRepository.findOne as jest.Mock).mockResolvedValue(
+        eventWithMetrics,
+      );
+
+      (mockUserEventRsvpRepository.count as jest.Mock).mockRejectedValue(
+        new Error("RSVP count error"),
+      );
+
+      await expect(
+        userEngagementService.getEventEngagement("event-123"),
+      ).rejects.toThrow("RSVP count error");
     });
   });
 });
