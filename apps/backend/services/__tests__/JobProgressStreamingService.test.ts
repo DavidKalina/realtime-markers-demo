@@ -141,6 +141,24 @@ describe("JobProgressStreamingService", () => {
       expect(result).toBeNull();
       expect(mockRedisService.get).toHaveBeenCalledWith("job:job-123:progress");
     });
+
+    it("should handle Redis service errors gracefully", async () => {
+      (mockRedisService.get as jest.Mock).mockRejectedValue(
+        new Error("Redis connection failed"),
+      );
+
+      await expect(
+        jobProgressStreamingService.getJobProgressContext("job-123"),
+      ).rejects.toThrow("Redis connection failed");
+    });
+
+    it("should handle empty job ID", async () => {
+      const result =
+        await jobProgressStreamingService.getJobProgressContext("");
+
+      expect(result).toBeUndefined();
+      expect(mockRedisService.get).toHaveBeenCalledWith("job::progress");
+    });
   });
 
   describe("getUserJobsWithProgress", () => {
@@ -192,6 +210,57 @@ describe("JobProgressStreamingService", () => {
       await jobProgressStreamingService.getUserJobsWithProgress("user-123", 5);
 
       expect(mockJobQueue.getUserJobs).toHaveBeenCalledWith("user-123", 5);
+    });
+
+    it("should handle empty user jobs list", async () => {
+      (mockJobQueue.getUserJobs as jest.Mock).mockResolvedValue([]);
+
+      const result =
+        await jobProgressStreamingService.getUserJobsWithProgress("user-123");
+
+      expect(result).toEqual([]);
+      expect(mockRedisService.get).not.toHaveBeenCalled();
+    });
+
+    it("should handle multiple jobs with mixed progress contexts", async () => {
+      const userJobs = [
+        { ...testJobData, id: "job-1" },
+        { ...testJobData, id: "job-2" },
+        { ...testJobData, id: "job-3" },
+      ];
+      (mockJobQueue.getUserJobs as jest.Mock).mockResolvedValue(userJobs);
+      (mockRedisService.get as jest.Mock)
+        .mockResolvedValueOnce(testJobProgressContext) // job-1 has context
+        .mockResolvedValueOnce(null) // job-2 has no context
+        .mockResolvedValueOnce({ ...testJobProgressContext, jobId: "job-3" }); // job-3 has context
+
+      const result =
+        await jobProgressStreamingService.getUserJobsWithProgress("user-123");
+
+      expect(result).toHaveLength(3);
+      // Due to sorting, we need to check that we have the right mix of contexts
+      const contexts = result.map(
+        (job) => job.progressContext?.jobId || "no-context",
+      );
+      expect(contexts).toContain("job-123"); // job-1 context
+      expect(contexts).toContain("job-3"); // job-3 context
+      expect(contexts).toContain("no-context"); // job-2 has no context
+      expect(result.some((job) => job.progressContext === undefined)).toBe(
+        true,
+      );
+      expect(result.some((job) => job.progressContext !== undefined)).toBe(
+        true,
+      );
+    });
+
+    it("should handle JobQueue service errors", async () => {
+      (mockJobQueue.getUserJobs as jest.Mock).mockRejectedValue(
+        new Error("JobQueue error"),
+      );
+
+      await expect(
+        jobProgressStreamingService.getUserJobsWithProgress("user-123"),
+      ).rejects.toThrow("JobQueue error");
     });
   });
 
@@ -246,6 +315,53 @@ describe("JobProgressStreamingService", () => {
 
       expect(mockRedisClient.keys).toHaveBeenCalledWith("job:*:progress");
     });
+
+    it("should handle no progress contexts found", async () => {
+      const mockRedisClient = {
+        keys: jest.fn().mockResolvedValue([]),
+        del: jest.fn(),
+      };
+      (mockRedisService.getClient as jest.Mock).mockReturnValue(
+        mockRedisClient,
+      );
+
+      const result =
+        await jobProgressStreamingService.cleanupProgressContexts(7);
+
+      expect(result).toBe(0);
+      expect(mockRedisClient.del).not.toHaveBeenCalled();
+    });
+
+    it("should handle missing contexts gracefully", async () => {
+      const mockRedisClient = {
+        keys: jest.fn().mockResolvedValue(["job:missing-job:progress"]),
+        del: jest.fn(),
+      };
+      (mockRedisService.getClient as jest.Mock).mockReturnValue(
+        mockRedisClient,
+      );
+      (mockRedisService.get as jest.Mock).mockResolvedValue(null);
+
+      const result =
+        await jobProgressStreamingService.cleanupProgressContexts(7);
+
+      expect(result).toBe(0);
+      expect(mockRedisClient.del).not.toHaveBeenCalled();
+    });
+
+    it("should handle Redis client errors", async () => {
+      const mockRedisClient = {
+        keys: jest.fn().mockRejectedValue(new Error("Redis keys error")),
+        del: jest.fn(),
+      };
+      (mockRedisService.getClient as jest.Mock).mockReturnValue(
+        mockRedisClient,
+      );
+
+      await expect(
+        jobProgressStreamingService.cleanupProgressContexts(7),
+      ).rejects.toThrow("Redis keys error");
+    });
   });
 
   describe("close", () => {
@@ -256,6 +372,19 @@ describe("JobProgressStreamingService", () => {
 
       // We'll skip the actual close call to avoid Redis connection issues
       // await jobProgressStreamingService.close();
+    });
+  });
+
+  describe("factory function", () => {
+    it("should create service instance with dependencies", () => {
+      const dependencies: JobProgressStreamingServiceDependencies = {
+        redisService: mockRedisService,
+        jobQueue: mockJobQueue,
+      };
+
+      const service = createJobProgressStreamingService(dependencies);
+
+      expect(service).toBeInstanceOf(JobProgressStreamingService);
     });
   });
 });
