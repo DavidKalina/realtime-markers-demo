@@ -263,7 +263,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
       if (event.address) {
         const locationMatch = event.address.match(/([^,]+,\s*[A-Z]{2})/); // e.g., "Provo, UT"
         if (locationMatch) {
-          const location = locationMatch[0];
+          const location = locationMatch[0].trim(); // Trim whitespace from the captured location
           if (!locationMap.has(location)) {
             locationMap.set(location, []);
           }
