@@ -1,26 +1,44 @@
 import { Notification } from "../../entities/Notification";
-import { CacheService } from "./CacheService";
+import { createCacheService } from "./CacheService";
+import { Redis } from "ioredis";
 
 interface NotificationCacheData {
   notifications: Notification[];
   total: number;
 }
 
-export class NotificationCacheService extends CacheService {
+export interface NotificationCacheService {
+  getCachedNotifications(userId: string): Promise<NotificationCacheData | null>;
+  setCachedNotifications(
+    userId: string,
+    data: NotificationCacheData,
+    ttlSeconds?: number,
+  ): Promise<void>;
+  invalidateNotificationCache(userId: string): Promise<void>;
+  invalidateNotificationCaches(userIds: string[]): Promise<void>;
+  invalidateAllNotificationCaches(): Promise<void>;
+}
+
+export class NotificationCacheServiceImpl implements NotificationCacheService {
   private static readonly NOTIFICATION_PREFIX = "notification:";
   private static readonly NOTIFICATION_TTL = 300; // 5 minutes
+  private cacheService: ReturnType<typeof createCacheService>;
+
+  constructor(cacheService: ReturnType<typeof createCacheService>) {
+    this.cacheService = cacheService;
+  }
 
   /**
    * Get cached notifications for a user
    */
-  static async getCachedNotifications(
+  async getCachedNotifications(
     userId: string,
   ): Promise<NotificationCacheData | null> {
-    return this.get<NotificationCacheData>(
-      `${this.NOTIFICATION_PREFIX}${userId}`,
+    return this.cacheService.get<NotificationCacheData>(
+      `${NotificationCacheServiceImpl.NOTIFICATION_PREFIX}${userId}`,
       {
         useMemoryCache: true,
-        ttlSeconds: this.NOTIFICATION_TTL,
+        ttlSeconds: NotificationCacheServiceImpl.NOTIFICATION_TTL,
       },
     );
   }
@@ -28,28 +46,34 @@ export class NotificationCacheService extends CacheService {
   /**
    * Set cached notifications for a user
    */
-  static async setCachedNotifications(
+  async setCachedNotifications(
     userId: string,
     data: NotificationCacheData,
-    ttlSeconds: number = this.NOTIFICATION_TTL,
+    ttlSeconds: number = NotificationCacheServiceImpl.NOTIFICATION_TTL,
   ): Promise<void> {
-    await this.set(`${this.NOTIFICATION_PREFIX}${userId}`, data, {
-      useMemoryCache: true,
-      ttlSeconds,
-    });
+    await this.cacheService.set(
+      `${NotificationCacheServiceImpl.NOTIFICATION_PREFIX}${userId}`,
+      data,
+      {
+        useMemoryCache: true,
+        ttlSeconds,
+      },
+    );
   }
 
   /**
    * Invalidate notification cache for a user
    */
-  static async invalidateNotificationCache(userId: string): Promise<void> {
-    await this.invalidate(`${this.NOTIFICATION_PREFIX}${userId}`);
+  async invalidateNotificationCache(userId: string): Promise<void> {
+    await this.cacheService.invalidate(
+      `${NotificationCacheServiceImpl.NOTIFICATION_PREFIX}${userId}`,
+    );
   }
 
   /**
    * Invalidate notification caches for multiple users
    */
-  static async invalidateNotificationCaches(userIds: string[]): Promise<void> {
+  async invalidateNotificationCaches(userIds: string[]): Promise<void> {
     await Promise.all(
       userIds.map((userId) => this.invalidateNotificationCache(userId)),
     );
@@ -58,7 +82,19 @@ export class NotificationCacheService extends CacheService {
   /**
    * Invalidate all notification caches
    */
-  static async invalidateAllNotificationCaches(): Promise<void> {
-    await this.invalidateByPattern(`${this.NOTIFICATION_PREFIX}*`);
+  async invalidateAllNotificationCaches(): Promise<void> {
+    await this.cacheService.invalidateByPattern(
+      `${NotificationCacheServiceImpl.NOTIFICATION_PREFIX}*`,
+    );
   }
+}
+
+/**
+ * Factory function to create a NotificationCacheService instance
+ */
+export function createNotificationCacheService(
+  redis?: Redis,
+): NotificationCacheService {
+  const cacheService = createCacheService(redis);
+  return new NotificationCacheServiceImpl(cacheService);
 }

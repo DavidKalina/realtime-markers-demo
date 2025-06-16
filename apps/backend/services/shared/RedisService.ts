@@ -93,19 +93,42 @@ export interface RedisMessage<T = RedisMessageType> {
   data?: T;
 }
 
-export class RedisService {
-  private static instance: RedisService;
+export interface RedisService {
+  publishMessage<T extends RedisMessageType>(
+    channel: RedisChannel,
+    message: T,
+  ): Promise<void>;
+  publish<T>(channel: RedisChannel, message: RedisMessage<T>): Promise<void>;
+  subscribe(
+    channel: RedisChannel,
+    callback: (message: string) => void,
+  ): Promise<void>;
+  set(
+    key: string,
+    value: string | number | object,
+    ttlSeconds?: number,
+  ): Promise<void>;
+  get<T = string>(key: string): Promise<T | null>;
+  del(key: string): Promise<void>;
+  delByPattern(pattern: string): Promise<void>;
+  hset(
+    key: string,
+    field: string,
+    value: string | number | object,
+  ): Promise<void>;
+  hget<T = string>(key: string, field: string): Promise<T | null>;
+  hgetall<T extends Record<string, unknown>>(key: string): Promise<T | null>;
+  hdel(key: string, field: string): Promise<void>;
+  exists(key: string): Promise<boolean>;
+  expire(key: string, seconds: number): Promise<void>;
+  getClient(): Redis;
+}
+
+export class RedisServiceImpl implements RedisService {
   private redis: Redis;
 
-  private constructor(redis: Redis) {
+  constructor(redis: Redis) {
     this.redis = redis;
-  }
-
-  public static getInstance(redis: Redis): RedisService {
-    if (!RedisService.instance) {
-      RedisService.instance = new RedisService(redis);
-    }
-    return RedisService.instance;
   }
 
   /**
@@ -209,10 +232,10 @@ export class RedisService {
         return;
       }
 
-      // For all other channels, publish as is
+      // Default case: publish the message as-is
       await this.redis.publish(channel, JSON.stringify(messageWithTimestamp));
     } catch (error) {
-      console.error(`Error publishing to Redis channel ${channel}:`, error);
+      console.error(`Error publishing message to channel ${channel}:`, error);
       throw error;
     }
   }
@@ -227,7 +250,7 @@ export class RedisService {
     try {
       await this.redis.publish(channel, JSON.stringify(message));
     } catch (error) {
-      console.error(`Error publishing to Redis channel ${channel}:`, error);
+      console.error(`Error publishing to channel ${channel}:`, error);
       throw error;
     }
   }
@@ -240,30 +263,20 @@ export class RedisService {
     callback: (message: string) => void,
   ): Promise<void> {
     try {
-      const subscriber = this.redis.duplicate();
-      await subscriber.subscribe(channel);
-
-      subscriber.on("message", (ch, message) => {
-        if (ch === channel) {
+      await this.redis.subscribe(channel);
+      this.redis.on("message", (receivedChannel: string, message: string) => {
+        if (receivedChannel === channel) {
           callback(message);
         }
       });
-
-      // Handle errors
-      subscriber.on("error", (error) => {
-        console.error(
-          `Redis subscription error for channel ${channel}:`,
-          error,
-        );
-      });
     } catch (error) {
-      console.error(`Error subscribing to Redis channel ${channel}:`, error);
+      console.error(`Error subscribing to channel ${channel}:`, error);
       throw error;
     }
   }
 
   /**
-   * Store a value in Redis with optional expiration
+   * Set a key-value pair in Redis
    */
   async set(
     key: string,
@@ -273,13 +286,14 @@ export class RedisService {
     try {
       const serializedValue =
         typeof value === "object" ? JSON.stringify(value) : String(value);
+
       if (ttlSeconds) {
-        await this.redis.set(key, serializedValue, "EX", ttlSeconds);
+        await this.redis.setex(key, ttlSeconds, serializedValue);
       } else {
         await this.redis.set(key, serializedValue);
       }
     } catch (error) {
-      console.error(`Error setting Redis key ${key}:`, error);
+      console.error(`Error setting key ${key}:`, error);
       throw error;
     }
   }
@@ -290,18 +304,17 @@ export class RedisService {
   async get<T = string>(key: string): Promise<T | null> {
     try {
       const value = await this.redis.get(key);
-      if (!value) return null;
+      if (value === null) return null;
 
+      // Try to parse as JSON first, fall back to string
       try {
-        // Try to parse as JSON first
         return JSON.parse(value) as T;
       } catch {
-        // If not JSON, return as is
-        return value as unknown as T;
+        return value as T;
       }
     } catch (error) {
-      console.error(`Error getting Redis key ${key}:`, error);
-      throw error;
+      console.error(`Error getting key ${key}:`, error);
+      return null;
     }
   }
 
@@ -312,13 +325,13 @@ export class RedisService {
     try {
       await this.redis.del(key);
     } catch (error) {
-      console.error(`Error deleting Redis key ${key}:`, error);
+      console.error(`Error deleting key ${key}:`, error);
       throw error;
     }
   }
 
   /**
-   * Delete multiple keys matching a pattern
+   * Delete keys by pattern
    */
   async delByPattern(pattern: string): Promise<void> {
     try {
@@ -327,16 +340,13 @@ export class RedisService {
         await this.redis.del(...keys);
       }
     } catch (error) {
-      console.error(
-        `Error deleting Redis keys matching pattern ${pattern}:`,
-        error,
-      );
+      console.error(`Error deleting pattern ${pattern}:`, error);
       throw error;
     }
   }
 
   /**
-   * Store a hash field
+   * Set a hash field
    */
   async hset(
     key: string,
@@ -348,7 +358,7 @@ export class RedisService {
         typeof value === "object" ? JSON.stringify(value) : String(value);
       await this.redis.hset(key, field, serializedValue);
     } catch (error) {
-      console.error(`Error setting Redis hash field ${key}.${field}:`, error);
+      console.error(`Error setting hash field ${key}.${field}:`, error);
       throw error;
     }
   }
@@ -359,18 +369,17 @@ export class RedisService {
   async hget<T = string>(key: string, field: string): Promise<T | null> {
     try {
       const value = await this.redis.hget(key, field);
-      if (!value) return null;
+      if (value === null) return null;
 
+      // Try to parse as JSON first, fall back to string
       try {
-        // Try to parse as JSON first
         return JSON.parse(value) as T;
       } catch {
-        // If not JSON, return as is
-        return value as unknown as T;
+        return value as T;
       }
     } catch (error) {
-      console.error(`Error getting Redis hash field ${key}.${field}:`, error);
-      throw error;
+      console.error(`Error getting hash field ${key}.${field}:`, error);
+      return null;
     }
   }
 
@@ -384,7 +393,6 @@ export class RedisService {
       const hash = await this.redis.hgetall(key);
       if (!hash || Object.keys(hash).length === 0) return null;
 
-      // Try to parse each value as JSON
       const result: Record<string, unknown> = {};
       for (const [field, value] of Object.entries(hash)) {
         try {
@@ -396,8 +404,8 @@ export class RedisService {
 
       return result as T;
     } catch (error) {
-      console.error(`Error getting all Redis hash fields for ${key}:`, error);
-      throw error;
+      console.error(`Error getting hash ${key}:`, error);
+      return null;
     }
   }
 
@@ -408,7 +416,7 @@ export class RedisService {
     try {
       await this.redis.hdel(key, field);
     } catch (error) {
-      console.error(`Error deleting Redis hash field ${key}.${field}:`, error);
+      console.error(`Error deleting hash field ${key}.${field}:`, error);
       throw error;
     }
   }
@@ -421,28 +429,34 @@ export class RedisService {
       const result = await this.redis.exists(key);
       return result === 1;
     } catch (error) {
-      console.error(`Error checking existence of Redis key ${key}:`, error);
-      throw error;
+      console.error(`Error checking existence of key ${key}:`, error);
+      return false;
     }
   }
 
   /**
-   * Set key expiration
+   * Set expiration for a key
    */
   async expire(key: string, seconds: number): Promise<void> {
     try {
       await this.redis.expire(key, seconds);
     } catch (error) {
-      console.error(`Error setting expiration for Redis key ${key}:`, error);
+      console.error(`Error setting expiration for key ${key}:`, error);
       throw error;
     }
   }
 
   /**
-   * Get the Redis client instance
-   * Note: This should be used sparingly and only when absolutely necessary
+   * Get the underlying Redis client
    */
   getClient(): Redis {
     return this.redis;
   }
+}
+
+/**
+ * Factory function to create a RedisService instance
+ */
+export function createRedisService(redis: Redis): RedisService {
+  return new RedisServiceImpl(redis);
 }

@@ -7,8 +7,8 @@ import type { CategoryProcessingService } from "../../CategoryProcessingService"
 import type { ConfigService } from "../../shared/ConfigService";
 import type { IEventExtractionService } from "./IEventExtractionService";
 import type { IImageProcessingService } from "./IImageProcesssingService";
-import type { IProgressReportingService } from "./IProgressReportingService";
 import type { JobQueue } from "../../JobQueue";
+import type { OpenAIService } from "../../shared/OpenAIService";
 
 /**
  * Interface for EventProcessingService dependencies
@@ -33,7 +33,7 @@ export interface IEventProcessingServiceDependencies {
   /**
    * Service for image processing
    */
-  imageProcessingService?: IImageProcessingService;
+  imageProcessingService: IImageProcessingService;
 
   /**
    * Service for event extraction
@@ -42,20 +42,18 @@ export interface IEventProcessingServiceDependencies {
 
   /**
    * Service for embedding generation
-   * If not provided, EventProcessingService will use the singleton instance
    */
-  embeddingService?: IEmbeddingService;
-
-  /**
-   * Service for progress reporting
-   * If not provided, EventProcessingService will use a simple implementation
-   */
-  progressReportingService?: IProgressReportingService;
+  embeddingService: IEmbeddingService;
 
   /**
    * Configuration service
    */
   configService?: ConfigService;
+
+  /**
+   * OpenAI service for AI operations
+   */
+  openAIService?: OpenAIService;
 
   jobQueue?: JobQueue;
 }

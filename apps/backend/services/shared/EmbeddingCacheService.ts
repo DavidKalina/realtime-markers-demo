@@ -1,40 +1,38 @@
-import { CacheService } from "./CacheService";
 import type { ConfigService } from "./ConfigService";
 
-export class EmbeddingCacheService extends CacheService {
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
+export interface EmbeddingCacheServiceDependencies {
+  configService?: ConfigService;
+}
+
+export class EmbeddingCacheService {
   private static readonly EMBEDDING_PREFIX = "embedding:";
   private static readonly DEFAULT_TTL = 86400; // 24 hours
   private static readonly DEFAULT_MAX_CACHE_SIZE = 3000; // Default from ConfigService
 
-  private static instance: EmbeddingCacheService;
+  private static memoryCache = new Map<string, CacheEntry<unknown>>();
   private ttl: number;
   private maxCacheSize: number;
 
-  private constructor(configService?: ConfigService) {
-    super();
+  constructor(private dependencies: EmbeddingCacheServiceDependencies) {
     this.ttl =
-      configService?.get("cache.ttl") || EmbeddingCacheService.DEFAULT_TTL;
+      dependencies.configService?.get("cache.ttl") ||
+      EmbeddingCacheService.DEFAULT_TTL;
     this.maxCacheSize =
-      configService?.get("cache.embeddingCacheSize") ||
+      dependencies.configService?.get("cache.embeddingCacheSize") ||
       EmbeddingCacheService.DEFAULT_MAX_CACHE_SIZE;
-  }
-
-  /**
-   * Get the singleton instance
-   */
-  static getInstance(configService?: ConfigService): EmbeddingCacheService {
-    if (!this.instance) {
-      this.instance = new EmbeddingCacheService(configService);
-    }
-    return this.instance;
   }
 
   /**
    * Get a cached embedding for text
    */
-  static getCachedEmbedding(text: string): number[] | undefined {
-    const key = `${this.EMBEDDING_PREFIX}${text}`;
-    const cached = this.memoryCache.get(key);
+  getCachedEmbedding(text: string): number[] | undefined {
+    const key = `${EmbeddingCacheService.EMBEDDING_PREFIX}${text}`;
+    const cached = EmbeddingCacheService.memoryCache.get(key);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.value as number[];
     }
@@ -44,28 +42,27 @@ export class EmbeddingCacheService extends CacheService {
   /**
    * Set a cached embedding for text
    */
-  static setCachedEmbedding(text: string, embedding: number[]): void {
-    const key = `${this.EMBEDDING_PREFIX}${text}`;
-    const instance = this.getInstance();
+  setCachedEmbedding(text: string, embedding: number[]): void {
+    const key = `${EmbeddingCacheService.EMBEDDING_PREFIX}${text}`;
 
     // Implement simple LRU behavior if cache is full
-    if (this.memoryCache.size >= instance.maxCacheSize) {
-      const oldestKey = this.memoryCache.keys().next().value;
+    if (EmbeddingCacheService.memoryCache.size >= this.maxCacheSize) {
+      const oldestKey = EmbeddingCacheService.memoryCache.keys().next().value;
       if (oldestKey) {
-        this.memoryCache.delete(oldestKey);
+        EmbeddingCacheService.memoryCache.delete(oldestKey);
       }
     }
 
-    this.memoryCache.set(key, {
+    EmbeddingCacheService.memoryCache.set(key, {
       value: embedding,
-      expiresAt: Date.now() + instance.ttl * 1000,
+      expiresAt: Date.now() + this.ttl * 1000,
     });
   }
 
   /**
    * Get a cached embedding for structured input
    */
-  static getCachedStructuredEmbedding(input: {
+  getCachedStructuredEmbedding(input: {
     text: string;
     title?: string;
     date?: string | Date;
@@ -76,7 +73,7 @@ export class EmbeddingCacheService extends CacheService {
     address?: string;
   }): number[] | undefined {
     const key = this.generateStructuredKey(input);
-    const cached = this.memoryCache.get(key);
+    const cached = EmbeddingCacheService.memoryCache.get(key);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.value as number[];
     }
@@ -86,7 +83,7 @@ export class EmbeddingCacheService extends CacheService {
   /**
    * Set a cached embedding for structured input
    */
-  static setCachedStructuredEmbedding(
+  setCachedStructuredEmbedding(
     input: {
       text: string;
       title?: string;
@@ -100,34 +97,33 @@ export class EmbeddingCacheService extends CacheService {
     embedding: number[],
   ): void {
     const key = this.generateStructuredKey(input);
-    const instance = this.getInstance();
 
     // Implement simple LRU behavior if cache is full
-    if (this.memoryCache.size >= instance.maxCacheSize) {
-      const oldestKey = this.memoryCache.keys().next().value;
+    if (EmbeddingCacheService.memoryCache.size >= this.maxCacheSize) {
+      const oldestKey = EmbeddingCacheService.memoryCache.keys().next().value;
       if (oldestKey) {
-        this.memoryCache.delete(oldestKey);
+        EmbeddingCacheService.memoryCache.delete(oldestKey);
       }
     }
 
-    this.memoryCache.set(key, {
+    EmbeddingCacheService.memoryCache.set(key, {
       value: embedding,
-      expiresAt: Date.now() + instance.ttl * 1000,
+      expiresAt: Date.now() + this.ttl * 1000,
     });
   }
 
   /**
    * Invalidate a specific embedding cache
    */
-  static invalidateEmbedding(text: string): void {
-    const key = `${this.EMBEDDING_PREFIX}${text}`;
-    this.memoryCache.delete(key);
+  invalidateEmbedding(text: string): void {
+    const key = `${EmbeddingCacheService.EMBEDDING_PREFIX}${text}`;
+    EmbeddingCacheService.memoryCache.delete(key);
   }
 
   /**
    * Invalidate a specific structured embedding cache
    */
-  static invalidateStructuredEmbedding(input: {
+  invalidateStructuredEmbedding(input: {
     text: string;
     title?: string;
     date?: string | Date;
@@ -138,17 +134,17 @@ export class EmbeddingCacheService extends CacheService {
     address?: string;
   }): void {
     const key = this.generateStructuredKey(input);
-    this.memoryCache.delete(key);
+    EmbeddingCacheService.memoryCache.delete(key);
   }
 
   /**
    * Clear all embedding caches
    */
-  static clearAllEmbeddings(): void {
+  clearAllEmbeddings(): void {
     // Clear only embedding-related entries from memory cache
-    for (const key of this.memoryCache.keys()) {
-      if (key.startsWith(this.EMBEDDING_PREFIX)) {
-        this.memoryCache.delete(key);
+    for (const key of EmbeddingCacheService.memoryCache.keys()) {
+      if (key.startsWith(EmbeddingCacheService.EMBEDDING_PREFIX)) {
+        EmbeddingCacheService.memoryCache.delete(key);
       }
     }
   }
@@ -156,7 +152,7 @@ export class EmbeddingCacheService extends CacheService {
   /**
    * Generate a cache key for structured input
    */
-  private static generateStructuredKey(input: {
+  private generateStructuredKey(input: {
     text: string;
     title?: string;
     date?: string | Date;
@@ -179,6 +175,12 @@ export class EmbeddingCacheService extends CacheService {
       input.address,
     ].filter(Boolean);
 
-    return `${this.EMBEDDING_PREFIX}structured:${components.join("|")}`;
+    return `${EmbeddingCacheService.EMBEDDING_PREFIX}structured:${components.join("|")}`;
   }
+}
+
+export function createEmbeddingCacheService(
+  dependencies: EmbeddingCacheServiceDependencies = {},
+): EmbeddingCacheService {
+  return new EmbeddingCacheService(dependencies);
 }

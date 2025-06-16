@@ -1,6 +1,6 @@
 // src/types.ts
 import { Redis } from "ioredis";
-import { EventService } from "./services/EventService";
+import { type EventService } from "./services/EventServiceRefactored";
 import { EventProcessingService } from "./services/EventProcessingService";
 import { JobQueue } from "./services/JobQueue";
 

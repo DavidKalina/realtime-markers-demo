@@ -19,33 +19,40 @@ import { friendshipsRouter } from "./routes/friendships";
 import { internalRouter } from "./routes/internalRoutes";
 import { jobsRouter } from "./routes/jobs";
 import plansRouter from "./routes/plans";
-import { CategoryProcessingService } from "./services/CategoryProcessingService";
-import { EventExtractionService } from "./services/event-processing/EventExtractionService";
+import { createCategoryProcessingService } from "./services/CategoryProcessingService";
+import { createEventExtractionService } from "./services/event-processing/EventExtractionService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
-import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
-import { EventProcessingService } from "./services/EventProcessingService";
-import { EventService } from "./services/EventService";
-import { FriendshipService } from "./services/FriendshipService";
-import { JobQueue } from "./services/JobQueue";
-import { LevelingService } from "./services/LevelingService";
-import { PlanService } from "./services/PlanService";
-import { CacheService } from "./services/shared/CacheService";
-import { ConfigService } from "./services/shared/ConfigService";
-import { GoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
-import { OpenAIService } from "./services/shared/OpenAIService";
-import { RateLimitService } from "./services/shared/RateLimitService";
-import { StorageService } from "./services/shared/StorageService";
-import { UserPreferencesService } from "./services/UserPreferences";
+import { createEventService } from "./services/EventServiceRefactored";
+import { createJobQueue } from "./services/JobQueue";
+import { createLevelingService } from "./services/LevelingService";
+import { createPlanService } from "./services/PlanService";
+import { createConfigService } from "./services/shared/ConfigService";
+import { createGoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
+import { createStorageService } from "./services/shared/StorageService";
+import { createUserPreferencesService } from "./services/UserPreferences";
 import type { AppContext } from "./types/context";
-import { NotificationService } from "./services/NotificationService";
-import { NotificationHandler } from "./services/NotificationHandler";
+import { createNotificationService } from "./services/NotificationService";
+import { createNotificationHandler } from "./services/NotificationHandler";
 import { notificationsRouter } from "./routes/notifications";
 import { placesRouter } from "./routes/places";
 import { categoriesRouter } from "./routes/categories";
 import { redisService, redisClient } from "./services/shared/redis";
 import { Redis } from "ioredis";
-import { RedisService } from "./services/shared/RedisService";
-import { AuthService } from "./services/AuthService";
+import { createRedisService } from "./services/shared/RedisService";
+import { createAuthService } from "./services/AuthService";
+import { createOpenAIService } from "./services/shared/OpenAIService";
+import { createEventCacheService } from "./services/shared/EventCacheService";
+import { createImageProcessingCacheService } from "./services/shared/ImageProcessingCacheService";
+import { createImageProcessingService } from "./services/event-processing/ImageProcessingService";
+import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
+import { createNotificationCacheService } from "./services/shared/NotificationCacheService";
+import { createEmbeddingService } from "./services/shared/EmbeddingService";
+import { createEmbeddingCacheService } from "./services/shared/EmbeddingCacheService";
+import { createEventProcessingService } from "./services/EventProcessingService";
+import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
+import { createLevelingCacheService } from "./services/shared/LevelingCacheService";
+import { createFriendshipCacheService } from "./services/shared/FriendshipCacheService";
+import { createFriendshipService } from "./services/FriendshipService";
 import { User } from "./entities/User";
 
 // Create the app with proper typing
@@ -90,13 +97,6 @@ app.use(
     maxHeadersSize: 8192,
   }),
 );
-
-// Initialize rate limit service
-RateLimitService.getInstance().initRedis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD || undefined,
-});
 
 // Add performance monitoring after Redis initialization
 app.use("*", performanceMonitor(redisClient));
@@ -163,19 +163,8 @@ const initializeDatabase = async (
   throw new Error("Failed to initialize database after all retries");
 };
 
-// Initialize OpenAI service with Redis for rate limiting
-OpenAIService.initRedis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD || undefined,
-});
-
-const jobQueue = new JobQueue(redisClient);
-
-CacheService.initRedis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD ?? "",
+const jobQueue = createJobQueue({
+  redisService: createRedisService(redisClient),
 });
 
 // Initialize services
@@ -185,20 +174,49 @@ async function initializeServices() {
   console.log("Database connection established, now initializing services");
 
   // Initialize config service
-  const configService = ConfigService.getInstance();
+  const configService = createConfigService();
 
   const categoryRepository = dataSource.getRepository(Category);
   const eventRepository = dataSource.getRepository(Event);
 
-  const categoryProcessingService = new CategoryProcessingService(
-    categoryRepository,
-  );
-
   // Create RedisService instance
-  const redisService = RedisService.getInstance(redisClient);
+  const redisService = createRedisService(redisClient);
 
-  // Initialize EventService with RedisService
-  const eventService = new EventService(dataSource, redisService);
+  // Create OpenAIService instance with dependencies
+  const openAIService = createOpenAIService({
+    redisService,
+    openAICacheService: createOpenAICacheService(),
+  });
+
+  // Create EventCacheService instance
+  const eventCacheService = createEventCacheService(redisClient);
+
+  // Create ImageProcessingCacheService instance
+  const imageProcessingCacheService = createImageProcessingCacheService();
+
+  // Create LevelingService instance
+  const levelingService = createLevelingService({
+    dataSource,
+    redisService,
+    levelingCacheService: createLevelingCacheService(redisClient),
+  });
+
+  // Initialize category processing service
+  const categoryProcessingService = createCategoryProcessingService({
+    categoryRepository,
+    openAIService,
+    categoryCacheService: createCategoryCacheService(redisClient),
+  });
+
+  // Initialize EventService with all dependencies
+  const eventService = createEventService({
+    dataSource,
+    redisService,
+    locationService: createGoogleGeocodingService(openAIService),
+    eventCacheService,
+    openaiService: openAIService,
+    levelingService,
+  });
 
   // Create the event similarity service
   const eventSimilarityService = new EventSimilarityService(
@@ -207,61 +225,78 @@ async function initializeServices() {
   );
 
   // Create the image processing service
-  const imageProcessingService = new ImageProcessingService();
-
-  StorageService.getInstance();
-
-  // Create the event extraction service
-  const eventExtractionService = new EventExtractionService(
-    categoryProcessingService,
-    GoogleGeocodingService.getInstance(),
+  const imageProcessingService = createImageProcessingService(
+    openAIService,
+    imageProcessingCacheService,
   );
 
+  createStorageService();
+
+  // Create the event extraction service
+  const eventExtractionService = createEventExtractionService({
+    categoryProcessingService,
+    locationResolutionService: createGoogleGeocodingService(openAIService),
+    openAIService,
+    configService,
+  });
+
+  // Create embedding service with dependencies
+  const embeddingService = createEmbeddingService({
+    openAIService,
+    configService,
+    embeddingCacheService: createEmbeddingCacheService({ configService }),
+  });
+
   // Create event processing service with all dependencies
-  const eventProcessingService = new EventProcessingService({
+  const eventProcessingService = createEventProcessingService({
     categoryProcessingService,
     eventSimilarityService,
-    locationResolutionService: GoogleGeocodingService.getInstance(),
+    locationResolutionService: createGoogleGeocodingService(openAIService),
     imageProcessingService,
+    embeddingService,
     configService,
     eventExtractionService,
   });
 
   // Initialize the UserPreferencesService
-  const userPreferencesService = new UserPreferencesService(
+  const userPreferencesService = createUserPreferencesService({
     dataSource,
     redisService,
-  );
+    embeddingService,
+    openAIService,
+  });
 
-  const storageService = StorageService.getInstance();
+  const storageService = createStorageService();
 
   // Initialize the PlanService
-  const planService = new PlanService(dataSource);
+  const planService = createPlanService({ dataSource });
 
-  // Initialize the LevelingService
-  const levelingService = new LevelingService(dataSource, redisService);
-
-  // Initialize the FriendshipService
-  const friendshipService = new FriendshipService(dataSource);
-
-  // Initialize the NotificationService
-  const notificationService = NotificationService.getInstance(
-    redisClient,
+  // Create FriendshipService instance
+  const friendshipService = createFriendshipService({
     dataSource,
-  );
+    friendshipCacheService: createFriendshipCacheService(redisClient),
+  });
 
-  const authService = new AuthService(
-    dataSource.getRepository(User),
+  // Initialize the NotificationService with dependencies
+  const notificationService = createNotificationService({
+    dataSource,
+    redisService,
+    notificationCacheService: createNotificationCacheService(redisClient),
+  });
+
+  const authService = createAuthService({
+    userRepository: dataSource.getRepository(User),
+    dataSource,
     userPreferencesService,
     levelingService,
-    dataSource,
-  );
+    openAIService,
+  });
 
-  // Initialize and start the NotificationHandler
-  const notificationHandler = NotificationHandler.getInstance(
-    redisClient,
-    dataSource,
-  );
+  // Initialize and start the NotificationHandler with dependencies
+  const notificationHandler = createNotificationHandler({
+    redisService,
+    notificationService,
+  });
   await notificationHandler.start();
 
   function setupCleanupSchedule() {
@@ -303,11 +338,15 @@ async function initializeServices() {
     notificationService,
     notificationHandler,
     authService,
+    openAIService,
   };
 }
 
 // Initialize all services async
 const services = await initializeServices();
+
+// Create geocoding service for context
+const geocodingService = createGoogleGeocodingService(services.openAIService);
 
 app.use("*", async (c, next) => {
   c.set("eventService", services.eventService);
@@ -322,6 +361,7 @@ app.use("*", async (c, next) => {
   c.set("friendshipService", services.friendshipService);
   c.set("notificationService", services.notificationService);
   c.set("authService", services.authService);
+  c.set("geocodingService", geocodingService);
   await next();
 });
 

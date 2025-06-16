@@ -26,7 +26,7 @@ notificationsRouter.use("*", authMiddleware);
 notificationsRouter.post("/read/all", async (c) => {
   const notificationService = c.get("notificationService");
   const user = c.get("user");
-  if (!user) {
+  if (!user || !user.userId) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
@@ -38,7 +38,7 @@ notificationsRouter.post("/read/all", async (c) => {
 notificationsRouter.get("/", async (c) => {
   const notificationService = c.get("notificationService");
   const user = c.get("user");
-  if (!user) {
+  if (!user || !user.userId) {
     return c.json({ error: "Unauthorized" }, 401);
   }
   const { skip, take, read, type } = c.req.query();
@@ -73,19 +73,21 @@ notificationsRouter.get("/", async (c) => {
 notificationsRouter.get("/unread/count", async (c) => {
   const notificationService = c.get("notificationService");
   const user = c.get("user");
-  if (!user) {
+  if (!user || !user.userId) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  const count = await notificationService.getUnreadCount(user.userId);
-  return c.json({ count });
+  const result = await notificationService.getUserNotifications(user.userId, {
+    read: false,
+  });
+  return c.json({ count: result.total });
 });
 
 // Mark a notification as read
 notificationsRouter.post("/:id/read", async (c) => {
   const notificationService = c.get("notificationService");
   const user = c.get("user");
-  if (!user) {
+  if (!user || !user.userId) {
     return c.json({ error: "Unauthorized" }, 401);
   }
   const notificationId = c.req.param("id");
@@ -98,7 +100,7 @@ notificationsRouter.post("/:id/read", async (c) => {
 notificationsRouter.delete("/:id", async (c) => {
   const notificationService = c.get("notificationService");
   const user = c.get("user");
-  if (!user) {
+  if (!user || !user.userId) {
     return c.json({ error: "Unauthorized" }, 401);
   }
   const notificationId = c.req.param("id");
@@ -111,7 +113,7 @@ notificationsRouter.delete("/:id", async (c) => {
 notificationsRouter.delete("/", async (c) => {
   const notificationService = c.get("notificationService");
   const user = c.get("user");
-  if (!user) {
+  if (!user || !user.userId) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 

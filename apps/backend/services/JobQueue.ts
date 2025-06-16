@@ -2,7 +2,7 @@
 import { Redis } from "ioredis";
 import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
-import { RedisService } from "./shared/RedisService";
+import type { RedisService } from "./shared/RedisService";
 
 export interface JobData {
   id: string;
@@ -62,12 +62,13 @@ export interface PrivateEventJobData {
   };
 }
 
-export class JobQueue {
-  private redisService: RedisService;
+// Define dependencies interface for cleaner constructor
+export interface JobQueueDependencies {
+  redisService: RedisService;
+}
 
-  constructor(redis: Redis) {
-    this.redisService = RedisService.getInstance(redis);
-  }
+export class JobQueue {
+  constructor(private dependencies: JobQueueDependencies) {}
 
   /**
    * Static utility method to sort jobs chronologically (newest first)
@@ -141,20 +142,24 @@ export class JobQueue {
     };
 
     // Store job metadata in Redis
-    await this.redisService.set(`job:${jobId}`, jobData);
+    await this.dependencies.redisService.set(`job:${jobId}`, jobData);
 
     // If buffer data is provided, store separately
     if (options.bufferData) {
       // Convert Buffer to array of numbers for storage
       const bufferArray = Array.from(options.bufferData);
-      await this.redisService.set(`job:${jobId}:buffer`, { data: bufferArray });
+      await this.dependencies.redisService.set(`job:${jobId}:buffer`, {
+        data: bufferArray,
+      });
     }
 
     // Add to processing queue
-    await this.redisService.getClient().rpush("jobs:pending", jobId);
+    await this.dependencies.redisService
+      .getClient()
+      .rpush("jobs:pending", jobId);
 
     // Publish notification
-    await this.redisService.publish("job_created", {
+    await this.dependencies.redisService.publish("job_created", {
       type: "JOB_CREATED",
       data: { jobId, jobType, timestamp: new Date().toISOString() },
     });
@@ -166,7 +171,7 @@ export class JobQueue {
    * Get job status
    */
   async getJobStatus(jobId: string): Promise<JobData | null> {
-    return this.redisService.get<JobData>(`job:${jobId}`);
+    return this.dependencies.redisService.get<JobData>(`job:${jobId}`);
   }
 
   // Add to JobQueue.ts
@@ -198,7 +203,7 @@ export class JobQueue {
       timestamp: updatedJob.updated,
     });
 
-    await this.redisService.set(`job:${jobId}`, updatedJob);
+    await this.dependencies.redisService.set(`job:${jobId}`, updatedJob);
 
     const updateMessage = {
       id: jobId,
@@ -212,7 +217,7 @@ export class JobQueue {
     );
 
     // Publish to job-specific channel
-    const publishResult = await this.redisService.publish(
+    const publishResult = await this.dependencies.redisService.publish(
       `job:${jobId}:updates`,
       {
         type: "JOB_UPDATE",
@@ -225,7 +230,7 @@ export class JobQueue {
     );
 
     // Also publish to general job updates channel for WebSocket
-    await this.redisService.publish("job_updates", {
+    await this.dependencies.redisService.publish("job_updates", {
       type: "JOB_UPDATE",
       data: updateMessage,
     });
@@ -310,13 +315,15 @@ export class JobQueue {
     };
 
     // Store the job data
-    await this.redisService.set(`job:${jobId}`, jobData);
+    await this.dependencies.redisService.set(`job:${jobId}`, jobData);
 
     // Add to pending jobs queue
-    await this.redisService.getClient().lpush("jobs:pending", jobId);
+    await this.dependencies.redisService
+      .getClient()
+      .lpush("jobs:pending", jobId);
 
     // Publish notification
-    await this.redisService.publish("job_created", {
+    await this.dependencies.redisService.publish("job_created", {
       type: "JOB_CREATED",
       data: {
         jobId,
@@ -333,7 +340,7 @@ export class JobQueue {
    * Note: This should be used sparingly and only when absolutely necessary
    */
   getRedisClient(): Redis {
-    return this.redisService.getClient();
+    return this.dependencies.redisService.getClient();
   }
 
   /**
@@ -341,7 +348,7 @@ export class JobQueue {
    */
   async getUserJobs(userId: string, limit?: number): Promise<JobData[]> {
     const pattern = "job:*";
-    const keys = await this.redisService.getClient().keys(pattern);
+    const keys = await this.dependencies.redisService.getClient().keys(pattern);
     const jobs: JobData[] = [];
 
     console.log(
@@ -349,7 +356,7 @@ export class JobQueue {
     );
 
     for (const key of keys) {
-      const jobData = await this.redisService.get<JobData>(key);
+      const jobData = await this.dependencies.redisService.get<JobData>(key);
       if (jobData && jobData.data.creatorId === userId) {
         // Extract job ID from Redis key (format: "job:jobId")
         const jobId = key.replace("job:", "");
@@ -392,11 +399,11 @@ export class JobQueue {
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
     const pattern = "job:*";
-    const keys = await this.redisService.getClient().keys(pattern);
+    const keys = await this.dependencies.redisService.getClient().keys(pattern);
     let deletedCount = 0;
 
     for (const key of keys) {
-      const jobData = await this.redisService.get<JobData>(key);
+      const jobData = await this.dependencies.redisService.get<JobData>(key);
       if (
         jobData &&
         (jobData.status === "completed" || jobData.status === "failed") &&
@@ -404,8 +411,8 @@ export class JobQueue {
       ) {
         // Delete job data and buffer
         await Promise.all([
-          this.redisService.getClient().del(key),
-          this.redisService.getClient().del(`${key}:buffer`),
+          this.dependencies.redisService.getClient().del(key),
+          this.dependencies.redisService.getClient().del(`${key}:buffer`),
         ]);
         deletedCount++;
       }
@@ -416,7 +423,7 @@ export class JobQueue {
 
   private async publishToWebSocket(jobUpdate: Partial<JobData>): Promise<void> {
     // Publish to job-specific WebSocket channel
-    await this.redisService.publish("websocket:job_updates", {
+    await this.dependencies.redisService.publish("websocket:job_updates", {
       type: "JOB_PROGRESS_UPDATE",
       data: {
         jobId: jobUpdate.id,
@@ -430,4 +437,11 @@ export class JobQueue {
       },
     });
   }
+}
+
+/**
+ * Factory function to create a JobQueue instance
+ */
+export function createJobQueue(dependencies: JobQueueDependencies): JobQueue {
+  return new JobQueue(dependencies);
 }

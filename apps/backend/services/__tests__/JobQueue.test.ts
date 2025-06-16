@@ -1,4 +1,4 @@
-import { JobQueue, type JobData } from "./JobQueue";
+import { JobQueue, type JobData } from "../JobQueue";
 
 describe("JobQueue.sortJobsChronologically", () => {
   it("should sort jobs by most recent activity first", () => {

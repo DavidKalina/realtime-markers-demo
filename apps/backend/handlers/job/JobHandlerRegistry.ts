@@ -2,10 +2,10 @@ import type { JobHandler, JobHandlerContext } from "./BaseJobHandler";
 import { ProcessFlyerHandler } from "./ProcessFlyerHandler";
 import { ProcessPrivateEventHandler } from "./ProcessPrivateEventHandler";
 import { CleanupEventsHandler } from "./CleanupEventsHandler";
-import { EventProcessingService } from "../../services/EventProcessingService";
-import { EventService } from "../../services/EventService";
-import { JobQueue } from "../../services/JobQueue";
-import { RedisService } from "../../services/shared/RedisService";
+import type { EventProcessingService } from "../../services/EventProcessingService";
+import type { EventService } from "../../services/EventServiceRefactored";
+import type { JobQueue } from "../../services/JobQueue";
+import type { RedisService } from "../../services/shared/RedisService";
 import { PlanService } from "../../services/PlanService";
 import { StorageService } from "../../services/shared/StorageService";
 

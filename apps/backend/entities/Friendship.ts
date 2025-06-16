@@ -8,6 +8,7 @@ import {
   JoinColumn,
   Index,
 } from "typeorm";
+import type { Relation } from "typeorm";
 import { User } from "./User";
 
 export enum FriendshipStatus {
@@ -37,11 +38,11 @@ export class Friendship {
 
   @ManyToOne(() => User, { onDelete: "CASCADE" })
   @JoinColumn({ name: "requester_id" })
-  requester!: User;
+  requester!: Relation<User>;
 
   @ManyToOne(() => User, { onDelete: "CASCADE" })
   @JoinColumn({ name: "addressee_id" })
-  addressee!: User;
+  addressee!: Relation<User>;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

@@ -8,6 +8,7 @@ import {
   JoinColumn,
   Index,
 } from "typeorm";
+import type { Relation } from "typeorm";
 import { User } from "./User";
 import { Event } from "./Event";
 
@@ -28,15 +29,15 @@ export class EventShare {
 
   @ManyToOne(() => Event, { onDelete: "CASCADE" })
   @JoinColumn({ name: "event_id" })
-  event!: Event;
+  event!: Relation<Event>;
 
   @ManyToOne(() => User, { onDelete: "CASCADE" })
   @JoinColumn({ name: "shared_with_id" })
-  sharedWith!: User;
+  sharedWith!: Relation<User>;
 
   @ManyToOne(() => User, { onDelete: "CASCADE" })
   @JoinColumn({ name: "shared_by_id" })
-  sharedBy!: User;
+  sharedBy!: Relation<User>;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

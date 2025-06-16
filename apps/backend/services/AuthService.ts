@@ -4,12 +4,13 @@ import bcrypt from "bcrypt";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { Repository } from "typeorm";
 import { User } from "../entities/User";
-import { UserPreferencesService } from "./UserPreferences";
+import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import { addDays, format } from "date-fns";
 import { LevelingService } from "./LevelingService";
-import { FriendshipService } from "./FriendshipService";
+import { createFriendshipService } from "./FriendshipService";
 import { DataSource } from "typeorm";
-import { OpenAIService, OpenAIModel } from "./shared/OpenAIService";
+import { OpenAIModel, type OpenAIService } from "./shared/OpenAIService";
+import { createFriendshipCacheService } from "./shared/FriendshipCacheService";
 
 export interface UserRegistrationData {
   email: string;
@@ -22,26 +23,31 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
+export interface AuthServiceDependencies {
+  userRepository: Repository<User>;
+  userPreferencesService: UserPreferencesServiceImpl;
+  levelingService: LevelingService;
+  dataSource: DataSource;
+  openAIService: OpenAIService;
+}
+
 export class AuthService {
   private userRepository: Repository<User>;
   private jwtSecret: string;
   private refreshSecret: string;
   private accessTokenExpiry: SignOptions["expiresIn"];
   private refreshTokenExpiry: SignOptions["expiresIn"];
-  private userPreferencesService: UserPreferencesService;
+  private userPreferencesService: UserPreferencesServiceImpl;
   private levelingService: LevelingService;
   private dataSource: DataSource;
+  private openAIService: OpenAIService;
 
-  constructor(
-    userRepository: Repository<User>,
-    userPreferencesService: UserPreferencesService,
-    levelingService: LevelingService,
-    dataSource: DataSource,
-  ) {
-    this.userRepository = userRepository;
-    this.userPreferencesService = userPreferencesService;
-    this.levelingService = levelingService;
-    this.dataSource = dataSource;
+  constructor(private dependencies: AuthServiceDependencies) {
+    this.userRepository = dependencies.userRepository;
+    this.userPreferencesService = dependencies.userPreferencesService;
+    this.levelingService = dependencies.levelingService;
+    this.dataSource = dependencies.dataSource;
+    this.openAIService = dependencies.openAIService;
     this.jwtSecret = process.env.JWT_SECRET!;
     if (!this.jwtSecret) {
       throw new Error("JWT_SECRET environment variable must be set");
@@ -74,7 +80,7 @@ Respond with a JSON object containing:
   "reason": string
 }`;
 
-      const response = await OpenAIService.executeChatCompletion({
+      const response = await this.openAIService.executeChatCompletion({
         model: OpenAIModel.GPT4OMini,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.1,
@@ -388,7 +394,10 @@ Respond with a JSON object containing:
 
     // Generate a friend code if the user doesn't have one
     if (!user.friendCode) {
-      const friendshipService = new FriendshipService(this.dataSource);
+      const friendshipService = createFriendshipService({
+        dataSource: this.dataSource,
+        friendshipCacheService: createFriendshipCacheService(),
+      });
       user.friendCode = await friendshipService.generateFriendCode(userId);
       await this.userRepository.save(user);
     }
@@ -505,4 +514,10 @@ Respond with a JSON object containing:
     await this.userRepository.delete(userId);
     return true;
   }
+}
+
+export function createAuthService(
+  dependencies: AuthServiceDependencies,
+): AuthService {
+  return new AuthService(dependencies);
 }

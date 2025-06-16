@@ -9,6 +9,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
+import type { Relation } from "typeorm";
 import { Event } from "./Event";
 import { Friendship } from "./Friendship";
 import { UserEventDiscovery } from "./UserEventDiscovery";
@@ -112,26 +113,26 @@ export class User {
   }[];
 
   @OneToMany(() => UserLevel, (userLevel) => userLevel.user)
-  userLevels!: UserLevel[];
+  userLevels!: Relation<UserLevel>[];
 
   @OneToMany(() => UserEventDiscovery, (discovery) => discovery.user)
-  discoveries!: UserEventDiscovery[];
+  discoveries!: Relation<UserEventDiscovery>[];
 
   @OneToMany(() => Event, (event) => event.creator)
-  createdEvents!: Event[];
+  createdEvents!: Relation<Event>[];
 
   @OneToMany(() => UserEventSave, (save) => save.user)
-  savedEvents!: UserEventSave[];
+  savedEvents!: Relation<UserEventSave>[];
 
   @OneToMany(() => UserEventRsvp, (rsvp) => rsvp.user)
-  rsvps!: UserEventRsvp[];
+  rsvps!: Relation<UserEventRsvp>[];
 
   // Friendship relationships
   @OneToMany(() => Friendship, (friendship) => friendship.requester)
-  sentFriendRequests!: Friendship[];
+  sentFriendRequests!: Relation<Friendship>[];
 
   @OneToMany(() => Friendship, (friendship) => friendship.addressee)
-  receivedFriendRequests!: Friendship[];
+  receivedFriendRequests!: Relation<Friendship>[];
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

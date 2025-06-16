@@ -10,6 +10,7 @@ import {
   Unique,
   Index,
 } from "typeorm";
+import type { Relation } from "typeorm";
 import { User } from "./User";
 import { Event } from "./Event";
 
@@ -28,11 +29,11 @@ export class UserEventSave {
 
   @ManyToOne(() => User, (user) => user.savedEvents, { onDelete: "CASCADE" })
   @JoinColumn({ name: "user_id" })
-  user!: User;
+  user!: Relation<User>;
 
   @ManyToOne(() => Event, (event) => event.saves, { onDelete: "CASCADE" })
   @JoinColumn({ name: "event_id" })
-  event!: Event;
+  event!: Relation<Event>;
 
   @Index(["userId", "savedAt"])
   @CreateDateColumn({ name: "saved_at", type: "timestamptz" })

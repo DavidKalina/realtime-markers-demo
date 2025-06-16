@@ -5,17 +5,15 @@ interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds
 }
 
+export interface RateLimitServiceDependencies {
+  redisClient?: Redis;
+}
+
 export class RateLimitService {
-  private static instance: RateLimitService;
   private redisClient: Redis | null = null;
 
-  private constructor() {}
-
-  public static getInstance(): RateLimitService {
-    if (!RateLimitService.instance) {
-      RateLimitService.instance = new RateLimitService();
-    }
-    return RateLimitService.instance;
+  constructor(private dependencies: RateLimitServiceDependencies) {
+    this.redisClient = dependencies.redisClient || null;
   }
 
   public initRedis(options: { host: string; port: number; password?: string }) {
@@ -63,4 +61,10 @@ export class RateLimitService {
       resetTime: (Math.floor(now / config.windowMs) + 1) * config.windowMs,
     };
   }
+}
+
+export function createRateLimitService(
+  dependencies: RateLimitServiceDependencies = {},
+): RateLimitService {
+  return new RateLimitService(dependencies);
 }

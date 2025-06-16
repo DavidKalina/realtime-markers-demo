@@ -2,20 +2,28 @@ import { DataSource, Repository } from "typeorm";
 import { User } from "../entities/User";
 import { Level } from "../entities/Level";
 import { UserLevel } from "../entities/UserLevel";
-import { RedisService } from "./shared/RedisService";
-import { LevelingCacheService } from "./shared/LevelingCacheService";
+import type { LevelingCacheService } from "./shared/LevelingCacheService";
+import type { RedisService } from "./shared/RedisService";
+
+export interface LevelingServiceDependencies {
+  dataSource: DataSource;
+  redisService: RedisService;
+  levelingCacheService: LevelingCacheService;
+}
 
 export class LevelingService {
   private userRepository: Repository<User>;
   private levelRepository: Repository<Level>;
   private userLevelRepository: Repository<UserLevel>;
   private redisService: RedisService;
+  private levelingCacheService: LevelingCacheService;
 
-  constructor(dataSource: DataSource, redisService: RedisService) {
-    this.userRepository = dataSource.getRepository(User);
-    this.levelRepository = dataSource.getRepository(Level);
-    this.userLevelRepository = dataSource.getRepository(UserLevel);
-    this.redisService = redisService;
+  constructor(private dependencies: LevelingServiceDependencies) {
+    this.userRepository = dependencies.dataSource.getRepository(User);
+    this.levelRepository = dependencies.dataSource.getRepository(Level);
+    this.userLevelRepository = dependencies.dataSource.getRepository(UserLevel);
+    this.redisService = dependencies.redisService;
+    this.levelingCacheService = dependencies.levelingCacheService;
   }
 
   /**
@@ -23,7 +31,7 @@ export class LevelingService {
    */
   private async getAllLevels(): Promise<Level[]> {
     // Try to get from cache first
-    const cachedLevels = await LevelingCacheService.getLevels();
+    const cachedLevels = await this.levelingCacheService.getLevels();
     if (cachedLevels) {
       return cachedLevels;
     }
@@ -38,7 +46,7 @@ export class LevelingService {
     }
 
     // Cache the levels
-    await LevelingCacheService.setLevels(levels);
+    await this.levelingCacheService.setLevels(levels);
 
     return levels;
   }
@@ -55,7 +63,7 @@ export class LevelingService {
     await this.userRepository.save(user);
 
     // Update XP cache
-    await LevelingCacheService.setUserXp(userId, user.totalXp);
+    await this.levelingCacheService.setUserXp(userId, user.totalXp);
 
     // Get current level before XP award
     const oldLevel = await this.getCurrentLevel(userId);
@@ -81,7 +89,7 @@ export class LevelingService {
       });
 
       // Invalidate user's level info cache
-      await LevelingCacheService.invalidateUserCaches(userId);
+      await this.levelingCacheService.invalidateUserCaches(userId);
     }
 
     // Publish XP award event
@@ -165,7 +173,7 @@ export class LevelingService {
     progress: number;
   }> {
     // Try to get from cache first
-    const cachedInfo = await LevelingCacheService.getUserLevelInfo(userId);
+    const cachedInfo = await this.levelingCacheService.getUserLevelInfo(userId);
     if (cachedInfo) {
       return cachedInfo;
     }
@@ -208,7 +216,7 @@ export class LevelingService {
       };
 
       // Cache the level info
-      await LevelingCacheService.setUserLevelInfo(userId, levelInfo);
+      await this.levelingCacheService.setUserLevelInfo(userId, levelInfo);
 
       return levelInfo;
     } catch (error) {
@@ -296,7 +304,7 @@ export class LevelingService {
 
     await this.userRepository.save(user);
     // Invalidate user caches after applying rewards
-    await LevelingCacheService.invalidateUserCaches(userId);
+    await this.levelingCacheService.invalidateUserCaches(userId);
   }
 
   /**
@@ -328,7 +336,7 @@ export class LevelingService {
     await this.userLevelRepository.save(userLevel);
 
     // Invalidate all user caches
-    await LevelingCacheService.invalidateUserCaches(userId);
+    await this.levelingCacheService.invalidateUserCaches(userId);
 
     // Publish reset event
     await this.redisService.publish("level-update", {
@@ -342,4 +350,10 @@ export class LevelingService {
       },
     });
   }
+}
+
+export function createLevelingService(
+  dependencies: LevelingServiceDependencies,
+): LevelingService {
+  return new LevelingService(dependencies);
 }

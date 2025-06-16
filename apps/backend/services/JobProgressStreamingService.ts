@@ -1,6 +1,6 @@
 import { Redis } from "ioredis";
 import { JobQueue, type JobData } from "./JobQueue";
-import { RedisService } from "./shared/RedisService";
+import type { RedisService } from "./shared/RedisService";
 
 export interface JobProgressStep {
   id: string;
@@ -27,16 +27,16 @@ export interface JobProgressContext {
   result?: JobData["result"];
 }
 
+// Define dependencies interface for cleaner constructor
+export interface JobProgressStreamingServiceDependencies {
+  redisService: RedisService;
+  jobQueue: JobQueue;
+}
+
 export class JobProgressStreamingService {
-  private static instance: JobProgressStreamingService;
-  private redisService: RedisService;
-  private jobQueue: JobQueue;
   private redisSubscriber: Redis;
 
-  private constructor(redis: Redis, jobQueue: JobQueue) {
-    this.redisService = RedisService.getInstance(redis);
-    this.jobQueue = jobQueue;
-
+  constructor(private dependencies: JobProgressStreamingServiceDependencies) {
     // Create a dedicated Redis subscriber for job updates
     this.redisSubscriber = new Redis({
       host: process.env.REDIS_HOST || "redis",
@@ -45,19 +45,6 @@ export class JobProgressStreamingService {
     });
 
     this.setupSubscriptions();
-  }
-
-  public static getInstance(
-    redis: Redis,
-    jobQueue: JobQueue,
-  ): JobProgressStreamingService {
-    if (!JobProgressStreamingService.instance) {
-      JobProgressStreamingService.instance = new JobProgressStreamingService(
-        redis,
-        jobQueue,
-      );
-    }
-    return JobProgressStreamingService.instance;
   }
 
   private setupSubscriptions(): void {
@@ -145,11 +132,11 @@ export class JobProgressStreamingService {
   ): Promise<void> {
     const contextKey = `job:${jobId}:progress`;
     const existingContext =
-      await this.redisService.get<JobProgressContext>(contextKey);
+      await this.dependencies.redisService.get<JobProgressContext>(contextKey);
 
     if (!existingContext) {
       // Create new context if it doesn't exist
-      const jobData = await this.jobQueue.getJobStatus(jobId);
+      const jobData = await this.dependencies.jobQueue.getJobStatus(jobId);
       if (!jobData) return;
 
       const newContext: JobProgressContext = {
@@ -165,7 +152,7 @@ export class JobProgressStreamingService {
         result: update.result,
       };
 
-      await this.redisService.set(contextKey, newContext);
+      await this.dependencies.redisService.set(contextKey, newContext);
     } else {
       // Update existing context
       const updatedContext: JobProgressContext = {
@@ -195,7 +182,7 @@ export class JobProgressStreamingService {
         }
       }
 
-      await this.redisService.set(contextKey, updatedContext);
+      await this.dependencies.redisService.set(contextKey, updatedContext);
     }
   }
 
@@ -210,7 +197,7 @@ export class JobProgressStreamingService {
     }
 
     // Publish to job-specific WebSocket channel
-    await this.redisService.publish("websocket:job_updates", {
+    await this.dependencies.redisService.publish("websocket:job_updates", {
       type: "JOB_PROGRESS_UPDATE",
       data: {
         jobId: jobUpdate.id,
@@ -385,7 +372,9 @@ export class JobProgressStreamingService {
     jobId: string,
   ): Promise<JobProgressContext | null> {
     const contextKey = `job:${jobId}:progress`;
-    return await this.redisService.get<JobProgressContext>(contextKey);
+    return await this.dependencies.redisService.get<JobProgressContext>(
+      contextKey,
+    );
   }
 
   /**
@@ -395,7 +384,7 @@ export class JobProgressStreamingService {
     userId: string,
     limit?: number,
   ): Promise<(JobData & { progressContext?: JobProgressContext })[]> {
-    const jobs = await this.jobQueue.getUserJobs(userId, limit);
+    const jobs = await this.dependencies.jobQueue.getUserJobs(userId, limit);
     const jobsWithProgress = await Promise.all(
       jobs.map(async (job) => {
         const progressContext = await this.getJobProgressContext(job.id);
@@ -419,13 +408,14 @@ export class JobProgressStreamingService {
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
     const pattern = "job:*:progress";
-    const keys = await this.redisService.getClient().keys(pattern);
+    const keys = await this.dependencies.redisService.getClient().keys(pattern);
     let deletedCount = 0;
 
     for (const key of keys) {
-      const context = await this.redisService.get<JobProgressContext>(key);
+      const context =
+        await this.dependencies.redisService.get<JobProgressContext>(key);
       if (context && new Date(context.startedAt) < cutoffDate) {
-        await this.redisService.getClient().del(key);
+        await this.dependencies.redisService.getClient().del(key);
         deletedCount++;
       }
     }
@@ -439,4 +429,13 @@ export class JobProgressStreamingService {
   async close(): Promise<void> {
     await this.redisSubscriber.quit();
   }
+}
+
+/**
+ * Factory function to create a JobProgressStreamingService instance
+ */
+export function createJobProgressStreamingService(
+  dependencies: JobProgressStreamingServiceDependencies,
+): JobProgressStreamingService {
+  return new JobProgressStreamingService(dependencies);
 }

@@ -9,6 +9,7 @@ import {
   JoinColumn,
   Index,
 } from "typeorm";
+import type { Relation } from "typeorm";
 import { User } from "./User";
 import { Event } from "./Event";
 
@@ -27,11 +28,11 @@ export class UserEventDiscovery {
 
   @ManyToOne(() => User, (user) => user.discoveries, { onDelete: "CASCADE" })
   @JoinColumn({ name: "user_id" })
-  user!: User;
+  user!: Relation<User>;
 
   @ManyToOne(() => Event, (event) => event.discoveries, { onDelete: "CASCADE" })
   @JoinColumn({ name: "event_id" })
-  event!: Event;
+  event!: Relation<Event>;
 
   @Index()
   @CreateDateColumn({ name: "discovered_at", type: "timestamptz" })

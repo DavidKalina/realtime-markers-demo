@@ -1,5 +1,4 @@
 import { type Point } from "geojson";
-import { Redis } from "ioredis";
 import pgvector from "pgvector";
 import {
   Brackets,
@@ -22,12 +21,13 @@ import { UserEventSave } from "../entities/UserEventSave";
 import { UserEventRsvp, RsvpStatus } from "../entities/UserEventRsvp";
 import { EventSimilarityService } from "./event-processing/EventSimilarityService";
 import { LevelingService } from "./LevelingService";
-import { EventCacheService } from "./shared/EventCacheService";
-import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
-import { OpenAIModel, OpenAIService } from "./shared/OpenAIService";
+import type { EventCacheService } from "./shared/EventCacheService";
+import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
+import type { OpenAIService } from "./shared/OpenAIService";
+import { OpenAIModel } from "./shared/OpenAIService";
 import { Friendship } from "../entities/Friendship";
 import { EventShare } from "../entities/EventShare";
-import { RedisService } from "./shared/RedisService";
+import type { RedisService } from "./shared/RedisService";
 
 interface SearchResult {
   event: Event;
@@ -63,7 +63,161 @@ interface CreateEventInput {
   recurrenceInterval?: number;
 }
 
-export class EventService {
+export interface EventService {
+  cleanupOutdatedEvents(batchSize?: number): Promise<{
+    deletedEvents: Event[];
+    deletedCount: number;
+    hasMore: boolean;
+  }>;
+
+  getEvents(options?: {
+    limit?: number;
+    offset?: number;
+    userId?: string;
+  }): Promise<Event[]>;
+
+  getEventById(id: string): Promise<Event | null>;
+
+  getNearbyEvents(
+    lat: number,
+    lng: number,
+    radius?: number,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<Event[]>;
+
+  storeDetectedQRCode(
+    eventId: string,
+    qrCodeData: string,
+  ): Promise<Event | null>;
+
+  createEvent(input: CreateEventInput): Promise<Event>;
+
+  shareEventWithUsers(
+    eventId: string,
+    sharedById: string,
+    sharedWithIds: string[],
+  ): Promise<void>;
+
+  removeEventShares(eventId: string, sharedWithIds: string[]): Promise<void>;
+
+  getEventSharedWithUsers(eventId: string): Promise<string[]>;
+
+  hasEventAccess(eventId: string, userId: string): Promise<boolean>;
+
+  updateEvent(
+    id: string,
+    eventData: Partial<CreateEventInput>,
+  ): Promise<Event | null>;
+
+  searchEvents(
+    query: string,
+    limit?: number,
+    cursor?: string,
+  ): Promise<{ results: SearchResult[]; nextCursor?: string }>;
+
+  deleteEvent(id: string): Promise<boolean>;
+
+  updateEventStatus(id: string, status: EventStatus): Promise<Event | null>;
+
+  getEventsByCategories(
+    categoryIds: string[],
+    options?: {
+      startDate?: Date;
+      endDate?: Date;
+      limit?: number;
+      offset?: number;
+    },
+  ): Promise<{ events: Event[]; total: number; hasMore: boolean }>;
+
+  getAllCategories(): Promise<Category[]>;
+
+  toggleSaveEvent(
+    userId: string,
+    eventId: string,
+  ): Promise<{ saved: boolean; saveCount: number }>;
+
+  isEventSavedByUser(userId: string, eventId: string): Promise<boolean>;
+
+  getSavedEventsByUser(
+    userId: string,
+    options?: { limit?: number; cursor?: string },
+  ): Promise<{ events: Event[]; nextCursor?: string }>;
+
+  searchEventsByFilter(
+    filter: Filter,
+    options?: { limit?: number; offset?: number },
+  ): Promise<{ events: Event[]; total: number; hasMore: boolean }>;
+
+  getDiscoveredEventsByUser(
+    userId: string,
+    options?: { limit?: number; cursor?: string },
+  ): Promise<{ events: Event[]; nextCursor?: string }>;
+
+  createDiscoveryRecord(userId: string, eventId: string): Promise<void>;
+
+  getClusterHubData(markerIds: string[]): Promise<{
+    featuredEvent: Event | null;
+    eventsByCategory: { category: Category; events: Event[] }[];
+    eventsByLocation: { location: string; events: Event[] }[];
+    eventsToday: Event[];
+    clusterName: string;
+    clusterDescription: string;
+    clusterEmoji: string;
+    featuredCreator?: {
+      id: string;
+      displayName: string;
+      email: string;
+      eventCount: number;
+      creatorDescription: string;
+      title: string;
+      friendCode: string;
+    };
+  }>;
+
+  getFriendsSavedEvents(
+    userId: string,
+    options?: { limit?: number; cursor?: string },
+  ): Promise<{ events: Event[]; nextCursor?: string }>;
+
+  getEventShares(
+    eventId: string,
+  ): Promise<{ sharedWithId: string; sharedById: string }[]>;
+
+  toggleRsvpEvent(
+    userId: string,
+    eventId: string,
+    status: RsvpStatus,
+  ): Promise<{
+    status: RsvpStatus;
+    goingCount: number;
+    notGoingCount: number;
+  }>;
+
+  getUserRsvpStatus(
+    userId: string,
+    eventId: string,
+  ): Promise<UserEventRsvp | null>;
+
+  getEventsByCategory(
+    categoryId: string,
+    options?: { limit?: number; cursor?: string },
+  ): Promise<{ events: Event[]; nextCursor?: string }>;
+
+  recalculateCounts(): Promise<{ eventsUpdated: number; usersUpdated: number }>;
+}
+
+// Define dependencies interface for cleaner constructor
+export interface EventServiceDependencies {
+  dataSource: DataSource;
+  redisService: RedisService;
+  locationService: GoogleGeocodingService;
+  eventCacheService: EventCacheService;
+  openaiService: OpenAIService;
+  levelingService: LevelingService;
+}
+
+export class EventServiceImpl implements EventService {
   private eventRepository: Repository<Event>;
   private categoryRepository: Repository<Category>;
   private userEventSaveRepository: Repository<UserEventSave>;
@@ -73,23 +227,26 @@ export class EventService {
   private eventSimilarityService: EventSimilarityService;
   private levelingService: LevelingService;
   private redisService: RedisService;
+  private eventCacheService: EventCacheService;
+  private openaiService: OpenAIService;
 
-  constructor(
-    private dataSource: DataSource,
-    redis: Redis | RedisService,
-  ) {
-    this.eventRepository = dataSource.getRepository(Event);
-    this.categoryRepository = dataSource.getRepository(Category);
-    this.userEventSaveRepository = dataSource.getRepository(UserEventSave);
-    this.userEventRsvpRepository = dataSource.getRepository(UserEventRsvp);
-    this.eventShareRepository = dataSource.getRepository(EventShare);
-    this.locationService = GoogleGeocodingService.getInstance();
+  constructor(private dependencies: EventServiceDependencies) {
+    this.eventRepository = dependencies.dataSource.getRepository(Event);
+    this.categoryRepository = dependencies.dataSource.getRepository(Category);
+    this.userEventSaveRepository =
+      dependencies.dataSource.getRepository(UserEventSave);
+    this.userEventRsvpRepository =
+      dependencies.dataSource.getRepository(UserEventRsvp);
+    this.eventShareRepository =
+      dependencies.dataSource.getRepository(EventShare);
+    this.locationService = dependencies.locationService;
     this.eventSimilarityService = new EventSimilarityService(
       this.eventRepository,
     );
-    this.redisService =
-      redis instanceof RedisService ? redis : RedisService.getInstance(redis);
-    this.levelingService = new LevelingService(dataSource, this.redisService);
+    this.redisService = dependencies.redisService;
+    this.levelingService = dependencies.levelingService;
+    this.eventCacheService = dependencies.eventCacheService;
+    this.openaiService = dependencies.openaiService;
   }
 
   async cleanupOutdatedEvents(batchSize = 100): Promise<{
@@ -184,7 +341,7 @@ export class EventService {
   async getEventById(id: string): Promise<Event | null> {
     try {
       // Try to get from cache first
-      const cachedEvent = await EventCacheService.getEvent(id);
+      const cachedEvent = await this.eventCacheService.getEvent(id);
       if (cachedEvent) {
         return cachedEvent;
       }
@@ -197,7 +354,7 @@ export class EventService {
 
       // If found, cache it with a shorter TTL for frequently accessed events
       if (evt) {
-        await EventCacheService.setEvent(evt, 300); // 5 minutes TTL
+        await this.eventCacheService.setEvent(evt, 300); // 5 minutes TTL
       }
 
       return evt;
@@ -254,7 +411,7 @@ export class EventService {
       const updatedEvent = await this.eventRepository.save(event);
 
       // Invalidate the cache for this event
-      await EventCacheService.invalidateEvent(eventId);
+      await this.eventCacheService.invalidateEvent(eventId);
 
       return updatedEvent;
     } catch (error) {
@@ -340,7 +497,7 @@ export class EventService {
     // Award XP for creating an event
     await this.levelingService.awardXp(input.creatorId, 30);
 
-    await EventCacheService.invalidateSearchCache();
+    await this.eventCacheService.invalidateSearchCache();
 
     return savedEvent;
   }
@@ -381,30 +538,32 @@ export class EventService {
     }));
 
     // Use a transaction to ensure all shares are created or none
-    await this.dataSource.transaction(async (transactionalEntityManager) => {
-      // First verify the event exists
-      const event = await transactionalEntityManager.findOne(Event, {
-        where: { id: eventId },
-      });
+    await this.dependencies.dataSource.transaction(
+      async (transactionalEntityManager) => {
+        // First verify the event exists
+        const event = await transactionalEntityManager.findOne(Event, {
+          where: { id: eventId },
+        });
 
-      if (!event) {
-        throw new Error(`Event with ID ${eventId} not found`);
-      }
+        if (!event) {
+          throw new Error(`Event with ID ${eventId} not found`);
+        }
 
-      // Then create the shares
-      const result = await transactionalEntityManager
-        .createQueryBuilder()
-        .insert()
-        .into(EventShare)
-        .values(shares)
-        .orIgnore() // Ignore if share already exists
-        .execute();
+        // Then create the shares
+        const result = await transactionalEntityManager
+          .createQueryBuilder()
+          .insert()
+          .into(EventShare)
+          .values(shares)
+          .orIgnore() // Ignore if share already exists
+          .execute();
 
-      console.log("Share creation result:", result);
-    });
+        console.log("Share creation result:", result);
+      },
+    );
 
     // Invalidate cache for this event
-    await EventCacheService.invalidateEvent(eventId);
+    await this.eventCacheService.invalidateEvent(eventId);
   }
 
   /**
@@ -422,7 +581,7 @@ export class EventService {
     });
 
     // Invalidate cache for this event
-    await EventCacheService.invalidateEvent(eventId);
+    await this.eventCacheService.invalidateEvent(eventId);
 
     // Get the updated event with its shares
     const event = await this.eventRepository.findOne({
@@ -607,13 +766,13 @@ export class EventService {
       }
 
       // Invalidate the cache for this event
-      await EventCacheService.invalidateEvent(savedEvent.id);
+      await this.eventCacheService.invalidateEvent(savedEvent.id);
 
       // Invalidate search cache since we updated an event
-      await EventCacheService.invalidateSearchCache();
+      await this.eventCacheService.invalidateSearchCache();
 
       // Invalidate any cluster hub caches that might contain this event
-      await EventCacheService.invalidateAllClusterHubs();
+      await this.eventCacheService.invalidateAllClusterHubs();
 
       return savedEvent;
     } catch (error) {
@@ -635,7 +794,8 @@ export class EventService {
     const cacheKey = `search:${query.toLowerCase()}:${limit}:${cursor || "null"}`;
 
     // Check if we have cached results for this exact search
-    const cachedResults = await EventCacheService.getSearchResults(cacheKey);
+    const cachedResults =
+      await this.eventCacheService.getSearchResults(cacheKey);
     if (cachedResults) {
       console.log(`Cache hit for search: "${query}"`);
       return cachedResults;
@@ -653,20 +813,21 @@ export class EventService {
     ADDRESS: ${query}
     LOCATION_NOTES: ${query}
     `.trim();
-    let searchEmbedding = EventCacheService.getCachedEmbedding(normalizedQuery);
+    let searchEmbedding =
+      this.eventCacheService.getCachedEmbedding(normalizedQuery);
 
     if (!searchEmbedding) {
       // Generate new embedding if not in cache
-      const openai = OpenAIService.getInstance();
-      const embeddingResponse = await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: normalizedQuery,
-        encoding_format: "float",
-      });
-      searchEmbedding = embeddingResponse.data[0].embedding;
+      searchEmbedding =
+        await this.openaiService.generateEmbedding(normalizedQuery);
 
       // Cache the embedding
-      EventCacheService.setCachedEmbedding(normalizedQuery, searchEmbedding);
+      if (searchEmbedding) {
+        this.eventCacheService.setCachedEmbedding(
+          normalizedQuery,
+          searchEmbedding,
+        );
+      }
     }
 
     // Parse cursor if provided
@@ -823,7 +984,7 @@ export class EventService {
 
     // Store in cache
     const resultObject = { results: searchResults, nextCursor };
-    await EventCacheService.setSearchResults(cacheKey, resultObject);
+    await this.eventCacheService.setSearchResults(cacheKey, resultObject);
 
     return resultObject;
   }
@@ -833,13 +994,13 @@ export class EventService {
       const result = await this.eventRepository.delete(id);
 
       // Invalidate the cache for this event
-      await EventCacheService.invalidateEvent(id);
+      await this.eventCacheService.invalidateEvent(id);
 
       // Invalidate search cache since we deleted an event
-      await EventCacheService.invalidateSearchCache();
+      await this.eventCacheService.invalidateSearchCache();
 
       // Invalidate any cluster hub caches that might contain this event
-      await EventCacheService.invalidateAllClusterHubs();
+      await this.eventCacheService.invalidateAllClusterHubs();
 
       return result.affected ? result.affected > 0 : false;
     } catch (error) {
@@ -860,7 +1021,7 @@ export class EventService {
       const updatedEvent = await this.eventRepository.save(event);
 
       // Invalidate the cache for this event
-      await EventCacheService.invalidateEvent(id);
+      await this.eventCacheService.invalidateEvent(id);
 
       return updatedEvent;
     } catch (error) {
@@ -942,100 +1103,102 @@ export class EventService {
     saveCount: number;
   }> {
     // Start a transaction to ensure data consistency
-    return this.dataSource.transaction(async (transactionalEntityManager) => {
-      // Check if the event exists
-      const event = await transactionalEntityManager.findOne(Event, {
-        where: { id: eventId },
-        relations: [
-          "categories",
-          "creator",
-          "shares",
-          "shares.sharedWith",
-          "rsvps",
-        ],
-      });
-
-      if (!event) {
-        throw new Error("Event not found");
-      }
-
-      // Store previous values for logging
-      const previousSaveCount = event.saveCount || 0;
-      const previousScanCount = event.scanCount || 0;
-      const previousRsvpCount = event.rsvps?.length || 0;
-
-      // Get the user to update their save count
-      const user = await transactionalEntityManager.findOne(User, {
-        where: { id: userId },
-      });
-
-      if (!user) {
-        throw new Error("User not found");
-      }
-
-      // Check if a save relationship already exists
-      const existingSave = await transactionalEntityManager.findOne(
-        UserEventSave,
-        {
-          where: { userId, eventId },
-        },
-      );
-
-      let saved: boolean;
-
-      if (existingSave) {
-        // If it exists, delete it (unsave)
-        await transactionalEntityManager.remove(existingSave);
-
-        // Decrement the save count on the event
-        event.saveCount = Math.max(0, event.saveCount - 1);
-        // Decrement the user's save count
-        user.saveCount = Math.max(0, user.saveCount - 1);
-        saved = false;
-      } else {
-        // If it doesn't exist, create it (save)
-        const newSave = transactionalEntityManager.create(UserEventSave, {
-          userId,
-          eventId,
+    return this.dependencies.dataSource.transaction(
+      async (transactionalEntityManager) => {
+        // Check if the event exists
+        const event = await transactionalEntityManager.findOne(Event, {
+          where: { id: eventId },
+          relations: [
+            "categories",
+            "creator",
+            "shares",
+            "shares.sharedWith",
+            "rsvps",
+          ],
         });
 
-        await transactionalEntityManager.save(newSave);
+        if (!event) {
+          throw new Error("Event not found");
+        }
 
-        // Increment the save count on the event
-        event.saveCount = (event.saveCount || 0) + 1;
-        // Increment the user's save count
-        user.saveCount = (user.saveCount || 0) + 1;
-        saved = true;
+        // Store previous values for logging
+        const previousSaveCount = event.saveCount || 0;
+        const previousScanCount = event.scanCount || 0;
+        const previousRsvpCount = event.rsvps?.length || 0;
 
-        // Award XP for saving an event
-        await this.levelingService.awardXp(userId, 5);
-      }
+        // Get the user to update their save count
+        const user = await transactionalEntityManager.findOne(User, {
+          where: { id: userId },
+        });
 
-      // Save both the updated event and user
-      await transactionalEntityManager.save(event);
-      await transactionalEntityManager.save(user);
+        if (!user) {
+          throw new Error("User not found");
+        }
 
-      // Publish the updated event to Redis for filter processor to recalculate popularity scores
-      await this.redisService.publish("event_changes", {
-        type: "UPDATE",
-        data: {
-          operation: "UPDATE",
-          record: this.stripEventForRedis(event),
-          previousMetrics: {
-            saveCount: previousSaveCount,
-            scanCount: previousScanCount,
-            rsvpCount: previousRsvpCount,
+        // Check if a save relationship already exists
+        const existingSave = await transactionalEntityManager.findOne(
+          UserEventSave,
+          {
+            where: { userId, eventId },
           },
-          changeType: saved ? "SAVE_ADDED" : "SAVE_REMOVED",
-          userId: userId,
-        },
-      });
+        );
 
-      return {
-        saved,
-        saveCount: event.saveCount,
-      };
-    });
+        let saved: boolean;
+
+        if (existingSave) {
+          // If it exists, delete it (unsave)
+          await transactionalEntityManager.remove(existingSave);
+
+          // Decrement the save count on the event
+          event.saveCount = Math.max(0, event.saveCount - 1);
+          // Decrement the user's save count
+          user.saveCount = Math.max(0, user.saveCount - 1);
+          saved = false;
+        } else {
+          // If it doesn't exist, create it (save)
+          const newSave = transactionalEntityManager.create(UserEventSave, {
+            userId,
+            eventId,
+          });
+
+          await transactionalEntityManager.save(newSave);
+
+          // Increment the save count on the event
+          event.saveCount = (event.saveCount || 0) + 1;
+          // Increment the user's save count
+          user.saveCount = (user.saveCount || 0) + 1;
+          saved = true;
+
+          // Award XP for saving an event
+          await this.levelingService.awardXp(userId, 5);
+        }
+
+        // Save both the updated event and user
+        await transactionalEntityManager.save(event);
+        await transactionalEntityManager.save(user);
+
+        // Publish the updated event to Redis for filter processor to recalculate popularity scores
+        await this.redisService.publish("event_changes", {
+          type: "UPDATE",
+          data: {
+            operation: "UPDATE",
+            record: this.stripEventForRedis(event),
+            previousMetrics: {
+              saveCount: previousSaveCount,
+              scanCount: previousScanCount,
+              rsvpCount: previousRsvpCount,
+            },
+            changeType: saved ? "SAVE_ADDED" : "SAVE_REMOVED",
+            userId: userId,
+          },
+        });
+
+        return {
+          saved,
+          saveCount: event.saveCount,
+        };
+      },
+    );
   }
 
   /**
@@ -1078,7 +1241,7 @@ export class EventService {
     }
 
     // Build query
-    let queryBuilder = this.dataSource
+    let queryBuilder = this.dependencies.dataSource
       .getRepository(UserEventSave)
       .createQueryBuilder("save")
       .leftJoinAndSelect("save.event", "event")
@@ -1263,7 +1426,7 @@ export class EventService {
     }
 
     // Build query
-    let queryBuilder = this.dataSource
+    let queryBuilder = this.dependencies.dataSource
       .getRepository(UserEventDiscovery)
       .createQueryBuilder("discovery")
       .leftJoinAndSelect("discovery.event", "event")
@@ -1345,51 +1508,53 @@ export class EventService {
   async createDiscoveryRecord(userId: string, eventId: string): Promise<void> {
     try {
       // Start a transaction to ensure data consistency
-      await this.dataSource.transaction(async (transactionalEntityManager) => {
-        // Create the discovery record
-        await transactionalEntityManager
-          .createQueryBuilder()
-          .insert()
-          .into("user_event_discoveries")
-          .values({
-            userId,
-            eventId,
-          })
-          .orIgnore() // Ignore if record already exists
-          .execute();
+      await this.dependencies.dataSource.transaction(
+        async (transactionalEntityManager) => {
+          // Create the discovery record
+          await transactionalEntityManager
+            .createQueryBuilder()
+            .insert()
+            .into("user_event_discoveries")
+            .values({
+              userId,
+              eventId,
+            })
+            .orIgnore() // Ignore if record already exists
+            .execute();
 
-        // Get the user to update their scan count
-        const user = await transactionalEntityManager.findOne(User, {
-          where: { id: userId },
-        });
+          // Get the user to update their scan count
+          const user = await transactionalEntityManager.findOne(User, {
+            where: { id: userId },
+          });
 
-        if (user) {
-          // Increment the user's scan count
-          user.scanCount = (user.scanCount || 0) + 1;
-          await transactionalEntityManager.save(user);
-        }
+          if (user) {
+            // Increment the user's scan count
+            user.scanCount = (user.scanCount || 0) + 1;
+            await transactionalEntityManager.save(user);
+          }
 
-        // Get the event to update its scan count
-        const event = await transactionalEntityManager.findOne(Event, {
-          where: { id: eventId },
-        });
+          // Get the event to update its scan count
+          const event = await transactionalEntityManager.findOne(Event, {
+            where: { id: eventId },
+          });
 
-        if (event) {
-          // Increment the event's scan count
-          event.scanCount = (event.scanCount || 0) + 1;
-          await transactionalEntityManager.save(event);
-        }
+          if (event) {
+            // Increment the event's scan count
+            event.scanCount = (event.scanCount || 0) + 1;
+            await transactionalEntityManager.save(event);
+          }
 
-        // Also increment the user's discovery count
-        await transactionalEntityManager
-          .createQueryBuilder()
-          .update(User)
-          .set({
-            discoveryCount: () => "discovery_count + 1",
-          })
-          .where("id = :userId", { userId })
-          .execute();
-      });
+          // Also increment the user's discovery count
+          await transactionalEntityManager
+            .createQueryBuilder()
+            .update(User)
+            .set({
+              discoveryCount: () => "discovery_count + 1",
+            })
+            .where("id = :userId", { userId })
+            .execute();
+        },
+      );
 
       // Get the updated event with scan count and publish to Redis for filter processor
       const updatedEvent = await this.eventRepository.findOne({
@@ -1443,7 +1608,7 @@ export class EventService {
     };
   }> {
     // Try to get from cache first
-    const cachedData = await EventCacheService.getClusterHub(markerIds);
+    const cachedData = await this.eventCacheService.getClusterHub(markerIds);
     if (cachedData) {
       return cachedData;
     }
@@ -1519,7 +1684,7 @@ export class EventService {
         ? `\n\nFeatured Creator: ${featuredCreator.displayName} has created ${featuredCreator.eventCount} events in this cluster.`
         : "";
 
-      const response = await OpenAIService.executeChatCompletion({
+      const response = await this.openaiService.executeChatCompletion({
         model: OpenAIModel.GPT4OMini,
         messages: [
           {
@@ -1676,7 +1841,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
     };
 
     // Cache the result
-    await EventCacheService.setClusterHub(markerIds, result);
+    await this.eventCacheService.setClusterHub(markerIds, result);
 
     return result;
   }
@@ -1706,7 +1871,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
     }
 
     // Build query to get events saved by friends
-    let queryBuilder = this.dataSource
+    let queryBuilder = this.dependencies.dataSource
       .getRepository(UserEventSave)
       .createQueryBuilder("save")
       .leftJoinAndSelect("save.event", "event")
@@ -1796,7 +1961,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
   async getEventShares(
     eventId: string,
   ): Promise<{ sharedWithId: string; sharedById: string }[]> {
-    const shares = await this.dataSource
+    const shares = await this.dependencies.dataSource
       .getRepository(EventShare)
       .createQueryBuilder("share")
       .where("share.eventId = :eventId", { eventId })
@@ -1823,103 +1988,105 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
     notGoingCount: number;
   }> {
     // Start a transaction to ensure data consistency
-    return this.dataSource.transaction(async (transactionalEntityManager) => {
-      // Check if the event exists
-      const event = await transactionalEntityManager.findOne(Event, {
-        where: { id: eventId },
-        relations: [
-          "categories",
-          "creator",
-          "shares",
-          "shares.sharedWith",
-          "rsvps",
-        ],
-      });
-
-      if (!event) {
-        throw new Error("Event not found");
-      }
-
-      // Store previous values for logging
-      const previousSaveCount = event.saveCount || 0;
-      const previousScanCount = event.scanCount || 0;
-      const previousRsvpCount = event.rsvps?.length || 0;
-
-      // Check if an RSVP already exists
-      const existingRsvp = await transactionalEntityManager.findOne(
-        UserEventRsvp,
-        {
-          where: { userId, eventId },
-        },
-      );
-
-      let changeType = "RSVP_UPDATED";
-
-      if (existingRsvp) {
-        // Update existing RSVP
-        existingRsvp.status = status;
-        await transactionalEntityManager.save(existingRsvp);
-      } else {
-        // Create new RSVP
-        const newRsvp = transactionalEntityManager.create(UserEventRsvp, {
-          userId,
-          eventId,
-          status,
+    return this.dependencies.dataSource.transaction(
+      async (transactionalEntityManager) => {
+        // Check if the event exists
+        const event = await transactionalEntityManager.findOne(Event, {
+          where: { id: eventId },
+          relations: [
+            "categories",
+            "creator",
+            "shares",
+            "shares.sharedWith",
+            "rsvps",
+          ],
         });
-        await transactionalEntityManager.save(newRsvp);
-        changeType = "RSVP_ADDED";
 
-        // Award XP for RSVPing to an event
-        await this.levelingService.awardXp(userId, 5);
-      }
+        if (!event) {
+          throw new Error("Event not found");
+        }
 
-      // Get updated counts
-      const [goingCount, notGoingCount] = await Promise.all([
-        transactionalEntityManager.count(UserEventRsvp, {
-          where: { eventId, status: RsvpStatus.GOING },
-        }),
-        transactionalEntityManager.count(UserEventRsvp, {
-          where: { eventId, status: RsvpStatus.NOT_GOING },
-        }),
-      ]);
+        // Store previous values for logging
+        const previousSaveCount = event.saveCount || 0;
+        const previousScanCount = event.scanCount || 0;
+        const previousRsvpCount = event.rsvps?.length || 0;
 
-      // Reload the event with updated RSVP data for Redis publishing
-      const updatedEvent = await transactionalEntityManager.findOne(Event, {
-        where: { id: eventId },
-        relations: [
-          "categories",
-          "creator",
-          "shares",
-          "shares.sharedWith",
-          "rsvps",
-        ],
-      });
-
-      // Publish the updated event to Redis for filter processor to recalculate popularity scores
-      if (updatedEvent) {
-        await this.redisService.publish("event_changes", {
-          type: "UPDATE",
-          data: {
-            operation: "UPDATE",
-            record: this.stripEventForRedis(updatedEvent),
-            previousMetrics: {
-              saveCount: previousSaveCount,
-              scanCount: previousScanCount,
-              rsvpCount: previousRsvpCount,
-            },
-            changeType: changeType,
-            userId: userId,
-            rsvpStatus: status,
+        // Check if an RSVP already exists
+        const existingRsvp = await transactionalEntityManager.findOne(
+          UserEventRsvp,
+          {
+            where: { userId, eventId },
           },
-        });
-      }
+        );
 
-      return {
-        status,
-        goingCount,
-        notGoingCount,
-      };
-    });
+        let changeType = "RSVP_UPDATED";
+
+        if (existingRsvp) {
+          // Update existing RSVP
+          existingRsvp.status = status;
+          await transactionalEntityManager.save(existingRsvp);
+        } else {
+          // Create new RSVP
+          const newRsvp = transactionalEntityManager.create(UserEventRsvp, {
+            userId,
+            eventId,
+            status,
+          });
+          await transactionalEntityManager.save(newRsvp);
+          changeType = "RSVP_ADDED";
+
+          // Award XP for RSVPing to an event
+          await this.levelingService.awardXp(userId, 5);
+        }
+
+        // Get updated counts
+        const [goingCount, notGoingCount] = await Promise.all([
+          transactionalEntityManager.count(UserEventRsvp, {
+            where: { eventId, status: RsvpStatus.GOING },
+          }),
+          transactionalEntityManager.count(UserEventRsvp, {
+            where: { eventId, status: RsvpStatus.NOT_GOING },
+          }),
+        ]);
+
+        // Reload the event with updated RSVP data for Redis publishing
+        const updatedEvent = await transactionalEntityManager.findOne(Event, {
+          where: { id: eventId },
+          relations: [
+            "categories",
+            "creator",
+            "shares",
+            "shares.sharedWith",
+            "rsvps",
+          ],
+        });
+
+        // Publish the updated event to Redis for filter processor to recalculate popularity scores
+        if (updatedEvent) {
+          await this.redisService.publish("event_changes", {
+            type: "UPDATE",
+            data: {
+              operation: "UPDATE",
+              record: this.stripEventForRedis(updatedEvent),
+              previousMetrics: {
+                saveCount: previousSaveCount,
+                scanCount: previousScanCount,
+                rsvpCount: previousRsvpCount,
+              },
+              changeType: changeType,
+              userId: userId,
+              rsvpStatus: status,
+            },
+          });
+        }
+
+        return {
+          status,
+          goingCount,
+          notGoingCount,
+        };
+      },
+    );
   }
 
   /**
@@ -1932,7 +2099,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
     userId: string,
     eventId: string,
   ): Promise<UserEventRsvp | null> {
-    return this.dataSource.getRepository(UserEventRsvp).findOne({
+    return this.dependencies.dataSource.getRepository(UserEventRsvp).findOne({
       where: { userId, eventId },
     });
   }
@@ -2029,7 +2196,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
 
     try {
       // Recalculate event scan counts from UserEventDiscovery
-      const eventScanCounts = await this.dataSource
+      const eventScanCounts = await this.dependencies.dataSource
         .getRepository(UserEventDiscovery)
         .createQueryBuilder("discovery")
         .select("discovery.eventId", "eventId")
@@ -2046,7 +2213,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
       }
 
       // Recalculate event save counts from UserEventSave
-      const eventSaveCounts = await this.dataSource
+      const eventSaveCounts = await this.dependencies.dataSource
         .getRepository(UserEventSave)
         .createQueryBuilder("save")
         .select("save.eventId", "eventId")
@@ -2063,7 +2230,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
       }
 
       // Recalculate user scan counts from UserEventDiscovery
-      const userScanCounts = await this.dataSource
+      const userScanCounts = await this.dependencies.dataSource
         .getRepository(UserEventDiscovery)
         .createQueryBuilder("discovery")
         .select("discovery.userId", "userId")
@@ -2073,14 +2240,14 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
 
       // Update user scan counts
       for (const { userId, scanCount } of userScanCounts) {
-        await this.dataSource.getRepository(User).update(userId, {
+        await this.dependencies.dataSource.getRepository(User).update(userId, {
           scanCount: parseInt(scanCount),
         });
         usersUpdated++;
       }
 
       // Recalculate user save counts from UserEventSave
-      const userSaveCounts = await this.dataSource
+      const userSaveCounts = await this.dependencies.dataSource
         .getRepository(UserEventSave)
         .createQueryBuilder("save")
         .select("save.userId", "userId")
@@ -2090,7 +2257,7 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
 
       // Update user save counts
       for (const { userId, saveCount } of userSaveCounts) {
-        await this.dataSource.getRepository(User).update(userId, {
+        await this.dependencies.dataSource.getRepository(User).update(userId, {
           saveCount: parseInt(saveCount),
         });
         usersUpdated++;
@@ -2106,4 +2273,13 @@ The name should be intriguing. The blurb should feel like an invitation to an ad
 
     return { eventsUpdated, usersUpdated };
   }
+}
+
+/**
+ * Factory function to create an EventService instance
+ */
+export function createEventService(
+  dependencies: EventServiceDependencies,
+): EventService {
+  return new EventServiceImpl(dependencies);
 }

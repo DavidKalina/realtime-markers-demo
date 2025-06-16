@@ -13,6 +13,7 @@ import {
   JoinColumn,
   Index,
 } from "typeorm";
+import type { Relation } from "typeorm";
 import { type Point } from "geojson";
 import { Category } from "./Category";
 import { User } from "./User";
@@ -147,21 +148,21 @@ export class Event {
     onDelete: "SET NULL",
   })
   @JoinColumn({ name: "creator_id" })
-  creator?: User;
+  creator?: Relation<User>;
 
   // Discovery relationship
   @OneToMany(() => UserEventDiscovery, (discovery) => discovery.event)
-  discoveries!: UserEventDiscovery[];
+  discoveries!: Relation<UserEventDiscovery>[];
 
   // Save relationship
   @OneToMany(() => UserEventSave, (save) => save.event)
-  saves!: UserEventSave[];
+  saves!: Relation<UserEventSave>[];
 
   @OneToMany(() => EventShare, (share: EventShare) => share.event)
-  shares!: EventShare[];
+  shares!: Relation<EventShare>[];
 
   @OneToMany(() => UserEventRsvp, (rsvp) => rsvp.event)
-  rsvps!: UserEventRsvp[];
+  rsvps!: Relation<UserEventRsvp>[];
 
   @ManyToMany(() => Category, (category) => category.events)
   @JoinTable({
@@ -169,7 +170,7 @@ export class Event {
     joinColumn: { name: "event_id", referencedColumnName: "id" },
     inverseJoinColumn: { name: "category_id", referencedColumnName: "id" },
   })
-  categories!: Category[];
+  categories!: Relation<Category>[];
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

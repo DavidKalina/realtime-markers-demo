@@ -2,15 +2,24 @@ import { DataSource, Repository } from "typeorm";
 import { User } from "../entities/User";
 import { Friendship, FriendshipStatus } from "../entities/Friendship";
 import { In, Not } from "typeorm";
-import { FriendshipCacheService } from "./shared/FriendshipCacheService";
+import type { FriendshipCacheService } from "./shared/FriendshipCacheService";
 
-export class FriendshipService {
+// Define dependencies interface for cleaner constructor
+export interface FriendshipServiceDependencies {
+  dataSource: DataSource;
+  friendshipCacheService: FriendshipCacheService;
+}
+
+export class FriendshipServiceImpl {
   private userRepository: Repository<User>;
   private friendshipRepository: Repository<Friendship>;
+  private friendshipCacheService: FriendshipCacheService;
 
-  constructor(private dataSource: DataSource) {
-    this.userRepository = dataSource.getRepository(User);
-    this.friendshipRepository = dataSource.getRepository(Friendship);
+  constructor(private dependencies: FriendshipServiceDependencies) {
+    this.userRepository = dependencies.dataSource.getRepository(User);
+    this.friendshipRepository =
+      dependencies.dataSource.getRepository(Friendship);
+    this.friendshipCacheService = dependencies.friendshipCacheService;
   }
 
   /**
@@ -54,14 +63,14 @@ export class FriendshipService {
     // Invalidate friend request caches for both users
     await Promise.all([
       this.getOutgoingFriendRequests(requesterId).then((requests) =>
-        FriendshipCacheService.setFriendRequests(
+        this.friendshipCacheService.setFriendRequests(
           requesterId,
           "outgoing",
           requests,
         ),
       ),
       this.getPendingFriendRequests(addresseeId).then((requests) =>
-        FriendshipCacheService.setFriendRequests(
+        this.friendshipCacheService.setFriendRequests(
           addresseeId,
           "incoming",
           requests,
@@ -95,7 +104,7 @@ export class FriendshipService {
     const savedFriendship = await this.friendshipRepository.save(friendship);
 
     // Invalidate caches for both users
-    await FriendshipCacheService.invalidateFriendshipCaches(
+    await this.friendshipCacheService.invalidateFriendshipCaches(
       friendship.requesterId,
       friendship.addresseeId,
     );
@@ -128,14 +137,14 @@ export class FriendshipService {
     // Invalidate friend request caches for both users
     await Promise.all([
       this.getOutgoingFriendRequests(friendship.requesterId).then((requests) =>
-        FriendshipCacheService.setFriendRequests(
+        this.friendshipCacheService.setFriendRequests(
           friendship.requesterId,
           "outgoing",
           requests,
         ),
       ),
       this.getPendingFriendRequests(friendship.addresseeId).then((requests) =>
-        FriendshipCacheService.setFriendRequests(
+        this.friendshipCacheService.setFriendRequests(
           friendship.addresseeId,
           "incoming",
           requests,
@@ -151,7 +160,7 @@ export class FriendshipService {
    */
   async getFriends(userId: string): Promise<User[]> {
     // Check cache first
-    const cachedFriends = await FriendshipCacheService.getFriends(userId);
+    const cachedFriends = await this.friendshipCacheService.getFriends(userId);
     if (cachedFriends) {
       return cachedFriends;
     }
@@ -171,7 +180,7 @@ export class FriendshipService {
     );
 
     // Cache the results
-    await FriendshipCacheService.setFriends(userId, friends);
+    await this.friendshipCacheService.setFriends(userId, friends);
 
     return friends;
   }
@@ -181,7 +190,7 @@ export class FriendshipService {
    */
   async getPendingFriendRequests(userId: string): Promise<Friendship[]> {
     // Check cache first
-    const cachedRequests = await FriendshipCacheService.getFriendRequests(
+    const cachedRequests = await this.friendshipCacheService.getFriendRequests(
       userId,
       "incoming",
     );
@@ -195,7 +204,7 @@ export class FriendshipService {
     });
 
     // Cache the results
-    await FriendshipCacheService.setFriendRequests(
+    await this.friendshipCacheService.setFriendRequests(
       userId,
       "incoming",
       requests,
@@ -209,7 +218,7 @@ export class FriendshipService {
    */
   async getOutgoingFriendRequests(userId: string): Promise<Friendship[]> {
     // Check cache first
-    const cachedRequests = await FriendshipCacheService.getFriendRequests(
+    const cachedRequests = await this.friendshipCacheService.getFriendRequests(
       userId,
       "outgoing",
     );
@@ -223,7 +232,7 @@ export class FriendshipService {
     });
 
     // Cache the results
-    await FriendshipCacheService.setFriendRequests(
+    await this.friendshipCacheService.setFriendRequests(
       userId,
       "outgoing",
       requests,
@@ -257,14 +266,14 @@ export class FriendshipService {
     // Invalidate friend request caches for both users
     await Promise.all([
       this.getOutgoingFriendRequests(friendship.requesterId).then((requests) =>
-        FriendshipCacheService.setFriendRequests(
+        this.friendshipCacheService.setFriendRequests(
           friendship.requesterId,
           "outgoing",
           requests,
         ),
       ),
       this.getPendingFriendRequests(friendship.addresseeId).then((requests) =>
-        FriendshipCacheService.setFriendRequests(
+        this.friendshipCacheService.setFriendRequests(
           friendship.addresseeId,
           "incoming",
           requests,
@@ -440,4 +449,13 @@ export class FriendshipService {
     }
     return this.sendFriendRequest(requesterId, addressee.id);
   }
+}
+
+/**
+ * Factory function to create a FriendshipService instance
+ */
+export function createFriendshipService(
+  dependencies: FriendshipServiceDependencies,
+): FriendshipServiceImpl {
+  return new FriendshipServiceImpl(dependencies);
 }

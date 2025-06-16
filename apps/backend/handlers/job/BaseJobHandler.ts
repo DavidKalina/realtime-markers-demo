@@ -1,6 +1,6 @@
 import type { JobData } from "../../services/JobQueue";
-import { JobQueue } from "../../services/JobQueue";
-import { RedisService } from "../../services/shared/RedisService";
+import type { JobQueue } from "../../services/JobQueue";
+import type { RedisService } from "../../services/shared/RedisService";
 
 export interface JobHandlerContext {
   jobQueue: JobQueue;

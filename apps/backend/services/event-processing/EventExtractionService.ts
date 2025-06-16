@@ -5,7 +5,7 @@ import { format, fromZonedTime } from "date-fns-tz";
 import type { Category } from "../../entities/Category";
 import type { CategoryProcessingService } from "../CategoryProcessingService";
 import type { ConfigService } from "../shared/ConfigService";
-import { OpenAIModel, OpenAIService } from "../shared/OpenAIService";
+import { OpenAIModel, type OpenAIService } from "../shared/OpenAIService";
 import type { EventExtractionResult } from "./dto/EventExtractionResult";
 import type { IEventExtractionService } from "./interfaces/IEventExtractionService";
 import type { ILocationResolutionService } from "./interfaces/ILocationResolutionService";
@@ -21,6 +21,7 @@ export class EventExtractionService implements IEventExtractionService {
   constructor(
     private categoryProcessingService: CategoryProcessingService,
     private locationResolutionService: ILocationResolutionService,
+    private openAIService: OpenAIService,
     private configService?: ConfigService,
   ) {
     // Initialize with config or defaults
@@ -71,7 +72,7 @@ export class EventExtractionService implements IEventExtractionService {
         : "";
 
     // Extract event details with enhanced location awareness
-    const response = await OpenAIService.executeChatCompletion({
+    const response = await this.openAIService.executeChatCompletion({
       model: this.extractionModel as OpenAIModel,
       messages: [
         {
@@ -296,7 +297,7 @@ export class EventExtractionService implements IEventExtractionService {
     description: string,
   ): Promise<{ emoji: string; emojiDescription: string }> {
     try {
-      const response = await OpenAIService.executeChatCompletion({
+      const response = await this.openAIService.executeChatCompletion({
         model: this.extractionModel as OpenAIModel,
         messages: [
           {
@@ -346,4 +347,26 @@ export class EventExtractionService implements IEventExtractionService {
       };
     }
   }
+}
+
+/**
+ * Factory function to create an EventExtractionService instance
+ */
+export function createEventExtractionService({
+  categoryProcessingService,
+  locationResolutionService,
+  openAIService,
+  configService,
+}: {
+  categoryProcessingService: CategoryProcessingService;
+  locationResolutionService: ILocationResolutionService;
+  openAIService: OpenAIService;
+  configService?: ConfigService;
+}): IEventExtractionService {
+  return new EventExtractionService(
+    categoryProcessingService,
+    locationResolutionService,
+    openAIService,
+    configService,
+  );
 }

@@ -1,21 +1,46 @@
 // worker.ts
 import AppDataSource from "./data-source";
-import { JobQueue, type JobData } from "./services/JobQueue";
-import { RedisService } from "./services/shared/RedisService";
-import { EventService } from "./services/EventService";
-import { EventProcessingService } from "./services/EventProcessingService";
-import { PlanService } from "./services/PlanService";
-import { StorageService } from "./services/shared/StorageService";
+import {
+  createJobQueue,
+  type JobQueue,
+  type JobData,
+} from "./services/JobQueue";
+import {
+  createRedisService,
+  type RedisService,
+} from "./services/shared/RedisService";
+import {
+  createEventService,
+  type EventService,
+} from "./services/EventServiceRefactored";
+import {
+  createEventProcessingService,
+  type EventProcessingService,
+} from "./services/EventProcessingService";
+import { createPlanService, type PlanService } from "./services/PlanService";
+import {
+  createStorageService,
+  type StorageService,
+} from "./services/shared/StorageService";
 import { JobHandlerRegistry } from "./handlers/job/JobHandlerRegistry";
 import { Redis } from "ioredis";
-import { CategoryProcessingService } from "./services/CategoryProcessingService";
+import { createCategoryProcessingService } from "./services/CategoryProcessingService";
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
-import { ImageProcessingService } from "./services/event-processing/ImageProcessingService";
-import { EventExtractionService } from "./services/event-processing/EventExtractionService";
-import { GoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
-import { ConfigService } from "./services/shared/ConfigService";
+import { createImageProcessingService } from "./services/event-processing/ImageProcessingService";
+import { createEventExtractionService } from "./services/event-processing/EventExtractionService";
+import { createGoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
+import { createConfigService } from "./services/shared/ConfigService";
 import { Category } from "./entities/Category";
 import { Event } from "./entities/Event";
+import { createEmbeddingService } from "./services/shared/EmbeddingService";
+import { createEmbeddingCacheService } from "./services/shared/EmbeddingCacheService";
+import { createOpenAIService } from "./services/shared/OpenAIService";
+import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
+import { createEventCacheService } from "./services/shared/EventCacheService";
+import { createImageProcessingCacheService } from "./services/shared/ImageProcessingCacheService";
+import { createLevelingService } from "./services/LevelingService";
+import { createLevelingCacheService } from "./services/shared/LevelingCacheService";
+import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
 
 // Constants
 const POLLING_INTERVAL = 1000; // 1 second
@@ -46,21 +71,49 @@ async function initializeWorker() {
     password: process.env.REDIS_PASSWORD,
   });
 
-  // Initialize services
-  redisService = RedisService.getInstance(redisClient);
-  jobQueue = new JobQueue(redisClient);
+  // Create RedisService instance
+  redisService = createRedisService(redisClient);
+
+  // Initialize job queue first
+  jobQueue = createJobQueue({
+    redisService,
+  });
 
   // Initialize config service
-  const configService = ConfigService.getInstance();
+  const configService = createConfigService();
 
   // Initialize repositories
   const categoryRepository = AppDataSource.getRepository(Category);
   const eventRepository = AppDataSource.getRepository(Event);
 
   // Initialize category processing service
-  const categoryProcessingService = new CategoryProcessingService(
+  const categoryProcessingService = createCategoryProcessingService({
     categoryRepository,
-  );
+    openAIService: createOpenAIService({
+      redisService,
+      openAICacheService: createOpenAICacheService(),
+    }),
+    categoryCacheService: createCategoryCacheService(redisClient),
+  });
+
+  // Create OpenAIService instance with dependencies
+  const openAIService = createOpenAIService({
+    redisService,
+    openAICacheService: createOpenAICacheService(),
+  });
+
+  // Create EventCacheService instance
+  const eventCacheService = createEventCacheService(redisClient);
+
+  // Create ImageProcessingCacheService instance
+  const imageProcessingCacheService = createImageProcessingCacheService();
+
+  // Create LevelingService instance
+  const levelingService = createLevelingService({
+    dataSource: AppDataSource,
+    redisService,
+    levelingCacheService: createLevelingCacheService(redisClient),
+  });
 
   // Initialize event similarity service
   const eventSimilarityService = new EventSimilarityService(
@@ -68,34 +121,54 @@ async function initializeWorker() {
     configService,
   );
 
-  // Initialize image processing service
-  const imageProcessingService = new ImageProcessingService();
-
-  // Initialize event extraction service
-  const eventExtractionService = new EventExtractionService(
-    categoryProcessingService,
-    GoogleGeocodingService.getInstance(),
+  // Create the image processing service
+  const imageProcessingService = createImageProcessingService(
+    openAIService,
+    imageProcessingCacheService,
   );
 
-  // Initialize event processing service
-  eventProcessingService = new EventProcessingService({
+  // Create the event extraction service
+  const eventExtractionService = createEventExtractionService({
+    categoryProcessingService,
+    locationResolutionService: createGoogleGeocodingService(openAIService),
+    openAIService,
+    configService,
+  });
+
+  // Create embedding service with dependencies
+  const embeddingService = createEmbeddingService({
+    openAIService,
+    configService,
+    embeddingCacheService: createEmbeddingCacheService({ configService }),
+  });
+
+  // Create event processing service with all dependencies
+  eventProcessingService = createEventProcessingService({
     categoryProcessingService,
     eventSimilarityService,
-    locationResolutionService: GoogleGeocodingService.getInstance(),
+    locationResolutionService: createGoogleGeocodingService(openAIService),
     imageProcessingService,
+    embeddingService,
     configService,
     eventExtractionService,
     jobQueue,
   });
 
   // Initialize event service
-  eventService = new EventService(AppDataSource, redisClient);
+  eventService = createEventService({
+    dataSource: AppDataSource,
+    redisService,
+    locationService: createGoogleGeocodingService(openAIService),
+    eventCacheService,
+    openaiService: openAIService,
+    levelingService,
+  });
 
   // Initialize plan service
-  planService = new PlanService(AppDataSource);
+  planService = createPlanService({ dataSource: AppDataSource });
 
   // Initialize storage service
-  storageService = StorageService.getInstance();
+  storageService = createStorageService();
 
   // Initialize job handler registry
   jobHandlerRegistry = new JobHandlerRegistry(

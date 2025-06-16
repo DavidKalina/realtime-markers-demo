@@ -1,5 +1,11 @@
 import type { MigrationInterface, QueryRunner } from "typeorm";
-import { EmbeddingService } from "../services/shared/EmbeddingService";
+import { createEmbeddingService } from "../services/shared/EmbeddingService";
+import { createOpenAIService } from "../services/shared/OpenAIService";
+import { createOpenAICacheService } from "../services/shared/OpenAICacheService";
+import { createEmbeddingCacheService } from "../services/shared/EmbeddingCacheService";
+import { createConfigService } from "../services/shared/ConfigService";
+import { createRedisService } from "../services/shared/RedisService";
+import Redis from "ioredis";
 import pgvector from "pgvector";
 
 export class RegenerateEmbeddings1710000000001 implements MigrationInterface {
@@ -31,9 +37,32 @@ export class RegenerateEmbeddings1710000000001 implements MigrationInterface {
       throw new Error("OPENAI_API_KEY environment variable is not set");
     }
 
+    // Create Redis client for cache service
+    const redisClient = new Redis({
+      host: process.env.REDIS_HOST || "redis",
+      port: parseInt(process.env.REDIS_PORT || "6379"),
+      password: process.env.REDIS_PASSWORD,
+    });
+
+    // Create services for migration
+    const redisService = createRedisService(redisClient);
+    const configService = createConfigService();
+    const openAICacheService = createOpenAICacheService();
+    const openAIService = createOpenAIService({
+      redisService,
+      openAICacheService,
+    });
+    const embeddingCacheService = createEmbeddingCacheService({
+      configService,
+    });
+
     // Process events in batches
     const batchSize = 10;
-    const embeddingService = EmbeddingService.getInstance();
+    const embeddingService = createEmbeddingService({
+      openAIService,
+      configService,
+      embeddingCacheService,
+    });
 
     for (let i = 0; i < events.length; i += batchSize) {
       const batch = events.slice(i, i + batchSize);
@@ -80,6 +109,9 @@ export class RegenerateEmbeddings1710000000001 implements MigrationInterface {
 
       console.log(`Completed batch ${Math.floor(i / batchSize) + 1}`);
     }
+
+    // Clean up Redis connection
+    await redisClient.quit();
 
     // Final verification
     const finalCheck = await queryRunner.query(`

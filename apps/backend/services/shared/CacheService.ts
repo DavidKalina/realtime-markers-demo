@@ -1,6 +1,6 @@
 // src/services/shared/CacheService.ts
 import { Redis } from "ioredis";
-import { RedisService } from "./RedisService";
+import { createRedisService } from "./RedisService";
 
 export interface CacheOptions {
   ttlSeconds?: number;
@@ -12,14 +12,28 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
-export class CacheService {
-  protected static redisService: RedisService | null = null;
-  protected static memoryCache = new Map<string, CacheEntry<unknown>>();
+export interface CacheService {
+  get<T>(key: string, options?: CacheOptions): Promise<T | null>;
+  set<T extends string | number | object>(
+    key: string,
+    value: T,
+    options?: CacheOptions,
+  ): Promise<void>;
+  invalidate(key: string): Promise<void>;
+  invalidateByPattern(pattern: string): Promise<void>;
+  getCacheStats(): {
+    redis: { hits: number; misses: number; hitRate: number };
+    memory: { hits: number; misses: number; hitRate: number };
+    uptime: number;
+  };
+  resetCacheStats(): void;
+  monitorMemoryUsage(): void;
+}
 
-  // Cache size limits
-  protected static MAX_MEMORY_CACHE_SIZE = 1000;
-
-  protected static cacheStats = {
+export class CacheServiceImpl implements CacheService {
+  private redisService: ReturnType<typeof createRedisService> | null = null;
+  private memoryCache = new Map<string, CacheEntry<unknown>>();
+  private cacheStats = {
     redisHits: 0,
     redisMisses: 0,
     memoryHits: 0,
@@ -27,16 +41,18 @@ export class CacheService {
     lastReset: Date.now(),
   };
 
-  static initRedis(options: { host: string; port: number; password: string }) {
-    const redis = new Redis(options);
-    this.redisService = RedisService.getInstance(redis);
+  // Cache size limits
+  private readonly MAX_MEMORY_CACHE_SIZE = 1000;
+
+  constructor(redisService?: ReturnType<typeof createRedisService>) {
+    this.redisService = redisService || null;
   }
 
-  static getRedisClient(): Redis | null {
-    return this.redisService?.getClient() || null;
+  initRedis(redis: Redis): void {
+    this.redisService = createRedisService(redis);
   }
 
-  static getCacheStats() {
+  getCacheStats() {
     const totalRedis = this.cacheStats.redisHits + this.cacheStats.redisMisses;
     const totalMemory =
       this.cacheStats.memoryHits + this.cacheStats.memoryMisses;
@@ -60,7 +76,7 @@ export class CacheService {
     };
   }
 
-  static resetCacheStats() {
+  resetCacheStats() {
     this.cacheStats = {
       redisHits: 0,
       redisMisses: 0,
@@ -70,10 +86,7 @@ export class CacheService {
     };
   }
 
-  protected static async get<T>(
-    key: string,
-    options: CacheOptions = {},
-  ): Promise<T | null> {
+  async get<T>(key: string, options: CacheOptions = {}): Promise<T | null> {
     const { useMemoryCache = false } = options;
 
     // Check memory cache first if enabled
@@ -103,7 +116,7 @@ export class CacheService {
     }
   }
 
-  protected static async set<T extends string | number | object>(
+  async set<T extends string | number | object>(
     key: string,
     value: T,
     options: CacheOptions = {},
@@ -136,7 +149,7 @@ export class CacheService {
     }
   }
 
-  protected static async invalidate(key: string): Promise<void> {
+  async invalidate(key: string): Promise<void> {
     // Remove from memory cache
     this.memoryCache.delete(key);
 
@@ -150,7 +163,7 @@ export class CacheService {
     }
   }
 
-  protected static async invalidateByPattern(pattern: string): Promise<void> {
+  async invalidateByPattern(pattern: string): Promise<void> {
     if (!this.redisService) return;
 
     try {
@@ -160,7 +173,7 @@ export class CacheService {
     }
   }
 
-  static monitorMemoryUsage(): void {
+  monitorMemoryUsage(): void {
     const memUsage = process.memoryUsage();
     const mbUsed = Math.round(memUsage.heapUsed / 1024 / 1024);
     const mbTotal = Math.round(memUsage.heapTotal / 1024 / 1024);
@@ -173,4 +186,15 @@ export class CacheService {
       );
     }
   }
+}
+
+/**
+ * Factory function to create a CacheService instance
+ */
+export function createCacheService(redis?: Redis): CacheService {
+  const cacheService = new CacheServiceImpl();
+  if (redis) {
+    cacheService.initRedis(redis);
+  }
+  return cacheService;
 }

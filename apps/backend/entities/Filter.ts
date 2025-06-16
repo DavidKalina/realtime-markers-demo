@@ -8,6 +8,7 @@ import {
   JoinColumn,
   Index,
 } from "typeorm";
+import type { Relation } from "typeorm";
 import { User } from "./User";
 
 @Entity("filters")
@@ -21,7 +22,7 @@ export class Filter {
 
   @ManyToOne(() => User, { onDelete: "CASCADE" })
   @JoinColumn({ name: "user_id" })
-  user?: User;
+  user?: Relation<User>;
 
   @Column({ type: "varchar", name: "name" })
   name!: string;

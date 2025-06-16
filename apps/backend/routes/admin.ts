@@ -5,7 +5,6 @@ import { authMiddleware } from "../middleware/authMiddleware";
 import { adminAuthMiddleware } from "../middleware/adminMiddleware";
 import { ip } from "../middleware/ip";
 import { rateLimit } from "../middleware/rateLimit";
-import { CacheService } from "../services/shared/CacheService";
 
 export const adminRouter = new Hono<AppContext>();
 
@@ -62,8 +61,7 @@ adminRouter.get("/images/:id/image", async (c) => {
 
 adminRouter.get("/cache/health", async (c) => {
   try {
-    const stats = CacheService.getCacheStats();
-    const redisClient = CacheService.getRedisClient();
+    const redisClient = c.get("redisClient");
 
     // Check Redis connection
     const redisStatus = redisClient
@@ -72,7 +70,6 @@ adminRouter.get("/cache/health", async (c) => {
 
     return c.json({
       status: "healthy",
-      stats,
       redis: {
         connected: redisStatus,
         memory: redisClient ? await redisClient.info("memory") : null,
