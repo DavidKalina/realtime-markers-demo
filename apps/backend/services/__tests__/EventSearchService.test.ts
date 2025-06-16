@@ -101,14 +101,15 @@ describe("EventSearchService", () => {
 
     mockDataSource = {
       getRepository: jest.fn().mockImplementation((entity) => {
-        switch (entity) {
-          case Event:
-            return mockEventRepository;
-          case Category:
-            return mockCategoryRepository;
-          default:
-            throw new Error(`Unknown entity: ${entity.name}`);
+        if (entity === "Event") {
+          return mockEventRepository;
         }
+        if (entity === "Category") {
+          return mockCategoryRepository;
+        }
+        throw new Error(
+          `Unknown entity: ${typeof entity === "string" ? entity : entity?.name || "undefined"}`,
+        );
       }),
     } as unknown as DataSource;
 

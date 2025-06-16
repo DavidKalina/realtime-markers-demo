@@ -1,7 +1,7 @@
 import pgvector from "pgvector";
 import { Brackets, DataSource, Repository } from "typeorm";
-import { Category } from "../entities/Category";
-import { Event } from "../entities/Event";
+import type { Category } from "../entities/Category";
+import type { Event } from "../entities/Event";
 import type { Filter } from "../entities/Filter";
 import type { EventCacheService } from "./shared/EventCacheService";
 import type { OpenAIService } from "./shared/OpenAIService";
@@ -60,8 +60,8 @@ export class EventSearchServiceImpl implements EventSearchService {
   private openaiService: OpenAIService;
 
   constructor(private dependencies: EventSearchServiceDependencies) {
-    this.eventRepository = dependencies.dataSource.getRepository(Event);
-    this.categoryRepository = dependencies.dataSource.getRepository(Category);
+    this.eventRepository = dependencies.dataSource.getRepository("Event");
+    this.categoryRepository = dependencies.dataSource.getRepository("Category");
     this.eventCacheService = dependencies.eventCacheService;
     this.openaiService = dependencies.openaiService;
   }
