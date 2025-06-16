@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToMany,
 } from "typeorm";
+import type { Relation } from "typeorm";
 import { Event } from "./Event";
 
 @Entity("categories")
@@ -29,5 +30,5 @@ export class Category {
   updatedAt!: Date;
 
   @ManyToMany(() => Event, (event) => event.categories)
-  events!: Event[];
+  events!: Relation<Event>[];
 }

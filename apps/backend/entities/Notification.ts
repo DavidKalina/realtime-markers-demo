@@ -6,6 +6,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from "typeorm";
+import type { Relation } from "typeorm";
 import { User } from "./User";
 
 export type NotificationType =
@@ -45,7 +46,7 @@ export class Notification {
 
   @ManyToOne(() => User)
   @JoinColumn({ name: "userId" })
-  user!: User;
+  user!: Relation<User>;
 
   @Column("varchar")
   title!: string;

@@ -8,6 +8,7 @@ import {
   JoinColumn,
   Index,
 } from "typeorm";
+import type { Relation } from "typeorm";
 import { User } from "./User";
 import { Level } from "./Level";
 
@@ -35,11 +36,11 @@ export class UserLevel {
 
   @ManyToOne(() => User, (user) => user.userLevels, { onDelete: "CASCADE" })
   @JoinColumn({ name: "user_id" })
-  user!: User;
+  user!: Relation<User>;
 
   @ManyToOne(() => Level, (level) => level.userLevels, { onDelete: "CASCADE" })
   @JoinColumn({ name: "level_id" })
-  level!: Level;
+  level!: Relation<Level>;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from "typeorm";
+import type { Relation } from "typeorm";
 import { UserLevel } from "./UserLevel";
 
 @Entity("levels")
@@ -34,7 +35,7 @@ export class Level {
   }[];
 
   @OneToMany(() => UserLevel, (userLevel) => userLevel.level)
-  userLevels!: UserLevel[];
+  userLevels!: Relation<UserLevel>[];
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

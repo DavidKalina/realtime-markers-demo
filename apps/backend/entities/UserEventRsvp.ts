@@ -8,6 +8,7 @@ import {
   Unique,
   Index,
 } from "typeorm";
+import type { Relation } from "typeorm";
 import { User } from "./User";
 import { Event } from "./Event";
 
@@ -38,11 +39,11 @@ export class UserEventRsvp {
 
   @ManyToOne(() => User, (user) => user.rsvps, { onDelete: "CASCADE" })
   @JoinColumn({ name: "user_id" })
-  user!: User;
+  user!: Relation<User>;
 
   @ManyToOne(() => Event, (event) => event.rsvps, { onDelete: "CASCADE" })
   @JoinColumn({ name: "event_id" })
-  event!: Event;
+  event!: Relation<Event>;
 
   @Index(["userId", "createdAt"])
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
