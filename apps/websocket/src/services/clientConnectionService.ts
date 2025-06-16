@@ -203,8 +203,63 @@ export function createClientConnectionService(
             },
           );
 
+          // For deletes, send as delete-event (check this first)
+          if (parsedMessage.updates.deletes.length > 0) {
+            for (const eventId of parsedMessage.updates.deletes) {
+              const deleteEventMessage = {
+                type: "delete-event",
+                id: eventId,
+                timestamp: parsedMessage.timestamp,
+              };
+
+              for (const clientId of clientIds) {
+                const client = clients.get(clientId);
+                if (client) {
+                  try {
+                    client.send(JSON.stringify(deleteEventMessage));
+                  } catch (error) {
+                    console.error(
+                      `[WebSocket] Error sending delete-event message to client ${clientId}:`,
+                      error,
+                    );
+                  }
+                }
+              }
+            }
+            return; // Don't continue with the original message
+          }
+
+          // For individual updates, send as update-event
+          if (parsedMessage.updates.updates.length > 0) {
+            for (const event of parsedMessage.updates.updates) {
+              const updateEventMessage = {
+                type: "update-event",
+                event: event,
+                timestamp: parsedMessage.timestamp,
+              };
+
+              for (const clientId of clientIds) {
+                const client = clients.get(clientId);
+                if (client) {
+                  try {
+                    client.send(JSON.stringify(updateEventMessage));
+                  } catch (error) {
+                    console.error(
+                      `[WebSocket] Error sending update-event message to client ${clientId}:`,
+                      error,
+                    );
+                  }
+                }
+              }
+            }
+            return; // Don't continue with the original message
+          }
+
           // For viewport/all updates, send as replace-all (including empty arrays to clear markers)
-          if (parsedMessage.updates.creates !== undefined) {
+          if (
+            parsedMessage.updates.creates !== undefined &&
+            parsedMessage.updates.creates.length > 0
+          ) {
             const replaceAllMessage = {
               type: "replace-all",
               events: parsedMessage.updates.creates,
@@ -266,53 +321,47 @@ export function createClientConnectionService(
             return; // Don't continue with the original message
           }
 
-          // For individual updates, send as update-event
-          if (parsedMessage.updates.updates.length > 0) {
-            for (const event of parsedMessage.updates.updates) {
-              const updateEventMessage = {
-                type: "update-event",
-                event: event,
-                timestamp: parsedMessage.timestamp,
-              };
+          // For empty creates arrays, also send as replace-all to clear markers
+          if (
+            parsedMessage.updates.creates !== undefined &&
+            parsedMessage.updates.creates.length === 0
+          ) {
+            const replaceAllMessage = {
+              type: "replace-all",
+              events: [],
+              timestamp: parsedMessage.timestamp,
+            };
 
-              for (const clientId of clientIds) {
-                const client = clients.get(clientId);
-                if (client) {
-                  try {
-                    client.send(JSON.stringify(updateEventMessage));
-                  } catch (error) {
-                    console.error(
-                      `[WebSocket] Error sending update-event message to client ${clientId}:`,
-                      error,
-                    );
-                  }
+            console.log(
+              `[WebSocket] Sending replace-all message with 0 events to ${clientIds.size} clients of user ${userId}:`,
+              {
+                userId,
+                clientCount: clientIds.size,
+                eventCount: 0,
+                topEventScores: [],
+                messageType: "replace-all",
+              },
+            );
+
+            // Send the transformed message to all clients
+            for (const clientId of clientIds) {
+              const client = clients.get(clientId);
+              if (client) {
+                try {
+                  client.send(JSON.stringify(replaceAllMessage));
+                  console.log(
+                    `[WebSocket] Successfully sent replace-all message to client ${clientId}`,
+                  );
+                } catch (error) {
+                  console.error(
+                    `[WebSocket] Error sending replace-all message to client ${clientId}:`,
+                    error,
+                  );
                 }
-              }
-            }
-            return; // Don't continue with the original message
-          }
-
-          // For deletes, send as delete-event
-          if (parsedMessage.updates.deletes.length > 0) {
-            for (const eventId of parsedMessage.updates.deletes) {
-              const deleteEventMessage = {
-                type: "delete-event",
-                id: eventId,
-                timestamp: parsedMessage.timestamp,
-              };
-
-              for (const clientId of clientIds) {
-                const client = clients.get(clientId);
-                if (client) {
-                  try {
-                    client.send(JSON.stringify(deleteEventMessage));
-                  } catch (error) {
-                    console.error(
-                      `[WebSocket] Error sending delete-event message to client ${clientId}:`,
-                      error,
-                    );
-                  }
-                }
+              } else {
+                console.log(
+                  `[WebSocket] Client ${clientId} not found in clients map`,
+                );
               }
             }
             return; // Don't continue with the original message
