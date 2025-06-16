@@ -84,11 +84,12 @@ describe("PlanService", () => {
 
     it("should return false and reset count when a week has passed", async () => {
       const oneWeekAgo = subWeeks(new Date(), 1);
+      const moreThanOneWeekAgo = subWeeks(oneWeekAgo, 1); // 2 weeks ago
       const mockUser: MockUser = {
         id: "user-123",
         planType: PlanType.FREE,
         weeklyScanCount: 5000,
-        lastScanReset: oneWeekAgo,
+        lastScanReset: moreThanOneWeekAgo,
       };
 
       (mockUserRepository.findOne as jest.Mock).mockResolvedValue(mockUser);
