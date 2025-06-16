@@ -408,6 +408,37 @@ describe("EventFilteringService", () => {
         expect.any(Error),
       );
     });
+
+    test("should publish empty array when all events filtering returns no events", async () => {
+      const events = [createTestEvent()];
+      const userId = "user-1";
+      const filters = [
+        createTestFilter({
+          criteria: {
+            dateRange: {
+              start: "2024-01-15",
+              end: "2024-01-16",
+            },
+          },
+        }),
+      ];
+
+      // Mock the filter matcher to return false for all events (no matches)
+      mockFilterMatcher.eventMatchesFilters = mock(() => false);
+
+      await eventFilteringService.filterAndSendAllEvents(
+        userId,
+        filters,
+        events,
+      );
+
+      // Should still publish an empty array to clear markers
+      expect(mockEventPublisher.publishFilteredEvents).toHaveBeenCalledWith(
+        userId,
+        "all",
+        [],
+      );
+    });
   });
 
   describe("calculateAndSendDiff", () => {
@@ -954,6 +985,100 @@ describe("EventFilteringService", () => {
       expect(
         mockRelevanceScoringService.addRelevanceScoresToEvents,
       ).toHaveBeenCalled();
+    });
+  });
+
+  describe("Empty Filter Results", () => {
+    test("should publish empty array when filters return no events", async () => {
+      const events = [createTestEvent()];
+      const userId = "user-1";
+      const filters = [
+        createTestFilter({
+          criteria: {
+            dateRange: {
+              start: "2024-01-15",
+              end: "2024-01-16",
+            },
+          },
+        }),
+      ];
+
+      // Mock the filter matcher to return false for all events (no matches)
+      mockFilterMatcher.eventMatchesFilters = mock(() => false);
+
+      await eventFilteringService.filterAndSendViewportEvents(
+        userId,
+        testViewport,
+        filters,
+        events,
+      );
+
+      // Should still publish an empty array to clear markers
+      expect(mockEventPublisher.publishFilteredEvents).toHaveBeenCalledWith(
+        userId,
+        "viewport",
+        [],
+      );
+    });
+
+    test("should publish empty array when MapMoji returns no events", async () => {
+      const events = [createTestEvent()];
+      const userId = "user-1";
+      const filters: Filter[] = [];
+
+      // Mock MapMoji to return empty array
+      mockMapMojiFilter.filterEvents = mock(() => Promise.resolve([]));
+
+      await eventFilteringService.filterAndSendViewportEvents(
+        userId,
+        testViewport,
+        filters,
+        events,
+      );
+
+      // Should still publish an empty array to clear markers
+      expect(mockEventPublisher.publishFilteredEvents).toHaveBeenCalledWith(
+        userId,
+        "viewport",
+        [],
+      );
+    });
+
+    test("should publish empty array when hybrid filtering returns no events", async () => {
+      const events = [createTestEvent()];
+      const userId = "user-1";
+      const filters = [
+        createTestFilter({
+          criteria: {
+            dateRange: {
+              start: "2024-01-15",
+              end: "2024-01-16",
+            },
+          },
+        }),
+      ];
+
+      // Mock MapMoji to return some events
+      mockMapMojiFilter.filterEvents = mock(() =>
+        Promise.resolve([createTestEvent()]),
+      );
+
+      // Mock the filter matcher to return false for all events (no matches after date filtering)
+      mockFilterMatcher.eventMatchesFilters = mock(() => false);
+
+      await eventFilteringService.filterAndSendViewportEvents(
+        userId,
+        testViewport,
+        filters,
+        events,
+      );
+
+      // Should still publish an empty array to clear markers
+      expect(mockEventPublisher.publishFilteredEvents).toHaveBeenCalledWith(
+        userId,
+        "viewport",
+        [],
+      );
     });
   });
 });

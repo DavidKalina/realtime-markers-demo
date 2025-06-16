@@ -203,8 +203,8 @@ export function createClientConnectionService(
             },
           );
 
-          // For viewport/all updates, send as replace-all
-          if (parsedMessage.updates.creates.length > 0) {
+          // For viewport/all updates, send as replace-all (including empty arrays to clear markers)
+          if (parsedMessage.updates.creates !== undefined) {
             const replaceAllMessage = {
               type: "replace-all",
               events: parsedMessage.updates.creates,
