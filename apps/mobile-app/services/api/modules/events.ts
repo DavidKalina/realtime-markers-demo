@@ -3,10 +3,12 @@ import { BaseApiClient } from "../base/ApiClient";
 import {
   ApiEvent,
   CreateEventPayload,
+  EventEngagementMetrics,
   GetEventsParams,
   JobStatus,
   JobStreamMessage,
   ProcessEventImagePayload,
+  RsvpStatus,
   UpdateEventPayload,
 } from "../base/types";
 import { EventType } from "@/types/types";
@@ -299,6 +301,35 @@ export class EventApiClient extends BaseApiModule {
     };
   }
 
+  // RSVP methods
+  async toggleRsvpEvent(
+    eventId: string,
+    status: RsvpStatus,
+  ): Promise<{
+    eventId: string;
+    status: RsvpStatus;
+    goingCount: number;
+    notGoingCount: number;
+  }> {
+    const url = `${this.client.baseUrl}/api/events/${eventId}/rsvp`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    });
+    return this.handleResponse<{
+      eventId: string;
+      status: RsvpStatus;
+      goingCount: number;
+      notGoingCount: number;
+    }>(response);
+  }
+
+  async isEventRsvped(eventId: string): Promise<{ isRsvped: boolean }> {
+    const url = `${this.client.baseUrl}/api/events/${eventId}/rsvped`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{ isRsvped: boolean }>(response);
+  }
+
   // Event creation and management methods
   async createEvent(payload: CreateEventPayload): Promise<EventType> {
     const url = `${this.client.baseUrl}/api/events`;
@@ -428,6 +459,13 @@ export class EventApiClient extends BaseApiModule {
     return this.handleResponse<{ sharedWithId: string; sharedById: string }[]>(
       response,
     );
+  }
+
+  // Event engagement methods
+  async getEventEngagement(eventId: string): Promise<EventEngagementMetrics> {
+    const url = `${this.client.baseUrl}/api/events/${eventId}/engagement`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<EventEngagementMetrics>(response);
   }
 
   // Image management methods

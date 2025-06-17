@@ -13,7 +13,10 @@ import type { EventLifecycleService } from "./EventLifecycleService";
 import { createEventLifecycleService } from "./EventLifecycleService";
 import type { EventSearchService } from "./EventSearchService";
 import { createEventSearchService } from "./EventSearchService";
-import type { UserEngagementService } from "./UserEngagementService";
+import type {
+  UserEngagementService,
+  EventEngagementMetrics,
+} from "./UserEngagementService";
 import { createUserEngagementService } from "./UserEngagementService";
 import type { EventSharingService } from "./EventSharingService";
 import { createEventSharingService } from "./EventSharingService";
@@ -169,6 +172,8 @@ export interface EventService {
     userId: string,
     options?: { limit?: number; cursor?: string },
   ): Promise<{ events: Event[]; nextCursor?: string }>;
+
+  getEventEngagement(eventId: string): Promise<EventEngagementMetrics>;
 
   // Sharing operations
   shareEventWithUsers(
@@ -428,6 +433,10 @@ export class EventServiceRefactored implements EventService {
 
   async getFriendsSavedEvents(userId: string, options = {}) {
     return this.engagementService.getFriendsSavedEvents(userId, options);
+  }
+
+  async getEventEngagement(eventId: string) {
+    return this.engagementService.getEventEngagement(eventId);
   }
 
   // Sharing operations - delegate to EventSharingService

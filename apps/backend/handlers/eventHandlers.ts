@@ -1015,3 +1015,35 @@ export const getEventsByCategoryHandler: EventHandler = async (c) => {
     );
   }
 };
+
+export const getEventEngagementHandler: EventHandler = async (c) => {
+  try {
+    const eventId = c.req.param("id");
+
+    if (!eventId) {
+      return c.json({ error: "Missing event ID" }, 400);
+    }
+
+    const eventService = c.get("eventService");
+
+    // Check if the event exists
+    const event = await eventService.getEventById(eventId);
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
+
+    // Get engagement metrics
+    const engagement = await eventService.getEventEngagement(eventId);
+
+    return c.json(engagement);
+  } catch (error) {
+    console.error("Error fetching event engagement:", error);
+    return c.json(
+      {
+        error: "Failed to fetch event engagement",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+};
