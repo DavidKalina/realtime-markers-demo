@@ -267,7 +267,30 @@ Respond with only: "MULTIPLE" if there are multiple distinct events, or "SINGLE"
                 type: "text",
                 text: `This image contains multiple events. Please extract each event separately and provide them in a structured format.
 
-For EACH event found, extract:
+**IMPORTANT PRIVACY GUARD RAILS:**
+- ONLY process PUBLIC events (flyers, posters, community announcements, business promotions)
+- DO NOT process private information such as:
+  * Personal medical appointments (doctor visits, therapy sessions)
+  * Private business meetings or personal work schedules
+  * Family events or personal reminders
+  * Private social gatherings not meant for public promotion
+  * Personal calendar entries
+  * Private contact information without public event context
+  * Personal tasks or reminders
+  * Private financial or legal appointments
+- If this appears to be private/personal information, respond with "PRIVATE INFORMATION DETECTED" and stop processing
+
+**ACCEPTABLE CONTENT:**
+- Community events and gatherings
+- Business promotions and public sales
+- Educational workshops and classes
+- Public performances and entertainment
+- Religious or community organization events
+- Public sports or recreational activities
+- Professional networking events
+- Public conferences and seminars
+
+If this contains public events, extract the following details for EACH event:
 - Check if there's a QR code present in the image (yes/no) - this applies to the entire image
 - Event Title
 - Event Date and Time (be specific about year, month, day, time):
@@ -350,7 +373,20 @@ Make sure to clearly separate each event and provide confidence scores for each.
       });
 
       const content = response.choices[0].message.content || "";
-      const events = this.parseMultiEventResponse(content);
+
+      // Check if Vision API detected private information
+      if (content.includes("PRIVATE INFORMATION DETECTED")) {
+        return {
+          success: false,
+          isMultiEvent: true,
+          events: [],
+          extractedAt: new Date().toISOString(),
+          error:
+            "Private information detected - multi-event processing rejected",
+        };
+      }
+
+      const events = await this.parseMultiEventResponse(content);
 
       return {
         success: true,
@@ -378,7 +414,9 @@ Make sure to clearly separate each event and provide confidence scores for each.
    * @param content The response content from Vision API
    * @returns Array of ImageProcessingResult objects
    */
-  private parseMultiEventResponse(content: string): ImageProcessingResult[] {
+  private async parseMultiEventResponse(
+    content: string,
+  ): Promise<ImageProcessingResult[]> {
     const events: ImageProcessingResult[] = [];
 
     try {
@@ -392,42 +430,78 @@ Make sure to clearly separate each event and provide confidence scores for each.
       const eventSections = content.split(/EVENT_\d+:/);
 
       // Skip the first element (everything before first EVENT_)
-      const extractedEvents = eventSections.slice(1).map((section) => {
-        const confidence = this.extractConfidenceScore(section);
-        const qrDetected = /QR code.*?:\s*yes/i.test(section);
+      const extractedEvents = await Promise.all(
+        eventSections.slice(1).map(async (section) => {
+          const confidence = this.extractConfidenceScore(section);
+          const qrDetected = /QR code.*?:\s*yes/i.test(section);
 
-        // Extract structured data
-        const title = this.extractField(section, "Event Title");
-        const dateTime = this.extractField(section, "Date and Time");
-        const timezone = this.extractField(section, "Timezone");
-        const venueAddress = this.extractField(section, "VENUE ADDRESS");
-        const venueName = this.extractField(section, "VENUE NAME");
-        const organizer = this.extractField(section, "ORGANIZER");
-        const description = this.extractField(section, "Description");
-        const contactInfo = this.extractField(section, "Contact Info");
-        const socialMedia = this.extractField(section, "Social Media");
-        const otherDetails = this.extractField(section, "Other Details");
+          // Extract structured data
+          const title = this.extractField(section, "Event Title");
+          const dateTime = this.extractField(section, "Date and Time");
+          const timezone = this.extractField(section, "Timezone");
+          const venueAddress = this.extractField(section, "VENUE ADDRESS");
+          const venueName = this.extractField(section, "VENUE NAME");
+          const organizer = this.extractField(section, "ORGANIZER");
+          const description = this.extractField(section, "Description");
+          const contactInfo = this.extractField(section, "Contact Info");
+          const socialMedia = this.extractField(section, "Social Media");
+          const otherDetails = this.extractField(section, "Other Details");
 
-        return {
-          success: true,
-          rawText: section.trim(),
-          confidence: confidence,
-          extractedAt: new Date().toISOString(),
-          qrCodeDetected: qrDetected,
-          structuredData: {
-            title,
-            dateTime,
-            timezone,
-            venueAddress,
-            venueName,
-            organizer,
-            description,
-            contactInfo,
-            socialMedia,
-            otherDetails,
-          },
-        };
-      });
+          // Validate privacy for this event
+          const privacyValidation = await this.validateEventPrivacy(
+            section.trim(),
+          );
+
+          // If the event contains private information or is not a public event, mark it as failed
+          if (
+            privacyValidation.containsPrivateInfo ||
+            !privacyValidation.isPublicEvent
+          ) {
+            return {
+              success: false,
+              rawText: section.trim(),
+              confidence: 0,
+              extractedAt: new Date().toISOString(),
+              error: `Event rejected due to privacy concerns: ${privacyValidation.reason}`,
+              qrCodeDetected: qrDetected,
+              structuredData: {
+                title,
+                dateTime,
+                timezone,
+                venueAddress,
+                venueName,
+                organizer,
+                description,
+                contactInfo,
+                socialMedia,
+                otherDetails,
+              },
+              privacyValidation,
+            };
+          }
+
+          return {
+            success: true,
+            rawText: section.trim(),
+            confidence: confidence,
+            extractedAt: new Date().toISOString(),
+            qrCodeDetected: qrDetected,
+            structuredData: {
+              title,
+              dateTime,
+              timezone,
+              venueAddress,
+              venueName,
+              organizer,
+              description,
+              contactInfo,
+              socialMedia,
+              otherDetails,
+            },
+            privacyValidation,
+          };
+        }),
+      );
 
       // Validate that we found the expected number of events
       if (
@@ -596,64 +670,89 @@ Make sure to clearly separate each event and provide confidence scores for each.
             content: [
               {
                 type: "text",
-                text: `Please analyze this event flyer and extract as much detail as possible:
-               - Check if there's a QR code present in the image (yes/no)
-               - Event Title
-               - Event Date and Time (be specific about year, month, day, time):
-                 * **CRITICAL CHECK FOR THE HOUR DIGIT:** Meticulously examine the hour digit in the time provided.
-                 * **Distinguish 1 vs 7:** Pay extremely close attention to these visual cues:
-                    - '1': Primarily a **vertical line**. It might have a small horizontal base or a very small flag/serif at the top.
-                    - '7': Has a **distinct, long horizontal line across the top**, connected to a diagonal descending line.
-                    - **DO NOT confuse a small top serif/flag on a '1' with the long horizontal top bar of a '7'. Look closely at the image.**
-                 * **Plausibility Check:** Assess if the extracted time seems reasonable for this type of event based on the overall context of the flyer.
-                 * **Other Digit Checks:** Also verify: 11 vs 1, 12 vs 2, 4 vs 9.
-                 * **Format:** Verify AM/PM indicators. Include minutes if present (e.g., :00). State time precisely as seen (e.g., 1:00 PM).
-               - **IMPORTANT: Check for Recurring Event Patterns:**
-                 * Look for phrases like "every", "weekly", "monthly", "daily", "bi-weekly"
-                 * Look for specific days mentioned (e.g., "every Monday", "Tuesdays and Thursdays")
-                 * Look for date ranges or duration (e.g., "through December", "until further notice")
-                 * Look for time patterns (e.g., "every day at 7 PM", "weekly at 3 PM")
-                 * Look for exceptions or special dates
-               - Any timezone information (EST, PST, GMT, etc.)
-               - Full Location Details:
-                 * PRIMARY VENUE: Focus on the most prominently displayed location in the image.
-                 * Pay attention to visual hierarchy - larger text for locations is likely the actual venue.
-                 * EXACT venue name as written (e.g., "Provo Airport", "Grande Ballroom")
-                 * Building/Room number if applicable
-                 * Full address if provided
-                 * City and State
-               - Organizer Information (SEPARATE from venue):
-                 * Organization name (e.g., "UVU Career Center", "YSA 36TH WARD")
-                 * Note this as the ORGANIZER, not the location, if it appears in a less prominent position (like the top).
-                 * Look for logos, smaller text at top/bottom/sides that indicate who is hosting, not where.
-               - Complete Description (purpose of the event)
-               - Any contact information
-               - Any social media handles
-               - Any other important details (e.g., "All are welcome...")
+                text: `Please analyze this event flyer and extract as much detail as possible.
 
-               Format your response with clear separation:
-               QR Code Present: [yes/no]
-               Event Title: [title]
-               Date and Time: [full date and time, paying attention to the 1 vs 7 check]
-               Is Recurring: [yes/no]
-               Recurrence Pattern: [if recurring, describe the pattern in detail]
-               Recurrence Frequency: [DAILY/WEEKLY/BIWEEKLY/MONTHLY/YEARLY or N/A]
-               Recurrence Days: [comma-separated list of days if applicable]
-               Recurrence Time: [time in HH:mm format if applicable]
-               Recurrence Start Date: [start date of the series if specified]
-               Recurrence End Date: [end date of the series if specified]
-               Recurrence Interval: [number for intervals like "every 2 weeks"]
-               Timezone: [timezone, or N/A]
-               VENUE ADDRESS: [full address]
-               VENUE NAME: [venue name, if distinct from address, otherwise N/A]
-               ORGANIZER: [organization hosting the event]
-               Description: [event description]
-               Contact Info: [contact, or N/A]
-               Social Media: [handles, or N/A]
-               Other Details: [any other text like welcome message]
+**IMPORTANT PRIVACY GUARD RAILS:**
+- ONLY process PUBLIC events (flyers, posters, community announcements, business promotions)
+- DO NOT process private information such as:
+  * Personal medical appointments (doctor visits, therapy sessions)
+  * Private business meetings or personal work schedules
+  * Family events or personal reminders
+  * Private social gatherings not meant for public promotion
+  * Personal calendar entries
+  * Private contact information without public event context
+  * Personal tasks or reminders
+  * Private financial or legal appointments
+- If this appears to be private/personal information, respond with "PRIVATE INFORMATION DETECTED" and stop processing
 
-               Also, provide a confidence score between 0 and 1, indicating how confident you are that the extraction is an event.
-               Confidence Score: [score]`,
+**ACCEPTABLE CONTENT:**
+- Community events and gatherings
+- Business promotions and public sales
+- Educational workshops and classes
+- Public performances and entertainment
+- Religious or community organization events
+- Public sports or recreational activities
+- Professional networking events
+- Public conferences and seminars
+
+If this is a public event, extract the following details:
+- Check if there's a QR code present in the image (yes/no)
+- Event Title
+- Event Date and Time (be specific about year, month, day, time):
+  * **CRITICAL CHECK FOR THE HOUR DIGIT:** Meticulously examine the hour digit in the time provided.
+  * **Distinguish 1 vs 7:** Pay extremely close attention to these visual cues:
+     - '1': Primarily a **vertical line**. It might have a small horizontal base or a very small flag/serif at the top.
+     - '7': Has a **distinct, long horizontal line across the top**, connected to a diagonal descending line.
+     - **DO NOT confuse a small top serif/flag on a '1' with the long horizontal top bar of a '7'. Look closely at the image.**
+  * **Plausibility Check:** Assess if the extracted time seems reasonable for this type of event based on the overall context of the flyer.
+  * **Other Digit Checks:** Also verify: 11 vs 1, 12 vs 2, 4 vs 9.
+  * **Format:** Verify AM/PM indicators. Include minutes if present (e.g., :00). State time precisely as seen (e.g., 1:00 PM).
+- **IMPORTANT: Check for Recurring Event Patterns:**
+  * Look for phrases like "every", "weekly", "monthly", "daily", "bi-weekly"
+  * Look for specific days mentioned (e.g., "every Monday", "Tuesdays and Thursdays")
+  * Look for date ranges or duration (e.g., "through December", "until further notice")
+  * Look for time patterns (e.g., "every day at 7 PM", "weekly at 3 PM")
+  * Look for exceptions or special dates
+- Any timezone information (EST, PST, GMT, etc.)
+- Full Location Details:
+  * PRIMARY VENUE: Focus on the most prominently displayed location in the image.
+  * Pay attention to visual hierarchy - larger text for locations is likely the actual venue.
+  * EXACT venue name as written (e.g., "Provo Airport", "Grande Ballroom")
+  * Building/Room number if applicable
+  * Full address if provided
+  * City and State
+- Organizer Information (SEPARATE from venue):
+  * Organization name (e.g., "UVU Career Center", "YSA 36TH WARD")
+  * Note this as the ORGANIZER, not the location, if it appears in a less prominent position (like the top).
+  * Look for logos, smaller text at top/bottom/sides that indicate who is hosting, not where.
+- Complete Description (purpose of the event)
+- Any contact information
+- Any social media handles
+- Any other important details (e.g., "All are welcome...")
+
+Format your response with clear separation:
+QR Code Present: [yes/no]
+Event Title: [title]
+Date and Time: [full date and time, paying attention to the 1 vs 7 check]
+Is Recurring: [yes/no]
+Recurrence Pattern: [if recurring, describe the pattern in detail]
+Recurrence Frequency: [DAILY/WEEKLY/BIWEEKLY/MONTHLY/YEARLY or N/A]
+Recurrence Days: [comma-separated list of days if applicable]
+Recurrence Time: [time in HH:mm format if applicable]
+Recurrence Start Date: [start date of the series if specified]
+Recurrence End Date: [end date of the series if specified]
+Recurrence Interval: [number for intervals like "every 2 weeks"]
+Timezone: [timezone, or N/A]
+VENUE ADDRESS: [full address]
+VENUE NAME: [venue name, if distinct from address, otherwise N/A]
+ORGANIZER: [organization hosting the event]
+Description: [event description]
+Contact Info: [contact, or N/A]
+Social Media: [handles, or N/A]
+Other Details: [any other text like welcome message]
+
+Also, provide a confidence score between 0 and 1, indicating how confident you are that the extraction is an event.
+Confidence Score: [score]`,
               },
               {
                 type: "image_url",
@@ -668,6 +767,17 @@ Make sure to clearly separate each event and provide confidence scores for each.
       });
 
       const content = response.choices[0].message.content || "";
+
+      // Check if Vision API detected private information
+      if (content.includes("PRIVATE INFORMATION DETECTED")) {
+        return {
+          success: false,
+          rawText: content,
+          confidence: 0,
+          extractedAt: new Date().toISOString(),
+          error: "Private information detected - event processing rejected",
+        };
+      }
 
       // Extract confidence score from the response
       const confidence = this.extractConfidenceScore(content);
