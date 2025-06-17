@@ -4,8 +4,8 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { MetricsSection } from "@/components/dashboard/MetricsSection";
 import { DashboardContent } from "@/components/dashboard/DashboardContent";
-import { QuickActions } from "@/components/dashboard/QuickActions";
 import { LoadingSpinner } from "@/components/dashboard/LoadingSpinner";
+import { MapPreviewDemo } from "@/components/dashboard/MapPreviewDemo";
 import { useDashboardData } from "@/hooks/useDashboardData";
 
 export default function Home() {
@@ -16,8 +16,6 @@ export default function Home() {
     busiestTimes,
     upcomingEvents,
     loading,
-    error,
-    refetch,
   } = useDashboardData();
 
   return (
@@ -40,7 +38,7 @@ export default function Home() {
                 upcomingEvents={upcomingEvents}
               />
             )}
-            {/* QuickActions intentionally omitted until endpoint-backed */}
+            <MapPreviewDemo />
           </div>
         </div>
       )}
