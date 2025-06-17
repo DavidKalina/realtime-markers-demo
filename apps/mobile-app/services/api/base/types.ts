@@ -564,3 +564,65 @@ export interface PlanUpdateInput {
   currency?: string;
   features?: string[];
 }
+
+// Push Notification Types
+export type DeviceType = "IOS" | "ANDROID" | "WEB";
+
+export interface PushToken {
+  id: string;
+  token: string;
+  deviceType: DeviceType;
+  deviceId?: string;
+  appVersion?: string;
+  osVersion?: string;
+  isActive: boolean;
+  lastUsedAt?: string;
+  createdAt: string;
+}
+
+export interface PushTokenRegistrationInput {
+  token: string;
+  deviceType: DeviceType;
+  deviceId?: string;
+  appVersion?: string;
+  osVersion?: string;
+}
+
+export interface PushTokenUnregistrationInput {
+  token: string;
+}
+
+export interface PushNotificationData {
+  title: string;
+  body: string;
+  data?: Record<string, string | number | boolean>;
+  sound?: string;
+  priority?: "default" | "normal" | "high";
+}
+
+export interface TestNotificationInput {
+  title: string;
+  body: string;
+  data?: Record<string, string | number | boolean>;
+}
+
+export interface SendToUsersInput {
+  userIds: string[];
+  title: string;
+  body: string;
+  data?: Record<string, string | number | boolean>;
+}
+
+export interface PushNotificationResult {
+  success: boolean;
+  token?: string;
+  error?: string;
+  userId?: string;
+}
+
+export interface PushNotificationResponse {
+  sent: number;
+  failed: number;
+  results: PushNotificationResult[];
+  totalUsers?: number;
+}

@@ -54,6 +54,9 @@ import { createLevelingCacheService } from "./services/shared/LevelingCacheServi
 import { createFriendshipCacheService } from "./services/shared/FriendshipCacheService";
 import { createFriendshipService } from "./services/FriendshipService";
 import { User } from "./entities/User";
+import { createPushNotificationService } from "./services/PushNotificationService";
+import { createPushNotificationCacheService } from "./services/shared/PushNotificationCacheService";
+import { pushNotificationsRouter } from "./routes/pushNotifications";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -284,6 +287,14 @@ async function initializeServices() {
     notificationCacheService: createNotificationCacheService(redisClient),
   });
 
+  // Initialize the PushNotificationService with dependencies
+  const pushNotificationService = createPushNotificationService({
+    dataSource,
+    redisService,
+    pushNotificationCacheService:
+      createPushNotificationCacheService(redisClient),
+  });
+
   const authService = createAuthService({
     userRepository: dataSource.getRepository(User),
     dataSource,
@@ -339,6 +350,7 @@ async function initializeServices() {
     notificationHandler,
     authService,
     openAIService,
+    pushNotificationService,
   };
 }
 
@@ -362,6 +374,7 @@ app.use("*", async (c, next) => {
   c.set("notificationService", services.notificationService);
   c.set("authService", services.authService);
   c.set("geocodingService", geocodingService);
+  c.set("pushNotificationService", services.pushNotificationService);
   await next();
 });
 
@@ -376,6 +389,7 @@ app.route("/api/friendships", friendshipsRouter);
 app.route("/api/notifications", notificationsRouter);
 app.route("/api/places", placesRouter);
 app.route("/api/categories", categoriesRouter);
+app.route("/api/push-notifications", pushNotificationsRouter);
 
 // =============================================================================
 // Jobs API - Server-Sent Events (must be before jobs router)

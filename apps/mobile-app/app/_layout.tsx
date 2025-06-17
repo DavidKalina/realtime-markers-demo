@@ -19,6 +19,7 @@ import { LocationProvider } from "@/contexts/LocationContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { useColorScheme } from "@/hooks/useColorScheme";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { isRunningInExpoGo } from "expo";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
 
@@ -52,6 +53,10 @@ function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
+
+  // Initialize push notifications
+  // This hook handles the complete lifecycle management automatically
+  usePushNotifications();
 
   useEffect(() => {
     if (loaded) {

@@ -11,6 +11,7 @@ import { FiltersModule } from "./api/modules/filters";
 import { RSVPModule } from "./api/modules/rsvp";
 import { PlansModule } from "./api/modules/plans";
 import { CategoriesModule } from "./api/modules/categories";
+import { PushNotificationsModule } from "./api/modules/pushNotifications";
 
 // Re-export types and enums
 export * from "./api/base/types";
@@ -36,6 +37,7 @@ class ApiClient extends BaseApiClient {
   private _rsvp: RSVPModule | null = null;
   private _plans: PlansModule | null = null;
   private _categories: CategoriesModule | null = null;
+  private _pushNotifications: PushNotificationsModule | null = null;
 
   private constructor(baseUrl: string) {
     super(baseUrl);
@@ -122,6 +124,13 @@ class ApiClient extends BaseApiClient {
       this._categories = new CategoriesModule(this);
     }
     return this._categories;
+  }
+
+  public get pushNotifications(): PushNotificationsModule {
+    if (!this._pushNotifications) {
+      this._pushNotifications = new PushNotificationsModule(this);
+    }
+    return this._pushNotifications;
   }
 
   override setBaseUrl(baseUrl: string): void {
