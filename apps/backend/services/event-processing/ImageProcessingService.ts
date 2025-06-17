@@ -114,7 +114,7 @@ export class ImageProcessingServiceImpl implements ImageProcessingService {
         rawText: visionResult.rawText,
         confidence: 0,
         extractedAt: new Date().toISOString(),
-        error: `Event rejected due to privacy concerns: ${privacyValidation.reason}`,
+        error: "Private information detected - event processing rejected",
         qrCodeDetected:
           qrResult.detected || visionResult.qrCodeDetected || false,
         qrCodeData: qrResult.data || visionResult.qrCodeData,
@@ -462,7 +462,7 @@ Make sure to clearly separate each event and provide confidence scores for each.
               rawText: section.trim(),
               confidence: 0,
               extractedAt: new Date().toISOString(),
-              error: `Event rejected due to privacy concerns: ${privacyValidation.reason}`,
+              error: "Private information detected - event processing rejected",
               qrCodeDetected: qrDetected,
               structuredData: {
                 title,
