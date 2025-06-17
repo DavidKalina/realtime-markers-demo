@@ -26,6 +26,8 @@ export default {
           "MapMoji may access your location in the background to support location-based flyer scanning and event discovery. Your coordinates are securely sent to our server to improve results.",
         NSCameraUsageDescription:
           "MapMoji needs camera access to scan event flyers. Images are processed on our server and may be stored to display event details to other users.",
+        NSUserNotificationUsageDescription:
+          "MapMoji sends notifications to keep you updated about new events, friend requests, and important updates. You can manage notification preferences in Settings.",
         NSAppTransportSecurity: {
           NSAllowsArbitraryLoads: false,
         },
@@ -98,6 +100,13 @@ export default {
           cameraPermission:
             "Allow $(PRODUCT_NAME) to access your camera to take photos of event flyers",
           recordAudioAndroid: false,
+        },
+      ],
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/images/icon.png",
+          color: "#ffffff",
         },
       ],
     ],
