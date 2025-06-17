@@ -3,7 +3,10 @@
 import { createHash } from "crypto";
 import type { ImageProcessingCacheService } from "../shared/ImageProcessingCacheService";
 import type { IImageProcessingService } from "./interfaces/IImageProcesssingService";
-import type { ImageProcessingResult } from "./dto/ImageProcessingResult";
+import type {
+  ImageProcessingResult,
+  PrivacyValidationResult,
+} from "./dto/ImageProcessingResult";
 import type { OpenAIService } from "../shared/OpenAIService";
 import { OpenAIModel } from "../shared/OpenAIService";
 import jsQR from "jsqr";
@@ -51,6 +54,7 @@ export interface ImageProcessingService extends IImageProcessingService {
 
 export class ImageProcessingServiceImpl implements ImageProcessingService {
   private readonly VISION_MODEL = "gpt-4o";
+  private readonly VALIDATION_MODEL = "gpt-4o-mini";
   private readonly CACHE_TTL = 24 * 60 * 60; // 24 hours in seconds
   private openAIService: OpenAIService;
   private imageProcessingCacheService: ImageProcessingCacheService;
@@ -95,11 +99,36 @@ export class ImageProcessingServiceImpl implements ImageProcessingService {
     // Process with Vision API
     const visionResult = await this.callVisionAPI(base64Image);
 
+    // Validate privacy and public event status
+    const privacyValidation = await this.validateEventPrivacy(
+      visionResult.rawText,
+    );
+
+    // If the event contains private information or is not a public event, reject it
+    if (
+      privacyValidation.containsPrivateInfo ||
+      !privacyValidation.isPublicEvent
+    ) {
+      return {
+        success: false,
+        rawText: visionResult.rawText,
+        confidence: 0,
+        extractedAt: new Date().toISOString(),
+        error: `Event rejected due to privacy concerns: ${privacyValidation.reason}`,
+        qrCodeDetected:
+          qrResult.detected || visionResult.qrCodeDetected || false,
+        qrCodeData: qrResult.data || visionResult.qrCodeData,
+        structuredData: visionResult.structuredData,
+        privacyValidation,
+      };
+    }
+
     // Combine QR detection with vision results
     const result = {
       ...visionResult,
       qrCodeDetected: qrResult.detected || visionResult.qrCodeDetected || false,
       qrCodeData: qrResult.data || visionResult.qrCodeData,
+      privacyValidation,
     };
 
     // Cache the result for future use
@@ -765,6 +794,92 @@ Make sure to clearly separate each event and provide confidence scores for each.
   private extractConfidenceScore(text: string): number {
     const match = text.match(/Confidence Score[^\d]*(\d*\.?\d+)/i);
     return match ? parseFloat(match[1]) : 0.5; // Default to 0.5 if not found
+  }
+
+  /**
+   * Validate whether the extracted event information is appropriate for public sharing
+   * @param extractedText The text extracted from the image
+   * @returns Privacy validation result
+   */
+  private async validateEventPrivacy(
+    extractedText: string,
+  ): Promise<PrivacyValidationResult> {
+    try {
+      const response = await this.openAIService.executeChatCompletion({
+        model: OpenAIModel.GPT4OMini,
+        messages: [
+          {
+            role: "system",
+            content: `You are a privacy validation expert. Your job is to determine if extracted event information is appropriate for public sharing or if it contains private/personal information that should not be processed as a public event.
+
+IMPORTANT CRITERIA:
+1. PUBLIC EVENTS: Flyers, posters, announcements, community events, business promotions, public gatherings, etc.
+2. PRIVATE INFORMATION: Personal appointments, medical visits, therapy sessions, private meetings, personal reminders, family events, private business meetings, etc.
+
+RED FLAGS (should be rejected):
+- Personal medical appointments (doctor visits, therapy, etc.)
+- Private business meetings or personal work schedules
+- Family events or personal reminders
+- Private social gatherings not meant for public promotion
+- Personal calendar entries
+- Private contact information without public event context
+- Personal tasks or reminders
+- Private financial or legal appointments
+
+GREEN FLAGS (should be accepted):
+- Community events and gatherings
+- Business promotions and public sales
+- Educational workshops and classes
+- Public performances and entertainment
+- Religious or community organization events
+- Public sports or recreational activities
+- Professional networking events
+- Public conferences and seminars
+
+Respond with a JSON object in this exact format:
+{
+  "isPublicEvent": boolean,
+  "confidence": number (0-1),
+  "reason": "string explaining the decision",
+  "containsPrivateInfo": boolean,
+  "privateInfoTypes": ["array", "of", "private", "info", "types", "if", "any"]
+}`,
+          },
+          {
+            role: "user",
+            content: `Analyze this extracted event information and determine if it's appropriate for public sharing:
+
+${extractedText}`,
+          },
+        ],
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+        max_tokens: 500,
+      });
+
+      const content = response.choices[0].message.content;
+      if (!content) {
+        throw new Error("No content received from privacy validation");
+      }
+
+      const result = JSON.parse(content) as PrivacyValidationResult;
+
+      // Ensure confidence is within bounds
+      result.confidence = Math.max(0, Math.min(1, result.confidence));
+
+      return result;
+    } catch (error) {
+      console.error("Error validating event privacy:", error);
+      // Default to rejecting if validation fails (safer approach)
+      return {
+        isPublicEvent: false,
+        confidence: 0,
+        reason:
+          "Privacy validation failed - defaulting to rejection for safety",
+        containsPrivateInfo: true,
+        privateInfoTypes: ["validation_error"],
+      };
+    }
   }
 }
 

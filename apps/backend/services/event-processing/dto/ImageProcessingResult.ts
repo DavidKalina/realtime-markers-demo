@@ -68,6 +68,17 @@ export interface EventStructuredData {
 }
 
 /**
+ * Privacy validation result for event processing
+ */
+export interface PrivacyValidationResult {
+  isPublicEvent: boolean;
+  confidence: number;
+  reason: string;
+  containsPrivateInfo: boolean;
+  privateInfoTypes: string[];
+}
+
+/**
  * Represents the result of image processing operations
  * Contains extracted text and metadata about the processing
  */
@@ -105,4 +116,9 @@ export interface ImageProcessingResult {
    * Structured data extracted from the event
    */
   structuredData?: EventStructuredData;
+
+  /**
+   * Privacy validation result
+   */
+  privacyValidation?: PrivacyValidationResult;
 }
