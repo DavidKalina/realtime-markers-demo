@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Mono } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 const spaceMono = Space_Mono({
   subsets: ["latin"],
@@ -20,7 +21,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={spaceMono.className}>{children}</body>
+      <body className={spaceMono.className}>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

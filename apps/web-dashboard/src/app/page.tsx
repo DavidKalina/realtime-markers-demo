@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -6,35 +8,55 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { useAuth } from "@/contexts/AuthContext";
 
-export default function Home() {
+function DashboardContent() {
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+  };
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="container mx-auto">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
-            Web Dashboard
-          </h1>
-          <p className="text-muted-foreground">
-            A modern dashboard built with Next.js and shadcn/ui
-          </p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-4xl font-bold text-foreground mb-2">
+              Web Dashboard
+            </h1>
+            <p className="text-muted-foreground">
+              Welcome back, {user?.displayName || user?.email}!
+            </p>
+          </div>
+          <Button variant="outline" onClick={handleLogout}>
+            Logout
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Welcome</CardTitle>
-              <CardDescription>
-                This is your new dashboard. Try editing this file to see hot
-                reloading in action!
-              </CardDescription>
+              <CardTitle>User Profile</CardTitle>
+              <CardDescription>Your account information</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Make changes to this file and watch them appear instantly in
-                your browser.
-              </p>
-              <Button>Get Started</Button>
+              <div className="space-y-2">
+                <p className="text-sm">
+                  <span className="font-medium">Email:</span> {user?.email}
+                </p>
+                <p className="text-sm">
+                  <span className="font-medium">Display Name:</span>{" "}
+                  {user?.displayName}
+                </p>
+                <p className="text-sm">
+                  <span className="font-medium">Member Since:</span>{" "}
+                  {user?.createdAt
+                    ? new Date(user.createdAt).toLocaleDateString()
+                    : "N/A"}
+                </p>
+              </div>
             </CardContent>
           </Card>
 
@@ -55,7 +77,7 @@ export default function Home() {
                 </li>
                 <li className="flex items-center">
                   <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                  Hot reloading enabled
+                  Secure authentication
                 </li>
                 <li className="flex items-center">
                   <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
@@ -95,17 +117,18 @@ export default function Home() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <h4 className="font-semibold mb-2">Hot Reloading</h4>
+                  <h4 className="font-semibold mb-2">Authentication</h4>
                   <p className="text-sm text-muted-foreground">
-                    Changes to your code will automatically refresh the browser.
-                    Try editing this file and save to see it in action!
+                    You are successfully authenticated with the backend API.
+                    Your session is securely managed with JWT tokens.
                   </p>
                 </div>
                 <div>
-                  <h4 className="font-semibold mb-2">Package Management</h4>
+                  <h4 className="font-semibold mb-2">API Connection</h4>
                   <p className="text-sm text-muted-foreground">
-                    Use pnpm to install new packages. They will be available
-                    immediately after installation thanks to hot reloading.
+                    Connected to the backend at{" "}
+                    {process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}
+                    . All requests are authenticated with your access token.
                   </p>
                 </div>
               </div>
@@ -114,5 +137,13 @@ export default function Home() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <ProtectedRoute>
+      <DashboardContent />
+    </ProtectedRoute>
   );
 }
