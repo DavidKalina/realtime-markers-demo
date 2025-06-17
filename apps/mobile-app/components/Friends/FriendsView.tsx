@@ -247,25 +247,13 @@ const FriendsView: React.FC = () => {
 
     setIsSearching(true);
     try {
-      if (searchQuery.includes("@")) {
-        // Handle email search
-      } else if (searchQuery.length === 6 && /^[A-Z0-9]+$/.test(searchQuery)) {
-        await apiClient.friends.sendFriendRequestByCode(searchQuery);
-        setSearchFeedback({
-          status: "success",
-          message: "Friend request sent",
-        });
-        setSearchQuery("");
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } else {
-        await apiClient.friends.sendFriendRequestByUsername(searchQuery);
-        setSearchFeedback({
-          status: "success",
-          message: "Friend request sent",
-        });
-        setSearchQuery("");
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      await apiClient.friends.sendFriendRequestByUsername(searchQuery);
+      setSearchFeedback({
+        status: "success",
+        message: "Friend request sent",
+      });
+      setSearchQuery("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to send friend request";

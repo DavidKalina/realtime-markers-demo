@@ -35,37 +35,6 @@ export const sendFriendRequestHandler: FriendshipHandler = async (c) => {
   }
 };
 
-export const sendFriendRequestByCodeHandler: FriendshipHandler = async (c) => {
-  try {
-    const user = c.get("user");
-    if (!user || !user.userId) {
-      return c.json({ error: "Authentication required" }, 401);
-    }
-
-    const { friendCode } = await c.req.json();
-    if (!friendCode) {
-      return c.json({ error: "Friend code is required" }, 400);
-    }
-
-    const friendshipService = c.get("friendshipService");
-    const friendship = await friendshipService.sendFriendRequestByCode(
-      user.userId,
-      friendCode,
-    );
-
-    return c.json(friendship);
-  } catch (error) {
-    console.error("Error sending friend request by code:", error);
-    return c.json(
-      {
-        error: "Failed to send friend request",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      500,
-    );
-  }
-};
-
 export const sendFriendRequestByUsernameHandler: FriendshipHandler = async (
   c,
 ) => {

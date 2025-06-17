@@ -25,13 +25,18 @@ friendshipsRouter.use("*", authMiddleware);
 
 // Friend request endpoints
 friendshipsRouter.post("/requests", handlers.sendFriendRequestHandler);
+
 friendshipsRouter.post(
-  "/requests/code",
-  handlers.sendFriendRequestByCodeHandler,
-);
-friendshipsRouter.post(
-  "/requests/username",
+  "/requests/by-username",
   handlers.sendFriendRequestByUsernameHandler,
+);
+friendshipsRouter.get(
+  "/requests/pending",
+  handlers.getPendingFriendRequestsHandler,
+);
+friendshipsRouter.get(
+  "/requests/outgoing",
+  handlers.getOutgoingFriendRequestsHandler,
 );
 friendshipsRouter.post(
   "/requests/:id/accept",
@@ -44,14 +49,6 @@ friendshipsRouter.post(
 friendshipsRouter.post(
   "/requests/:id/cancel",
   handlers.cancelFriendRequestHandler,
-);
-friendshipsRouter.get(
-  "/requests/pending",
-  handlers.getPendingFriendRequestsHandler,
-);
-friendshipsRouter.get(
-  "/requests/outgoing",
-  handlers.getOutgoingFriendRequestsHandler,
 );
 
 // Friends list endpoints

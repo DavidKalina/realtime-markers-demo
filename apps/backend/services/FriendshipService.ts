@@ -423,20 +423,6 @@ export class FriendshipServiceImpl {
   }
 
   /**
-   * Send a friend request to another user by friend code
-   */
-  async sendFriendRequestByCode(
-    requesterId: string,
-    friendCode: string,
-  ): Promise<Friendship> {
-    const addressee = await this.findUserByFriendCode(friendCode);
-    if (!addressee) {
-      throw new Error("User not found with this friend code");
-    }
-    return this.sendFriendRequest(requesterId, addressee.id);
-  }
-
-  /**
    * Send a friend request to another user by username
    */
   async sendFriendRequestByUsername(

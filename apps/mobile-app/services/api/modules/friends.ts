@@ -147,18 +147,6 @@ export class FriendsModule extends BaseApiModule {
     });
     await this.handleResponse<void>(response);
   }
-
-  /**
-   * Send a friend request by friend code
-   */
-  async sendFriendRequestByCode(code: string): Promise<void> {
-    const url = `${this.client.baseUrl}/api/friendships/requests/by-code`;
-    const response = await this.fetchWithAuth(url, {
-      method: "POST",
-      body: JSON.stringify({ code }),
-    });
-    await this.handleResponse<void>(response);
-  }
 }
 
 // Export as singleton using the main ApiClient instance

@@ -15,6 +15,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { AuthWrapper } from "@/components/AuthWrapper";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
 interface JobItemProps {
   job: JobData;
@@ -62,6 +64,8 @@ const sortJobsChronologically = (jobs: JobData[]): JobData[] => {
 };
 
 const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
+  const router = useRouter();
+
   // Animation values for spinning cog
   const rotation = useSharedValue(0);
   const progressBarWidth = useSharedValue(0);
@@ -138,12 +142,15 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
       | undefined;
     const result = job.result;
 
+    // Determine if this is a private event based on job type
+    const isPrivateEvent = job.type === "process_private_event";
+
     // Prefer result emoji if present (for completed jobs)
     if (result?.title || result?.emoji) {
       return {
         title: result.title || eventDetails?.title || "Event Created",
         emoji: result.emoji || eventDetails?.emoji || "📍",
-        isPrivate: false,
+        isPrivate: isPrivateEvent,
       };
     }
 
@@ -152,7 +159,7 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
       return {
         title: eventDetails.title || "Creating Private Event",
         emoji: eventDetails.emoji || "📍",
-        isPrivate: true,
+        isPrivate: isPrivateEvent,
       };
     }
 
@@ -194,6 +201,11 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
     if (onRetry) {
       onRetry(job.id);
     }
+  };
+
+  const handleJobPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/job-details?jobId=${job.id}`);
   };
 
   const eventDetails = getEventDetails();
@@ -251,7 +263,11 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
   };
 
   return (
-    <View style={styles.jobItem}>
+    <TouchableOpacity
+      style={styles.jobItem}
+      onPress={handleJobPress}
+      activeOpacity={0.7}
+    >
       <View style={styles.jobContent}>
         <View style={styles.jobHeader}>
           <View style={styles.emojiContainer}>
@@ -314,12 +330,13 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
                     <Text style={styles.retryButtonText}>Retry</Text>
                   </TouchableOpacity>
                 )}
+                <Ionicons name="chevron-forward" size={16} color="#6c757d" />
               </View>
             </View>
           </View>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 

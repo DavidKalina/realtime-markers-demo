@@ -125,6 +125,15 @@ function RootLayout() {
                 gestureDirection: "vertical",
               }}
             />
+            <Stack.Screen
+              name="job-details"
+              options={{
+                presentation: "modal",
+                animation: "slide_from_bottom",
+                gestureEnabled: true,
+                gestureDirection: "vertical",
+              }}
+            />
             <Stack.Screen name="+not-found" />
           </Stack>
           <ActionBar />
