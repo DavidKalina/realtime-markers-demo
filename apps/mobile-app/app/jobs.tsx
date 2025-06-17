@@ -142,12 +142,15 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
       | undefined;
     const result = job.result;
 
+    // Determine if this is a private event based on job type
+    const isPrivateEvent = job.type === "process_private_event";
+
     // Prefer result emoji if present (for completed jobs)
     if (result?.title || result?.emoji) {
       return {
         title: result.title || eventDetails?.title || "Event Created",
         emoji: result.emoji || eventDetails?.emoji || "📍",
-        isPrivate: false,
+        isPrivate: isPrivateEvent,
       };
     }
 
@@ -156,7 +159,7 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
       return {
         title: eventDetails.title || "Creating Private Event",
         emoji: eventDetails.emoji || "📍",
-        isPrivate: true,
+        isPrivate: isPrivateEvent,
       };
     }
 
