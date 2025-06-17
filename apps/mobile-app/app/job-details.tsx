@@ -1,5 +1,11 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import type { JobData } from "@/services/api/modules/jobs";
 import { apiClient } from "@/services/ApiClient";
@@ -7,6 +13,8 @@ import { JobsModule } from "@/services/api/modules/jobs";
 import { useAuth } from "@/contexts/AuthContext";
 import Screen from "@/components/Layout/Screen";
 import { AuthWrapper } from "@/components/AuthWrapper";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
 const JobDetailsScreen: React.FC = () => {
   const { jobId } = useLocalSearchParams();
@@ -164,10 +172,34 @@ const JobDetailsScreen: React.FC = () => {
 
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Result</Text>
+        <Text style={styles.sectionTitle}>Event Information</Text>
         <View style={styles.resultContainer}>
           {job.result.message && (
             <Text style={styles.resultMessage}>{job.result.message}</Text>
+          )}
+
+          {job.result.title && (
+            <View style={styles.resultItem}>
+              <Text style={styles.resultLabel}>Title:</Text>
+              <Text style={styles.resultValue}>{job.result.title}</Text>
+            </View>
+          )}
+
+          {job.result.emoji && (
+            <View style={styles.resultItem}>
+              <Text style={styles.resultLabel}>Emoji:</Text>
+              <Text style={styles.resultValue}>{job.result.emoji}</Text>
+            </View>
+          )}
+
+          {job.result.coordinates && (
+            <View style={styles.resultItem}>
+              <Text style={styles.resultLabel}>Location:</Text>
+              <Text style={styles.resultValue}>
+                {job.result.coordinates[0].toFixed(6)},{" "}
+                {job.result.coordinates[1].toFixed(6)}
+              </Text>
+            </View>
           )}
 
           {job.result.confidence !== undefined && (
@@ -179,45 +211,12 @@ const JobDetailsScreen: React.FC = () => {
             </View>
           )}
 
-          {job.result.threshold !== undefined && (
-            <View style={styles.resultItem}>
-              <Text style={styles.resultLabel}>Threshold:</Text>
-              <Text style={styles.resultValue}>
-                {Math.round((job.result.threshold as number) * 100)}%
-              </Text>
-            </View>
-          )}
-
-          {job.result.daysFromNow !== undefined && (
-            <View style={styles.resultItem}>
-              <Text style={styles.resultLabel}>Days from now:</Text>
-              <Text style={styles.resultValue}>{job.result.daysFromNow}</Text>
-            </View>
-          )}
-
           {job.result.date && (
             <View style={styles.resultItem}>
-              <Text style={styles.resultLabel}>Event date:</Text>
+              <Text style={styles.resultLabel}>Event Date:</Text>
               <Text style={styles.resultValue}>
                 {formatDetailedDate(job.result.date as string)}
               </Text>
-            </View>
-          )}
-
-          {job.result.coordinates && (
-            <View style={styles.resultItem}>
-              <Text style={styles.resultLabel}>Coordinates:</Text>
-              <Text style={styles.resultValue}>
-                {job.result.coordinates[0].toFixed(6)},{" "}
-                {job.result.coordinates[1].toFixed(6)}
-              </Text>
-            </View>
-          )}
-
-          {job.result.deletedCount !== undefined && (
-            <View style={styles.resultItem}>
-              <Text style={styles.resultLabel}>Deleted events:</Text>
-              <Text style={styles.resultValue}>{job.result.deletedCount}</Text>
             </View>
           )}
         </View>
@@ -238,24 +237,24 @@ const JobDetailsScreen: React.FC = () => {
     );
   };
 
-  const renderDataSection = () => {
-    if (!job?.data || Object.keys(job.data).length === 0) return null;
+  const renderEventLink = () => {
+    if (!job?.result?.eventId) return null;
 
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Job Data</Text>
-        <View style={styles.dataContainer}>
-          {Object.entries(job.data).map(([key, value]) => (
-            <View key={key} style={styles.dataItem}>
-              <Text style={styles.dataLabel}>{key}:</Text>
-              <Text style={styles.dataValue}>
-                {typeof value === "object"
-                  ? JSON.stringify(value, null, 2)
-                  : String(value)}
-              </Text>
-            </View>
-          ))}
-        </View>
+        <Text style={styles.sectionTitle}>Event Details</Text>
+        <TouchableOpacity
+          style={styles.eventLinkContainer}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push(`/details?eventId=${job.result!.eventId}`);
+          }}
+        >
+          <View style={styles.eventLinkContent}>
+            <Text style={styles.eventLinkText}>View Event Details</Text>
+            <Ionicons name="chevron-forward" size={16} color="#007AFF" />
+          </View>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -374,17 +373,8 @@ const JobDetailsScreen: React.FC = () => {
           {/* Error Section */}
           {renderErrorSection()}
 
-          {/* Data Section */}
-          {renderDataSection()}
-
-          {/* Job ID */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Job Information</Text>
-            <View style={styles.jobIdContainer}>
-              <Text style={styles.jobIdLabel}>Job ID:</Text>
-              <Text style={styles.jobIdValue}>{job.id}</Text>
-            </View>
-          </View>
+          {/* Event Link */}
+          {renderEventLink()}
         </ScrollView>
       </Screen>
     </AuthWrapper>
@@ -586,46 +576,19 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
     fontWeight: "600",
   },
-  dataContainer: {
+  eventLinkContainer: {
     backgroundColor: "#f8f9fa",
     borderRadius: 12,
     padding: 16,
   },
-  dataItem: {
-    marginBottom: 12,
+  eventLinkContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  dataLabel: {
+  eventLinkText: {
     fontSize: 14,
-    color: "#6c757d",
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
-    marginBottom: 4,
-  },
-  dataValue: {
-    fontSize: 13,
-    color: "#000",
-    fontFamily: "SpaceMono",
-    backgroundColor: "#fff",
-    padding: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#e9ecef",
-  },
-  jobIdContainer: {
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-    padding: 16,
-  },
-  jobIdLabel: {
-    fontSize: 14,
-    color: "#6c757d",
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
-    marginBottom: 4,
-  },
-  jobIdValue: {
-    fontSize: 13,
-    color: "#000",
+    color: "#007AFF",
     fontFamily: "SpaceMono",
   },
 });
