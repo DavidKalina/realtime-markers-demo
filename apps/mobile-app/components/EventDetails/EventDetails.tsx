@@ -49,12 +49,14 @@ import Animated, {
 import Header from "../Layout/Header";
 import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
 import { ErrorEventDetails } from "./ErrorEventDetails";
+import EventEngagementDisplay from "./EventEngagementDisplay";
 import EventMapPreview from "./EventMapPreview";
 import LoadingEventDetails from "./LoadingEventDetails";
 import RsvpButton from "./RsvpButton";
 import SaveButton from "./SaveButton";
 import { styles } from "./styles";
 import { useEventDetails } from "./useEventDetails";
+import { useEventEngagement } from "./useEventEngagement";
 
 interface EventDetailsProps {
   eventId: string;
@@ -150,6 +152,19 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       isRsvped,
       rsvpState,
     } = useEventDetails(eventId, onBack);
+
+    // Add engagement hook
+    const {
+      engagement,
+      loading: engagementLoading,
+      error: engagementError,
+      refetch: refetchEngagement,
+    } = useEventEngagement(
+      eventId,
+      !!event && !event.isPrivate, // Only fetch engagement for non-private events
+    );
+
+    console.log("engagement", engagement);
 
     // Memoize map refs
     const mapRef = useRef<MapboxGL.MapView>(null);
@@ -286,6 +301,19 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       );
     }, [isAdmin, handleEditEvent]);
 
+    // Memoize handlers that should trigger engagement refetch
+    const handleToggleSaveWithEngagement = useCallback(async () => {
+      await handleToggleSave();
+      // Refetch engagement data after save action
+      setTimeout(() => refetchEngagement(), 500);
+    }, [handleToggleSave, refetchEngagement]);
+
+    const handleToggleRsvpWithEngagement = useCallback(async () => {
+      await handleToggleRsvp();
+      // Refetch engagement data after RSVP action
+      setTimeout(() => refetchEngagement(), 500);
+    }, [handleToggleRsvp, refetchEngagement]);
+
     // Fetch image when event is loaded
     useEffect(() => {
       if (!event?.id || event.isPrivate) return;
@@ -371,12 +399,12 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
               <RsvpButton
                 isRsvped={isRsvped}
                 rsvpState={rsvpState}
-                onRsvp={handleToggleRsvp}
+                onRsvp={handleToggleRsvpWithEngagement}
               />
               <SaveButton
                 isSaved={isSaved}
                 savingState={savingState}
-                onSave={handleToggleSave}
+                onSave={handleToggleSaveWithEngagement}
               />
             </View>
           }
@@ -412,6 +440,18 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                 mapRef={mapRef}
                 cameraRef={cameraRef}
               />
+
+              {/* Event Engagement Display Overlay */}
+              {!event.isPrivate &&
+                engagement &&
+                !engagementLoading &&
+                !engagementError && (
+                  <EventEngagementDisplay
+                    engagement={engagement}
+                    isOverlay={true}
+                    delay={1000}
+                  />
+                )}
             </Animated.View>
             <EmojiContainer emoji={event.emoji} />
           </View>

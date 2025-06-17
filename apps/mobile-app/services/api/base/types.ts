@@ -522,6 +522,19 @@ export interface RSVPUpdateInput {
   status?: "GOING" | "NOT_GOING" | "MAYBE" | "PENDING";
 }
 
+export type RsvpStatus = "GOING" | "NOT_GOING" | "MAYBE" | "PENDING";
+
+export interface EventEngagementMetrics {
+  eventId: string;
+  saveCount: number;
+  scanCount: number;
+  rsvpCount: number;
+  goingCount: number;
+  notGoingCount: number;
+  totalEngagement: number;
+  lastUpdated: string;
+}
+
 export interface Plan {
   id: string;
   name: string;

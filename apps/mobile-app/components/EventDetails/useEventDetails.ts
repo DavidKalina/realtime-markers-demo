@@ -197,9 +197,12 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
       eventAnalytics.trackEventShare(event, "native_share");
 
       // Create a shareable message
-      const message = `${event.title}\n\n📅 ${formatDate(event.eventDate, event.timezone)}\n📍 ${
-        event.location
-      }\n\n${event.description || ""}`;
+      const message = `${event.title}\n\n📅 ${formatDate(
+        event.eventDate instanceof Date
+          ? event.eventDate.toISOString()
+          : event.eventDate,
+        event.timezone,
+      )}\n📍 ${event.location}\n\n${event.description || ""}`;
 
       // Create a deep link (if your app supports it)
       const deepLink = `eventexplorer://event/${eventId}`;
@@ -272,13 +275,16 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
 
   // Add RSVP handler
   const handleToggleRsvp = async () => {
-    if (rsvpState === "loading" || !event) return;
+    if (rsvpState === "loading" || !event || !event.id) return;
 
     setRsvpState("loading");
     const newRsvpState = !isRsvped;
 
     try {
-      const response = await apiClient.rsvp.toggleRSVP(event.id!);
+      const response = await apiClient.events.toggleRsvpEvent(
+        event.id,
+        newRsvpState ? "GOING" : "NOT_GOING",
+      );
       setIsRsvped(response.status === "GOING");
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
