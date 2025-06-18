@@ -16,6 +16,7 @@ import { Calendar, MapPin, Users, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEvents } from "@/hooks/useEvents";
+import { getCategoryName } from "@/lib/dashboard-data";
 
 export default function EventsPage() {
   const router = useRouter();
@@ -101,7 +102,9 @@ export default function EventsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{event.category?.name}</Badge>
+                        <Badge variant="outline">
+                          {getCategoryName(event)}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, Calendar, MapPin, Users, RefreshCw } from "lucide-react";
+import { getCategoryName } from "@/lib/dashboard-data";
 
 interface EventDetailExampleProps {
   eventId: string;
@@ -53,7 +54,7 @@ export function EventDetailExample({ eventId }: EventDetailExampleProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <span>{event.title}</span>
-            <Badge variant="outline">{event.category?.name}</Badge>
+            <Badge variant="outline">{getCategoryName(event)}</Badge>
           </CardTitle>
           <Button onClick={refetch} variant="ghost" size="sm">
             <RefreshCw className="h-4 w-4" />

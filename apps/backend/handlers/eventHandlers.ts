@@ -341,9 +341,18 @@ export const createEventHandler: EventHandler = async (c) => {
       // Use title and description for category extraction
       const text = `${data.title}\n${data.description || ""}`;
       if (categoryProcessingService) {
-        data.categories =
+        const processedCategories =
           await categoryProcessingService.extractAndProcessCategories(text);
+        // Convert Category objects to categoryIds for the service
+        data.categoryIds = processedCategories.map((cat) => cat.id);
+        // Also keep the full categories for embedding generation
+        data.categories = processedCategories;
       }
+    } else {
+      // If categories are provided, convert them to categoryIds
+      data.categoryIds = data.categories.map((cat: { id: string } | string) =>
+        typeof cat === "string" ? cat : cat.id,
+      );
     }
 
     // Generate embedding if not provided
@@ -357,6 +366,7 @@ export const createEventHandler: EventHandler = async (c) => {
       const textForEmbedding = `
         TITLE: ${data.title} ${data.title} ${data.title}
         EMOJI: ${data.emoji || "📍"} - ${data.emojiDescription || ""}
+        CATEGORIES: ${data.categories?.map((c: { name: string }) => c.name).join(", ") || ""}
         DESCRIPTION: ${data.description || ""}
         LOCATION: ${data.address || ""}
         LOCATION_NOTES: ${data.locationNotes || ""}

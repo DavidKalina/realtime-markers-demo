@@ -30,6 +30,7 @@ import { useParams } from "next/navigation";
 import { useEvent } from "@/hooks/useEvent";
 import { useEventDeletion } from "@/hooks/useEventDeletion";
 import { useState } from "react";
+import { getCategoryName } from "@/lib/dashboard-data";
 
 export default function EventDetailPage() {
   const params = useParams();
@@ -217,7 +218,7 @@ export default function EventDetailPage() {
                       </span>
                     </div>
                     <div>
-                      <Badge variant="outline">{event.category?.name}</Badge>
+                      <Badge variant="outline">{getCategoryName(event)}</Badge>
                     </div>
                   </div>
 
@@ -285,7 +286,7 @@ export default function EventDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <Badge variant="default" className="text-sm">
-                    {event.category?.name}
+                    {getCategoryName(event)}
                   </Badge>
                 </CardContent>
               </Card>
@@ -312,7 +313,7 @@ export default function EventDetailPage() {
                   )}
                   <div>
                     <p className="text-sm text-muted-foreground">Category</p>
-                    <p className="text-sm">{event.category?.name}</p>
+                    <p className="text-sm">{getCategoryName(event)}</p>
                   </div>
                 </CardContent>
               </Card>
