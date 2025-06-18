@@ -1,0 +1,212 @@
+// API service for web dashboard
+// This handles authentication and API calls to the backend
+
+interface ApiResponse<T> {
+  data?: T;
+  error?: string;
+  status: number;
+}
+
+interface CreateEventPayload {
+  title: string;
+  description?: string;
+  date: string;
+  eventDate: string;
+  isPrivate: boolean;
+  location: {
+    type: "Point";
+    coordinates: [number, number];
+  };
+  address?: string;
+  locationNotes?: string;
+  sharedWithIds?: string[];
+  userCoordinates?: {
+    lat: number;
+    lng: number;
+  };
+}
+
+interface Event {
+  id: string;
+  title: string;
+  description?: string;
+  eventDate: string;
+  location: {
+    type: "Point";
+    coordinates: [number, number];
+  };
+  address?: string;
+  isPrivate: boolean;
+  creatorId: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface JobStatus {
+  id: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  progress: number;
+  progressStep: string;
+  result?: any;
+  error?: string;
+}
+
+class ApiService {
+  private baseUrl: string;
+  private accessToken: string | null = null;
+
+  constructor() {
+    // In development, this would point to your local backend
+    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+  }
+
+  private async getAccessToken(): Promise<string | null> {
+    // TODO: Implement proper authentication
+    // For now, return null or a mock token
+    return this.accessToken;
+  }
+
+  private async makeRequest<T>(
+    endpoint: string,
+    options: RequestInit = {},
+  ): Promise<ApiResponse<T>> {
+    const token = await this.getAccessToken();
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...((options.headers as Record<string, string>) || {}),
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        ...options,
+        headers,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          error: data.error || `HTTP ${response.status}`,
+          status: response.status,
+        };
+      }
+
+      return {
+        data,
+        status: response.status,
+      };
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error.message : "Network error",
+        status: 0,
+      };
+    }
+  }
+
+  // Event-related API calls
+  async createEvent(payload: CreateEventPayload): Promise<ApiResponse<Event>> {
+    return this.makeRequest<Event>("/api/events", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async createPrivateEvent(payload: CreateEventPayload): Promise<
+    ApiResponse<{
+      status: string;
+      jobId: string;
+      message: string;
+      _links: {
+        self: string;
+        status: string;
+        stream: string;
+      };
+    }>
+  > {
+    return this.makeRequest("/api/events/private", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getEvents(
+    params: {
+      limit?: number;
+      offset?: number;
+      cursor?: string;
+    } = {},
+  ): Promise<
+    ApiResponse<{
+      events: Event[];
+      total: number;
+      hasMore: boolean;
+    }>
+  > {
+    const queryParams = new URLSearchParams();
+    if (params.limit) queryParams.append("limit", params.limit.toString());
+    if (params.offset) queryParams.append("offset", params.offset.toString());
+    if (params.cursor) queryParams.append("cursor", params.cursor);
+
+    const queryString = queryParams.toString();
+    const endpoint = `/api/events${queryString ? `?${queryString}` : ""}`;
+
+    return this.makeRequest(endpoint);
+  }
+
+  async getEventById(id: string): Promise<ApiResponse<Event>> {
+    return this.makeRequest<Event>(`/api/events/${id}`);
+  }
+
+  async updateEvent(
+    id: string,
+    payload: Partial<CreateEventPayload>,
+  ): Promise<ApiResponse<Event>> {
+    return this.makeRequest<Event>(`/api/events/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteEvent(id: string): Promise<ApiResponse<{ success: boolean }>> {
+    return this.makeRequest<{ success: boolean }>(`/api/events/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Job-related API calls
+  async getJobStatus(jobId: string): Promise<ApiResponse<JobStatus>> {
+    return this.makeRequest<JobStatus>(`/api/jobs/${jobId}`);
+  }
+
+  // Friends-related API calls (for private events)
+  async getFriends(): Promise<
+    ApiResponse<
+      Array<{
+        id: string;
+        name: string;
+        email: string;
+      }>
+    >
+  > {
+    return this.makeRequest("/api/friends");
+  }
+
+  // Authentication methods
+  setAccessToken(token: string) {
+    this.accessToken = token;
+  }
+
+  clearAccessToken() {
+    this.accessToken = null;
+  }
+}
+
+// Export a singleton instance
+export const apiService = new ApiService();
+export type { CreateEventPayload, Event, JobStatus };

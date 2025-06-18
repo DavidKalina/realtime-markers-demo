@@ -5,7 +5,8 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Users } from "lucide-react";
+import { Calendar, MapPin, Users, Plus } from "lucide-react";
+import Link from "next/link";
 
 export default function EventsPage() {
   // Mock data - replace with real data from your API
@@ -56,7 +57,12 @@ export default function EventsPage() {
                 Manage and view all events
               </p>
             </div>
-            <Button>Create Event</Button>
+            <Link href="/events/create">
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Create Event
+              </Button>
+            </Link>
           </div>
 
           <div className="grid gap-6">
