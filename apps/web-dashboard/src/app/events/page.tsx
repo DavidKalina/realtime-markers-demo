@@ -15,45 +15,11 @@ import {
 import { Calendar, MapPin, Users, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEvents } from "@/hooks/useEvents";
 
 export default function EventsPage() {
   const router = useRouter();
-  // Mock data - replace with real data from your API
-  const events = [
-    {
-      id: 1,
-      title: "Tech Meetup",
-      description: "Join us for an evening of networking and tech talks",
-      date: "2024-01-15",
-      time: "18:00",
-      location: "Downtown Conference Center",
-      attendees: 45,
-      category: "Technology",
-      status: "upcoming",
-    },
-    {
-      id: 2,
-      title: "Art Exhibition",
-      description: "Local artists showcase their latest works",
-      date: "2024-01-20",
-      time: "14:00",
-      location: "City Art Gallery",
-      attendees: 23,
-      category: "Arts",
-      status: "upcoming",
-    },
-    {
-      id: 3,
-      title: "Food Festival",
-      description: "Taste the best local cuisine",
-      date: "2024-01-10",
-      time: "12:00",
-      location: "Central Park",
-      attendees: 120,
-      category: "Food",
-      status: "completed",
-    },
-  ];
+  const { events, loading, error } = useEvents();
 
   return (
     <ProtectedRoute>
@@ -75,68 +41,93 @@ export default function EventsPage() {
           </div>
 
           <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Event</TableHead>
-                  <TableHead>Date & Time</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Attendees</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {events.map((event) => (
-                  <TableRow
-                    key={event.id}
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => router.push(`/events/${event.id}`)}
-                  >
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{event.title}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {event.description}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        <span>
-                          {event.date} at {event.time}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        <span>{event.location}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{event.category}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        <span>{event.attendees}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          event.status === "completed" ? "secondary" : "default"
-                        }
-                      >
-                        {event.status}
-                      </Badge>
-                    </TableCell>
+            {loading ? (
+              <div className="p-8 text-center text-muted-foreground">
+                Loading events...
+              </div>
+            ) : error ? (
+              <div className="p-8 text-center text-destructive">{error}</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Event</TableHead>
+                    <TableHead>Date & Time</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Attendees</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {events.map((event) => (
+                    <TableRow
+                      key={event.id}
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => router.push(`/events/${event.id}`)}
+                    >
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{event.title}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {event.description}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          <span>
+                            {event.eventDate
+                              ? `${event.eventDate.replace("T", " at ").slice(0, 16)}`
+                              : "-"}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4" />
+                          <span>
+                            {typeof event.location === "string"
+                              ? event.location
+                              : event.location &&
+                                  typeof event.location === "object" &&
+                                  Array.isArray(
+                                    (event.location as any).coordinates,
+                                  )
+                                ? `Lat: ${(event.location as any).coordinates[1]}, Lng: ${(event.location as any).coordinates[0]}`
+                                : "Unknown location"}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{event.category?.name}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          <span>{event.attendees}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            event.endDate &&
+                            new Date(event.endDate) < new Date()
+                              ? "secondary"
+                              : "default"
+                          }
+                        >
+                          {event.endDate && new Date(event.endDate) < new Date()
+                            ? "completed"
+                            : "upcoming"}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </div>
         </div>
       </DashboardLayout>
