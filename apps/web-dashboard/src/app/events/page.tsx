@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEvents } from "@/hooks/useEvents";
 import { getCategoryName } from "@/lib/dashboard-data";
+import { format } from "date-fns";
 
 export default function EventsPage() {
   const router = useRouter();
@@ -70,7 +71,7 @@ export default function EventsPage() {
                       <TableCell>
                         <div>
                           <div className="font-medium">{event.title}</div>
-                          <div className="text-sm text-muted-foreground">
+                          <div className="text-sm text-muted-foreground max-w-xs truncate overflow-ellipsis">
                             {event.description}
                           </div>
                         </div>
@@ -80,7 +81,10 @@ export default function EventsPage() {
                           <Calendar className="h-4 w-4" />
                           <span>
                             {event.eventDate
-                              ? `${event.eventDate.replace("T", " at ").slice(0, 16)}`
+                              ? format(
+                                  new Date(event.eventDate),
+                                  "MMM d, yyyy, h:mm a",
+                                )
                               : "-"}
                           </span>
                         </div>
@@ -88,17 +92,7 @@ export default function EventsPage() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <MapPin className="h-4 w-4" />
-                          <span>
-                            {typeof event.location === "string"
-                              ? event.location
-                              : event.location &&
-                                  typeof event.location === "object" &&
-                                  Array.isArray(
-                                    (event.location as any).coordinates,
-                                  )
-                                ? `Lat: ${(event.location as any).coordinates[1]}, Lng: ${(event.location as any).coordinates[0]}`
-                                : "Unknown location"}
-                          </span>
+                          <span>{event?.address}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -109,7 +103,7 @@ export default function EventsPage() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Users className="h-4 w-4" />
-                          <span>{event.attendees}</span>
+                          <span>{event.attendees || 0}</span>
                         </div>
                       </TableCell>
                       <TableCell>

@@ -165,7 +165,9 @@ adminRouter.get("/dashboard/metrics", async (c) => {
     const totalActiveEvents = await eventRepository
       .createQueryBuilder("event")
       .where("event.endDate > :now", { now })
-      .andWhere("event.status = :status", { status: "VERIFIED" })
+      .andWhere("event.status IN (:...statuses)", {
+        statuses: ["VERIFIED", "PENDING"],
+      })
       .getCount();
 
     // Get users registered this month
@@ -812,7 +814,9 @@ adminRouter.get("/dashboard/upcoming-events", async (c) => {
       .leftJoinAndSelect("event.rsvps", "rsvps")
       .where("event.eventDate >= :startDate", { startDate: now })
       .andWhere("event.eventDate <= :endDate", { endDate: thirtyDaysFromNow })
-      .andWhere("event.status = :status", { status: "VERIFIED" })
+      .andWhere("event.status IN (:...statuses)", {
+        statuses: ["VERIFIED", "PENDING"],
+      })
       .orderBy("event.eventDate", "ASC")
       .limit(10)
       .getMany();
