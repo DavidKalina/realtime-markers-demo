@@ -14,8 +14,10 @@ import {
 } from "@/components/ui/table";
 import { Calendar, MapPin, Users, Plus } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function EventsPage() {
+  const router = useRouter();
   // Mock data - replace with real data from your API
   const events = [
     {
@@ -86,7 +88,11 @@ export default function EventsPage() {
               </TableHeader>
               <TableBody>
                 {events.map((event) => (
-                  <TableRow key={event.id}>
+                  <TableRow
+                    key={event.id}
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => router.push(`/events/${event.id}`)}
+                  >
                     <TableCell>
                       <div>
                         <div className="font-medium">{event.title}</div>
