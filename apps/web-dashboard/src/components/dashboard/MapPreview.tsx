@@ -137,6 +137,26 @@ export function MapPreview({
     }
   }, [selectedLocation]);
 
+  // Handle marker drag end
+  const handleMarkerDragEnd = useCallback(
+    (event: any) => {
+      if (!event.lngLat) return;
+
+      const { lng, lat } = event.lngLat;
+
+      // Create a location object from the dragged coordinates
+      const location: SelectedLocation = {
+        name: "Selected Location",
+        address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        coordinates: [lng, lat],
+        placeId: `manual_${Date.now()}`,
+      };
+
+      onLocationSelect(location);
+    },
+    [onLocationSelect],
+  );
+
   // Handle map click to select location
   const handleMapClick = useCallback(
     (event: any) => {
@@ -220,7 +240,7 @@ export function MapPreview({
           Event Map Preview
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Click on the map to select a location for your event
+          Click on the map or drag the marker to set a location for your event
         </p>
       </CardHeader>
       <CardContent>
@@ -263,6 +283,8 @@ export function MapPreview({
                   longitude={previewMarker.coordinates[0]}
                   latitude={previewMarker.coordinates[1]}
                   anchor="bottom"
+                  draggable={true}
+                  onDragEnd={handleMarkerDragEnd}
                 >
                   <div className="relative z-20">
                     <MapMojiMarker
@@ -280,7 +302,7 @@ export function MapPreview({
             <div className="absolute bottom-2 left-2 z-40">
               <div className="bg-black/50 backdrop-blur-sm border border-white/20 rounded-lg p-2">
                 <p className="text-white font-space-mono text-xs">
-                  🖱️ Click to set location • 🔍 Zoom • 📍{" "}
+                  🖱️ Click to set location • 🎯 Drag marker • 🔍 Zoom • 📍{" "}
                   {previewMarker ? "1 event" : "No location"}
                 </p>
               </div>
