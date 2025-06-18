@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
   // Enable hot reloading in development
   webpack: (config, { dev, isServer }) => {
     if (dev && !isServer) {
