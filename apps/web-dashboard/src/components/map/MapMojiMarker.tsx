@@ -98,7 +98,7 @@ export const MapMojiMarker: React.FC<MapMojiMarkerProps> = React.memo(
 
         {/* Popup */}
         {showPopup && (
-          <div className="absolute w-full z-10 popup-entrance">
+          <div className="absolute w-full z-10 popup-entrance font-space-mono">
             <TimePopup
               time={event.data.eventDate || ""}
               endDate={event.data.endDate || ""}

@@ -65,8 +65,6 @@ export const InteractiveMap = ({
   const { markers, isConnected, error, updateViewport } =
     useMapWebSocket(websocketUrl);
 
-  console.log(markers);
-
   const [viewState, setViewState] = useState({
     longitude: initialCenter[0],
     latitude: initialCenter[1],
