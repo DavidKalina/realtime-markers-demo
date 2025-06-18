@@ -1,12 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-interface CategoryStat {
-  name: string;
-  count: number;
-  percentage: number;
-  emoji: string;
-}
+import type { CategoryStat } from "@/lib/dashboard-data";
 
 interface TimeStat {
   day: string;
@@ -34,22 +28,35 @@ export function QuickStats({
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {popularCategories.map((category) => (
+            {popularCategories.slice(0, 8).map((category) => (
               <div
-                key={category.name}
-                className="flex items-center justify-between"
+                key={category.id}
+                className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{category.emoji}</span>
                   <div>
                     <p className="font-medium">{category.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {category.count} events
-                    </p>
+                    <div className="flex gap-2 text-xs text-muted-foreground">
+                      <span>{category.metrics.totalEvents} events</span>
+                      <span>•</span>
+                      <span>{category.metrics.totalScans} scans</span>
+                      {category.engagement.trend === "trending" && (
+                        <>
+                          <span>•</span>
+                          <span className="text-green-600 font-medium">🔥</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <Badge variant="secondary">{category.percentage}%</Badge>
+                  <Badge variant="secondary" className="mb-1">
+                    {category.percentages.ofTotalEvents}%
+                  </Badge>
+                  <div className="text-xs text-muted-foreground">
+                    {category.engagement.score} engagement
+                  </div>
                 </div>
               </div>
             ))}

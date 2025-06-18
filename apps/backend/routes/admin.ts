@@ -6,7 +6,7 @@ import { adminAuthMiddleware } from "../middleware/adminMiddleware";
 import { ip } from "../middleware/ip";
 import { rateLimit } from "../middleware/rateLimit";
 import AppDataSource from "../data-source";
-import { Event } from "../entities/Event";
+import { Event, EventStatus } from "../entities/Event";
 import { User } from "../entities/User";
 import { Category } from "../entities/Category";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
@@ -348,47 +348,390 @@ adminRouter.get("/dashboard/categories", async (c) => {
   try {
     const eventRepository = AppDataSource.getRepository(Event);
     const categoryRepository = AppDataSource.getRepository(Category);
+    const userEventDiscoveryRepository =
+      AppDataSource.getRepository(UserEventDiscovery);
 
-    // Get all categories with event counts
-    const categoriesWithCounts = await categoryRepository
+    // Get current date for time-based calculations
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - 7);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Enhanced query with multiple metrics
+    const categoriesWithMetrics = await categoryRepository
       .createQueryBuilder("category")
       .leftJoin("category.events", "event")
+      .leftJoin("event.discoveries", "discovery")
+      .leftJoin("event.saves", "save")
+      .leftJoin("event.views", "view")
       .select([
-        "category.id",
-        "category.name",
-        "category.icon",
-        "COUNT(event.id) as eventCount",
+        "category.id as category_id",
+        "category.name as category_name",
+        "category.icon as category_icon",
+        "COUNT(DISTINCT event.id) as total_events",
+        "COUNT(DISTINCT CASE WHEN event.status = 'VERIFIED' THEN event.id END) as verified_events",
+        "COUNT(DISTINCT CASE WHEN event.eventDate >= :startOfMonth THEN event.id END) as events_this_month",
+        "COUNT(DISTINCT CASE WHEN event.eventDate >= :startOfWeek THEN event.id END) as events_this_week",
+        "COUNT(DISTINCT discovery.id) as total_scans",
+        "COUNT(DISTINCT CASE WHEN discovery.discoveredAt >= :thirtyDaysAgo THEN discovery.id END) as scans_last_30_days",
+        "COUNT(DISTINCT save.id) as total_saves",
+        "COUNT(DISTINCT view.id) as total_views",
+        "AVG(event.scanCount) as avg_scan_count",
+        "AVG(event.saveCount) as avg_save_count",
+        "AVG(event.viewCount) as avg_view_count",
       ])
-      .groupBy("category.id")
-      .orderBy("eventCount", "DESC")
-      .limit(10)
+      .setParameters({
+        startOfMonth,
+        startOfWeek,
+        thirtyDaysAgo,
+      })
+      .groupBy("category.id, category.name, category.icon")
+      .orderBy("total_events", "DESC")
+      .limit(15)
       .getRawMany();
 
-    // Calculate total events for percentage calculation
+    // Get total counts for percentage calculations
     const totalEvents = await eventRepository.count();
+    const totalVerifiedEvents = await eventRepository.count({
+      where: { status: EventStatus.VERIFIED },
+    });
+    const totalScans = await userEventDiscoveryRepository.count();
+    const totalScansLast30Days = await userEventDiscoveryRepository
+      .createQueryBuilder("discovery")
+      .where("discovery.discoveredAt >= :thirtyDaysAgo", { thirtyDaysAgo })
+      .getCount();
 
-    const categoryStats = categoriesWithCounts.map(
+    // Calculate engagement scores and percentages
+    const categoryStats = categoriesWithMetrics.map(
       (cat: {
+        category_id: string;
         category_name: string;
         category_icon: string;
-        eventCount: string;
-      }) => ({
-        name: cat.category_name,
-        count: parseInt(cat.eventCount),
-        percentage:
-          totalEvents > 0
-            ? Math.round((parseInt(cat.eventCount) / totalEvents) * 100)
-            : 0,
-        emoji: cat.category_icon || "📅",
-      }),
+        total_events: string;
+        verified_events: string;
+        events_this_month: string;
+        events_this_week: string;
+        total_scans: string;
+        scans_last_30_days: string;
+        total_saves: string;
+        total_views: string;
+        avg_scan_count: string;
+        avg_save_count: string;
+        avg_view_count: string;
+      }) => {
+        const totalEventsCount = parseInt(cat.total_events);
+        const verifiedEventsCount = parseInt(cat.verified_events);
+        const eventsThisMonthCount = parseInt(cat.events_this_month);
+        const eventsThisWeekCount = parseInt(cat.events_this_week);
+        const totalScansCount = parseInt(cat.total_scans);
+        const scansLast30DaysCount = parseInt(cat.scans_last_30_days);
+        const totalSavesCount = parseInt(cat.total_saves);
+        const totalViewsCount = parseInt(cat.total_views);
+
+        // Calculate percentages
+        const eventPercentage =
+          totalEvents > 0 ? (totalEventsCount / totalEvents) * 100 : 0;
+        const verifiedEventPercentage =
+          totalVerifiedEvents > 0
+            ? (verifiedEventsCount / totalVerifiedEvents) * 100
+            : 0;
+        const scanPercentage =
+          totalScans > 0 ? (totalScansCount / totalScans) * 100 : 0;
+        const recentScanPercentage =
+          totalScansLast30Days > 0
+            ? (scansLast30DaysCount / totalScansLast30Days) * 100
+            : 0;
+
+        // Calculate engagement score (weighted combination of scans, saves, views)
+        const engagementScore = Math.round(
+          totalScansCount * 0.5 + totalSavesCount * 0.3 + totalViewsCount * 0.2,
+        );
+
+        // Calculate average engagement per event
+        const avgEngagementPerEvent =
+          totalEventsCount > 0
+            ? Math.round(engagementScore / totalEventsCount)
+            : 0;
+
+        return {
+          id: cat.category_id,
+          name: cat.category_name,
+          emoji: cat.category_icon || "📅",
+          metrics: {
+            totalEvents: totalEventsCount,
+            verifiedEvents: verifiedEventsCount,
+            eventsThisMonth: eventsThisMonthCount,
+            eventsThisWeek: eventsThisWeekCount,
+            totalScans: totalScansCount,
+            scansLast30Days: scansLast30DaysCount,
+            totalSaves: totalSavesCount,
+            totalViews: totalViewsCount,
+            avgScanCount: parseFloat(cat.avg_scan_count) || 0,
+            avgSaveCount: parseFloat(cat.avg_save_count) || 0,
+            avgViewCount: parseFloat(cat.avg_view_count) || 0,
+          },
+          percentages: {
+            ofTotalEvents: Math.round(eventPercentage * 100) / 100,
+            ofVerifiedEvents: Math.round(verifiedEventPercentage * 100) / 100,
+            ofTotalScans: Math.round(scanPercentage * 100) / 100,
+            ofRecentScans: Math.round(recentScanPercentage * 100) / 100,
+          },
+          engagement: {
+            score: engagementScore,
+            avgPerEvent: avgEngagementPerEvent,
+            trend: eventsThisWeekCount > 0 ? "trending" : "stable",
+          },
+        };
+      },
     );
 
-    return c.json(categoryStats);
+    // Add summary statistics
+    const summary = {
+      totalCategories: categoryStats.length,
+      totalEvents,
+      totalVerifiedEvents,
+      totalScans,
+      totalScansLast30Days,
+      averageEventsPerCategory: Math.round(totalEvents / categoryStats.length),
+      mostEngagedCategory: categoryStats.reduce((max, cat) =>
+        cat.engagement.score > max.engagement.score ? cat : max,
+      ),
+      fastestGrowingCategory: categoryStats.reduce((max, cat) =>
+        cat.metrics.eventsThisWeek > max.metrics.eventsThisWeek ? cat : max,
+      ),
+    };
+
+    return c.json({
+      categories: categoryStats,
+      summary,
+    });
   } catch (error) {
     console.error("Error fetching popular categories:", error);
     return c.json(
       {
         error: "Failed to fetch popular categories",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+});
+
+// Category Trends Endpoint - Get category performance over time
+adminRouter.get("/dashboard/category-trends", async (c) => {
+  try {
+    const eventRepository = AppDataSource.getRepository(Event);
+    const userEventDiscoveryRepository =
+      AppDataSource.getRepository(UserEventDiscovery);
+
+    // Get trends for the last 12 weeks
+    const twelveWeeksAgo = new Date(Date.now() - 12 * 7 * 24 * 60 * 60 * 1000);
+
+    // Get weekly event creation trends by category
+    const weeklyEventTrends = await eventRepository
+      .createQueryBuilder("event")
+      .leftJoin("event.categories", "category")
+      .select([
+        "category.name as category_name",
+        "category.icon as category_icon",
+        "DATE_TRUNC('week', event.createdAt) as week_start",
+        "COUNT(DISTINCT event.id) as events_created",
+        "COUNT(DISTINCT CASE WHEN event.status = :verifiedStatus THEN event.id END) as events_verified",
+      ])
+      .where("event.createdAt >= :startDate", { startDate: twelveWeeksAgo })
+      .andWhere("category.id IS NOT NULL")
+      .setParameter("verifiedStatus", EventStatus.VERIFIED)
+      .groupBy(
+        "category.name, category.icon, DATE_TRUNC('week', event.createdAt)",
+      )
+      .orderBy("week_start", "ASC")
+      .addOrderBy("events_created", "DESC")
+      .getRawMany();
+
+    // Get weekly scan trends by category
+    const weeklyScanTrends = await userEventDiscoveryRepository
+      .createQueryBuilder("discovery")
+      .leftJoin("discovery.event", "event")
+      .leftJoin("event.categories", "category")
+      .select([
+        "category.name as category_name",
+        "category.icon as category_icon",
+        "DATE_TRUNC('week', discovery.discoveredAt) as week_start",
+        "COUNT(DISTINCT discovery.id) as scans_count",
+        "COUNT(DISTINCT discovery.userId) as unique_users",
+      ])
+      .where("discovery.discoveredAt >= :startDate", {
+        startDate: twelveWeeksAgo,
+      })
+      .andWhere("category.id IS NOT NULL")
+      .groupBy(
+        "category.name, category.icon, DATE_TRUNC('week', discovery.discoveredAt)",
+      )
+      .orderBy("week_start", "ASC")
+      .addOrderBy("scans_count", "DESC")
+      .getRawMany();
+
+    // Process and organize the data
+    const trends = {
+      eventCreation: weeklyEventTrends.reduce(
+        (
+          acc: Record<
+            string,
+            {
+              name: string;
+              emoji: string;
+              weeklyData: Array<{
+                week: string;
+                eventsCreated: number;
+                eventsVerified: number;
+              }>;
+            }
+          >,
+          row: {
+            category_name: string;
+            category_icon: string;
+            week_start: string;
+            events_created: string;
+            events_verified: string;
+          },
+        ) => {
+          const categoryName = row.category_name;
+          if (!acc[categoryName]) {
+            acc[categoryName] = {
+              name: categoryName,
+              emoji: row.category_icon || "📅",
+              weeklyData: [],
+            };
+          }
+          acc[categoryName].weeklyData.push({
+            week: row.week_start,
+            eventsCreated: parseInt(row.events_created),
+            eventsVerified: parseInt(row.events_verified),
+          });
+          return acc;
+        },
+        {},
+      ),
+      scans: weeklyScanTrends.reduce(
+        (
+          acc: Record<
+            string,
+            {
+              name: string;
+              emoji: string;
+              weeklyData: Array<{
+                week: string;
+                scansCount: number;
+                uniqueUsers: number;
+              }>;
+            }
+          >,
+          row: {
+            category_name: string;
+            category_icon: string;
+            week_start: string;
+            scans_count: string;
+            unique_users: string;
+          },
+        ) => {
+          const categoryName = row.category_name;
+          if (!acc[categoryName]) {
+            acc[categoryName] = {
+              name: categoryName,
+              emoji: row.category_icon || "📅",
+              weeklyData: [],
+            };
+          }
+          acc[categoryName].weeklyData.push({
+            week: row.week_start,
+            scansCount: parseInt(row.scans_count),
+            uniqueUsers: parseInt(row.unique_users),
+          });
+          return acc;
+        },
+        {},
+      ),
+    };
+
+    // Calculate growth rates for each category
+    const growthRates = Object.keys(trends.eventCreation).map(
+      (categoryName) => {
+        const eventData = trends.eventCreation[categoryName].weeklyData;
+        const scanData = trends.scans[categoryName]?.weeklyData || [];
+
+        // Calculate event creation growth (comparing last 4 weeks to previous 4 weeks)
+        const recentEvents = eventData
+          .slice(-4)
+          .reduce(
+            (sum: number, week: { eventsCreated: number }) =>
+              sum + week.eventsCreated,
+            0,
+          );
+        const previousEvents = eventData
+          .slice(-8, -4)
+          .reduce(
+            (sum: number, week: { eventsCreated: number }) =>
+              sum + week.eventsCreated,
+            0,
+          );
+        const eventGrowthRate =
+          previousEvents > 0
+            ? ((recentEvents - previousEvents) / previousEvents) * 100
+            : 0;
+
+        // Calculate scan growth
+        const recentScans = scanData
+          .slice(-4)
+          .reduce(
+            (sum: number, week: { scansCount: number }) =>
+              sum + week.scansCount,
+            0,
+          );
+        const previousScans = scanData
+          .slice(-8, -4)
+          .reduce(
+            (sum: number, week: { scansCount: number }) =>
+              sum + week.scansCount,
+            0,
+          );
+        const scanGrowthRate =
+          previousScans > 0
+            ? ((recentScans - previousScans) / previousScans) * 100
+            : 0;
+
+        return {
+          categoryName,
+          emoji: trends.eventCreation[categoryName].emoji,
+          eventCreationGrowth: Math.round(eventGrowthRate * 100) / 100,
+          scanGrowth: Math.round(scanGrowthRate * 100) / 100,
+          trend:
+            eventGrowthRate > 10
+              ? "growing"
+              : eventGrowthRate < -10
+                ? "declining"
+                : "stable",
+        };
+      },
+    );
+
+    return c.json({
+      trends,
+      growthRates: growthRates.sort(
+        (a, b) => b.eventCreationGrowth - a.eventCreationGrowth,
+      ),
+      summary: {
+        totalWeeks: 12,
+        startDate: twelveWeeksAgo.toISOString(),
+        endDate: new Date().toISOString(),
+        categoriesTracked: Object.keys(trends.eventCreation).length,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching category trends:", error);
+    return c.json(
+      {
+        error: "Failed to fetch category trends",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       500,

@@ -4,6 +4,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { MetricsSection } from "@/components/dashboard/MetricsSection";
 import { DashboardContent } from "@/components/dashboard/DashboardContent";
+import { CategoryAnalytics } from "@/components/dashboard/CategoryAnalytics";
 import { LoadingSpinner } from "@/components/dashboard/LoadingSpinner";
 import { MapPreviewDemo } from "@/components/dashboard/MapPreviewDemo";
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -36,6 +37,9 @@ export default function DashboardPage() {
                 busiestTimes={busiestTimes}
                 upcomingEvents={upcomingEvents}
               />
+            )}
+            {popularCategories.length > 0 && (
+              <CategoryAnalytics categories={popularCategories} />
             )}
             <MapPreviewDemo />
           </div>
