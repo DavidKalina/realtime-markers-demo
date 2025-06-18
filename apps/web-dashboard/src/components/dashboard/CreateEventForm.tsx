@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Calendar, MapPin, Users, Clock, Globe, Lock } from "lucide-react";
 import { apiService, type CreateEventPayload } from "@/services/api";
+import { LocationSearch } from "./LocationSearch";
 
 interface CreateEventFormProps {
   onSuccess?: () => void;
@@ -53,6 +54,14 @@ interface Friend {
   email: string;
 }
 
+interface SelectedLocation {
+  name: string;
+  address: string;
+  coordinates: [number, number];
+  placeId: string;
+  locationNotes?: string;
+}
+
 export function CreateEventForm({
   onSuccess,
   onCancel,
@@ -73,9 +82,48 @@ export function CreateEventForm({
     locationNotes: "",
   });
 
+  const [selectedLocation, setSelectedLocation] =
+    useState<SelectedLocation | null>(null);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [userCoordinates, setUserCoordinates] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+
+  // Get user's current location
+  useEffect(() => {
+    const getUserLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setUserCoordinates({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            });
+          },
+          (error) => {
+            console.log("Geolocation error:", error);
+            // Fallback to a more neutral location (New York City)
+            setUserCoordinates({
+              lat: 40.7128,
+              lng: -74.006,
+            });
+          },
+        );
+      } else {
+        console.log("Geolocation not supported");
+        // Fallback to a more neutral location (New York City)
+        setUserCoordinates({
+          lat: 40.7128,
+          lng: -74.006,
+        });
+      }
+    };
+
+    getUserLocation();
+  }, []);
 
   // Fetch friends data
   useEffect(() => {
@@ -128,6 +176,11 @@ export function CreateEventForm({
       newErrors.sharedWithIds = "Please select at least one friend to invite";
     }
 
+    // Check if location is selected
+    if (!selectedLocation) {
+      newErrors.location = "Please select a location for your event";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -152,18 +205,18 @@ export function CreateEventForm({
         isPrivate: formData.isPrivate,
         location: {
           type: "Point",
-          coordinates: [
-            formData.location.longitude,
-            formData.location.latitude,
-          ],
+          coordinates: selectedLocation ? selectedLocation.coordinates : [0, 0],
         },
-        address: formData.location.address,
-        locationNotes: formData.locationNotes,
+        address: selectedLocation?.address || "",
+        locationNotes:
+          selectedLocation?.locationNotes || formData.locationNotes,
         sharedWithIds: formData.isPrivate ? formData.sharedWithIds : [],
-        userCoordinates: {
-          lat: formData.location.latitude,
-          lng: formData.location.longitude,
-        },
+        userCoordinates: userCoordinates
+          ? {
+              lat: userCoordinates.lat,
+              lng: userCoordinates.lng,
+            }
+          : undefined,
       };
 
       let response;
@@ -211,17 +264,19 @@ export function CreateEventForm({
     }
   };
 
-  const handleLocationChange = (
-    field: keyof typeof formData.location,
-    value: any,
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      location: {
-        ...prev.location,
-        [field]: value,
-      },
-    }));
+  const handleLocationSelect = (location: SelectedLocation) => {
+    setSelectedLocation(location);
+    // Clear location error when location is selected
+    if (errors.location) {
+      setErrors((prev) => ({
+        ...prev,
+        location: "",
+      }));
+    }
+  };
+
+  const handleLocationClear = () => {
+    setSelectedLocation(null);
   };
 
   const toggleFriendSelection = (friendId: string) => {
@@ -329,69 +384,31 @@ export function CreateEventForm({
               </div>
             </div>
 
-            {/* Location */}
+            {/* Location Search */}
             <div className="space-y-4">
-              <Label className="text-base font-medium flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Location
-              </Label>
+              <LocationSearch
+                onLocationSelect={handleLocationSelect}
+                onLocationClear={handleLocationClear}
+                selectedLocation={selectedLocation}
+                userCoordinates={userCoordinates || undefined}
+                placeholder="Search for a venue, restaurant, or location..."
+              />
+              {errors.location && (
+                <p className="text-sm text-red-500">{errors.location}</p>
+              )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="latitude">Latitude</Label>
-                  <Input
-                    id="latitude"
-                    type="number"
-                    step="any"
-                    value={formData.location.latitude}
-                    onChange={(e) =>
-                      handleLocationChange(
-                        "latitude",
-                        parseFloat(e.target.value),
-                      )
-                    }
-                    placeholder="e.g., 37.7749"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="longitude">Longitude</Label>
-                  <Input
-                    id="longitude"
-                    type="number"
-                    step="any"
-                    value={formData.location.longitude}
-                    onChange={(e) =>
-                      handleLocationChange(
-                        "longitude",
-                        parseFloat(e.target.value),
-                      )
-                    }
-                    placeholder="e.g., -122.4194"
-                  />
-                </div>
-              </div>
-
+              {/* Additional Location Notes */}
               <div>
-                <Label htmlFor="address">Address</Label>
-                <Input
-                  id="address"
-                  value={formData.location.address}
-                  onChange={(e) =>
-                    handleLocationChange("address", e.target.value)
-                  }
-                  placeholder="Enter event address"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="locationNotes">Location Notes</Label>
+                <Label htmlFor="locationNotes">
+                  Additional Location Details
+                </Label>
                 <Textarea
                   id="locationNotes"
                   value={formData.locationNotes}
                   onChange={(e) =>
                     handleInputChange("locationNotes", e.target.value)
                   }
-                  placeholder="Additional location details..."
+                  placeholder="Room number, floor, entrance details, etc."
                   rows={2}
                 />
               </div>

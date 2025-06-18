@@ -1,6 +1,8 @@
 // API service for web dashboard
 // This handles authentication and API calls to the backend
 
+import { AuthService } from "@/lib/auth";
+
 interface ApiResponse<T> {
   data?: T;
   error?: string;
@@ -52,19 +54,63 @@ interface JobStatus {
   error?: string;
 }
 
+// Place search interfaces
+interface PlaceSearchParams {
+  query: string;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+}
+
+interface PlaceSearchResult {
+  success: boolean;
+  error?: string;
+  place?: {
+    name: string;
+    address: string;
+    coordinates: [number, number];
+    placeId: string;
+    types: string[];
+    rating?: number;
+    userRatingsTotal?: number;
+    distance?: number;
+    locationNotes?: string;
+  };
+}
+
+interface CityStateSearchParams {
+  query: string;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+}
+
+interface CityStateSearchResult {
+  success: boolean;
+  error?: string;
+  cityState?: {
+    city: string;
+    state: string;
+    coordinates: [number, number];
+    formattedAddress: string;
+    placeId: string;
+    distance?: number;
+  };
+}
+
 class ApiService {
   private baseUrl: string;
-  private accessToken: string | null = null;
 
   constructor() {
     // In development, this would point to your local backend
-    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
   }
 
   private async getAccessToken(): Promise<string | null> {
-    // TODO: Implement proper authentication
-    // For now, return null or a mock token
-    return this.accessToken;
+    // Get the access token from AuthService
+    return AuthService.getAccessToken();
   }
 
   private async makeRequest<T>(
@@ -197,16 +243,37 @@ class ApiService {
     return this.makeRequest("/api/friends");
   }
 
-  // Authentication methods
-  setAccessToken(token: string) {
-    this.accessToken = token;
+  // Place search API calls
+  async searchPlace(
+    params: PlaceSearchParams,
+  ): Promise<ApiResponse<PlaceSearchResult>> {
+    return this.makeRequest<PlaceSearchResult>("/api/places/search", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
   }
 
-  clearAccessToken() {
-    this.accessToken = null;
+  async searchCityState(
+    params: CityStateSearchParams,
+  ): Promise<ApiResponse<CityStateSearchResult>> {
+    return this.makeRequest<CityStateSearchResult>(
+      "/api/places/search-city-state",
+      {
+        method: "POST",
+        body: JSON.stringify(params),
+      },
+    );
   }
 }
 
 // Export a singleton instance
 export const apiService = new ApiService();
-export type { CreateEventPayload, Event, JobStatus };
+export type {
+  CreateEventPayload,
+  Event,
+  JobStatus,
+  PlaceSearchParams,
+  PlaceSearchResult,
+  CityStateSearchParams,
+  CityStateSearchResult,
+};
