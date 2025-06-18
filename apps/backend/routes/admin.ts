@@ -495,13 +495,24 @@ adminRouter.get("/dashboard/categories", async (c) => {
       totalVerifiedEvents,
       totalScans,
       totalScansLast30Days,
-      averageEventsPerCategory: Math.round(totalEvents / categoryStats.length),
-      mostEngagedCategory: categoryStats.reduce((max, cat) =>
-        cat.engagement.score > max.engagement.score ? cat : max,
-      ),
-      fastestGrowingCategory: categoryStats.reduce((max, cat) =>
-        cat.metrics.eventsThisWeek > max.metrics.eventsThisWeek ? cat : max,
-      ),
+      averageEventsPerCategory:
+        categoryStats.length > 0
+          ? Math.round(totalEvents / categoryStats.length)
+          : 0,
+      mostEngagedCategory:
+        categoryStats.length > 0
+          ? categoryStats.reduce((max, cat) =>
+              cat.engagement.score > max.engagement.score ? cat : max,
+            )
+          : null,
+      fastestGrowingCategory:
+        categoryStats.length > 0
+          ? categoryStats.reduce((max, cat) =>
+              cat.metrics.eventsThisWeek > max.metrics.eventsThisWeek
+                ? cat
+                : max,
+            )
+          : null,
     };
 
     return c.json({
