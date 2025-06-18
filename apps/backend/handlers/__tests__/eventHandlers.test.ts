@@ -177,6 +177,20 @@ describe("createEventHandler", () => {
             return null;
         }
       }),
+      keys: jest
+        .fn()
+        .mockReturnValue(
+          [
+            "image",
+            "title",
+            "description",
+            "eventDate",
+            "emoji",
+            "address",
+            "lat",
+            "lng",
+          ][Symbol.iterator](),
+        ),
     };
     const mockEvent = { id: "event-123", title: "Test Event" };
 
