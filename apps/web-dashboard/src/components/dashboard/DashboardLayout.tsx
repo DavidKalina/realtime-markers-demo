@@ -3,6 +3,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { DashboardTabs } from "./DashboardTabs";
+import { LayoutWrapper } from "@/components/LayoutWrapper";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -16,7 +17,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <LayoutWrapper>
       <div className="container mx-auto p-8">
         {/* Header with user info and logout */}
         <div className="flex justify-between items-center mb-8">
@@ -39,6 +40,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Page Content */}
         <div className="mt-8">{children}</div>
       </div>
-    </div>
+    </LayoutWrapper>
   );
 }

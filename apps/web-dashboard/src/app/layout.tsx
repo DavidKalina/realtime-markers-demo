@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Space_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { MunicipalConfigProvider } from "@/contexts/MunicipalConfigContext";
 
 const spaceMono = Space_Mono({
   subsets: ["latin"],
@@ -10,8 +11,9 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Web Dashboard",
-  description: "A modern web dashboard built with Next.js and shadcn/ui",
+  title: "Municipal Dashboard",
+  description:
+    "A modern municipal services dashboard built with Next.js and shadcn/ui",
 };
 
 export default function RootLayout({
@@ -22,7 +24,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={spaceMono.className}>
-        <AuthProvider>{children}</AuthProvider>
+        <MunicipalConfigProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </MunicipalConfigProvider>
       </body>
     </html>
   );
