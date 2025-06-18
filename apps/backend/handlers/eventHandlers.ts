@@ -315,6 +315,11 @@ export const createEventHandler: EventHandler = async (c) => {
       | CategoryProcessingService
       | undefined;
 
+    // Add debugging
+    const contentType = c.req.header("content-type") || "";
+    console.log("[createEventHandler] Content-Type:", contentType);
+    console.log("[createEventHandler] Request method:", c.req.method);
+
     let data: Partial<{
       title: string;
       description?: string;
@@ -347,12 +352,20 @@ export const createEventHandler: EventHandler = async (c) => {
     let originalImageUrl: string | null = null;
 
     // Check if the request contains form data (for image uploads)
-    const contentType = c.req.header("content-type") || "";
-
     if (contentType.includes("multipart/form-data")) {
+      console.log("[createEventHandler] Processing as FormData");
       // Handle form data with potential image upload
       const formData = await c.req.formData();
       const imageEntry = formData.get("image");
+
+      console.log(
+        "[createEventHandler] FormData keys:",
+        Array.from(formData.keys()),
+      );
+      console.log(
+        "[createEventHandler] Image entry:",
+        imageEntry ? "present" : "not present",
+      );
 
       // Upload image if provided
       if (imageEntry && typeof imageEntry !== "string") {
@@ -437,6 +450,7 @@ export const createEventHandler: EventHandler = async (c) => {
         }
       }
     } else {
+      console.log("[createEventHandler] Processing as JSON");
       // Handle JSON data (existing behavior)
       data = await c.req.json();
     }

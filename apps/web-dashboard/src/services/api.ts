@@ -27,6 +27,7 @@ interface CreateEventPayload {
     lat: number;
     lng: number;
   };
+  image?: File;
 }
 
 interface Event {
@@ -158,10 +159,74 @@ class ApiService {
 
   // Event-related API calls
   async createEvent(payload: CreateEventPayload): Promise<ApiResponse<Event>> {
-    return this.makeRequest<Event>("/api/events", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
+    // If image is provided, use FormData
+    if (payload.image) {
+      const formData = new FormData();
+
+      // Add the image file
+      formData.append("image", payload.image);
+
+      // Add other event data as individual fields
+      formData.append("title", payload.title);
+      if (payload.description)
+        formData.append("description", payload.description);
+      formData.append("eventDate", payload.eventDate);
+      if (payload.emoji) formData.append("emoji", payload.emoji);
+      if (payload.address) formData.append("address", payload.address);
+      if (payload.locationNotes)
+        formData.append("locationNotes", payload.locationNotes);
+      formData.append("isPrivate", payload.isPrivate.toString());
+      if (payload.sharedWithIds && payload.sharedWithIds.length > 0) {
+        formData.append("sharedWithIds", payload.sharedWithIds.join(","));
+      }
+      formData.append("lat", payload.location.coordinates[0].toString());
+      formData.append("lng", payload.location.coordinates[1].toString());
+
+      if (payload.userCoordinates) {
+        formData.append("userLat", payload.userCoordinates.lat.toString());
+        formData.append("userLng", payload.userCoordinates.lng.toString());
+      }
+
+      const token = await this.getAccessToken();
+      const headers: Record<string, string> = {};
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      try {
+        const response = await fetch(`${this.baseUrl}/api/events`, {
+          method: "POST",
+          headers,
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          return {
+            error: data.error || `HTTP ${response.status}`,
+            status: response.status,
+          };
+        }
+
+        return {
+          data,
+          status: response.status,
+        };
+      } catch (error) {
+        return {
+          error: error instanceof Error ? error.message : "Network error",
+          status: 0,
+        };
+      }
+    } else {
+      // No image, use JSON
+      return this.makeRequest<Event>("/api/events", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    }
   }
 
   async createPrivateEvent(payload: CreateEventPayload): Promise<
@@ -176,10 +241,74 @@ class ApiService {
       };
     }>
   > {
-    return this.makeRequest("/api/events/private", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
+    // If image is provided, use FormData
+    if (payload.image) {
+      const formData = new FormData();
+
+      // Add the image file
+      formData.append("image", payload.image);
+
+      // Add other event data as individual fields
+      formData.append("title", payload.title);
+      if (payload.description)
+        formData.append("description", payload.description);
+      formData.append("eventDate", payload.eventDate);
+      if (payload.emoji) formData.append("emoji", payload.emoji);
+      if (payload.address) formData.append("address", payload.address);
+      if (payload.locationNotes)
+        formData.append("locationNotes", payload.locationNotes);
+      formData.append("isPrivate", payload.isPrivate.toString());
+      if (payload.sharedWithIds && payload.sharedWithIds.length > 0) {
+        formData.append("sharedWithIds", payload.sharedWithIds.join(","));
+      }
+      formData.append("lat", payload.location.coordinates[0].toString());
+      formData.append("lng", payload.location.coordinates[1].toString());
+
+      if (payload.userCoordinates) {
+        formData.append("userLat", payload.userCoordinates.lat.toString());
+        formData.append("userLng", payload.userCoordinates.lng.toString());
+      }
+
+      const token = await this.getAccessToken();
+      const headers: Record<string, string> = {};
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      try {
+        const response = await fetch(`${this.baseUrl}/api/events/private`, {
+          method: "POST",
+          headers,
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          return {
+            error: data.error || `HTTP ${response.status}`,
+            status: response.status,
+          };
+        }
+
+        return {
+          data,
+          status: response.status,
+        };
+      } catch (error) {
+        return {
+          error: error instanceof Error ? error.message : "Network error",
+          status: 0,
+        };
+      }
+    } else {
+      // No image, use JSON
+      return this.makeRequest("/api/events/private", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    }
   }
 
   async getEvents(

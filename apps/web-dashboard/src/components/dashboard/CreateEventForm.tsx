@@ -49,6 +49,7 @@ interface EventFormData {
   };
   sharedWithIds: string[];
   locationNotes: string;
+  image?: File;
 }
 
 interface Friend {
@@ -217,6 +218,7 @@ export function CreateEventForm({
           selectedLocation?.locationNotes || formData.locationNotes,
         sharedWithIds: formData.isPrivate ? formData.sharedWithIds : [],
         userCoordinates: userCoordinates || undefined,
+        image: formData.image,
       };
 
       let response;
@@ -350,6 +352,57 @@ export function CreateEventForm({
                   <span className="text-sm text-muted-foreground">
                     Choose an emoji to represent your event
                   </span>
+                </div>
+              </div>
+
+              {/* Image Upload */}
+              <div>
+                <Label htmlFor="image">Event Image (Optional)</Label>
+                <div className="mt-2">
+                  <Input
+                    id="image"
+                    type="file"
+                    accept="image/jpeg,image/png,image/jpg"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        // Validate file size (max 5MB)
+                        if (file.size > 5 * 1024 * 1024) {
+                          alert("Image file size must be less than 5MB");
+                          e.target.value = "";
+                          return;
+                        }
+                        handleInputChange("image", file);
+                      }
+                    }}
+                    className="cursor-pointer"
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Upload an image for your event (JPEG, PNG, max 5MB)
+                  </p>
+                  {formData.image && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <img
+                        src={URL.createObjectURL(formData.image)}
+                        alt="Preview"
+                        className="w-20 h-20 object-cover rounded-md border"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          handleInputChange("image", undefined);
+                          const input = document.getElementById(
+                            "image",
+                          ) as HTMLInputElement;
+                          if (input) input.value = "";
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
 
