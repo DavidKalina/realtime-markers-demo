@@ -236,13 +236,13 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
-  # Web Dashboard Service with Hot Reloading
+  # Web Dashboard Service with Environment-based Build Selection
   web-dashboard:
     build:
       context: .
-      dockerfile: apps/web-dashboard/Dockerfile.dev
+      dockerfile: ${WEB_DASHBOARD_DOCKERFILE:-apps/web-dashboard/Dockerfile.dev}
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=${WEB_DASHBOARD_NODE_ENV:-development}
       - PORT=3001
     ports:
       - "127.0.0.1:3001:3001" # Expose to host for development
@@ -253,7 +253,7 @@ services:
       - /app/apps/web-dashboard/node_modules
       - web_dashboard_next_cache:/app/apps/web-dashboard/.next
     working_dir: /app/apps/web-dashboard
-    command: ["pnpm", "dev"]
+    command: ${WEB_DASHBOARD_COMMAND:-["pnpm", "dev"]}
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
