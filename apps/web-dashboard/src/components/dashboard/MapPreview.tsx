@@ -153,6 +153,16 @@ export function MapPreview({
       };
 
       onLocationSelect(location);
+
+      // Delay the camera movement to make it feel more natural
+      setTimeout(() => {
+        setViewState((prev) => ({
+          ...prev,
+          longitude: lng,
+          latitude: lat,
+          zoom: 15, // Keep the same zoom level
+        }));
+      }, 300); // 300ms delay
     },
     [onLocationSelect],
   );
