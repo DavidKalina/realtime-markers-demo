@@ -234,8 +234,20 @@ describe("CategoryProcessingService", () => {
   });
 
   describe("extractAndProcessCategories", () => {
-    it("should return cached categories when available", async () => {
-      const cachedCategories: Category[] = [
+    it("should always extract categories from text (no global cache)", async () => {
+      const imageText = "Join us for a live music concert in the park";
+      const aiResponse = {
+        choices: [
+          {
+            message: {
+              content:
+                // eslint-disable-next-line quotes
+                `{"categories": ["Music", "Outdoor Events", "Entertainment"]}`,
+            },
+          },
+        ],
+      };
+      const processedCategories: Category[] = [
         {
           id: "cat-1",
           name: "music",
@@ -245,24 +257,59 @@ describe("CategoryProcessingService", () => {
         } as Category,
         {
           id: "cat-2",
-          name: "sports",
+          name: "outdoor events",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          events: [],
+        } as Category,
+        {
+          id: "cat-3",
+          name: "entertainment",
           createdAt: new Date(),
           updatedAt: new Date(),
           events: [],
         } as Category,
       ];
 
-      (mockCategoryCacheService.getCategoryList as jest.Mock).mockResolvedValue(
-        cachedCategories,
+      // The method should always call AI service, regardless of cache
+      (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue(
+        aiResponse,
+      );
+      (mockCategoryCacheService.getCategory as jest.Mock).mockResolvedValue(
+        null,
+      );
+      (mockCategoryRepository.find as jest.Mock).mockResolvedValue([]);
+      (mockCategoryRepository.create as jest.Mock)
+        .mockReturnValueOnce(processedCategories[0])
+        .mockReturnValueOnce(processedCategories[1])
+        .mockReturnValueOnce(processedCategories[2]);
+      (mockCategoryRepository.save as jest.Mock).mockResolvedValue(
+        processedCategories,
+      );
+      (mockCategoryCacheService.setCategory as jest.Mock).mockResolvedValue(
+        undefined,
       );
 
       const result =
-        await categoryProcessingService.extractAndProcessCategories(
-          "some text",
-        );
+        await categoryProcessingService.extractAndProcessCategories(imageText);
 
-      expect(result).toEqual(cachedCategories);
-      expect(mockOpenAIService.executeChatCompletion).not.toHaveBeenCalled();
+      expect(result).toEqual(processedCategories);
+      expect(mockOpenAIService.executeChatCompletion).toHaveBeenCalledWith({
+        model: OpenAIModel.GPT4O,
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            role: "system",
+            content: expect.stringContaining("Extract event categories"),
+          }),
+          expect.objectContaining({
+            role: "user",
+            content: expect.stringContaining(imageText),
+          }),
+        ]),
+        response_format: { type: "json_object" },
+      });
+      // Should not call setCategoryList since we're not caching global results
+      expect(mockCategoryCacheService.setCategoryList).not.toHaveBeenCalled();
     });
 
     it("should extract and process categories from text", async () => {
@@ -302,9 +349,6 @@ describe("CategoryProcessingService", () => {
         } as Category,
       ];
 
-      (mockCategoryCacheService.getCategoryList as jest.Mock).mockResolvedValue(
-        null,
-      );
       (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue(
         aiResponse,
       );
@@ -320,9 +364,6 @@ describe("CategoryProcessingService", () => {
         processedCategories,
       );
       (mockCategoryCacheService.setCategory as jest.Mock).mockResolvedValue(
-        undefined,
-      );
-      (mockCategoryCacheService.setCategoryList as jest.Mock).mockResolvedValue(
         undefined,
       );
 
@@ -344,9 +385,8 @@ describe("CategoryProcessingService", () => {
         ]),
         response_format: { type: "json_object" },
       });
-      expect(mockCategoryCacheService.setCategoryList).toHaveBeenCalledWith(
-        processedCategories,
-      );
+      // Should not call setCategoryList since we're not caching global results
+      expect(mockCategoryCacheService.setCategoryList).not.toHaveBeenCalled();
     });
 
     it("should return empty array when AI returns no categories", async () => {
@@ -362,9 +402,6 @@ describe("CategoryProcessingService", () => {
         ],
       };
 
-      (mockCategoryCacheService.getCategoryList as jest.Mock).mockResolvedValue(
-        null,
-      );
       (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue(
         aiResponse,
       );
@@ -388,9 +425,6 @@ describe("CategoryProcessingService", () => {
         ],
       };
 
-      (mockCategoryCacheService.getCategoryList as jest.Mock).mockResolvedValue(
-        null,
-      );
       (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue(
         aiResponse,
       );

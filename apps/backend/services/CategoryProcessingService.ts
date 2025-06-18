@@ -151,12 +151,8 @@ export class CategoryProcessingService {
   }
 
   async extractAndProcessCategories(imageText: string): Promise<Category[]> {
-    // Check cache first
-    const cachedCategories =
-      await this.dependencies.categoryCacheService.getCategoryList();
-    if (cachedCategories) {
-      return cachedCategories;
-    }
+    // Remove the global cache check - we want to extract categories specific to the input text
+    // The global cache is only appropriate for getAllCategories(), not for text-specific extraction
 
     const response =
       await this.dependencies.openAIService.executeChatCompletion({
@@ -188,8 +184,8 @@ export class CategoryProcessingService {
     // Get or create the categories
     const categories = await this.getOrCreateCategories(suggestedCategories);
 
-    // Cache the results
-    await this.dependencies.categoryCacheService.setCategoryList(categories);
+    // Note: We don't cache the results here because this method should always
+    // extract categories specific to the input text, not return cached global results
 
     return categories;
   }
