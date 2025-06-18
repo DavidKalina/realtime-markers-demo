@@ -364,6 +364,7 @@ app.use("*", async (c, next) => {
   c.set("authService", services.authService);
   c.set("geocodingService", geocodingService);
   c.set("embeddingService", services.embeddingService);
+  c.set("categoryProcessingService", services.categoryProcessingService);
   await next();
 });
 

@@ -6,6 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Calendar,
   MapPin,
   Users,
@@ -17,11 +28,20 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEvent } from "@/hooks/useEvent";
+import { useEventDeletion } from "@/hooks/useEventDeletion";
+import { useState } from "react";
 
 export default function EventDetailPage() {
   const params = useParams();
   const eventId = params.id as string;
   const { event, loading, error, refetch } = useEvent(eventId);
+  const { deleteEvent, isDeleting, error: deleteError } = useEventDeletion();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const handleDelete = async () => {
+    await deleteEvent(eventId);
+    setShowDeleteDialog(false);
+  };
 
   if (loading) {
     return (
@@ -91,12 +111,69 @@ export default function EventDetailPage() {
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
               </Button>
-              <Button variant="outline" size="sm" className="text-destructive">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </Button>
+              <AlertDialog
+                open={showDeleteDialog}
+                onOpenChange={setShowDeleteDialog}
+              >
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 mr-2" />
+                    )}
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Event</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete "{event.title}"? This
+                      action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeleting}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {isDeleting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        "Delete Event"
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
+
+          {/* Delete Error Alert */}
+          {deleteError && (
+            <div className="bg-destructive/10 border border-destructive/20 rounded-md p-4">
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-4 w-4 text-destructive" />
+                <span className="text-destructive font-medium">
+                  Delete Error
+                </span>
+              </div>
+              <p className="text-destructive/80 mt-1">{deleteError}</p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Content */}
