@@ -253,7 +253,7 @@ services:
       - /app/apps/web-dashboard/node_modules
       - web_dashboard_next_cache:/app/apps/web-dashboard/.next
     working_dir: /app/apps/web-dashboard
-    command: ${WEB_DASHBOARD_COMMAND:-["pnpm", "dev"]}
+    command: ${WEB_DASHBOARD_COMMAND:-pnpm dev}
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
