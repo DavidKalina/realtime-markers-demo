@@ -29,8 +29,8 @@ export function MunicipalConfigProvider({
       logo: {
         src: "/frederick-logo.svg",
         alt: "Town of Frederick Logo",
-        width: 40,
-        height: 40,
+        width: 80,
+        height: 80,
       },
     },
   );
