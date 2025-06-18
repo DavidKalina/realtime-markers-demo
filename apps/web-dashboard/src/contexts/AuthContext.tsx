@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AuthService, { User } from "@/lib/auth";
+import { useRouter, usePathname } from "next/navigation";
 
 interface AuthContextType {
   user: User | null;
@@ -22,6 +23,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
 
   const isAuthenticated = !!user;
 
@@ -53,6 +56,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
   }, []);
+
+  useEffect(() => {
+    if (!isLoading && !user && pathname !== "/login") {
+      router.replace("/login");
+    }
+  }, [isLoading, user, pathname, router]);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
