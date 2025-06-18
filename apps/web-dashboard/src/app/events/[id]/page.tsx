@@ -2,6 +2,7 @@
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { EventEngagementStats } from "@/components/dashboard/EventEngagementStats";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,7 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEvent } from "@/hooks/useEvent";
+import { useEventEngagement } from "@/hooks/useEventEngagement";
 import { useEventDeletion } from "@/hooks/useEventDeletion";
 import { useState } from "react";
 import { getCategoryName } from "@/lib/dashboard-data";
@@ -36,6 +38,11 @@ export default function EventDetailPage() {
   const params = useParams();
   const eventId = params.id as string;
   const { event, loading, error, refetch } = useEvent(eventId);
+  const {
+    engagement,
+    loading: engagementLoading,
+    error: engagementError,
+  } = useEventEngagement(eventId);
   const { deleteEvent, isDeleting, error: deleteError } = useEventDeletion();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -230,6 +237,38 @@ export default function EventDetailPage() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Engagement Statistics */}
+              {engagementLoading ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Engagement Statistics</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-center py-8">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>Loading engagement data...</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : engagementError ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Engagement Statistics</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">
+                        Unable to load engagement data: {engagementError}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : engagement ? (
+                <EventEngagementStats engagement={engagement} />
+              ) : null}
 
               {/* Attendees */}
               <Card>

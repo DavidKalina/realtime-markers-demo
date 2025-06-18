@@ -172,6 +172,7 @@ describe("UserEngagementService", () => {
 
     mockUserEventViewRepository = {
       createQueryBuilder: jest.fn(),
+      count: jest.fn(),
     } as unknown as Repository<UserEventView>;
 
     mockLevelingService = {
@@ -1023,6 +1024,8 @@ describe("UserEngagementService", () => {
         .mockResolvedValueOnce(8) // Going count
         .mockResolvedValueOnce(3); // Not going count
 
+      (mockUserEventViewRepository.count as jest.Mock).mockResolvedValue(3); // View count
+
       const result =
         await userEngagementService.getEventEngagement("event-123");
 
@@ -1049,6 +1052,10 @@ describe("UserEngagementService", () => {
       expect(mockUserEventRsvpRepository.count).toHaveBeenCalledWith({
         where: { eventId: "event-123", status: RsvpStatus.NOT_GOING },
       });
+
+      expect(mockUserEventViewRepository.count).toHaveBeenCalledWith({
+        where: { eventId: "event-123" },
+      });
     });
 
     it("should handle event with zero engagement metrics", async () => {
@@ -1056,7 +1063,6 @@ describe("UserEngagementService", () => {
         ...mockEvent,
         saveCount: 0,
         scanCount: 0,
-        viewCount: 0,
         updatedAt: new Date("2024-01-15T10:30:00Z"),
       };
 
@@ -1067,6 +1073,8 @@ describe("UserEngagementService", () => {
       (mockUserEventRsvpRepository.count as jest.Mock)
         .mockResolvedValueOnce(0) // Going count
         .mockResolvedValueOnce(0); // Not going count
+
+      (mockUserEventViewRepository.count as jest.Mock).mockResolvedValue(0); // View count
 
       const result =
         await userEngagementService.getEventEngagement("event-123");
@@ -1089,7 +1097,6 @@ describe("UserEngagementService", () => {
         ...mockEvent,
         saveCount: null,
         scanCount: null,
-        viewCount: null,
         updatedAt: new Date("2024-01-15T10:30:00Z"),
       };
 
@@ -1100,6 +1107,8 @@ describe("UserEngagementService", () => {
       (mockUserEventRsvpRepository.count as jest.Mock)
         .mockResolvedValueOnce(0) // Going count
         .mockResolvedValueOnce(0); // Not going count
+
+      (mockUserEventViewRepository.count as jest.Mock).mockResolvedValue(0); // View count
 
       const result =
         await userEngagementService.getEventEngagement("event-123");
@@ -1130,6 +1139,7 @@ describe("UserEngagementService", () => {
 
       // Should not call RSVP count methods if event doesn't exist
       expect(mockUserEventRsvpRepository.count).not.toHaveBeenCalled();
+      expect(mockUserEventViewRepository.count).not.toHaveBeenCalled();
     });
 
     it("should handle high engagement numbers correctly", async () => {
@@ -1137,7 +1147,6 @@ describe("UserEngagementService", () => {
         ...mockEvent,
         saveCount: 1000,
         scanCount: 5000,
-        viewCount: 0,
         updatedAt: new Date("2024-01-15T10:30:00Z"),
       };
 
@@ -1149,6 +1158,8 @@ describe("UserEngagementService", () => {
         .mockResolvedValueOnce(250) // Going count
         .mockResolvedValueOnce(50); // Not going count
 
+      (mockUserEventViewRepository.count as jest.Mock).mockResolvedValue(100); // View count
+
       const result =
         await userEngagementService.getEventEngagement("event-123");
 
@@ -1156,11 +1167,11 @@ describe("UserEngagementService", () => {
         eventId: "event-123",
         saveCount: 1000,
         scanCount: 5000,
-        viewCount: 0,
+        viewCount: 100,
         rsvpCount: 300, // 250 + 50
         goingCount: 250,
         notGoingCount: 50,
-        totalEngagement: 6300, // 1000 + 5000 + 0 + 300
+        totalEngagement: 6400, // 1000 + 5000 + 100 + 300
         lastUpdated: new Date("2024-01-15T10:30:00Z"),
       });
     });
@@ -1194,6 +1205,31 @@ describe("UserEngagementService", () => {
       await expect(
         userEngagementService.getEventEngagement("event-123"),
       ).rejects.toThrow("RSVP count error");
+    });
+
+    it("should handle view count errors gracefully", async () => {
+      const eventWithMetrics = {
+        ...mockEvent,
+        saveCount: 10,
+        scanCount: 20,
+        updatedAt: new Date("2024-01-15T10:30:00Z"),
+      };
+
+      (mockEventRepository.findOne as jest.Mock).mockResolvedValue(
+        eventWithMetrics,
+      );
+
+      (mockUserEventRsvpRepository.count as jest.Mock)
+        .mockResolvedValueOnce(5) // Going count
+        .mockResolvedValueOnce(2); // Not going count
+
+      (mockUserEventViewRepository.count as jest.Mock).mockRejectedValue(
+        new Error("View count error"),
+      );
+
+      await expect(
+        userEngagementService.getEventEngagement("event-123"),
+      ).rejects.toThrow("View count error");
     });
   });
 

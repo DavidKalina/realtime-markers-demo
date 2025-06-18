@@ -572,20 +572,11 @@ export class UserEngagementServiceImpl implements UserEngagementService {
             await transactionalEntityManager.save(user);
           }
 
-          // Get the event to update its view count
-          const event = await transactionalEntityManager.findOne(Event, {
-            where: { id: eventId },
-          });
-
-          if (event) {
-            // Increment the event's view count
-            event.viewCount = (event.viewCount || 0) + 1;
-            await transactionalEntityManager.save(event);
-          }
+          // Note: We no longer increment event.viewCount since we calculate it from UserEventView table
         },
       );
 
-      // Get the updated event with view count and publish to Redis for filter processor
+      // Get the updated event and publish to Redis for filter processor
       const updatedEvent = await this.eventRepository.findOne({
         where: { id: eventId },
         relations: [
@@ -859,8 +850,10 @@ export class UserEngagementServiceImpl implements UserEngagementService {
     // Get scan count from event (already maintained)
     const scanCount = event.scanCount || 0;
 
-    // Get view count from event (already maintained)
-    const viewCount = event.viewCount || 0;
+    // Get view count from UserEventView table (actual view records)
+    const viewCount = await this.userEventViewRepository.count({
+      where: { eventId },
+    });
 
     // Calculate total engagement (sum of all engagement types)
     const totalEngagement = saveCount + scanCount + viewCount + rsvpCount;

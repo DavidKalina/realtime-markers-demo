@@ -47,6 +47,18 @@ interface Event {
   updatedAt: string;
 }
 
+interface EventEngagement {
+  eventId: string;
+  saveCount: number;
+  scanCount: number;
+  viewCount: number;
+  rsvpCount: number;
+  goingCount: number;
+  notGoingCount: number;
+  totalEngagement: number;
+  lastUpdated: string;
+}
+
 interface JobStatus {
   id: string;
   status: "pending" | "processing" | "completed" | "failed";
@@ -339,6 +351,10 @@ class ApiService {
     return this.makeRequest<Event>(`/api/events/${id}`);
   }
 
+  async getEventEngagement(id: string): Promise<ApiResponse<EventEngagement>> {
+    return this.makeRequest<EventEngagement>(`/api/events/${id}/engagement`);
+  }
+
   async updateEvent(
     id: string,
     payload: Partial<CreateEventPayload>,
@@ -406,4 +422,5 @@ export type {
   PlaceSearchResult,
   CityStateSearchParams,
   CityStateSearchResult,
+  EventEngagement,
 };
