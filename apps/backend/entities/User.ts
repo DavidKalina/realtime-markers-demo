@@ -14,6 +14,7 @@ import { Event } from "./Event";
 import { Friendship } from "./Friendship";
 import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
+import { UserEventView } from "./UserEventView";
 import { UserLevel } from "./UserLevel";
 import { UserEventRsvp } from "./UserEventRsvp";
 
@@ -92,6 +93,9 @@ export class User {
   @Column({ name: "save_count", type: "integer", default: 0 })
   saveCount!: number;
 
+  @Column({ name: "view_count", type: "integer", default: 0 })
+  viewCount!: number;
+
   @Column({ name: "weekly_scan_count", type: "integer", default: 0 })
   weeklyScanCount!: number;
 
@@ -123,6 +127,9 @@ export class User {
 
   @OneToMany(() => UserEventSave, (save) => save.user)
   savedEvents!: Relation<UserEventSave>[];
+
+  @OneToMany(() => UserEventView, (view) => view.user)
+  viewedEvents!: Relation<UserEventView>[];
 
   @OneToMany(() => UserEventRsvp, (rsvp) => rsvp.user)
   rsvps!: Relation<UserEventRsvp>[];

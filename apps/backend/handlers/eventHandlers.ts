@@ -1101,3 +1101,43 @@ export const getEventEngagementHandler: EventHandler = async (c) => {
     );
   }
 };
+
+export const trackEventViewHandler: EventHandler = async (c) => {
+  try {
+    const eventId = c.req.param("id");
+    const user = c.get("user");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    if (!eventId) {
+      return c.json({ error: "Missing event ID" }, 400);
+    }
+
+    const eventService = c.get("eventService");
+
+    // Check if the event exists
+    const event = await eventService.getEventById(eventId);
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
+
+    // Track the view
+    await eventService.createViewRecord(user.userId, eventId);
+
+    return c.json({
+      success: true,
+      message: "Event view tracked successfully",
+    });
+  } catch (error) {
+    console.error("Error tracking event view:", error);
+    return c.json(
+      {
+        error: "Failed to track event view",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+};
