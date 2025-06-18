@@ -36,7 +36,7 @@ export default function LoginPage() {
       }
 
       // Redirect to dashboard on success
-      router.push("/");
+      router.push("/dashboard");
     } catch (error) {
       setError(
         error instanceof Error ? error.message : "Authentication failed",
