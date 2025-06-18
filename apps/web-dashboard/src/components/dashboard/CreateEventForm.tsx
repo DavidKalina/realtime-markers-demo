@@ -22,6 +22,10 @@ import { EmojiPicker } from "./EmojiPicker";
 interface CreateEventFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
+  formData: EventFormData;
+  onFormDataChange: (formData: EventFormData) => void;
+  selectedLocation: SelectedLocation | null;
+  onLocationSelect: (location: SelectedLocation) => void;
   initialData?: {
     title?: string;
     description?: string;
@@ -68,26 +72,12 @@ interface SelectedLocation {
 export function CreateEventForm({
   onSuccess,
   onCancel,
+  formData,
+  onFormDataChange,
+  selectedLocation,
+  onLocationSelect,
   initialData,
 }: CreateEventFormProps) {
-  const [formData, setFormData] = useState<EventFormData>({
-    title: initialData?.title || "",
-    description: initialData?.description || "",
-    date: initialData?.date || new Date().toISOString().split("T")[0],
-    time: new Date().toISOString().split("T")[1].substring(0, 5),
-    isPrivate: false,
-    emoji: undefined,
-    location: {
-      latitude: initialData?.location?.latitude || 0,
-      longitude: initialData?.location?.longitude || 0,
-      address: initialData?.location?.address || "",
-    },
-    sharedWithIds: [],
-    locationNotes: "",
-  });
-
-  const [selectedLocation, setSelectedLocation] =
-    useState<SelectedLocation | null>(null);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -251,10 +241,11 @@ export function CreateEventForm({
   };
 
   const handleInputChange = (field: keyof EventFormData, value: any) => {
-    setFormData((prev) => ({
-      ...prev,
+    const updatedFormData = {
+      ...formData,
       [field]: value,
-    }));
+    };
+    onFormDataChange(updatedFormData);
 
     // Clear error when user starts typing
     if (errors[field]) {
@@ -266,7 +257,7 @@ export function CreateEventForm({
   };
 
   const handleLocationSelect = (location: SelectedLocation) => {
-    setSelectedLocation(location);
+    onLocationSelect(location);
     // Clear location error when location is selected
     if (errors.location) {
       setErrors((prev) => ({
@@ -277,16 +268,17 @@ export function CreateEventForm({
   };
 
   const handleLocationClear = () => {
-    setSelectedLocation(null);
+    onLocationSelect(null as any);
   };
 
   const toggleFriendSelection = (friendId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      sharedWithIds: prev.sharedWithIds.includes(friendId)
-        ? prev.sharedWithIds.filter((id) => id !== friendId)
-        : [...prev.sharedWithIds, friendId],
-    }));
+    const updatedFormData = {
+      ...formData,
+      sharedWithIds: formData.sharedWithIds.includes(friendId)
+        ? formData.sharedWithIds.filter((id: string) => id !== friendId)
+        : [...formData.sharedWithIds, friendId],
+    };
+    onFormDataChange(updatedFormData);
   };
 
   return (
