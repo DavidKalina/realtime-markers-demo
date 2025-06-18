@@ -24,7 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="min-h-screen bg-gray-50">
-      <body className={`${spaceMono.className} min-h-screen bg-gray-50 pb-48`}>
+      <body className={`${spaceMono.className} min-h-screen bg-gray-50 pb-64`}>
         <MunicipalConfigProvider>
           <AuthProvider>{children}</AuthProvider>
         </MunicipalConfigProvider>

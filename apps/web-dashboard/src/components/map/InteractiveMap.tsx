@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 // Dynamic import for Map component to reduce initial bundle size
@@ -54,6 +55,7 @@ export const InteractiveMap = ({
   initialZoom,
 }: InteractiveMapProps) => {
   const mapRef = useRef<MapRef>(null);
+  const router = useRouter();
   const [userLocation, setUserLocation] = useState<[number, number] | null>(
     null,
   );
@@ -62,6 +64,8 @@ export const InteractiveMap = ({
   // Use the websocket hook
   const { markers, isConnected, error, updateViewport } =
     useMapWebSocket(websocketUrl);
+
+  console.log(markers);
 
   const [viewState, setViewState] = useState({
     longitude: initialCenter[0],
@@ -145,7 +149,8 @@ export const InteractiveMap = ({
   // Handle marker press
   const handleMarkerPress = (marker: Marker) => {
     console.log("Marker pressed:", marker);
-    // Add your marker interaction logic here
+    // Navigate to the event detail page
+    router.push(`/events/${marker.id}`);
   };
 
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -175,7 +180,7 @@ export const InteractiveMap = ({
   }
 
   return (
-    <section className={`relative w-full h-96 overflow-hidden ${className}`}>
+    <section className={`relative w-full h-full overflow-hidden ${className}`}>
       {/* Connection indicator */}
       <div className="absolute top-4 right-4 z-50">
         <ConnectionIndicator />
