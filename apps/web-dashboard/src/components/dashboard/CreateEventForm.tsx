@@ -211,12 +211,7 @@ export function CreateEventForm({
         locationNotes:
           selectedLocation?.locationNotes || formData.locationNotes,
         sharedWithIds: formData.isPrivate ? formData.sharedWithIds : [],
-        userCoordinates: userCoordinates
-          ? {
-              lat: userCoordinates.lat,
-              lng: userCoordinates.lng,
-            }
-          : undefined,
+        userCoordinates: userCoordinates || undefined,
       };
 
       let response;

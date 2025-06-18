@@ -3,7 +3,7 @@
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { LocationSearch } from "@/components/dashboard/LocationSearch";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function LocationDemoPage() {
@@ -15,11 +15,43 @@ export default function LocationDemoPage() {
     locationNotes?: string;
   } | null>(null);
 
-  // Mock user coordinates - in a real app, this would come from geolocation
-  const userCoordinates = {
-    lat: 37.7749, // San Francisco
-    lng: -122.4194,
-  };
+  const [userCoordinates, setUserCoordinates] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+
+  // Get user's current location
+  useEffect(() => {
+    const getUserLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setUserCoordinates({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            });
+          },
+          (error) => {
+            console.log("Geolocation error:", error);
+            // Fallback to a more neutral location (New York City)
+            setUserCoordinates({
+              lat: 40.7128,
+              lng: -74.006,
+            });
+          },
+        );
+      } else {
+        console.log("Geolocation not supported");
+        // Fallback to a more neutral location (New York City)
+        setUserCoordinates({
+          lat: 40.7128,
+          lng: -74.006,
+        });
+      }
+    };
+
+    getUserLocation();
+  }, []);
 
   const handleLocationSelect = (location: {
     name: string;
@@ -60,7 +92,7 @@ export default function LocationDemoPage() {
                   onLocationSelect={handleLocationSelect}
                   onLocationClear={handleLocationClear}
                   selectedLocation={selectedLocation}
-                  userCoordinates={userCoordinates}
+                  userCoordinates={userCoordinates || undefined}
                   placeholder="Try searching for 'Starbucks', 'Central Park', or 'Times Square'..."
                 />
               </CardContent>
