@@ -3,8 +3,15 @@
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Calendar, MapPin, Users, Plus } from "lucide-react";
 import Link from "next/link";
 
@@ -65,52 +72,65 @@ export default function EventsPage() {
             </Link>
           </div>
 
-          <div className="grid gap-6">
-            {events.map((event) => (
-              <Card
-                key={event.id}
-                className="hover:shadow-md transition-shadow"
-              >
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-xl">{event.title}</CardTitle>
-                      <p className="text-muted-foreground mt-1">
-                        {event.description}
-                      </p>
-                    </div>
-                    <Badge
-                      variant={
-                        event.status === "completed" ? "secondary" : "default"
-                      }
-                    >
-                      {event.status}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      <span>
-                        {event.date} at {event.time}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      <span>{event.location}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      <span>{event.attendees} attendees</span>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Badge variant="outline">{event.category}</Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Event</TableHead>
+                  <TableHead>Date & Time</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Attendees</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {events.map((event) => (
+                  <TableRow key={event.id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{event.title}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {event.description}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        <span>
+                          {event.date} at {event.time}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        <span>{event.location}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{event.category}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        <span>{event.attendees}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          event.status === "completed" ? "secondary" : "default"
+                        }
+                      >
+                        {event.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         </div>
       </DashboardLayout>
