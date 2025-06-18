@@ -3,6 +3,7 @@ import { Space_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { MunicipalConfigProvider } from "@/contexts/MunicipalConfigContext";
+import { Footer } from "@/components/ui/footer";
 
 const spaceMono = Space_Mono({
   subsets: ["latin"],
@@ -22,11 +23,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={spaceMono.className}>
+    <html lang="en" className="min-h-screen bg-gray-50">
+      <body className={`${spaceMono.className} min-h-screen bg-gray-50 pb-48`}>
         <MunicipalConfigProvider>
           <AuthProvider>{children}</AuthProvider>
         </MunicipalConfigProvider>
+        <Footer />
       </body>
     </html>
   );

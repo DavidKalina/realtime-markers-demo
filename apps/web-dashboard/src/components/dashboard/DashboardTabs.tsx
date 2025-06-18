@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Calendar, MapPin } from "lucide-react";
+import { BarChart3, Calendar, MapPin, Plus } from "lucide-react";
 
 const tabs = [
   {
@@ -15,6 +15,11 @@ const tabs = [
     name: "Events",
     href: "/events",
     icon: Calendar,
+  },
+  {
+    name: "Create Event",
+    href: "/events/create",
+    icon: Plus,
   },
   {
     name: "Map",

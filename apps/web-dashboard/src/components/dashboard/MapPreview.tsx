@@ -37,10 +37,11 @@ export function MapPreview({ events = [], className = "" }: MapPreviewProps) {
       try {
         const mapboxModule = await import("mapbox-gl");
         const mapbox = mapboxModule.default;
-        setMapboxgl(mapbox);
 
         // Set access token
         mapbox.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
+
+        setMapboxgl(mapbox);
       } catch (error) {
         console.error("Failed to load Mapbox:", error);
       }
@@ -52,78 +53,106 @@ export function MapPreview({ events = [], className = "" }: MapPreviewProps) {
   useEffect(() => {
     if (!mapContainer.current || map.current || !mapboxgl) return;
 
-    // Initialize map
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: "mapbox://styles/mapbox/streets-v12",
-      center: [-74.006, 40.7128], // Default to NYC, you might want to center on your data
-      zoom: 12,
-    });
+    try {
+      // Initialize map with v3.x compatible options
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: "mapbox://styles/mapbox/streets-v12",
+        center: [-74.006, 40.7128], // Default to NYC, you might want to center on your data
+        zoom: 12,
+        // v3.x specific options for better performance
+        collectResourceTiming: false,
+        fadeDuration: 0,
+        crossSourceCollisions: false,
+      });
 
-    map.current.on("load", () => {
-      setMapLoaded(true);
-    });
+      map.current.on("load", () => {
+        setMapLoaded(true);
+      });
 
-    // Cleanup
-    return () => {
-      if (map.current) {
-        map.current.remove();
-        map.current = null;
-      }
-    };
+      // Enhanced error handling for v3.x
+      map.current.on("error", (e: any) => {
+        console.warn(
+          "Mapbox error (likely blocked telemetry or ad blocker):",
+          e,
+        );
+      });
+
+      map.current.on("sourcedataabort", (e: any) => {
+        console.warn("Mapbox source data aborted (likely blocked request):", e);
+      });
+
+      // Cleanup
+      return () => {
+        if (map.current) {
+          map.current.remove();
+          map.current = null;
+        }
+      };
+    } catch (error) {
+      console.error("Error initializing Mapbox map:", error);
+    }
   }, [mapboxgl]);
 
   useEffect(() => {
     if (!map.current || !mapLoaded || !mapboxgl) return;
 
-    // Remove existing markers
-    const existingMarkers = document.querySelectorAll(".mapbox-marker");
-    existingMarkers.forEach((marker) => marker.remove());
+    try {
+      // Remove existing markers
+      const existingMarkers = document.querySelectorAll(".mapbox-marker");
+      existingMarkers.forEach((marker) => marker.remove());
 
-    // Add markers for each event
-    events.forEach((event) => {
-      // Create marker element
-      const markerEl = document.createElement("div");
-      markerEl.className = "mapbox-marker";
-      markerEl.style.width = "20px";
-      markerEl.style.height = "20px";
-      markerEl.style.borderRadius = "50%";
-      markerEl.style.backgroundColor = "#3b82f6";
-      markerEl.style.border = "2px solid white";
-      markerEl.style.cursor = "pointer";
-      markerEl.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
-
-      // Create popup
-      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-        <div class="p-2">
-          <h3 class="font-semibold text-sm">${event.title}</h3>
-          <p class="text-xs text-gray-600 mt-1">${event.description}</p>
-          <div class="flex items-center gap-2 mt-2">
-            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">${event.category}</span>
-            <span class="text-xs text-gray-500">${event.attendees} attending</span>
-          </div>
-        </div>
-      `);
-
-      // Add marker to map
-      new mapboxgl.Marker(markerEl)
-        .setLngLat([event.longitude, event.latitude])
-        .setPopup(popup)
-        .addTo(map.current!);
-
-      // Add click handler
-      markerEl.addEventListener("click", () => {
-        setSelectedEvent(event);
-      });
-    });
-
-    // Fit map to show all markers if there are events
-    if (events.length > 0) {
-      const bounds = new mapboxgl.LngLatBounds();
+      // Add markers for each event
       events.forEach((event) => {
-        bounds.extend([event.longitude, event.latitude]);
+        // Create marker element
+        const markerEl = document.createElement("div");
+        markerEl.className = "mapbox-marker";
+        markerEl.style.width = "20px";
+        markerEl.style.height = "20px";
+        markerEl.style.borderRadius = "50%";
+        markerEl.style.backgroundColor = "#3b82f6";
+        markerEl.style.border = "2px solid white";
+        markerEl.style.cursor = "pointer";
+        markerEl.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
+
+        // Create popup with v3.x compatible options
+        const popup = new mapboxgl.Popup({
+          offset: 25,
+          closeButton: false,
+          className: "mapbox-popup",
+        }).setHTML(`
+          <div class="p-2">
+            <h3 class="font-semibold text-sm">${event.title}</h3>
+            <p class="text-xs text-gray-600 mt-1">${event.description}</p>
+            <div class="flex items-center gap-2 mt-2">
+              <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">${event.category}</span>
+              <span class="text-xs text-gray-500">${event.attendees} attending</span>
+            </div>
+          </div>
+        `);
+
+        // Add marker to map
+        new mapboxgl.Marker(markerEl)
+          .setLngLat([event.longitude, event.latitude])
+          .setPopup(popup)
+          .addTo(map.current!);
+
+        // Add click handler
+        markerEl.addEventListener("click", () => {
+          setSelectedEvent(event);
+        });
       });
-      map.current.fitBounds(bounds, { padding: 50 });
+
+      // Fit map to show all markers if there are events
+      if (events.length > 0) {
+        const bounds = new mapboxgl.LngLatBounds();
+        events.forEach((event) => {
+          bounds.extend([event.longitude, event.latitude]);
+        });
+        map.current.fitBounds(bounds, { padding: 50 });
+      }
+    } catch (error) {
+      console.error("Error adding markers to map:", error);
     }
   }, [events, mapLoaded, mapboxgl]);
 

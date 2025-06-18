@@ -1,5 +1,9 @@
 import { Hono } from "hono";
-import { searchPlace, searchCityState } from "../handlers/placeHandlers";
+import {
+  searchPlace,
+  searchCityState,
+  reverseGeocodeAddressHandler,
+} from "../handlers/placeHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
@@ -30,3 +34,7 @@ placesRouter.post("/search", searchPlace);
 // POST /api/places/search-city-state
 // Search for cities and states using Google Places API
 placesRouter.post("/search-city-state", searchCityState);
+
+// POST /api/places/reverse-geocode
+// Get address details from coordinates
+placesRouter.post("/reverse-geocode", reverseGeocodeAddressHandler);

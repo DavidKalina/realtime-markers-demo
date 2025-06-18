@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -291,257 +290,243 @@ export function CreateEventForm({
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Create New Event
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Event Type Selection */}
-            <div className="space-y-2">
-              <Label className="text-base font-medium">Event Type</Label>
-              <div className="flex gap-4">
-                <Button
-                  type="button"
-                  variant={!formData.isPrivate ? "default" : "outline"}
-                  onClick={() => handleInputChange("isPrivate", false)}
-                  className="flex items-center gap-2"
-                >
-                  <Globe className="h-4 w-4" />
-                  Public Event
-                </Button>
-                <Button
-                  type="button"
-                  variant={formData.isPrivate ? "default" : "outline"}
-                  onClick={() => handleInputChange("isPrivate", true)}
-                  className="flex items-center gap-2"
-                >
-                  <Lock className="h-4 w-4" />
-                  Private Event
-                </Button>
-              </div>
-            </div>
+    <div className="w-full mx-auto space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Event Type Selection */}
+        <div className="space-y-2">
+          <Label className="text-base font-medium">Event Type</Label>
+          <div className="flex gap-4">
+            <Button
+              type="button"
+              variant={!formData.isPrivate ? "default" : "outline"}
+              onClick={() => handleInputChange("isPrivate", false)}
+              className="flex items-center gap-2"
+            >
+              <Globe className="h-4 w-4" />
+              Public Event
+            </Button>
+            <Button
+              type="button"
+              variant={formData.isPrivate ? "default" : "outline"}
+              onClick={() => handleInputChange("isPrivate", true)}
+              className="flex items-center gap-2"
+            >
+              <Lock className="h-4 w-4" />
+              Private Event
+            </Button>
+          </div>
+        </div>
 
-            {/* Event Details */}
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="title">Event Title *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => handleInputChange("title", e.target.value)}
-                  placeholder="Enter event title"
-                  className={errors.title ? "border-red-500" : ""}
-                />
-                {errors.title && (
-                  <p className="text-sm text-red-500 mt-1">{errors.title}</p>
-                )}
-              </div>
-
-              <div>
-                <Label>Event Emoji</Label>
-                <div className="flex items-center gap-2">
-                  <EmojiPicker
-                    selectedEmoji={formData.emoji}
-                    onEmojiSelect={(emoji) => handleInputChange("emoji", emoji)}
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    Choose an emoji to represent your event
-                  </span>
-                </div>
-              </div>
-
-              {/* Image Upload */}
-              <div>
-                <Label htmlFor="image">Event Image (Optional)</Label>
-                <div className="mt-2">
-                  <Input
-                    id="image"
-                    type="file"
-                    accept="image/jpeg,image/png,image/jpg"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        // Validate file size (max 5MB)
-                        if (file.size > 5 * 1024 * 1024) {
-                          alert("Image file size must be less than 5MB");
-                          e.target.value = "";
-                          return;
-                        }
-                        handleInputChange("image", file);
-                      }
-                    }}
-                    className="cursor-pointer"
-                  />
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Upload an image for your event (JPEG, PNG, max 5MB)
-                  </p>
-                  {formData.image && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <img
-                        src={URL.createObjectURL(formData.image)}
-                        alt="Preview"
-                        className="w-20 h-20 object-cover rounded-md border"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          handleInputChange("image", undefined);
-                          const input = document.getElementById(
-                            "image",
-                          ) as HTMLInputElement;
-                          if (input) input.value = "";
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) =>
-                    handleInputChange("description", e.target.value)
-                  }
-                  placeholder="Describe your event..."
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            {/* Date and Time */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="date">Date *</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => handleInputChange("date", e.target.value)}
-                  className={errors.date ? "border-red-500" : ""}
-                />
-                {errors.date && (
-                  <p className="text-sm text-red-500 mt-1">{errors.date}</p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="time">Time *</Label>
-                <Input
-                  id="time"
-                  type="time"
-                  value={formData.time}
-                  onChange={(e) => handleInputChange("time", e.target.value)}
-                  className={errors.time ? "border-red-500" : ""}
-                />
-                {errors.time && (
-                  <p className="text-sm text-red-500 mt-1">{errors.time}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Location Search */}
-            <div className="space-y-4">
-              <LocationSearch
-                onLocationSelect={handleLocationSelect}
-                onLocationClear={handleLocationClear}
-                selectedLocation={selectedLocation}
-                userCoordinates={userCoordinates || undefined}
-                placeholder="Search for a venue, restaurant, or location..."
-              />
-              {errors.location && (
-                <p className="text-sm text-red-500">{errors.location}</p>
-              )}
-
-              {/* Additional Location Notes */}
-              <div>
-                <Label htmlFor="locationNotes">
-                  Additional Location Details
-                </Label>
-                <Textarea
-                  id="locationNotes"
-                  value={formData.locationNotes}
-                  onChange={(e) =>
-                    handleInputChange("locationNotes", e.target.value)
-                  }
-                  placeholder="Room number, floor, entrance details, etc."
-                  rows={2}
-                />
-              </div>
-            </div>
-
-            {/* Friends Selection (for private events) */}
-            {formData.isPrivate && (
-              <div className="space-y-4">
-                <Label className="text-base font-medium flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Invite Friends
-                </Label>
-
-                <div className="grid gap-2 max-h-40 overflow-y-auto border rounded-md p-4">
-                  {friends.map((friend) => (
-                    <div
-                      key={friend.id}
-                      className="flex items-center space-x-2 cursor-pointer"
-                      onClick={() => toggleFriendSelection(friend.id)}
-                    >
-                      <Checkbox
-                        checked={formData.sharedWithIds.includes(friend.id)}
-                        onCheckedChange={() => toggleFriendSelection(friend.id)}
-                      />
-                      <div>
-                        <p className="font-medium">{friend.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {friend.email}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {errors.sharedWithIds && (
-                  <p className="text-sm text-red-500">{errors.sharedWithIds}</p>
-                )}
-              </div>
+        {/* Event Details */}
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="title">Event Title *</Label>
+            <Input
+              id="title"
+              value={formData.title}
+              onChange={(e) => handleInputChange("title", e.target.value)}
+              placeholder="Enter event title"
+              className={errors.title ? "border-red-500" : ""}
+            />
+            {errors.title && (
+              <p className="text-sm text-red-500 mt-1">{errors.title}</p>
             )}
+          </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-4 pt-4">
-              <Button type="submit" disabled={isSubmitting} className="flex-1">
-                {isSubmitting ? (
-                  <div className="flex items-center gap-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Creating...
-                  </div>
-                ) : (
-                  `Create ${formData.isPrivate ? "Private" : "Public"} Event`
-                )}
-              </Button>
+          <div>
+            <Label>Event Emoji</Label>
+            <div className="flex items-center gap-2">
+              <EmojiPicker
+                selectedEmoji={formData.emoji}
+                onEmojiSelect={(emoji) => handleInputChange("emoji", emoji)}
+              />
+              <span className="text-sm text-muted-foreground">
+                Choose an emoji to represent your event
+              </span>
+            </div>
+          </div>
 
-              {onCancel && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onCancel}
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </Button>
+          {/* Image Upload */}
+          <div>
+            <Label htmlFor="image">Event Image (Optional)</Label>
+            <div className="mt-2">
+              <Input
+                id="image"
+                type="file"
+                accept="image/jpeg,image/png,image/jpg"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    // Validate file size (max 5MB)
+                    if (file.size > 5 * 1024 * 1024) {
+                      alert("Image file size must be less than 5MB");
+                      e.target.value = "";
+                      return;
+                    }
+                    handleInputChange("image", file);
+                  }
+                }}
+                className="cursor-pointer"
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Upload an image for your event (JPEG, PNG, max 5MB)
+              </p>
+              {formData.image && (
+                <div className="mt-2 flex items-center gap-2">
+                  <img
+                    src={URL.createObjectURL(formData.image)}
+                    alt="Preview"
+                    className="w-20 h-20 object-cover rounded-md border"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      handleInputChange("image", undefined);
+                      const input = document.getElementById(
+                        "image",
+                      ) as HTMLInputElement;
+                      if (input) input.value = "";
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </div>
               )}
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </div>
+
+          <div>
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => handleInputChange("description", e.target.value)}
+              placeholder="Describe your event..."
+              rows={3}
+            />
+          </div>
+        </div>
+
+        {/* Date and Time */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="date">Date *</Label>
+            <Input
+              id="date"
+              type="date"
+              value={formData.date}
+              onChange={(e) => handleInputChange("date", e.target.value)}
+              className={errors.date ? "border-red-500" : ""}
+            />
+            {errors.date && (
+              <p className="text-sm text-red-500 mt-1">{errors.date}</p>
+            )}
+          </div>
+          <div>
+            <Label htmlFor="time">Time *</Label>
+            <Input
+              id="time"
+              type="time"
+              value={formData.time}
+              onChange={(e) => handleInputChange("time", e.target.value)}
+              className={errors.time ? "border-red-500" : ""}
+            />
+            {errors.time && (
+              <p className="text-sm text-red-500 mt-1">{errors.time}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Location Search */}
+        <div className="space-y-4">
+          <LocationSearch
+            onLocationSelect={handleLocationSelect}
+            onLocationClear={handleLocationClear}
+            selectedLocation={selectedLocation}
+            userCoordinates={userCoordinates || undefined}
+            placeholder="Search for a venue, restaurant, or location..."
+          />
+          {errors.location && (
+            <p className="text-sm text-red-500">{errors.location}</p>
+          )}
+
+          {/* Additional Location Notes */}
+          <div>
+            <Label htmlFor="locationNotes">Additional Location Details</Label>
+            <Textarea
+              id="locationNotes"
+              value={formData.locationNotes}
+              onChange={(e) =>
+                handleInputChange("locationNotes", e.target.value)
+              }
+              placeholder="Room number, floor, entrance details, etc."
+              rows={2}
+            />
+          </div>
+        </div>
+
+        {/* Friends Selection (for private events) */}
+        {formData.isPrivate && (
+          <div className="space-y-4">
+            <Label className="text-base font-medium flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Invite Friends
+            </Label>
+
+            <div className="grid gap-2 max-h-40 overflow-y-auto border rounded-md p-4">
+              {friends.map((friend) => (
+                <div
+                  key={friend.id}
+                  className="flex items-center space-x-2 cursor-pointer"
+                  onClick={() => toggleFriendSelection(friend.id)}
+                >
+                  <Checkbox
+                    checked={formData.sharedWithIds.includes(friend.id)}
+                    onCheckedChange={() => toggleFriendSelection(friend.id)}
+                  />
+                  <div>
+                    <p className="font-medium">{friend.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {friend.email}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {errors.sharedWithIds && (
+              <p className="text-sm text-red-500">{errors.sharedWithIds}</p>
+            )}
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex gap-4 pt-4">
+          <Button type="submit" disabled={isSubmitting} className="flex-1">
+            {isSubmitting ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Creating...
+              </div>
+            ) : (
+              `Create ${formData.isPrivate ? "Private" : "Public"} Event`
+            )}
+          </Button>
+
+          {onCancel && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+          )}
+        </div>
+      </form>
     </div>
   );
 }
