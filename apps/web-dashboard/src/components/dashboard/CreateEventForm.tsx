@@ -119,6 +119,47 @@ export function CreateEventForm({
     getUserLocation();
   }, []);
 
+  // Manual location trigger function
+  const handleGetLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserCoordinates({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          alert(
+            `Location updated! Lat: ${position.coords.latitude.toFixed(4)}, Lng: ${position.coords.longitude.toFixed(4)}`,
+          );
+        },
+        (error) => {
+          console.log("Geolocation error:", error);
+          let errorMessage = "Unable to get your location.";
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage =
+                "Location permission denied. Please allow location access in your browser settings.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = "Location information unavailable.";
+              break;
+            case error.TIMEOUT:
+              errorMessage = "Location request timed out.";
+              break;
+          }
+          alert(errorMessage);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000, // 5 minutes
+        },
+      );
+    } else {
+      alert("Geolocation is not supported by this browser.");
+    }
+  };
+
   // Fetch friends data
   useEffect(() => {
     const fetchFriends = async () => {
@@ -433,6 +474,20 @@ export function CreateEventForm({
 
         {/* Location Search */}
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label>Location</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleGetLocation}
+              className="flex items-center gap-2"
+            >
+              <MapPin className="h-4 w-4" />
+              Use My Location
+            </Button>
+          </div>
+
           <LocationSearch
             onLocationSelect={handleLocationSelect}
             onLocationClear={handleLocationClear}
@@ -442,6 +497,14 @@ export function CreateEventForm({
           />
           {errors.location && (
             <p className="text-sm text-red-500">{errors.location}</p>
+          )}
+
+          {/* Show current coordinates if available */}
+          {userCoordinates && (
+            <div className="text-sm text-muted-foreground">
+              📍 Your location: {userCoordinates.lat.toFixed(4)},{" "}
+              {userCoordinates.lng.toFixed(4)}
+            </div>
           )}
 
           {/* Additional Location Notes */}

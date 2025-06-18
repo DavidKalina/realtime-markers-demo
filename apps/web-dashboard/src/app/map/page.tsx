@@ -1,21 +1,102 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { InteractiveMap } from "@/components/map/InteractiveMap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Filter, Layers, Users, Calendar, Map } from "lucide-react";
+import {
+  MapPin,
+  Filter,
+  Layers,
+  Users,
+  Calendar,
+  Map,
+  Navigation,
+} from "lucide-react";
 import { useLocationStore } from "@/stores/useLocationStoreWeb";
 
 export default function MapPage() {
   const { markers } = useLocationStore();
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(
+    null,
+  );
+  const [mapCenter, setMapCenter] = useState<[number, number]>([
+    -74.006, 40.7128,
+  ]); // NYC default
+  const [mapZoom, setMapZoom] = useState(12);
 
   // WebSocket URL - you'll need to configure this based on your environment
   const websocketUrl =
     process.env.NEXT_PUBLIC_WEBSOCKET_URL || "ws://localhost:3001";
 
-  console.log();
+  // Get user location on component mount
+  useEffect(() => {
+    const getUserLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { longitude, latitude } = position.coords;
+            setUserLocation([longitude, latitude]);
+            setMapCenter([longitude, latitude]);
+          },
+          (error) => {
+            console.log("Geolocation error:", error);
+            // Keep default NYC coordinates
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 300000,
+          },
+        );
+      }
+    };
+
+    getUserLocation();
+  }, []);
+
+  // Manual location trigger function
+  const handleGetLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { longitude, latitude } = position.coords;
+          setUserLocation([longitude, latitude]);
+          setMapCenter([longitude, latitude]);
+          setMapZoom(14); // Zoom in closer when user sets their location
+          alert(
+            `Location updated! Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`,
+          );
+        },
+        (error) => {
+          console.log("Geolocation error:", error);
+          let errorMessage = "Unable to get your location.";
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage =
+                "Location permission denied. Please allow location access in your browser settings.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = "Location information unavailable.";
+              break;
+            case error.TIMEOUT:
+              errorMessage = "Location request timed out.";
+              break;
+          }
+          alert(errorMessage);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000, // 5 minutes
+        },
+      );
+    } else {
+      alert("Geolocation is not supported by this browser.");
+    }
+  };
 
   return (
     <ProtectedRoute>
@@ -46,14 +127,22 @@ export default function MapPage() {
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
                 Event Map
+                {userLocation && (
+                  <span className="text-sm text-muted-foreground font-normal">
+                    📍 Your location: {userLocation[1].toFixed(4)},{" "}
+                    {userLocation[0].toFixed(4)}
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="h-full p-0">
               <InteractiveMap
                 websocketUrl={websocketUrl}
                 className="h-full"
-                initialCenter={[-74.006, 40.7128]} // NYC coordinates
-                initialZoom={12}
+                initialCenter={mapCenter}
+                initialZoom={mapZoom}
+                userLocation={userLocation}
+                onLocationUpdate={setUserLocation}
               />
             </CardContent>
           </Card>

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { Navigation } from "lucide-react";
 
 // Dynamic import for Map component to reduce initial bundle size
 const Map = dynamic(
@@ -46,6 +47,8 @@ interface InteractiveMapProps {
   className?: string;
   initialCenter: [number, number];
   initialZoom: number;
+  userLocation?: [number, number] | null;
+  onLocationUpdate?: (location: [number, number] | null) => void;
 }
 
 export const InteractiveMap = ({
@@ -53,12 +56,11 @@ export const InteractiveMap = ({
   className,
   initialCenter,
   initialZoom,
+  userLocation,
+  onLocationUpdate,
 }: InteractiveMapProps) => {
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(
-    null,
-  );
   const [isMapReady, setIsMapReady] = useState(false);
 
   // Use the websocket hook
@@ -73,53 +75,61 @@ export const InteractiveMap = ({
     bearing: 0,
   });
 
-  // Get user location on component mount
-  useEffect(() => {
-    const getUserLocation = () => {
-      if (!navigator.geolocation) {
-        console.log(
-          "Geolocation is not supported by this browser. Using default location.",
-        );
-        // Fallback to initial center
-        setUserLocation(initialCenter);
-        setViewState((prev) => ({
-          ...prev,
-          longitude: initialCenter[0],
-          latitude: initialCenter[1],
-        }));
-        return;
-      }
-
+  // Manual location trigger function
+  const handleGetLocation = () => {
+    if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { longitude, latitude } = position.coords;
-          setUserLocation([longitude, latitude]);
+          onLocationUpdate?.([longitude, latitude]);
           setViewState((prev) => ({
             ...prev,
             longitude,
             latitude,
+            zoom: 14, // Zoom in closer when user sets their location
           }));
+          alert(
+            `Location updated! Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`,
+          );
         },
-        () => {
-          console.log("Unable to get your location. Using default location.");
-          // Fallback to initial center
-          setUserLocation(initialCenter);
-          setViewState((prev) => ({
-            ...prev,
-            longitude: initialCenter[0],
-            latitude: initialCenter[1],
-          }));
+        (error) => {
+          console.log("Geolocation error:", error);
+          let errorMessage = "Unable to get your location.";
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage =
+                "Location permission denied. Please allow location access in your browser settings.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = "Location information unavailable.";
+              break;
+            case error.TIMEOUT:
+              errorMessage = "Location request timed out.";
+              break;
+          }
+          alert(errorMessage);
         },
         {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 300000,
+          maximumAge: 300000, // 5 minutes
         },
       );
-    };
+    } else {
+      alert("Geolocation is not supported by this browser.");
+    }
+  };
 
-    getUserLocation();
-  }, [initialCenter]);
+  // Update viewState when userLocation changes
+  useEffect(() => {
+    if (userLocation) {
+      setViewState((prev) => ({
+        ...prev,
+        longitude: userLocation[0],
+        latitude: userLocation[1],
+      }));
+    }
+  }, [userLocation]);
 
   // Handle viewport changes and send to websocket
   const handleViewportChange = (evt: { viewState: ViewState }) => {
@@ -182,6 +192,17 @@ export const InteractiveMap = ({
       {/* Connection indicator */}
       <div className="absolute top-4 right-4 z-50">
         <ConnectionIndicator />
+      </div>
+
+      {/* Use My Location Button */}
+      <div className="absolute top-4 left-4 z-50">
+        <button
+          onClick={handleGetLocation}
+          className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-white/95 transition-colors flex items-center gap-2 shadow-sm"
+        >
+          <Navigation className="h-4 w-4" />
+          Use My Location
+        </button>
       </div>
 
       {/* Error display */}
