@@ -15,6 +15,7 @@ interface CreateEventPayload {
   date: string;
   eventDate: string;
   isPrivate: boolean;
+  emoji?: string;
   location: {
     type: "Point";
     coordinates: [number, number];

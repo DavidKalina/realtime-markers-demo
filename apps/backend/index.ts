@@ -339,6 +339,7 @@ async function initializeServices() {
     notificationHandler,
     authService,
     openAIService,
+    embeddingService,
   };
 }
 
@@ -362,6 +363,7 @@ app.use("*", async (c, next) => {
   c.set("notificationService", services.notificationService);
   c.set("authService", services.authService);
   c.set("geocodingService", geocodingService);
+  c.set("embeddingService", services.embeddingService);
   await next();
 });
 

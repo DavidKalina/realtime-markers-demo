@@ -306,6 +306,7 @@ export const createEventHandler: EventHandler = async (c) => {
   try {
     const data = await c.req.json();
     const eventService = c.get("eventService");
+    const embeddingService = c.get("embeddingService");
     const redisPub = c.get("redisClient");
     const user = c.get("user");
 
@@ -330,6 +331,35 @@ export const createEventHandler: EventHandler = async (c) => {
     }
 
     data.creatorId = user.userId;
+
+    // Generate embedding if not provided
+    if (!data.embedding) {
+      console.log(
+        "[createEventHandler] Generating embedding for event:",
+        data.title,
+      );
+
+      // Create text for embedding using the same format as EventProcessingService
+      const textForEmbedding = `
+        TITLE: ${data.title} ${data.title} ${data.title}
+        EMOJI: ${data.emoji || "📍"} - ${data.emojiDescription || ""}
+        DESCRIPTION: ${data.description || ""}
+        LOCATION: ${data.address || ""}
+        LOCATION_NOTES: ${data.locationNotes || ""}
+      `.trim();
+
+      try {
+        data.embedding = await embeddingService.getEmbedding(textForEmbedding);
+        console.log("[createEventHandler] Generated embedding successfully");
+      } catch (embeddingError) {
+        console.error(
+          "[createEventHandler] Error generating embedding:",
+          embeddingError,
+        );
+        // Continue without embedding - the event can still be created
+        data.embedding = [];
+      }
+    }
 
     const newEvent = await eventService.createEvent(data);
 

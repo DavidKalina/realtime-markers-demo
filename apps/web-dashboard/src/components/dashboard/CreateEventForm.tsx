@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -17,6 +18,7 @@ import {
 import { Calendar, MapPin, Users, Clock, Globe, Lock } from "lucide-react";
 import { apiService, type CreateEventPayload } from "@/services/api";
 import { LocationSearch } from "./LocationSearch";
+import { EmojiPicker } from "./EmojiPicker";
 
 interface CreateEventFormProps {
   onSuccess?: () => void;
@@ -39,6 +41,7 @@ interface EventFormData {
   date: string;
   time: string;
   isPrivate: boolean;
+  emoji?: string;
   location: {
     latitude: number;
     longitude: number;
@@ -73,6 +76,7 @@ export function CreateEventForm({
     date: initialData?.date || new Date().toISOString().split("T")[0],
     time: new Date().toISOString().split("T")[1].substring(0, 5),
     isPrivate: false,
+    emoji: undefined,
     location: {
       latitude: initialData?.location?.latitude || 0,
       longitude: initialData?.location?.longitude || 0,
@@ -203,6 +207,7 @@ export function CreateEventForm({
         date: eventDateTime.toISOString(),
         eventDate: eventDateTime.toISOString(),
         isPrivate: formData.isPrivate,
+        emoji: formData.emoji,
         location: {
           type: "Point",
           coordinates: selectedLocation ? selectedLocation.coordinates : [0, 0],
@@ -336,6 +341,19 @@ export function CreateEventForm({
               </div>
 
               <div>
+                <Label>Event Emoji</Label>
+                <div className="flex items-center gap-2">
+                  <EmojiPicker
+                    selectedEmoji={formData.emoji}
+                    onEmojiSelect={(emoji) => handleInputChange("emoji", emoji)}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    Choose an emoji to represent your event
+                  </span>
+                </div>
+              </div>
+
+              <div>
                 <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
@@ -424,11 +442,9 @@ export function CreateEventForm({
                       className="flex items-center space-x-2 cursor-pointer"
                       onClick={() => toggleFriendSelection(friend.id)}
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={formData.sharedWithIds.includes(friend.id)}
-                        onChange={() => toggleFriendSelection(friend.id)}
-                        className="rounded"
+                        onCheckedChange={() => toggleFriendSelection(friend.id)}
                       />
                       <div>
                         <p className="font-medium">{friend.name}</p>
