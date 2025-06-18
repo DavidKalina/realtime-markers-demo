@@ -5,32 +5,68 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, MapPin, Users, ArrowLeft, Edit, Trash2 } from "lucide-react";
+import {
+  Calendar,
+  MapPin,
+  Users,
+  ArrowLeft,
+  Edit,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useEvent } from "@/hooks/useEvent";
 
 export default function EventDetailPage() {
   const params = useParams();
-  const eventId = params.id;
+  const eventId = params.id as string;
+  const { event, loading, error, refetch } = useEvent(eventId);
 
-  // Mock data - replace with real data from your API
-  const event = {
-    id: eventId,
-    title: "Tech Meetup",
-    description:
-      "Join us for an evening of networking and tech talks. This event will feature presentations from industry leaders, networking opportunities, and refreshments. Don't miss out on this chance to connect with fellow tech enthusiasts and learn about the latest trends in the industry.",
-    date: "2024-01-15",
-    time: "18:00",
-    location: "Downtown Conference Center",
-    address: "123 Main Street, Downtown, City, State 12345",
-    attendees: 45,
-    maxAttendees: 100,
-    category: "Technology",
-    status: "upcoming",
-    organizer: "Tech Community Group",
-    contactEmail: "contact@techmeetup.com",
-    contactPhone: "+1 (555) 123-4567",
-  };
+  if (loading) {
+    return (
+      <ProtectedRoute>
+        <DashboardLayout>
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span>Loading event details...</span>
+            </div>
+          </div>
+        </DashboardLayout>
+      </ProtectedRoute>
+    );
+  }
+
+  if (error || !event) {
+    return (
+      <ProtectedRoute>
+        <DashboardLayout>
+          <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold text-destructive">
+                Error Loading Event
+              </h2>
+              <p className="text-muted-foreground mt-2">
+                {error || "Event not found"}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={refetch} variant="outline">
+                Try Again
+              </Button>
+              <Link href="/events">
+                <Button variant="outline">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Events
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </DashboardLayout>
+      </ProtectedRoute>
+    );
+  }
 
   return (
     <ProtectedRoute>
@@ -80,28 +116,40 @@ export default function EventDetailPage() {
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
                       <span>
-                        {event.date} at {event.time}
+                        {new Date(event.eventDate).toLocaleDateString()} at{" "}
+                        {new Date(event.eventDate).toLocaleTimeString()}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <MapPin className="h-4 w-4" />
-                      <span>{event.location}</span>
+                      <span>
+                        {event.address ||
+                          (event.location &&
+                          typeof event.location === "object" &&
+                          "coordinates" in event.location
+                            ? `Lat: ${event.location.coordinates[1]}, Lng: ${event.location.coordinates[0]}`
+                            : "Location not specified")}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
                       <span>
-                        {event.attendees} / {event.maxAttendees} attendees
+                        {event.attendees}{" "}
+                        {event.maxAttendees && `/ ${event.maxAttendees}`}{" "}
+                        attendees
                       </span>
                     </div>
                     <div>
-                      <Badge variant="outline">{event.category}</Badge>
+                      <Badge variant="outline">{event.category?.name}</Badge>
                     </div>
                   </div>
 
-                  <div>
-                    <h3 className="font-semibold mb-2">Address</h3>
-                    <p className="text-muted-foreground">{event.address}</p>
-                  </div>
+                  {event.address && (
+                    <div>
+                      <h3 className="font-semibold mb-2">Address</h3>
+                      <p className="text-muted-foreground">{event.address}</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -118,25 +166,35 @@ export default function EventDetailPage() {
                         Registered attendees
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-muted-foreground">Capacity</p>
-                      <p className="font-medium">{event.maxAttendees} people</p>
-                    </div>
+                    {event.maxAttendees && (
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">
+                          Capacity
+                        </p>
+                        <p className="font-medium">
+                          {event.maxAttendees} people
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-4">
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full"
-                        style={{
-                          width: `${(event.attendees / event.maxAttendees) * 100}%`,
-                        }}
-                      ></div>
+                  {event.maxAttendees && (
+                    <div className="mt-4">
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full"
+                          style={{
+                            width: `${(event.attendees / event.maxAttendees) * 100}%`,
+                          }}
+                        ></div>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {Math.round(
+                          (event.attendees / event.maxAttendees) * 100,
+                        )}
+                        % full
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {Math.round((event.attendees / event.maxAttendees) * 100)}
-                      % full
-                    </p>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -149,33 +207,35 @@ export default function EventDetailPage() {
                   <CardTitle>Status</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Badge
-                    variant={
-                      event.status === "completed" ? "secondary" : "default"
-                    }
-                    className="text-sm"
-                  >
-                    {event.status}
+                  <Badge variant="default" className="text-sm">
+                    {event.category?.name}
                   </Badge>
                 </CardContent>
               </Card>
 
-              {/* Organizer Info */}
+              {/* Event Info */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Organizer</CardTitle>
+                  <CardTitle>Event Info</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
-                    <p className="font-medium">{event.organizer}</p>
+                    <p className="text-sm text-muted-foreground">Event Date</p>
+                    <p className="text-sm">
+                      {new Date(event.eventDate).toLocaleDateString()}
+                    </p>
                   </div>
+                  {event.endDate && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">End Date</p>
+                      <p className="text-sm">
+                        {new Date(event.endDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
                   <div>
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="text-sm">{event.contactEmail}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Phone</p>
-                    <p className="text-sm">{event.contactPhone}</p>
+                    <p className="text-sm text-muted-foreground">Category</p>
+                    <p className="text-sm">{event.category?.name}</p>
                   </div>
                 </CardContent>
               </Card>

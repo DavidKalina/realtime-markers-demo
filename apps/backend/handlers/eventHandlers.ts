@@ -3,6 +3,7 @@
 import type { Context } from "hono";
 import type { AppContext } from "../types/context";
 import { Buffer } from "buffer";
+import type { CategoryProcessingService } from "../services/CategoryProcessingService";
 
 // Define a type for our handler functions
 export type EventHandler = (
@@ -309,6 +310,9 @@ export const createEventHandler: EventHandler = async (c) => {
     const embeddingService = c.get("embeddingService");
     const redisPub = c.get("redisClient");
     const user = c.get("user");
+    const categoryProcessingService = c.get("categoryProcessingService") as
+      | CategoryProcessingService
+      | undefined;
 
     // Validate input
     if (!data.title || !data.eventDate || !data.location?.coordinates) {
@@ -331,6 +335,16 @@ export const createEventHandler: EventHandler = async (c) => {
     }
 
     data.creatorId = user.userId;
+
+    // Automatically generate categories if not provided
+    if (!data.categories || data.categories.length === 0) {
+      // Use title and description for category extraction
+      const text = `${data.title}\n${data.description || ""}`;
+      if (categoryProcessingService) {
+        data.categories =
+          await categoryProcessingService.extractAndProcessCategories(text);
+      }
+    }
 
     // Generate embedding if not provided
     if (!data.embedding) {
