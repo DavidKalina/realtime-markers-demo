@@ -41,8 +41,11 @@ class TokenManager {
   static setTokens(tokens: AuthTokens): void {
     if (typeof window !== "undefined") {
       // Set cookies with appropriate options
-      document.cookie = `${this.ACCESS_TOKEN_KEY}=${tokens.accessToken}; path=/; max-age=3600; SameSite=Strict`;
-      document.cookie = `${this.REFRESH_TOKEN_KEY}=${tokens.refreshToken}; path=/; max-age=86400; SameSite=Strict`;
+      const isSecure = window.location.protocol === "https:";
+      const secureFlag = isSecure ? "; secure" : "";
+
+      document.cookie = `${this.ACCESS_TOKEN_KEY}=${tokens.accessToken}; path=/; max-age=3600; SameSite=Strict${secureFlag}`;
+      document.cookie = `${this.REFRESH_TOKEN_KEY}=${tokens.refreshToken}; path=/; max-age=86400; SameSite=Strict${secureFlag}`;
     }
   }
 

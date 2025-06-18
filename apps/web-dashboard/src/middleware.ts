@@ -13,8 +13,16 @@ export function middleware(request: NextRequest) {
   const publicRoutes = ["/login"];
   const isPublicRoute = publicRoutes.includes(pathname);
 
+  // Root path - redirect to dashboard if authenticated, otherwise allow
+  if (pathname === "/") {
+    if (hasAuthToken) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    return NextResponse.next();
+  }
+
   // If user is not authenticated and trying to access a protected route
-  if (!hasAuthToken && !isPublicRoute && pathname !== "/") {
+  if (!hasAuthToken && !isPublicRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
