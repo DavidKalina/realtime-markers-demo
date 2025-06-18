@@ -8,15 +8,54 @@ import {
   type Event,
 } from "@/lib/dashboard-data";
 
+// Import the Event type that UpcomingEvents expects
+interface DashboardEvent {
+  id: string;
+  title: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  category: {
+    name: string;
+    emoji: string;
+  };
+  attendees: number;
+  maxAttendees?: number;
+}
+
 interface DashboardData {
   metrics: DashboardMetrics | null;
   activities: ActivityItem[];
   popularCategories: CategoryStat[];
   busiestTimes: TimeStat[];
-  upcomingEvents: Event[];
+  upcomingEvents: DashboardEvent[];
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
+}
+
+// Transform API Event to DashboardEvent
+function transformEvent(event: Event): DashboardEvent {
+  const primaryCategory =
+    event.categories && event.categories.length > 0
+      ? event.categories[0]
+      : { name: "General", icon: "📅" };
+
+  return {
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    startDate: event.eventDate,
+    endDate: event.endDate,
+    location: event.address || "Location TBD",
+    category: {
+      name: primaryCategory.name,
+      emoji: primaryCategory.icon || "📅",
+    },
+    attendees: event.attendees,
+    maxAttendees: event.maxAttendees,
+  };
 }
 
 export function useDashboardData(): DashboardData {
@@ -26,7 +65,7 @@ export function useDashboardData(): DashboardData {
     [],
   );
   const [busiestTimes, setBusiestTimes] = useState<TimeStat[]>([]);
-  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<DashboardEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,7 +92,7 @@ export function useDashboardData(): DashboardData {
       setActivities(activitiesData);
       setPopularCategories(categoriesData);
       setBusiestTimes(timesData);
-      setUpcomingEvents(eventsData);
+      setUpcomingEvents(eventsData.map(transformEvent));
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
       setError(

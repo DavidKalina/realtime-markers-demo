@@ -14,7 +14,7 @@ coverage
 .tmp
 _docpress
 .DS_Store
-
+.next
 dist
 tsconfig.tsbuildinfo
 test.lib/

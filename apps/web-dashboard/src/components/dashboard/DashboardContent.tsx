@@ -5,14 +5,29 @@ import type {
   ActivityItem,
   CategoryStat,
   TimeStat,
-  Event,
 } from "@/lib/dashboard-data";
+
+// Import the Event type that UpcomingEvents expects
+interface DashboardEvent {
+  id: string;
+  title: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  category: {
+    name: string;
+    emoji: string;
+  };
+  attendees: number;
+  maxAttendees?: number;
+}
 
 interface DashboardContentProps {
   activities: ActivityItem[];
   popularCategories: CategoryStat[];
   busiestTimes: TimeStat[];
-  upcomingEvents: Event[];
+  upcomingEvents: DashboardEvent[];
   className?: string;
 }
 
