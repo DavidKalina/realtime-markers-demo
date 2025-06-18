@@ -4,6 +4,7 @@ import { User } from "../entities/User";
 import { UserEventSave } from "../entities/UserEventSave";
 import { UserEventRsvp, RsvpStatus } from "../entities/UserEventRsvp";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
+import { UserEventView } from "../entities/UserEventView";
 import { Friendship } from "../entities/Friendship";
 import { LevelingService } from "./LevelingService";
 import type { RedisService } from "./shared/RedisService";
@@ -12,6 +13,7 @@ export interface EventEngagementMetrics {
   eventId: string;
   saveCount: number;
   scanCount: number;
+  viewCount: number;
   rsvpCount: number;
   goingCount: number;
   notGoingCount: number;
@@ -49,6 +51,8 @@ export interface UserEngagementService {
 
   createDiscoveryRecord(userId: string, eventId: string): Promise<void>;
 
+  createViewRecord(userId: string, eventId: string): Promise<void>;
+
   getDiscoveredEventsByUser(
     userId: string,
     options?: { limit?: number; cursor?: string },
@@ -74,6 +78,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
   private userEventSaveRepository: Repository<UserEventSave>;
   private userEventRsvpRepository: Repository<UserEventRsvp>;
   private userEventDiscoveryRepository: Repository<UserEventDiscovery>;
+  private userEventViewRepository: Repository<UserEventView>;
   private redisService: RedisService;
   private levelingService: LevelingService;
 
@@ -86,6 +91,8 @@ export class UserEngagementServiceImpl implements UserEngagementService {
       dependencies.dataSource.getRepository(UserEventRsvp);
     this.userEventDiscoveryRepository =
       dependencies.dataSource.getRepository(UserEventDiscovery);
+    this.userEventViewRepository =
+      dependencies.dataSource.getRepository(UserEventView);
     this.redisService = dependencies.redisService;
     this.levelingService = dependencies.levelingService;
   }
@@ -533,6 +540,73 @@ export class UserEngagementServiceImpl implements UserEngagementService {
   }
 
   /**
+   * Create a view record for a user viewing an event
+   * @param userId The ID of the user who viewed the event
+   * @param eventId The ID of the event that was viewed
+   */
+  async createViewRecord(userId: string, eventId: string): Promise<void> {
+    try {
+      // Start a transaction to ensure data consistency
+      await this.dependencies.dataSource.transaction(
+        async (transactionalEntityManager) => {
+          // Create the view record
+          await transactionalEntityManager
+            .createQueryBuilder()
+            .insert()
+            .into("user_event_views")
+            .values({
+              userId,
+              eventId,
+            })
+            .orIgnore() // Ignore if record already exists
+            .execute();
+
+          // Get the user to update their view count
+          const user = await transactionalEntityManager.findOne(User, {
+            where: { id: userId },
+          });
+
+          if (user) {
+            // Increment the user's view count
+            user.viewCount = (user.viewCount || 0) + 1;
+            await transactionalEntityManager.save(user);
+          }
+
+          // Note: We no longer increment event.viewCount since we calculate it from UserEventView table
+        },
+      );
+
+      // Get the updated event and publish to Redis for filter processor
+      const updatedEvent = await this.eventRepository.findOne({
+        where: { id: eventId },
+        relations: [
+          "categories",
+          "creator",
+          "shares",
+          "shares.sharedWith",
+          "rsvps",
+        ],
+      });
+
+      if (updatedEvent) {
+        // Publish the updated event to Redis for filter processor to recalculate popularity scores
+        await this.redisService.publish("event_changes", {
+          type: "UPDATE",
+          data: {
+            operation: "UPDATE",
+            record: this.stripEventForRedis(updatedEvent),
+            changeType: "VIEW_ADDED",
+            userId: userId,
+          },
+        });
+      }
+    } catch (error) {
+      console.error(`Error creating view record for user ${userId}:`, error);
+      // Don't throw the error - we don't want to fail the view if view recording fails
+    }
+  }
+
+  /**
    * Get all events discovered by a user
    *
    * @param userId The ID of the user
@@ -776,13 +850,19 @@ export class UserEngagementServiceImpl implements UserEngagementService {
     // Get scan count from event (already maintained)
     const scanCount = event.scanCount || 0;
 
+    // Get view count from UserEventView table (actual view records)
+    const viewCount = await this.userEventViewRepository.count({
+      where: { eventId },
+    });
+
     // Calculate total engagement (sum of all engagement types)
-    const totalEngagement = saveCount + scanCount + rsvpCount;
+    const totalEngagement = saveCount + scanCount + viewCount + rsvpCount;
 
     return {
       eventId,
       saveCount,
       scanCount,
+      viewCount,
       rsvpCount,
       goingCount,
       notGoingCount,

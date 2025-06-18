@@ -19,6 +19,7 @@ import { Category } from "./Category";
 import { User } from "./User";
 import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
+import { UserEventView } from "./UserEventView";
 import { EventShare } from "./EventShare";
 import { UserEventRsvp } from "./UserEventRsvp";
 
@@ -96,6 +97,9 @@ export class Event {
   @Column({ name: "save_count", type: "integer", default: 0 })
   saveCount!: number;
 
+  @Column({ name: "view_count", type: "integer", default: 0 })
+  viewCount!: number;
+
   @Column({ name: "confidence_score", type: "float", nullable: true })
   confidenceScore?: number;
 
@@ -157,6 +161,10 @@ export class Event {
   // Save relationship
   @OneToMany(() => UserEventSave, (save) => save.event)
   saves!: Relation<UserEventSave>[];
+
+  // View relationship
+  @OneToMany(() => UserEventView, (view) => view.event)
+  views!: Relation<UserEventView>[];
 
   @OneToMany(() => EventShare, (share: EventShare) => share.event)
   shares!: Relation<EventShare>[];

@@ -60,6 +60,27 @@ export interface GoogleGeocodingService extends ILocationResolutionService {
       distance?: number;
     };
   }>;
+  reverseGeocodeAddress(
+    lat: number,
+    lng: number,
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    address?: {
+      formattedAddress: string;
+      addressComponents: {
+        streetNumber?: string;
+        streetName?: string;
+        city?: string;
+        state?: string;
+        zipCode?: string;
+      };
+      placeId: string;
+      locationType: string;
+      partialMatch: boolean;
+      coordinates: [number, number];
+    };
+  }>;
 }
 
 export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
@@ -1249,6 +1270,95 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
       };
     } catch (error) {
       console.error("Error in city/state search:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Unknown error occurred",
+      };
+    }
+  }
+
+  public async reverseGeocodeAddress(
+    lat: number,
+    lng: number,
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    address?: {
+      formattedAddress: string;
+      addressComponents: {
+        streetNumber?: string;
+        streetName?: string;
+        city?: string;
+        state?: string;
+        zipCode?: string;
+      };
+      placeId: string;
+      locationType: string;
+      partialMatch: boolean;
+      coordinates: [number, number];
+    };
+  }> {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_GEOCODING_API_KEY}`,
+      );
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `Reverse geocoding failed: ${response.statusText}`,
+        };
+      }
+      const data = await response.json();
+      if (data.status !== "OK" || !data.results || data.results.length === 0) {
+        return {
+          success: false,
+          error: "No results found for reverse geocoding",
+        };
+      }
+      const result = data.results[0];
+      const addressComponents = result.address_components;
+      const streetNumber = addressComponents.find((c: { types: string[] }) =>
+        c.types.includes("street_number"),
+      )?.long_name;
+      const streetName = addressComponents.find((c: { types: string[] }) =>
+        c.types.includes("route"),
+      )?.long_name;
+      const city = addressComponents.find((c: { types: string[] }) =>
+        c.types.includes("locality"),
+      )?.long_name;
+      const state = addressComponents.find((c: { types: string[] }) =>
+        c.types.includes("administrative_area_level_1"),
+      )?.short_name;
+      const zipCode = addressComponents.find((c: { types: string[] }) =>
+        c.types.includes("postal_code"),
+      )?.long_name;
+      const formattedAddress = result.formatted_address;
+      const placeId = result.place_id;
+      const locationType = result.geometry.location_type;
+      const partialMatch = result.partial_match || false;
+      const coordinates: [number, number] = [
+        result.geometry.location.lng,
+        result.geometry.location.lat,
+      ];
+      return {
+        success: true,
+        address: {
+          formattedAddress,
+          addressComponents: {
+            streetNumber,
+            streetName,
+            city,
+            state,
+            zipCode,
+          },
+          placeId,
+          locationType,
+          partialMatch,
+          coordinates,
+        },
+      };
+    } catch (error) {
       return {
         success: false,
         error:

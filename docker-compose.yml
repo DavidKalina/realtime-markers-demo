@@ -236,6 +236,28 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
+  # Web Dashboard Service with Hot Reloading
+  web-dashboard:
+    build:
+      context: .
+      dockerfile: apps/web-dashboard/Dockerfile.dev
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+    ports:
+      - "127.0.0.1:3001:3001" # Expose to host for development
+    networks:
+      - marker-network
+    volumes:
+      - ./apps/web-dashboard:/app/apps/web-dashboard
+      - /app/apps/web-dashboard/node_modules
+      - web_dashboard_next_cache:/app/apps/web-dashboard/.next
+    working_dir: /app/apps/web-dashboard
+    command: ["pnpm", "dev"]
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
   # Removed the nginx container since we're using the host's nginx
 
 networks:
@@ -250,3 +272,5 @@ volumes:
   worker_node_modules:
   websocket_node_modules:
   filter_processor_node_modules:
+  web_dashboard_node_modules:
+  web_dashboard_next_cache:

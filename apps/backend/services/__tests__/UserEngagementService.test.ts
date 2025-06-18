@@ -12,6 +12,7 @@ import { User, UserRole, PlanType } from "../../entities/User";
 import { UserEventSave } from "../../entities/UserEventSave";
 import { UserEventRsvp, RsvpStatus } from "../../entities/UserEventRsvp";
 import { UserEventDiscovery } from "../../entities/UserEventDiscovery";
+import { UserEventView } from "../../entities/UserEventView";
 import { Friendship } from "../../entities/Friendship";
 import { Category } from "../../entities/Category";
 import { LevelingService } from "../LevelingService";
@@ -26,6 +27,7 @@ describe("UserEngagementService", () => {
   let mockUserEventSaveRepository: Repository<UserEventSave>;
   let mockUserEventRsvpRepository: Repository<UserEventRsvp>;
   let mockUserEventDiscoveryRepository: Repository<UserEventDiscovery>;
+  let mockUserEventViewRepository: Repository<UserEventView>;
   let mockLevelingService: LevelingService;
   let mockRedisService: RedisService;
   let mockEntityManager: EntityManager;
@@ -44,6 +46,7 @@ describe("UserEngagementService", () => {
     discoveryCount: 0,
     scanCount: 0,
     saveCount: 0,
+    viewCount: 0,
     weeklyScanCount: 0,
     totalXp: 0,
     createdAt: new Date(),
@@ -63,6 +66,7 @@ describe("UserEngagementService", () => {
     discoveryCount: 0,
     scanCount: 0,
     saveCount: 0,
+    viewCount: 0,
     weeklyScanCount: 0,
     totalXp: 0,
     createdAt: new Date(),
@@ -90,6 +94,7 @@ describe("UserEngagementService", () => {
     locationNotes: "Downtown venue",
     scanCount: 10,
     saveCount: 5,
+    viewCount: 3,
     status: EventStatus.PENDING,
     location: { type: "Point", coordinates: [-111.6585, 40.2338] } as Point,
     creator: mockUser,
@@ -165,6 +170,11 @@ describe("UserEngagementService", () => {
       createQueryBuilder: jest.fn(),
     } as unknown as Repository<UserEventDiscovery>;
 
+    mockUserEventViewRepository = {
+      createQueryBuilder: jest.fn(),
+      count: jest.fn(),
+    } as unknown as Repository<UserEventView>;
+
     mockLevelingService = {
       awardXp: jest.fn(),
     } as unknown as LevelingService;
@@ -195,6 +205,8 @@ describe("UserEngagementService", () => {
             return mockUserEventRsvpRepository;
           case UserEventDiscovery:
             return mockUserEventDiscoveryRepository;
+          case UserEventView:
+            return mockUserEventViewRepository;
           default:
             throw new Error(`Unknown entity: ${entity.name}`);
         }
@@ -1012,6 +1024,8 @@ describe("UserEngagementService", () => {
         .mockResolvedValueOnce(8) // Going count
         .mockResolvedValueOnce(3); // Not going count
 
+      (mockUserEventViewRepository.count as jest.Mock).mockResolvedValue(3); // View count
+
       const result =
         await userEngagementService.getEventEngagement("event-123");
 
@@ -1019,10 +1033,11 @@ describe("UserEngagementService", () => {
         eventId: "event-123",
         saveCount: 15,
         scanCount: 42,
+        viewCount: 3,
         rsvpCount: 11, // 8 + 3
         goingCount: 8,
         notGoingCount: 3,
-        totalEngagement: 68, // 15 + 42 + 11
+        totalEngagement: 71, // 15 + 42 + 3 + 11
         lastUpdated: new Date("2024-01-15T10:30:00Z"),
       });
 
@@ -1036,6 +1051,10 @@ describe("UserEngagementService", () => {
 
       expect(mockUserEventRsvpRepository.count).toHaveBeenCalledWith({
         where: { eventId: "event-123", status: RsvpStatus.NOT_GOING },
+      });
+
+      expect(mockUserEventViewRepository.count).toHaveBeenCalledWith({
+        where: { eventId: "event-123" },
       });
     });
 
@@ -1055,6 +1074,8 @@ describe("UserEngagementService", () => {
         .mockResolvedValueOnce(0) // Going count
         .mockResolvedValueOnce(0); // Not going count
 
+      (mockUserEventViewRepository.count as jest.Mock).mockResolvedValue(0); // View count
+
       const result =
         await userEngagementService.getEventEngagement("event-123");
 
@@ -1062,6 +1083,7 @@ describe("UserEngagementService", () => {
         eventId: "event-123",
         saveCount: 0,
         scanCount: 0,
+        viewCount: 0,
         rsvpCount: 0,
         goingCount: 0,
         notGoingCount: 0,
@@ -1086,6 +1108,8 @@ describe("UserEngagementService", () => {
         .mockResolvedValueOnce(0) // Going count
         .mockResolvedValueOnce(0); // Not going count
 
+      (mockUserEventViewRepository.count as jest.Mock).mockResolvedValue(0); // View count
+
       const result =
         await userEngagementService.getEventEngagement("event-123");
 
@@ -1093,6 +1117,7 @@ describe("UserEngagementService", () => {
         eventId: "event-123",
         saveCount: 0,
         scanCount: 0,
+        viewCount: 0,
         rsvpCount: 0,
         goingCount: 0,
         notGoingCount: 0,
@@ -1114,6 +1139,7 @@ describe("UserEngagementService", () => {
 
       // Should not call RSVP count methods if event doesn't exist
       expect(mockUserEventRsvpRepository.count).not.toHaveBeenCalled();
+      expect(mockUserEventViewRepository.count).not.toHaveBeenCalled();
     });
 
     it("should handle high engagement numbers correctly", async () => {
@@ -1132,6 +1158,8 @@ describe("UserEngagementService", () => {
         .mockResolvedValueOnce(250) // Going count
         .mockResolvedValueOnce(50); // Not going count
 
+      (mockUserEventViewRepository.count as jest.Mock).mockResolvedValue(100); // View count
+
       const result =
         await userEngagementService.getEventEngagement("event-123");
 
@@ -1139,10 +1167,11 @@ describe("UserEngagementService", () => {
         eventId: "event-123",
         saveCount: 1000,
         scanCount: 5000,
+        viewCount: 100,
         rsvpCount: 300, // 250 + 50
         goingCount: 250,
         notGoingCount: 50,
-        totalEngagement: 6300, // 1000 + 5000 + 300
+        totalEngagement: 6400, // 1000 + 5000 + 100 + 300
         lastUpdated: new Date("2024-01-15T10:30:00Z"),
       });
     });
@@ -1176,6 +1205,119 @@ describe("UserEngagementService", () => {
       await expect(
         userEngagementService.getEventEngagement("event-123"),
       ).rejects.toThrow("RSVP count error");
+    });
+
+    it("should handle view count errors gracefully", async () => {
+      const eventWithMetrics = {
+        ...mockEvent,
+        saveCount: 10,
+        scanCount: 20,
+        updatedAt: new Date("2024-01-15T10:30:00Z"),
+      };
+
+      (mockEventRepository.findOne as jest.Mock).mockResolvedValue(
+        eventWithMetrics,
+      );
+
+      (mockUserEventRsvpRepository.count as jest.Mock)
+        .mockResolvedValueOnce(5) // Going count
+        .mockResolvedValueOnce(2); // Not going count
+
+      (mockUserEventViewRepository.count as jest.Mock).mockRejectedValue(
+        new Error("View count error"),
+      );
+
+      await expect(
+        userEngagementService.getEventEngagement("event-123"),
+      ).rejects.toThrow("View count error");
+    });
+  });
+
+  describe("createViewRecord", () => {
+    it("should create view record successfully", async () => {
+      const updatedEvent = {
+        ...mockEvent,
+        viewCount: 11,
+        categories: [mockCategory],
+        creator: mockUser,
+        shares: [],
+        rsvps: [],
+      };
+
+      const updatedUser = {
+        ...mockUser,
+        viewCount: 1,
+      };
+
+      // Mock transaction
+      (mockDataSource.transaction as jest.Mock).mockImplementation(
+        async (callback) => {
+          return callback(mockEntityManager);
+        },
+      );
+
+      // Mock the insert query builder for view record
+      const mockInsertQueryBuilder = {
+        insert: jest.fn().mockReturnThis(),
+        into: jest.fn().mockReturnThis(),
+        values: jest.fn().mockReturnThis(),
+        orIgnore: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue(undefined),
+      };
+
+      (mockEntityManager.createQueryBuilder as jest.Mock).mockReturnValue(
+        mockInsertQueryBuilder,
+      );
+
+      (mockEntityManager.findOne as jest.Mock)
+        .mockResolvedValueOnce(mockUser) // User
+        .mockResolvedValueOnce(mockEvent); // Event
+
+      (mockEntityManager.save as jest.Mock)
+        .mockResolvedValueOnce(updatedUser) // Save updated user
+        .mockResolvedValueOnce(updatedEvent); // Save updated event
+
+      (mockEventRepository.findOne as jest.Mock).mockResolvedValue(
+        updatedEvent,
+      );
+      (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
+
+      await userEngagementService.createViewRecord("user-123", "event-123");
+
+      expect(mockEntityManager.createQueryBuilder).toHaveBeenCalledTimes(1);
+      expect(mockInsertQueryBuilder.insert).toHaveBeenCalled();
+      expect(mockInsertQueryBuilder.into).toHaveBeenCalledWith(
+        "user_event_views",
+      );
+      expect(mockInsertQueryBuilder.values).toHaveBeenCalledWith({
+        userId: "user-123",
+        eventId: "event-123",
+      });
+      expect(mockInsertQueryBuilder.orIgnore).toHaveBeenCalled();
+      expect(mockRedisService.publish).toHaveBeenCalledWith("event_changes", {
+        type: "UPDATE",
+        data: {
+          operation: "UPDATE",
+          record: expect.objectContaining({
+            id: "event-123",
+            viewCount: 11,
+          }),
+          changeType: "VIEW_ADDED",
+          userId: "user-123",
+        },
+      });
+    });
+
+    it("should handle errors gracefully and not throw", async () => {
+      // Mock transaction to throw error
+      (mockDataSource.transaction as jest.Mock).mockRejectedValue(
+        new Error("Database error"),
+      );
+
+      // Should not throw
+      await expect(
+        userEngagementService.createViewRecord("user-123", "event-123"),
+      ).resolves.toBeUndefined();
     });
   });
 });

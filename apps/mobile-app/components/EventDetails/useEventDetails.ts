@@ -110,9 +110,18 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
   // Track event view when event is loaded
   useEffect(() => {
     if (event) {
+      // Track in analytics
       eventAnalytics.trackEventView(event);
+
+      // Track in backend database
+      if (apiClient.isAuthenticated()) {
+        apiClient.events.trackEventView(event.id!).catch((error) => {
+          console.error("Failed to track event view:", error);
+          // Don't show error to user - view tracking should be silent
+        });
+      }
     }
-  }, [event, eventAnalytics]);
+  }, [event, eventAnalytics, apiClient]);
 
   // Update distance whenever user location or event coordinates change
   useEffect(() => {

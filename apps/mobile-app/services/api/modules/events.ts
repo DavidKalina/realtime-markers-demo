@@ -468,6 +468,16 @@ export class EventApiClient extends BaseApiModule {
     return this.handleResponse<EventEngagementMetrics>(response);
   }
 
+  async trackEventView(
+    eventId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const url = `${this.client.baseUrl}/api/events/${eventId}/view`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+    });
+    return this.handleResponse<{ success: boolean; message: string }>(response);
+  }
+
   // Image management methods
   async streamEventImage(eventId: string): Promise<string> {
     await this.ensureInitialized();

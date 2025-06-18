@@ -12,6 +12,8 @@ import type { NotificationService } from "../services/NotificationService";
 import type { RedisService } from "../services/shared/RedisService";
 import { AuthService } from "../services/AuthService";
 import type { GoogleGeocodingService } from "../services/shared/GoogleGeocodingService";
+import type { IEmbeddingService } from "../services/event-processing/interfaces/IEmbeddingService";
+import type { CategoryProcessingService } from "../services/CategoryProcessingService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -27,6 +29,8 @@ export interface AppVariables {
   notificationService: NotificationService;
   authService: AuthService;
   geocodingService: GoogleGeocodingService;
+  embeddingService: IEmbeddingService;
+  categoryProcessingService: CategoryProcessingService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

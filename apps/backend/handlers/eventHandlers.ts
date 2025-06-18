@@ -3,6 +3,8 @@
 import type { Context } from "hono";
 import type { AppContext } from "../types/context";
 import { Buffer } from "buffer";
+import type { CategoryProcessingService } from "../services/CategoryProcessingService";
+import { RecurrenceFrequency, DayOfWeek } from "../entities/Event";
 
 // Define a type for our handler functions
 export type EventHandler = (
@@ -304,10 +306,154 @@ export const getJobProgressContextHandler: EventHandler = async (c) => {
 
 export const createEventHandler: EventHandler = async (c) => {
   try {
-    const data = await c.req.json();
     const eventService = c.get("eventService");
+    const embeddingService = c.get("embeddingService");
     const redisPub = c.get("redisClient");
+    const storageService = c.get("storageService");
     const user = c.get("user");
+    const categoryProcessingService = c.get("categoryProcessingService") as
+      | CategoryProcessingService
+      | undefined;
+
+    // Add debugging
+    const contentType = c.req.header("content-type") || "";
+    console.log("[createEventHandler] Content-Type:", contentType);
+    console.log("[createEventHandler] Request method:", c.req.method);
+
+    let data: Partial<{
+      title: string;
+      description?: string;
+      eventDate: string | Date;
+      endDate?: string | Date;
+      emoji?: string;
+      emojiDescription?: string;
+      address?: string;
+      locationNotes?: string;
+      isPrivate?: boolean;
+      sharedWithIds?: string[];
+      location: { type: "Point"; coordinates: number[] };
+      categories?: Array<{ id: string; name: string }>;
+      categoryIds?: string[];
+      creatorId: string;
+      originalImageUrl?: string | null;
+      embedding?: number[];
+      confidenceScore?: number;
+      timezone?: string;
+      qrDetectedInImage?: boolean;
+      detectedQrData?: string;
+      isRecurring?: boolean;
+      recurrenceFrequency?: RecurrenceFrequency;
+      recurrenceDays?: DayOfWeek[];
+      recurrenceTime?: string;
+      recurrenceStartDate?: Date;
+      recurrenceEndDate?: Date;
+      recurrenceInterval?: number;
+    }>;
+    let originalImageUrl: string | null = null;
+
+    // Check if the request contains form data (for image uploads)
+    if (contentType.includes("multipart/form-data")) {
+      console.log("[createEventHandler] Processing as FormData");
+      // Handle form data with potential image upload
+      const formData = await c.req.formData();
+      const imageEntry = formData.get("image");
+
+      console.log(
+        "[createEventHandler] FormData keys:",
+        Array.from(formData.keys()),
+      );
+      console.log(
+        "[createEventHandler] Image entry:",
+        imageEntry ? "present" : "not present",
+      );
+
+      // Upload image if provided
+      if (imageEntry && typeof imageEntry !== "string") {
+        const file = imageEntry as File;
+
+        // Validate file type
+        const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
+        if (!allowedTypes.includes(file.type)) {
+          return c.json(
+            { error: "Invalid file type. Only JPEG and PNG files are allowed" },
+            400,
+          );
+        }
+
+        // Convert file to buffer and upload
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        originalImageUrl = await storageService.uploadImage(
+          buffer,
+          "event-images",
+          {
+            filename: file.name,
+            contentType: file.type,
+            size: buffer.length.toString(),
+            uploadedBy: user?.userId || "unknown",
+          },
+        );
+      }
+
+      // Parse other form data
+      const eventData = formData.get("eventData");
+      if (eventData && typeof eventData === "string") {
+        try {
+          data = JSON.parse(eventData);
+        } catch (error) {
+          return c.json({ error: "Invalid event data format" }, 400);
+        }
+      } else {
+        // Extract individual fields from form data
+        data = {
+          title: formData.get("title")?.toString() || "",
+          description: formData.get("description")?.toString(),
+          eventDate: formData.get("eventDate")?.toString()
+            ? new Date(formData.get("eventDate")!.toString())
+            : undefined,
+          endDate: formData.get("endDate")?.toString()
+            ? new Date(formData.get("endDate")!.toString())
+            : undefined,
+          emoji: formData.get("emoji")?.toString() || "📍",
+          emojiDescription: formData.get("emojiDescription")?.toString(),
+          address: formData.get("address")?.toString(),
+          locationNotes: formData.get("locationNotes")?.toString(),
+          isPrivate: formData.get("isPrivate") === "true",
+          sharedWithIds: formData.get("sharedWithIds")
+            ? (formData.get("sharedWithIds") as string).split(",")
+            : [],
+        };
+
+        // Handle location coordinates
+        const lat = formData.get("lat");
+        const lng = formData.get("lng");
+        if (lat && lng) {
+          data.location = {
+            type: "Point",
+            coordinates: [
+              parseFloat(lat.toString()),
+              parseFloat(lng.toString()),
+            ],
+          };
+        }
+
+        // Handle categories
+        const categories = formData.get("categories");
+        if (categories && typeof categories === "string") {
+          try {
+            data.categories = JSON.parse(categories);
+          } catch (error) {
+            // If not JSON, treat as comma-separated category IDs
+            data.categoryIds = categories.split(",");
+          }
+        }
+      }
+    } else {
+      console.log("[createEventHandler] Processing as JSON");
+      // Handle JSON data (existing behavior)
+      data = await c.req.json();
+    }
 
     // Validate input
     if (!data.title || !data.eventDate || !data.location?.coordinates) {
@@ -331,7 +477,100 @@ export const createEventHandler: EventHandler = async (c) => {
 
     data.creatorId = user.userId;
 
-    const newEvent = await eventService.createEvent(data);
+    // Add the uploaded image URL if available
+    if (originalImageUrl) {
+      data.originalImageUrl = originalImageUrl;
+    }
+
+    // Automatically generate categories if not provided
+    if (!data.categories || data.categories.length === 0) {
+      // Use title and description for category extraction
+      const text = `${data.title}\n${data.description || ""}`;
+      if (categoryProcessingService) {
+        const processedCategories =
+          await categoryProcessingService.extractAndProcessCategories(text);
+        // Convert Category objects to categoryIds for the service
+        data.categoryIds = processedCategories.map((cat) => cat.id);
+        // Also keep the full categories for embedding generation
+        data.categories = processedCategories;
+      }
+    } else {
+      // If categories are provided, convert them to categoryIds
+      data.categoryIds = data.categories.map((cat: { id: string } | string) =>
+        typeof cat === "string" ? cat : cat.id,
+      );
+    }
+
+    // Generate embedding if not provided
+    if (!data.embedding) {
+      console.log(
+        "[createEventHandler] Generating embedding for event:",
+        data.title,
+      );
+
+      // Create text for embedding using the same format as EventProcessingService
+      const textForEmbedding = `
+        TITLE: ${data.title} ${data.title} ${data.title}
+        EMOJI: ${data.emoji || "📍"} - ${data.emojiDescription || ""}
+        CATEGORIES: ${data.categories?.map((c: { name: string }) => c.name).join(", ") || ""}
+        DESCRIPTION: ${data.description || ""}
+        LOCATION: ${data.address || ""}
+        LOCATION_NOTES: ${data.locationNotes || ""}
+      `.trim();
+
+      try {
+        data.embedding = await embeddingService.getEmbedding(textForEmbedding);
+        console.log("[createEventHandler] Generated embedding successfully");
+      } catch (embeddingError) {
+        console.error(
+          "[createEventHandler] Error generating embedding:",
+          embeddingError,
+        );
+        // Continue without embedding - the event can still be created
+        data.embedding = [];
+      }
+    }
+
+    // Ensure required fields are present and convert to CreateEventInput format
+    const eventInput = {
+      emoji: data.emoji || "📍",
+      emojiDescription: data.emojiDescription,
+      title: data.title!,
+      description: data.description,
+      eventDate:
+        typeof data.eventDate === "string"
+          ? new Date(data.eventDate)
+          : data.eventDate!,
+      endDate: data.endDate
+        ? typeof data.endDate === "string"
+          ? new Date(data.endDate)
+          : data.endDate
+        : undefined,
+      location: data.location!,
+      categoryIds: data.categoryIds,
+      confidenceScore: data.confidenceScore,
+      address: data.address,
+      locationNotes: data.locationNotes,
+      creatorId: data.creatorId!,
+      timezone: data.timezone,
+      qrDetectedInImage: data.qrDetectedInImage,
+      detectedQrData: data.detectedQrData,
+      originalImageUrl: data.originalImageUrl,
+      embedding: data.embedding || [],
+      isPrivate: data.isPrivate,
+      sharedWithIds: data.sharedWithIds,
+      isRecurring: data.isRecurring,
+      recurrenceFrequency: data.recurrenceFrequency as
+        | RecurrenceFrequency
+        | undefined,
+      recurrenceDays: data.recurrenceDays as DayOfWeek[] | undefined,
+      recurrenceTime: data.recurrenceTime,
+      recurrenceStartDate: data.recurrenceStartDate,
+      recurrenceEndDate: data.recurrenceEndDate,
+      recurrenceInterval: data.recurrenceInterval,
+    };
+
+    const newEvent = await eventService.createEvent(eventInput);
 
     // Publish to Redis for WebSocket service to broadcast
     await redisPub.publish(
@@ -402,10 +641,124 @@ export const deleteEventHandler: EventHandler = async (c) => {
 export const updateEventHandler: EventHandler = async (c) => {
   try {
     const id = c.req.param("id");
-    const data = await c.req.json();
     const eventService = c.get("eventService");
     const redisPub = c.get("redisClient");
+    const storageService = c.get("storageService");
     const user = c.get("user");
+
+    let data: Partial<{
+      title?: string;
+      description?: string;
+      eventDate?: Date;
+      endDate?: Date;
+      emoji?: string;
+      emojiDescription?: string;
+      address?: string;
+      locationNotes?: string;
+      isPrivate?: boolean;
+      sharedWithIds?: string[];
+      location?: { type: "Point"; coordinates: number[] };
+      categories?: Array<{ id: string; name: string }>;
+      categoryIds?: string[];
+      originalImageUrl?: string | null;
+    }>;
+    let originalImageUrl: string | null = null;
+
+    // Check if the request contains form data (for image uploads)
+    const contentType = c.req.header("content-type") || "";
+
+    if (contentType.includes("multipart/form-data")) {
+      // Handle form data with potential image upload
+      const formData = await c.req.formData();
+      const imageEntry = formData.get("image");
+
+      // Upload image if provided
+      if (imageEntry && typeof imageEntry !== "string") {
+        const file = imageEntry as File;
+
+        // Validate file type
+        const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
+        if (!allowedTypes.includes(file.type)) {
+          return c.json(
+            { error: "Invalid file type. Only JPEG and PNG files are allowed" },
+            400,
+          );
+        }
+
+        // Convert file to buffer and upload
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        originalImageUrl = await storageService.uploadImage(
+          buffer,
+          "event-images",
+          {
+            filename: file.name,
+            contentType: file.type,
+            size: buffer.length.toString(),
+            uploadedBy: user?.userId || "unknown",
+            eventId: id,
+          },
+        );
+      }
+
+      // Parse other form data
+      const eventData = formData.get("eventData");
+      if (eventData && typeof eventData === "string") {
+        try {
+          data = JSON.parse(eventData);
+        } catch (error) {
+          return c.json({ error: "Invalid event data format" }, 400);
+        }
+      } else {
+        // Extract individual fields from form data
+        data = {
+          title: formData.get("title")?.toString(),
+          description: formData.get("description")?.toString(),
+          eventDate: formData.get("eventDate")?.toString()
+            ? new Date(formData.get("eventDate")!.toString())
+            : undefined,
+          endDate: formData.get("endDate")?.toString()
+            ? new Date(formData.get("endDate")!.toString())
+            : undefined,
+          emoji: formData.get("emoji")?.toString(),
+          emojiDescription: formData.get("emojiDescription")?.toString(),
+          address: formData.get("address")?.toString(),
+          locationNotes: formData.get("locationNotes")?.toString(),
+          isPrivate: formData.get("isPrivate") === "true",
+          sharedWithIds: formData.get("sharedWithIds")
+            ? (formData.get("sharedWithIds") as string).split(",")
+            : [],
+        };
+
+        // Handle location coordinates
+        const lat = formData.get("lat");
+        const lng = formData.get("lng");
+        if (lat && lng) {
+          data.location = {
+            type: "Point",
+            coordinates: [
+              parseFloat(lat.toString()),
+              parseFloat(lng.toString()),
+            ],
+          };
+        }
+
+        // Handle categories
+        const categories = formData.get("categories");
+        if (categories && typeof categories === "string") {
+          try {
+            data.categories = JSON.parse(categories);
+          } catch (error) {
+            // If not JSON, treat as comma-separated category IDs
+            data.categoryIds = categories.split(",");
+          }
+        }
+      }
+    } else {
+      // Handle JSON data (existing behavior)
+      data = await c.req.json();
+    }
 
     console.log({ id, data });
 
@@ -426,6 +779,19 @@ export const updateEventHandler: EventHandler = async (c) => {
         { error: "You don't have permission to update this event" },
         403,
       );
+    }
+
+    // Add the uploaded image URL if available
+    if (originalImageUrl) {
+      data.originalImageUrl = originalImageUrl;
+    }
+
+    // Convert string dates to Date objects if needed
+    if (data.eventDate && typeof data.eventDate === "string") {
+      data.eventDate = new Date(data.eventDate);
+    }
+    if (data.endDate && typeof data.endDate === "string") {
+      data.endDate = new Date(data.endDate);
     }
 
     // Ensure location is in GeoJSON format if provided
@@ -1041,6 +1407,46 @@ export const getEventEngagementHandler: EventHandler = async (c) => {
     return c.json(
       {
         error: "Failed to fetch event engagement",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+};
+
+export const trackEventViewHandler: EventHandler = async (c) => {
+  try {
+    const eventId = c.req.param("id");
+    const user = c.get("user");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    if (!eventId) {
+      return c.json({ error: "Missing event ID" }, 400);
+    }
+
+    const eventService = c.get("eventService");
+
+    // Check if the event exists
+    const event = await eventService.getEventById(eventId);
+    if (!event) {
+      return c.json({ error: "Event not found" }, 404);
+    }
+
+    // Track the view
+    await eventService.createViewRecord(user.userId, eventId);
+
+    return c.json({
+      success: true,
+      message: "Event view tracked successfully",
+    });
+  } catch (error) {
+    console.error("Error tracking event view:", error);
+    return c.json(
+      {
+        error: "Failed to track event view",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       500,

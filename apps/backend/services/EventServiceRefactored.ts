@@ -163,6 +163,8 @@ export interface EventService {
 
   createDiscoveryRecord(userId: string, eventId: string): Promise<void>;
 
+  createViewRecord(userId: string, eventId: string): Promise<void>;
+
   getDiscoveredEventsByUser(
     userId: string,
     options?: { limit?: number; cursor?: string },
@@ -425,6 +427,10 @@ export class EventServiceRefactored implements EventService {
 
   async createDiscoveryRecord(userId: string, eventId: string) {
     return this.engagementService.createDiscoveryRecord(userId, eventId);
+  }
+
+  async createViewRecord(userId: string, eventId: string) {
+    return this.engagementService.createViewRecord(userId, eventId);
   }
 
   async getDiscoveredEventsByUser(userId: string, options = {}) {

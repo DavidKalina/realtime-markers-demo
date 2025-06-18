@@ -14,6 +14,12 @@ const placeSearchSchema = z.object({
     .optional(),
 });
 
+// Validation schema for reverse geocoding request
+const reverseGeocodeSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+});
+
 export const searchPlace = async (c: Context<AppContext>) => {
   try {
     console.log("🔍 Places Search Request:", {
@@ -116,3 +122,37 @@ export async function searchCityState(c: Context<AppContext>) {
     );
   }
 }
+
+export const reverseGeocodeAddressHandler = async (c: Context<AppContext>) => {
+  try {
+    const body = await c.req.json();
+    const validationResult = reverseGeocodeSchema.safeParse(body);
+    if (!validationResult.success) {
+      return c.json(
+        {
+          success: false,
+          error: validationResult.error.errors[0].message,
+        },
+        400,
+      );
+    }
+    const { lat, lng } = validationResult.data;
+    const geocodingService = c.get(
+      "geocodingService",
+    ) as GoogleGeocodingService;
+    const result = await geocodingService.reverseGeocodeAddress(lat, lng);
+    if (!result.success) {
+      return c.json(result, 404);
+    }
+    return c.json(result);
+  } catch (error) {
+    console.error("Error in reverse geocode handler:", error);
+    return c.json(
+      {
+        success: false,
+        error: "Internal server error occurred while reverse geocoding",
+      },
+      500,
+    );
+  }
+};
