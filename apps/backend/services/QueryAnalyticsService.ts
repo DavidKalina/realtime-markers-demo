@@ -232,12 +232,7 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
       similarityThreshold?: number;
     } = {},
   ): Promise<QueryInsights> {
-    const {
-      days = 30,
-      limit = 10,
-      minSearches = 5,
-      similarityThreshold = 0.8,
-    } = options;
+    const { days = 30, limit = 10, similarityThreshold = 0.8 } = options;
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
 
@@ -250,8 +245,8 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
         "qa.hit_rate",
         "qa.average_results_per_search",
       ])
-      .where("qa.total_searches >= :minSearches", { minSearches })
-      .andWhere("qa.last_searched_at >= :cutoffDate", { cutoffDate })
+      // .where("qa.total_searches >= :minSearches", { minSearches })
+      // .andWhere("qa.last_searched_at >= :cutoffDate", { cutoffDate })
       .orderBy("qa.total_searches", "DESC")
       .limit(limit)
       .getRawMany();
@@ -265,9 +260,9 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
         "qa.hit_rate",
         "qa.last_searched_at",
       ])
-      .where("qa.total_searches >= :minSearches", { minSearches })
-      .andWhere("qa.hit_rate < 50") // Less than 50% hit rate
-      .andWhere("qa.last_searched_at >= :cutoffDate", { cutoffDate })
+      // .where("qa.total_searches >= :minSearches", { minSearches })
+      // .andWhere("qa.hit_rate < 50") // Less than 50% hit rate
+      // .andWhere("qa.last_searched_at >= :cutoffDate", { cutoffDate })
       .orderBy("qa.total_searches", "DESC")
       .limit(limit)
       .getRawMany();
@@ -275,13 +270,9 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
     // Get zero result queries
     const zeroResultQueries = await this.queryAnalyticsRepository
       .createQueryBuilder("qa")
-      .select([
-        "qa.query",
-        "qa.zero_result_searches as searchCount",
-        "qa.last_searched_at",
-      ])
-      .where("qa.zero_result_searches > 0")
-      .andWhere("qa.last_searched_at >= :cutoffDate", { cutoffDate })
+      .select(["qa.query", "qa.zero_result_searches", "qa.last_searched_at"])
+      // .where("qa.zero_result_searches > 0")
+      // .andWhere("qa.last_searched_at >= :cutoffDate", { cutoffDate })
       .orderBy("qa.zero_result_searches", "DESC")
       .limit(limit)
       .getRawMany();
@@ -290,8 +281,8 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
     const trendingQueries = await this.queryAnalyticsRepository
       .createQueryBuilder("qa")
       .select(["qa.query", "qa.total_searches", "qa.last_searched_at"])
-      .where("qa.last_searched_at >= :cutoffDate", { cutoffDate })
-      .andWhere("qa.total_searches >= 3") // At least 3 searches to be considered trending
+      // .where("qa.last_searched_at >= :cutoffDate", { cutoffDate })
+      // .andWhere("qa.total_searches >= 3") // At least 3 searches to be considered trending
       .orderBy("qa.last_searched_at", "DESC")
       .limit(limit)
       .getRawMany();
@@ -299,31 +290,33 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
     // Get query clusters using embeddings
     const queryClusters = await this.getQueryClusters(similarityThreshold);
 
-    return {
+    const result = {
       popularQueries: popularQueries.map((q) => ({
         query: q.qa_query,
-        totalSearches: parseInt(q.qa_total_searches),
-        hitRate: parseFloat(q.qa_hit_rate),
-        averageResults: parseFloat(q.qa_average_results_per_search),
+        totalSearches: parseInt(q.total_searches),
+        hitRate: parseFloat(q.hit_rate),
+        averageResults: parseFloat(q.average_results_per_search),
       })),
       lowHitRateQueries: lowHitRateQueries.map((q) => ({
         query: q.qa_query,
-        totalSearches: parseInt(q.qa_total_searches),
-        hitRate: parseFloat(q.qa_hit_rate),
-        lastSearched: new Date(q.qa_last_searched_at),
+        totalSearches: parseInt(q.total_searches),
+        hitRate: parseFloat(q.hit_rate),
+        lastSearched: new Date(q.last_searched_at),
       })),
       trendingQueries: trendingQueries.map((q) => ({
         query: q.qa_query,
-        recentSearches: parseInt(q.qa_total_searches),
+        recentSearches: parseInt(q.total_searches),
         growthRate: 0, // Could be calculated by comparing with previous period
       })),
       zeroResultQueries: zeroResultQueries.map((q) => ({
         query: q.qa_query,
-        searchCount: parseInt(q.searchCount),
-        lastSearched: new Date(q.qa_last_searched_at),
+        searchCount: parseInt(q.zero_result_searches),
+        lastSearched: new Date(q.last_searched_at),
       })),
       queryClusters,
     };
+
+    return result;
   }
 
   async getQueryClusters(
@@ -445,8 +438,8 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
           similarities.push({
             query: q.qa_query,
             similarity,
-            totalSearches: parseInt(q.qa_total_searches),
-            hitRate: parseFloat(q.qa_hit_rate),
+            totalSearches: parseInt(q.total_searches),
+            hitRate: parseFloat(q.hit_rate),
           });
         }
       }
@@ -484,9 +477,9 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
 
     return queries.map((q) => ({
       query: q.qa_query,
-      totalSearches: parseInt(q.qa_total_searches),
-      hitRate: parseFloat(q.qa_hit_rate),
-      averageResults: parseFloat(q.qa_average_results_per_search),
+      totalSearches: parseInt(q.total_searches),
+      hitRate: parseFloat(q.hit_rate),
+      averageResults: parseFloat(q.average_results_per_search),
     }));
   }
 
@@ -514,9 +507,9 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
 
     return queries.map((q) => ({
       query: q.qa_query,
-      totalSearches: parseInt(q.qa_total_searches),
-      hitRate: parseFloat(q.qa_hit_rate),
-      lastSearched: new Date(q.qa_last_searched_at),
+      totalSearches: parseInt(q.total_searches),
+      hitRate: parseFloat(q.hit_rate),
+      lastSearched: new Date(q.last_searched_at),
     }));
   }
 
@@ -537,8 +530,8 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
 
     return queries.map((q) => ({
       query: q.qa_query,
-      searchCount: parseInt(q.qa_zero_result_searches),
-      lastSearched: new Date(q.qa_last_searched_at),
+      searchCount: parseInt(q.zero_result_searches),
+      lastSearched: new Date(q.last_searched_at),
     }));
   }
 

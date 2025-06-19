@@ -876,10 +876,15 @@ adminRouter.get("/dashboard/upcoming-events", async (c) => {
 // Query Analytics Endpoints
 adminRouter.get("/analytics/queries/insights", async (c) => {
   try {
+    // Add cache-busting headers
+    c.header("Cache-Control", "no-cache, no-store, must-revalidate");
+    c.header("Pragma", "no-cache");
+    c.header("Expires", "0");
+
     const eventService = c.get("eventService");
     const days = parseInt(c.req.query("days") || "30");
     const limit = parseInt(c.req.query("limit") || "10");
-    const minSearches = parseInt(c.req.query("minSearches") || "5");
+    const minSearches = parseInt(c.req.query("minSearches") || "1");
 
     const insights = await eventService.getQueryInsights({
       days,
@@ -895,6 +900,7 @@ adminRouter.get("/analytics/queries/insights", async (c) => {
         limit,
         minSearches,
       },
+      timestamp: new Date().toISOString(), // Add timestamp for cache busting
     });
   } catch (error) {
     console.error("Error fetching query insights:", error);

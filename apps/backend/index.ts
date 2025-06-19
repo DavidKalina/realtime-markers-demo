@@ -208,6 +208,13 @@ async function initializeServices() {
     categoryCacheService: createCategoryCacheService(redisClient),
   });
 
+  // Create embedding service with dependencies (must be before eventService)
+  const embeddingService = createEmbeddingService({
+    openAIService,
+    configService,
+    embeddingCacheService: createEmbeddingCacheService({ configService }),
+  });
+
   // Initialize EventService with all dependencies
   const eventService = createEventService({
     dataSource,
@@ -216,6 +223,7 @@ async function initializeServices() {
     eventCacheService,
     openaiService: openAIService,
     levelingService,
+    embeddingService,
   });
 
   // Create the event similarity service
@@ -238,13 +246,6 @@ async function initializeServices() {
     locationResolutionService: createGoogleGeocodingService(openAIService),
     openAIService,
     configService,
-  });
-
-  // Create embedding service with dependencies
-  const embeddingService = createEmbeddingService({
-    openAIService,
-    configService,
-    embeddingCacheService: createEmbeddingCacheService({ configService }),
   });
 
   // Create event processing service with all dependencies
