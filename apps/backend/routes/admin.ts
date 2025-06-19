@@ -389,9 +389,9 @@ adminRouter.get("/dashboard/categories", async (c) => {
         "COUNT(DISTINCT CASE WHEN discovery.discoveredAt >= :thirtyDaysAgo THEN discovery.id END) as scans_last_30_days",
         "COUNT(DISTINCT save.id) as total_saves",
         "COUNT(DISTINCT view.id) as total_views",
-        "AVG(event.scanCount) as avg_scan_count",
-        "AVG(event.saveCount) as avg_save_count",
-        "AVG(event.viewCount) as avg_view_count",
+        "AVG(event.scan_count) as avg_scan_count",
+        "AVG(event.save_count) as avg_save_count",
+        "AVG(event.view_count) as avg_view_count",
       ])
       .setParameters({
         startOfMonth,
