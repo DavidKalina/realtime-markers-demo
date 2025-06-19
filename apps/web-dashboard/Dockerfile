@@ -16,18 +16,23 @@ COPY apps/web-dashboard/ ./apps/web-dashboard/
 RUN pnpm install --filter ./apps/web-dashboard
 RUN pnpm --filter ./apps/web-dashboard build
 
-# Production image
+# Production image with build process
 FROM node:20-alpine AS runner
 WORKDIR /app
 
 # Install pnpm
 RUN npm install -g pnpm
 
-# Copy the entire app with node_modules
-COPY --from=builder /app/apps/web-dashboard ./apps/web-dashboard
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/pnpm-workspace.yaml ./
-COPY --from=builder /app/pnpm-lock.yaml ./
+# Copy workspace files
+COPY pnpm-workspace.yaml ./
+COPY pnpm-lock.yaml ./
+COPY package.json ./
+COPY apps/web-dashboard/package.json ./apps/web-dashboard/package.json
+COPY apps/web-dashboard/ ./apps/web-dashboard/
+
+# Install dependencies and build the app
+RUN pnpm install --filter ./apps/web-dashboard
+RUN pnpm --filter ./apps/web-dashboard build
 
 # Create a non-root user
 RUN addgroup --system --gid 1001 nodejs
