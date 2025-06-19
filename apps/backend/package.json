@@ -21,7 +21,8 @@
     "migration:generate": "bunx tsx ./node_modules/typeorm/cli.js migration:generate -d ./data-source.ts",
     "migration:run": "bunx tsx ./node_modules/typeorm/cli.js migration:run -d ./data-source.ts",
     "migration:revert": "bunx tsx ./node_modules/typeorm/cli.js migration:revert -d ./data-source.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "test:email": "bun run scripts/test-email.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.758.0",
@@ -45,6 +46,7 @@
     "pgvector": "^0.2.0",
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
+    "resend": "^4.6.0",
     "shard": "^1.1.0",
     "sharp": "^0.33.5",
     "stripe": "^18.0.0",

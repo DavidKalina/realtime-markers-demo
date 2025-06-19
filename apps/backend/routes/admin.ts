@@ -1007,6 +1007,8 @@ adminRouter.patch("/users/:id/role", async (c) => {
 adminRouter.post("/users/admins", async (c) => {
   try {
     const { email, password, displayName, username } = await c.req.json();
+    const currentUser = c.get("user");
+    const emailService = c.get("emailService");
 
     // Validate required fields
     if (!email || !password) {
@@ -1027,13 +1029,16 @@ adminRouter.post("/users/admins", async (c) => {
       );
     }
 
-    const userService = new UserService();
-    const newAdmin = await userService.createAdminUser({
-      email,
-      password,
-      displayName,
-      username,
-    });
+    const userService = new UserService(emailService);
+    const newAdmin = await userService.createAdminUser(
+      {
+        email,
+        password,
+        displayName,
+        username,
+      },
+      currentUser?.email || "Unknown",
+    );
 
     // Return user data without password hash
     const userData = {

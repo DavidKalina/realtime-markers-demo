@@ -54,6 +54,10 @@ import { createLevelingCacheService } from "./services/shared/LevelingCacheServi
 import { createFriendshipCacheService } from "./services/shared/FriendshipCacheService";
 import { createFriendshipService } from "./services/FriendshipService";
 import { User } from "./entities/User";
+import {
+  createEmailService,
+  MockEmailService,
+} from "./services/shared/EmailService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -293,6 +297,15 @@ async function initializeServices() {
     openAIService,
   });
 
+  // Initialize email service
+  const emailService = process.env.RESEND_API_KEY
+    ? createEmailService({
+        apiKey: process.env.RESEND_API_KEY,
+        fromEmail: process.env.EMAIL_FROM || "noreply@yourdomain.com",
+        adminEmails: process.env.ADMIN_EMAILS?.split(",") || [],
+      })
+    : new MockEmailService();
+
   // Initialize and start the NotificationHandler with dependencies
   const notificationHandler = createNotificationHandler({
     redisService,
@@ -341,6 +354,7 @@ async function initializeServices() {
     authService,
     openAIService,
     embeddingService,
+    emailService,
   };
 }
 
@@ -366,6 +380,7 @@ app.use("*", async (c, next) => {
   c.set("geocodingService", geocodingService);
   c.set("embeddingService", services.embeddingService);
   c.set("categoryProcessingService", services.categoryProcessingService);
+  c.set("emailService", services.emailService);
   await next();
 });
 

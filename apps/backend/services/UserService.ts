@@ -1,6 +1,7 @@
 import AppDataSource from "../data-source";
 import { User, UserRole } from "../entities/User";
 import { Repository, MoreThanOrEqual } from "typeorm";
+import type { EmailService } from "./shared/EmailService";
 
 export interface UserListParams {
   page?: number;
@@ -24,9 +25,11 @@ export interface UpdateUserRoleParams {
 
 export class UserService {
   private userRepository: Repository<User>;
+  private emailService?: EmailService;
 
-  constructor() {
+  constructor(emailService?: EmailService) {
     this.userRepository = AppDataSource.getRepository(User);
+    this.emailService = emailService;
   }
 
   async getUsers(params: UserListParams = {}): Promise<UserListResponse> {
@@ -185,12 +188,15 @@ export class UserService {
     };
   }
 
-  async createAdminUser(params: {
-    email: string;
-    password: string;
-    displayName?: string;
-    username?: string;
-  }): Promise<User> {
+  async createAdminUser(
+    params: {
+      email: string;
+      password: string;
+      displayName?: string;
+      username?: string;
+    },
+    addedBy?: string,
+  ): Promise<User> {
     const { email, password, displayName, username } = params;
 
     // Check if user already exists
@@ -221,7 +227,30 @@ export class UserService {
       isVerified: true, // Admin users are automatically verified
     });
 
-    return this.userRepository.save(adminUser);
+    const savedUser = await this.userRepository.save(adminUser);
+
+    // Send email notifications
+    if (this.emailService) {
+      try {
+        // Send welcome email to the new admin
+        await this.emailService.sendWelcomeEmail(
+          email,
+          savedUser.displayName || email.split("@")[0],
+        );
+
+        // Send notification to existing admins
+        await this.emailService.sendAdminAddedNotification(
+          email,
+          savedUser.displayName || email.split("@")[0],
+          addedBy || "System",
+        );
+      } catch (error) {
+        console.error("Failed to send email notifications:", error);
+        // Don't fail the user creation if email fails
+      }
+    }
+
+    return savedUser;
   }
 
   async deleteAdminUser(adminId: string, currentUserId: string): Promise<void> {
