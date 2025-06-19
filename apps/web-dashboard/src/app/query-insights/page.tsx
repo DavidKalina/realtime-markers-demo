@@ -139,7 +139,7 @@ export default function QueryInsightsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {insights.summary.averageHitRate.toFixed(1)}%
+                    {(insights.summary.averageHitRate ?? 0).toFixed(1)}%
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Successful searches
