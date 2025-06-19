@@ -55,6 +55,8 @@ interface EventFormData {
   sharedWithIds: string[];
   locationNotes: string;
   image?: File;
+  // QR code related fields
+  qrUrl?: string;
   // Recurring event fields
   isRecurring: boolean;
   recurrenceFrequency?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";
@@ -308,6 +310,8 @@ export function CreateEventForm({
         sharedWithIds: formData.isPrivate ? formData.sharedWithIds : [],
         userCoordinates: userCoordinates || undefined,
         image: formData.image,
+        // QR code related fields
+        qrUrl: formData.qrUrl,
         // Recurring event fields
         isRecurring: formData.isRecurring,
         recurrenceFrequency: formData.recurrenceFrequency,
@@ -495,6 +499,23 @@ export function CreateEventForm({
                 </div>
               )}
             </div>
+          </div>
+
+          {/* QR Code URL */}
+          <div>
+            <Label htmlFor="qrUrl">QR Code URL (Optional)</Label>
+            <Input
+              id="qrUrl"
+              type="url"
+              value={formData.qrUrl || ""}
+              onChange={(e) => handleInputChange("qrUrl", e.target.value)}
+              placeholder="https://example.com/event-details"
+              className="mt-2"
+            />
+            <p className="text-sm text-muted-foreground mt-1">
+              Enter a URL to generate a QR code for this event. The QR code will
+              be generated on the mobile app.
+            </p>
           </div>
 
           <div>

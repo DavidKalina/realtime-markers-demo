@@ -96,6 +96,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       detectedQrData: input.detectedQrData,
       originalImageUrl: input.originalImageUrl || undefined,
       isPrivate: input.isPrivate || false,
+      qrUrl: input.qrUrl,
       isRecurring: input.isRecurring || false,
       recurrenceFrequency: input.recurrenceFrequency,
       recurrenceDays: input.recurrenceDays,

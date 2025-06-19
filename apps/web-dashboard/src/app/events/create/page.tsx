@@ -24,6 +24,8 @@ interface EventFormData {
   sharedWithIds: string[];
   locationNotes: string;
   image?: File;
+  // QR code related fields
+  qrUrl?: string;
   // Recurring event fields
   isRecurring: boolean;
   recurrenceFrequency?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";

@@ -349,6 +349,7 @@ export const createEventHandler: EventHandler = async (c) => {
       recurrenceStartDate?: Date;
       recurrenceEndDate?: Date;
       recurrenceInterval?: number;
+      qrUrl?: string;
     }>;
     let originalImageUrl: string | null = null;
 
@@ -424,6 +425,8 @@ export const createEventHandler: EventHandler = async (c) => {
           sharedWithIds: formData.get("sharedWithIds")
             ? (formData.get("sharedWithIds") as string).split(",")
             : [],
+          // QR code related fields
+          qrUrl: formData.get("qrUrl")?.toString(),
           // Extract recurring event fields
           isRecurring: formData.get("isRecurring") === "true",
           recurrenceFrequency: formData
@@ -585,6 +588,8 @@ export const createEventHandler: EventHandler = async (c) => {
       embedding: data.embedding || [],
       isPrivate: data.isPrivate,
       sharedWithIds: data.sharedWithIds,
+      // QR code related fields
+      qrUrl: data.qrUrl,
       isRecurring: data.isRecurring,
       recurrenceFrequency: data.recurrenceFrequency as
         | RecurrenceFrequency

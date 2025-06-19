@@ -21,6 +21,7 @@ export interface CreateEventInput {
   embedding: number[];
   isPrivate?: boolean;
   sharedWithIds?: string[]; // Optional array of user IDs to share the event with
+  qrUrl?: string;
   isRecurring?: boolean;
   recurrenceFrequency?: RecurrenceFrequency;
   recurrenceDays?: DayOfWeek[];

@@ -135,6 +135,8 @@ export interface CreateEventPayload {
     lat: number;
     lng: number;
   };
+  // QR code related fields
+  qrUrl?: string;
   // Recurring event fields
   isRecurring?: boolean;
   recurrenceFrequency?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";
