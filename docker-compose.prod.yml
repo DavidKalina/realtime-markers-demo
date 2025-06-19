@@ -2,6 +2,10 @@
 # This file removes development-specific configurations and optimizes for production
 
 services:
+  # Disable adminer in production
+  adminer:
+    profiles: ["never"] # This prevents the service from starting
+
   web-dashboard:
     # Remove development volumes - use baked-in code from the image
     volumes: []
