@@ -3,6 +3,7 @@ import { Space_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { MunicipalConfigProvider } from "@/contexts/MunicipalConfigContext";
+import { ToastProvider } from "@/contexts/ToastContext";
 import { Footer } from "@/components/ui/footer";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -26,11 +27,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="min-h-screen bg-gray-50">
       <body className={`${spaceMono.className} min-h-screen bg-gray-50 pb-64`}>
-        <MunicipalConfigProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </MunicipalConfigProvider>
-        <Footer />
-        <Toaster />
+        <ToastProvider>
+          <MunicipalConfigProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </MunicipalConfigProvider>
+          <Footer />
+          <Toaster />
+        </ToastProvider>
       </body>
     </html>
   );

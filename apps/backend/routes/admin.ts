@@ -904,7 +904,7 @@ adminRouter.get("/users", async (c) => {
       page: page ? parseInt(page) : undefined,
       limit: limit ? parseInt(limit) : undefined,
       search: search || undefined,
-      role: (role as UserRole) || undefined,
+      role: role && role !== "" ? (role as UserRole) : undefined,
     };
 
     const result = await userService.getUsers(params);
@@ -914,6 +914,40 @@ adminRouter.get("/users", async (c) => {
     return c.json(
       {
         error: "Failed to fetch users",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+});
+
+adminRouter.get("/users/stats", async (c) => {
+  try {
+    const userService = new UserService();
+    const stats = await userService.getUserStats();
+    return c.json(stats);
+  } catch (error) {
+    console.error("Error fetching user stats:", error);
+    return c.json(
+      {
+        error: "Failed to fetch user stats",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+});
+
+adminRouter.get("/users/admins", async (c) => {
+  try {
+    const userService = new UserService();
+    const adminUsers = await userService.getAdminUsers();
+    return c.json(adminUsers);
+  } catch (error) {
+    console.error("Error fetching admin users:", error);
+    return c.json(
+      {
+        error: "Failed to fetch admin users",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       500,
@@ -963,40 +997,6 @@ adminRouter.patch("/users/:id/role", async (c) => {
     return c.json(
       {
         error: "Failed to update user role",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      500,
-    );
-  }
-});
-
-adminRouter.get("/users/stats", async (c) => {
-  try {
-    const userService = new UserService();
-    const stats = await userService.getUserStats();
-    return c.json(stats);
-  } catch (error) {
-    console.error("Error fetching user stats:", error);
-    return c.json(
-      {
-        error: "Failed to fetch user stats",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      500,
-    );
-  }
-});
-
-adminRouter.get("/users/admins", async (c) => {
-  try {
-    const userService = new UserService();
-    const adminUsers = await userService.getAdminUsers();
-    return c.json(adminUsers);
-  } catch (error) {
-    console.error("Error fetching admin users:", error);
-    return c.json(
-      {
-        error: "Failed to fetch admin users",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       500,

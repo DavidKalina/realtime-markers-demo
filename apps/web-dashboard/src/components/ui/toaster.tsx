@@ -4,18 +4,18 @@ import {
   Toast,
   ToastClose,
   ToastDescription,
-  ToastProvider,
+  ToastProvider as RadixToastProvider,
   ToastTitle,
   ToastViewport,
 } from "@/components/ui/toast";
-import { useToast } from "@/hooks/useToast";
+import { useToast } from "@/contexts/ToastContext";
 import { CheckCircle, XCircle, Info } from "lucide-react";
 
 export function Toaster() {
   const { toasts, removeToast } = useToast();
 
   return (
-    <ToastProvider>
+    <RadixToastProvider>
       {toasts.map(function ({ id, title, description, type }) {
         return (
           <Toast
@@ -40,6 +40,6 @@ export function Toaster() {
         );
       })}
       <ToastViewport />
-    </ToastProvider>
+    </RadixToastProvider>
   );
 }

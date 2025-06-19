@@ -79,7 +79,7 @@ class UserManagementService {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/admin${endpoint}`, {
+      const response = await fetch(`${this.baseUrl}/api/admin${endpoint}`, {
         ...options,
         headers,
       });

@@ -37,9 +37,10 @@ import {
   type User,
   type UserStats,
 } from "@/services/userManagement";
-import { toast } from "@/hooks/useToast";
+import { useToast } from "@/contexts/ToastContext";
 
 export default function UsersPage() {
+  const { success, error } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,10 +65,10 @@ export default function UsersPage() {
         setTotalPages(response.data.totalPages);
         setTotalUsers(response.data.total);
       } else {
-        toast.error(response.error || "Failed to load users");
+        error(response.error || "Failed to load users");
       }
-    } catch (error) {
-      toast.error("Failed to load users");
+    } catch (err) {
+      error("Failed to load users");
     } finally {
       setLoading(false);
     }
@@ -79,8 +80,8 @@ export default function UsersPage() {
       if (response.data) {
         setStats(response.data);
       }
-    } catch (error) {
-      console.error("Failed to load stats:", error);
+    } catch (err) {
+      console.error("Failed to load stats:", err);
     }
   };
 
@@ -97,13 +98,13 @@ export default function UsersPage() {
       });
 
       if (response.data) {
-        toast.success("User role updated successfully");
+        success("User role updated successfully");
         loadUsers(); // Refresh the list
       } else {
-        toast.error(response.error || "Failed to update user role");
+        error(response.error || "Failed to update user role");
       }
-    } catch (error) {
-      toast.error("Failed to update user role");
+    } catch (err) {
+      error("Failed to update user role");
     }
   };
 
