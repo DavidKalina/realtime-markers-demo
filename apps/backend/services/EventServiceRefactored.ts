@@ -1,11 +1,5 @@
-import { type Point } from "geojson";
 import { DataSource } from "typeorm";
-import {
-  Event,
-  EventStatus,
-  RecurrenceFrequency,
-  DayOfWeek,
-} from "../entities/Event";
+import { Event, EventStatus } from "../entities/Event";
 import { Category } from "../entities/Category";
 import type { Filter } from "../entities/Filter";
 import { UserEventRsvp, RsvpStatus } from "../entities/UserEventRsvp";
@@ -33,39 +27,11 @@ import type { QueryAnalyticsService } from "./QueryAnalyticsService";
 import { createQueryAnalyticsService } from "./QueryAnalyticsService";
 import type { QueryInsights, QueryCluster } from "./QueryAnalyticsService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
+import type { CreateEventInput } from "../types/event";
 
 interface SearchResult {
   event: Event;
   score: number;
-}
-
-interface CreateEventInput {
-  emoji: string;
-  emojiDescription?: string;
-  title: string;
-  description?: string;
-  eventDate: Date;
-  endDate?: Date;
-  location: Point;
-  categoryIds?: string[];
-  confidenceScore?: number;
-  address?: string;
-  locationNotes?: string;
-  creatorId: string;
-  timezone?: string;
-  qrDetectedInImage?: boolean;
-  detectedQrData?: string;
-  originalImageUrl?: string | null;
-  embedding: number[];
-  isPrivate?: boolean;
-  sharedWithIds?: string[]; // Optional array of user IDs to share the event with
-  isRecurring?: boolean;
-  recurrenceFrequency?: RecurrenceFrequency;
-  recurrenceDays?: DayOfWeek[];
-  recurrenceTime?: string;
-  recurrenceStartDate?: Date;
-  recurrenceEndDate?: Date;
-  recurrenceInterval?: number;
 }
 
 export interface EventService {
