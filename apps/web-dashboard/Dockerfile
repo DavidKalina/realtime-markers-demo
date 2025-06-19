@@ -5,15 +5,21 @@ WORKDIR /app
 # Install pnpm
 RUN npm install -g pnpm
 
-# Copy workspace files
+# Copy workspace configuration files first (these change less frequently)
 COPY pnpm-workspace.yaml ./
 COPY pnpm-lock.yaml ./
 COPY package.json ./
+
+# Copy the package.json for the specific app (this changes when dependencies change)
 COPY apps/web-dashboard/package.json ./apps/web-dashboard/package.json
+
+# Install dependencies (this layer will be cached unless package.json or lock files change)
+RUN pnpm install --filter ./apps/web-dashboard
+
+# Copy source code (this layer will be invalidated when source code changes)
 COPY apps/web-dashboard/ ./apps/web-dashboard/
 
-# Install dependencies and build
-RUN pnpm install --filter ./apps/web-dashboard
+# Build the application (this layer will be invalidated when source code or dependencies change)
 RUN pnpm --filter ./apps/web-dashboard build
 
 # Production image
