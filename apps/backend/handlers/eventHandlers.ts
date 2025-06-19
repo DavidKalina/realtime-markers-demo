@@ -423,7 +423,32 @@ export const createEventHandler: EventHandler = async (c) => {
           sharedWithIds: formData.get("sharedWithIds")
             ? (formData.get("sharedWithIds") as string).split(",")
             : [],
+          // Extract recurring event fields
+          isRecurring: formData.get("isRecurring") === "true",
+          recurrenceFrequency: formData
+            .get("recurrenceFrequency")
+            ?.toString() as RecurrenceFrequency | undefined,
+          recurrenceTime: formData.get("recurrenceTime")?.toString(),
+          recurrenceInterval: formData.get("recurrenceInterval")
+            ? parseInt(formData.get("recurrenceInterval")!.toString())
+            : undefined,
+          recurrenceStartDate: formData.get("recurrenceStartDate")?.toString()
+            ? new Date(formData.get("recurrenceStartDate")!.toString())
+            : undefined,
+          recurrenceEndDate: formData.get("recurrenceEndDate")?.toString()
+            ? new Date(formData.get("recurrenceEndDate")!.toString())
+            : undefined,
         };
+
+        // Handle recurrence days (JSON array)
+        const recurrenceDays = formData.get("recurrenceDays");
+        if (recurrenceDays && typeof recurrenceDays === "string") {
+          try {
+            data.recurrenceDays = JSON.parse(recurrenceDays) as DayOfWeek[];
+          } catch (error) {
+            console.error("Error parsing recurrence days:", error);
+          }
+        }
 
         // Handle location coordinates
         const lat = formData.get("lat");

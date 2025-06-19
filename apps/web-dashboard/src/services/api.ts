@@ -14,6 +14,7 @@ interface CreateEventPayload {
   description?: string;
   date: string;
   eventDate: string;
+  endDate?: string;
   isPrivate: boolean;
   emoji?: string;
   location: {
@@ -28,6 +29,14 @@ interface CreateEventPayload {
     lng: number;
   };
   image?: File;
+  // Recurring event fields
+  isRecurring?: boolean;
+  recurrenceFrequency?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";
+  recurrenceDays?: string[];
+  recurrenceStartDate?: string;
+  recurrenceEndDate?: string;
+  recurrenceInterval?: number;
+  recurrenceTime?: string;
 }
 
 interface Event {
@@ -183,6 +192,7 @@ class ApiService {
       if (payload.description)
         formData.append("description", payload.description);
       formData.append("eventDate", payload.eventDate);
+      if (payload.endDate) formData.append("endDate", payload.endDate);
       if (payload.emoji) formData.append("emoji", payload.emoji);
       if (payload.address) formData.append("address", payload.address);
       if (payload.locationNotes)
@@ -193,6 +203,35 @@ class ApiService {
       }
       formData.append("lat", payload.location.coordinates[0].toString());
       formData.append("lng", payload.location.coordinates[1].toString());
+
+      // Add recurring event fields
+      if (payload.isRecurring !== undefined) {
+        formData.append("isRecurring", payload.isRecurring.toString());
+      }
+      if (payload.recurrenceFrequency) {
+        formData.append("recurrenceFrequency", payload.recurrenceFrequency);
+      }
+      if (payload.recurrenceDays && payload.recurrenceDays.length > 0) {
+        formData.append(
+          "recurrenceDays",
+          JSON.stringify(payload.recurrenceDays),
+        );
+      }
+      if (payload.recurrenceStartDate) {
+        formData.append("recurrenceStartDate", payload.recurrenceStartDate);
+      }
+      if (payload.recurrenceEndDate) {
+        formData.append("recurrenceEndDate", payload.recurrenceEndDate);
+      }
+      if (payload.recurrenceInterval) {
+        formData.append(
+          "recurrenceInterval",
+          payload.recurrenceInterval.toString(),
+        );
+      }
+      if (payload.recurrenceTime) {
+        formData.append("recurrenceTime", payload.recurrenceTime);
+      }
 
       if (payload.userCoordinates) {
         formData.append("userLat", payload.userCoordinates.lat.toString());
@@ -265,6 +304,7 @@ class ApiService {
       if (payload.description)
         formData.append("description", payload.description);
       formData.append("eventDate", payload.eventDate);
+      if (payload.endDate) formData.append("endDate", payload.endDate);
       if (payload.emoji) formData.append("emoji", payload.emoji);
       if (payload.address) formData.append("address", payload.address);
       if (payload.locationNotes)
@@ -275,6 +315,35 @@ class ApiService {
       }
       formData.append("lat", payload.location.coordinates[0].toString());
       formData.append("lng", payload.location.coordinates[1].toString());
+
+      // Add recurring event fields
+      if (payload.isRecurring !== undefined) {
+        formData.append("isRecurring", payload.isRecurring.toString());
+      }
+      if (payload.recurrenceFrequency) {
+        formData.append("recurrenceFrequency", payload.recurrenceFrequency);
+      }
+      if (payload.recurrenceDays && payload.recurrenceDays.length > 0) {
+        formData.append(
+          "recurrenceDays",
+          JSON.stringify(payload.recurrenceDays),
+        );
+      }
+      if (payload.recurrenceStartDate) {
+        formData.append("recurrenceStartDate", payload.recurrenceStartDate);
+      }
+      if (payload.recurrenceEndDate) {
+        formData.append("recurrenceEndDate", payload.recurrenceEndDate);
+      }
+      if (payload.recurrenceInterval) {
+        formData.append(
+          "recurrenceInterval",
+          payload.recurrenceInterval.toString(),
+        );
+      }
+      if (payload.recurrenceTime) {
+        formData.append("recurrenceTime", payload.recurrenceTime);
+      }
 
       if (payload.userCoordinates) {
         formData.append("userLat", payload.userCoordinates.lat.toString());

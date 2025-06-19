@@ -43,6 +43,8 @@ interface EventFormData {
   description: string;
   date: string;
   time: string;
+  endDate?: string;
+  endTime?: string;
   isPrivate: boolean;
   emoji?: string;
   location: {
@@ -53,6 +55,14 @@ interface EventFormData {
   sharedWithIds: string[];
   locationNotes: string;
   image?: File;
+  // Recurring event fields
+  isRecurring: boolean;
+  recurrenceFrequency?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";
+  recurrenceDays?: string[];
+  recurrenceStartDate?: string;
+  recurrenceEndDate?: string;
+  recurrenceInterval?: number;
+  recurrenceTime?: string;
 }
 
 interface Friend {
@@ -207,6 +217,46 @@ export function CreateEventForm({
         "Event must be scheduled at least 15 minutes in the future";
     }
 
+    // Validate end date if provided
+    if (formData.endDate && formData.endTime) {
+      const endDateTime = new Date(`${formData.endDate}T${formData.endTime}`);
+      if (endDateTime <= eventDateTime) {
+        newErrors.endDate = "End date/time must be after start date/time";
+      }
+    }
+
+    // Validate recurring event fields
+    if (formData.isRecurring) {
+      if (!formData.recurrenceFrequency) {
+        newErrors.recurrenceFrequency = "Recurrence frequency is required";
+      }
+
+      if (formData.recurrenceStartDate) {
+        const recurrenceStart = new Date(formData.recurrenceStartDate);
+        if (recurrenceStart < new Date(formData.date)) {
+          newErrors.recurrenceStartDate =
+            "Recurrence start date cannot be before event date";
+        }
+      }
+
+      if (formData.recurrenceEndDate && formData.recurrenceStartDate) {
+        const recurrenceEnd = new Date(formData.recurrenceEndDate);
+        const recurrenceStart = new Date(formData.recurrenceStartDate);
+        if (recurrenceEnd <= recurrenceStart) {
+          newErrors.recurrenceEndDate =
+            "Recurrence end date must be after start date";
+        }
+      }
+
+      if (
+        (formData.recurrenceFrequency === "WEEKLY" ||
+          formData.recurrenceFrequency === "BIWEEKLY") &&
+        (!formData.recurrenceDays || formData.recurrenceDays.length === 0)
+      ) {
+        newErrors.recurrenceDays = "Please select at least one day of the week";
+      }
+    }
+
     if (formData.isPrivate && formData.sharedWithIds.length === 0) {
       newErrors.sharedWithIds = "Please select at least one friend to invite";
     }
@@ -232,11 +282,20 @@ export function CreateEventForm({
     try {
       const eventDateTime = new Date(`${formData.date}T${formData.time}`);
 
+      // Create end date if provided
+      let endDate: string | undefined;
+      if (formData.endDate && formData.endTime) {
+        endDate = new Date(
+          `${formData.endDate}T${formData.endTime}`,
+        ).toISOString();
+      }
+
       const eventPayload: CreateEventPayload = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         date: eventDateTime.toISOString(),
         eventDate: eventDateTime.toISOString(),
+        endDate: endDate,
         isPrivate: formData.isPrivate,
         emoji: formData.emoji,
         location: {
@@ -249,6 +308,14 @@ export function CreateEventForm({
         sharedWithIds: formData.isPrivate ? formData.sharedWithIds : [],
         userCoordinates: userCoordinates || undefined,
         image: formData.image,
+        // Recurring event fields
+        isRecurring: formData.isRecurring,
+        recurrenceFrequency: formData.recurrenceFrequency,
+        recurrenceDays: formData.recurrenceDays,
+        recurrenceStartDate: formData.recurrenceStartDate,
+        recurrenceEndDate: formData.recurrenceEndDate,
+        recurrenceInterval: formData.recurrenceInterval,
+        recurrenceTime: formData.recurrenceTime,
       };
 
       let response;
@@ -470,6 +537,241 @@ export function CreateEventForm({
               <p className="text-sm text-red-500 mt-1">{errors.time}</p>
             )}
           </div>
+        </div>
+
+        {/* End Date and Time (Optional) */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="hasEndDate"
+              checked={!!formData.endDate}
+              onCheckedChange={(checked) => {
+                if (checked) {
+                  // Update both fields in a single state update
+                  const updatedFormData = {
+                    ...formData,
+                    endDate: formData.date,
+                    endTime: formData.time,
+                  };
+                  onFormDataChange(updatedFormData);
+                } else {
+                  // Clear both fields in a single state update
+                  const updatedFormData = {
+                    ...formData,
+                    endDate: "",
+                    endTime: "",
+                  };
+                  onFormDataChange(updatedFormData);
+                }
+              }}
+            />
+            <Label htmlFor="hasEndDate" className="text-sm font-medium">
+              Event has end date/time
+            </Label>
+          </div>
+
+          {formData.endDate && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="endDate">End Date</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={formData.endDate}
+                  onChange={(e) => handleInputChange("endDate", e.target.value)}
+                  min={formData.date}
+                  className={errors.endDate ? "border-red-500" : ""}
+                />
+                {errors.endDate && (
+                  <p className="text-sm text-red-500 mt-1">{errors.endDate}</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="endTime">End Time</Label>
+                <Input
+                  id="endTime"
+                  type="time"
+                  value={formData.endTime || ""}
+                  onChange={(e) => handleInputChange("endTime", e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Recurring Event Configuration */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="isRecurring"
+              checked={formData.isRecurring}
+              onCheckedChange={(checked) =>
+                handleInputChange("isRecurring", checked)
+              }
+            />
+            <Label htmlFor="isRecurring" className="text-base font-medium">
+              This is a recurring event
+            </Label>
+          </div>
+
+          {formData.isRecurring && (
+            <div className="space-y-4 border rounded-lg p-4 bg-muted/50">
+              {/* Recurrence Frequency */}
+              <div>
+                <Label htmlFor="recurrenceFrequency">Frequency *</Label>
+                <Select
+                  value={formData.recurrenceFrequency}
+                  onValueChange={(value) =>
+                    handleInputChange("recurrenceFrequency", value)
+                  }
+                >
+                  <SelectTrigger
+                    className={
+                      errors.recurrenceFrequency ? "border-red-500" : ""
+                    }
+                  >
+                    <SelectValue placeholder="Select frequency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DAILY">Daily</SelectItem>
+                    <SelectItem value="WEEKLY">Weekly</SelectItem>
+                    <SelectItem value="BIWEEKLY">Bi-weekly</SelectItem>
+                    <SelectItem value="MONTHLY">Monthly</SelectItem>
+                    <SelectItem value="YEARLY">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.recurrenceFrequency && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {errors.recurrenceFrequency}
+                  </p>
+                )}
+              </div>
+
+              {/* Recurrence Interval */}
+              <div>
+                <Label htmlFor="recurrenceInterval">Interval</Label>
+                <Input
+                  id="recurrenceInterval"
+                  type="number"
+                  min="1"
+                  max="99"
+                  value={formData.recurrenceInterval || 1}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "recurrenceInterval",
+                      parseInt(e.target.value) || 1,
+                    )
+                  }
+                  placeholder="1"
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Every {formData.recurrenceInterval || 1}{" "}
+                  {formData.recurrenceFrequency?.toLowerCase() || "time(s)"}
+                </p>
+              </div>
+
+              {/* Recurrence Days (for weekly/bi-weekly) */}
+              {(formData.recurrenceFrequency === "WEEKLY" ||
+                formData.recurrenceFrequency === "BIWEEKLY") && (
+                <div>
+                  <Label>Days of the week</Label>
+                  <div className="grid grid-cols-7 gap-2 mt-2">
+                    {[
+                      "SUNDAY",
+                      "MONDAY",
+                      "TUESDAY",
+                      "WEDNESDAY",
+                      "THURSDAY",
+                      "FRIDAY",
+                      "SATURDAY",
+                    ].map((day) => (
+                      <div key={day} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`day-${day}`}
+                          checked={
+                            formData.recurrenceDays?.includes(day) || false
+                          }
+                          onCheckedChange={(checked) => {
+                            const currentDays = formData.recurrenceDays || [];
+                            const newDays = checked
+                              ? [...currentDays, day]
+                              : currentDays.filter((d) => d !== day);
+                            handleInputChange("recurrenceDays", newDays);
+                          }}
+                        />
+                        <Label htmlFor={`day-${day}`} className="text-xs">
+                          {day.slice(0, 3)}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  {errors.recurrenceDays && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {errors.recurrenceDays}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Recurrence Time */}
+              <div>
+                <Label htmlFor="recurrenceTime">Time</Label>
+                <Input
+                  id="recurrenceTime"
+                  type="time"
+                  value={formData.recurrenceTime || formData.time}
+                  onChange={(e) =>
+                    handleInputChange("recurrenceTime", e.target.value)
+                  }
+                />
+              </div>
+
+              {/* Recurrence Date Range */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="recurrenceStartDate">Start Date</Label>
+                  <Input
+                    id="recurrenceStartDate"
+                    type="date"
+                    value={formData.recurrenceStartDate || formData.date}
+                    onChange={(e) =>
+                      handleInputChange("recurrenceStartDate", e.target.value)
+                    }
+                    min={formData.date}
+                    className={
+                      errors.recurrenceStartDate ? "border-red-500" : ""
+                    }
+                  />
+                  {errors.recurrenceStartDate && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {errors.recurrenceStartDate}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="recurrenceEndDate">End Date (Optional)</Label>
+                  <Input
+                    id="recurrenceEndDate"
+                    type="date"
+                    value={formData.recurrenceEndDate || ""}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "recurrenceEndDate",
+                        e.target.value || undefined,
+                      )
+                    }
+                    min={formData.recurrenceStartDate || formData.date}
+                    className={errors.recurrenceEndDate ? "border-red-500" : ""}
+                  />
+                  {errors.recurrenceEndDate && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {errors.recurrenceEndDate}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Location Search */}

@@ -12,6 +12,8 @@ interface EventFormData {
   description: string;
   date: string;
   time: string;
+  endDate?: string;
+  endTime?: string;
   isPrivate: boolean;
   emoji?: string;
   location: {
@@ -22,6 +24,14 @@ interface EventFormData {
   sharedWithIds: string[];
   locationNotes: string;
   image?: File;
+  // Recurring event fields
+  isRecurring: boolean;
+  recurrenceFrequency?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";
+  recurrenceDays?: string[];
+  recurrenceStartDate?: string;
+  recurrenceEndDate?: string;
+  recurrenceInterval?: number;
+  recurrenceTime?: string;
 }
 
 interface SelectedLocation {
@@ -39,6 +49,8 @@ export default function CreateEventPage() {
     description: "",
     date: new Date().toISOString().split("T")[0],
     time: new Date().toISOString().split("T")[1].substring(0, 5),
+    endDate: "",
+    endTime: "",
     isPrivate: false,
     emoji: undefined,
     location: {
@@ -48,6 +60,7 @@ export default function CreateEventPage() {
     },
     sharedWithIds: [],
     locationNotes: "",
+    isRecurring: false,
   });
   const [selectedLocation, setSelectedLocation] =
     useState<SelectedLocation | null>(null);
