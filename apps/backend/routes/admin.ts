@@ -175,7 +175,7 @@ adminRouter.get("/dashboard/metrics", async (c) => {
     // Get total active events (events that haven't ended yet)
     const totalActiveEvents = await eventRepository
       .createQueryBuilder("event")
-      .where("event.endDate > :now", { now })
+      .where("event.end_date > :now", { now })
       .andWhere("event.status IN (:...statuses)", {
         statuses: ["VERIFIED", "PENDING"],
       })
@@ -293,10 +293,10 @@ adminRouter.get("/dashboard/activity", async (c) => {
     // Get recent event creations (last 24 hours)
     const recentEvents = await eventRepository
       .createQueryBuilder("event")
-      .where("event.createdAt >= :startDate", {
+      .where("event.created_at >= :startDate", {
         startDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
       })
-      .orderBy("event.createdAt", "DESC")
+      .orderBy("event.created_at", "DESC")
       .limit(5)
       .getMany();
 
@@ -317,10 +317,10 @@ adminRouter.get("/dashboard/activity", async (c) => {
     // Get recent category additions (last 24 hours)
     const recentCategories = await categoryRepository
       .createQueryBuilder("category")
-      .where("category.createdAt >= :startDate", {
+      .where("category.created_at >= :startDate", {
         startDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
       })
-      .orderBy("category.createdAt", "DESC")
+      .orderBy("category.created_at", "DESC")
       .limit(3)
       .getMany();
 
@@ -384,15 +384,15 @@ adminRouter.get("/dashboard/categories", async (c) => {
         "category.icon as category_icon",
         "COUNT(DISTINCT event.id) as total_events",
         "COUNT(DISTINCT CASE WHEN event.status = 'VERIFIED' THEN event.id END) as verified_events",
-        "COUNT(DISTINCT CASE WHEN event.eventDate >= :startOfMonth THEN event.id END) as events_this_month",
-        "COUNT(DISTINCT CASE WHEN event.eventDate >= :startOfWeek THEN event.id END) as events_this_week",
+        "COUNT(DISTINCT CASE WHEN event.event_date >= :startOfMonth THEN event.id END) as events_this_month",
+        "COUNT(DISTINCT CASE WHEN event.event_date >= :startOfWeek THEN event.id END) as events_this_week",
         "COUNT(DISTINCT discovery.id) as total_scans",
         "COUNT(DISTINCT CASE WHEN discovery.discoveredAt >= :thirtyDaysAgo THEN discovery.id END) as scans_last_30_days",
         "COUNT(DISTINCT save.id) as total_saves",
         "COUNT(DISTINCT view.id) as total_views",
-        "AVG(event.scanCount) as avg_scan_count",
-        "AVG(event.saveCount) as avg_save_count",
-        "AVG(event.viewCount) as avg_view_count",
+        "AVG(event.scan_count) as avg_scan_count",
+        "AVG(event.save_count) as avg_save_count",
+        "AVG(event.view_count) as avg_view_count",
       ])
       .setParameters({
         startOfMonth,
@@ -559,15 +559,15 @@ adminRouter.get("/dashboard/category-trends", async (c) => {
       .select([
         "category.name as category_name",
         "category.icon as category_icon",
-        "DATE_TRUNC('week', event.createdAt) as week_start",
+        "DATE_TRUNC('week', event.created_at) as week_start",
         "COUNT(DISTINCT event.id) as events_created",
         "COUNT(DISTINCT CASE WHEN event.status = :verifiedStatus THEN event.id END) as events_verified",
       ])
-      .where("event.createdAt >= :startDate", { startDate: twelveWeeksAgo })
+      .where("event.created_at >= :startDate", { startDate: twelveWeeksAgo })
       .andWhere("category.id IS NOT NULL")
       .setParameter("verifiedStatus", EventStatus.VERIFIED)
       .groupBy(
-        "category.name, category.icon, DATE_TRUNC('week', event.createdAt)",
+        "category.name, category.icon, DATE_TRUNC('week', event.created_at)",
       )
       .orderBy("week_start", "ASC")
       .addOrderBy("events_created", "DESC")
@@ -774,11 +774,11 @@ adminRouter.get("/dashboard/busiest-times", async (c) => {
     const events = await eventRepository
       .createQueryBuilder("event")
       .select([
-        "EXTRACT(DOW FROM event.eventDate) as dayOfWeek",
-        "EXTRACT(HOUR FROM event.eventDate) as hour",
+        "EXTRACT(DOW FROM event.event_date) as dayOfWeek",
+        "EXTRACT(HOUR FROM event.event_date) as hour",
         "COUNT(*) as eventCount",
       ])
-      .where("event.eventDate >= :startDate", { startDate: thirtyDaysAgo })
+      .where("event.event_date >= :startDate", { startDate: thirtyDaysAgo })
       .groupBy("dayOfWeek, hour")
       .orderBy("eventCount", "DESC")
       .limit(10)
@@ -834,12 +834,12 @@ adminRouter.get("/dashboard/upcoming-events", async (c) => {
       .createQueryBuilder("event")
       .leftJoinAndSelect("event.categories", "categories")
       .leftJoinAndSelect("event.rsvps", "rsvps")
-      .where("event.eventDate >= :startDate", { startDate: now })
-      .andWhere("event.eventDate <= :endDate", { endDate: thirtyDaysFromNow })
+      .where("event.event_date >= :startDate", { startDate: now })
+      .andWhere("event.event_date <= :endDate", { endDate: thirtyDaysFromNow })
       .andWhere("event.status IN (:...statuses)", {
         statuses: ["VERIFIED", "PENDING"],
       })
-      .orderBy("event.eventDate", "ASC")
+      .orderBy("event.event_date", "ASC")
       .limit(10)
       .getMany();
 
