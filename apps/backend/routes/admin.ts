@@ -7,7 +7,7 @@ import { ip } from "../middleware/ip";
 import { rateLimit } from "../middleware/rateLimit";
 import AppDataSource from "../data-source";
 import { Event, EventStatus } from "../entities/Event";
-import { User } from "../entities/User";
+import { User, UserRole } from "../entities/User";
 import { Category } from "../entities/Category";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
 import { UserEventRsvp } from "../entities/UserEventRsvp";
@@ -21,6 +21,7 @@ import {
   getQueryClustersHandler,
   findSimilarQueriesHandler,
 } from "../handlers/queryAnalyticsHandlers";
+import { UserService } from "../services/UserService";
 
 export const adminRouter = new Hono<AppContext>();
 
@@ -892,3 +893,113 @@ adminRouter.get("/analytics/queries/:query/stats", getQueryStatsHandler);
 adminRouter.post("/analytics/queries/update-flags", updateQueryFlagsHandler);
 adminRouter.get("/analytics/queries/clusters", getQueryClustersHandler);
 adminRouter.get("/analytics/queries/:query/similar", findSimilarQueriesHandler);
+
+// User Management Endpoints
+adminRouter.get("/users", async (c) => {
+  try {
+    const userService = new UserService();
+    const { page, limit, search, role } = c.req.query();
+
+    const params = {
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search: search || undefined,
+      role: (role as UserRole) || undefined,
+    };
+
+    const result = await userService.getUsers(params);
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    return c.json(
+      {
+        error: "Failed to fetch users",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+});
+
+adminRouter.get("/users/:id", async (c) => {
+  try {
+    const userId = c.req.param("id");
+    const userService = new UserService();
+
+    const user = await userService.getUserById(userId);
+
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    return c.json(user);
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    return c.json(
+      {
+        error: "Failed to fetch user",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+});
+
+adminRouter.patch("/users/:id/role", async (c) => {
+  try {
+    const userId = c.req.param("id");
+    const { role } = await c.req.json();
+
+    if (!role || !["USER", "MODERATOR", "ADMIN"].includes(role)) {
+      return c.json({ error: "Invalid role" }, 400);
+    }
+
+    const userService = new UserService();
+    const updatedUser = await userService.updateUserRole({ userId, role });
+
+    return c.json(updatedUser);
+  } catch (error) {
+    console.error("Error updating user role:", error);
+    return c.json(
+      {
+        error: "Failed to update user role",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+});
+
+adminRouter.get("/users/stats", async (c) => {
+  try {
+    const userService = new UserService();
+    const stats = await userService.getUserStats();
+    return c.json(stats);
+  } catch (error) {
+    console.error("Error fetching user stats:", error);
+    return c.json(
+      {
+        error: "Failed to fetch user stats",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+});
+
+adminRouter.get("/users/admins", async (c) => {
+  try {
+    const userService = new UserService();
+    const adminUsers = await userService.getAdminUsers();
+    return c.json(adminUsers);
+  } catch (error) {
+    console.error("Error fetching admin users:", error);
+    return c.json(
+      {
+        error: "Failed to fetch admin users",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+});

@@ -1,0 +1,187 @@
+import AppDataSource from "../data-source";
+import { User, UserRole } from "../entities/User";
+import { Repository, MoreThanOrEqual } from "typeorm";
+
+export interface UserListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  role?: UserRole;
+}
+
+export interface UserListResponse {
+  users: User[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface UpdateUserRoleParams {
+  userId: string;
+  role: UserRole;
+}
+
+export class UserService {
+  private userRepository: Repository<User>;
+
+  constructor() {
+    this.userRepository = AppDataSource.getRepository(User);
+  }
+
+  async getUsers(params: UserListParams = {}): Promise<UserListResponse> {
+    const { page = 1, limit = 20, search, role } = params;
+    const offset = (page - 1) * limit;
+
+    const queryBuilder = this.userRepository.createQueryBuilder("user");
+
+    // Add search filter
+    if (search) {
+      queryBuilder.andWhere(
+        "(user.email ILIKE :search OR user.displayName ILIKE :search OR user.username ILIKE :search)",
+        { search: `%${search}%` },
+      );
+    }
+
+    // Add role filter
+    if (role) {
+      queryBuilder.andWhere("user.role = :role", { role });
+    }
+
+    // Get total count
+    const total = await queryBuilder.getCount();
+
+    // Get users with pagination
+    const users = await queryBuilder
+      .select([
+        "user.id",
+        "user.email",
+        "user.username",
+        "user.displayName",
+        "user.avatarUrl",
+        "user.role",
+        "user.planType",
+        "user.isVerified",
+        "user.discoveryCount",
+        "user.scanCount",
+        "user.saveCount",
+        "user.viewCount",
+        "user.totalXp",
+        "user.currentTitle",
+        "user.createdAt",
+        "user.updatedAt",
+      ])
+      .orderBy("user.createdAt", "DESC")
+      .skip(offset)
+      .take(limit)
+      .getMany();
+
+    return {
+      users,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async getUserById(userId: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { id: userId },
+      select: [
+        "id",
+        "email",
+        "username",
+        "displayName",
+        "avatarUrl",
+        "bio",
+        "role",
+        "planType",
+        "isVerified",
+        "discoveryCount",
+        "scanCount",
+        "saveCount",
+        "viewCount",
+        "totalXp",
+        "currentTitle",
+        "createdAt",
+        "updatedAt",
+      ],
+    });
+  }
+
+  async updateUserRole(params: UpdateUserRoleParams): Promise<User> {
+    const { userId, role } = params;
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Prevent removing the last admin
+    if (user.role === UserRole.ADMIN && role !== UserRole.ADMIN) {
+      const adminCount = await this.userRepository.count({
+        where: { role: UserRole.ADMIN },
+      });
+
+      if (adminCount <= 1) {
+        throw new Error("Cannot remove the last admin user");
+      }
+    }
+
+    user.role = role;
+    return this.userRepository.save(user);
+  }
+
+  async getAdminUsers(): Promise<User[]> {
+    return this.userRepository.find({
+      where: { role: UserRole.ADMIN },
+      select: [
+        "id",
+        "email",
+        "username",
+        "displayName",
+        "avatarUrl",
+        "role",
+        "createdAt",
+      ],
+      order: { createdAt: "ASC" },
+    });
+  }
+
+  async getAdminCount(): Promise<number> {
+    return this.userRepository.count({
+      where: { role: UserRole.ADMIN },
+    });
+  }
+
+  async getUserStats(): Promise<{
+    totalUsers: number;
+    adminUsers: number;
+    verifiedUsers: number;
+    usersThisMonth: number;
+  }> {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [totalUsers, adminUsers, verifiedUsers, usersThisMonth] =
+      await Promise.all([
+        this.userRepository.count(),
+        this.userRepository.count({ where: { role: UserRole.ADMIN } }),
+        this.userRepository.count({ where: { isVerified: true } }),
+        this.userRepository.count({
+          where: { createdAt: MoreThanOrEqual(startOfMonth) },
+        }),
+      ]);
+
+    return {
+      totalUsers,
+      adminUsers,
+      verifiedUsers,
+      usersThisMonth,
+    };
+  }
+}

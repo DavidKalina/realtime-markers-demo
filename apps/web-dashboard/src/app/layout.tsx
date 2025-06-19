@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { MunicipalConfigProvider } from "@/contexts/MunicipalConfigContext";
 import { Footer } from "@/components/ui/footer";
+import { Toaster } from "@/components/ui/toaster";
 
 const spaceMono = Space_Mono({
   subsets: ["latin"],
@@ -29,6 +30,7 @@ export default function RootLayout({
           <AuthProvider>{children}</AuthProvider>
         </MunicipalConfigProvider>
         <Footer />
+        <Toaster />
       </body>
     </html>
   );
