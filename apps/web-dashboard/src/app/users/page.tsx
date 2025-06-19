@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +54,23 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+// Custom debounce hook
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export default function UsersPage() {
   const { success, error } = useToast();
   const [users, setUsers] = useState<User[]>([]);
@@ -66,13 +83,16 @@ export default function UsersPage() {
   const [totalUsers, setTotalUsers] = useState(0);
   const [adminUsers, setAdminUsers] = useState<User[]>([]);
 
-  const loadUsers = async () => {
+  // Debounce the search value with 300ms delay
+  const debouncedSearch = useDebounce(search, 300);
+
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
       const response = await userManagementService.getUsers({
         page: currentPage,
         limit: 20,
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         role: roleFilter === "ALL" ? undefined : (roleFilter as any),
       });
 
@@ -88,7 +108,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, debouncedSearch, roleFilter, error]);
 
   const loadStats = async () => {
     try {
@@ -116,7 +136,12 @@ export default function UsersPage() {
     loadUsers();
     loadStats();
     loadAdminUsers();
-  }, [currentPage, search, roleFilter]);
+  }, [loadUsers]);
+
+  // Reset to first page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, roleFilter]);
 
   const handleRoleUpdate = async (userId: string, newRole: string) => {
     try {
