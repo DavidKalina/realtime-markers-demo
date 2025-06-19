@@ -5,6 +5,7 @@ import type { Event } from "../entities/Event";
 import type { Filter } from "../entities/Filter";
 import type { EventCacheService } from "./shared/EventCacheService";
 import type { OpenAIService } from "./shared/OpenAIService";
+import type { QueryAnalyticsService } from "./QueryAnalyticsService";
 
 interface SearchResult {
   event: Event;
@@ -51,6 +52,7 @@ export interface EventSearchServiceDependencies {
   dataSource: DataSource;
   eventCacheService: EventCacheService;
   openaiService: OpenAIService;
+  queryAnalyticsService: QueryAnalyticsService;
 }
 
 export class EventSearchServiceImpl implements EventSearchService {
@@ -58,12 +60,14 @@ export class EventSearchServiceImpl implements EventSearchService {
   private categoryRepository: Repository<Category>;
   private eventCacheService: EventCacheService;
   private openaiService: OpenAIService;
+  private queryAnalyticsService: QueryAnalyticsService;
 
   constructor(private dependencies: EventSearchServiceDependencies) {
     this.eventRepository = dependencies.dataSource.getRepository("Event");
     this.categoryRepository = dependencies.dataSource.getRepository("Category");
     this.eventCacheService = dependencies.eventCacheService;
     this.openaiService = dependencies.openaiService;
+    this.queryAnalyticsService = dependencies.queryAnalyticsService;
   }
 
   async searchEvents(
@@ -83,6 +87,14 @@ export class EventSearchServiceImpl implements EventSearchService {
       await this.eventCacheService.getSearchResults(cacheKey);
     if (cachedResults) {
       console.log(`Cache hit for search: "${query}"`);
+
+      // Track analytics even for cached results
+      this.trackSearchAnalytics(
+        query,
+        cachedResults.results.length,
+        cachedResults.results,
+      );
+
       return cachedResults;
     }
 
@@ -282,6 +294,9 @@ export class EventSearchServiceImpl implements EventSearchService {
     // Store in cache
     const resultObject = { results: searchResults, nextCursor };
     await this.eventCacheService.setSearchResults(cacheKey, resultObject);
+
+    // Track analytics for the search
+    this.trackSearchAnalytics(query, searchResults.length, searchResults);
 
     return resultObject;
   }
@@ -513,6 +528,35 @@ export class EventSearchServiceImpl implements EventSearchService {
       total,
       hasMore: offset + events.length < total,
     };
+  }
+
+  /**
+   * Track search analytics for a query
+   */
+  private async trackSearchAnalytics(
+    query: string,
+    resultCount: number,
+    results: SearchResult[],
+  ): Promise<void> {
+    try {
+      // Extract event IDs and category IDs from results
+      const eventIds = results.map((result) => result.event.id);
+      const categoryIds = results.flatMap(
+        (result) => result.event.categories?.map((cat) => cat.id) || [],
+      );
+
+      // Track the search analytics
+      await this.queryAnalyticsService.trackSearch({
+        query,
+        resultCount,
+        eventIds,
+        categoryIds,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      console.error("Error tracking search analytics:", error);
+      // Don't throw - analytics tracking shouldn't break the search functionality
+    }
   }
 }
 

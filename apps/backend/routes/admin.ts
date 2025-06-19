@@ -11,6 +11,16 @@ import { User } from "../entities/User";
 import { Category } from "../entities/Category";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
 import { UserEventRsvp } from "../entities/UserEventRsvp";
+import {
+  getQueryInsightsHandler,
+  getPopularQueriesHandler,
+  getLowHitRateQueriesHandler,
+  getZeroResultQueriesHandler,
+  getQueryStatsHandler,
+  updateQueryFlagsHandler,
+  getQueryClustersHandler,
+  findSimilarQueriesHandler,
+} from "../handlers/queryAnalyticsHandlers";
 
 export const adminRouter = new Hono<AppContext>();
 
@@ -872,3 +882,13 @@ adminRouter.get("/dashboard/upcoming-events", async (c) => {
     );
   }
 });
+
+// Query Analytics Endpoints
+adminRouter.get("/analytics/queries/insights", getQueryInsightsHandler);
+adminRouter.get("/analytics/queries/popular", getPopularQueriesHandler);
+adminRouter.get("/analytics/queries/low-hit-rate", getLowHitRateQueriesHandler);
+adminRouter.get("/analytics/queries/zero-results", getZeroResultQueriesHandler);
+adminRouter.get("/analytics/queries/:query/stats", getQueryStatsHandler);
+adminRouter.post("/analytics/queries/update-flags", updateQueryFlagsHandler);
+adminRouter.get("/analytics/queries/clusters", getQueryClustersHandler);
+adminRouter.get("/analytics/queries/:query/similar", findSimilarQueriesHandler);

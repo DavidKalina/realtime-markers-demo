@@ -21,7 +21,9 @@ import { AddEventRsvpToggledNotificationType1710000000010 } from "./migrations/1
 import { AddLevelingSystem1710000000003 } from "./migrations/AddLevelingSystem1710000000003";
 import { AddRecurringEventFields1710000000011 } from "./migrations/1710000000011-AddRecurringEventFields";
 import { AddViewTracking1710000000012 } from "./migrations/1710000000012-AddViewTracking";
+import { AddQueryAnalytics1710000000013 } from "./migrations/1710000000013-AddQueryAnalytics";
 import { UserEventView } from "./entities/UserEventView";
+import { QueryAnalytics } from "./entities/QueryAnalytics";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -41,6 +43,7 @@ const AppDataSource = new DataSource({
     Notification,
     UserEventRsvp,
     UserEventView,
+    QueryAnalytics,
   ],
   migrations: [
     InitialSchemaAndSeed1710000000000,
@@ -51,6 +54,7 @@ const AppDataSource = new DataSource({
     AddEventRsvpToggledNotificationType1710000000010,
     AddRecurringEventFields1710000000011,
     AddViewTracking1710000000012,
+    AddQueryAnalytics1710000000013,
   ],
   migrationsTableName: "migrations",
   migrationsRun: true, // Automatically run migrations on startup
