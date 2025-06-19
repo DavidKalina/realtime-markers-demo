@@ -31,6 +31,8 @@ import {
   ShieldX,
   User as UserIcon,
   Crown,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import {
   userManagementService,
@@ -38,6 +40,18 @@ import {
   type UserStats,
 } from "@/services/userManagement";
 import { useToast } from "@/contexts/ToastContext";
+import { AddAdminModal } from "@/components/dashboard/AddAdminModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function UsersPage() {
   const { success, error } = useToast();
@@ -49,6 +63,7 @@ export default function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
+  const [adminUsers, setAdminUsers] = useState<User[]>([]);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -85,9 +100,21 @@ export default function UsersPage() {
     }
   };
 
+  const loadAdminUsers = async () => {
+    try {
+      const response = await userManagementService.getAdminUsers();
+      if (response.data) {
+        setAdminUsers(response.data);
+      }
+    } catch (err) {
+      console.error("Failed to load admin users:", err);
+    }
+  };
+
   useEffect(() => {
     loadUsers();
     loadStats();
+    loadAdminUsers();
   }, [currentPage, search, roleFilter]);
 
   const handleRoleUpdate = async (userId: string, newRole: string) => {
@@ -100,12 +127,36 @@ export default function UsersPage() {
       if (response.data) {
         success("User role updated successfully");
         loadUsers(); // Refresh the list
+        loadAdminUsers(); // Refresh admin list
       } else {
         error(response.error || "Failed to update user role");
       }
     } catch (err) {
       error("Failed to update user role");
     }
+  };
+
+  const handleDeleteAdmin = async (adminId: string, adminEmail: string) => {
+    try {
+      const response = await userManagementService.deleteAdminUser(adminId);
+
+      if (response.data) {
+        success("Admin user deleted successfully");
+        loadUsers(); // Refresh the list
+        loadAdminUsers(); // Refresh admin list
+        loadStats(); // Refresh stats
+      } else {
+        error(response.error || "Failed to delete admin user");
+      }
+    } catch (err) {
+      error("Failed to delete admin user");
+    }
+  };
+
+  const handleAdminAdded = () => {
+    loadUsers();
+    loadAdminUsers();
+    loadStats();
   };
 
   const getRoleIcon = (role: string) => {
@@ -138,10 +189,17 @@ export default function UsersPage() {
     return new Date(dateString).toLocaleDateString();
   };
 
+  const isCurrentUser = (userId: string) => {
+    // This would need to be implemented based on your auth context
+    // For now, we'll assume it's not the current user
+    return false;
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">User Management</h1>
+        <AddAdminModal onAdminAdded={handleAdminAdded} />
       </div>
 
       {/* Stats Cards */}
@@ -298,21 +356,67 @@ export default function UsersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Select
-                          value={user.role}
-                          onValueChange={(value) =>
-                            handleRoleUpdate(user.id, value)
-                          }
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="USER">User</SelectItem>
-                            <SelectItem value="MODERATOR">Moderator</SelectItem>
-                            <SelectItem value="ADMIN">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center space-x-2">
+                          <Select
+                            value={user.role}
+                            onValueChange={(value) =>
+                              handleRoleUpdate(user.id, value)
+                            }
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="USER">User</SelectItem>
+                              <SelectItem value="MODERATOR">
+                                Moderator
+                              </SelectItem>
+                              <SelectItem value="ADMIN">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          {user.role === "ADMIN" && !isCurrentUser(user.id) && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    Delete Admin User
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete the admin
+                                    user{" "}
+                                    <strong>
+                                      {user.displayName || user.email}
+                                    </strong>
+                                    ?
+                                    <br />
+                                    <br />
+                                    <div className="flex items-center space-x-2 text-yellow-600">
+                                      <AlertTriangle className="h-4 w-4" />
+                                      <span>This action cannot be undone.</span>
+                                    </div>
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() =>
+                                      handleDeleteAdmin(user.id, user.email)
+                                    }
+                                    className="bg-red-500 hover:bg-red-600"
+                                  >
+                                    Delete Admin
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -52,6 +52,13 @@ export interface UpdateUserRoleParams {
   role: "USER" | "MODERATOR" | "ADMIN";
 }
 
+export interface CreateAdminParams {
+  email: string;
+  password: string;
+  displayName?: string;
+  username?: string;
+}
+
 class UserManagementService {
   private baseUrl: string;
 
@@ -140,6 +147,24 @@ class UserManagementService {
 
   async getAdminUsers(): Promise<ApiResponse<User[]>> {
     return this.makeRequest<User[]>("/users/admins");
+  }
+
+  async createAdminUser(params: CreateAdminParams): Promise<ApiResponse<User>> {
+    return this.makeRequest<User>("/users/admins", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+  }
+
+  async deleteAdminUser(
+    adminId: string,
+  ): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    return this.makeRequest<{ success: boolean; message: string }>(
+      `/users/admins/${adminId}`,
+      {
+        method: "DELETE",
+      },
+    );
   }
 }
 

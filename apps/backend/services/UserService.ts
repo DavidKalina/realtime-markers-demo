@@ -184,4 +184,80 @@ export class UserService {
       usersThisMonth,
     };
   }
+
+  async createAdminUser(params: {
+    email: string;
+    password: string;
+    displayName?: string;
+    username?: string;
+  }): Promise<User> {
+    const { email, password, displayName, username } = params;
+
+    // Check if user already exists
+    const existingUser = await this.userRepository.findOne({
+      where: [{ email }, ...(username ? [{ username }] : [])],
+    });
+
+    if (existingUser) {
+      throw new Error("User with this email or username already exists");
+    }
+
+    // Import bcrypt for password hashing
+    const bcrypt = await import("bcrypt");
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // Generate a unique friend code
+    const friendCode = this.generateFriendCode();
+
+    // Create the admin user
+    const adminUser = this.userRepository.create({
+      email,
+      passwordHash,
+      displayName: displayName || email.split("@")[0],
+      username,
+      friendCode,
+      role: UserRole.ADMIN,
+      isVerified: true, // Admin users are automatically verified
+    });
+
+    return this.userRepository.save(adminUser);
+  }
+
+  async deleteAdminUser(adminId: string, currentUserId: string): Promise<void> {
+    // Prevent self-deletion
+    if (adminId === currentUserId) {
+      throw new Error("Cannot delete your own admin account");
+    }
+
+    const adminUser = await this.userRepository.findOne({
+      where: { id: adminId, role: UserRole.ADMIN },
+    });
+
+    if (!adminUser) {
+      throw new Error("Admin user not found");
+    }
+
+    // Check if this is the last admin
+    const adminCount = await this.userRepository.count({
+      where: { role: UserRole.ADMIN },
+    });
+
+    if (adminCount <= 1) {
+      throw new Error("Cannot delete the last admin user");
+    }
+
+    // Delete the admin user
+    await this.userRepository.remove(adminUser);
+  }
+
+  private generateFriendCode(): string {
+    // Generate a 6-character alphanumeric code
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let result = "";
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
 }

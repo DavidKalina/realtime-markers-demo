@@ -1003,3 +1003,94 @@ adminRouter.patch("/users/:id/role", async (c) => {
     );
   }
 });
+
+adminRouter.post("/users/admins", async (c) => {
+  try {
+    const { email, password, displayName, username } = await c.req.json();
+
+    // Validate required fields
+    if (!email || !password) {
+      return c.json({ error: "Email and password are required" }, 400);
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return c.json({ error: "Invalid email format" }, 400);
+    }
+
+    // Validate password strength
+    if (password.length < 8) {
+      return c.json(
+        { error: "Password must be at least 8 characters long" },
+        400,
+      );
+    }
+
+    const userService = new UserService();
+    const newAdmin = await userService.createAdminUser({
+      email,
+      password,
+      displayName,
+      username,
+    });
+
+    // Return user data without password hash
+    const userData = {
+      id: newAdmin.id,
+      email: newAdmin.email,
+      username: newAdmin.username,
+      displayName: newAdmin.displayName,
+      avatarUrl: newAdmin.avatarUrl,
+      role: newAdmin.role,
+      planType: newAdmin.planType,
+      isVerified: newAdmin.isVerified,
+      discoveryCount: newAdmin.discoveryCount,
+      scanCount: newAdmin.scanCount,
+      saveCount: newAdmin.saveCount,
+      viewCount: newAdmin.viewCount,
+      totalXp: newAdmin.totalXp,
+      currentTitle: newAdmin.currentTitle,
+      createdAt: newAdmin.createdAt,
+      updatedAt: newAdmin.updatedAt,
+    };
+    return c.json(userData, 201);
+  } catch (error) {
+    console.error("Error creating admin user:", error);
+    return c.json(
+      {
+        error: "Failed to create admin user",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+});
+
+adminRouter.delete("/users/admins/:id", async (c) => {
+  try {
+    const adminId = c.req.param("id");
+    const currentUser = c.get("user");
+
+    if (!currentUser || !currentUser.id) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const userService = new UserService();
+    await userService.deleteAdminUser(adminId, currentUser.id);
+
+    return c.json({
+      success: true,
+      message: "Admin user deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting admin user:", error);
+    return c.json(
+      {
+        error: "Failed to delete admin user",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+});
