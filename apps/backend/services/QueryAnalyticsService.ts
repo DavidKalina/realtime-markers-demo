@@ -27,6 +27,13 @@ export interface QueryCluster {
 }
 
 export interface QueryInsights {
+  summary: {
+    totalQueries: number;
+    totalSearches: number;
+    averageHitRate: number;
+    zeroHitQueries: number;
+    lowHitQueries: number;
+  };
   popularQueries: Array<{
     query: string;
     totalSearches: number;
@@ -232,9 +239,28 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
       similarityThreshold?: number;
     } = {},
   ): Promise<QueryInsights> {
-    const { days = 30, limit = 10, similarityThreshold = 0.8 } = options;
+    const {
+      days = 30,
+      limit = 10,
+      minSearches = 3,
+      similarityThreshold = 0.8,
+    } = options;
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    // Get overall summary statistics
+    const summaryStats = await this.queryAnalyticsRepository
+      .createQueryBuilder("qa")
+      .select([
+        "COUNT(*) as total_queries",
+        "SUM(qa.total_searches) as total_searches",
+        "AVG(qa.hit_rate) as avg_hit_rate",
+        "COUNT(CASE WHEN qa.hit_rate = 0 THEN 1 END) as zero_hit_queries",
+        "COUNT(CASE WHEN qa.hit_rate < 50 THEN 1 END) as low_hit_queries",
+      ])
+      .where("qa.last_searched_at >= :cutoffDate", { cutoffDate })
+      .andWhere("LENGTH(qa.query) >= 3")
+      .getRawOne();
 
     // Get popular queries
     const popularQueries = await this.queryAnalyticsRepository
@@ -245,8 +271,9 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
         "qa.hit_rate",
         "qa.average_results_per_search",
       ])
-      // .where("qa.total_searches >= :minSearches", { minSearches })
-      // .andWhere("qa.last_searched_at >= :cutoffDate", { cutoffDate })
+      .where("qa.total_searches >= :minSearches", { minSearches })
+      .andWhere("qa.last_searched_at >= :cutoffDate", { cutoffDate })
+      .andWhere("LENGTH(qa.query) >= 3") // Exclude very short queries (likely typos)
       .orderBy("qa.total_searches", "DESC")
       .limit(limit)
       .getRawMany();
@@ -260,9 +287,10 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
         "qa.hit_rate",
         "qa.last_searched_at",
       ])
-      // .where("qa.total_searches >= :minSearches", { minSearches })
-      // .andWhere("qa.hit_rate < 50") // Less than 50% hit rate
-      // .andWhere("qa.last_searched_at >= :cutoffDate", { cutoffDate })
+      .where("qa.total_searches >= :minSearches", { minSearches })
+      .andWhere("qa.hit_rate < 50") // Less than 50% hit rate
+      .andWhere("qa.last_searched_at >= :cutoffDate", { cutoffDate })
+      .andWhere("LENGTH(qa.query) >= 3") // Exclude very short queries
       .orderBy("qa.total_searches", "DESC")
       .limit(limit)
       .getRawMany();
@@ -271,8 +299,9 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
     const zeroResultQueries = await this.queryAnalyticsRepository
       .createQueryBuilder("qa")
       .select(["qa.query", "qa.zero_result_searches", "qa.last_searched_at"])
-      // .where("qa.zero_result_searches > 0")
-      // .andWhere("qa.last_searched_at >= :cutoffDate", { cutoffDate })
+      .where("qa.zero_result_searches > 0")
+      .andWhere("qa.last_searched_at >= :cutoffDate", { cutoffDate })
+      .andWhere("LENGTH(qa.query) >= 3") // Exclude very short queries
       .orderBy("qa.zero_result_searches", "DESC")
       .limit(limit)
       .getRawMany();
@@ -281,8 +310,9 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
     const trendingQueries = await this.queryAnalyticsRepository
       .createQueryBuilder("qa")
       .select(["qa.query", "qa.total_searches", "qa.last_searched_at"])
-      // .where("qa.last_searched_at >= :cutoffDate", { cutoffDate })
-      // .andWhere("qa.total_searches >= 3") // At least 3 searches to be considered trending
+      .where("qa.last_searched_at >= :cutoffDate", { cutoffDate })
+      .andWhere("qa.total_searches >= 3") // At least 3 searches to be considered trending
+      .andWhere("LENGTH(qa.query) >= 3") // Exclude very short queries
       .orderBy("qa.last_searched_at", "DESC")
       .limit(limit)
       .getRawMany();
@@ -291,6 +321,13 @@ export class QueryAnalyticsServiceImpl implements QueryAnalyticsService {
     const queryClusters = await this.getQueryClusters(similarityThreshold);
 
     const result = {
+      summary: {
+        totalQueries: parseInt(summaryStats.total_queries),
+        totalSearches: parseInt(summaryStats.total_searches),
+        averageHitRate: parseFloat(summaryStats.avg_hit_rate),
+        zeroHitQueries: parseInt(summaryStats.zero_hit_queries),
+        lowHitQueries: parseInt(summaryStats.low_hit_queries),
+      },
       popularQueries: popularQueries.map((q) => ({
         query: q.qa_query,
         totalSearches: parseInt(q.total_searches),

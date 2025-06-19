@@ -884,7 +884,7 @@ adminRouter.get("/analytics/queries/insights", async (c) => {
     const eventService = c.get("eventService");
     const days = parseInt(c.req.query("days") || "30");
     const limit = parseInt(c.req.query("limit") || "10");
-    const minSearches = parseInt(c.req.query("minSearches") || "1");
+    const minSearches = parseInt(c.req.query("minSearches") || "3");
 
     const insights = await eventService.getQueryInsights({
       days,
