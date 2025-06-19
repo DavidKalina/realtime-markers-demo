@@ -44,7 +44,7 @@ export default function UsersPage() {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("");
+  const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -56,7 +56,7 @@ export default function UsersPage() {
         page: currentPage,
         limit: 20,
         search: search || undefined,
-        role: (roleFilter as any) || undefined,
+        role: roleFilter === "ALL" ? undefined : (roleFilter as any),
       });
 
       if (response.data) {
@@ -213,7 +213,7 @@ export default function UsersPage() {
                   <SelectValue placeholder="Filter by role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Roles</SelectItem>
+                  <SelectItem value="ALL">All Roles</SelectItem>
                   <SelectItem value="USER">User</SelectItem>
                   <SelectItem value="MODERATOR">Moderator</SelectItem>
                   <SelectItem value="ADMIN">Admin</SelectItem>
