@@ -29,6 +29,10 @@ import type { EventCacheService } from "./shared/EventCacheService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import type { OpenAIService } from "./shared/OpenAIService";
 import type { RedisService } from "./shared/RedisService";
+import type { QueryAnalyticsService } from "./QueryAnalyticsService";
+import { createQueryAnalyticsService } from "./QueryAnalyticsService";
+import type { QueryInsights, QueryCluster } from "./QueryAnalyticsService";
+import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
 
 interface SearchResult {
   event: Event;
@@ -216,6 +220,71 @@ export interface EventService {
 
   // Admin operations
   recalculateCounts(): Promise<{ eventsUpdated: number; usersUpdated: number }>;
+
+  // Add analytics methods to the interface
+  getQueryInsights(options?: {
+    days?: number;
+    limit?: number;
+    minSearches?: number;
+    similarityThreshold?: number;
+  }): Promise<QueryInsights>;
+
+  getPopularQueries(limit?: number): Promise<
+    Array<{
+      query: string;
+      totalSearches: number;
+      hitRate: number;
+      averageResults: number;
+    }>
+  >;
+
+  getLowHitRateQueries(limit?: number): Promise<
+    Array<{
+      query: string;
+      totalSearches: number;
+      hitRate: number;
+      lastSearched: Date;
+    }>
+  >;
+
+  getZeroResultQueries(limit?: number): Promise<
+    Array<{
+      query: string;
+      searchCount: number;
+      lastSearched: Date;
+    }>
+  >;
+
+  getQueryStats(query: string): Promise<{
+    totalSearches: number;
+    totalHits: number;
+    hitRate: number;
+    averageResults: number;
+    firstSearched: Date | null;
+    lastSearched: Date | null;
+    topResults: string[];
+    searchCategories: string[];
+  } | null>;
+
+  getQueryClusters(similarityThreshold?: number): Promise<QueryCluster[]>;
+
+  findSimilarQueries(
+    query: string,
+    limit?: number,
+    similarityThreshold?: number,
+  ): Promise<
+    Array<{
+      query: string;
+      similarity: number;
+      totalSearches: number;
+      hitRate: number;
+    }>
+  >;
+
+  updateQueryFlags(): Promise<{
+    popularQueriesUpdated: number;
+    attentionQueriesUpdated: number;
+  }>;
 }
 
 // Define dependencies interface for cleaner constructor
@@ -226,6 +295,7 @@ export interface EventServiceDependencies {
   eventCacheService: EventCacheService;
   openaiService: OpenAIService;
   levelingService: LevelingService;
+  embeddingService: IEmbeddingService;
 }
 
 export class EventServiceRefactored implements EventService {
@@ -235,8 +305,15 @@ export class EventServiceRefactored implements EventService {
   private sharingService: EventSharingService;
   private analysisService: EventAnalysisService;
   private adminService: EventAdminService;
+  private queryAnalyticsService: QueryAnalyticsService;
 
   constructor(private dependencies: EventServiceDependencies) {
+    // Initialize the query analytics service first
+    this.queryAnalyticsService = createQueryAnalyticsService({
+      dataSource: dependencies.dataSource,
+      embeddingService: dependencies.embeddingService,
+    });
+
     // Initialize all the smaller services
     this.lifecycleService = createEventLifecycleService({
       dataSource: dependencies.dataSource,
@@ -250,6 +327,7 @@ export class EventServiceRefactored implements EventService {
       dataSource: dependencies.dataSource,
       eventCacheService: dependencies.eventCacheService,
       openaiService: dependencies.openaiService,
+      queryAnalyticsService: this.queryAnalyticsService,
     });
 
     this.engagementService = createUserEngagementService({
@@ -482,6 +560,52 @@ export class EventServiceRefactored implements EventService {
   // Admin operations - delegate to EventAdminService
   async recalculateCounts() {
     return this.adminService.recalculateCounts();
+  }
+
+  // Add analytics methods to the interface
+  async getQueryInsights(options?: {
+    days?: number;
+    limit?: number;
+    minSearches?: number;
+    similarityThreshold?: number;
+  }): Promise<QueryInsights> {
+    return this.queryAnalyticsService.getQueryInsights(options);
+  }
+
+  async getPopularQueries(limit?: number) {
+    return this.queryAnalyticsService.getPopularQueries(limit);
+  }
+
+  async getLowHitRateQueries(limit?: number) {
+    return this.queryAnalyticsService.getLowHitRateQueries(limit);
+  }
+
+  async getZeroResultQueries(limit?: number) {
+    return this.queryAnalyticsService.getZeroResultQueries(limit);
+  }
+
+  async getQueryStats(query: string) {
+    return this.queryAnalyticsService.getQueryStats(query);
+  }
+
+  async getQueryClusters(similarityThreshold?: number) {
+    return this.queryAnalyticsService.getQueryClusters(similarityThreshold);
+  }
+
+  async findSimilarQueries(
+    query: string,
+    limit?: number,
+    similarityThreshold?: number,
+  ) {
+    return this.queryAnalyticsService.findSimilarQueries(
+      query,
+      limit,
+      similarityThreshold,
+    );
+  }
+
+  async updateQueryFlags() {
+    return this.queryAnalyticsService.updateQueryFlags();
   }
 }
 
