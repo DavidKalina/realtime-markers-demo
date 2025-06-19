@@ -1,6 +1,5 @@
 // stores/useLocationStore.ts - Updated with unified selection model
 import { create } from "zustand";
-import * as Linking from "expo-linking";
 import { EventType, MapboxViewport } from "@/types/types";
 import { markerToEvent, isValidCoordinates } from "@/utils/mapUtils";
 import { Marker } from "@/hooks/useMapWebsocket";
@@ -449,11 +448,13 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
     ) {
       const [longitude, latitude] = selectedMarker.coordinates;
       const url = `https://maps.google.com/?q=${latitude},${longitude}`;
-      Linking.openURL(url);
+      console.log("url", url);
+      // Linking.openURL(url);
     } else {
       const encodedLocation = encodeURIComponent(location);
       const url = `https://maps.google.com/?q=${encodedLocation}`;
-      Linking.openURL(url);
+      console.log("url", url);
+      // Linking.openURL(url);
     }
   },
 
