@@ -19,12 +19,13 @@ export function ZeroResultQueriesSection({
   const router = useRouter();
 
   const formatDate = (date: Date) => {
+    const dateObj = date instanceof Date ? date : new Date(date);
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    }).format(date);
+    }).format(dateObj);
   };
 
   const handleQueryClick = (query: string) => {
