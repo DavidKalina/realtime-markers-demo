@@ -802,3 +802,23 @@ export const trackEventViewHandler: EventHandler = withErrorHandling(
     });
   },
 );
+
+export const getLandingPageDataHandler: EventHandler = withErrorHandling(
+  async (c) => {
+    const userLat = c.req.query("lat");
+    const userLng = c.req.query("lng");
+    const featuredLimit = c.req.query("featuredLimit");
+    const upcomingLimit = c.req.query("upcomingLimit");
+
+    const eventService = getEventService(c);
+
+    const landingPageData = await eventService.getLandingPageData({
+      userLat: userLat ? parseFloat(userLat) : undefined,
+      userLng: userLng ? parseFloat(userLng) : undefined,
+      featuredLimit: featuredLimit ? parseInt(featuredLimit) : undefined,
+      upcomingLimit: upcomingLimit ? parseInt(upcomingLimit) : undefined,
+    });
+
+    return c.json(landingPageData);
+  },
+);

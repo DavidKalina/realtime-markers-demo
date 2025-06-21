@@ -102,6 +102,17 @@ export interface EventService {
     options?: { limit?: number; cursor?: string },
   ): Promise<{ events: Event[]; nextCursor?: string }>;
 
+  getLandingPageData(options?: {
+    featuredLimit?: number;
+    upcomingLimit?: number;
+    userLat?: number;
+    userLng?: number;
+  }): Promise<{
+    featuredEvents: Event[];
+    upcomingEvents: Event[];
+    popularCategories: Category[];
+  }>;
+
   // User engagement operations
   toggleSaveEvent(
     userId: string,
@@ -442,6 +453,19 @@ export class EventServiceRefactored implements EventService {
 
   async getEventsByCategory(categoryId: string, options = {}) {
     return this.searchService.getEventsByCategory(categoryId, options);
+  }
+
+  async getLandingPageData(options?: {
+    featuredLimit?: number;
+    upcomingLimit?: number;
+    userLat?: number;
+    userLng?: number;
+  }): Promise<{
+    featuredEvents: Event[];
+    upcomingEvents: Event[];
+    popularCategories: Category[];
+  }> {
+    return this.searchService.getLandingPageData(options);
   }
 
   // User engagement operations - delegate to UserEngagementService

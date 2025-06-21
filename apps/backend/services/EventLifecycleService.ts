@@ -141,6 +141,12 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
 
     await this.eventCacheService.invalidateSearchCache();
 
+    // Invalidate any cluster hub caches that might be affected
+    await this.eventCacheService.invalidateAllClusterHubs();
+
+    // Invalidate landing page cache since new official events might affect the landing page
+    await this.eventCacheService.invalidateLandingPageCache();
+
     return savedEvent;
   }
 
@@ -271,6 +277,9 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       // Invalidate any cluster hub caches that might contain this event
       await this.eventCacheService.invalidateAllClusterHubs();
 
+      // Invalidate landing page cache since official events might have changed
+      await this.eventCacheService.invalidateLandingPageCache();
+
       return savedEvent;
     } catch (error) {
       console.error(`Error updating event ${id}:`, error);
@@ -306,6 +315,9 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
 
       // Invalidate any cluster hub caches that might contain this event
       await this.eventCacheService.invalidateAllClusterHubs();
+
+      // Invalidate landing page cache since official events might have changed
+      await this.eventCacheService.invalidateLandingPageCache();
 
       return result.affected ? result.affected > 0 : false;
     } catch (error) {
