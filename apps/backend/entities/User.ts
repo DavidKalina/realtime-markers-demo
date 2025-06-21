@@ -36,6 +36,12 @@ export class User {
   @Column({ type: "varchar", unique: true })
   email!: string;
 
+  @Column({ name: "first_name", type: "varchar", nullable: true })
+  firstName?: string;
+
+  @Column({ name: "last_name", type: "varchar", nullable: true })
+  lastName?: string;
+
   @Index({ unique: true })
   @Column({ name: "username", type: "varchar", unique: true, nullable: true })
   username?: string;

@@ -24,6 +24,8 @@ export class UserTable1710000000006 implements MigrationInterface {
             default: "uuid_generate_v4()",
           },
           { name: "email", type: "varchar", isUnique: true },
+          { name: "first_name", type: "varchar", isNullable: true },
+          { name: "last_name", type: "varchar", isNullable: true },
           {
             name: "username",
             type: "varchar",
