@@ -98,7 +98,6 @@ export interface ScreenProps<T extends string = string> {
 
 const Screen = <T extends string>({
   bannerTitle,
-  bannerEmoji,
   showBackButton = true,
   onBack,
   tabs,
@@ -184,7 +183,6 @@ const Screen = <T extends string>({
           <View style={styles.fixedBannerWrapper}>
             <Banner
               name={bannerTitle || ""}
-              emoji={bannerEmoji}
               onBack={handleBack}
               scrollY={scrollY}
               extendToStatusBar={extendBannerToStatusBar}
@@ -247,7 +245,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingTop: 16,
+    paddingVertical: 16,
   },
   contentWithFooter: {
     paddingBottom: 24, // Add padding when footer is present

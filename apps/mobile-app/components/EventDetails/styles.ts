@@ -105,7 +105,7 @@ export const styles = StyleSheet.create({
   detailsSection: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    gap: 16,
+    gap: 24,
   },
 
   // Info Card Components
