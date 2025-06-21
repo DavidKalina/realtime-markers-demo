@@ -53,7 +53,8 @@ const RegisterScreen: React.FC = () => {
   const router = useRouter();
   const { register } = useAuth();
   const [email, setEmail] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -62,7 +63,8 @@ const RegisterScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const emailInputRef = useRef<TextInput>(null);
-  const displayNameInputRef = useRef<TextInput>(null);
+  const firstNameInputRef = useRef<TextInput>(null);
+  const lastNameInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
   const buttonScale = useSharedValue(1);
@@ -97,7 +99,7 @@ const RegisterScreen: React.FC = () => {
 
     // Delay the auto-focus until after animations complete
     const timer = setTimeout(() => {
-      displayNameInputRef.current?.focus();
+      firstNameInputRef.current?.focus();
     }, 1000); // 1000ms delay to allow animations to complete
 
     return () => clearTimeout(timer);
@@ -162,7 +164,7 @@ const RegisterScreen: React.FC = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      await register(email, password, displayName);
+      await register(email, password, firstName, lastName);
       router.replace("/");
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -227,16 +229,29 @@ const RegisterScreen: React.FC = () => {
 
                   <View style={{ gap: 16 }}>
                     <Input
-                      ref={displayNameInputRef}
+                      ref={firstNameInputRef}
                       icon={User}
-                      placeholder="Display name"
-                      value={displayName}
-                      onChangeText={setDisplayName}
+                      placeholder="First name"
+                      value={firstName}
+                      onChangeText={setFirstName}
+                      autoCapitalize="words"
+                      autoCorrect={false}
+                      returnKeyType="next"
+                      onSubmitEditing={() => lastNameInputRef.current?.focus()}
+                      delay={300}
+                    />
+
+                    <Input
+                      ref={lastNameInputRef}
+                      icon={User}
+                      placeholder="Last name"
+                      value={lastName}
+                      onChangeText={setLastName}
                       autoCapitalize="words"
                       autoCorrect={false}
                       returnKeyType="next"
                       onSubmitEditing={() => emailInputRef.current?.focus()}
-                      delay={300}
+                      delay={400}
                     />
 
                     <Input
@@ -251,7 +266,7 @@ const RegisterScreen: React.FC = () => {
                       keyboardType="email-address"
                       returnKeyType="next"
                       onSubmitEditing={() => passwordInputRef.current?.focus()}
-                      delay={400}
+                      delay={500}
                     />
 
                     <Input
@@ -267,7 +282,7 @@ const RegisterScreen: React.FC = () => {
                       onSubmitEditing={() =>
                         confirmPasswordInputRef.current?.focus()
                       }
-                      delay={500}
+                      delay={600}
                     />
 
                     <Input
@@ -281,7 +296,7 @@ const RegisterScreen: React.FC = () => {
                       secureTextEntry={!showConfirmPassword}
                       returnKeyType="done"
                       onSubmitEditing={handleRegisterPress}
-                      delay={600}
+                      delay={700}
                     />
                   </View>
 

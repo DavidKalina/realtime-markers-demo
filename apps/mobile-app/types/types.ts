@@ -7,7 +7,8 @@ export type Coordinates = [number, number]; // [longitude, latitude]
 export interface UserType {
   id: string;
   email: string;
-  displayName?: string;
+  firstName?: string;
+  lastName?: string;
   avatarUrl?: string;
   role: string;
   // Add other user properties you need
@@ -49,7 +50,8 @@ export interface EventType {
   discoveryCount?: number;
   savedBy?: {
     id: string;
-    displayName: string;
+    firstName?: string;
+    lastName?: string;
     email: string;
   };
   isPrivate?: boolean;

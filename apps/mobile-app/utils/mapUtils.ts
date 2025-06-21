@@ -61,7 +61,8 @@ export const markerToEvent = (marker: {
     emojiDescription?: string;
     creator?: {
       id: string;
-      displayName: string;
+      firstName?: string;
+      lastName?: string;
       email: string;
       role: string;
       avatarUrl?: string;

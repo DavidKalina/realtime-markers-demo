@@ -127,7 +127,16 @@ const MunicipalBanner: React.FC<MunicipalBannerProps> = ({
               style={styles.userInfoContainer}
             >
               <Text style={styles.userInfo}>
-                {user?.displayName || user?.email}
+                {(() => {
+                  if (user?.firstName && user?.lastName) {
+                    return `${user.firstName} ${user.lastName}`;
+                  } else if (user?.firstName) {
+                    return user.firstName;
+                  } else if (user?.lastName) {
+                    return user.lastName;
+                  }
+                  return user?.email || "";
+                })()}
               </Text>
             </Animated.View>
           )}

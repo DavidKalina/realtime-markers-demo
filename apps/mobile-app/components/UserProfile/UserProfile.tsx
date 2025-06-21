@@ -68,10 +68,22 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     );
   }
 
+  // Helper function to format display name
+  const getDisplayName = () => {
+    if (profileData?.firstName && profileData?.lastName) {
+      return `${profileData.firstName} ${profileData.lastName}`;
+    } else if (profileData?.firstName) {
+      return profileData.firstName;
+    } else if (profileData?.lastName) {
+      return profileData.lastName;
+    }
+    return user?.email || "";
+  };
+
   return (
     <>
       <Screen
-        bannerTitle={profileData?.displayName || user?.email || ""}
+        bannerTitle={getDisplayName()}
         bannerDescription={profileData?.bio || "View your profile details"}
         bannerEmoji="👤"
         showBackButton={true}
@@ -82,10 +94,18 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           {/* Account Info Card */}
           <Card style={styles.card}>
             <Text style={styles.sectionTitle}>Account Information</Text>
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Username</Text>
-              <Text style={styles.value}>{profileData?.username}</Text>
-            </View>
+            {profileData?.firstName && (
+              <View style={styles.detailRow}>
+                <Text style={styles.label}>First Name</Text>
+                <Text style={styles.value}>{profileData.firstName}</Text>
+              </View>
+            )}
+            {profileData?.lastName && (
+              <View style={styles.detailRow}>
+                <Text style={styles.label}>Last Name</Text>
+                <Text style={styles.value}>{profileData.lastName}</Text>
+              </View>
+            )}
             <View style={styles.detailRow}>
               <Text style={styles.label}>Email</Text>
               <Text style={styles.value}>{user?.email}</Text>

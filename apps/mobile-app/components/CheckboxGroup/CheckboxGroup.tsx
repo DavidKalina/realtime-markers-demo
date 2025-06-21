@@ -13,7 +13,8 @@ import { COLORS } from "../Layout/ScreenLayout";
 // Generic item interface that can be used for any selectable items
 export interface SelectableItem {
   id: string;
-  displayName?: string;
+  firstName?: string;
+  lastName?: string;
   email?: string;
   avatarUrl?: string;
   [key: string]: string | number | boolean | undefined; // Allow additional properties with specific types
@@ -52,11 +53,11 @@ const DefaultItemCard = <T extends SelectableItem>({
   >
     <View style={styles.itemInfo}>
       <Text style={styles.itemName}>
-        {item.displayName || item.email || item.id}
+        {item.firstName && item.lastName
+          ? `${item.firstName} ${item.lastName}`
+          : item.email || item.id}
       </Text>
-      {item.displayName && item.email && (
-        <Text style={styles.itemEmail}>{item.email}</Text>
-      )}
+      {item.email && <Text style={styles.itemEmail}>{item.email}</Text>}
     </View>
     <View style={[styles.checkbox, isSelected && styles.checkboxSelected]} />
   </TouchableOpacity>

@@ -9,7 +9,8 @@ export interface FriendWithDetails extends SelectableItem {
   createdAt: string;
   updatedAt: string;
   // User details (these would come from the API)
-  displayName?: string;
+  firstName?: string;
+  lastName?: string;
   email?: string;
   avatarUrl?: string;
 }

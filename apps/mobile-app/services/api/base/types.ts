@@ -12,7 +12,8 @@ export interface AuthTokens {
 export interface User {
   id: string;
   email: string;
-  displayName: string;
+  firstName?: string;
+  lastName?: string;
   role: string;
   avatarUrl?: string;
   isVerified: boolean;
@@ -24,7 +25,6 @@ export interface User {
   currentTitle?: string;
   level?: number;
   nextLevelXp?: number;
-  username?: string;
 }
 
 export interface LoginResponse {
@@ -62,7 +62,8 @@ export interface ApiEvent {
   emojiDescription?: string;
   creator?: {
     id: string;
-    displayName: string;
+    firstName?: string;
+    lastName?: string;
     email: string;
     role: string;
     avatarUrl?: string;
@@ -211,7 +212,8 @@ export interface ClusterHubData {
   clusterDescription: string;
   featuredCreator?: {
     id: string;
-    displayName: string;
+    firstName?: string;
+    lastName?: string;
     email: string;
     eventCount: number;
     creatorDescription: string;
@@ -382,7 +384,8 @@ export interface EventType {
   categories: string[];
   creator?: {
     id: string;
-    displayName: string;
+    firstName?: string;
+    lastName?: string;
     email: string;
     role: string;
     avatarUrl?: string;
@@ -405,7 +408,8 @@ export interface EventType {
   sharedWithIds: string[];
   savedBy?: {
     id: string;
-    displayName: string;
+    firstName?: string;
+    lastName?: string;
     avatarUrl?: string;
   }[];
 }

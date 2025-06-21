@@ -2,7 +2,6 @@
 
 import { BaseApiClient } from "./api/base/ApiClient";
 import { EventApiClient } from "./api/modules/events";
-import { ClusterApiClient } from "./api/modules/clusters";
 import { PlacesApiClient } from "./api/modules/places";
 import { AuthModule } from "./api/modules/auth";
 import { FiltersModule } from "./api/modules/filters";
@@ -16,13 +15,11 @@ export * from "./api/modules/events";
 // export * from "./api/modules/notifications"; // Types are now in base/types
 export * from "./api/modules/filters";
 export * from "./api/modules/rsvp";
-export * from "./api/modules/clusters";
 export * from "./api/modules/places";
 
 class ApiClient extends BaseApiClient {
   private static instance: ApiClient | null = null;
   private _events: EventApiClient | null = null;
-  private _clusters: ClusterApiClient | null = null;
   private _places: PlacesApiClient | null = null;
   private _auth: AuthModule | null = null;
   private _filters: FiltersModule | null = null;
@@ -51,13 +48,6 @@ class ApiClient extends BaseApiClient {
       this._events = new EventApiClient(this);
     }
     return this._events;
-  }
-
-  public get clusters(): ClusterApiClient {
-    if (!this._clusters) {
-      this._clusters = new ClusterApiClient(this);
-    }
-    return this._clusters;
   }
 
   public get places(): PlacesApiClient {

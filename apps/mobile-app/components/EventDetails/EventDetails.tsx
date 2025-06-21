@@ -706,7 +706,16 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                   </View>
                   <Text style={styles.discoveredByTitle}>Discovered by</Text>
                   <Text style={styles.discoveredByName}>
-                    {event.creator.displayName || "Anonymous User"}
+                    {(() => {
+                      if (event.creator?.firstName && event.creator?.lastName) {
+                        return `${event.creator.firstName} ${event.creator.lastName}`;
+                      } else if (event.creator?.firstName) {
+                        return event.creator.firstName;
+                      } else if (event.creator?.lastName) {
+                        return event.creator.lastName;
+                      }
+                      return "Anonymous User";
+                    })()}
                   </Text>
                 </View>
               </View>

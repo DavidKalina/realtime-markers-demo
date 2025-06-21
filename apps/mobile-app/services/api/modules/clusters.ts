@@ -74,7 +74,8 @@ export class ClusterApiClient extends BaseApiModule {
     clusterDescription: string;
     featuredCreator?: {
       id: string;
-      displayName: string;
+      firstName?: string;
+      lastName?: string;
       email: string;
       eventCount: number;
       title: string;
@@ -103,7 +104,8 @@ export class ClusterApiClient extends BaseApiModule {
       clusterDescription: string;
       featuredCreator?: {
         id: string;
-        displayName: string;
+        firstName?: string;
+        lastName?: string;
         email: string;
         eventCount: number;
         creatorDescription: string;
