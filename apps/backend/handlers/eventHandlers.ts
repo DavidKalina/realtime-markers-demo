@@ -131,7 +131,7 @@ export const processEventImageHandler: EventHandler = withErrorHandling(
           }
         : null;
 
-    // Get job queue and plan service from context
+    // Get job queue from context
     const jobQueue = getJobQueue(c);
 
     // Validate the image

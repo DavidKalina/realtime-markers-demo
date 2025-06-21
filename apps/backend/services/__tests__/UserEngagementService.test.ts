@@ -30,7 +30,7 @@ import {
   type UserEngagementServiceDependencies,
 } from "../UserEngagementService";
 import { Event, EventStatus } from "../../entities/Event";
-import { User, UserRole, PlanType } from "../../entities/User";
+import { User, UserRole } from "../../entities/User";
 import { UserEventSave } from "../../entities/UserEventSave";
 import { UserEventRsvp, RsvpStatus } from "../../entities/UserEventRsvp";
 import { UserEventDiscovery } from "../../entities/UserEventDiscovery";
@@ -58,7 +58,6 @@ describe("UserEngagementService", () => {
     currentTitle: "Event Explorer",
     passwordHash: "hashed",
     role: UserRole.USER,
-    planType: PlanType.FREE,
     isVerified: false,
     discoveryCount: 0,
     scanCount: 0,

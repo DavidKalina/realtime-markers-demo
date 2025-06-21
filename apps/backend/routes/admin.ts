@@ -1044,7 +1044,6 @@ adminRouter.post("/users/admins", async (c) => {
       email: newAdmin.email,
       avatarUrl: newAdmin.avatarUrl,
       role: newAdmin.role,
-      planType: newAdmin.planType,
       isVerified: newAdmin.isVerified,
       discoveryCount: newAdmin.discoveryCount,
       scanCount: newAdmin.scanCount,

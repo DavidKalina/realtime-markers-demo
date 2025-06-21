@@ -49,7 +49,6 @@ import {
   createMockRedisService,
   createMockEventService,
   createMockEventProcessingService,
-  createMockPlanService,
   createMockStorageService,
   createMockJobHandlerContext,
 } from "./test-utils";

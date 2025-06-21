@@ -13,7 +13,7 @@ export class SeedUsers1710000000012 implements MigrationInterface {
     await queryRunner.query(`
       INSERT INTO users (
         id, email, friend_code, password_hash, 
-        role, plan_type, is_verified, discovery_count, scan_count, 
+        role, is_verified, discovery_count, scan_count, 
         save_count, view_count, weekly_scan_count, created_at, updated_at
       ) VALUES (
         '550e8400-e29b-41d4-a716-446655440001',
@@ -21,7 +21,6 @@ export class SeedUsers1710000000012 implements MigrationInterface {
         'USER001',
         '${userPasswordHash}',
         'USER',
-        'FREE',
         true,
         0,
         0,
@@ -37,7 +36,7 @@ export class SeedUsers1710000000012 implements MigrationInterface {
     await queryRunner.query(`
       INSERT INTO users (
         id, email, friend_code, password_hash, 
-        role, plan_type, is_verified, discovery_count, scan_count, 
+        role, is_verified, discovery_count, scan_count, 
         save_count, view_count, weekly_scan_count, created_at, updated_at
       ) VALUES (
         '550e8400-e29b-41d4-a716-446655440002',
@@ -45,7 +44,6 @@ export class SeedUsers1710000000012 implements MigrationInterface {
         'MOD001',
         '${moderatorPasswordHash}',
         'MODERATOR',
-        'PRO',
         true,
         0,
         0,
@@ -61,7 +59,7 @@ export class SeedUsers1710000000012 implements MigrationInterface {
     await queryRunner.query(`
       INSERT INTO users (
         id, email, friend_code, password_hash, 
-        role, plan_type, is_verified, discovery_count, scan_count, 
+        role, is_verified, discovery_count, scan_count, 
         save_count, view_count, weekly_scan_count, created_at, updated_at
       ) VALUES (
         '550e8400-e29b-41d4-a716-446655440003',
@@ -69,7 +67,6 @@ export class SeedUsers1710000000012 implements MigrationInterface {
         'ADMIN001',
         '${adminPasswordHash}',
         'ADMIN',
-        'PRO',
         true,
         0,
         0,

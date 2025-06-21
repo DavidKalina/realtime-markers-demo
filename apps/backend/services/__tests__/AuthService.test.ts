@@ -34,7 +34,6 @@ describe("AuthService", () => {
     scanCount: 0,
     saveCount: 0,
     refreshToken: "refresh-token-123",
-    planType: "FREE" as const,
     discoveryCount: 0,
     weeklyScanCount: 0,
     lastScanReset: undefined,

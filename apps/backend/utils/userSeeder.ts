@@ -1,12 +1,11 @@
 import { DataSource } from "typeorm";
-import { User, UserRole, PlanType } from "../entities/User";
+import { User, UserRole } from "../entities/User";
 import bcrypt from "bcrypt";
 
 export interface SeededUser {
   email: string;
   passwordHash: string;
   role: UserRole;
-  planType: PlanType;
   isVerified: boolean;
 }
 
@@ -14,19 +13,16 @@ export const SEEDED_USERS: Omit<SeededUser, "passwordHash">[] = [
   {
     email: "user@example.com",
     role: UserRole.USER,
-    planType: PlanType.FREE,
     isVerified: true,
   },
   {
     email: "moderator@example.com",
     role: UserRole.MODERATOR,
-    planType: PlanType.PRO,
     isVerified: true,
   },
   {
     email: "admin@example.com",
     role: UserRole.ADMIN,
-    planType: PlanType.PRO,
     isVerified: true,
   },
 ];

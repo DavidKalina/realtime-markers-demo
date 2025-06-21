@@ -237,7 +237,6 @@ export function createTestUserData(overrides: Record<string, unknown> = {}) {
   return {
     id: "user-123",
     email: "test@example.com",
-    planType: "FREE",
     scanCount: 0,
     saveCount: 0,
     weeklyScanCount: 0,

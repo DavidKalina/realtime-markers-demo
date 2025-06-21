@@ -7,9 +7,6 @@ export class UserTable1710000000006 implements MigrationInterface {
     await queryRunner.query(
       "CREATE TYPE \"users_role_enum\" AS ENUM('USER', 'MODERATOR', 'ADMIN')",
     );
-    await queryRunner.query(
-      "CREATE TYPE \"users_plan_type_enum\" AS ENUM('FREE', 'PRO')",
-    );
 
     await queryRunner.createTable(
       new Table({
@@ -37,11 +34,6 @@ export class UserTable1710000000006 implements MigrationInterface {
           { name: "avatar_url", type: "varchar", isNullable: true },
           { name: "bio", type: "text", isNullable: true },
           { name: "role", type: "users_role_enum", default: "'USER'" },
-          {
-            name: "plan_type",
-            type: "users_plan_type_enum",
-            default: "'FREE'",
-          },
           { name: "is_verified", type: "boolean", default: false },
           { name: "discovery_count", type: "integer", default: 0 },
           { name: "scan_count", type: "integer", default: 0 },
@@ -73,6 +65,5 @@ export class UserTable1710000000006 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.dropTable("users");
     await queryRunner.query('DROP TYPE IF EXISTS "users_role_enum"');
-    await queryRunner.query('DROP TYPE IF EXISTS "users_plan_type_enum"');
   }
 }
