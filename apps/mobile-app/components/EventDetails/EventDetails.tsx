@@ -10,8 +10,6 @@ import {
   Navigation2,
   QrCode,
   Scan,
-  Share,
-  X,
   Repeat,
   Clock,
   Users,
@@ -213,11 +211,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       error,
       event,
       handleOpenMaps,
-      handleShare,
       handleToggleSave,
       handleToggleRsvp,
       savingState,
-      isAdmin,
       isSaved,
       distanceInfo,
       userLocation,
@@ -249,29 +245,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
         setDeleteModalVisible(false);
       }
     }, [eventId, handleBack]);
-
-    const handleEditEvent = useCallback(() => {
-      if (!event) return;
-
-      router.push({
-        pathname: "/create-private-event",
-        params: {
-          id: event.id,
-          title: event.title,
-          description: event.description,
-          eventDate:
-            event.eventDate instanceof Date
-              ? event.eventDate.toISOString()
-              : event.eventDate,
-          emoji: event.emoji,
-          latitude: event.coordinates[1]?.toString(),
-          longitude: event.coordinates[0]?.toString(),
-          address: event.location,
-          locationNotes: event.locationNotes,
-          sharedWithIds: event.sharedWithIds,
-        },
-      });
-    }, [event, router]);
 
     // Memoize computed values
     const coordinates = useMemo(() => {
@@ -526,38 +499,8 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                 variant="primary"
                 disabled={!userLocation}
               />
-              <ActionButton
-                onPress={handleShare}
-                icon={Share}
-                text="Share Event"
-                variant="outline"
-              />
             </View>
           </Animated.View>
-
-          {/* Admin Actions */}
-          {isAdmin && (
-            <Animated.View
-              entering={FadeInDown.duration(600).delay(600).springify()}
-              style={styles.adminSection}
-            >
-              <Text style={styles.sectionTitle}>Admin Actions</Text>
-              <View style={styles.adminActionsContainer}>
-                <ActionButton
-                  onPress={handleEditEvent}
-                  icon={Building}
-                  text="Edit Event"
-                  variant="secondary"
-                />
-                <ActionButton
-                  onPress={() => setDeleteModalVisible(true)}
-                  icon={X}
-                  text="Delete Event"
-                  variant="outline"
-                />
-              </View>
-            </Animated.View>
-          )}
 
           {/* QR Code Section */}
           {(event.qrCodeData || event.detectedQrData || event.qrUrl) && (
