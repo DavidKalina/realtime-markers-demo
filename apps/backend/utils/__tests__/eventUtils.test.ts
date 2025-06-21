@@ -11,6 +11,8 @@ import {
   processCategories,
   generateEmbedding,
   prepareCreateEventInput,
+  processEventUpdateFormData,
+  prepareUpdateData,
   type EventDataWithCategories,
 } from "../eventUtils";
 
@@ -672,6 +674,444 @@ describe("eventUtils", () => {
       );
 
       expect(result.originalImageUrl).toBe("https://provided-image.jpg");
+    });
+  });
+
+  describe("processEventUpdateFormData", () => {
+    it("should process multipart/form-data with image upload for update", async () => {
+      mockFormData.set("image", mockFile);
+      (mockContext.req.header as jest.Mock).mockReturnValue(
+        "multipart/form-data; boundary=test",
+      );
+      (mockContext.req.formData as jest.Mock).mockResolvedValue(mockFormData);
+      (mockStorageService.uploadImage as jest.Mock).mockResolvedValue(
+        "https://example.com/updated-image.jpg",
+      );
+
+      const result = await processEventUpdateFormData(
+        mockContext,
+        mockStorageService,
+        testUser,
+        "event-123",
+      );
+
+      expect(result.data.title).toBe("Test Event");
+      expect(result.data.description).toBe("Test description");
+      expect(result.data.eventDate).toEqual(new Date("2024-01-01T10:00:00Z"));
+      expect(result.data.location).toEqual({
+        type: "Point",
+        coordinates: [40.7128, -74.006],
+      });
+      expect(result.originalImageUrl).toBe(
+        "https://example.com/updated-image.jpg",
+      );
+      expect(mockStorageService.uploadImage).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        "event-images",
+        expect.objectContaining({
+          filename: "test-image.jpg",
+          contentType: "image/jpeg",
+          uploadedBy: "user-123",
+          eventId: "event-123",
+        }),
+      );
+    });
+
+    it("should process multipart/form-data without image for update", async () => {
+      (mockContext.req.header as jest.Mock).mockReturnValue(
+        "multipart/form-data; boundary=test",
+      );
+      (mockContext.req.formData as jest.Mock).mockResolvedValue(mockFormData);
+
+      const result = await processEventUpdateFormData(
+        mockContext,
+        mockStorageService,
+        testUser,
+        "event-123",
+      );
+
+      expect(result.data.title).toBe("Test Event");
+      expect(result.originalImageUrl).toBeNull();
+      expect(mockStorageService.uploadImage).not.toHaveBeenCalled();
+    });
+
+    it("should reject invalid file types for update", async () => {
+      const invalidFile = new File(["test"], "test.txt", {
+        type: "text/plain",
+      });
+      mockFormData.set("image", invalidFile);
+      (mockContext.req.header as jest.Mock).mockReturnValue(
+        "multipart/form-data; boundary=test",
+      );
+      (mockContext.req.formData as jest.Mock).mockResolvedValue(mockFormData);
+
+      await expect(
+        processEventUpdateFormData(
+          mockContext,
+          mockStorageService,
+          testUser,
+          "event-123",
+        ),
+      ).rejects.toThrow(
+        "Invalid file type. Only JPEG and PNG files are allowed",
+      );
+    });
+
+    it("should process JSON data for update", async () => {
+      const jsonData = {
+        title: "Updated Event",
+        description: "Updated description",
+      };
+      (mockContext.req.header as jest.Mock).mockReturnValue("application/json");
+      (mockContext.req.json as jest.Mock).mockResolvedValue(jsonData);
+
+      const result = await processEventUpdateFormData(
+        mockContext,
+        mockStorageService,
+        testUser,
+        "event-123",
+      );
+
+      expect(result.data).toEqual(jsonData);
+      expect(result.originalImageUrl).toBeNull();
+    });
+
+    it("should handle eventData JSON in form data for update", async () => {
+      const eventData = {
+        title: "Updated Event Data",
+        description: "Updated event description",
+      };
+      mockFormData.set("eventData", JSON.stringify(eventData));
+      (mockContext.req.header as jest.Mock).mockReturnValue(
+        "multipart/form-data; boundary=test",
+      );
+      (mockContext.req.formData as jest.Mock).mockResolvedValue(mockFormData);
+
+      const result = await processEventUpdateFormData(
+        mockContext,
+        mockStorageService,
+        testUser,
+        "event-123",
+      );
+
+      expect(result.data).toEqual(eventData);
+    });
+
+    it("should handle invalid eventData JSON for update", async () => {
+      mockFormData.set("eventData", "invalid json");
+      (mockContext.req.header as jest.Mock).mockReturnValue(
+        "multipart/form-data; boundary=test",
+      );
+      (mockContext.req.formData as jest.Mock).mockResolvedValue(mockFormData);
+
+      await expect(
+        processEventUpdateFormData(
+          mockContext,
+          mockStorageService,
+          testUser,
+          "event-123",
+        ),
+      ).rejects.toThrow("Invalid event data format");
+    });
+
+    it("should handle recurring event fields for update", async () => {
+      mockFormData.set("isRecurring", "true");
+      mockFormData.set("recurrenceFrequency", "WEEKLY");
+      mockFormData.set("recurrenceTime", "10:00");
+      mockFormData.set("recurrenceInterval", "2");
+      mockFormData.set("recurrenceStartDate", "2024-01-01T00:00:00Z");
+      mockFormData.set("recurrenceEndDate", "2024-12-31T23:59:59Z");
+      mockFormData.set(
+        "recurrenceDays",
+        JSON.stringify([DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY]),
+      );
+
+      (mockContext.req.header as jest.Mock).mockReturnValue(
+        "multipart/form-data; boundary=test",
+      );
+      (mockContext.req.formData as jest.Mock).mockResolvedValue(mockFormData);
+
+      const result = await processEventUpdateFormData(
+        mockContext,
+        mockStorageService,
+        testUser,
+        "event-123",
+      );
+
+      expect(result.data.isRecurring).toBe(true);
+      expect(result.data.recurrenceFrequency).toBe(RecurrenceFrequency.WEEKLY);
+      expect(result.data.recurrenceTime).toBe("10:00");
+      expect(result.data.recurrenceInterval).toBe(2);
+      expect(result.data.recurrenceStartDate).toEqual(
+        new Date("2024-01-01T00:00:00Z"),
+      );
+      expect(result.data.recurrenceEndDate).toEqual(
+        new Date("2024-12-31T23:59:59Z"),
+      );
+      expect(result.data.recurrenceDays).toEqual([
+        DayOfWeek.MONDAY,
+        DayOfWeek.WEDNESDAY,
+      ]);
+    });
+
+    it("should handle categories as JSON for update", async () => {
+      const categories = [
+        { id: "cat-1", name: "Music" },
+        { id: "cat-2", name: "Sports" },
+      ];
+      mockFormData.set("categories", JSON.stringify(categories));
+      (mockContext.req.header as jest.Mock).mockReturnValue(
+        "multipart/form-data; boundary=test",
+      );
+      (mockContext.req.formData as jest.Mock).mockResolvedValue(mockFormData);
+
+      const result = await processEventUpdateFormData(
+        mockContext,
+        mockStorageService,
+        testUser,
+        "event-123",
+      );
+
+      expect(result.data.categories).toEqual(categories);
+    });
+
+    it("should handle categories as comma-separated IDs for update", async () => {
+      mockFormData.set("categories", "cat-1,cat-2,cat-3");
+      (mockContext.req.header as jest.Mock).mockReturnValue(
+        "multipart/form-data; boundary=test",
+      );
+      (mockContext.req.formData as jest.Mock).mockResolvedValue(mockFormData);
+
+      const result = await processEventUpdateFormData(
+        mockContext,
+        mockStorageService,
+        testUser,
+        "event-123",
+      );
+
+      expect(result.data.categoryIds).toEqual(["cat-1", "cat-2", "cat-3"]);
+    });
+  });
+
+  describe("prepareUpdateData", () => {
+    it("should process categories when provided", async () => {
+      const updateData: Partial<EventDataWithCategories> = {
+        title: "Updated Event",
+        categories: [
+          { id: "cat-1", name: "Music" },
+          { id: "cat-2", name: "Entertainment" },
+        ],
+      };
+
+      const result = await prepareUpdateData(
+        updateData,
+        mockCategoryProcessingService,
+        mockEmbeddingService,
+      );
+
+      expect(result.categoryIds).toEqual(["cat-1", "cat-2"]);
+      expect(result.categories).toEqual(updateData.categories!);
+    });
+
+    it("should generate embedding when title or description changes", async () => {
+      const updateData: Partial<EventDataWithCategories> = {
+        title: "Updated Event",
+        description: "Updated description",
+        emoji: "🎉",
+        emojiDescription: "Party celebration",
+        address: "123 Updated St",
+        locationNotes: "Updated location notes",
+        categories: [
+          { id: "cat-1", name: "Music" },
+          { id: "cat-2", name: "Entertainment" },
+        ],
+      };
+
+      const mockEmbedding = [0.1, 0.2, 0.3, 0.4, 0.5];
+      (mockEmbeddingService.getEmbedding as jest.Mock).mockResolvedValue(
+        mockEmbedding,
+      );
+
+      const result = await prepareUpdateData(
+        updateData,
+        mockCategoryProcessingService,
+        mockEmbeddingService,
+      );
+
+      expect(result.embedding).toEqual(mockEmbedding);
+      expect(mockEmbeddingService.getEmbedding).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "TITLE: Updated Event Updated Event Updated Event",
+        ),
+      );
+      expect(mockEmbeddingService.getEmbedding).toHaveBeenCalledWith(
+        expect.stringContaining("DESCRIPTION: Updated description"),
+      );
+    });
+
+    it("should not generate embedding when title and description are unchanged", async () => {
+      const updateData: Partial<EventDataWithCategories> = {
+        emoji: "🎉",
+        address: "123 Updated St",
+        categories: [{ id: "cat-1", name: "Music" }],
+      };
+
+      const result = await prepareUpdateData(
+        updateData,
+        mockCategoryProcessingService,
+        mockEmbeddingService,
+      );
+
+      expect(result.embedding).toBeUndefined();
+      expect(mockEmbeddingService.getEmbedding).not.toHaveBeenCalled();
+    });
+
+    it("should handle embedding generation error gracefully", async () => {
+      const updateData: Partial<EventDataWithCategories> = {
+        title: "Updated Event",
+        description: "Updated description",
+      };
+
+      (mockEmbeddingService.getEmbedding as jest.Mock).mockRejectedValue(
+        new Error("Embedding service error"),
+      );
+
+      const result = await prepareUpdateData(
+        updateData,
+        mockCategoryProcessingService,
+        mockEmbeddingService,
+      );
+
+      expect(result.embedding).toEqual([]);
+      expect(mockEmbeddingService.getEmbedding).toHaveBeenCalled();
+    });
+
+    it("should ensure location has GeoJSON format", async () => {
+      const updateData: Partial<EventDataWithCategories> = {
+        location: { coordinates: [40.7128, -74.006] } as unknown as {
+          type: "Point";
+          coordinates: [number, number];
+        },
+      };
+
+      const result = await prepareUpdateData(
+        updateData,
+        mockCategoryProcessingService,
+        mockEmbeddingService,
+      );
+
+      expect(result.location).toEqual({
+        type: "Point",
+        coordinates: [40.7128, -74.006],
+      });
+    });
+
+    it("should convert string dates to Date objects", async () => {
+      const updateData: Partial<EventDataWithCategories> = {
+        eventDate: "2024-01-01T10:00:00Z" as unknown as Date,
+        endDate: "2024-01-01T12:00:00Z" as unknown as Date,
+      };
+
+      const result = await prepareUpdateData(
+        updateData,
+        mockCategoryProcessingService,
+        mockEmbeddingService,
+      );
+
+      expect(result.eventDate).toEqual(new Date("2024-01-01T10:00:00Z"));
+      expect(result.endDate).toEqual(new Date("2024-01-01T12:00:00Z"));
+    });
+
+    it("should handle string category IDs", async () => {
+      const updateData: Partial<EventDataWithCategories> = {
+        categories: ["cat-1", "cat-2"] as unknown as Array<{
+          id: string;
+          name: string;
+        }>,
+      };
+
+      const result = await prepareUpdateData(
+        updateData,
+        mockCategoryProcessingService,
+        mockEmbeddingService,
+      );
+
+      expect(result.categoryIds).toEqual(["cat-1", "cat-2"]);
+    });
+
+    it("should handle undefined categoryProcessingService", async () => {
+      const updateData: Partial<EventDataWithCategories> = {
+        title: "Updated Event",
+        categories: [{ id: "cat-1", name: "Music" }],
+      };
+
+      const result = await prepareUpdateData(
+        updateData,
+        undefined,
+        mockEmbeddingService,
+      );
+
+      expect(result.categoryIds).toEqual(["cat-1"]);
+      expect(result.categories).toEqual(updateData.categories!);
+    });
+
+    it("should handle empty update data", async () => {
+      const updateData: Partial<EventDataWithCategories> = {};
+
+      const result = await prepareUpdateData(
+        updateData,
+        mockCategoryProcessingService,
+        mockEmbeddingService,
+      );
+
+      expect(result).toEqual({});
+      expect(mockEmbeddingService.getEmbedding).not.toHaveBeenCalled();
+    });
+
+    it("should format embedding text correctly for updates", async () => {
+      const updateData: Partial<EventDataWithCategories> = {
+        title: "Updated Event",
+        description: "Updated description",
+        emoji: "🎉",
+        emojiDescription: "Party celebration",
+        address: "123 Updated St",
+        locationNotes: "Updated location notes",
+        categories: [
+          { id: "cat-1", name: "Music" },
+          { id: "cat-2", name: "Entertainment" },
+        ],
+      };
+
+      (mockEmbeddingService.getEmbedding as jest.Mock).mockResolvedValue([
+        0.1, 0.2, 0.3,
+      ]);
+
+      await prepareUpdateData(
+        updateData,
+        mockCategoryProcessingService,
+        mockEmbeddingService,
+      );
+
+      expect(mockEmbeddingService.getEmbedding).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "TITLE: Updated Event Updated Event Updated Event",
+        ),
+      );
+      expect(mockEmbeddingService.getEmbedding).toHaveBeenCalledWith(
+        expect.stringContaining("EMOJI: 🎉 - Party celebration"),
+      );
+      expect(mockEmbeddingService.getEmbedding).toHaveBeenCalledWith(
+        expect.stringContaining("CATEGORIES: Music, Entertainment"),
+      );
+      expect(mockEmbeddingService.getEmbedding).toHaveBeenCalledWith(
+        expect.stringContaining("DESCRIPTION: Updated description"),
+      );
+      expect(mockEmbeddingService.getEmbedding).toHaveBeenCalledWith(
+        expect.stringContaining("LOCATION: 123 Updated St"),
+      );
+      expect(mockEmbeddingService.getEmbedding).toHaveBeenCalledWith(
+        expect.stringContaining("LOCATION_NOTES: Updated location notes"),
+      );
     });
   });
 });
