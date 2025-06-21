@@ -4,8 +4,15 @@ import type { Context } from "hono";
 import type { AppContext } from "../types/context";
 import { Buffer } from "buffer";
 import type { CategoryProcessingService } from "../services/CategoryProcessingService";
-import { RecurrenceFrequency, DayOfWeek } from "../entities/Event";
-import type { CreateEventInput } from "../types/event";
+import {
+  processEventFormData,
+  validateEventData,
+  processCategories,
+  generateEmbedding,
+  prepareCreateEventInput,
+  processEventUpdateFormData,
+  prepareUpdateData,
+} from "../utils";
 
 // Define a type for our handler functions
 export type EventHandler = (
@@ -316,291 +323,52 @@ export const createEventHandler: EventHandler = async (c) => {
       | CategoryProcessingService
       | undefined;
 
-    // Add debugging
-    const contentType = c.req.header("content-type") || "";
-    console.log("[createEventHandler] Content-Type:", contentType);
-    console.log("[createEventHandler] Request method:", c.req.method);
-
-    let data: Partial<{
-      title: string;
-      description?: string;
-      eventDate: string | Date;
-      endDate?: string | Date;
-      emoji?: string;
-      emojiDescription?: string;
-      address?: string;
-      locationNotes?: string;
-      isPrivate?: boolean;
-      sharedWithIds?: string[];
-      location: { type: "Point"; coordinates: number[] };
-      categories?: Array<{ id: string; name: string }>;
-      categoryIds?: string[];
-      creatorId: string;
-      originalImageUrl?: string | null;
-      embedding?: number[];
-      confidenceScore?: number;
-      timezone?: string;
-      qrDetectedInImage?: boolean;
-      detectedQrData?: string;
-      isRecurring?: boolean;
-      recurrenceFrequency?: RecurrenceFrequency;
-      recurrenceDays?: DayOfWeek[];
-      recurrenceTime?: string;
-      recurrenceStartDate?: Date;
-      recurrenceEndDate?: Date;
-      recurrenceInterval?: number;
-      qrUrl?: string;
-    }>;
-    let originalImageUrl: string | null = null;
-
-    // Check if the request contains form data (for image uploads)
-    if (contentType.includes("multipart/form-data")) {
-      console.log("[createEventHandler] Processing as FormData");
-      // Handle form data with potential image upload
-      const formData = await c.req.formData();
-      const imageEntry = formData.get("image");
-
-      console.log(
-        "[createEventHandler] FormData keys:",
-        Array.from(formData.keys()),
-      );
-      console.log(
-        "[createEventHandler] Image entry:",
-        imageEntry ? "present" : "not present",
-      );
-
-      // Upload image if provided
-      if (imageEntry && typeof imageEntry !== "string") {
-        const file = imageEntry as File;
-
-        // Validate file type
-        const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
-        if (!allowedTypes.includes(file.type)) {
-          return c.json(
-            { error: "Invalid file type. Only JPEG and PNG files are allowed" },
-            400,
-          );
-        }
-
-        // Convert file to buffer and upload
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        originalImageUrl = await storageService.uploadImage(
-          buffer,
-          "event-images",
-          {
-            filename: file.name,
-            contentType: file.type,
-            size: buffer.length.toString(),
-            uploadedBy: user?.userId || "unknown",
-          },
-        );
-      }
-
-      // Parse other form data
-      const eventData = formData.get("eventData");
-      if (eventData && typeof eventData === "string") {
-        try {
-          data = JSON.parse(eventData);
-        } catch (error) {
-          return c.json({ error: "Invalid event data format" }, 400);
-        }
-      } else {
-        // Extract individual fields from form data
-        data = {
-          title: formData.get("title")?.toString() || "",
-          description: formData.get("description")?.toString(),
-          eventDate: formData.get("eventDate")?.toString()
-            ? new Date(formData.get("eventDate")!.toString())
-            : undefined,
-          endDate: formData.get("endDate")?.toString()
-            ? new Date(formData.get("endDate")!.toString())
-            : undefined,
-          emoji: formData.get("emoji")?.toString() || "📍",
-          emojiDescription: formData.get("emojiDescription")?.toString(),
-          address: formData.get("address")?.toString(),
-          locationNotes: formData.get("locationNotes")?.toString(),
-          isPrivate: formData.get("isPrivate") === "true",
-          sharedWithIds: formData.get("sharedWithIds")
-            ? (formData.get("sharedWithIds") as string).split(",")
-            : [],
-          // QR code related fields
-          qrUrl: formData.get("qrUrl")?.toString(),
-          // Extract recurring event fields
-          isRecurring: formData.get("isRecurring") === "true",
-          recurrenceFrequency: formData
-            .get("recurrenceFrequency")
-            ?.toString() as RecurrenceFrequency | undefined,
-          recurrenceTime: formData.get("recurrenceTime")?.toString(),
-          recurrenceInterval: formData.get("recurrenceInterval")
-            ? parseInt(formData.get("recurrenceInterval")!.toString())
-            : undefined,
-          recurrenceStartDate: formData.get("recurrenceStartDate")?.toString()
-            ? new Date(formData.get("recurrenceStartDate")!.toString())
-            : undefined,
-          recurrenceEndDate: formData.get("recurrenceEndDate")?.toString()
-            ? new Date(formData.get("recurrenceEndDate")!.toString())
-            : undefined,
-        };
-
-        // Handle recurrence days (JSON array)
-        const recurrenceDays = formData.get("recurrenceDays");
-        if (recurrenceDays && typeof recurrenceDays === "string") {
-          try {
-            data.recurrenceDays = JSON.parse(recurrenceDays) as DayOfWeek[];
-          } catch (error) {
-            console.error("Error parsing recurrence days:", error);
-          }
-        }
-
-        // Handle location coordinates
-        const lat = formData.get("lat");
-        const lng = formData.get("lng");
-        if (lat && lng) {
-          data.location = {
-            type: "Point",
-            coordinates: [
-              parseFloat(lat.toString()),
-              parseFloat(lng.toString()),
-            ],
-          };
-        }
-
-        // Handle categories
-        const categories = formData.get("categories");
-        if (categories && typeof categories === "string") {
-          try {
-            data.categories = JSON.parse(categories);
-          } catch (error) {
-            // If not JSON, treat as comma-separated category IDs
-            data.categoryIds = categories.split(",");
-          }
-        }
-      }
-    } else {
-      console.log("[createEventHandler] Processing as JSON");
-      // Handle JSON data (existing behavior)
-      data = await c.req.json();
+    if (!user?.userId) {
+      return c.json({ error: "Missing user id" }, 401);
     }
 
-    // Validate input
-    if (!data.title || !data.eventDate || !data.location?.coordinates) {
+    // Process form data and extract event data
+    const { data, originalImageUrl } = await processEventFormData(
+      c,
+      storageService,
+      user,
+    );
+
+    // Validate the event data
+    try {
+      validateEventData(data);
+    } catch (validationError) {
       return c.json(
-        { error: "Missing required fields", receivedData: data },
+        {
+          error:
+            validationError instanceof Error
+              ? validationError.message
+              : "Validation failed",
+        },
         400,
       );
     }
 
-    // Ensure location is in GeoJSON format
-    if (data.location && !data.location.type) {
-      data.location = {
-        type: "Point",
-        coordinates: data.location.coordinates,
-      };
-    }
+    // Process categories
+    const processedData = await processCategories(
+      data,
+      categoryProcessingService,
+    );
 
-    if (!user?.userId) {
-      return c.json({ error: "Missing user id" });
-    }
+    // Generate embedding
+    const dataWithEmbedding = await generateEmbedding(
+      processedData,
+      embeddingService,
+    );
 
-    data.creatorId = user.userId;
+    // Prepare the final CreateEventInput
+    const eventInput = prepareCreateEventInput(
+      dataWithEmbedding,
+      user,
+      originalImageUrl,
+    );
 
-    // Add the uploaded image URL if available
-    if (originalImageUrl) {
-      data.originalImageUrl = originalImageUrl;
-    }
-
-    // Automatically generate categories if not provided
-    if (!data.categories || data.categories.length === 0) {
-      // Use title and description for category extraction
-      const text = `${data.title}\n${data.description || ""}`;
-      if (categoryProcessingService) {
-        const processedCategories =
-          await categoryProcessingService.extractAndProcessCategories(text);
-        // Convert Category objects to categoryIds for the service
-        data.categoryIds = processedCategories.map((cat) => cat.id);
-        // Also keep the full categories for embedding generation
-        data.categories = processedCategories;
-      }
-    } else {
-      // If categories are provided, convert them to categoryIds
-      data.categoryIds = data.categories.map((cat: { id: string } | string) =>
-        typeof cat === "string" ? cat : cat.id,
-      );
-    }
-
-    // Generate embedding if not provided
-    if (!data.embedding) {
-      console.log(
-        "[createEventHandler] Generating embedding for event:",
-        data.title,
-      );
-
-      // Create text for embedding using the same format as EventProcessingService
-      const textForEmbedding = `
-        TITLE: ${data.title} ${data.title} ${data.title}
-        EMOJI: ${data.emoji || "📍"} - ${data.emojiDescription || ""}
-        CATEGORIES: ${data.categories?.map((c: { name: string }) => c.name).join(", ") || ""}
-        DESCRIPTION: ${data.description || ""}
-        LOCATION: ${data.address || ""}
-        LOCATION_NOTES: ${data.locationNotes || ""}
-      `.trim();
-
-      try {
-        data.embedding = await embeddingService.getEmbedding(textForEmbedding);
-        console.log("[createEventHandler] Generated embedding successfully");
-      } catch (embeddingError) {
-        console.error(
-          "[createEventHandler] Error generating embedding:",
-          embeddingError,
-        );
-        // Continue without embedding - the event can still be created
-        data.embedding = [];
-      }
-    }
-
-    // Ensure required fields are present and convert to CreateEventInput format
-    const eventInput: CreateEventInput = {
-      emoji: data.emoji || "📍",
-      emojiDescription: data.emojiDescription,
-      title: data.title!,
-      description: data.description,
-      eventDate:
-        typeof data.eventDate === "string"
-          ? new Date(data.eventDate)
-          : data.eventDate!,
-      endDate: data.endDate
-        ? typeof data.endDate === "string"
-          ? new Date(data.endDate)
-          : data.endDate
-        : undefined,
-      location: data.location!,
-      categoryIds: data.categoryIds,
-      confidenceScore: data.confidenceScore,
-      address: data.address,
-      locationNotes: data.locationNotes,
-      creatorId: data.creatorId!,
-      timezone: data.timezone,
-      qrDetectedInImage: data.qrDetectedInImage,
-      detectedQrData: data.detectedQrData,
-      originalImageUrl: data.originalImageUrl,
-      embedding: data.embedding || [],
-      isPrivate: data.isPrivate,
-      sharedWithIds: data.sharedWithIds,
-      // QR code related fields
-      qrUrl: data.qrUrl,
-      isRecurring: data.isRecurring,
-      recurrenceFrequency: data.recurrenceFrequency as
-        | RecurrenceFrequency
-        | undefined,
-      recurrenceDays: data.recurrenceDays as DayOfWeek[] | undefined,
-      recurrenceTime: data.recurrenceTime,
-      recurrenceStartDate: data.recurrenceStartDate,
-      recurrenceEndDate: data.recurrenceEndDate,
-      recurrenceInterval: data.recurrenceInterval,
-    };
-
+    // Create the event
     const newEvent = await eventService.createEvent(eventInput);
 
     // Create discovery record for the creator
@@ -620,7 +388,13 @@ export const createEventHandler: EventHandler = async (c) => {
     return c.json(newEvent);
   } catch (error) {
     console.error("Error creating event:", error);
-    return c.json({ error: "Failed to create event" }, 500);
+    return c.json(
+      {
+        error: "Failed to create event",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
   }
 };
 
@@ -680,123 +454,11 @@ export const updateEventHandler: EventHandler = async (c) => {
     const eventService = c.get("eventService");
     const redisPub = c.get("redisClient");
     const storageService = c.get("storageService");
+    const embeddingService = c.get("embeddingService");
+    const categoryProcessingService = c.get("categoryProcessingService") as
+      | CategoryProcessingService
+      | undefined;
     const user = c.get("user");
-
-    let data: Partial<{
-      title?: string;
-      description?: string;
-      eventDate?: Date;
-      endDate?: Date;
-      emoji?: string;
-      emojiDescription?: string;
-      address?: string;
-      locationNotes?: string;
-      isPrivate?: boolean;
-      sharedWithIds?: string[];
-      location?: { type: "Point"; coordinates: number[] };
-      categories?: Array<{ id: string; name: string }>;
-      categoryIds?: string[];
-      originalImageUrl?: string | null;
-    }>;
-    let originalImageUrl: string | null = null;
-
-    // Check if the request contains form data (for image uploads)
-    const contentType = c.req.header("content-type") || "";
-
-    if (contentType.includes("multipart/form-data")) {
-      // Handle form data with potential image upload
-      const formData = await c.req.formData();
-      const imageEntry = formData.get("image");
-
-      // Upload image if provided
-      if (imageEntry && typeof imageEntry !== "string") {
-        const file = imageEntry as File;
-
-        // Validate file type
-        const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
-        if (!allowedTypes.includes(file.type)) {
-          return c.json(
-            { error: "Invalid file type. Only JPEG and PNG files are allowed" },
-            400,
-          );
-        }
-
-        // Convert file to buffer and upload
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        originalImageUrl = await storageService.uploadImage(
-          buffer,
-          "event-images",
-          {
-            filename: file.name,
-            contentType: file.type,
-            size: buffer.length.toString(),
-            uploadedBy: user?.userId || "unknown",
-            eventId: id,
-          },
-        );
-      }
-
-      // Parse other form data
-      const eventData = formData.get("eventData");
-      if (eventData && typeof eventData === "string") {
-        try {
-          data = JSON.parse(eventData);
-        } catch (error) {
-          return c.json({ error: "Invalid event data format" }, 400);
-        }
-      } else {
-        // Extract individual fields from form data
-        data = {
-          title: formData.get("title")?.toString(),
-          description: formData.get("description")?.toString(),
-          eventDate: formData.get("eventDate")?.toString()
-            ? new Date(formData.get("eventDate")!.toString())
-            : undefined,
-          endDate: formData.get("endDate")?.toString()
-            ? new Date(formData.get("endDate")!.toString())
-            : undefined,
-          emoji: formData.get("emoji")?.toString(),
-          emojiDescription: formData.get("emojiDescription")?.toString(),
-          address: formData.get("address")?.toString(),
-          locationNotes: formData.get("locationNotes")?.toString(),
-          isPrivate: formData.get("isPrivate") === "true",
-          sharedWithIds: formData.get("sharedWithIds")
-            ? (formData.get("sharedWithIds") as string).split(",")
-            : [],
-        };
-
-        // Handle location coordinates
-        const lat = formData.get("lat");
-        const lng = formData.get("lng");
-        if (lat && lng) {
-          data.location = {
-            type: "Point",
-            coordinates: [
-              parseFloat(lat.toString()),
-              parseFloat(lng.toString()),
-            ],
-          };
-        }
-
-        // Handle categories
-        const categories = formData.get("categories");
-        if (categories && typeof categories === "string") {
-          try {
-            data.categories = JSON.parse(categories);
-          } catch (error) {
-            // If not JSON, treat as comma-separated category IDs
-            data.categoryIds = categories.split(",");
-          }
-        }
-      }
-    } else {
-      // Handle JSON data (existing behavior)
-      data = await c.req.json();
-    }
-
-    console.log({ id, data });
 
     if (!user?.userId) {
       return c.json({ error: "Authentication required" }, 401);
@@ -817,28 +479,29 @@ export const updateEventHandler: EventHandler = async (c) => {
       );
     }
 
+    // Process form data and extract event data
+    const { data, originalImageUrl } = await processEventUpdateFormData(
+      c,
+      storageService,
+      user,
+      id,
+    );
+
     // Add the uploaded image URL if available
     if (originalImageUrl) {
       data.originalImageUrl = originalImageUrl;
     }
 
-    // Convert string dates to Date objects if needed
-    if (data.eventDate && typeof data.eventDate === "string") {
-      data.eventDate = new Date(data.eventDate);
-    }
-    if (data.endDate && typeof data.endDate === "string") {
-      data.endDate = new Date(data.endDate);
-    }
+    // Prepare the update data (process categories, generate embeddings, etc.)
+    const processedData = await prepareUpdateData(
+      data,
+      categoryProcessingService,
+      embeddingService,
+    );
 
-    // Ensure location is in GeoJSON format if provided
-    if (data.location && !data.location.type) {
-      data.location = {
-        type: "Point",
-        coordinates: data.location.coordinates,
-      };
-    }
+    console.log({ id, processedData });
 
-    const updatedEvent = await eventService.updateEvent(id, data);
+    const updatedEvent = await eventService.updateEvent(id, processedData);
 
     if (updatedEvent) {
       // Publish to Redis for WebSocket service to broadcast
