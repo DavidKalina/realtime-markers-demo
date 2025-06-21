@@ -1,14 +1,9 @@
-import React, { useEffect } from "react";
-import { StyleSheet, View, Text } from "react-native";
+import React from "react";
+import { StyleSheet, View, Text, Image } from "react-native";
 import Animated, {
   LinearTransition,
   SharedValue,
   useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-  withSequence,
-  Easing,
 } from "react-native-reanimated";
 import BackButton from "./BackButton";
 
@@ -32,50 +27,23 @@ const newColors = {
 };
 
 interface BannerProps {
-  emoji?: string;
   name: string;
   onBack: () => void;
   scrollY: SharedValue<number>;
   extendToStatusBar?: boolean;
+  logoUrl?: string | number;
 }
 
 export default function Banner({
-  emoji,
   name,
   onBack,
   extendToStatusBar,
+  logoUrl = require("@/assets/images/frederick-logo.png"),
 }: BannerProps) {
   const zoneBannerAnimatedStyle = useAnimatedStyle(() => ({
     paddingTop: extendToStatusBar ? 44 : 8,
     paddingBottom: 8,
     marginTop: extendToStatusBar ? -44 : 0,
-  }));
-
-  const floatX = useSharedValue(0);
-  const floatY = useSharedValue(0);
-
-  useEffect(() => {
-    floatX.value = withRepeat(
-      withSequence(
-        withTiming(1.5, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
-        withTiming(-1.5, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
-      ),
-      -1,
-      true,
-    );
-
-    floatY.value = withRepeat(
-      withSequence(
-        withTiming(4, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
-        withTiming(-4, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
-      ),
-      -1,
-      true,
-    );
-  }, []);
-
-  const floatingEmojiStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: floatX.value }, { translateY: floatY.value }],
   }));
 
   return (
@@ -88,17 +56,23 @@ export default function Banner({
       layout={LinearTransition.springify()}
     >
       <View style={styles.bannerContent}>
-        <View style={styles.backButtonPlaceholder} />
-        <BackButton onPress={onBack} />
-        <View style={styles.titleContainer}>
-          <View style={styles.titleContent}>
-            <Animated.View style={floatingEmojiStyle}>
-              <Text style={styles.zoneBannerEmoji}>{emoji || "👥"}</Text>
-            </Animated.View>
-            <Text style={styles.zoneBannerName}>{name}</Text>
-          </View>
+        <View style={styles.leftSection}>
+          <BackButton onPress={onBack} />
         </View>
-        <View style={styles.backButtonPlaceholder} />
+
+        <View style={styles.centerSection}>
+          <Text style={styles.zoneBannerName}>{name}</Text>
+        </View>
+
+        <View style={styles.rightSection}>
+          {logoUrl && (
+            <Image
+              source={typeof logoUrl === "string" ? { uri: logoUrl } : logoUrl}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          )}
+        </View>
       </View>
     </Animated.View>
   );
@@ -107,9 +81,9 @@ export default function Banner({
 const styles = StyleSheet.create({
   zoneBanner: {
     height: 90,
-    backgroundColor: newColors.background, // Updated to teal background
+    backgroundColor: newColors.background,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)", // Updated for better contrast on teal
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
     justifyContent: "center",
     paddingTop: 2,
     zIndex: 2,
@@ -128,32 +102,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
   },
-  backButtonPlaceholder: {
+  leftSection: {
     width: 44,
     height: 44,
+    justifyContent: "center",
+    alignItems: "flex-start",
   },
-  titleContainer: {
+  centerSection: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     height: 44,
   },
-  titleContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    height: "100%",
-    paddingVertical: 2,
+  rightSection: {
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "flex-end",
   },
-  zoneBannerEmoji: {
-    fontSize: 28,
-    fontFamily: "SpaceMono",
-    lineHeight: 32,
-    height: 32,
-    textAlignVertical: "center",
+  logo: {
+    width: 28,
+    height: 28,
+    borderRadius: 4,
   },
   zoneBannerName: {
-    color: newColors.text, // Updated to white text for teal background
+    color: newColors.text,
     fontSize: 22,
     fontFamily: "SpaceMono",
     fontWeight: "700",
