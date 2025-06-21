@@ -60,13 +60,11 @@ export type AuthHandler = (
 function getServices(c: Context<AppContext>) {
   const authService = c.get("authService");
   const userPreferencesService = c.get("userPreferencesService");
-  const levelingService = c.get("levelingService");
   const redisService = c.get("redisService");
 
   return {
     authService,
     userPreferencesService,
-    levelingService,
     redisService,
   };
 }

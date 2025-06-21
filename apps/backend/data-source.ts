@@ -6,22 +6,12 @@ import { Event } from "./entities/Event";
 import { EventShare } from "./entities/EventShare";
 import { Filter } from "./entities/Filter";
 import { Friendship } from "./entities/Friendship";
-import { Level } from "./entities/Level";
 import { Notification } from "./entities/Notification";
 import { User } from "./entities/User";
 import { UserEventDiscovery } from "./entities/UserEventDiscovery";
 import { UserEventRsvp } from "./entities/UserEventRsvp";
 import { UserEventSave } from "./entities/UserEventSave";
-import { UserLevel } from "./entities/UserLevel";
-import { InitialSchemaAndSeed1710000000000 } from "./migrations/1710000000000-InitialSchemaAndSeed";
-import { RemoveNotesFromUserEventSaves1710000000007 } from "./migrations/1710000000007-RemoveNotesFromUserEventSaves";
-import { AddRsvpFeature1710000000008 } from "./migrations/1710000000008-AddRsvpFeature";
-import { CreateNotificationsTable1710000000009 } from "./migrations/1710000000009-CreateNotificationsTable";
-import { AddEventRsvpToggledNotificationType1710000000010 } from "./migrations/1710000000010-AddEventRsvpToggledNotificationType";
-import { AddLevelingSystem1710000000003 } from "./migrations/AddLevelingSystem1710000000003";
-import { AddRecurringEventFields1710000000011 } from "./migrations/1710000000011-AddRecurringEventFields";
-import { AddViewTracking1710000000012 } from "./migrations/1710000000012-AddViewTracking";
-import { AddQueryAnalytics1710000000013 } from "./migrations/1710000000013-AddQueryAnalytics";
+
 import { UserEventView } from "./entities/UserEventView";
 import { QueryAnalytics } from "./entities/QueryAnalytics";
 
@@ -36,8 +26,6 @@ const AppDataSource = new DataSource({
     UserEventDiscovery,
     UserEventSave,
     Filter,
-    Level,
-    UserLevel,
     EventShare,
     Friendship,
     Notification,
@@ -45,17 +33,7 @@ const AppDataSource = new DataSource({
     UserEventView,
     QueryAnalytics,
   ],
-  migrations: [
-    InitialSchemaAndSeed1710000000000,
-    AddLevelingSystem1710000000003,
-    RemoveNotesFromUserEventSaves1710000000007,
-    AddRsvpFeature1710000000008,
-    CreateNotificationsTable1710000000009,
-    AddEventRsvpToggledNotificationType1710000000010,
-    AddRecurringEventFields1710000000011,
-    AddViewTracking1710000000012,
-    AddQueryAnalytics1710000000013,
-  ],
+  migrations: ["migrations/*.ts"],
   migrationsTableName: "migrations",
   migrationsRun: true, // Automatically run migrations on startup
   logging: ["query", "error", "schema"], // More detailed logging

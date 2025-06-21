@@ -2,7 +2,6 @@ import pgvector from "pgvector";
 import { DataSource, Repository, type DeepPartial, In } from "typeorm";
 import { Event, EventStatus } from "../entities/Event";
 import { Category } from "../entities/Category";
-import { LevelingService } from "./LevelingService";
 import type { EventCacheService } from "./shared/EventCacheService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import type { RedisService } from "./shared/RedisService";
@@ -30,7 +29,6 @@ export interface EventLifecycleService {
 
 export interface EventLifecycleServiceDependencies {
   dataSource: DataSource;
-  levelingService: LevelingService;
   eventCacheService: EventCacheService;
   locationService: GoogleGeocodingService;
   redisService: RedisService;
@@ -39,7 +37,6 @@ export interface EventLifecycleServiceDependencies {
 export class EventLifecycleServiceImpl implements EventLifecycleService {
   private eventRepository: Repository<Event>;
   private categoryRepository: Repository<Category>;
-  private levelingService: LevelingService;
   private eventCacheService: EventCacheService;
   private locationService: GoogleGeocodingService;
   private redisService: RedisService;
@@ -47,7 +44,6 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
   constructor(private dependencies: EventLifecycleServiceDependencies) {
     this.eventRepository = dependencies.dataSource.getRepository(Event);
     this.categoryRepository = dependencies.dataSource.getRepository(Category);
-    this.levelingService = dependencies.levelingService;
     this.eventCacheService = dependencies.eventCacheService;
     this.locationService = dependencies.locationService;
     this.redisService = dependencies.redisService;
@@ -116,7 +112,6 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
     const savedEvent = await this.eventRepository.save(event);
 
     // Award XP for creating an event
-    await this.levelingService.awardXp(input.creatorId, 30);
 
     // Publish the new event to Redis for filter processor
     await this.redisService.publish("event_changes", {

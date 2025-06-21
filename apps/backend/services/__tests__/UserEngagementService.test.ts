@@ -37,7 +37,6 @@ import { UserEventDiscovery } from "../../entities/UserEventDiscovery";
 import { UserEventView } from "../../entities/UserEventView";
 import { Friendship } from "../../entities/Friendship";
 import { Category } from "../../entities/Category";
-import { LevelingService } from "../LevelingService";
 import type { DataSource, Repository, EntityManager } from "typeorm";
 import type { RedisService } from "../shared/RedisService";
 
@@ -50,7 +49,6 @@ describe("UserEngagementService", () => {
   let mockUserEventRsvpRepository: Repository<UserEventRsvp>;
   let mockUserEventDiscoveryRepository: Repository<UserEventDiscovery>;
   let mockUserEventViewRepository: Repository<UserEventView>;
-  let mockLevelingService: LevelingService;
   let mockRedisService: RedisService;
   let mockEntityManager: EntityManager;
 
@@ -73,6 +71,13 @@ describe("UserEngagementService", () => {
     totalXp: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
+    discoveries: [],
+    createdEvents: [],
+    savedEvents: [],
+    viewedEvents: [],
+    rsvps: [],
+    sentFriendRequests: [],
+    receivedFriendRequests: [],
   } as User;
 
   const mockFriend: User = {
@@ -93,6 +98,13 @@ describe("UserEngagementService", () => {
     totalXp: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
+    discoveries: [],
+    createdEvents: [],
+    savedEvents: [],
+    viewedEvents: [],
+    rsvps: [],
+    sentFriendRequests: [],
+    receivedFriendRequests: [],
   } as User;
 
   const mockCategory: Category = {
@@ -197,10 +209,6 @@ describe("UserEngagementService", () => {
       count: jest.fn(),
     } as unknown as Repository<UserEventView>;
 
-    mockLevelingService = {
-      awardXp: jest.fn(),
-    } as unknown as LevelingService;
-
     mockRedisService = {
       publish: jest.fn(),
     } as unknown as RedisService;
@@ -239,7 +247,6 @@ describe("UserEngagementService", () => {
     const dependencies: UserEngagementServiceDependencies = {
       dataSource: mockDataSource,
       redisService: mockRedisService,
-      levelingService: mockLevelingService,
     };
 
     userEngagementService = createUserEngagementService(dependencies);
@@ -293,7 +300,6 @@ describe("UserEngagementService", () => {
         .mockResolvedValueOnce(eventWithUpdatedCounts) // Save the updated event
         .mockResolvedValueOnce(userWithUpdatedCounts); // Save the updated user
 
-      (mockLevelingService.awardXp as jest.Mock).mockResolvedValue(undefined);
       (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
 
       const result = await userEngagementService.toggleSaveEvent(
@@ -311,7 +317,6 @@ describe("UserEngagementService", () => {
         eventId: "event-123",
       });
 
-      expect(mockLevelingService.awardXp).toHaveBeenCalledWith("user-123", 5);
       expect(mockRedisService.publish).toHaveBeenCalledWith("event_changes", {
         type: "UPDATE",
         data: {
@@ -381,7 +386,6 @@ describe("UserEngagementService", () => {
       });
 
       expect(mockEntityManager.remove).toHaveBeenCalledWith(mockUserEventSave);
-      expect(mockLevelingService.awardXp).not.toHaveBeenCalled();
     });
 
     it("should throw error when event not found", async () => {
@@ -624,7 +628,6 @@ describe("UserEngagementService", () => {
         .mockResolvedValueOnce(1) // Going count
         .mockResolvedValueOnce(0); // Not going count
 
-      (mockLevelingService.awardXp as jest.Mock).mockResolvedValue(undefined);
       (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
 
       const result = await userEngagementService.toggleRsvpEvent(
@@ -645,7 +648,18 @@ describe("UserEngagementService", () => {
         status: RsvpStatus.GOING,
       });
 
-      expect(mockLevelingService.awardXp).toHaveBeenCalledWith("user-123", 5);
+      expect(mockRedisService.publish).toHaveBeenCalledWith("event_changes", {
+        type: "UPDATE",
+        data: {
+          operation: "UPDATE",
+          record: expect.objectContaining({
+            id: "event-123",
+            rsvpCount: 1,
+          }),
+          changeType: "RSVP_ADDED",
+          userId: "user-123",
+        },
+      });
     });
 
     it("should update existing RSVP", async () => {
@@ -693,7 +707,18 @@ describe("UserEngagementService", () => {
         notGoingCount: 1,
       });
 
-      expect(mockLevelingService.awardXp).not.toHaveBeenCalled();
+      expect(mockRedisService.publish).toHaveBeenCalledWith("event_changes", {
+        type: "UPDATE",
+        data: {
+          operation: "UPDATE",
+          record: expect.objectContaining({
+            id: "event-123",
+            rsvpCount: 1,
+          }),
+          changeType: "RSVP_UPDATED",
+          userId: "user-123",
+        },
+      });
     });
 
     it("should throw error when event not found", async () => {
@@ -1011,7 +1036,6 @@ describe("UserEngagementService", () => {
       const dependencies: UserEngagementServiceDependencies = {
         dataSource: mockDataSource,
         redisService: mockRedisService,
-        levelingService: mockLevelingService,
       };
 
       const service = createUserEngagementService(dependencies);

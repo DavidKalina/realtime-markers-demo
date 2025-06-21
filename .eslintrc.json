@@ -16,7 +16,6 @@
     "plugin:prettier/recommended"
   ],
   "rules": {
-    "quotes": ["error", "double"],
     "semi": ["error", "always"],
     "prettier/prettier": ["error", { "singleQuote": false, "semi": true }]
   },

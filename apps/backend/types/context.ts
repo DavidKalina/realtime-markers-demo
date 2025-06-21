@@ -6,7 +6,6 @@ import Redis from "ioredis";
 import type { UserPreferencesServiceImpl } from "../services/UserPreferences";
 import type { StorageService } from "../services/shared/StorageService";
 import { PlanService } from "../services/PlanService";
-import { LevelingService } from "../services/LevelingService";
 import type { FriendshipServiceImpl } from "../services/FriendshipService";
 import type { NotificationService } from "../services/NotificationService";
 import type { RedisService } from "../services/shared/RedisService";
@@ -25,7 +24,6 @@ export interface AppVariables {
   redisService: RedisService;
   userPreferencesService: UserPreferencesServiceImpl;
   planService: PlanService;
-  levelingService: LevelingService;
   friendshipService: FriendshipServiceImpl;
   notificationService: NotificationService;
   authService: AuthService;

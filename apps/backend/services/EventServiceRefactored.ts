@@ -18,7 +18,6 @@ import type { EventAnalysisService } from "./EventAnalysisService";
 import { createEventAnalysisService } from "./EventAnalysisService";
 import type { EventAdminService } from "./EventAdminService";
 import { createEventAdminService } from "./EventAdminService";
-import { LevelingService } from "./LevelingService";
 import type { EventCacheService } from "./shared/EventCacheService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import type { OpenAIService } from "./shared/OpenAIService";
@@ -260,7 +259,6 @@ export interface EventServiceDependencies {
   locationService: GoogleGeocodingService;
   eventCacheService: EventCacheService;
   openaiService: OpenAIService;
-  levelingService: LevelingService;
   embeddingService: IEmbeddingService;
 }
 

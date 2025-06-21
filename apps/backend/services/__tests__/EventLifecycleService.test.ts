@@ -15,7 +15,6 @@ import {
 } from "../../entities/Event";
 import { Category } from "../../entities/Category";
 import { User, UserRole, PlanType } from "../../entities/User";
-import { LevelingService } from "../LevelingService";
 import type { DataSource, Repository } from "typeorm";
 import type { EventCacheService } from "../shared/EventCacheService";
 import type { GoogleGeocodingService } from "../shared/GoogleGeocodingService";
@@ -26,7 +25,6 @@ describe("EventLifecycleService", () => {
   let mockDataSource: DataSource;
   let mockEventRepository: Repository<Event>;
   let mockCategoryRepository: Repository<Category>;
-  let mockLevelingService: LevelingService;
   let mockEventCacheService: EventCacheService;
   let mockLocationService: GoogleGeocodingService;
   let mockRedisService: RedisService;
@@ -45,10 +43,18 @@ describe("EventLifecycleService", () => {
     discoveryCount: 0,
     scanCount: 0,
     saveCount: 0,
+    viewCount: 0,
     weeklyScanCount: 0,
     totalXp: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
+    discoveries: [],
+    createdEvents: [],
+    savedEvents: [],
+    viewedEvents: [],
+    rsvps: [],
+    sentFriendRequests: [],
+    receivedFriendRequests: [],
   } as User;
 
   const mockCategory: Category = {
@@ -122,10 +128,6 @@ describe("EventLifecycleService", () => {
       find: jest.fn(),
     } as unknown as Repository<Category>;
 
-    mockLevelingService = {
-      awardXp: jest.fn(),
-    } as unknown as LevelingService;
-
     mockEventCacheService = {
       getEvent: jest.fn(),
       setEvent: jest.fn(),
@@ -157,7 +159,6 @@ describe("EventLifecycleService", () => {
 
     const dependencies: EventLifecycleServiceDependencies = {
       dataSource: mockDataSource,
-      levelingService: mockLevelingService,
       eventCacheService: mockEventCacheService,
       locationService: mockLocationService,
       redisService: mockRedisService,
@@ -178,7 +179,6 @@ describe("EventLifecycleService", () => {
       (mockCategoryRepository.findByIds as jest.Mock).mockResolvedValue([
         mockCategory,
       ]);
-      (mockLevelingService.awardXp as jest.Mock).mockResolvedValue(undefined);
       (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
       (
         mockEventCacheService.invalidateSearchCache as jest.Mock
@@ -216,7 +216,6 @@ describe("EventLifecycleService", () => {
         recurrenceInterval: undefined,
       });
       expect(mockEventRepository.save).toHaveBeenCalledWith(createdEvent);
-      expect(mockLevelingService.awardXp).toHaveBeenCalledWith("user-123", 30);
       expect(mockRedisService.publish).toHaveBeenCalledWith("event_changes", {
         type: "CREATE",
         data: {
@@ -244,7 +243,6 @@ describe("EventLifecycleService", () => {
       (mockCategoryRepository.findByIds as jest.Mock).mockResolvedValue([
         mockCategory,
       ]);
-      (mockLevelingService.awardXp as jest.Mock).mockResolvedValue(undefined);
       (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
       (
         mockEventCacheService.invalidateSearchCache as jest.Mock
@@ -275,7 +273,6 @@ describe("EventLifecycleService", () => {
       (mockCategoryRepository.findByIds as jest.Mock).mockResolvedValue([
         mockCategory,
       ]);
-      (mockLevelingService.awardXp as jest.Mock).mockResolvedValue(undefined);
       (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
       (
         mockEventCacheService.invalidateSearchCache as jest.Mock
@@ -315,7 +312,6 @@ describe("EventLifecycleService", () => {
       (mockCategoryRepository.findByIds as jest.Mock).mockResolvedValue([
         mockCategory,
       ]);
-      (mockLevelingService.awardXp as jest.Mock).mockResolvedValue(undefined);
       (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
       (
         mockEventCacheService.invalidateSearchCache as jest.Mock
@@ -354,7 +350,6 @@ describe("EventLifecycleService", () => {
       (mockCategoryRepository.findByIds as jest.Mock).mockResolvedValue([
         mockCategory,
       ]);
-      (mockLevelingService.awardXp as jest.Mock).mockResolvedValue(undefined);
       (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
       (
         mockEventCacheService.invalidateSearchCache as jest.Mock
@@ -377,7 +372,6 @@ describe("EventLifecycleService", () => {
 
       (mockEventRepository.create as jest.Mock).mockReturnValue(createdEvent);
       (mockEventRepository.save as jest.Mock).mockResolvedValue(createdEvent);
-      (mockLevelingService.awardXp as jest.Mock).mockResolvedValue(undefined);
       (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
       (
         mockEventCacheService.invalidateSearchCache as jest.Mock
@@ -411,7 +405,6 @@ describe("EventLifecycleService", () => {
 
       (mockEventRepository.create as jest.Mock).mockReturnValue(createdEvent);
       (mockEventRepository.save as jest.Mock).mockResolvedValue(createdEvent);
-      (mockLevelingService.awardXp as jest.Mock).mockResolvedValue(undefined);
       (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
       (
         mockEventCacheService.invalidateSearchCache as jest.Mock
@@ -868,7 +861,6 @@ describe("EventLifecycleService", () => {
 
       (mockEventRepository.create as jest.Mock).mockReturnValue(createdEvent);
       (mockEventRepository.save as jest.Mock).mockResolvedValue(createdEvent);
-      (mockLevelingService.awardXp as jest.Mock).mockResolvedValue(undefined);
       (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
       (
         mockEventCacheService.invalidateSearchCache as jest.Mock
@@ -891,7 +883,6 @@ describe("EventLifecycleService", () => {
 
       (mockEventRepository.create as jest.Mock).mockReturnValue(createdEvent);
       (mockEventRepository.save as jest.Mock).mockResolvedValue(createdEvent);
-      (mockLevelingService.awardXp as jest.Mock).mockResolvedValue(undefined);
       (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
       (
         mockEventCacheService.invalidateSearchCache as jest.Mock
@@ -925,7 +916,6 @@ describe("EventLifecycleService", () => {
 
       (mockEventRepository.create as jest.Mock).mockReturnValue(createdEvent);
       (mockEventRepository.save as jest.Mock).mockResolvedValue(createdEvent);
-      (mockLevelingService.awardXp as jest.Mock).mockResolvedValue(undefined);
       (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
       (
         mockEventCacheService.invalidateSearchCache as jest.Mock

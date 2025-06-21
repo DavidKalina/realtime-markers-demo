@@ -15,7 +15,6 @@ import { Friendship } from "./Friendship";
 import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
 import { UserEventView } from "./UserEventView";
-import { UserLevel } from "./UserLevel";
 import { UserEventRsvp } from "./UserEventRsvp";
 
 export enum UserRole {
@@ -102,12 +101,6 @@ export class User {
   @Column({ name: "last_scan_reset", type: "timestamptz", nullable: true })
   lastScanReset?: Date;
 
-  @Column({ name: "total_xp", type: "integer", default: 0 })
-  totalXp!: number;
-
-  @Column({ name: "current_title", type: "varchar", nullable: true })
-  currentTitle?: string;
-
   @Column({ name: "contacts", type: "jsonb", nullable: true })
   contacts?: {
     email?: string;
@@ -115,9 +108,6 @@ export class User {
     name?: string;
     lastImportedAt?: Date;
   }[];
-
-  @OneToMany(() => UserLevel, (userLevel) => userLevel.user)
-  userLevels!: Relation<UserLevel>[];
 
   @OneToMany(() => UserEventDiscovery, (discovery) => discovery.user)
   discoveries!: Relation<UserEventDiscovery>[];

@@ -6,7 +6,6 @@ import { Repository } from "typeorm";
 import { User } from "../entities/User";
 import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import { addDays, format } from "date-fns";
-import { LevelingService } from "./LevelingService";
 import { createFriendshipService } from "./FriendshipService";
 import { DataSource } from "typeorm";
 import { OpenAIModel, type OpenAIService } from "./shared/OpenAIService";
@@ -26,7 +25,6 @@ export interface AuthTokens {
 export interface AuthServiceDependencies {
   userRepository: Repository<User>;
   userPreferencesService: UserPreferencesServiceImpl;
-  levelingService: LevelingService;
   dataSource: DataSource;
   openAIService: OpenAIService;
 }
@@ -38,14 +36,12 @@ export class AuthService {
   private accessTokenExpiry: SignOptions["expiresIn"];
   private refreshTokenExpiry: SignOptions["expiresIn"];
   private userPreferencesService: UserPreferencesServiceImpl;
-  private levelingService: LevelingService;
   private dataSource: DataSource;
   private openAIService: OpenAIService;
 
   constructor(private dependencies: AuthServiceDependencies) {
     this.userRepository = dependencies.userRepository;
     this.userPreferencesService = dependencies.userPreferencesService;
-    this.levelingService = dependencies.levelingService;
     this.dataSource = dependencies.dataSource;
     this.openAIService = dependencies.openAIService;
     this.jwtSecret = process.env.JWT_SECRET!;
@@ -381,8 +377,6 @@ Respond with a JSON object containing:
         "createdAt",
         "scanCount",
         "saveCount",
-        "totalXp",
-        "currentTitle",
         "friendCode",
         "username",
       ],
@@ -402,20 +396,7 @@ Respond with a JSON object containing:
       await this.userRepository.save(user);
     }
 
-    // Get level information from LevelingService
-    const levelInfo = await this.levelingService.getUserLevelInfo(userId);
-
-    // Create a new object with level information
-    const userWithLevelInfo = {
-      ...user,
-      level: levelInfo.currentLevel,
-      currentTitle: levelInfo.currentTitle,
-      totalXp: levelInfo.totalXp,
-      nextLevelXp: levelInfo.nextLevelXp,
-      xpProgress: levelInfo.progress,
-    };
-
-    return userWithLevelInfo;
+    return user;
   }
 
   /**

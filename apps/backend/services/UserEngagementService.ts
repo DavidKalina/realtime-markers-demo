@@ -6,7 +6,6 @@ import { UserEventRsvp, RsvpStatus } from "../entities/UserEventRsvp";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
 import { UserEventView } from "../entities/UserEventView";
 import { Friendship } from "../entities/Friendship";
-import { LevelingService } from "./LevelingService";
 import type { RedisService } from "./shared/RedisService";
 
 export interface EventEngagementMetrics {
@@ -69,7 +68,6 @@ export interface UserEngagementService {
 export interface UserEngagementServiceDependencies {
   dataSource: DataSource;
   redisService: RedisService;
-  levelingService: LevelingService;
 }
 
 export class UserEngagementServiceImpl implements UserEngagementService {
@@ -80,7 +78,6 @@ export class UserEngagementServiceImpl implements UserEngagementService {
   private userEventDiscoveryRepository: Repository<UserEventDiscovery>;
   private userEventViewRepository: Repository<UserEventView>;
   private redisService: RedisService;
-  private levelingService: LevelingService;
 
   constructor(private dependencies: UserEngagementServiceDependencies) {
     this.eventRepository = dependencies.dataSource.getRepository(Event);
@@ -94,7 +91,6 @@ export class UserEngagementServiceImpl implements UserEngagementService {
     this.userEventViewRepository =
       dependencies.dataSource.getRepository(UserEventView);
     this.redisService = dependencies.redisService;
-    this.levelingService = dependencies.levelingService;
   }
 
   /**
@@ -181,7 +177,6 @@ export class UserEngagementServiceImpl implements UserEngagementService {
           saved = true;
 
           // Award XP for saving an event
-          await this.levelingService.awardXp(userId, 5);
         }
 
         // Save both the updated event and user
@@ -382,7 +377,6 @@ export class UserEngagementServiceImpl implements UserEngagementService {
           changeType = "RSVP_ADDED";
 
           // Award XP for RSVPing to an event
-          await this.levelingService.awardXp(userId, 5);
         }
 
         // Get updated counts

@@ -1054,8 +1054,6 @@ adminRouter.post("/users/admins", async (c) => {
       scanCount: newAdmin.scanCount,
       saveCount: newAdmin.saveCount,
       viewCount: newAdmin.viewCount,
-      totalXp: newAdmin.totalXp,
-      currentTitle: newAdmin.currentTitle,
       createdAt: newAdmin.createdAt,
       updatedAt: newAdmin.updatedAt,
     };

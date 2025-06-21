@@ -24,7 +24,6 @@ import { createEventExtractionService } from "./services/event-processing/EventE
 import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
 import { createEventService } from "./services/EventServiceRefactored";
 import { createJobQueue } from "./services/JobQueue";
-import { createLevelingService } from "./services/LevelingService";
 import { createPlanService } from "./services/PlanService";
 import { createConfigService } from "./services/shared/ConfigService";
 import { createGoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
@@ -50,7 +49,6 @@ import { createEmbeddingService } from "./services/shared/EmbeddingService";
 import { createEmbeddingCacheService } from "./services/shared/EmbeddingCacheService";
 import { createEventProcessingService } from "./services/EventProcessingService";
 import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
-import { createLevelingCacheService } from "./services/shared/LevelingCacheService";
 import { createFriendshipCacheService } from "./services/shared/FriendshipCacheService";
 import { createFriendshipService } from "./services/FriendshipService";
 import { User } from "./entities/User";
@@ -198,13 +196,6 @@ async function initializeServices() {
   // Create ImageProcessingCacheService instance
   const imageProcessingCacheService = createImageProcessingCacheService();
 
-  // Create LevelingService instance
-  const levelingService = createLevelingService({
-    dataSource,
-    redisService,
-    levelingCacheService: createLevelingCacheService(redisClient),
-  });
-
   // Initialize category processing service
   const categoryProcessingService = createCategoryProcessingService({
     categoryRepository,
@@ -226,7 +217,6 @@ async function initializeServices() {
     locationService: createGoogleGeocodingService(openAIService),
     eventCacheService,
     openaiService: openAIService,
-    levelingService,
     embeddingService,
   });
 
@@ -293,7 +283,6 @@ async function initializeServices() {
     userRepository: dataSource.getRepository(User),
     dataSource,
     userPreferencesService,
-    levelingService,
     openAIService,
   });
 
@@ -347,7 +336,6 @@ async function initializeServices() {
     userPreferencesService,
     storageService,
     planService,
-    levelingService,
     friendshipService,
     notificationService,
     notificationHandler,
@@ -373,7 +361,6 @@ app.use("*", async (c, next) => {
   c.set("userPreferencesService", services.userPreferencesService);
   c.set("storageService", services.storageService);
   c.set("planService", services.planService);
-  c.set("levelingService", services.levelingService);
   c.set("friendshipService", services.friendshipService);
   c.set("notificationService", services.notificationService);
   c.set("authService", services.authService);
