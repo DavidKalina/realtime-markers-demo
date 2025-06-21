@@ -1,14 +1,12 @@
-import MapMojiHeader from "@/components/AnimationHeader";
 import { AuthWrapper } from "@/components/AuthWrapper";
-import AnimatedMapBackground from "@/components/Background";
 import { useAuth } from "@/contexts/AuthContext";
-import { useMapStyle } from "@/contexts/MapStyleContext";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -26,14 +24,33 @@ import Animated, {
   LinearTransition,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
   withSequence,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
-import { COLORS } from "@/components/Layout/ScreenLayout";
+import Input from "@/components/Input/Input";
+
+const newColors = {
+  background: "#00697A",
+  text: "#FFFFFF",
+  accent: "#FDB813",
+  cardBackground: "#FFFFFF",
+  cardText: "#000000",
+  cardTextSecondary: "#6c757d",
+  buttonBackground: "#FFFFFF",
+  buttonText: "#00697A",
+  buttonBorder: "#DDDDDD",
+  inputBackground: "#F5F5F5",
+  errorBackground: "#FFCDD2",
+  errorText: "#B71C1C",
+  errorBorder: "#EF9A9A",
+  divider: "#E0E0E0",
+  activityIndicator: "#00697A",
+};
 
 const RegisterScreen: React.FC = () => {
   const router = useRouter();
-  const { mapStyle } = useMapStyle();
   const { register } = useAuth();
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -49,6 +66,7 @@ const RegisterScreen: React.FC = () => {
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
   const buttonScale = useSharedValue(1);
+  const glowRadius = useSharedValue(5);
 
   const buttonAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -56,7 +74,27 @@ const RegisterScreen: React.FC = () => {
     };
   });
 
+  const animatedGlowStyle = useAnimatedStyle(() => {
+    return {
+      shadowColor: "#FDB813",
+      shadowRadius: glowRadius.value,
+      shadowOpacity: 0.9,
+      shadowOffset: { width: 0, height: 0 },
+      elevation: glowRadius.value,
+    };
+  });
+
   useEffect(() => {
+    // Animate glow effect
+    glowRadius.value = withRepeat(
+      withSequence(
+        withTiming(15, { duration: 2000 }),
+        withTiming(5, { duration: 2000 }),
+      ),
+      -1,
+      true,
+    );
+
     // Delay the auto-focus until after animations complete
     const timer = setTimeout(() => {
       displayNameInputRef.current?.focus();
@@ -139,13 +177,17 @@ const RegisterScreen: React.FC = () => {
     }
   };
 
+  const handleLogin = () => {
+    Haptics.selectionAsync();
+    router.push("/login");
+  };
+
   return (
     <AuthWrapper requireAuth={false}>
       <SafeAreaView style={styles.container}>
-        <AnimatedMapBackground settings={{ styleURL: mapStyle }} />
         <StatusBar
           barStyle="light-content"
-          backgroundColor={COLORS.background}
+          backgroundColor={newColors.background}
         />
 
         <KeyboardAvoidingView
@@ -160,7 +202,13 @@ const RegisterScreen: React.FC = () => {
               entering={FadeInDown.duration(600).delay(100).springify()}
               style={styles.contentContainer}
             >
-              <MapMojiHeader />
+              <Animated.View style={[styles.logoContainer, animatedGlowStyle]}>
+                <Image
+                  source={require("@/assets/images/frederick-logo.png")}
+                  style={styles.logo}
+                />
+              </Animated.View>
+              <Text style={styles.slogan}>"Built on what matters"</Text>
 
               <Animated.View
                 entering={FadeInDown.duration(600).delay(300).springify()}
@@ -177,37 +225,24 @@ const RegisterScreen: React.FC = () => {
                     </View>
                   )}
 
-                  <View style={styles.inputContainer}>
-                    <User
-                      size={18}
-                      color={COLORS.accent}
-                      style={styles.inputIcon}
-                    />
-                    <TextInput
+                  <View style={{ gap: 16 }}>
+                    <Input
                       ref={displayNameInputRef}
-                      style={styles.input}
+                      icon={User}
                       placeholder="Display name"
-                      placeholderTextColor={COLORS.textSecondary}
                       value={displayName}
                       onChangeText={setDisplayName}
                       autoCapitalize="words"
                       autoCorrect={false}
                       returnKeyType="next"
                       onSubmitEditing={() => emailInputRef.current?.focus()}
+                      delay={300}
                     />
-                  </View>
 
-                  <View style={styles.inputContainer}>
-                    <Mail
-                      size={18}
-                      color={COLORS.accent}
-                      style={styles.inputIcon}
-                    />
-                    <TextInput
+                    <Input
                       ref={emailInputRef}
-                      style={styles.input}
+                      icon={Mail}
                       placeholder="Email address"
-                      placeholderTextColor={COLORS.textSecondary}
                       value={email}
                       onChangeText={setEmail}
                       autoCapitalize="none"
@@ -216,20 +251,15 @@ const RegisterScreen: React.FC = () => {
                       keyboardType="email-address"
                       returnKeyType="next"
                       onSubmitEditing={() => passwordInputRef.current?.focus()}
+                      delay={400}
                     />
-                  </View>
 
-                  <View style={styles.inputContainer}>
-                    <Lock
-                      size={18}
-                      color={COLORS.accent}
-                      style={styles.inputIcon}
-                    />
-                    <TextInput
+                    <Input
                       ref={passwordInputRef}
-                      style={styles.input}
+                      icon={Lock}
+                      rightIcon={showPassword ? EyeOff : Eye}
+                      onRightIconPress={togglePasswordVisibility}
                       placeholder="Password"
-                      placeholderTextColor={COLORS.textSecondary}
                       value={password}
                       onChangeText={setPassword}
                       secureTextEntry={!showPassword}
@@ -237,46 +267,22 @@ const RegisterScreen: React.FC = () => {
                       onSubmitEditing={() =>
                         confirmPasswordInputRef.current?.focus()
                       }
+                      delay={500}
                     />
-                    <TouchableOpacity
-                      onPress={togglePasswordVisibility}
-                      style={styles.eyeIcon}
-                    >
-                      {showPassword ? (
-                        <EyeOff size={18} color={COLORS.accent} />
-                      ) : (
-                        <Eye size={18} color={COLORS.accent} />
-                      )}
-                    </TouchableOpacity>
-                  </View>
 
-                  <View style={styles.inputContainer}>
-                    <Lock
-                      size={18}
-                      color={COLORS.accent}
-                      style={styles.inputIcon}
-                    />
-                    <TextInput
+                    <Input
                       ref={confirmPasswordInputRef}
-                      style={styles.input}
+                      icon={Lock}
+                      rightIcon={showConfirmPassword ? EyeOff : Eye}
+                      onRightIconPress={toggleConfirmPasswordVisibility}
                       placeholder="Confirm password"
-                      placeholderTextColor={COLORS.textSecondary}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
                       secureTextEntry={!showConfirmPassword}
                       returnKeyType="done"
                       onSubmitEditing={handleRegisterPress}
+                      delay={600}
                     />
-                    <TouchableOpacity
-                      onPress={toggleConfirmPasswordVisibility}
-                      style={styles.eyeIcon}
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff size={18} color={COLORS.accent} />
-                      ) : (
-                        <Eye size={18} color={COLORS.accent} />
-                      )}
-                    </TouchableOpacity>
                   </View>
 
                   <View style={styles.loginButtonContainer}>
@@ -287,7 +293,10 @@ const RegisterScreen: React.FC = () => {
                       style={[styles.loginButton, buttonAnimatedStyle]}
                     >
                       {isLoading ? (
-                        <ActivityIndicator size="small" color={COLORS.accent} />
+                        <ActivityIndicator
+                          size="small"
+                          color={newColors.cardText}
+                        />
                       ) : (
                         <Text style={styles.loginButtonText}>
                           Create Account
@@ -300,7 +309,7 @@ const RegisterScreen: React.FC = () => {
                     <Text style={styles.createAccountText}>
                       Already have an account?{" "}
                     </Text>
-                    <TouchableOpacity onPress={() => router.push("/login")}>
+                    <TouchableOpacity onPress={handleLogin}>
                       <Text style={styles.createAccountLink}>Login</Text>
                     </TouchableOpacity>
                   </View>
@@ -317,12 +326,7 @@ const RegisterScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  contentContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 20,
+    backgroundColor: newColors.background,
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -334,6 +338,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
+  contentContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 20,
+  },
+  logoContainer: {
+    marginBottom: 10,
+    shadowColor: "#FDB813",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  logo: {
+    width: 150,
+    height: 150,
+    resizeMode: "contain",
+  },
+  slogan: {
+    fontSize: 16,
+    color: newColors.text,
+    fontFamily: "SpaceMono",
+    marginBottom: 20,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
   formContainer: {
     width: "100%",
     maxWidth: 400,
@@ -344,10 +374,10 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: 20,
     padding: 20,
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: newColors.cardBackground,
     borderWidth: 1,
-    borderColor: COLORS.divider,
-    shadowColor: COLORS.shadow,
+    borderColor: newColors.divider,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
@@ -356,41 +386,17 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   errorContainer: {
-    backgroundColor: COLORS.errorBackground,
+    backgroundColor: newColors.errorBackground,
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: COLORS.errorBorder,
+    borderColor: newColors.errorBorder,
   },
   errorText: {
-    color: COLORS.errorText,
+    color: newColors.errorText,
     fontSize: 14,
     fontFamily: "SpaceMono",
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 12,
-    marginBottom: 16,
-    paddingHorizontal: 12,
-    height: 55,
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    height: "100%",
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-  },
-  eyeIcon: {
-    padding: 8,
   },
   loginButtonContainer: {
     marginTop: 20,
@@ -401,12 +407,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginVertical: 20,
-    backgroundColor: "rgba(245, 158, 11, 0.1)",
+    backgroundColor: newColors.accent,
     borderWidth: 1,
-    borderColor: "rgba(245, 158, 11, 0.2)",
+    borderColor: newColors.accent,
   },
   loginButtonText: {
-    color: COLORS.accent,
+    color: newColors.cardText,
     fontSize: 16,
     fontWeight: "600",
     fontFamily: "SpaceMono",
@@ -418,12 +424,12 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   createAccountText: {
-    color: COLORS.textSecondary,
+    color: newColors.cardTextSecondary,
     fontSize: 14,
     fontFamily: "SpaceMono",
   },
   createAccountLink: {
-    color: COLORS.accent,
+    color: newColors.buttonText,
     fontSize: 14,
     fontWeight: "600",
     fontFamily: "SpaceMono",
