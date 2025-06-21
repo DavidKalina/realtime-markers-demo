@@ -133,7 +133,7 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                           color: "#fff",
                           fontSize: 10,
                           fontWeight: "700",
-                          fontFamily: "SpaceMono",
+                          fontFamily: "Poppins-Regular",
                         }}
                         numberOfLines={1}
                         adjustsFontSizeToFit
@@ -235,7 +235,7 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                 </View>
                 <Text
                   style={{
-                    fontFamily: "SpaceMono",
+                    fontFamily: "Poppins-Regular",
                     fontSize: isSmallScreen ? 14 : 16,
                     fontWeight: "700",
                     color: COLORS.textPrimary,
@@ -246,7 +246,7 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                 </Text>
                 <Text
                   style={{
-                    fontFamily: "SpaceMono",
+                    fontFamily: "Poppins-Regular",
                     fontSize: isSmallScreen ? 10 : 12,
                     color: COLORS.textSecondary,
                     textAlign: "center",
@@ -273,7 +273,7 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
               style={{
                 fontSize: isSmallScreen ? 12 : 14,
                 fontWeight: "600",
-                fontFamily: "SpaceMono",
+                fontFamily: "Poppins-Regular",
                 color: COLORS.textSecondary,
                 marginBottom: 8,
                 textAlign: "center",

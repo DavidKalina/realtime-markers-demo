@@ -201,7 +201,7 @@ const Login: React.FC = () => {
     slogan: {
       fontSize: 18,
       color: newColors.text,
-      fontFamily: "SpaceMono",
+      fontFamily: "Poppins-SemiBold",
       marginBottom: 20,
       textAlign: "center",
       fontWeight: "600",
@@ -243,7 +243,7 @@ const Login: React.FC = () => {
     errorText: {
       color: newColors.errorText,
       fontSize: 14,
-      fontFamily: "SpaceMono",
+      fontFamily: "Poppins-Regular",
     },
 
     inputContainer: {
@@ -267,7 +267,7 @@ const Login: React.FC = () => {
       height: "100%",
       color: newColors.cardText,
       fontSize: 16,
-      fontFamily: "SpaceMono",
+      fontFamily: "Poppins-Regular",
     },
 
     eyeIcon: {
@@ -289,7 +289,7 @@ const Login: React.FC = () => {
       color: newColors.cardText,
       fontSize: 16,
       fontWeight: "600",
-      fontFamily: "SpaceMono",
+      fontFamily: "Poppins-Regular",
       letterSpacing: 0.5,
     },
 
@@ -302,14 +302,14 @@ const Login: React.FC = () => {
     createAccountText: {
       color: newColors.cardTextSecondary,
       fontSize: 14,
-      fontFamily: "SpaceMono",
+      fontFamily: "Poppins-Regular",
     },
 
     createAccountLink: {
       color: newColors.buttonText,
       fontSize: 14,
       fontWeight: "600",
-      fontFamily: "SpaceMono",
+      fontFamily: "Poppins-Regular",
     },
 
     profileSelectorContainer: {
@@ -353,7 +353,7 @@ const Login: React.FC = () => {
       color: newColors.cardText,
       fontSize: 15,
       fontWeight: "500",
-      fontFamily: "SpaceMono",
+      fontFamily: "Poppins-Regular",
     },
 
     noProfileContainer: {
@@ -377,7 +377,7 @@ const Login: React.FC = () => {
     selectProfileText: {
       color: newColors.cardTextSecondary,
       fontSize: 15,
-      fontFamily: "SpaceMono",
+      fontFamily: "Poppins-Regular",
     },
 
     dropdownTrigger: {
@@ -449,13 +449,13 @@ const Login: React.FC = () => {
     profileDropdownName: {
       color: newColors.cardText,
       fontSize: 15,
-      fontFamily: "SpaceMono",
+      fontFamily: "Poppins-Regular",
       flex: 1,
     },
 
     profileDropdownRole: {
       fontSize: 12,
-      fontFamily: "SpaceMono",
+      fontFamily: "Poppins-Regular",
       fontWeight: "600",
       textTransform: "uppercase",
     },

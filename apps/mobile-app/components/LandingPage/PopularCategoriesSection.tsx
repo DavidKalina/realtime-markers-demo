@@ -37,7 +37,7 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
             fontWeight: "600",
             marginBottom: 12,
             paddingHorizontal: 16,
-            fontFamily: "SpaceMono",
+            fontFamily: "Poppins-Regular",
           }}
         >
           Popular Categories
@@ -94,7 +94,7 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
           fontWeight: "600",
           marginBottom: 12,
           paddingHorizontal: 16,
-          fontFamily: "SpaceMono",
+          fontFamily: "Poppins-Regular",
         }}
       >
         Popular Categories
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     textAlign: "center",
     color: "#333",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
 });
 

@@ -107,14 +107,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 4,
     paddingHorizontal: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   subtitle: {
     fontSize: 14,
     color: "#666",
     marginBottom: 12,
     paddingHorizontal: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   scrollContainer: {
     position: "relative",

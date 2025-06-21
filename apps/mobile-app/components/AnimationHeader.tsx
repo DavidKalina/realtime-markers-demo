@@ -23,7 +23,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 42,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     letterSpacing: 1,
     color: "#fff",
     zIndex: 10,
@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
   },
   subtext: {
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     color: "#fff",
     zIndex: 10,
   },

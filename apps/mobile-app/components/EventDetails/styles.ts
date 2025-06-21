@@ -19,7 +19,7 @@ export const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: 16,
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   contentContainer: {
     paddingBottom: 24,
@@ -57,7 +57,7 @@ export const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 16,
     opacity: 0.6,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   emojiWrapper: {
     position: "absolute",
@@ -100,7 +100,7 @@ export const styles = StyleSheet.create({
     fontWeight: "700",
     color: COLORS.textPrimary,
     flex: 1,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     lineHeight: 32,
   },
   eventTitle: {
@@ -108,7 +108,7 @@ export const styles = StyleSheet.create({
     fontWeight: "700",
     color: COLORS.textPrimary,
     marginBottom: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     lineHeight: 32,
   },
   saveButton: {
@@ -127,7 +127,7 @@ export const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: "500",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   savedButtonText: {
     color: COLORS.background,
@@ -152,13 +152,13 @@ export const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 16,
     flex: 1,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     lineHeight: 22,
   },
   detailTextSecondary: {
     color: COLORS.textSecondary,
     fontSize: 14,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     lineHeight: 20,
     opacity: 0.9,
   },
@@ -169,7 +169,7 @@ export const styles = StyleSheet.create({
     color: COLORS.accent,
     fontSize: 13,
     marginTop: 4,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     opacity: 0.9,
   },
   descriptionContainer: {
@@ -181,7 +181,7 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.textPrimary,
     marginBottom: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     flexDirection: "row",
     alignItems: "center",
   },
@@ -189,7 +189,7 @@ export const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.textPrimary,
     lineHeight: 24,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     opacity: 0.9,
   },
   actionButtonsContainer: {
@@ -214,7 +214,7 @@ export const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: "500",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   // Image overlay styles
   viewOverlay: {
@@ -230,7 +230,7 @@ export const styles = StyleSheet.create({
   },
   viewText: {
     color: "#ffffff",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontSize: 14,
     fontWeight: "600",
     marginLeft: 8,
@@ -275,7 +275,7 @@ export const styles = StyleSheet.create({
   adminButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   modalContent: {
     flex: 1,
@@ -301,7 +301,7 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.textPrimary,
     marginLeft: 8,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     letterSpacing: 0.3,
   },
   categoriesContainer: {
@@ -322,7 +322,7 @@ export const styles = StyleSheet.create({
   categoryText: {
     color: COLORS.accent, // primary color
     fontSize: 14,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "500",
   },
   // QR Code section styles
@@ -358,7 +358,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     flex: 1,
     letterSpacing: 0.5,
   },
@@ -391,20 +391,20 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: COLORS.accent,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 4,
     letterSpacing: 0.5,
   },
   qrUrlText: {
     fontSize: 14,
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     lineHeight: 18,
   },
   qrDescription: {
     color: COLORS.textSecondary,
     fontSize: 14,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     textAlign: "center",
     marginBottom: 20,
     lineHeight: 20,
@@ -424,7 +424,7 @@ export const styles = StyleSheet.create({
     color: COLORS.accent,
     fontSize: 14,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginLeft: 10,
     letterSpacing: 0.5,
   },
@@ -461,13 +461,13 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     letterSpacing: 0.5,
   },
   discoveredByName: {
     fontSize: 16,
     color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "700",
     letterSpacing: 0.3,
     marginLeft: 6,
@@ -493,13 +493,13 @@ export const styles = StyleSheet.create({
     fontWeight: "700",
     color: COLORS.textPrimary,
     marginBottom: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   dialogText: {
     fontSize: 16,
     color: COLORS.textSecondary,
     marginBottom: 24,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     lineHeight: 22,
   },
   dialogButtons: {
@@ -517,7 +517,7 @@ export const styles = StyleSheet.create({
   dialogButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   mapPreview: {
     width: "100%",

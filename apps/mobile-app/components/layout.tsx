@@ -81,13 +81,13 @@ export const layout = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "500",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   secondaryButtonText: {
     color: "#f8f9fa",
     fontSize: 14,
     fontWeight: "500",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   buttonIcon: {
     marginRight: 8,

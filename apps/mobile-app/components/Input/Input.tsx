@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     height: "100%",
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   errorInput: {
     color: "#f97583",

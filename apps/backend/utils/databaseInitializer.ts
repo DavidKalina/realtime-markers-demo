@@ -99,7 +99,6 @@ export async function validateTables(dataSource: DataSource): Promise<{
     "categories",
     "event_shares",
     "filters",
-    "notifications",
     "query_analytics",
     "user_event_views",
     "user_event_discoveries",

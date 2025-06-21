@@ -33,7 +33,7 @@ const FeaturedEventsSection: React.FC<FeaturedEventsSectionProps> = ({
             fontWeight: "600",
             marginBottom: 12,
             paddingHorizontal: 16,
-            fontFamily: "SpaceMono",
+            fontFamily: "Poppins-Regular",
           }}
         >
           Featured Events
@@ -73,7 +73,7 @@ const FeaturedEventsSection: React.FC<FeaturedEventsSectionProps> = ({
           fontWeight: "600",
           marginBottom: 12,
           paddingHorizontal: 16,
-          fontFamily: "SpaceMono",
+          fontFamily: "Poppins-Regular",
         }}
       >
         Featured Events

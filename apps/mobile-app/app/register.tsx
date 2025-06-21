@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
   slogan: {
     fontSize: 16,
     color: newColors.text,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 16,
     textAlign: "center",
     fontWeight: "600",
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: newColors.errorText,
     fontSize: 14,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   loginButtonContainer: {
     marginTop: 16,
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
     color: newColors.cardText,
     fontSize: 16,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     letterSpacing: 0.5,
   },
   createAccountContainer: {
@@ -442,13 +442,13 @@ const styles = StyleSheet.create({
   createAccountText: {
     color: newColors.cardTextSecondary,
     fontSize: 14,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   createAccountLink: {
     color: newColors.buttonText,
     fontSize: 14,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
 });
 

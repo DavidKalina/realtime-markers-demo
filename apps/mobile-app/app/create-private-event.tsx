@@ -1,11 +1,10 @@
 import { AuthWrapper } from "@/components/AuthWrapper";
-import { CheckboxGroup } from "@/components/CheckboxGroup/CheckboxGroup";
 import EmbeddedDateRangeCalendar from "@/components/EmbeddedDateRangeCalendar";
 import Input from "@/components/Input/Input";
 import TextArea from "@/components/Input/TextArea";
 import Header from "@/components/Layout/Header";
 import ScreenLayout, { COLORS } from "@/components/Layout/ScreenLayout";
-import { Friend, apiClient } from "@/services/ApiClient";
+import { apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Book, List, MapPin as MapPinIcon } from "lucide-react-native";
@@ -84,7 +83,6 @@ const CreatePrivateEvent = () => {
 
   // Initialize state with values from params if they exist
   const [date, setDate] = useState(new Date());
-  const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
   const [eventName, setEventName] = useState((params.title as string) || "");
   const [eventDescription, setEventDescription] = useState(
     (params.description as string) || "",
@@ -92,60 +90,6 @@ const CreatePrivateEvent = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const buttonScale = useSharedValue(1);
-
-  // Add effect to initialize selected friends in edit mode
-  useEffect(() => {
-    const initializeSelectedFriends = async () => {
-      if (params.id) {
-        try {
-          // Get the event details including shares
-          const event = await apiClient.events.getEventById(
-            params.id as string,
-          );
-          if (event) {
-            // Get all friends
-            const friends = await apiClient.friends.getFriends();
-
-            // Get the shares for this event
-            const shares = await apiClient.events.getEventShares(
-              params.id as string,
-            );
-
-            // Get the IDs of users the event is shared with
-            const sharedWithIds = shares.map((share) => share.sharedWithId);
-
-            // Filter friends to only those that are in sharedWithIds
-            const selectedFriends = friends.filter((friend) =>
-              sharedWithIds.includes(friend.id),
-            );
-            setSelectedFriends(selectedFriends);
-
-            // Also set other event details if they exist
-            if (event.title) setEventName(event.title);
-            if (event.description) setEventDescription(event.description);
-            if (event.eventDate) setDate(new Date(event.eventDate));
-            if (
-              event.location &&
-              typeof event.location === "object" &&
-              "coordinates" in event.location
-            ) {
-              const location = event.location as {
-                coordinates: [number, number];
-              };
-              setCoordinates({
-                latitude: location.coordinates[1],
-                longitude: location.coordinates[0],
-              });
-            }
-          }
-        } catch (error) {
-          console.error("Error initializing event details:", error);
-        }
-      }
-    };
-
-    initializeSelectedFriends();
-  }, [params.id]);
 
   // Add effect to focus title input when component mounts
   useEffect(() => {
@@ -258,7 +202,6 @@ const CreatePrivateEvent = () => {
         description: eventDescription.trim(),
         date: date.toISOString(),
         eventDate: date.toISOString(),
-        sharedWithIds: selectedFriends.map((friend) => friend.id),
         isPrivate: true,
         // Location is required by the API, and we've validated coordinates exist
         location: {
@@ -375,15 +318,6 @@ const CreatePrivateEvent = () => {
               </View>
 
               <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Invite Friends</Text>
-                <CheckboxGroup
-                  selectedFriends={selectedFriends}
-                  onSelectionChange={setSelectedFriends}
-                  buttonText="Select Friends to Invite"
-                />
-              </View>
-
-              <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Date & Time</Text>
                 <EmbeddedDateRangeCalendar date={date} onDateChange={setDate} />
               </View>
@@ -435,7 +369,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 4,
   },
   submitButtonContainer: {
@@ -455,7 +389,7 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontSize: 16,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     letterSpacing: 0.5,
   },
   dateDisplay: {
@@ -469,12 +403,12 @@ const styles = StyleSheet.create({
   dateText: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   localTimeText: {
     color: COLORS.textSecondary,
     fontSize: 14,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginTop: 4,
   },
   callout: {
@@ -487,7 +421,7 @@ const styles = StyleSheet.create({
   calloutText: {
     color: COLORS.accent,
     fontSize: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   sectionHeader: {
     flexDirection: "row",
@@ -499,7 +433,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   input: {
     marginBottom: 16,

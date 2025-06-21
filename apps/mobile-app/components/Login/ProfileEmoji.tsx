@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "600",
     maxWidth: 80,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     letterSpacing: 0.2,
   },
   roleIndicator: {

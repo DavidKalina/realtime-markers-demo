@@ -27,7 +27,7 @@ export const styles = StyleSheet.create({
     color: "#f8f9fa",
     fontSize: 16,
     marginTop: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   userLocationMarker: {
     width: 20,

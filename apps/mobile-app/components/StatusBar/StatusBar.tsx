@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     color: newColors.text, // Updated to white text for teal background
     fontSize: 16,
     fontWeight: "700",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     letterSpacing: 0.3,
     lineHeight: 20,
   },
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     color: newColors.text, // Updated to white text for teal background
     fontSize: 12,
     fontWeight: "500",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     textAlign: "right",
   },
   engagementContainer: {

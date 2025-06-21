@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     color: COLORS.accent,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "500",
     marginBottom: 8,
   },
@@ -326,19 +326,19 @@ const styles = StyleSheet.create({
   selectedLabel: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   selectedDescription: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginTop: 2,
   },
   placeholder: {
     flex: 1,
     color: COLORS.textSecondary,
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   triggerIcon: {
     width: 40,
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: COLORS.errorText,
     fontSize: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginTop: 4,
   },
   modalOverlay: {
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   closeButton: {
     width: 36,
@@ -429,12 +429,12 @@ const styles = StyleSheet.create({
   optionLabel: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   optionDescription: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginTop: 2,
   },
   selectedText: {

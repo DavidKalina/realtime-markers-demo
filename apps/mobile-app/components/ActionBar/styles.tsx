@@ -80,7 +80,7 @@ export const styles = StyleSheet.create({
   actionButtonLabel: {
     color: newColors.cardBackground, // White text for teal background
     fontSize: 9, // Smaller font size
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginTop: 2, // Reduced margin
     textAlign: "center",
   },
@@ -98,7 +98,7 @@ export const styles = StyleSheet.create({
     transform: [{ scale: 0.95 }],
   },
   actionButtonText: {
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     color: newColors.text, // White text for teal background
     fontSize: 12,
     fontWeight: "500",
@@ -136,7 +136,7 @@ export const styles = StyleSheet.create({
   detailActionText: {
     color: "#f8f9fa", // Light text for dark theme
     fontSize: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginLeft: 6,
   },
   iconSmall: {

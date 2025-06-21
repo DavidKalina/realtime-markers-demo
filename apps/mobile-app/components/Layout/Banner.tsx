@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   zoneBannerName: {
     color: newColors.text,
     fontSize: 22,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "700",
     letterSpacing: 0.4,
     lineHeight: 26,

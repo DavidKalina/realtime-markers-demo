@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 12,
     paddingHorizontal: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   carouselContainer: {
     position: "relative",

@@ -740,13 +740,13 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#000",
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "600",
   },
   jobDescription: {
     color: "#6c757d",
     fontSize: 14,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     lineHeight: 20,
     marginBottom: 4,
   },
@@ -770,7 +770,7 @@ const styles = StyleSheet.create({
   jobDate: {
     color: "#007AFF",
     fontSize: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "600",
   },
   statusBadge: {
@@ -783,7 +783,7 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     color: "#fff",
     fontSize: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "600",
   },
   privacyBadge: {
@@ -797,7 +797,7 @@ const styles = StyleSheet.create({
   privacyBadgeText: {
     color: "#6c757d",
     fontSize: 11,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "500",
   },
   progressBadge: {
@@ -811,7 +811,7 @@ const styles = StyleSheet.create({
   progressBadgeText: {
     color: "#6c757d",
     fontSize: 11,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "500",
   },
   retryButton: {
@@ -825,7 +825,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: "#fff",
     fontSize: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "600",
   },
   errorText: {

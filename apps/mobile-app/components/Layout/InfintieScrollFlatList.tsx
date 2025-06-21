@@ -201,32 +201,32 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 14,
     color: "#666",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   errorText: {
     fontSize: 14,
     color: "#e74c3c",
     textAlign: "center",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   retryText: {
     fontSize: 14,
     color: "#3498db",
     marginTop: 8,
     textDecorationLine: "underline",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   emptyText: {
     fontSize: 16,
     color: "#666",
     textAlign: "center",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   endText: {
     fontSize: 12,
     color: "#999",
     fontStyle: "italic",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
 });
 

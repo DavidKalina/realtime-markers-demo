@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     letterSpacing: 0.5,
     marginRight: 36,
   },
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     letterSpacing: 0.5,
   },
   monthNavButton: {
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 13,
     color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "600",
   },
   daysGrid: {
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
   dayText: {
     fontSize: 14,
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   selectedDay: {
     backgroundColor: COLORS.accent,
@@ -561,14 +561,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   dateRangeDuration: {
     fontSize: 14,
     color: COLORS.accent,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   buttonContainer: {
     flexDirection: "row",
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 15,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   confirmButton: {
     backgroundColor: COLORS.accent,
@@ -604,12 +604,12 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 15,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   placeholderText: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   confirmButtonLoading: {
     opacity: 0.7,
@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 15,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
 });
 

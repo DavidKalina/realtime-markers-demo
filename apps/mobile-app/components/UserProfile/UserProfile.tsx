@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   profileContainer: {
     padding: 16,
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.textPrimary,
     marginBottom: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   detailRow: {
     marginBottom: 12,
@@ -332,17 +332,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textSecondary,
     marginBottom: 4,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   value: {
     fontSize: 14,
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   bioText: {
     fontSize: 14,
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     lineHeight: 20,
   },
   buttonContainer: {
@@ -363,13 +363,13 @@ const styles = StyleSheet.create({
   buttonText: {
     color: COLORS.textPrimary,
     fontSize: 14,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     textAlign: "center",
   },
   deleteButtonText: {
     color: COLORS.errorText,
     fontSize: 14,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     textAlign: "center",
   },
   styleOptions: {
@@ -427,13 +427,13 @@ const styles = StyleSheet.create({
   settingText: {
     fontSize: 14,
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 4,
   },
   settingDescription: {
     fontSize: 12,
     color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   friendsCardContent: {
     flexDirection: "row",
@@ -450,13 +450,13 @@ const styles = StyleSheet.create({
   friendsTitle: {
     fontSize: 16,
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 4,
   },
   friendsSubtitle: {
     fontSize: 12,
     color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
 });
 

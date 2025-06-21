@@ -30,7 +30,7 @@ const headerStyles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     letterSpacing: 0.5,
   },
   rightIconContainer: {
@@ -58,7 +58,7 @@ const headerStyles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     letterSpacing: 0.5,
   },
 });

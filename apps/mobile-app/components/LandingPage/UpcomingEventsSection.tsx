@@ -33,7 +33,7 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
             fontWeight: "600",
             marginBottom: 12,
             paddingHorizontal: 16,
-            fontFamily: "SpaceMono",
+            fontFamily: "Poppins-Regular",
           }}
         >
           Upcoming Events
@@ -75,7 +75,7 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
           fontWeight: "600",
           marginBottom: 12,
           paddingHorizontal: 16,
-          fontFamily: "SpaceMono",
+          fontFamily: "Poppins-Regular",
         }}
       >
         Upcoming Events

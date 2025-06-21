@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "700",
     color: COLORS.textPrimary,
     marginLeft: 12,
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   sectionActionText: {
     color: COLORS.accent,
     fontSize: 13,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "600",
   },
 });

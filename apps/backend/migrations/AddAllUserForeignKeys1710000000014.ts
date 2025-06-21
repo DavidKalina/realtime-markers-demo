@@ -50,25 +50,11 @@ export class AddAllUserForeignKeys1710000000014 implements MigrationInterface {
         onDelete: "CASCADE",
       }),
     );
-
-    // Notifications table - userId foreign key
-    await queryRunner.createForeignKey(
-      "notifications",
-      new TableForeignKey({
-        columnNames: ["userId"],
-        referencedTableName: "users",
-        referencedColumnNames: ["id"],
-        onDelete: "CASCADE",
-      }),
-    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop foreign key constraints in reverse order
-    await queryRunner.dropForeignKey(
-      "notifications",
-      "FK_692a909ee0fa9383e7859f9b406",
-    );
+
     await queryRunner.dropForeignKey(
       "filters",
       "FK_03cae8398ba982cf0b26e714c6f",

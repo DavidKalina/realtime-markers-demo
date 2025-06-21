@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   buttonIcon: {
     opacity: 0.7,
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   coordinatesText: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginTop: 2,
   },
   modalContainer: {
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   closeButton: {
     width: 40,
@@ -304,12 +304,12 @@ const styles = StyleSheet.create({
   locationName: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   locationAddress: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginTop: 2,
   },
   selectedText: {
@@ -330,6 +330,6 @@ const styles = StyleSheet.create({
     color: "#000",
     fontSize: 16,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
 });
