@@ -4,3 +4,4 @@
 export * from "./eventUtils";
 export * from "./errors";
 export * from "./isEventTemporalyRelevant";
+export * from "./handlerUtils";
