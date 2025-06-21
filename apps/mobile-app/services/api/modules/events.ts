@@ -240,10 +240,12 @@ export class EventApiClient extends BaseApiModule {
       userLng?: number;
       featuredLimit?: number;
       upcomingLimit?: number;
+      communityLimit?: number;
     } = {},
   ): Promise<{
     featuredEvents: EventType[];
     upcomingEvents: EventType[];
+    communityEvents: EventType[];
     popularCategories: Array<{
       id: string;
       name: string;
@@ -259,12 +261,15 @@ export class EventApiClient extends BaseApiModule {
       queryParams.append("featuredLimit", params.featuredLimit.toString());
     if (params.upcomingLimit)
       queryParams.append("upcomingLimit", params.upcomingLimit.toString());
+    if (params.communityLimit)
+      queryParams.append("communityLimit", params.communityLimit.toString());
 
     const url = `${this.client.baseUrl}/api/events/landing?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
       featuredEvents: ApiEvent[];
       upcomingEvents: ApiEvent[];
+      communityEvents?: ApiEvent[];
       popularCategories: Array<{
         id: string;
         name: string;
@@ -272,9 +277,17 @@ export class EventApiClient extends BaseApiModule {
       }>;
     }>(response);
 
+    console.log("Landing page API response:", {
+      featuredEventsCount: data.featuredEvents?.length || 0,
+      upcomingEventsCount: data.upcomingEvents?.length || 0,
+      communityEventsCount: data.communityEvents?.length || 0,
+      hasCommunityEvents: !!data.communityEvents,
+    });
+
     return {
       featuredEvents: data.featuredEvents.map(mapEventToEventType),
       upcomingEvents: data.upcomingEvents.map(mapEventToEventType),
+      communityEvents: (data.communityEvents || []).map(mapEventToEventType),
       popularCategories: data.popularCategories,
     };
   }

@@ -4,6 +4,7 @@ import { EventType } from "@/types/types";
 import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
 import PopularCategoriesSection from "./PopularCategoriesSection";
 import UpcomingEventsSection from "./UpcomingEventsSection";
+import CommunityEventsSection from "./CommunityEventsSection";
 
 interface Category {
   id: string;
@@ -14,6 +15,7 @@ interface Category {
 interface LandingPageData {
   featuredEvents: EventType[];
   upcomingEvents: EventType[];
+  communityEvents?: EventType[];
   popularCategories: Category[];
 }
 
@@ -45,6 +47,11 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
 
       <PopularCategoriesSection
         categories={data?.popularCategories || []}
+        isLoading={isLoading}
+      />
+
+      <CommunityEventsSection
+        events={data?.communityEvents || []}
         isLoading={isLoading}
       />
 

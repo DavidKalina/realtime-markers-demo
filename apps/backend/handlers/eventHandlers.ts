@@ -809,6 +809,7 @@ export const getLandingPageDataHandler: EventHandler = withErrorHandling(
     const userLng = c.req.query("lng");
     const featuredLimit = c.req.query("featuredLimit");
     const upcomingLimit = c.req.query("upcomingLimit");
+    const communityLimit = c.req.query("communityLimit");
 
     const eventService = getEventService(c);
 
@@ -817,6 +818,7 @@ export const getLandingPageDataHandler: EventHandler = withErrorHandling(
       userLng: userLng ? parseFloat(userLng) : undefined,
       featuredLimit: featuredLimit ? parseInt(featuredLimit) : undefined,
       upcomingLimit: upcomingLimit ? parseInt(upcomingLimit) : undefined,
+      communityLimit: communityLimit ? parseInt(communityLimit) : undefined,
     });
 
     return c.json(landingPageData);

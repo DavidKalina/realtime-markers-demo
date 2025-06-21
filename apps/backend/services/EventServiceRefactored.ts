@@ -105,11 +105,13 @@ export interface EventService {
   getLandingPageData(options?: {
     featuredLimit?: number;
     upcomingLimit?: number;
+    communityLimit?: number;
     userLat?: number;
     userLng?: number;
   }): Promise<{
     featuredEvents: Event[];
     upcomingEvents: Event[];
+    communityEvents: Event[];
     popularCategories: Category[];
   }>;
 
@@ -458,11 +460,13 @@ export class EventServiceRefactored implements EventService {
   async getLandingPageData(options?: {
     featuredLimit?: number;
     upcomingLimit?: number;
+    communityLimit?: number;
     userLat?: number;
     userLng?: number;
   }): Promise<{
     featuredEvents: Event[];
     upcomingEvents: Event[];
+    communityEvents: Event[];
     popularCategories: Category[];
   }> {
     return this.searchService.getLandingPageData(options);

@@ -50,11 +50,13 @@ export interface EventSearchService {
   getLandingPageData(options?: {
     featuredLimit?: number;
     upcomingLimit?: number;
+    communityLimit?: number;
     userLat?: number;
     userLng?: number;
   }): Promise<{
     featuredEvents: Event[];
     upcomingEvents: Event[];
+    communityEvents: Event[];
     popularCategories: Category[];
   }>;
 }
@@ -574,25 +576,38 @@ export class EventSearchServiceImpl implements EventSearchService {
     options: {
       featuredLimit?: number;
       upcomingLimit?: number;
+      communityLimit?: number;
       userLat?: number;
       userLng?: number;
     } = {},
   ): Promise<{
     featuredEvents: Event[];
     upcomingEvents: Event[];
+    communityEvents: Event[];
     popularCategories: Category[];
   }> {
-    const { featuredLimit = 5, upcomingLimit = 10, userLat, userLng } = options;
+    const {
+      featuredLimit = 5,
+      upcomingLimit = 10,
+      communityLimit = 5,
+      userLat,
+      userLng,
+    } = options;
 
     // Create a cache key based on the parameters
-    const cacheKey = `landing:${featuredLimit}:${upcomingLimit}:${userLat || "null"}:${userLng || "null"}`;
+    const cacheKey = `landing:${featuredLimit}:${upcomingLimit}:${communityLimit}:${userLat || "null"}:${userLng || "null"}`;
 
     // Check if we have cached results
     const cachedResults =
       await this.eventCacheService.getLandingPageData(cacheKey);
-    if (cachedResults) {
+    if (cachedResults && cachedResults.communityEvents !== undefined) {
       console.log(`Cache hit for landing page data: ${cacheKey}`);
-      return cachedResults;
+      return {
+        featuredEvents: cachedResults.featuredEvents,
+        upcomingEvents: cachedResults.upcomingEvents,
+        communityEvents: cachedResults.communityEvents,
+        popularCategories: cachedResults.popularCategories,
+      };
     }
 
     console.log(`Cache miss for landing page data: ${cacheKey}`);
@@ -640,6 +655,24 @@ export class EventSearchServiceImpl implements EventSearchService {
 
     const upcomingEvents = await upcomingQuery.getMany();
 
+    // Get community events (non-official events with originalImageUrl)
+    const communityEvents = await this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("event.isOfficial = :isOfficial", { isOfficial: false })
+      .andWhere("event.status = :status", { status: "VERIFIED" })
+      .andWhere("event.eventDate > NOW()")
+      .andWhere("event.isPrivate = :isPrivate", { isPrivate: false })
+      .andWhere("event.originalImageUrl IS NOT NULL")
+      .orderBy("event.saveCount", "DESC")
+      .addOrderBy("event.viewCount", "DESC")
+      .addOrderBy("event.eventDate", "ASC")
+      .limit(communityLimit)
+      .getMany();
+
+    console.log(`Found ${communityEvents.length} community events`);
+
     // Get popular categories from official events
     const popularCategories = await this.categoryRepository
       .createQueryBuilder("category")
@@ -672,8 +705,16 @@ export class EventSearchServiceImpl implements EventSearchService {
     const result = {
       featuredEvents,
       upcomingEvents,
+      communityEvents,
       popularCategories: categories,
     };
+
+    console.log("Landing page result:", {
+      featuredEventsCount: featuredEvents.length,
+      upcomingEventsCount: upcomingEvents.length,
+      communityEventsCount: communityEvents.length,
+      popularCategoriesCount: categories.length,
+    });
 
     // Cache the results
     await this.eventCacheService.setLandingPageData(cacheKey, result);

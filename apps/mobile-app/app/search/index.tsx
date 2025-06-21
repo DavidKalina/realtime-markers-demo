@@ -49,6 +49,7 @@ const SearchListScreen = () => {
     userLng: userLocation?.[0], // longitude is first element
     featuredLimit: 5,
     upcomingLimit: 10,
+    communityLimit: 5,
   });
 
   // Track if we're showing landing page or search results

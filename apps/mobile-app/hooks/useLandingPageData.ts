@@ -11,6 +11,7 @@ interface Category {
 interface LandingPageData {
   featuredEvents: EventType[];
   upcomingEvents: EventType[];
+  communityEvents?: EventType[];
   popularCategories: Category[];
 }
 
@@ -19,6 +20,7 @@ interface UseLandingPageDataProps {
   userLng?: number;
   featuredLimit?: number;
   upcomingLimit?: number;
+  communityLimit?: number;
 }
 
 interface UseLandingPageDataReturn {
@@ -33,6 +35,7 @@ const useLandingPageData = ({
   userLng,
   featuredLimit = 5,
   upcomingLimit = 10,
+  communityLimit = 5,
 }: UseLandingPageDataProps = {}): UseLandingPageDataReturn => {
   const [landingData, setLandingData] = useState<LandingPageData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,6 +51,7 @@ const useLandingPageData = ({
         userLng,
         featuredLimit,
         upcomingLimit,
+        communityLimit,
       });
 
       setLandingData(data);
@@ -57,7 +61,7 @@ const useLandingPageData = ({
     } finally {
       setIsLoading(false);
     }
-  }, [userLat, userLng, featuredLimit, upcomingLimit]);
+  }, [userLat, userLng, featuredLimit, upcomingLimit, communityLimit]);
 
   const refresh = useCallback(async () => {
     await fetchLandingData();

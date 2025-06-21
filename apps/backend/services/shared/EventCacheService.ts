@@ -35,6 +35,7 @@ interface ClusterHubData {
 interface LandingPageData {
   featuredEvents: Event[];
   upcomingEvents: Event[];
+  communityEvents?: Event[];
   popularCategories: Category[];
 }
 
