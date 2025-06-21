@@ -11,7 +11,7 @@ export interface EmailOptions {
 export interface EmailService {
   sendEmail(options: EmailOptions): Promise<boolean>;
   sendAdminNotification(subject: string, message: string): Promise<boolean>;
-  sendWelcomeEmail(to: string, displayName: string): Promise<boolean>;
+  sendWelcomeEmail(to: string): Promise<boolean>;
   sendAdminAddedNotification(
     adminEmail: string,
     adminName: string,
@@ -76,12 +76,12 @@ export class ResendEmailService implements EmailService {
     });
   }
 
-  async sendWelcomeEmail(to: string, displayName: string): Promise<boolean> {
+  async sendWelcomeEmail(to: string): Promise<boolean> {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">Welcome to Municipal Dashboard!</h2>
         <p style="color: #666; line-height: 1.6;">
-          Hello ${displayName},
+          Hello ${to},
         </p>
         <p style="color: #666; line-height: 1.6;">
           Welcome to the Municipal Dashboard! Your account has been created successfully.
@@ -164,8 +164,8 @@ export class MockEmailService implements EmailService {
     return true;
   }
 
-  async sendWelcomeEmail(to: string, displayName: string): Promise<boolean> {
-    console.log("📧 [MOCK] Welcome email to:", { to, displayName });
+  async sendWelcomeEmail(to: string): Promise<boolean> {
+    console.log("📧 [MOCK] Welcome email to:", { to });
     return true;
   }
 

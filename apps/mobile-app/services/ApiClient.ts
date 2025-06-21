@@ -7,7 +7,6 @@ import { PlacesApiClient } from "./api/modules/places";
 import { AuthModule } from "./api/modules/auth";
 import { FiltersModule } from "./api/modules/filters";
 import { RSVPModule } from "./api/modules/rsvp";
-import { PlansModule } from "./api/modules/plans";
 import { CategoriesModule } from "./api/modules/categories";
 
 // Re-export types and enums
@@ -17,7 +16,6 @@ export * from "./api/modules/events";
 // export * from "./api/modules/notifications"; // Types are now in base/types
 export * from "./api/modules/filters";
 export * from "./api/modules/rsvp";
-export * from "./api/modules/plans";
 export * from "./api/modules/clusters";
 export * from "./api/modules/places";
 
@@ -29,7 +27,6 @@ class ApiClient extends BaseApiClient {
   private _auth: AuthModule | null = null;
   private _filters: FiltersModule | null = null;
   private _rsvp: RSVPModule | null = null;
-  private _plans: PlansModule | null = null;
   private _categories: CategoriesModule | null = null;
 
   private constructor(baseUrl: string) {
@@ -89,13 +86,6 @@ class ApiClient extends BaseApiClient {
       this._rsvp = new RSVPModule(this);
     }
     return this._rsvp;
-  }
-
-  public get plans(): PlansModule {
-    if (!this._plans) {
-      this._plans = new PlansModule(this);
-    }
-    return this._plans;
   }
 
   public get categories(): CategoriesModule {

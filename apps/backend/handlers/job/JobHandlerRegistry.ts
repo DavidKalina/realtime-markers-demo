@@ -6,7 +6,6 @@ import type { EventProcessingService } from "../../services/EventProcessingServi
 import type { EventService } from "../../services/EventServiceRefactored";
 import type { JobQueue } from "../../services/JobQueue";
 import type { RedisService } from "../../services/shared/RedisService";
-import { PlanService } from "../../services/PlanService";
 import { StorageService } from "../../services/shared/StorageService";
 
 export class JobHandlerRegistry {
@@ -17,7 +16,6 @@ export class JobHandlerRegistry {
     private readonly eventService: EventService,
     private readonly jobQueue: JobQueue,
     private readonly redisService: RedisService,
-    private readonly planService: PlanService,
     private readonly storageService: StorageService,
   ) {
     this.registerHandlers();
@@ -29,7 +27,6 @@ export class JobHandlerRegistry {
       new ProcessFlyerHandler(
         this.eventProcessingService,
         this.eventService,
-        this.planService,
         this.storageService,
       ),
     );

@@ -55,7 +55,6 @@ describe("UserEngagementService", () => {
   const mockUser: User = {
     id: "user-123",
     email: "user@example.com",
-    displayName: "Test User",
     currentTitle: "Event Explorer",
     passwordHash: "hashed",
     role: UserRole.USER,

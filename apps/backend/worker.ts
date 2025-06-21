@@ -17,7 +17,6 @@ import {
   createEventProcessingService,
   type EventProcessingService,
 } from "./services/EventProcessingService";
-import { createPlanService, type PlanService } from "./services/PlanService";
 import {
   createStorageService,
   type StorageService,
@@ -51,7 +50,6 @@ let jobQueue: JobQueue;
 let redisService: RedisService;
 let eventService: EventService;
 let eventProcessingService: EventProcessingService;
-let planService: PlanService;
 let storageService: StorageService;
 let jobHandlerRegistry: JobHandlerRegistry;
 
@@ -155,9 +153,6 @@ async function initializeWorker() {
     embeddingService,
   });
 
-  // Initialize plan service
-  planService = createPlanService({ dataSource: AppDataSource });
-
   // Initialize storage service
   storageService = createStorageService();
 
@@ -167,7 +162,6 @@ async function initializeWorker() {
     eventService,
     jobQueue,
     redisService,
-    planService,
     storageService,
   );
 

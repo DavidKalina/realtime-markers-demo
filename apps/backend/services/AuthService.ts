@@ -12,7 +12,6 @@ import { OpenAIModel } from "./shared/OpenAIService";
 export interface UserRegistrationData {
   email: string;
   password: string;
-  displayName?: string;
 }
 
 export interface AuthTokens {
@@ -98,16 +97,6 @@ export class AuthService {
       throw new Error("User with this email already exists");
     }
 
-    // Check content appropriateness if display name is provided
-    if (userData.displayName) {
-      const isAppropriate = await this.isContentAppropriate(
-        userData.displayName,
-      );
-      if (!isAppropriate) {
-        throw new Error("Display name contains inappropriate content");
-      }
-    }
-
     // Hash password
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(userData.password, saltRounds);
@@ -116,8 +105,6 @@ export class AuthService {
     const newUser = this.userRepository.create({
       email: userData.email,
       passwordHash,
-      displayName: userData.displayName || userData.email.split("@")[0],
-      username: userData.displayName || userData.email.split("@")[0],
       isVerified: false, // Set to false by default - would need email verification process
     });
 
@@ -163,7 +150,6 @@ export class AuthService {
         "id",
         "email",
         "passwordHash",
-        "displayName",
         "role",
         "isVerified",
         "avatarUrl",
@@ -357,7 +343,6 @@ export class AuthService {
       select: [
         "id",
         "email",
-        "displayName",
         "role",
         "isVerified",
         "avatarUrl",
@@ -365,7 +350,6 @@ export class AuthService {
         "createdAt",
         "scanCount",
         "saveCount",
-        "username",
       ],
     });
 
@@ -385,24 +369,6 @@ export class AuthService {
     delete userData.role; // Role should be updated through admin functions
     delete userData.id;
     delete userData.email; // Email changes should have their own flow with verification
-
-    // Check content appropriateness if display name is being updated
-    if (userData.displayName) {
-      const isAppropriate = await this.isContentAppropriate(
-        userData.displayName,
-      );
-      if (!isAppropriate) {
-        throw new Error("Display name contains inappropriate content");
-      }
-    }
-
-    // Check content appropriateness if username is being updated
-    if (userData.username) {
-      const isAppropriate = await this.isContentAppropriate(userData.username);
-      if (!isAppropriate) {
-        throw new Error("Username contains inappropriate content");
-      }
-    }
 
     await this.userRepository.update(userId, userData);
     return this.getUserProfile(userId);

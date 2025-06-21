@@ -27,12 +27,6 @@ export class UserTable1710000000006 implements MigrationInterface {
           { name: "first_name", type: "varchar", isNullable: true },
           { name: "last_name", type: "varchar", isNullable: true },
           {
-            name: "username",
-            type: "varchar",
-            isUnique: true,
-            isNullable: true,
-          },
-          {
             name: "friend_code",
             type: "varchar",
             isUnique: true,
@@ -40,7 +34,6 @@ export class UserTable1710000000006 implements MigrationInterface {
           },
           { name: "phone", type: "varchar", isNullable: true },
           { name: "password_hash", type: "varchar" },
-          { name: "display_name", type: "varchar", isNullable: true },
           { name: "avatar_url", type: "varchar", isNullable: true },
           { name: "bio", type: "text", isNullable: true },
           { name: "role", type: "users_role_enum", default: "'USER'" },
@@ -71,7 +64,6 @@ export class UserTable1710000000006 implements MigrationInterface {
         ],
         indices: [
           { columnNames: ["email"], isUnique: true },
-          { columnNames: ["username"], isUnique: true },
           { columnNames: ["friend_code"], isUnique: true },
         ],
       }),

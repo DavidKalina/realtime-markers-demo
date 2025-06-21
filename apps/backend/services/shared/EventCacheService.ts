@@ -23,7 +23,6 @@ interface ClusterHubData {
   clusterEmoji: string;
   featuredCreator?: {
     id: string;
-    displayName: string;
     email: string;
     eventCount: number;
     creatorDescription: string;

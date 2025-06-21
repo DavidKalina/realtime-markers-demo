@@ -22,11 +22,6 @@ export enum UserRole {
   ADMIN = "ADMIN",
 }
 
-export enum PlanType {
-  FREE = "FREE",
-  PRO = "PRO",
-}
-
 @Entity("users")
 export class User {
   @PrimaryGeneratedColumn("uuid")
@@ -42,18 +37,11 @@ export class User {
   @Column({ name: "last_name", type: "varchar", nullable: true })
   lastName?: string;
 
-  @Index({ unique: true })
-  @Column({ name: "username", type: "varchar", unique: true, nullable: true })
-  username?: string;
-
   @Column({ type: "varchar", nullable: true })
   phone?: string;
 
   @Column({ name: "password_hash", type: "varchar", select: false })
   passwordHash!: string;
-
-  @Column({ name: "display_name", type: "varchar", nullable: true })
-  displayName?: string;
 
   @Column({ name: "avatar_url", type: "varchar", nullable: true })
   avatarUrl?: string;
@@ -67,14 +55,6 @@ export class User {
     default: UserRole.USER,
   })
   role!: UserRole;
-
-  @Column({
-    name: "plan_type",
-    type: "enum",
-    enum: PlanType,
-    default: PlanType.FREE,
-  })
-  planType!: PlanType;
 
   @Column({ name: "is_verified", type: "boolean", default: false })
   isVerified!: boolean;

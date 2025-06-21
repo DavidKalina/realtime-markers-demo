@@ -17,7 +17,6 @@ import { createStorageService } from "./shared/StorageService";
 import { createEventExtractionService } from "./event-processing/EventExtractionService";
 import { createEventProcessingService } from "./EventProcessingService";
 import { createUserPreferencesService } from "./UserPreferences";
-import { createPlanService } from "./PlanService";
 import { createAuthService } from "./AuthService";
 import { createEmailService, MockEmailService } from "./shared/EmailService";
 import { createGoogleGeocodingService } from "./shared/GoogleGeocodingService";
@@ -28,7 +27,6 @@ import type { EventProcessingService } from "./EventProcessingService";
 import type { CategoryProcessingService } from "./CategoryProcessingService";
 import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import type { StorageService } from "./shared/StorageService";
-import type { PlanService } from "./PlanService";
 import type { AuthService } from "./AuthService";
 import type { OpenAIService } from "./shared/OpenAIService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
@@ -43,7 +41,6 @@ export interface ServiceContainer {
   categoryProcessingService: CategoryProcessingService;
   userPreferencesService: UserPreferencesServiceImpl;
   storageService: StorageService;
-  planService: PlanService;
   authService: AuthService;
   openAIService: OpenAIService;
   embeddingService: IEmbeddingService;
@@ -147,7 +144,6 @@ export class ServiceInitializer {
     });
 
     const storageService = createStorageService();
-    const planService = createPlanService({ dataSource: this.dataSource });
 
     const authService = createAuthService({
       userRepository: repositories.userRepository,
@@ -174,7 +170,6 @@ export class ServiceInitializer {
       categoryProcessingService,
       userPreferencesService,
       storageService,
-      planService,
       authService,
       openAIService,
       embeddingService,

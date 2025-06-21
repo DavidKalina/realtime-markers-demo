@@ -4,9 +4,7 @@ import bcrypt from "bcrypt";
 
 export interface SeededUser {
   email: string;
-  username: string;
   passwordHash: string;
-  displayName: string;
   role: UserRole;
   planType: PlanType;
   isVerified: boolean;
@@ -15,24 +13,18 @@ export interface SeededUser {
 export const SEEDED_USERS: Omit<SeededUser, "passwordHash">[] = [
   {
     email: "user@example.com",
-    username: "regularuser",
-    displayName: "Regular User",
     role: UserRole.USER,
     planType: PlanType.FREE,
     isVerified: true,
   },
   {
     email: "moderator@example.com",
-    username: "moderator",
-    displayName: "Moderator User",
     role: UserRole.MODERATOR,
     planType: PlanType.PRO,
     isVerified: true,
   },
   {
     email: "admin@example.com",
-    username: "admin",
-    displayName: "Admin User",
     role: UserRole.ADMIN,
     planType: PlanType.PRO,
     isVerified: true,
@@ -77,15 +69,12 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
   for (const userData of usersWithHashedPasswords) {
     const user = userRepository.create(userData);
     const savedUser = await userRepository.save(user);
-    console.log(
-      `✓ Created ${savedUser.displayName} (${savedUser.role}) - ${savedUser.email}`,
-    );
+    console.log(`✓ Created ${savedUser.email} (${savedUser.role})`);
   }
 
   console.log("\nDevelopment user seeding completed!");
   console.log("\nLogin credentials:");
   Object.entries(SEEDED_PASSWORDS).forEach(([email, password]) => {
-    const user = SEEDED_USERS.find((u) => u.email === email);
-    console.log(`${user?.displayName}: ${email} / ${password}`);
+    console.log(`${email}: ${email} / ${password}`);
   });
 }

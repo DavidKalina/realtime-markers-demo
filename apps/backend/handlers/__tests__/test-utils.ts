@@ -4,7 +4,6 @@ import type { JobQueue } from "../../services/JobQueue";
 import type { RedisService } from "../../services/shared/RedisService";
 import type { EventService } from "../../services/EventServiceRefactored";
 import type { EventProcessingService } from "../../services/EventProcessingService";
-import type { PlanService } from "../../services/PlanService";
 import type { StorageService } from "../../services/shared/StorageService";
 import type { JobHandlerContext } from "../job/BaseJobHandler";
 
@@ -68,17 +67,6 @@ export function createMockEventProcessingService(): EventProcessingService {
     processPrivateEvent: mock(() => Promise.resolve({ id: "event-123" })),
     cleanupOutdatedEvents: mock(() => Promise.resolve()),
   } as unknown as EventProcessingService;
-}
-
-/**
- * Factory function to create mock PlanService
- */
-export function createMockPlanService(): PlanService {
-  return {
-    checkUserPlan: mock(() => Promise.resolve({ canScan: true })),
-    incrementScanCount: mock(() => Promise.resolve()),
-    resetWeeklyScans: mock(() => Promise.resolve()),
-  } as unknown as PlanService;
 }
 
 /**
@@ -249,8 +237,6 @@ export function createTestUserData(overrides: Record<string, unknown> = {}) {
   return {
     id: "user-123",
     email: "test@example.com",
-    displayName: "Test User",
-    username: "testuser",
     planType: "FREE",
     scanCount: 0,
     saveCount: 0,

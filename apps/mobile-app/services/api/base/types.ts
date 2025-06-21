@@ -534,33 +534,3 @@ export interface EventEngagementMetrics {
   totalEngagement: number;
   lastUpdated: string;
 }
-
-export interface Plan {
-  id: string;
-  name: string;
-  description?: string;
-  type: "FREE" | "BASIC" | "PREMIUM" | "ENTERPRISE";
-  price: number;
-  currency: string;
-  features: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PlanCreateInput {
-  name: string;
-  description?: string;
-  type: "FREE" | "BASIC" | "PREMIUM" | "ENTERPRISE";
-  price: number;
-  currency: string;
-  features: string[];
-}
-
-export interface PlanUpdateInput {
-  name?: string;
-  description?: string;
-  type?: "FREE" | "BASIC" | "PREMIUM" | "ENTERPRISE";
-  price?: number;
-  currency?: string;
-  features?: string[];
-}

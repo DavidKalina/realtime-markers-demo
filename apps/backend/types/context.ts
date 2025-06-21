@@ -5,7 +5,6 @@ import { JobQueue } from "../services/JobQueue";
 import Redis from "ioredis";
 import type { UserPreferencesServiceImpl } from "../services/UserPreferences";
 import type { StorageService } from "../services/shared/StorageService";
-import { PlanService } from "../services/PlanService";
 import type { RedisService } from "../services/shared/RedisService";
 import { AuthService } from "../services/AuthService";
 import type { GoogleGeocodingService } from "../services/shared/GoogleGeocodingService";
@@ -21,7 +20,6 @@ export interface AppVariables {
   redisClient: Redis;
   redisService: RedisService;
   userPreferencesService: UserPreferencesServiceImpl;
-  planService: PlanService;
   authService: AuthService;
   geocodingService: GoogleGeocodingService;
   embeddingService: IEmbeddingService;

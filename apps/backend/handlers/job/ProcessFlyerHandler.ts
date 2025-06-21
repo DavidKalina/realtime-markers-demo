@@ -3,7 +3,6 @@ import type { JobHandlerContext } from "./BaseJobHandler";
 import { BaseJobHandler } from "./BaseJobHandler";
 import type { EventProcessingService } from "../../services/EventProcessingService";
 import type { EventService } from "../../services/EventServiceRefactored";
-import { PlanService } from "../../services/PlanService";
 import { StorageService } from "../../services/shared/StorageService";
 import { isEventTemporalyRelevant } from "../../utils/isEventTemporalyRelevant";
 import type { Point } from "geojson";
@@ -35,7 +34,6 @@ export class ProcessFlyerHandler extends BaseJobHandler {
   constructor(
     private readonly eventProcessingService: EventProcessingService,
     private readonly eventService: EventService,
-    private readonly planService: PlanService,
     private readonly storageService: StorageService,
   ) {
     super();
@@ -61,22 +59,6 @@ export class ProcessFlyerHandler extends BaseJobHandler {
           stepDescription: "Validating request and checking limits",
         },
       });
-
-      // Check if user has reached their scan limit
-      if (job.data.creatorId) {
-        const hasReachedLimit = await this.planService.hasReachedScanLimit(
-          job.data.creatorId as string,
-        );
-        if (hasReachedLimit) {
-          await this.failJob(
-            jobId,
-            context,
-            "Scan limit reached",
-            "You have reached your weekly scan limit. Please upgrade to Pro for more scans.",
-          );
-          return;
-        }
-      }
 
       // Step 2: Image Retrieval (25% progress)
       await this.updateJobProgress(jobId, context, {

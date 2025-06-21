@@ -25,8 +25,6 @@ describe("AuthService", () => {
     id: "user-123",
     email: "test@example.com",
     passwordHash: "hashedPassword123",
-    displayName: "Test User",
-    username: "testuser",
     role: UserRole.USER,
     isVerified: false,
     avatarUrl: undefined,
@@ -54,7 +52,6 @@ describe("AuthService", () => {
   const testRegistrationData: UserRegistrationData = {
     email: "newuser@example.com",
     password: "password123",
-    displayName: "New User",
   };
 
   beforeEach(() => {
@@ -143,24 +140,6 @@ describe("AuthService", () => {
         "User with this email already exists",
       );
     });
-
-    it("should throw error if display name is inappropriate", async () => {
-      (mockUserRepository.findOne as jest.Mock).mockResolvedValue(null);
-      (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content:
-                '{"isAppropriate": false, "reason": "Inappropriate content"}',
-            },
-          },
-        ],
-      });
-
-      await expect(authService.register(testRegistrationData)).rejects.toThrow(
-        "Display name contains inappropriate content",
-      );
-    });
   });
 
   describe("login", () => {
@@ -217,22 +196,11 @@ describe("AuthService", () => {
   describe("updateUserProfile", () => {
     it("should update user profile successfully", async () => {
       const updateData = {
-        displayName: "Updated Name",
         bio: "Updated bio",
       };
 
       const mockUpdatedUser = { ...testUser, ...updateData };
 
-      (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content:
-                '{"isAppropriate": true, "reason": "Appropriate content"}',
-            },
-          },
-        ],
-      });
       (mockUserRepository.update as jest.Mock).mockResolvedValue({
         affected: 1,
       });
@@ -254,47 +222,9 @@ describe("AuthService", () => {
       );
     });
 
-    it("should throw error for inappropriate display name", async () => {
-      const updateData = { displayName: "Inappropriate Name" };
-
-      (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content:
-                '{"isAppropriate": false, "reason": "Inappropriate content"}',
-            },
-          },
-        ],
-      });
-
-      await expect(
-        authService.updateUserProfile(testUser.id, updateData),
-      ).rejects.toThrow("Display name contains inappropriate content");
-    });
-
-    it("should throw error for inappropriate username", async () => {
-      const updateData = { username: "Inappropriate Username" };
-
-      (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content:
-                '{"isAppropriate": false, "reason": "Inappropriate content"}',
-            },
-          },
-        ],
-      });
-
-      await expect(
-        authService.updateUserProfile(testUser.id, updateData),
-      ).rejects.toThrow("Username contains inappropriate content");
-    });
-
     it("should exclude sensitive fields from updates", async () => {
       const updateData = {
-        displayName: "Updated Name",
+        bio: "Updated bio",
         passwordHash: "should-be-ignored",
         refreshToken: "should-be-ignored",
         role: UserRole.ADMIN,
@@ -302,18 +232,8 @@ describe("AuthService", () => {
         email: "should-be-ignored",
       };
 
-      const mockUpdatedUser = { ...testUser, displayName: "Updated Name" };
+      const mockUpdatedUser = { ...testUser, bio: "Updated bio" };
 
-      (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content:
-                '{"isAppropriate": true, "reason": "Appropriate content"}',
-            },
-          },
-        ],
-      });
       (mockUserRepository.update as jest.Mock).mockResolvedValue({
         affected: 1,
       });
@@ -324,7 +244,7 @@ describe("AuthService", () => {
       await authService.updateUserProfile(testUser.id, updateData);
 
       expect(mockUserRepository.update).toHaveBeenCalledWith(testUser.id, {
-        displayName: "Updated Name",
+        bio: "Updated bio",
       });
     });
   });

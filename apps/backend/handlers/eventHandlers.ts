@@ -133,18 +133,6 @@ export const processEventImageHandler: EventHandler = withErrorHandling(
 
     // Get job queue and plan service from context
     const jobQueue = getJobQueue(c);
-    const planService = c.get("planService");
-
-    // Check if user has reached their scan limit
-    const hasReachedLimit = await planService.hasReachedScanLimit(user.id);
-    if (hasReachedLimit) {
-      throw new Error(
-        "You have reached your weekly scan limit. Please upgrade to Pro for more scans.",
-      );
-    }
-
-    // Increment scan count before processing
-    await planService.incrementWeeklyScanCount(user.id);
 
     // Validate the image
     if (!imageEntry) {

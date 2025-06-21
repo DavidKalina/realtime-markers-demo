@@ -1,34 +1,29 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useProfile } from "@/hooks/useProfile";
-import { useFetchMyFriends } from "@/hooks/useFetchMyFriends";
-import React, { useState, useCallback } from "react";
+import * as Haptics from "expo-haptics";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   StyleSheet,
+  Switch,
   Text,
   View,
-  Switch,
-  Pressable,
 } from "react-native";
-import { useRouter } from "expo-router";
+import Card from "../Layout/Card";
 import Screen from "../Layout/Screen";
 import { COLORS } from "../Layout/ScreenLayout";
-import DeleteAccountModalComponent from "./DeleteAccountModal";
-import * as Haptics from "expo-haptics";
-import Card from "../Layout/Card";
-import { UserPlus, ChevronRight } from "lucide-react-native";
 import UserStats from "../Layout/UserStats";
+import DeleteAccountModalComponent from "./DeleteAccountModal";
 
 interface UserProfileProps {
   onBack?: () => void;
 }
 
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
-  const router = useRouter();
   const { user } = useAuth();
   const { currentStyle, isPitched, togglePitch, setMapStyle } = useMapStyle();
-  const { friends, isLoading: isLoadingFriends } = useFetchMyFriends();
   const {
     loading,
     profileData,
@@ -61,11 +56,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     setMapSettings((prev) => ({ ...prev, isPitched: value }));
     togglePitch();
   };
-
-  const handleNavigateToFriends = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/friends");
-  }, [router]);
 
   if (loading) {
     return (
@@ -242,30 +232,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                     : COLORS.cardBackground
                 }
               />
-            </View>
-          </Card>
-
-          {/* Friends Card */}
-          <Card style={styles.card} onPress={handleNavigateToFriends}>
-            <View style={styles.friendsCardContent}>
-              <View style={styles.friendsCardLeft}>
-                <UserPlus
-                  size={24}
-                  color={COLORS.textPrimary}
-                  style={styles.friendsIcon}
-                />
-                <View>
-                  <Text style={styles.friendsTitle}>Friends</Text>
-                  <Text style={styles.friendsSubtitle}>
-                    {isLoadingFriends
-                      ? "Loading friends..."
-                      : friends.length === 0
-                        ? "No friends yet"
-                        : `${friends.length} friend${friends.length === 1 ? "" : "s"}`}
-                  </Text>
-                </View>
-              </View>
-              <ChevronRight size={20} color={COLORS.textSecondary} />
             </View>
           </Card>
 

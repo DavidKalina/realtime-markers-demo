@@ -12,16 +12,14 @@ export class SeedUsers1710000000012 implements MigrationInterface {
     // Insert regular user
     await queryRunner.query(`
       INSERT INTO users (
-        id, email, username, friend_code, password_hash, display_name, 
+        id, email, friend_code, password_hash, 
         role, plan_type, is_verified, discovery_count, scan_count, 
         save_count, view_count, weekly_scan_count, created_at, updated_at
       ) VALUES (
         '550e8400-e29b-41d4-a716-446655440001',
         'user@example.com',
-        'regularuser',
         'USER001',
         '${userPasswordHash}',
-        'Regular User',
         'USER',
         'FREE',
         true,
@@ -38,16 +36,14 @@ export class SeedUsers1710000000012 implements MigrationInterface {
     // Insert moderator user
     await queryRunner.query(`
       INSERT INTO users (
-        id, email, username, friend_code, password_hash, display_name, 
+        id, email, friend_code, password_hash, 
         role, plan_type, is_verified, discovery_count, scan_count, 
         save_count, view_count, weekly_scan_count, created_at, updated_at
       ) VALUES (
         '550e8400-e29b-41d4-a716-446655440002',
         'moderator@example.com',
-        'moderator',
         'MOD001',
         '${moderatorPasswordHash}',
-        'Moderator User',
         'MODERATOR',
         'PRO',
         true,
@@ -64,16 +60,14 @@ export class SeedUsers1710000000012 implements MigrationInterface {
     // Insert admin user
     await queryRunner.query(`
       INSERT INTO users (
-        id, email, username, friend_code, password_hash, display_name, 
+        id, email, friend_code, password_hash, 
         role, plan_type, is_verified, discovery_count, scan_count, 
         save_count, view_count, weekly_scan_count, created_at, updated_at
       ) VALUES (
         '550e8400-e29b-41d4-a716-446655440003',
         'admin@example.com',
-        'admin',
         'ADMIN001',
         '${adminPasswordHash}',
-        'Admin User',
         'ADMIN',
         'PRO',
         true,

@@ -253,10 +253,10 @@ adminRouter.get("/dashboard/activity", async (c) => {
         id: `scan_${scan.id}`,
         type: "event_scanned",
         title: `New event scanned: '${scan.event.title}'`,
-        description: `Event was scanned by user ${scan.user.displayName || scan.user.email}`,
+        description: `Event was scanned by user ${scan.user.email}`,
         timestamp: scan.discoveredAt.toISOString(),
         user: {
-          name: scan.user.displayName || scan.user.email,
+          name: scan.user.email,
           avatar: scan.user.avatarUrl,
         },
         metadata: {
@@ -281,10 +281,10 @@ adminRouter.get("/dashboard/activity", async (c) => {
         id: `user_${user.id}`,
         type: "user_registered",
         title: "New user registered",
-        description: `${user.displayName || user.email} joined the platform`,
+        description: `${user.email} joined the platform`,
         timestamp: user.createdAt.toISOString(),
         user: {
-          name: user.displayName || user.email,
+          name: user.email,
           avatar: user.avatarUrl,
         },
       });
@@ -1006,7 +1006,7 @@ adminRouter.patch("/users/:id/role", async (c) => {
 
 adminRouter.post("/users/admins", async (c) => {
   try {
-    const { email, password, displayName, username } = await c.req.json();
+    const { email, password } = await c.req.json();
     const currentUser = c.get("user");
     const emailService = c.get("emailService");
 
@@ -1034,8 +1034,6 @@ adminRouter.post("/users/admins", async (c) => {
       {
         email,
         password,
-        displayName,
-        username,
       },
       currentUser?.email || "Unknown",
     );
@@ -1044,8 +1042,6 @@ adminRouter.post("/users/admins", async (c) => {
     const userData = {
       id: newAdmin.id,
       email: newAdmin.email,
-      username: newAdmin.username,
-      displayName: newAdmin.displayName,
       avatarUrl: newAdmin.avatarUrl,
       role: newAdmin.role,
       planType: newAdmin.planType,

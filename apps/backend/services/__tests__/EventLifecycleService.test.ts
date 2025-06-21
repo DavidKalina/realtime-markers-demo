@@ -14,7 +14,7 @@ import {
   DayOfWeek,
 } from "../../entities/Event";
 import { Category } from "../../entities/Category";
-import { User, UserRole, PlanType } from "../../entities/User";
+import { User, UserRole } from "../../entities/User";
 import type { DataSource, Repository } from "typeorm";
 import type { EventCacheService } from "../shared/EventCacheService";
 import type { GoogleGeocodingService } from "../shared/GoogleGeocodingService";
@@ -33,11 +33,9 @@ describe("EventLifecycleService", () => {
   const mockUser: User = {
     id: "user-123",
     email: "test@example.com",
-    displayName: "Test User",
     currentTitle: "Event Creator",
     passwordHash: "hashed",
     role: UserRole.USER,
-    planType: PlanType.FREE,
     isVerified: false,
     discoveryCount: 0,
     scanCount: 0,

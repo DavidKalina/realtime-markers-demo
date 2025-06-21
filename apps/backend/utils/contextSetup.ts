@@ -17,7 +17,6 @@ export function setupContext(
     c.set("redisService", services.redisService);
     c.set("userPreferencesService", services.userPreferencesService);
     c.set("storageService", services.storageService);
-    c.set("planService", services.planService);
     c.set("authService", services.authService);
     c.set("geocodingService", services.geocodingService);
     c.set("embeddingService", services.embeddingService);
