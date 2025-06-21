@@ -31,7 +31,5 @@ export function useEvents(): UseEventsResult {
     fetchEvents();
   }, [fetchEvents]);
 
-  console.log("events", events);
-
   return { events, loading, error, refetch: fetchEvents };
 }

@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef, Suspense } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  Suspense,
+  useCallback,
+} from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -62,6 +68,7 @@ export const InteractiveMap = ({
   const mapRef = useRef<MapRef>(null);
   const router = useRouter();
   const [isMapReady, setIsMapReady] = useState(false);
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Use the websocket hook
   const { markers, isConnected, error, updateViewport } =
@@ -74,6 +81,78 @@ export const InteractiveMap = ({
     pitch: 0,
     bearing: 0,
   });
+
+  // Debounced viewport update function
+  const debouncedUpdateViewport = useCallback(
+    (viewport: any) => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+
+      debounceTimeoutRef.current = setTimeout(() => {
+        updateViewport(viewport);
+      }, 300); // 300ms debounce delay
+    },
+    [updateViewport],
+  );
+
+  // Function to get current viewport bounds and publish them
+  const publishCurrentViewport = useCallback(() => {
+    if (mapRef.current && isMapReady) {
+      const map = mapRef.current.getMap();
+      const bounds = map.getBounds();
+
+      if (bounds) {
+        const viewport = {
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest(),
+        };
+
+        debouncedUpdateViewport(viewport);
+      }
+    } else {
+      // If map is not ready yet, calculate viewport from current viewState
+      // This provides an initial viewport even before the map is fully loaded
+      const centerLng = viewState.longitude;
+      const centerLat = viewState.latitude;
+      const zoom = viewState.zoom;
+
+      // Calculate approximate bounds based on zoom level
+      // This is a rough approximation - Mapbox uses a specific formula
+      const zoomFactor = Math.pow(2, 20 - zoom); // 20 is max zoom level
+      const latDelta = 360 / zoomFactor;
+      const lngDelta = latDelta * 1.5; // Approximate aspect ratio
+
+      const viewport = {
+        north: centerLat + latDelta / 2,
+        south: centerLat - latDelta / 2,
+        east: centerLng + lngDelta / 2,
+        west: centerLng - lngDelta / 2,
+      };
+
+      debouncedUpdateViewport(viewport);
+    }
+  }, [isMapReady, debouncedUpdateViewport, viewState]);
+
+  // Publish initial viewport immediately when component mounts
+  useEffect(() => {
+    // Publish initial viewport right away
+    publishCurrentViewport();
+  }, [publishCurrentViewport]);
+
+  // Publish viewport when map becomes ready (this will be more accurate)
+  useEffect(() => {
+    if (isMapReady) {
+      // Small delay to ensure map is fully rendered
+      const timer = setTimeout(() => {
+        publishCurrentViewport();
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isMapReady, publishCurrentViewport]);
 
   // Manual location trigger function
   const handleGetLocation = () => {
@@ -136,30 +215,24 @@ export const InteractiveMap = ({
     const newViewState = evt.viewState;
     setViewState(newViewState);
 
-    // Convert to Mapbox viewport format and send to websocket
-    if (mapRef.current && isMapReady) {
-      const map = mapRef.current.getMap();
-      const bounds = map.getBounds();
-
-      if (bounds) {
-        const viewport = {
-          north: bounds.getNorth(),
-          south: bounds.getSouth(),
-          east: bounds.getEast(),
-          west: bounds.getWest(),
-        };
-
-        updateViewport(viewport);
-      }
-    }
+    // Publish the updated viewport
+    publishCurrentViewport();
   };
 
   // Handle marker press
   const handleMarkerPress = (marker: Marker) => {
-    console.log("Marker pressed:", marker);
     // Navigate to the event detail page
     router.push(`/events/${marker.id}`);
   };
+
+  // Cleanup debounce timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
