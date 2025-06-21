@@ -51,6 +51,8 @@ describe("AuthService", () => {
   const testRegistrationData: UserRegistrationData = {
     email: "newuser@example.com",
     password: "password123",
+    firstName: "John",
+    lastName: "Doe",
   };
 
   beforeEach(() => {
@@ -139,6 +141,96 @@ describe("AuthService", () => {
         "User with this email already exists",
       );
     });
+
+    it("should register user with valid names", async () => {
+      (mockUserRepository.findOne as jest.Mock).mockResolvedValue(null);
+      (mockUserRepository.create as jest.Mock).mockReturnValue(testUser);
+      (mockUserRepository.save as jest.Mock).mockResolvedValue(testUser);
+      (mockUserPreferencesService.createFilter as jest.Mock).mockResolvedValue({
+        id: "filter-123",
+      });
+      (mockUserPreferencesService.applyFilters as jest.Mock).mockResolvedValue(
+        undefined,
+      );
+      (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue({
+        choices: [{ message: { content: "APPROPRIATE" } }],
+      });
+
+      const result = await authService.register(testRegistrationData);
+
+      expect(result).toEqual(testUser);
+      expect(mockUserRepository.create).toHaveBeenCalledWith({
+        email: testRegistrationData.email,
+        firstName: testRegistrationData.firstName,
+        lastName: testRegistrationData.lastName,
+        passwordHash: expect.any(String),
+        isVerified: false,
+      });
+    });
+
+    it("should throw error for inappropriate first name", async () => {
+      (mockUserRepository.findOne as jest.Mock).mockResolvedValue(null);
+      (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue({
+        choices: [{ message: { content: "INAPPROPRIATE" } }],
+      });
+
+      const registrationDataWithInappropriateName = {
+        ...testRegistrationData,
+        firstName: "InappropriateName",
+      };
+
+      await expect(
+        authService.register(registrationDataWithInappropriateName),
+      ).rejects.toThrow(
+        'Name "InappropriateName" contains inappropriate content',
+      );
+    });
+
+    it("should throw error for inappropriate last name", async () => {
+      (mockUserRepository.findOne as jest.Mock).mockResolvedValue(null);
+      (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue({
+        choices: [{ message: { content: "INAPPROPRIATE" } }],
+      });
+
+      const registrationDataWithInappropriateName = {
+        ...testRegistrationData,
+        lastName: "InappropriateName",
+      };
+
+      await expect(
+        authService.register(registrationDataWithInappropriateName),
+      ).rejects.toThrow(
+        'Name "InappropriateName" contains inappropriate content',
+      );
+    });
+
+    it("should handle missing names gracefully", async () => {
+      (mockUserRepository.findOne as jest.Mock).mockResolvedValue(null);
+      (mockUserRepository.create as jest.Mock).mockReturnValue(testUser);
+      (mockUserRepository.save as jest.Mock).mockResolvedValue(testUser);
+      (mockUserPreferencesService.createFilter as jest.Mock).mockResolvedValue({
+        id: "filter-123",
+      });
+      (mockUserPreferencesService.applyFilters as jest.Mock).mockResolvedValue(
+        undefined,
+      );
+
+      const registrationDataWithoutNames = {
+        email: "newuser@example.com",
+        password: "password123",
+      };
+
+      const result = await authService.register(registrationDataWithoutNames);
+
+      expect(result).toEqual(testUser);
+      expect(mockUserRepository.create).toHaveBeenCalledWith({
+        email: registrationDataWithoutNames.email,
+        firstName: undefined,
+        lastName: undefined,
+        passwordHash: expect.any(String),
+        isVerified: false,
+      });
+    });
   });
 
   describe("login", () => {
@@ -218,6 +310,70 @@ describe("AuthService", () => {
       expect(mockUserRepository.update).toHaveBeenCalledWith(
         testUser.id,
         updateData,
+      );
+    });
+
+    it("should update user profile with valid names", async () => {
+      const updateData = {
+        firstName: "Jane",
+        lastName: "Smith",
+      };
+
+      const mockUpdatedUser = { ...testUser, ...updateData };
+
+      (mockUserRepository.update as jest.Mock).mockResolvedValue({
+        affected: 1,
+      });
+      (mockUserRepository.findOne as jest.Mock).mockResolvedValue(
+        mockUpdatedUser,
+      );
+      (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue({
+        choices: [{ message: { content: "APPROPRIATE" } }],
+      });
+
+      const result = await authService.updateUserProfile(
+        testUser.id,
+        updateData,
+      );
+
+      expect(result).toEqual({
+        ...mockUpdatedUser,
+      } as User);
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        testUser.id,
+        updateData,
+      );
+    });
+
+    it("should throw error for inappropriate first name in profile update", async () => {
+      const updateData = {
+        firstName: "InappropriateName",
+      };
+
+      (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue({
+        choices: [{ message: { content: "INAPPROPRIATE" } }],
+      });
+
+      await expect(
+        authService.updateUserProfile(testUser.id, updateData),
+      ).rejects.toThrow(
+        'Name "InappropriateName" contains inappropriate content',
+      );
+    });
+
+    it("should throw error for inappropriate last name in profile update", async () => {
+      const updateData = {
+        lastName: "InappropriateName",
+      };
+
+      (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue({
+        choices: [{ message: { content: "INAPPROPRIATE" } }],
+      });
+
+      await expect(
+        authService.updateUserProfile(testUser.id, updateData),
+      ).rejects.toThrow(
+        'Name "InappropriateName" contains inappropriate content',
       );
     });
 

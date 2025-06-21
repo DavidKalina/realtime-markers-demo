@@ -12,6 +12,8 @@ import { OpenAIModel } from "./shared/OpenAIService";
 export interface UserRegistrationData {
   email: string;
   password: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface AuthTokens {
@@ -85,6 +87,36 @@ export class AuthService {
   }
 
   /**
+   * Validate names for appropriateness
+   */
+  private async validateNames(
+    firstName?: string,
+    lastName?: string,
+  ): Promise<void> {
+    const namesToValidate: string[] = [];
+
+    if (firstName?.trim()) {
+      namesToValidate.push(firstName.trim());
+    }
+
+    if (lastName?.trim()) {
+      namesToValidate.push(lastName.trim());
+    }
+
+    if (namesToValidate.length === 0) {
+      return; // No names to validate
+    }
+
+    // Check each name individually
+    for (const name of namesToValidate) {
+      const isAppropriate = await this.isContentAppropriate(name);
+      if (!isAppropriate) {
+        throw new Error(`Name "${name}" contains inappropriate content`);
+      }
+    }
+  }
+
+  /**
    * Register a new user
    */
   async register(userData: UserRegistrationData): Promise<User> {
@@ -97,6 +129,9 @@ export class AuthService {
       throw new Error("User with this email already exists");
     }
 
+    // Validate names for appropriateness
+    await this.validateNames(userData.firstName, userData.lastName);
+
     // Hash password
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(userData.password, saltRounds);
@@ -104,6 +139,8 @@ export class AuthService {
     // Create new user
     const newUser = this.userRepository.create({
       email: userData.email,
+      firstName: userData.firstName?.trim(),
+      lastName: userData.lastName?.trim(),
       passwordHash,
       isVerified: false, // Set to false by default - would need email verification process
     });
@@ -343,6 +380,8 @@ export class AuthService {
       select: [
         "id",
         "email",
+        "firstName",
+        "lastName",
         "role",
         "isVerified",
         "avatarUrl",
@@ -369,6 +408,19 @@ export class AuthService {
     delete userData.role; // Role should be updated through admin functions
     delete userData.id;
     delete userData.email; // Email changes should have their own flow with verification
+
+    // Validate names for appropriateness if they're being updated
+    if (userData.firstName !== undefined || userData.lastName !== undefined) {
+      await this.validateNames(userData.firstName, userData.lastName);
+
+      // Trim names if they're being updated
+      if (userData.firstName !== undefined) {
+        userData.firstName = userData.firstName?.trim();
+      }
+      if (userData.lastName !== undefined) {
+        userData.lastName = userData.lastName?.trim();
+      }
+    }
 
     await this.userRepository.update(userId, userData);
     return this.getUserProfile(userId);
