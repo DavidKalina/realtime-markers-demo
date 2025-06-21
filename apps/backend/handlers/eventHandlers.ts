@@ -603,6 +603,11 @@ export const createEventHandler: EventHandler = async (c) => {
 
     const newEvent = await eventService.createEvent(eventInput);
 
+    // Create discovery record for the creator
+    if (user?.userId) {
+      await eventService.createDiscoveryRecord(user.userId, newEvent.id);
+    }
+
     // Publish to Redis for WebSocket service to broadcast
     await redisPub.publish(
       "event_changes",
