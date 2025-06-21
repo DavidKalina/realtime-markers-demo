@@ -19,6 +19,7 @@ import {
   Clock,
   Users,
   Building,
+  TrendingUp,
 } from "lucide-react-native";
 import React, {
   useEffect,
@@ -539,20 +540,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
 
               {/* Event Badge Overlay */}
               <View style={styles.eventBadgeOverlay}>{eventTypeBadge}</View>
-
-              {/* Event Engagement Display Overlay */}
-              {!event.isPrivate &&
-                engagement &&
-                !engagementLoading &&
-                !engagementError && (
-                  <View style={styles.engagementOverlay}>
-                    <EventEngagementDisplay
-                      engagement={engagement}
-                      isOverlay={true}
-                      delay={1000}
-                    />
-                  </View>
-                )}
             </Animated.View>
           </View>
 
@@ -667,6 +654,16 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                 </View>
               </InfoCard>
             )}
+
+            {/* Event Engagement Card */}
+            {!event.isPrivate &&
+              engagement &&
+              !engagementLoading &&
+              !engagementError && (
+                <InfoCard title="Event Engagement" icon={TrendingUp}>
+                  <EventEngagementDisplay engagement={engagement} delay={450} />
+                </InfoCard>
+              )}
           </Animated.View>
 
           {/* Action Buttons */}
