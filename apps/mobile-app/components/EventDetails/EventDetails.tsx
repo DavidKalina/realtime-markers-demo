@@ -16,6 +16,9 @@ import {
   Share,
   X,
   Repeat,
+  Clock,
+  Users,
+  Building,
 } from "lucide-react-native";
 import React, {
   useEffect,
@@ -35,19 +38,12 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ColorValue,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import Animated, {
-  Easing,
-  FadeIn,
-  FadeInDown,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import Header from "../Layout/Header";
-import ScreenLayout, { COLORS } from "../Layout/ScreenLayout";
+import ScreenLayout from "../Layout/ScreenLayout";
 import { ErrorEventDetails } from "./ErrorEventDetails";
 import EventEngagementDisplay from "./EventEngagementDisplay";
 import EventMapPreview from "./EventMapPreview";
@@ -63,39 +59,181 @@ interface EventDetailsProps {
   onBack?: () => void;
 }
 
-// Memoize EmojiContainer component
-const EmojiContainer = memo(({ emoji = "📍" }: { emoji?: string }) => {
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        {
-          translateY: withRepeat(
-            withSequence(
-              withTiming(-4, {
-                duration: 1000,
-                easing: Easing.inOut(Easing.quad),
-              }),
-              withTiming(0, {
-                duration: 1000,
-                easing: Easing.inOut(Easing.quad),
-              }),
-            ),
-            -1,
-            true,
-          ),
-        },
-      ],
-    };
-  });
+// Municipal-friendly color scheme
+const MUNICIPAL_COLORS = {
+  primary: "#1e40af", // Professional blue
+  secondary: "#059669", // Municipal green
+  accent: "#f59e0b", // Warm amber
+  background: "#f8fafc", // Light gray background
+  card: "#ffffff", // White cards
+  text: "#1e293b", // Dark slate text
+  textSecondary: "#64748b", // Medium gray
+  border: "#e2e8f0", // Light border
+  success: "#10b981", // Green for success states
+  warning: "#f59e0b", // Amber for warnings
+  error: "#ef4444", // Red for errors
+};
 
-  return (
-    <View style={styles.emojiWrapper}>
-      <Animated.View style={[styles.emojiContainer, animatedStyle]}>
-        <Text style={styles.emoji}>{emoji}</Text>
-      </Animated.View>
+// Memoize EventBadge component
+const EventBadge = memo(
+  ({
+    type,
+    text,
+  }: {
+    type: "official" | "community" | "private";
+    text: string;
+  }) => {
+    const getBadgeStyle = () => {
+      switch (type) {
+        case "official":
+          return {
+            backgroundColor: MUNICIPAL_COLORS.primary,
+            color: "#ffffff",
+          };
+        case "community":
+          return {
+            backgroundColor: MUNICIPAL_COLORS.secondary,
+            color: "#ffffff",
+          };
+        case "private":
+          return {
+            backgroundColor: MUNICIPAL_COLORS.warning,
+            color: "#ffffff",
+          };
+        default:
+          return {
+            backgroundColor: MUNICIPAL_COLORS.textSecondary,
+            color: "#ffffff",
+          };
+      }
+    };
+
+    const badgeStyle = getBadgeStyle();
+
+    return (
+      <View
+        style={[
+          styles.eventBadge,
+          { backgroundColor: badgeStyle.backgroundColor },
+        ]}
+      >
+        <Text style={[styles.eventBadgeText, { color: badgeStyle.color }]}>
+          {text}
+        </Text>
+      </View>
+    );
+  },
+);
+
+// Memoize InfoCard component
+const InfoCard = memo(
+  ({
+    children,
+    title,
+    icon: Icon,
+  }: {
+    children: React.ReactNode;
+    title?: string;
+    icon?: React.ComponentType<{
+      size?: number | string;
+      color?: ColorValue;
+      strokeWidth?: number | string;
+    }>;
+  }) => (
+    <View style={styles.infoCard}>
+      {(title || Icon) && (
+        <View style={styles.infoCardHeader}>
+          {Icon && (
+            <View style={styles.infoCardIcon}>
+              <Icon
+                size={18}
+                color={MUNICIPAL_COLORS.primary}
+                strokeWidth={2}
+              />
+            </View>
+          )}
+          {title && <Text style={styles.infoCardTitle}>{title}</Text>}
+        </View>
+      )}
+      <View style={styles.infoCardContent}>{children}</View>
     </View>
-  );
-});
+  ),
+);
+
+// Memoize ActionButton component
+const ActionButton = memo(
+  ({
+    onPress,
+    icon: Icon,
+    text,
+    variant = "primary",
+    disabled = false,
+  }: {
+    onPress: () => void;
+    icon: React.ComponentType<{
+      size?: number | string;
+      color?: ColorValue;
+      strokeWidth?: number | string;
+    }>;
+    text: string;
+    variant?: "primary" | "secondary" | "outline";
+    disabled?: boolean;
+  }) => {
+    const getButtonStyle = () => {
+      switch (variant) {
+        case "primary":
+          return {
+            backgroundColor: MUNICIPAL_COLORS.primary,
+            borderColor: MUNICIPAL_COLORS.primary,
+            textColor: "#ffffff",
+          };
+        case "secondary":
+          return {
+            backgroundColor: MUNICIPAL_COLORS.secondary,
+            borderColor: MUNICIPAL_COLORS.secondary,
+            textColor: "#ffffff",
+          };
+        case "outline":
+          return {
+            backgroundColor: "transparent",
+            borderColor: MUNICIPAL_COLORS.border,
+            textColor: MUNICIPAL_COLORS.text,
+          };
+        default:
+          return {
+            backgroundColor: MUNICIPAL_COLORS.primary,
+            borderColor: MUNICIPAL_COLORS.primary,
+            textColor: "#ffffff",
+          };
+      }
+    };
+
+    const buttonStyle = getButtonStyle();
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.actionButton,
+          {
+            backgroundColor: buttonStyle.backgroundColor,
+            borderColor: buttonStyle.borderColor,
+            opacity: disabled ? 0.5 : 1,
+          },
+        ]}
+        onPress={onPress}
+        disabled={disabled}
+        activeOpacity={0.8}
+      >
+        <Icon size={20} color={buttonStyle.textColor} strokeWidth={2} />
+        <Text
+          style={[styles.actionButtonText, { color: buttonStyle.textColor }]}
+        >
+          {text}
+        </Text>
+      </TouchableOpacity>
+    );
+  },
+);
 
 // Memoize helper functions
 const formatRecurrenceFrequency = (frequency?: string): string => {
@@ -164,8 +302,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       !!event && !event.isPrivate, // Only fetch engagement for non-private events
     );
 
-    console.log("engagement", engagement);
-
     // Memoize map refs
     const mapRef = useRef<MapboxGL.MapView>(null);
     const cameraRef = useRef<MapboxGL.Camera>(null);
@@ -220,7 +356,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
 
     // Memoize computed values
     const coordinates = useMemo(() => {
-      if (!event?.coordinates) return [0, 0] as [number, number]; // Default coordinates if undefined
+      if (!event?.coordinates) return [0, 0] as [number, number];
       return event.coordinates as [number, number];
     }, [event?.coordinates]);
 
@@ -253,64 +389,25 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       event?.recurrenceEndDate,
     ]);
 
-    // Memoize action buttons
-    const actionButtons = useMemo(
-      () => (
-        <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleGetDirections}
-            disabled={!userLocation}
-          >
-            <Navigation2 size={22} color={COLORS.accent} strokeWidth={2.5} />
-            <Text style={styles.actionButtonText}>Get Directions</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-            <Share size={22} color={COLORS.accent} strokeWidth={2.5} />
-            <Text style={styles.actionButtonText}>Share Event</Text>
-          </TouchableOpacity>
-        </View>
-      ),
-      [handleGetDirections, handleShare, userLocation],
-    );
-
-    // Memoize admin actions
-    const adminActions = useMemo(() => {
-      if (!isAdmin) return null;
-      return (
-        <View style={styles.adminActionsContainer}>
-          <TouchableOpacity
-            style={[styles.adminButton, { backgroundColor: COLORS.accent }]}
-            onPress={handleEditEvent}
-          >
-            <Text style={[styles.adminButtonText, { color: "#ffffff" }]}>
-              Edit Event
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.adminButton, { backgroundColor: "#dc3545" }]}
-            onPress={() => setDeleteModalVisible(true)}
-          >
-            <Text style={[styles.adminButtonText, { color: "#ffffff" }]}>
-              Delete Event
-            </Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }, [isAdmin, handleEditEvent]);
+    // Memoize event type badge
+    const eventTypeBadge = useMemo(() => {
+      if (event?.isOfficial) {
+        return <EventBadge type="official" text="Official Event" />;
+      } else if (event?.isPrivate) {
+        return <EventBadge type="private" text="Private Event" />;
+      } else {
+        return <EventBadge type="community" text="Community Event" />;
+      }
+    }, [event?.isOfficial, event?.isPrivate]);
 
     // Memoize handlers that should trigger engagement refetch
     const handleToggleSaveWithEngagement = useCallback(async () => {
       await handleToggleSave();
-      // Refetch engagement data after save action
       setTimeout(() => refetchEngagement(), 500);
     }, [handleToggleSave, refetchEngagement]);
 
     const handleToggleRsvpWithEngagement = useCallback(async () => {
       await handleToggleRsvp();
-      // Refetch engagement data after RSVP action
       setTimeout(() => refetchEngagement(), 500);
     }, [handleToggleRsvp, refetchEngagement]);
 
@@ -351,7 +448,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
     // Add effect to trigger fly-over animation when event is loaded
     useEffect(() => {
       if (event?.coordinates) {
-        // Small delay to ensure map is ready
         const timer = setTimeout(() => {
           flyOver(event.coordinates, {
             minPitch: 45,
@@ -360,7 +456,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             maxZoom: 17,
             minBearing: -30,
             maxBearing: 30,
-            speed: 0.1, // Slower speed for smoother movement
+            speed: 0.1,
           });
         }, 500);
 
@@ -387,7 +483,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       <ScreenLayout>
         <StatusBar
           barStyle="light-content"
-          backgroundColor={COLORS.textPrimary}
+          backgroundColor={MUNICIPAL_COLORS.primary}
         />
 
         {/* Header with back button and action buttons */}
@@ -395,7 +491,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           title=""
           onBack={handleBack}
           rightIcon={
-            <View style={{ flexDirection: "row", gap: 12 }}>
+            <View style={styles.headerActions}>
               <RsvpButton
                 isRsvped={isRsvped}
                 rsvpState={rsvpState}
@@ -415,11 +511,11 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.contentContainer}
         >
-          {/* Event Image with Emoji or Map Preview for Private Events */}
-          <View style={styles.imageWrapper}>
+          {/* Hero Section with Image/Map and Event Badge */}
+          <View style={styles.heroSection}>
             <Animated.View
               entering={FadeIn.duration(500)}
-              style={styles.imageContainer}
+              style={styles.heroImageContainer}
             >
               <EventMapPreview
                 coordinates={coordinates}
@@ -441,207 +537,211 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                 cameraRef={cameraRef}
               />
 
+              {/* Event Badge Overlay */}
+              <View style={styles.eventBadgeOverlay}>{eventTypeBadge}</View>
+
               {/* Event Engagement Display Overlay */}
               {!event.isPrivate &&
                 engagement &&
                 !engagementLoading &&
                 !engagementError && (
-                  <EventEngagementDisplay
-                    engagement={engagement}
-                    isOverlay={true}
-                    delay={1000}
-                  />
+                  <View style={styles.engagementOverlay}>
+                    <EventEngagementDisplay
+                      engagement={engagement}
+                      isOverlay={true}
+                      delay={1000}
+                    />
+                  </View>
                 )}
             </Animated.View>
-            <EmojiContainer emoji={event.emoji} />
           </View>
 
-          {/* Event Details */}
+          {/* Event Title and Basic Info */}
           <Animated.View
             entering={FadeInDown.duration(600).delay(300).springify()}
-            style={styles.detailsContainer}
+            style={styles.titleSection}
           >
-            {/* Title */}
             <Text style={styles.eventTitle}>{event.title}</Text>
 
-            {/* Description */}
-            {event.description && (
-              <View style={styles.detailRow}>
-                <View style={styles.iconContainer}>
-                  <Info size={18} color={COLORS.accent} strokeWidth={2.5} />
-                </View>
-                <View style={[styles.descriptionContainer, { flex: 1 }]}>
-                  <Text style={styles.detailText}>{event.description}</Text>
-                </View>
-              </View>
-            )}
-
-            {/* Date and Time */}
-            <View style={styles.detailRow}>
-              <View style={styles.iconContainer}>
-                <Calendar size={18} color={COLORS.accent} strokeWidth={2.5} />
-              </View>
-              <Text style={styles.detailText}>
-                {formattedDate}
-                <Text style={styles.detailTextSecondary}>
-                  {"\n"}1:00 PM MDT
-                </Text>
-              </Text>
+            {/* Event Emoji */}
+            <View style={styles.eventEmojiContainer}>
+              <Text style={styles.eventEmoji}>{event.emoji}</Text>
             </View>
+          </Animated.View>
+
+          {/* Event Details Cards */}
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(400).springify()}
+            style={styles.detailsSection}
+          >
+            {/* Date and Time Card */}
+            <InfoCard title="Date & Time" icon={Calendar}>
+              <View style={styles.detailRow}>
+                <Clock size={16} color={MUNICIPAL_COLORS.textSecondary} />
+                <Text style={styles.detailText}>{formattedDate}</Text>
+              </View>
+            </InfoCard>
+
+            {/* Location Card */}
+            <InfoCard title="Location" icon={MapPin}>
+              <TouchableOpacity
+                style={styles.detailRow}
+                onPress={handleOpenMaps}
+                activeOpacity={0.7}
+              >
+                <MapPin size={16} color={MUNICIPAL_COLORS.textSecondary} />
+                <View style={styles.locationContent}>
+                  <Text style={styles.detailText}>{event.location}</Text>
+                  {distanceInfo && (
+                    <Text style={styles.distanceText}>{distanceInfo}</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </InfoCard>
+
+            {/* Description Card */}
+            {event.description && (
+              <InfoCard title="About This Event" icon={Info}>
+                <Text style={styles.descriptionText}>{event.description}</Text>
+              </InfoCard>
+            )}
 
             {/* Recurring Event Details */}
             {event.isRecurring && (
-              <Animated.View
-                entering={FadeInDown.duration(600).delay(400).springify()}
-                style={[styles.detailRow, styles.recurringDetailsContainer]}
-              >
-                <View style={styles.iconContainer}>
-                  <Repeat size={18} color={COLORS.accent} strokeWidth={2.5} />
-                </View>
-                <View style={styles.recurringDetailsContent}>
+              <InfoCard title="Recurring Schedule" icon={Repeat}>
+                <View style={styles.recurringDetails}>
                   <Text style={styles.detailText}>
-                    Recurring Event
+                    {recurringEventDetails?.frequency}
                     {recurringEventDetails?.interval &&
                       recurringEventDetails.interval > 1 && (
                         <Text style={styles.detailTextSecondary}>
-                          {"\n"}Every {recurringEventDetails.interval}{" "}
-                          {recurringEventDetails.frequency.toLowerCase()}s
-                        </Text>
-                      )}
-                    {!recurringEventDetails?.interval && (
-                      <Text style={styles.detailTextSecondary}>
-                        {"\n"}
-                        {recurringEventDetails?.frequency}
-                      </Text>
-                    )}
-                    {recurringEventDetails?.days &&
-                      recurringEventDetails.days.length > 0 && (
-                        <Text style={styles.detailTextSecondary}>
-                          {"\n"}on {recurringEventDetails.days}
-                        </Text>
-                      )}
-                    {recurringEventDetails?.time && (
-                      <Text style={styles.detailTextSecondary}>
-                        {"\n"}at {recurringEventDetails.time}
-                      </Text>
-                    )}
-                    {recurringEventDetails?.startDate &&
-                      recurringEventDetails.endDate && (
-                        <Text style={styles.detailTextSecondary}>
-                          {"\n"}from{" "}
-                          {new Date(
-                            recurringEventDetails.startDate,
-                          ).toLocaleDateString()}{" "}
-                          to{" "}
-                          {new Date(
-                            recurringEventDetails.endDate,
-                          ).toLocaleDateString()}
+                          {" "}
+                          (Every {recurringEventDetails.interval}{" "}
+                          {recurringEventDetails.frequency.toLowerCase()}s)
                         </Text>
                       )}
                   </Text>
-                </View>
-              </Animated.View>
-            )}
-
-            {/* Location */}
-            <TouchableOpacity style={styles.detailRow} onPress={handleOpenMaps}>
-              <View style={styles.iconContainer}>
-                <MapPin size={18} color={COLORS.accent} strokeWidth={2.5} />
-              </View>
-              <View style={[styles.locationContainer, { flex: 1 }]}>
-                <Text style={styles.detailText}>
-                  {event.location}
-                  {distanceInfo && (
+                  {recurringEventDetails?.days && (
                     <Text style={styles.detailTextSecondary}>
-                      {"\n"}
-                      {distanceInfo}
+                      Days: {recurringEventDetails.days}
                     </Text>
                   )}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
+                  {recurringEventDetails?.time && (
+                    <Text style={styles.detailTextSecondary}>
+                      Time: {recurringEventDetails.time}
+                    </Text>
+                  )}
+                  {recurringEventDetails?.startDate &&
+                    recurringEventDetails.endDate && (
+                      <Text style={styles.detailTextSecondary}>
+                        From{" "}
+                        {new Date(
+                          recurringEventDetails.startDate,
+                        ).toLocaleDateString()}{" "}
+                        to{" "}
+                        {new Date(
+                          recurringEventDetails.endDate,
+                        ).toLocaleDateString()}
+                      </Text>
+                    )}
+                </View>
+              </InfoCard>
+            )}
 
-          {/* Categories */}
-          {event.categories && event.categories.length > 0 && (
-            <Animated.View
-              entering={FadeInDown.delay(200).springify()}
-              style={styles.categoriesContainer}
-            >
-              {event.categories.map((category) => (
-                <TouchableOpacity
-                  key={category.id}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push(`/category/${category.id}`);
-                  }}
-                  style={styles.categoryTag}
-                >
-                  <Text style={styles.categoryText}>{category.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </Animated.View>
-          )}
+            {/* Categories */}
+            {event.categories && event.categories.length > 0 && (
+              <InfoCard title="Categories" icon={Building}>
+                <View style={styles.categoriesContainer}>
+                  {event.categories.map((category) => (
+                    <TouchableOpacity
+                      key={category.id}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push(`/category/${category.id}`);
+                      }}
+                      style={styles.categoryTag}
+                    >
+                      <Text style={styles.categoryText}>{category.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </InfoCard>
+            )}
+          </Animated.View>
 
           {/* Action Buttons */}
           <Animated.View
-            entering={FadeInDown.duration(600).delay(400).springify()}
-            style={styles.detailsContainer}
+            entering={FadeInDown.duration(600).delay(500).springify()}
+            style={styles.actionsSection}
           >
-            {actionButtons}
+            <View style={styles.actionButtonsContainer}>
+              <ActionButton
+                onPress={handleGetDirections}
+                icon={Navigation2}
+                text="Get Directions"
+                variant="primary"
+                disabled={!userLocation}
+              />
+              <ActionButton
+                onPress={handleShare}
+                icon={Share}
+                text="Share Event"
+                variant="outline"
+              />
+            </View>
           </Animated.View>
 
           {/* Admin Actions */}
-          <Animated.View
-            entering={FadeInDown.duration(600).delay(500).springify()}
-          >
-            {adminActions}
-          </Animated.View>
+          {isAdmin && (
+            <Animated.View
+              entering={FadeInDown.duration(600).delay(600).springify()}
+              style={styles.adminSection}
+            >
+              <Text style={styles.sectionTitle}>Admin Actions</Text>
+              <View style={styles.adminActionsContainer}>
+                <ActionButton
+                  onPress={handleEditEvent}
+                  icon={Building}
+                  text="Edit Event"
+                  variant="secondary"
+                />
+                <ActionButton
+                  onPress={() => setDeleteModalVisible(true)}
+                  icon={X}
+                  text="Delete Event"
+                  variant="outline"
+                />
+              </View>
+            </Animated.View>
+          )}
 
           {/* QR Code Section */}
           {(event.qrCodeData || event.detectedQrData || event.qrUrl) && (
             <Animated.View
-              entering={FadeInDown.duration(600).delay(600).springify()}
+              entering={FadeInDown.duration(600).delay(700).springify()}
             >
-              <View style={styles.qrSection}>
-                <View style={styles.qrHeader}>
-                  <View style={styles.qrIconContainer}>
-                    <QrCode size={20} color={COLORS.accent} strokeWidth={2.5} />
-                  </View>
-                  <Text style={styles.qrTitle}>
-                    {event.qrDetectedInImage
-                      ? "Original Event QR Code"
-                      : "Event QR Code"}
-                  </Text>
-                </View>
+              <InfoCard title="QR Code" icon={QrCode}>
                 <View style={styles.qrContent}>
-                  {/* Display QR Code if we have QR data */}
-                  {(event.qrCodeData || event.detectedQrData) && (
+                  {/* Display QR Code */}
+                  {(event.qrCodeData ||
+                    event.detectedQrData ||
+                    event.qrUrl) && (
                     <View style={styles.qrCodeWrapper}>
                       <QRCode
-                        value={event.qrCodeData || event.detectedQrData || ""}
-                        size={200}
+                        value={
+                          event.qrCodeData ||
+                          event.detectedQrData ||
+                          event.qrUrl ||
+                          ""
+                        }
+                        size={180}
                         backgroundColor="#ffffff"
                         color="#000000"
                       />
                     </View>
                   )}
 
-                  {/* Display QR Code generated from qrUrl if we have it */}
-                  {event.qrUrl &&
-                    !event.qrCodeData &&
-                    !event.detectedQrData && (
-                      <View style={styles.qrCodeWrapper}>
-                        <QRCode
-                          value={event.qrUrl}
-                          size={200}
-                          backgroundColor="#ffffff"
-                          color="#000000"
-                        />
-                      </View>
-                    )}
-
-                  {/* Display QR URL if we have it */}
+                  {/* QR URL Display */}
                   {event.qrUrl && (
                     <View style={styles.qrUrlContainer}>
                       <Text style={styles.qrUrlLabel}>QR Code URL:</Text>
@@ -654,19 +754,14 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                   <Text style={styles.qrDescription}>
                     {event.qrDetectedInImage
                       ? "This QR code was detected in the original event flyer"
-                      : event.qrUrl &&
-                          !event.qrCodeData &&
-                          !event.detectedQrData
-                        ? "This QR code was generated from the event's URL"
-                        : "Scan this QR code to access additional event information"}
+                      : "Scan this QR code to access additional event information"}
                   </Text>
 
                   {/* Open QR Code Link Button */}
                   {(event.qrCodeData ||
                     event.detectedQrData ||
                     event.qrUrl) && (
-                    <TouchableOpacity
-                      style={styles.qrButton}
+                    <ActionButton
                       onPress={() => {
                         const url =
                           event.qrUrl ||
@@ -679,140 +774,121 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                           );
                         }
                       }}
-                      activeOpacity={0.7}
-                    >
-                      <ExternalLink
-                        size={20}
-                        color={COLORS.accent}
-                        strokeWidth={2.5}
-                      />
-                      <Text style={styles.qrButtonText}>Open QR Code Link</Text>
-                    </TouchableOpacity>
+                      icon={ExternalLink}
+                      text="Open QR Code Link"
+                      variant="outline"
+                    />
                   )}
                 </View>
-              </View>
+              </InfoCard>
             </Animated.View>
           )}
 
           {/* Discovered By Section */}
           {event.creator && (
             <Animated.View
-              entering={FadeInDown.duration(600).delay(700).springify()}
+              entering={FadeInDown.duration(600).delay(800).springify()}
             >
-              <View style={styles.discoveredBySection}>
-                <View style={styles.discoveredByHeader}>
-                  <View style={styles.discoveredByIconContainer}>
-                    <Scan size={20} color={COLORS.accent} strokeWidth={2.5} />
-                  </View>
-                  <Text style={styles.discoveredByTitle}>Discovered by</Text>
-                  <Text style={styles.discoveredByName}>
-                    {(() => {
-                      if (event.creator?.firstName && event.creator?.lastName) {
-                        return `${event.creator.firstName} ${event.creator.lastName}`;
-                      } else if (event.creator?.firstName) {
-                        return event.creator.firstName;
-                      } else if (event.creator?.lastName) {
-                        return event.creator.lastName;
-                      }
-                      return "Anonymous User";
-                    })()}
+              <InfoCard title="Event Discovery" icon={Users}>
+                <View style={styles.discoveredByContent}>
+                  <Scan size={16} color={MUNICIPAL_COLORS.textSecondary} />
+                  <Text style={styles.discoveredByText}>
+                    Discovered by{" "}
+                    <Text style={styles.discoveredByName}>
+                      {(() => {
+                        if (
+                          event.creator?.firstName &&
+                          event.creator?.lastName
+                        ) {
+                          return `${event.creator.firstName} ${event.creator.lastName}`;
+                        } else if (event.creator?.firstName) {
+                          return event.creator.firstName;
+                        } else if (event.creator?.lastName) {
+                          return event.creator.lastName;
+                        }
+                        return "Anonymous User";
+                      })()}
+                    </Text>
                   </Text>
                 </View>
-              </View>
+              </InfoCard>
             </Animated.View>
           )}
+        </ScrollView>
 
-          {/* Fullscreen Image Modal */}
-          <Modal
-            visible={modalVisible}
-            transparent={true}
-            animationType="fade"
-            statusBarTranslucent={true}
-            onRequestClose={handleCloseModal}
-          >
-            <View style={styles.modalContainer}>
-              <View style={styles.modalHeader}>
-                <TouchableOpacity
-                  onPress={handleCloseModal}
-                  style={styles.closeButton}
-                  activeOpacity={0.7}
-                >
-                  <X size={22} color="#f8f9fa" />
-                </TouchableOpacity>
-              </View>
-
+        {/* Fullscreen Image Modal */}
+        <Modal
+          visible={modalVisible}
+          transparent={true}
+          animationType="fade"
+          statusBarTranslucent={true}
+          onRequestClose={handleCloseModal}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
               <TouchableOpacity
-                style={styles.modalContent}
-                activeOpacity={1}
                 onPress={handleCloseModal}
+                style={styles.closeButton}
+                activeOpacity={0.7}
               >
-                {imageUrl && (
-                  <Image
-                    source={{ uri: imageUrl }}
-                    style={styles.fullImage}
-                    resizeMode="contain"
-                  />
-                )}
+                <X size={24} color="#ffffff" />
               </TouchableOpacity>
             </View>
-          </Modal>
 
-          {/* Delete Confirmation Modal */}
-          <Modal
-            visible={deleteModalVisible}
-            transparent={true}
-            animationType="fade"
-            statusBarTranslucent={true}
-            onRequestClose={() => setDeleteModalVisible(false)}
-          >
-            <View style={styles.dialogOverlay}>
-              <View style={styles.dialogContainer}>
-                <Text style={styles.dialogTitle}>Delete Event</Text>
-                <Text style={styles.dialogText}>
-                  Are you sure you want to delete this event? This action cannot
-                  be undone.
-                </Text>
-                <View style={styles.dialogButtons}>
-                  <TouchableOpacity
-                    onPress={() => setDeleteModalVisible(false)}
-                    style={[
-                      styles.dialogButton,
-                      { backgroundColor: COLORS.background },
-                    ]}
-                    disabled={isDeleting}
-                  >
-                    <Text
-                      style={[
-                        styles.dialogButtonText,
-                        { color: COLORS.accent },
-                      ]}
-                    >
-                      Cancel
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleDeleteEvent}
-                    style={[
-                      styles.dialogButton,
-                      { backgroundColor: "#dc3545" },
-                    ]}
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <Text
-                        style={[styles.dialogButtonText, { color: "#ffffff" }]}
-                      >
-                        Delete
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
+            <TouchableOpacity
+              style={styles.modalContent}
+              activeOpacity={1}
+              onPress={handleCloseModal}
+            >
+              {imageUrl && (
+                <Image
+                  source={{ uri: imageUrl }}
+                  style={styles.fullImage}
+                  resizeMode="contain"
+                />
+              )}
+            </TouchableOpacity>
+          </View>
+        </Modal>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          visible={deleteModalVisible}
+          transparent={true}
+          animationType="fade"
+          statusBarTranslucent={true}
+          onRequestClose={() => setDeleteModalVisible(false)}
+        >
+          <View style={styles.dialogOverlay}>
+            <View style={styles.dialogContainer}>
+              <Text style={styles.dialogTitle}>Delete Event</Text>
+              <Text style={styles.dialogText}>
+                Are you sure you want to delete this event? This action cannot
+                be undone.
+              </Text>
+              <View style={styles.dialogButtons}>
+                <TouchableOpacity
+                  onPress={() => setDeleteModalVisible(false)}
+                  style={[styles.dialogButton, styles.dialogButtonCancel]}
+                  disabled={isDeleting}
+                >
+                  <Text style={styles.dialogButtonTextCancel}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleDeleteEvent}
+                  style={[styles.dialogButton, styles.dialogButtonDelete]}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={styles.dialogButtonTextDelete}>Delete</Text>
+                  )}
+                </TouchableOpacity>
               </View>
             </View>
-          </Modal>
-        </ScrollView>
+          </View>
+        </Modal>
       </ScreenLayout>
     );
   },

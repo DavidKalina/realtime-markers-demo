@@ -63,7 +63,6 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
           ref={cameraRef}
           zoomLevel={14}
           centerCoordinate={coordinates}
-          animationDuration={0}
         />
 
         <MapboxGL.MarkerView
