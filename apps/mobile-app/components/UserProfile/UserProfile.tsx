@@ -119,15 +119,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   value: profileData?.saveCount || 0,
                   label: "Saves",
                 },
-                {
-                  value: profileData?.totalXp || 0,
-                  label: "XP",
-                },
-                {
-                  value: profileData?.level || 1,
-                  label: "Level",
-                  badge: profileData?.currentTitle || "Explorer",
-                },
               ]}
               animated={true}
               delay={200}

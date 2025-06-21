@@ -19,7 +19,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
-import XPBar from "./XPBar";
 import { COLORS } from "../Layout/ScreenLayout";
 
 interface StatusBarProps {
@@ -79,7 +78,6 @@ const StatusBar: React.FC<StatusBarProps> = ({
           <Text style={styles.username}>
             {user?.displayName || user?.email}
           </Text>
-          <XPBar backgroundColor={backgroundColor} />
         </Animated.View>
 
         <TouchableOpacity
