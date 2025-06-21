@@ -1,14 +1,15 @@
 // src/index.ts
 import { Hono } from "hono";
 import "reflect-metadata";
-import AppDataSource from "./data-source";
+import AppDataSource, { initializeDatabase } from "./data-source";
 import type { AppContext } from "./types/context";
 import { redisClient } from "./services/shared/redis";
 
 // Import utilities
 import {
-  initializeDatabase,
   testRedisConnection,
+  ensureDatabaseReadyForServices,
+  getDatabaseStatus,
 } from "./utils/databaseInitializer";
 import { setupMiddlewares, setupErrorHandlers } from "./utils/middlewareSetup";
 import { setupRoutes } from "./utils/routeSetup";
@@ -29,8 +30,8 @@ setTimeout(() => {
 // Setup middlewares
 setupMiddlewares(app, redisClient);
 
-// Health check endpoint
-app.get("/api/health", (c) => {
+// Enhanced health check endpoint with detailed database status
+app.get("/api/health", async (c) => {
   const isDbConnected = AppDataSource.isInitialized;
 
   if (!isDbConnected) {
@@ -50,18 +51,46 @@ app.get("/api/health", (c) => {
     );
   }
 
-  return c.json({
-    status: "healthy",
-    timestamp: new Date().toISOString(),
-    db_connection: "connected",
-  });
+  try {
+    // Get detailed database status
+    const dbStatus = await getDatabaseStatus(AppDataSource);
+
+    return c.json({
+      status:
+        dbStatus.migrationsRun && dbStatus.tablesReady ? "healthy" : "degraded",
+      timestamp: new Date().toISOString(),
+      db_connection: "connected",
+      database: {
+        migrations_run: dbStatus.migrationsRun,
+        tables_ready: dbStatus.tablesReady,
+        last_migration: dbStatus.lastMigration,
+        pending_migrations: dbStatus.pendingMigrations,
+        missing_tables: dbStatus.missingTables,
+      },
+    });
+  } catch (error) {
+    return c.json(
+      {
+        status: "error",
+        timestamp: new Date().toISOString(),
+        db_connection: "connected",
+        error: (error as Error).message,
+      },
+      500,
+    );
+  }
 });
 
-// Initialize services using ServiceInitializer
+// Initialize services using ServiceInitializer with comprehensive database validation
 async function initializeServices() {
   console.log("Initializing database connection...");
   const dataSource = await initializeDatabase();
-  console.log("Database connection established, now initializing services");
+  console.log("Database connection established");
+
+  // Ensure database is fully ready before creating services
+  console.log("Validating database readiness...");
+  await ensureDatabaseReadyForServices(dataSource);
+  console.log("Database validation passed - creating services");
 
   // Create ServiceInitializer and initialize all services
   const serviceInitializer = new ServiceInitializer(dataSource, redisClient);
@@ -70,6 +99,7 @@ async function initializeServices() {
   // Setup cleanup schedule
   serviceInitializer.setupCleanupSchedule(services.jobQueue);
 
+  console.log("All services initialized successfully");
   return services;
 }
 

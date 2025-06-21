@@ -105,8 +105,6 @@ export class UserService {
         "scanCount",
         "saveCount",
         "viewCount",
-        "totalXp",
-        "currentTitle",
         "createdAt",
         "updatedAt",
       ],

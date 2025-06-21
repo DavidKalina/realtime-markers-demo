@@ -35,18 +35,32 @@ export interface EventLifecycleServiceDependencies {
 }
 
 export class EventLifecycleServiceImpl implements EventLifecycleService {
-  private eventRepository: Repository<Event>;
-  private categoryRepository: Repository<Category>;
+  private eventRepository?: Repository<Event>;
+  private categoryRepository?: Repository<Category>;
   private eventCacheService: EventCacheService;
   private locationService: GoogleGeocodingService;
   private redisService: RedisService;
 
   constructor(private dependencies: EventLifecycleServiceDependencies) {
-    this.eventRepository = dependencies.dataSource.getRepository(Event);
-    this.categoryRepository = dependencies.dataSource.getRepository(Category);
     this.eventCacheService = dependencies.eventCacheService;
     this.locationService = dependencies.locationService;
     this.redisService = dependencies.redisService;
+  }
+
+  // Lazy getters for repositories
+  private get eventRepo(): Repository<Event> {
+    if (!this.eventRepository) {
+      this.eventRepository = this.dependencies.dataSource.getRepository(Event);
+    }
+    return this.eventRepository;
+  }
+
+  private get categoryRepo(): Repository<Category> {
+    if (!this.categoryRepository) {
+      this.categoryRepository =
+        this.dependencies.dataSource.getRepository(Category);
+    }
+    return this.categoryRepository;
   }
 
   async createEvent(input: CreateEventInput): Promise<Event> {
@@ -66,7 +80,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
 
     let categories: Category[] = [];
     if (input.categoryIds?.length) {
-      categories = await this.categoryRepository.find({
+      categories = await this.categoryRepo.find({
         where: { id: In(input.categoryIds) },
       });
     }
@@ -102,14 +116,14 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
     };
 
     // Create event instance
-    const event = this.eventRepository.create(eventData);
+    const event = this.eventRepo.create(eventData);
 
     if (categories.length) {
       event.categories = categories;
     }
 
     // Save the event first to get its ID
-    const savedEvent = await this.eventRepository.save(event);
+    const savedEvent = await this.eventRepo.save(event);
 
     // Award XP for creating an event
 
@@ -138,7 +152,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       }
 
       // If not in cache, get from database
-      const evt = await this.eventRepository.findOne({
+      const evt = await this.eventRepo.findOne({
         where: { id },
         relations: ["categories", "creator", "shares", "shares.sharedWith"],
       });
@@ -216,7 +230,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
 
       // Handle categories if provided
       if (eventData.categoryIds) {
-        const categories = await this.categoryRepository.find({
+        const categories = await this.categoryRepo.find({
           where: { id: In(eventData.categoryIds) },
         });
         event.categories = categories;
@@ -228,7 +242,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       }
 
       // Save the event first to ensure we have a valid ID
-      const savedEvent = await this.eventRepository.save(event);
+      const savedEvent = await this.eventRepo.save(event);
 
       // Publish the updated event to Redis for filter processor
       await this.redisService.publish("event_changes", {
@@ -263,7 +277,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       // Get the event before deleting it for Redis publishing
       const eventToDelete = await this.getEventById(id);
 
-      const result = await this.eventRepository.delete(id);
+      const result = await this.eventRepo.delete(id);
 
       if (result.affected && result.affected > 0 && eventToDelete) {
         // Publish the deleted event to Redis for filter processor
@@ -304,7 +318,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
 
       const previousStatus = event.status;
       event.status = status;
-      const updatedEvent = await this.eventRepository.save(event);
+      const updatedEvent = await this.eventRepo.save(event);
 
       // Publish the status change to Redis for filter processor
       await this.redisService.publish("event_changes", {
@@ -347,7 +361,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       event.qrGeneratedAt = new Date();
 
       // Save the updated event
-      const updatedEvent = await this.eventRepository.save(event);
+      const updatedEvent = await this.eventRepo.save(event);
 
       // Publish the QR code detection to Redis for filter processor
       await this.redisService.publish("event_changes", {

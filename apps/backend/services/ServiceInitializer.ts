@@ -76,9 +76,9 @@ export class ServiceInitializer {
   async initialize(): Promise<ServiceContainer> {
     console.log("Initializing services...");
 
-    // Initialize repositories
+    // Initialize repositories with database readiness check
     const repositoryInitializer = new RepositoryInitializer(this.dataSource);
-    const repositories = repositoryInitializer.initialize();
+    const repositories = await repositoryInitializer.initialize();
 
     // Initialize core services
     const configService = createConfigService();

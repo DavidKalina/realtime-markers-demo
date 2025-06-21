@@ -1,5 +1,5 @@
-import { DataSource, Repository, Brackets } from "typeorm";
-import { Event } from "../entities/Event";
+import { DataSource, Repository } from "typeorm";
+import { Event, EventStatus } from "../entities/Event";
 import { Category } from "../entities/Category";
 import { UserEventSave } from "../entities/UserEventSave";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
@@ -32,24 +32,56 @@ export interface EventAdminServiceDependencies {
 }
 
 export class EventAdminServiceImpl implements EventAdminService {
-  private eventRepository: Repository<Event>;
-  private categoryRepository: Repository<Category>;
-  private userEventSaveRepository: Repository<UserEventSave>;
-  private userEventDiscoveryRepository: Repository<UserEventDiscovery>;
-  private userRepository: Repository<User>;
+  private eventRepository?: Repository<Event>;
+  private categoryRepository?: Repository<Category>;
+  private userEventSaveRepository?: Repository<UserEventSave>;
+  private userEventDiscoveryRepository?: Repository<UserEventDiscovery>;
+  private userRepository?: Repository<User>;
   private eventCacheService: EventCacheService;
   private redisService: RedisService;
 
   constructor(private dependencies: EventAdminServiceDependencies) {
-    this.eventRepository = dependencies.dataSource.getRepository(Event);
-    this.categoryRepository = dependencies.dataSource.getRepository(Category);
-    this.userEventSaveRepository =
-      dependencies.dataSource.getRepository(UserEventSave);
-    this.userEventDiscoveryRepository =
-      dependencies.dataSource.getRepository(UserEventDiscovery);
-    this.userRepository = dependencies.dataSource.getRepository(User);
     this.eventCacheService = dependencies.eventCacheService;
     this.redisService = dependencies.redisService;
+  }
+
+  // Lazy getter for repositories to ensure DataSource is initialized
+  private get eventRepo(): Repository<Event> {
+    if (!this.eventRepository) {
+      this.eventRepository = this.dependencies.dataSource.getRepository(Event);
+    }
+    return this.eventRepository;
+  }
+
+  private get categoryRepo(): Repository<Category> {
+    if (!this.categoryRepository) {
+      this.categoryRepository =
+        this.dependencies.dataSource.getRepository(Category);
+    }
+    return this.categoryRepository;
+  }
+
+  private get userEventSaveRepo(): Repository<UserEventSave> {
+    if (!this.userEventSaveRepository) {
+      this.userEventSaveRepository =
+        this.dependencies.dataSource.getRepository(UserEventSave);
+    }
+    return this.userEventSaveRepository;
+  }
+
+  private get userEventDiscoveryRepo(): Repository<UserEventDiscovery> {
+    if (!this.userEventDiscoveryRepository) {
+      this.userEventDiscoveryRepository =
+        this.dependencies.dataSource.getRepository(UserEventDiscovery);
+    }
+    return this.userEventDiscoveryRepository;
+  }
+
+  private get userRepo(): Repository<User> {
+    if (!this.userRepository) {
+      this.userRepository = this.dependencies.dataSource.getRepository(User);
+    }
+    return this.userRepository;
   }
 
   async cleanupOutdatedEvents(batchSize = 100): Promise<{
@@ -57,35 +89,18 @@ export class EventAdminServiceImpl implements EventAdminService {
     deletedCount: number;
     hasMore: boolean;
   }> {
-    const now = new Date();
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 30); // 30 days ago
 
-    // Find events that are outdated:
-    // 1. Non-recurring events that have passed their start date
-    // 2. Recurring events that have passed their end date (if specified)
-    const eventsToDelete = await this.eventRepository
+    const eventsToDelete = await this.eventRepo
       .createQueryBuilder("event")
-      .where(
-        new Brackets((qb) => {
-          qb.where(
-            new Brackets((qb2) => {
-              qb2
-                .where("event.is_recurring = :isRecurring", {
-                  isRecurring: false,
-                })
-                .andWhere("event.event_date < :now", { now });
-            }),
-          ).orWhere(
-            new Brackets((qb2) => {
-              qb2
-                .where("event.is_recurring = :isRecurring", {
-                  isRecurring: true,
-                })
-                .andWhere("event.recurrence_end_date IS NOT NULL")
-                .andWhere("event.recurrence_end_date < :now", { now });
-            }),
-          );
-        }),
-      )
+      .where("event.eventDate < :cutoffDate", { cutoffDate })
+      .andWhere("event.status IN (:...statuses)", {
+        statuses: [EventStatus.PENDING, EventStatus.REJECTED],
+      })
+      .andWhere("event.scanCount = 1") // Only events that have been scanned once
+      .andWhere("event.saveCount = 0") // And not saved by anyone
+      .orderBy("event.eventDate", "ASC")
       .take(batchSize + 1) // Get one extra to check if there are more
       .getMany();
 
@@ -99,7 +114,7 @@ export class EventAdminServiceImpl implements EventAdminService {
     }
 
     const ids = toDelete.map((e) => e.id);
-    await this.eventRepository.delete(ids);
+    await this.eventRepo.delete(ids);
 
     // Publish cleanup events to Redis for filter processor
     for (const deletedEvent of toDelete) {
@@ -138,7 +153,7 @@ export class EventAdminServiceImpl implements EventAdminService {
     } = {},
   ): Promise<Event[]> {
     try {
-      const queryBuilder = this.eventRepository
+      const queryBuilder = this.eventRepo
         .createQueryBuilder("event")
         .leftJoinAndSelect("event.categories", "category")
         .leftJoinAndSelect("event.creator", "creator")
@@ -165,7 +180,7 @@ export class EventAdminServiceImpl implements EventAdminService {
 
   // Add method to get all categories
   async getAllCategories() {
-    return await this.categoryRepository.find({
+    return await this.categoryRepo.find({
       order: {
         name: "ASC",
       },
@@ -195,7 +210,7 @@ export class EventAdminServiceImpl implements EventAdminService {
 
       // Update event scan counts
       for (const { eventId, scanCount } of eventScanCounts) {
-        await this.eventRepository.update(eventId, {
+        await this.eventRepo.update(eventId, {
           scanCount: parseInt(scanCount),
         });
         eventsUpdated++;
@@ -212,7 +227,7 @@ export class EventAdminServiceImpl implements EventAdminService {
 
       // Update event save counts
       for (const { eventId, saveCount } of eventSaveCounts) {
-        await this.eventRepository.update(eventId, {
+        await this.eventRepo.update(eventId, {
           saveCount: parseInt(saveCount),
         });
         eventsUpdated++;
