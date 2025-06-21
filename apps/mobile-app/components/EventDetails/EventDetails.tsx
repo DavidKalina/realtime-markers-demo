@@ -288,7 +288,39 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           entering={FadeInDown.duration(600).delay(400).springify()}
           style={styles.detailsSection}
         >
-          {/* Map Preview Card */}
+          {/* Description Card - What the event is about (most important context) */}
+          {event.description && (
+            <InfoCard title="About This Event" icon={Info}>
+              <Text style={styles.descriptionText}>{event.description}</Text>
+            </InfoCard>
+          )}
+
+          {/* Date and Time Card - Most important for planning */}
+          <InfoCard title="Date & Time" icon={Calendar}>
+            <View style={styles.detailRow}>
+              <Clock size={16} color={MUNICIPAL_COLORS.textSecondary} />
+              <Text style={styles.detailText}>{formattedDate}</Text>
+            </View>
+          </InfoCard>
+
+          {/* Location Card - Essential for knowing where to go */}
+          <InfoCard title="Location" icon={MapPin}>
+            <TouchableOpacity
+              style={styles.detailRow}
+              onPress={handleOpenMaps}
+              activeOpacity={0.7}
+            >
+              <MapPin size={16} color={MUNICIPAL_COLORS.textSecondary} />
+              <View style={styles.locationContent}>
+                <Text style={styles.detailText}>{event.location}</Text>
+                {distanceInfo && (
+                  <Text style={styles.distanceText}>{distanceInfo}</Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          </InfoCard>
+
+          {/* Map Preview Card - Visual context for location */}
           <InfoCard title="Event Location" icon={MapPin}>
             <EventMapPreview
               emoji={event.emoji}
@@ -315,39 +347,27 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             </View>
           </InfoCard>
 
-          {/* Date and Time Card */}
-          <InfoCard title="Date & Time" icon={Calendar}>
-            <View style={styles.detailRow}>
-              <Clock size={16} color={MUNICIPAL_COLORS.textSecondary} />
-              <Text style={styles.detailText}>{formattedDate}</Text>
-            </View>
-          </InfoCard>
-
-          {/* Location Card */}
-          <InfoCard title="Location" icon={MapPin}>
-            <TouchableOpacity
-              style={styles.detailRow}
-              onPress={handleOpenMaps}
-              activeOpacity={0.7}
-            >
-              <MapPin size={16} color={MUNICIPAL_COLORS.textSecondary} />
-              <View style={styles.locationContent}>
-                <Text style={styles.detailText}>{event.location}</Text>
-                {distanceInfo && (
-                  <Text style={styles.distanceText}>{distanceInfo}</Text>
-                )}
+          {/* Categories - Helps understand event type/context */}
+          {event.categories && event.categories.length > 0 && (
+            <InfoCard title="Categories" icon={Building}>
+              <View style={styles.categoriesContainer}>
+                {event.categories.map((category) => (
+                  <TouchableOpacity
+                    key={category.id}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      router.push(`/category/${category.id}`);
+                    }}
+                    style={styles.categoryTag}
+                  >
+                    <Text style={styles.categoryText}>{category.name}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            </TouchableOpacity>
-          </InfoCard>
-
-          {/* Description Card */}
-          {event.description && (
-            <InfoCard title="About This Event" icon={Info}>
-              <Text style={styles.descriptionText}>{event.description}</Text>
             </InfoCard>
           )}
 
-          {/* Recurring Event Details */}
+          {/* Recurring Event Details - Important for recurring events */}
           {event.isRecurring && (
             <InfoCard title="Recurring Schedule" icon={Repeat}>
               <View style={styles.recurringDetails}>
@@ -389,27 +409,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             </InfoCard>
           )}
 
-          {/* Categories */}
-          {event.categories && event.categories.length > 0 && (
-            <InfoCard title="Categories" icon={Building}>
-              <View style={styles.categoriesContainer}>
-                {event.categories.map((category) => (
-                  <TouchableOpacity
-                    key={category.id}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      router.push(`/category/${category.id}`);
-                    }}
-                    style={styles.categoryTag}
-                  >
-                    <Text style={styles.categoryText}>{category.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </InfoCard>
-          )}
-
-          {/* Event Engagement Card */}
+          {/* Event Engagement Card - Shows community interest */}
           {!event.isPrivate &&
             engagement &&
             !engagementLoading &&
@@ -419,31 +419,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
               </InfoCard>
             )}
 
-          {/* Discovered By Section */}
-          {event.creator && (
-            <InfoCard title="Event Discovery" icon={Users}>
-              <View style={styles.discoveredByContent}>
-                <Scan size={16} color={MUNICIPAL_COLORS.textSecondary} />
-                <Text style={styles.discoveredByText}>
-                  Discovered by{" "}
-                  <Text style={styles.discoveredByName}>
-                    {(() => {
-                      if (event.creator?.firstName && event.creator?.lastName) {
-                        return `${event.creator.firstName} ${event.creator.lastName}`;
-                      } else if (event.creator?.firstName) {
-                        return event.creator.firstName;
-                      } else if (event.creator?.lastName) {
-                        return event.creator.lastName;
-                      }
-                      return "Anonymous User";
-                    })()}
-                  </Text>
-                </Text>
-              </View>
-            </InfoCard>
-          )}
-
-          {/* QR Code Section */}
+          {/* QR Code Section - Additional resources */}
           {(event.qrCodeData || event.detectedQrData || event.qrUrl) && (
             <InfoCard title="QR Code" icon={QrCode}>
               <View style={styles.qrContent}>
@@ -496,6 +472,30 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                     variant="outline"
                   />
                 )}
+              </View>
+            </InfoCard>
+          )}
+
+          {/* Discovered By Section - Attribution (least important for users) */}
+          {event.creator && (
+            <InfoCard title="Event Discovery" icon={Users}>
+              <View style={styles.discoveredByContent}>
+                <Scan size={16} color={MUNICIPAL_COLORS.textSecondary} />
+                <Text style={styles.discoveredByText}>
+                  Discovered by{" "}
+                  <Text style={styles.discoveredByName}>
+                    {(() => {
+                      if (event.creator?.firstName && event.creator?.lastName) {
+                        return `${event.creator.firstName} ${event.creator.lastName}`;
+                      } else if (event.creator?.firstName) {
+                        return event.creator.firstName;
+                      } else if (event.creator?.lastName) {
+                        return event.creator.lastName;
+                      }
+                      return "Anonymous User";
+                    })()}
+                  </Text>
+                </Text>
               </View>
             </InfoCard>
           )}
