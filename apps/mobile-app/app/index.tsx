@@ -58,23 +58,6 @@ const styles = {
   statusBarSpacer: {
     height: 100, // Match the height of the MunicipalBanner component
   },
-  floatingDateButton: {
-    position: "absolute" as const,
-    top: 120, // Position below the municipal banner
-    right: 16,
-    zIndex: 1000,
-    backgroundColor: "rgba(26, 26, 26, 0.9)",
-    borderRadius: 20,
-    padding: 8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
 };
 
 function HomeScreen() {
@@ -487,22 +470,22 @@ function HomeScreen() {
   const floatingDateButtonStyle = useMemo(
     () => ({
       position: "absolute" as const,
-      top: insets.top + 60, // MunicipalBanner height + padding
-      right: 8,
+      bottom: insets.bottom + 80, // Move higher up for better thumb placement
+      right: 16,
       zIndex: 1000,
-      backgroundColor: COLORS.cardBackgroundAlt,
-      borderRadius: 20,
-      padding: 8,
+      backgroundColor: COLORS.cardBackground,
+      borderRadius: 28, // Make it more circular for a compact button
+      padding: 0,
       shadowColor: "#000",
       shadowOffset: {
         width: 0,
-        height: 2,
+        height: 4,
       },
-      shadowOpacity: 0.25,
-      shadowRadius: 3.84,
-      elevation: 5,
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      elevation: 8,
     }),
-    [insets.top],
+    [insets.bottom],
   );
 
   return (
