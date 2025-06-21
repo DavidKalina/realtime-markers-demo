@@ -1,7 +1,7 @@
 import React from "react";
 import { ScrollView, RefreshControl, View } from "react-native";
 import { EventType } from "@/types/types";
-import FeaturedEventsSection from "./FeaturedEventsSection";
+import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
 import PopularCategoriesSection from "./PopularCategoriesSection";
 import UpcomingEventsSection from "./UpcomingEventsSection";
 
@@ -38,7 +38,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
         <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
       }
     >
-      <FeaturedEventsSection
+      <FeaturedEventsCarousel
         events={data?.featuredEvents || []}
         isLoading={isLoading}
       />
