@@ -79,6 +79,7 @@ export interface Event {
   }[];
   attendees: number;
   maxAttendees?: number;
+  qrUrl?: string | null;
 }
 
 export interface CategoryTrends {

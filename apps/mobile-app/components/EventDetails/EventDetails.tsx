@@ -599,7 +599,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           </Animated.View>
 
           {/* QR Code Section */}
-          {(event.qrCodeData || event.detectedQrData) && (
+          {(event.qrCodeData || event.detectedQrData || event.qrUrl) && (
             <Animated.View
               entering={FadeInDown.duration(600).delay(600).springify()}
             >
@@ -615,24 +615,63 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                   </Text>
                 </View>
                 <View style={styles.qrContent}>
-                  <View style={styles.qrCodeWrapper}>
-                    <QRCode
-                      value={event.qrCodeData || event.detectedQrData || ""}
-                      size={200}
-                      backgroundColor="#ffffff"
-                      color="#000000"
-                    />
-                  </View>
+                  {/* Display QR Code if we have QR data */}
+                  {(event.qrCodeData || event.detectedQrData) && (
+                    <View style={styles.qrCodeWrapper}>
+                      <QRCode
+                        value={event.qrCodeData || event.detectedQrData || ""}
+                        size={200}
+                        backgroundColor="#ffffff"
+                        color="#000000"
+                      />
+                    </View>
+                  )}
+
+                  {/* Display QR Code generated from qrUrl if we have it */}
+                  {event.qrUrl &&
+                    !event.qrCodeData &&
+                    !event.detectedQrData && (
+                      <View style={styles.qrCodeWrapper}>
+                        <QRCode
+                          value={event.qrUrl}
+                          size={200}
+                          backgroundColor="#ffffff"
+                          color="#000000"
+                        />
+                      </View>
+                    )}
+
+                  {/* Display QR URL if we have it */}
+                  {event.qrUrl && (
+                    <View style={styles.qrUrlContainer}>
+                      <Text style={styles.qrUrlLabel}>QR Code URL:</Text>
+                      <Text style={styles.qrUrlText} numberOfLines={2}>
+                        {event.qrUrl}
+                      </Text>
+                    </View>
+                  )}
+
                   <Text style={styles.qrDescription}>
                     {event.qrDetectedInImage
                       ? "This QR code was detected in the original event flyer"
-                      : "Scan this QR code to access additional event information"}
+                      : event.qrUrl &&
+                          !event.qrCodeData &&
+                          !event.detectedQrData
+                        ? "This QR code was generated from the event's URL"
+                        : "Scan this QR code to access additional event information"}
                   </Text>
-                  {(event.qrCodeData || event.detectedQrData) && (
+
+                  {/* Open QR Code Link Button */}
+                  {(event.qrCodeData ||
+                    event.detectedQrData ||
+                    event.qrUrl) && (
                     <TouchableOpacity
                       style={styles.qrButton}
                       onPress={() => {
-                        const url = event.qrCodeData || event.detectedQrData;
+                        const url =
+                          event.qrUrl ||
+                          event.qrCodeData ||
+                          event.detectedQrData;
                         if (url && url.startsWith("http")) {
                           Linking.openURL(url);
                           Haptics.impactAsync(
