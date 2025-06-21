@@ -59,14 +59,14 @@ export const styles = StyleSheet.create({
     paddingVertical: 4, // Reduced padding
   },
   actionButtonLabel: {
-    color: "#a0a0a0", // Match Cluster Events view textSecondary
+    color: "#475569", // Darker gray for better contrast with light blue background
     fontSize: 9, // Smaller font size
     fontFamily: "SpaceMono",
     marginTop: 2, // Reduced margin
     textAlign: "center",
   },
   activeActionButtonLabel: {
-    color: "#93c5fd", // Match Cluster Events view accent
+    color: "#0f172a", // Dark blue for active state - better contrast with light blue background
   },
   actionButtonIcon: {
     width: 24, // Increased icon container size

@@ -84,7 +84,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
     // Memoize the icon color based on active state
     const iconColor = useMemo(
-      () => (isActive ? "#f59e0b" : "#64748b"), // Updated to use amber accent color
+      () => (isActive ? "#0f172a" : "#64748b"), // Dark blue for active, medium gray for inactive - better contrast with light blue background
       [isActive],
     );
 
@@ -347,7 +347,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           .map((tab) => ({
             key: tab.key,
             label: tab.label,
-            icon: <tab.icon size={22} color="#fff" />,
+            icon: <tab.icon size={22} color="#64748b" />, // Medium gray for better contrast with light blue background
             action: actionHandlers[tab.key],
             disabled: tab.requiresLocation && !userLocation,
             isActive: tab.key === activeTab, // Add isActive based on current route
