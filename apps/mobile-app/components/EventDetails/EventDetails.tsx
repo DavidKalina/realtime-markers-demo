@@ -1,4 +1,3 @@
-import { apiClient } from "@/services/ApiClient";
 import { formatDate } from "@/utils/dateTimeFormatting";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -16,11 +15,9 @@ import {
   Building,
   TrendingUp,
 } from "lucide-react-native";
-import React, { useState, useCallback, useMemo, memo } from "react";
+import React, { useCallback, useMemo, memo } from "react";
 import {
-  ActivityIndicator,
   Linking,
-  Modal,
   ScrollView,
   StatusBar,
   Text,
@@ -200,8 +197,6 @@ const formatRecurrenceDays = (days?: string[]): string => {
 const EventDetails: React.FC<EventDetailsProps> = memo(
   ({ eventId, onBack }) => {
     const router = useRouter();
-    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-    const [isDeleting, setIsDeleting] = useState(false);
 
     const {
       handleBack,
@@ -231,20 +226,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       eventId,
       !!event && !event.isPrivate, // Only fetch engagement for non-private events
     );
-
-    // Memoize handlers
-    const handleDeleteEvent = useCallback(async () => {
-      setIsDeleting(true);
-      try {
-        await apiClient.events.deleteEvent(eventId);
-        handleBack?.();
-      } catch (error) {
-        console.error("Error deleting event:", error);
-      } finally {
-        setIsDeleting(false);
-        setDeleteModalVisible(false);
-      }
-    }, [eventId, handleBack]);
 
     // Memoize computed values
     const coordinates = useMemo(() => {
@@ -484,29 +465,36 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                   <EventEngagementDisplay engagement={engagement} delay={450} />
                 </InfoCard>
               )}
-          </Animated.View>
 
-          {/* Action Buttons */}
-          <Animated.View
-            entering={FadeInDown.duration(600).delay(500).springify()}
-            style={styles.actionsSection}
-          >
-            <View style={styles.actionButtonsContainer}>
-              <ActionButton
-                onPress={handleGetDirections}
-                icon={Navigation2}
-                text="Get Directions"
-                variant="primary"
-                disabled={!userLocation}
-              />
-            </View>
-          </Animated.View>
+            {/* Discovered By Section */}
+            {event.creator && (
+              <InfoCard title="Event Discovery" icon={Users}>
+                <View style={styles.discoveredByContent}>
+                  <Scan size={16} color={MUNICIPAL_COLORS.textSecondary} />
+                  <Text style={styles.discoveredByText}>
+                    Discovered by{" "}
+                    <Text style={styles.discoveredByName}>
+                      {(() => {
+                        if (
+                          event.creator?.firstName &&
+                          event.creator?.lastName
+                        ) {
+                          return `${event.creator.firstName} ${event.creator.lastName}`;
+                        } else if (event.creator?.firstName) {
+                          return event.creator.firstName;
+                        } else if (event.creator?.lastName) {
+                          return event.creator.lastName;
+                        }
+                        return "Anonymous User";
+                      })()}
+                    </Text>
+                  </Text>
+                </View>
+              </InfoCard>
+            )}
 
-          {/* QR Code Section */}
-          {(event.qrCodeData || event.detectedQrData || event.qrUrl) && (
-            <Animated.View
-              entering={FadeInDown.duration(600).delay(700).springify()}
-            >
+            {/* QR Code Section */}
+            {(event.qrCodeData || event.detectedQrData || event.qrUrl) && (
               <InfoCard title="QR Code" icon={QrCode}>
                 <View style={styles.qrContent}>
                   {/* Display QR Code */}
@@ -568,79 +556,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                   )}
                 </View>
               </InfoCard>
-            </Animated.View>
-          )}
-
-          {/* Discovered By Section */}
-          {event.creator && (
-            <Animated.View
-              entering={FadeInDown.duration(600).delay(800).springify()}
-            >
-              <InfoCard title="Event Discovery" icon={Users}>
-                <View style={styles.discoveredByContent}>
-                  <Scan size={16} color={MUNICIPAL_COLORS.textSecondary} />
-                  <Text style={styles.discoveredByText}>
-                    Discovered by{" "}
-                    <Text style={styles.discoveredByName}>
-                      {(() => {
-                        if (
-                          event.creator?.firstName &&
-                          event.creator?.lastName
-                        ) {
-                          return `${event.creator.firstName} ${event.creator.lastName}`;
-                        } else if (event.creator?.firstName) {
-                          return event.creator.firstName;
-                        } else if (event.creator?.lastName) {
-                          return event.creator.lastName;
-                        }
-                        return "Anonymous User";
-                      })()}
-                    </Text>
-                  </Text>
-                </View>
-              </InfoCard>
-            </Animated.View>
-          )}
+            )}
+          </Animated.View>
         </ScrollView>
-
-        {/* Delete Confirmation Modal */}
-        <Modal
-          visible={deleteModalVisible}
-          transparent={true}
-          animationType="fade"
-          statusBarTranslucent={true}
-          onRequestClose={() => setDeleteModalVisible(false)}
-        >
-          <View style={styles.dialogOverlay}>
-            <View style={styles.dialogContainer}>
-              <Text style={styles.dialogTitle}>Delete Event</Text>
-              <Text style={styles.dialogText}>
-                Are you sure you want to delete this event? This action cannot
-                be undone.
-              </Text>
-              <View style={styles.dialogButtons}>
-                <TouchableOpacity
-                  onPress={() => setDeleteModalVisible(false)}
-                  style={[styles.dialogButton, styles.dialogButtonCancel]}
-                  disabled={isDeleting}
-                >
-                  <Text style={styles.dialogButtonTextCancel}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleDeleteEvent}
-                  style={[styles.dialogButton, styles.dialogButtonDelete]}
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? (
-                    <ActivityIndicator size="small" color="#ffffff" />
-                  ) : (
-                    <Text style={styles.dialogButtonTextDelete}>Delete</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
       </ScreenLayout>
     );
   },
