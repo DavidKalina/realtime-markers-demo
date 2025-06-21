@@ -70,11 +70,10 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
 
     let categories: Category[] = [];
     if (input.categoryIds?.length) {
-      categories = await this.categoryRepository.findByIds(input.categoryIds);
+      categories = await this.categoryRepository.find({
+        where: { id: In(input.categoryIds) },
+      });
     }
-
-    console.log("INPUT", input);
-    console.log("[EventService] Creating event with emoji:", input.emoji);
 
     // Create base event data without relations
     const eventData: DeepPartial<Event> = {
