@@ -281,7 +281,6 @@ export class EventServiceRefactored implements EventService {
     // Initialize all the smaller services
     this.lifecycleService = createEventLifecycleService({
       dataSource: dependencies.dataSource,
-      levelingService: dependencies.levelingService,
       eventCacheService: dependencies.eventCacheService,
       locationService: dependencies.locationService,
       redisService: dependencies.redisService,
@@ -297,7 +296,6 @@ export class EventServiceRefactored implements EventService {
     this.engagementService = createUserEngagementService({
       dataSource: dependencies.dataSource,
       redisService: dependencies.redisService,
-      levelingService: dependencies.levelingService,
     });
 
     this.sharingService = createEventSharingService({
